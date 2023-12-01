@@ -1,0 +1,47 @@
+name: test-examples
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/actions/install-examples/action.yml'
+      - '.github/actions/install-concordia/action.yml'
+      - '.github/workflows/test-examples.yml'
+      - 'examples/**'
+      - 'concordia/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/install-examples.yml'
+      - '.github/actions/install-concordia.yml'
+      - '.github/workflows/test-examples.yml'
+      - 'examples/**'
+      - 'concordia/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  pytest:
+    name: Test examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout Concordia
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Install examples
+        uses: ./.github/actions/install-examples
+
+      - name: Test examples
+        run: pytest examples

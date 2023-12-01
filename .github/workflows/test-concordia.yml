@@ -1,0 +1,53 @@
+name: test-concordia
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/actions/install-concordia/action.yml'
+      - '.github/workflows/test-concordia.yml'
+      - 'concordia/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/actions/install-concordia/action.yml'
+      - '.github/workflows/test-concordia.yml'
+      - 'concordia/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  pytest:
+    name: Test Concordia
+    runs-on: ${{ matrix.os }}
+    env:
+      SYSTEM_VERSION_COMPAT: 0  # See https://github.com/actions/setup-python/issues/279.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
+      matrix:
+        os:
+          - macos-11
+          - ubuntu-20.04
+        python-version:
+          - '3.11'
+    steps:
+      - name: Checkout Concordia
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      - name: Install Concordia
+        uses: ./.github/actions/install-concordia
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Test Concordia
+        run: pytest concordia

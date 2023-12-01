@@ -1,0 +1,76 @@
+# A workflow to publish releases to PyPi and TestPyPi.
+
+name: pypi-publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      test_sdist:
+        description: 'Test the sdist before uploading'
+        type: boolean
+        default: true
+      upload_to_test_pypi:
+        description: 'Upload to Test PyPi'
+        type: boolean
+        default: true
+      upload_to_pypi:
+        description: 'Upload to PyPi'
+        type: boolean
+        default: false
+
+permissions: read-all
+
+jobs:
+  pypi-publish:
+    name: Upload to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dm-concordia
+    permissions:
+      id-token: write
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Concordia
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Set up Python
+        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install build
+
+      - name: Build source distribution
+        run: python -m build --sdist --outdir dist/
+
+      - name: Install from source distribution
+        if: github.event_name == 'release' || inputs.test_sdist
+        run: |
+          pip install setuptools
+          pip -vvv install dist/*.tar.gz
+
+      - name: Test installation
+        if: github.event_name == 'release' || inputs.test_sdist
+        run: |
+          pip install pytest-xdist
+          pytest -n auto -rax --pyargs concordia
+
+      - name: Publish to TestPyPI
+        if: github.event_name == 'release' || inputs.upload_to_test_pypi
+        uses: pypa/gh-action-pypi-publish@b7f401de30cb6434a1e19f805ff006643653240e
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+
+      - name: Publish to PyPI
+        if: github.event_name == 'release' || inputs.upload_to_pypi
+        uses: pypa/gh-action-pypi-publish@b7f401de30cb6434a1e19f805ff006643653240e
+        with:
+          verbose: true

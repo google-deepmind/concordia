@@ -1,0 +1,69 @@
+name: install-concordia
+
+inputs:
+  python-version:
+    description: Python version
+    required: false
+    default: '3.11'
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Get current runner
+      id: os-info
+      shell: bash
+      run: |
+        if [ "${RUNNER_OS}" = 'macOS' ]; then
+          echo "name=$(sw_vers -productName)" >> $GITHUB_OUTPUT
+          echo "version=$(sw_vers -productVersion)" >> $GITHUB_OUTPUT
+        elif [ "${RUNNER_OS}" = 'Linux' ]; then
+          echo "name=$(lsb_release -i -s)" >> $GITHUB_OUTPUT
+          echo "version=$(lsb_release -r -s)" >> $GITHUB_OUTPUT
+        else
+          exit 1
+        fi
+
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+        cache-dependency-path: setup.py
+
+    - name: Restore Concordia installation
+      id: restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          concordia/assets
+          venv
+        key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ inputs.python-version}}-${{ hashFiles('setup.py') }}
+        restore-keys: |
+          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ inputs.python-version }}-
+
+    - name: Install Concordia
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        pip install --upgrade pip
+        pip install virtualenv
+        virtualenv venv
+        source venv/bin/activate
+        pip install --editable .[dev]
+
+    - name: Save Concordia installation
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v3
+      with:
+        path:  |
+          concordia/assets
+          venv
+        key: ${{ steps.restore.outputs.cache-primary-key }}
+
+    - name: Activate virtual environment
+      shell: bash
+      run: |
+        source venv/bin/activate
+        pip list
+        echo "PATH=${PATH}" >> $GITHUB_ENV

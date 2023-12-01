@@ -1,0 +1,33 @@
+[build-system] 
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "google"
+# TODO remove once https://github.com/PyCQA/isort/pull/2149 submitted.
+line_length = 1000
+single_line_exclusions = ["collections.abc", "typing"]
+known_thirdparty = ["concordia"]
+
+[tool.pyink]
+line-length = 80
+preview = true
+pyink-indentation = 2
+pyink-use-majority-quotes = true
+
+[tool.pytest.ini_options]
+required_plugins = ["pytest-xdist"]
+addopts = "-n auto"
+testpaths = ["concordia", "examples"]
+
+[tool.pytype]
+python_version = "3.10"
+inputs = ["concordia", "examples"]
+# Keep going past errors to analyze as many files as possible.
+keep_going = true
+# Run N jobs in parallel. When 'auto' is used, this will be equivalent to the
+# number of CPUs on the host system.
+jobs = 'auto'
+# Use the enum overlay for more precise enum checking. This flag is temporary
+# and will be removed once this behavior is enabled by default.
+use_enum_overlay = true

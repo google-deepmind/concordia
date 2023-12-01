@@ -1,0 +1,25 @@
+# MacOS metadata. 
+.DS_Store
+
+# Byte-compiled Python code.
+*.py[cod]
+__pycache__/
+.cache
+
+# Common venv names.
+/*venv/
+/venv*/
+
+# Ignore files created during installation and building.
+*.egg-info
+.eggs/
+/assets/
+/build/
+/dist/
+/lab2d/
+
+# Test cache
+.pytest_cache
+
+# Type checking
+.pytype

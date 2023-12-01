@@ -1,0 +1,63 @@
+# Continuous integration tests.
+
+name: pypi-test
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"  # Every Monday at 2am.
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/pypi-test.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/pypi-test.yml'
+  workflow_run:
+    workflows:
+      - pypi-publish
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  pypi-test:
+    name: Test PyPI Distribution
+    if: ${{ github.event.workflow_run.conclusion != 'failure' }}
+    runs-on: ${{ matrix.os }}
+    env:
+      SYSTEM_VERSION_COMPAT: 0  # See https://github.com/actions/setup-python/issues/279.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-11
+          - macos-12
+          - ubuntu-20.04
+          - ubuntu-22.04
+        python-version:
+          - '3.11'
+
+    steps:
+      - name: Set up Python ${{ matrix.python_version }}
+        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest-xdist setuptools
+
+      - name: Install from PyPI
+        run: |
+          pip -vvv install dm-concordia
+          pip list
+
+      - name: Test installation
+        run: pytest --pyargs concordia
