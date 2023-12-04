@@ -14,12 +14,12 @@
 
 
 """Agent component for tracking the somatic state."""
-
 import concurrent
+import datetime
+from typing import Callable
 from concordia.agents.components import characteristic
 from concordia.associative_memory import associative_memory
 from concordia.language_model import language_model
-from concordia.typing import clock as game_clock
 from concordia.typing import component
 
 
@@ -35,7 +35,7 @@ class SomaticState(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
-      clock: game_clock.GameClock,
+      clock_now: Callable[[], datetime.datetime] | None = None,
       summarize: bool = True,
   ):
     """Initialize somatic state component.
@@ -44,7 +44,7 @@ class SomaticState(component.Component):
       model: a language model
       memory: an associative memory
       agent_name: the name of the agent
-      clock: the game clock is needed to know when is the current time
+      clock_now: time callback to use for the state.
       summarize: if True, the resulting state will be a one sentence summary,
         otherwise state it would be a concatentation of five separate
         characteristics
@@ -53,7 +53,7 @@ class SomaticState(component.Component):
     self._memory = memory
     self._state = ''
     self._agent_name = agent_name
-    self._clock = clock
+    self._clock_now = clock_now
     self._summarize = summarize
 
     self._characteristic_names = [
@@ -81,7 +81,7 @@ class SomaticState(component.Component):
               memory=self._memory,
               agent_name=self._agent_name,
               characteristic_name=characteristic_name,
-              state_clock=self._clock,
+              state_clock_now=self._clock_now,
               extra_instructions=extra_instructions,
           )
       )
@@ -97,12 +97,10 @@ class SomaticState(component.Component):
       for c in self._characteristics:
         executor.submit(c.update)
 
-    self._state = '\n'.join(
-        [
-            f"{self._agent_name}'s {c.name()}: " + c.state()
-            for c in self._characteristics
-        ]
-    )
+    self._state = '\n'.join([
+        f"{self._agent_name}'s {c.name()}: " + c.state()
+        for c in self._characteristics
+    ])
     if self._summarize:
       prompt = (
           f'Summarize the somatic state of {self._agent_name} in one'

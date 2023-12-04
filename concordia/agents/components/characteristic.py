@@ -14,11 +14,12 @@
 
 
 """Agent characteristic component."""
+import datetime
+from typing import Callable
 
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import clock as game_clock
 from concordia.typing import component
 import termcolor
 
@@ -50,7 +51,7 @@ class Characteristic(component.Component):
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
       characteristic_name: str,
-      state_clock: game_clock.GameClock | None = None,
+      state_clock_now: Callable[[], datetime.datetime] | None = None,
       extra_instructions: str = '',
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
@@ -62,7 +63,7 @@ class Characteristic(component.Component):
       memory: an associative memory
       agent_name: the name of the agent
       characteristic_name: the string to use in similarity search of memory
-      state_clock: if None then consider this component as representing a
+      state_clock_now: if None then consider this component as representing a
         `trait`. If a clock is used then consider this component to represent a
         `state`. A state is temporary whereas a trait is meant to endure.
       extra_instructions: append additional instructions when asking the model
@@ -77,7 +78,7 @@ class Characteristic(component.Component):
     self._characteristic_name = characteristic_name
     self._agent_name = agent_name
     self._extra_instructions = extra_instructions
-    self._clock = state_clock
+    self._clock_now = state_clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
   def name(self) -> str:
@@ -88,13 +89,13 @@ class Characteristic(component.Component):
 
   def update(self) -> None:
     query = f"{self._agent_name}'s {self._characteristic_name}"
-    if self._clock is not None:
-      query = f'[{self._clock.now()}] {query}'
+    if self._clock_now is not None:
+      query = f'[{self._clock_now()}] {query}'
 
     mems = '\n'.join(
-        self._memory.retrieve_associative(query,
-                                          self._num_memories_to_retrieve,
-                                          add_time=True)
+        self._memory.retrieve_associative(
+            query, self._num_memories_to_retrieve, add_time=True
+        )
     )
 
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -105,8 +106,8 @@ class Characteristic(component.Component):
         f'{self._extra_instructions}'
         f'Start the answer with "{self._agent_name} is"'
     )
-    if self._clock is not None:
-      question = f'Current time: {self._clock.now()}.\n{question}'
+    if self._clock_now is not None:
+      question = f'Current time: {self._clock_now()}.\n{question}'
 
     self._cache = prompt.open_question(
         '\n'.join([question, f'Statements:\n{mems}']),

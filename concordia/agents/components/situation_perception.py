@@ -13,11 +13,12 @@
 # limitations under the License.
 
 """Agent component for situation perception."""
+import datetime
+from typing import Callable
 
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import clock
 from concordia.typing import component
 import termcolor
 
@@ -31,7 +32,7 @@ class SituationPerception(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
-      state_clock: clock.GameClock | None = None,
+      clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
@@ -42,7 +43,7 @@ class SituationPerception(component.Component):
       model: The language model to use.
       memory: The memory to use.
       agent_name: The name of the agent.
-      state_clock: The clock to use.
+      clock_now: time callback to use for the state.
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the last chain.
     """
@@ -51,7 +52,7 @@ class SituationPerception(component.Component):
     self._memory = memory
     self._state = ''
     self._agent_name = agent_name
-    self._clock = state_clock
+    self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
 
@@ -71,8 +72,8 @@ class SituationPerception(component.Component):
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(f'Memories of {self._agent_name}:\n{mems}')
 
-    if self._clock is not None:
-      prompt.statement(f'Current time: {self._clock.now()}.\n')
+    if self._clock_now is not None:
+      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     question = (
         'Given the memories above, what kind of situation is'

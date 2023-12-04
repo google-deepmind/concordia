@@ -57,7 +57,8 @@ class Conversation(component.Component):
       players: A list of players to generate conversations for.
       model: A language model to use for generating utterances.
       memory: GM memory, used to add the summary of the conversation
-      clock: multi intercal game clock.
+      clock: multi interval game clock. If conversation happens, the clock will
+        advance in higher gear during the conversation scene.
       burner_memory_factory: a memory factory to create temporary memory for
         npcs and conversation gm
       cap_nonplayer_characters: The maximum number of non-player characters
@@ -188,12 +189,10 @@ class Conversation(component.Component):
       who_talked = (
           who_talked
           + 'Also present: '
-          + ', '.join(
-              [
-                  npc_conversant.name
-                  for npc_conversant in nonplayers_in_conversation
-              ]
-          )
+          + ', '.join([
+              npc_conversant.name
+              for npc_conversant in nonplayers_in_conversation
+          ])
           + '.'
       )
     return who_talked

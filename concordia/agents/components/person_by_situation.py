@@ -13,12 +13,13 @@
 # limitations under the License.
 
 """Agent component for self perception."""
-
+import datetime
+from typing import Callable
 from typing import Sequence
+
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import clock
 from concordia.typing import component
 import termcolor
 
@@ -33,7 +34,7 @@ class PersonBySituation(component.Component):
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
       components=Sequence[component.Component] | None,
-      state_clock: clock.GameClock | None = None,
+      clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
@@ -45,7 +46,7 @@ class PersonBySituation(component.Component):
       memory: The memory to use.
       agent_name: The name of the agent.
       components: The components to condition the answer on.
-      state_clock: The clock to use.
+      clock_now: time callback to use for the state.
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the state of the component.
     """
@@ -56,7 +57,7 @@ class PersonBySituation(component.Component):
     self._state = ''
     self._components = components or []
     self._agent_name = agent_name
-    self._clock = state_clock
+    self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
 
@@ -77,21 +78,19 @@ class PersonBySituation(component.Component):
 
     prompt.statement(f'Memories of {self._agent_name}:\n{mems}')
 
-    component_states = '\n'.join(
-        [
-            f"{self._agent_name}'s "
-            + (construct.name() + ':\n' + construct.state())
-            for construct in self._components
-        ]
-    )
+    component_states = '\n'.join([
+        f"{self._agent_name}'s "
+        + (construct.name() + ':\n' + construct.state())
+        for construct in self._components
+    ])
 
     prompt.statement(component_states)
     question = (
         f'What would a person like {self._agent_name} do in a situation like'
         ' this?'
     )
-    if self._clock is not None:
-      question = f'Current time: {self._clock.now()}.\n{question}'
+    if self._clock_now is not None:
+      question = f'Current time: {self._clock_now()}.\n{question}'
 
     self._state = prompt.open_question(
         question,

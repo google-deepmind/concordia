@@ -137,7 +137,7 @@ def _make_environment(
   }
 
   schedule_construct = gm_components.schedule.Schedule(
-      clock=clock, schedule=schedule
+      clock_now=clock.now, schedule=schedule
   )
   player_goals = {'Alice': 'win', 'Bob': 'win'}
   goal_metric = goal_achievement.GoalAchievementMetric(

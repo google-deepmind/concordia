@@ -15,9 +15,9 @@
 
 """This construct implements scheduled events."""
 
-from collections.abc import Callable
 import dataclasses
 import datetime
+from typing import Callable
 from typing import Optional
 
 from concordia.typing import component
@@ -44,10 +44,10 @@ class Schedule(component.Component):
 
   def __init__(
       self,
-      clock,
-      schedule,
+      clock_now: Callable[[], datetime.datetime],
+      schedule: dict[str, EventData],
   ):
-    self._clock = clock
+    self._clock_now = clock_now
     self._schedule = schedule
     self._state = None
 
@@ -58,7 +58,7 @@ class Schedule(component.Component):
     return self._state
 
   def update(self) -> None:
-    now = self._clock.now()
+    now = self._clock_now()
     events = []
     for _, event_data in self._schedule.items():
       if now == event_data.time:

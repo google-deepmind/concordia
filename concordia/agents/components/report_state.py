@@ -15,11 +15,10 @@
 
 """This components report what the get_state returns at the moment.
 
-For example, can be used for reporting current time 
+For example, can be used for reporting current time
 current_time_component = ReportState(
-    'Current time', 
+    'Current time',
     get_state=clock.current_time_interval_str)
-    
 """
 
 from typing import Callable
@@ -27,7 +26,7 @@ from concordia.typing import component
 
 
 class ReportState(component.Component):
-  """A component that shows the current time interval."""
+  """A component that reports what the get_state returns at the moment."""
 
   def __init__(self, get_state: Callable[[], str], name: str = 'State'):
     """Initializes the component.
