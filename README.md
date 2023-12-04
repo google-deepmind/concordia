@@ -13,17 +13,27 @@
 
 ## About
 
-Concordia is a platform designed for constructing generative models that 
-simulate social interactions within a digitally-grounded action space. This 
-platform facilitates the emulation of agent behaviors and activities. The 
-framework can cater and support a wide array of applications, ranging from 
-social science research and AI ethics to cognitive neuroscience and economics; 
-Additionally, it also can be leveraged for generating data for personalization 
-applications and for conducting performance evaluations of real services through
-simulated usage. Our system simply requires access to a standard LLM API, and 
-possible integration to real applications and services. The rest is python for 
-scaffolding, orchestration, prompt-templating, experiment design and analysis. 
+Concordia is a library to facilitate construction and use of generative
+agent-based models to simulate interactions of agents in grounded physical,
+social, or digital space. It makes it easy and flexible to define environments
+using an interaction pattern borrowed from tabletop role-playing games in which
+a special agent called the Game Master (GM) is responsible for simulating the
+environment where player agents interact (like a narrator in an interactive
+story). Agents take actions by describing what they want to do in natural
+language. The GM then translates their actions into appropriate implementations.
+In a simulated physical world, the GM would check the physical plausibility of
+agent actions and describe their effects. In digital environments that simulate
+technologies such as apps and services, the GM may, based on agent input, handle
+necessary API calls to integrate with external tools.
 
+Concordia supports a wide array of applications, ranging from social science
+research and AI ethics to cognitive neuroscience and economics; Additionally,
+it also can be leveraged for generating data for personalization applications
+and for conducting performance evaluations of real services through simulated
+usage.
+
+Concordia requires access to a standard LLM API, and optionally may also
+integrate with real applications and services.
 
 ## Installation
 
