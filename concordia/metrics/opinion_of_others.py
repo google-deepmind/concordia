@@ -107,52 +107,53 @@ class OpinionOfOthersMetric(component.Component):
     """Returns the name of the measurement."""
     return self._name
 
+  def _get_opinion(self, of_player: str) -> None:
+    if of_player == self._player_name:
+      return  # No self opinions.
+
+    prompt = interactive_document.InteractiveDocument(self._model)
+    parent_state = self._context_fn()
+    prompt.statement(parent_state)
+
+    question = self._question.format(
+        opining_player=self._player_name,
+        of_player=of_player,
+    )
+
+    answer = prompt.multiple_choice_question(
+        question=question, answers=self._scale,
+    )
+    answer_str = self._scale[answer]
+
+    answer_float = float(answer) / float(len(self._scale) - 1)
+    datum = {
+        'time_str': self._clock.now().strftime('%H:%M:%S'),
+        'clock_step': self._clock.get_step(),
+        'timestep': self._timestep,
+        'value_float': answer_float,
+        'value_str': answer_str,
+        'opining_player': self._player_name,
+        'of_player': of_player,
+    }
+    if self._measurements:
+      self._measurements.publish_datum(self._channel, datum)
+
+    datum['time'] = self._clock.now()
+    if self._verbose:
+      print(
+          f'{self._name} of {of_player} as viewed by '
+          f'{self._player_name}: {answer_str}'
+      )
+
+    return
+
   def update(self) -> None:
     """See base class."""
-    def get_opinion(of_player: str) -> None:
-      if of_player == self._player_name:
-        return  # No self opinions.
-
-      prompt = interactive_document.InteractiveDocument(self._model)
-      parent_state = self._context_fn()
-      prompt.statement(parent_state)
-
-      question = self._question.format(
-          opining_player=self._player_name,
-          of_player=of_player,
-      )
-
-      answer = prompt.multiple_choice_question(
-          question=question, answers=self._scale,
-      )
-      answer_str = self._scale[answer]
-
-      answer_float = float(answer) / float(len(self._scale) - 1)
-      datum = {
-          'time_str': self._clock.now().strftime('%H:%M:%S'),
-          'clock_step': self._clock.get_step(),
-          'timestep': self._timestep,
-          'value_float': answer_float,
-          'value_str': answer_str,
-          'opining_player': self._player_name,
-          'of_player': of_player,
-      }
-      if self._measurements:
-        self._measurements.publish_datum(self._channel, datum)
-
-      datum['time'] = self._clock.now()
-      if self._verbose:
-        print(
-            f'{self._name} of {of_player} as viewed by '
-            f'{self._player_name}: {answer_str}'
-        )
-
-      return
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=len(self._player_names)
     ) as executor:
-      executor.map(get_opinion, self._player_names)
+      executor.map(self._get_opinion, self._player_names)
     self._timestep += 1
 
   def state(
