@@ -37,14 +37,28 @@ class Component(metaclass=abc.ABCMeta):
   def state(
       self,
   ) -> str | None:
-    """Returns the current state of the component."""
+    """Returns the current state of the component.
+
+    Returns:
+      state of the component or None. If none is returned, then the component
+      will be omitted while forming the context of action.
+    """
     pass
 
   def partial_state(
       self,
       player_name: str,
   ) -> str | None:
-    """Returns the specified player's view of the component's current state."""
+    """Returns the specified player's view of the component's current state.
+
+    Args:
+      player_name: the name of the player for which the view is generated.
+
+    Returns:
+      specified player's view of the component's current state or None. If none
+      is returned, then the component will not be sent to the player.
+    """
+
     del player_name
     return None
 
