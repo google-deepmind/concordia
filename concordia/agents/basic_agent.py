@@ -87,6 +87,7 @@ class BasicAgent(
 
     self._under_interrogation = False
     self._state_lock = threading.Lock()
+    self._state: str | None
 
     self._components = {}
     for comp in components:
