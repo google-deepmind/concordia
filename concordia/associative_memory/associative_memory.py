@@ -21,10 +21,10 @@ preprint arXiv:2304.03442.
 """
 from collections.abc import Callable, Iterable
 import datetime
+import threading
 
 import numpy as np
 import pandas as pd
-import rwlock
 
 
 class AssociativeMemory:
@@ -46,7 +46,7 @@ class AssociativeMemory:
       clock_step_size: sets the step size of the clock. If None, assumes precise
         time
     """
-    self._memory_bank_lock = rwlock.ReadWriteLock()
+    self._memory_bank_lock = threading.Lock()
     self._embedder = sentence_embedder
     self._importance = importance
 
@@ -92,7 +92,7 @@ class AssociativeMemory:
         .T
     )
 
-    with self._memory_bank_lock.AcquireWrite():
+    with self._memory_bank_lock:
       self._memory_bank = pd.concat(
           [self._memory_bank, new_df], ignore_index=True
       )
@@ -112,7 +112,7 @@ class AssociativeMemory:
       self.add(text, **kwargs)
 
   def get_data_frame(self):
-    with self._memory_bank_lock.AcquireRead():
+    with self._memory_bank_lock:
       return self._memory_bank.copy()
 
   def _get_top_k_cosine(self, x: np.ndarray, k: int):
@@ -125,7 +125,7 @@ class AssociativeMemory:
     Returns:
       Rows, sorted by cosine similarity in descending order.
     """
-    with self._memory_bank_lock.AcquireRead():
+    with self._memory_bank_lock:
       cosine_similarities = self._memory_bank['embedding'].apply(
           lambda y: np.dot(x, y)
       )
@@ -150,7 +150,7 @@ class AssociativeMemory:
     Returns:
       Rows, sorted by cosine similarity in descending order.
     """
-    with self._memory_bank_lock.AcquireRead():
+    with self._memory_bank_lock:
       cosine_similarities = self._memory_bank['embedding'].apply(
           lambda y: np.dot(x, y)
       )
@@ -175,7 +175,7 @@ class AssociativeMemory:
       return self._memory_bank.iloc[similarity_score.head(k).index]
 
   def _get_k_recent(self, k: int):
-    with self._memory_bank_lock.AcquireRead():
+    with self._memory_bank_lock:
       recency = self._memory_bank['time'].sort_values(ascending=False)
       return self._memory_bank.iloc[recency.head(k).index]
 

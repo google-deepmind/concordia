@@ -61,7 +61,6 @@ setuptools.setup(
         'python_dateutil',
         'reactivex',
         'retry',
-        'rwlock',
         'saxml',
         'scipy',
         'tensorflow',
