@@ -18,6 +18,7 @@
 from collections.abc import Sequence
 import contextlib
 import datetime
+import threading
 
 from concordia.typing import clock
 
@@ -45,21 +46,27 @@ class FixedIntervalClock(clock.GameClock):
     self._step_size = step_size
     self._step = 0
 
+    self._step_lock = threading.Lock()
+
   def advance(self):
     """Advances time by step_size."""
-    self._step += 1
+    with self._step_lock:
+      self._step += 1
 
   def set(self, time: datetime.datetime):
-    self._step = (time - self._start) // self._step_size
+    with self._step_lock:
+      self._step = (time - self._start) // self._step_size
 
   def now(self) -> datetime.datetime:
-    return self._start + self._step * self._step_size
+    with self._step_lock:
+      return self._start + self._step * self._step_size
 
   def get_step_size(self) -> datetime.timedelta:
     return self._step_size
 
   def get_step(self) -> int:
-    return self._step
+    with self._step_lock:
+      return self._step
 
   def current_time_interval_str(self) -> str:
     this_time = self.now()
@@ -108,56 +115,67 @@ class MultiIntervalClock(clock.GameClock):
     self._steps = [0] * len(step_sizes)
     self._current_gear = 0
 
-  def gear_up(self) -> None:
-    if self._current_gear + 1 >= len(self._step_sizes):
-      raise RuntimeError('Already in highest gear.')
-    self._current_gear += 1
+    self._step_lock = threading.RLock()
 
-  def gear_down(self) -> None:
-    if self._current_gear == 0:
-      raise RuntimeError('Already in lowest gear.')
-    self._current_gear -= 1
+  def _gear_up(self) -> None:
+    with self._step_lock:
+      if self._current_gear + 1 >= len(self._step_sizes):
+        raise RuntimeError('Already in highest gear.')
+      self._current_gear += 1
+
+  def _gear_down(self) -> None:
+    with self._step_lock:
+      if self._current_gear == 0:
+        raise RuntimeError('Already in lowest gear.')
+      self._current_gear -= 1
 
   @contextlib.contextmanager
   def higher_gear(self):
-    self.gear_up()
-    try:
-      yield
-    finally:
-      self.gear_down()
+    with self._step_lock:
+      self._gear_up()
+      try:
+        yield
+      finally:
+        self._gear_down()
 
   def advance(self):
     """Advances time by step_size."""
-    self._steps[self._current_gear] += 1
-    for gear in range(self._current_gear + 1, len(self._step_sizes)):
-      self._steps[gear] = 0
-    self.set(self.now())  # resolve the higher gear running over the lower
+    with self._step_lock:
+      self._steps[self._current_gear] += 1
+      for gear in range(self._current_gear + 1, len(self._step_sizes)):
+        self._steps[gear] = 0
+      self.set(self.now())  # resolve the higher gear running over the lower
 
   def set(self, time: datetime.datetime):
-    remainder = time - self._start
-    for gear, step_size in enumerate(self._step_sizes):
-      self._steps[gear] = remainder // step_size
-      remainder -= step_size * self._steps[gear]
+    with self._step_lock:
+      remainder = time - self._start
+      for gear, step_size in enumerate(self._step_sizes):
+        self._steps[gear] = remainder // step_size
+        remainder -= step_size * self._steps[gear]
 
   def now(self) -> datetime.datetime:
-    output = self._start
-    for gear, step_size in enumerate(self._step_sizes):
-      output += self._steps[gear] * step_size
-    return output
+    with self._step_lock:
+      output = self._start
+      for gear, step_size in enumerate(self._step_sizes):
+        output += self._steps[gear] * step_size
+      return output
 
   def get_step_size(self) -> datetime.timedelta:
-    return self._step_sizes[self._current_gear]
+    with self._step_lock:
+      return self._step_sizes[self._current_gear]
 
   def get_step(self) -> int:
     """Returns the current step in the lowest gear."""
-    # this is used for logging, so makes sense to use lowest gear
-    return self._steps[0]
+    with self._step_lock:
+      # this is used for logging, so makes sense to use lowest gear
+      return self._steps[0]
 
   def current_time_interval_str(self) -> str:
-    this_time = self.now()
-    next_time = this_time + self._step_sizes[self._current_gear]
+    with self._step_lock:
+      this_time = self.now()
+      next_time = this_time + self._step_sizes[self._current_gear]
 
-    time_string = this_time.strftime(
-        ' %d %b %Y [%H:%M - '
-    ) + next_time.strftime('%H:%M]')
-    return time_string
+      time_string = this_time.strftime(
+          ' %d %b %Y [%H:%M - '
+      ) + next_time.strftime('%H:%M]')
+      return time_string
