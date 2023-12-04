@@ -58,7 +58,7 @@ setuptools.setup(
         'ipython~=3.2.3',
         'matplotlib~=3.6.1',
         'numpy~=1.26.2',
-        'pandas~=1.5.3',
+        'pandas>=1.5.3,<2.2.0',
         'python-dateutil~=2.8.2',
         'reactivex~=4.0.4',
         'retry~=0.9.2',
