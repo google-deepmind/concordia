@@ -42,6 +42,8 @@ class AgentConfig:
     traits: any traits to use while generating formative memories. For example,
       big five.
     context: agent formative memories will be generated with this context
+    specific_memories: inject these specific memories. Split memories at newline
+      characters. Can be left blank if not used.
     goal: defines agents goal. Can be left blank if not used.
     date_of_birth: the date of birth for the agent.
     formative_ages: ages at which the formative episodes will be created
@@ -54,6 +56,7 @@ class AgentConfig:
   gender: str
   traits: str
   context: str = ''
+  specific_memories: str = ''
   goal: str = ''
   date_of_birth: datetime.datetime = DEFAULT_DOB
   formative_ages: Iterable[int] = DEFAULT_FORMATIVE_AGES
@@ -149,6 +152,12 @@ class FormativeMemoryFactory:
     if context:
       context_items = context.split('\n')
       for item in context_items:
+        if item:
+          mem.add(item, importance=1.0)
+
+    if agent_config.specific_memories:
+      specific_memories = agent_config.specific_memories.split('\n')
+      for item in specific_memories:
         if item:
           mem.add(item, importance=1.0)
 
