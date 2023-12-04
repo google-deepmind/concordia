@@ -18,7 +18,7 @@
 import setuptools
 
 setuptools.setup(
-    name='dm-concordia',
+    name='gdm-concordia',
     version='1.0.0.dev.0',
     license='Apache 2.0',
     license_files=['LICENSE'],

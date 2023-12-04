@@ -2,8 +2,8 @@
 
 *A library for generative social simulation*
 
-[![Python](https://img.shields.io/pypi/pyversions/dm-concordia.svg)](https://pypi.python.org/pypi/dm-concordia)
-[![PyPI version](https://img.shields.io/pypi/v/dm-concordia.svg)](https://pypi.python.org/pypi/dm-concordia)
+[![Python](https://img.shields.io/pypi/pyversions/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
+[![PyPI version](https://img.shields.io/pypi/v/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI tests](../../actions/workflows/pypi-test.yml/badge.svg)](../../actions/workflows/pypi-test.yml)
 [![Tests](../../actions/workflows/test-concordia.yml/badge.svg)](../../actions/workflows/test-concordia.yml)
 [![Examples](../../actions/workflows/test-examples.yml/badge.svg)](../../actions/workflows/test-examples.yml)

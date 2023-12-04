@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/dm-concordia
+      url: https://pypi.org/p/gdm-concordia
     permissions:
       id-token: write
     timeout-minutes: 90

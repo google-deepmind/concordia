@@ -1,2 +1,2 @@
-dm-concordia
+gdm-concordia
 termcolor

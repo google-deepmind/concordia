@@ -56,7 +56,7 @@ jobs:
 
       - name: Install from PyPI
         run: |
-          pip -vvv install dm-concordia
+          pip -vvv install gdm-concordia
           pip list
 
       - name: Test installation
