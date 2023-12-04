@@ -26,7 +26,7 @@ import concurrent
 import contextlib
 import copy
 import datetime
-
+import threading
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -86,6 +86,7 @@ class BasicAgent(
     self._update_interval = update_interval
 
     self._under_interrogation = False
+    self._state_lock = threading.Lock()
 
     self._components = {}
     for comp in components:
@@ -166,10 +167,8 @@ class BasicAgent(
     return self._last_chain_of_thought
 
   def state(self):
-    return '\n'.join(
-        f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
-        for comp in self._components.values()
-    )
+    with self._state_lock:
+      return self._state
 
   def _maybe_update(self):
     next_update = self._last_update + self._update_interval
@@ -181,6 +180,11 @@ class BasicAgent(
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for comp in self._components.values():
         executor.submit(comp.update)
+    with self._state_lock:
+      self._state = '\n'.join(
+          f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
+          for comp in self._components.values()
+      )
 
   def observe(self, observation: str):
     if observation and not self._under_interrogation:
