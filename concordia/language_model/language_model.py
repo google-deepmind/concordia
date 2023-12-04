@@ -20,10 +20,11 @@ from collections.abc import Collection, Mapping, Sequence
 import sys
 from typing import Any
 
-DEFAULT_MAX_TOKENS = 50
 DEFAULT_TEMPERATURE = 0.5
-DEFAULT_MAX_CHARACTERS = sys.maxsize
 DEFAULT_TERMINATORS = ()
+DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_MAX_CHARACTERS = sys.maxsize
+DEFAULT_MAX_TOKENS = 50
 
 
 class InvalidResponseError(Exception):
@@ -43,6 +44,7 @@ class LanguageModel(metaclass=abc.ABCMeta):
       max_characters: int = DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = DEFAULT_TERMINATORS,
       temperature: float = DEFAULT_TEMPERATURE,
+      timeout: float = DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
     """Samples text from the model.
@@ -57,10 +59,14 @@ class LanguageModel(metaclass=abc.ABCMeta):
       terminators: the response will be terminated before any of these
         characters.
       temperature: temperature for the model.
+      timeout: timeout for the request.
       seed: optional seed for the sampling. If None a random seed will be used.
 
     Returns:
       The sampled response (i.e. does not iclude the prompt).
+
+    Raises:
+      TimeoutError: if the operation times out.
     """
     raise NotImplementedError
 

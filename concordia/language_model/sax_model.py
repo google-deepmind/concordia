@@ -20,16 +20,14 @@ https://github.com/google/saxml
 
 from collections.abc import Collection, Sequence
 import concurrent.futures
-import sys
 
 from concordia.language_model import language_model
 from concordia.utils import text
 import numpy as np
 from saxml.client.python import sax
 from scipy import special
+from typing_extensions import override
 
-DEFAULT_MAX_TOKENS = 50
-DEFAULT_TIMEOUT_SECONDS = 60
 DEFAULT_NUM_CONNECTIONS = 3
 
 
@@ -55,31 +53,18 @@ class SAXLanguageModel(language_model.LanguageModel):
     self._model = sax.Model(path, options).LM()
     self._deterministic_multiple_choice = deterministic_multiple_choice
 
+  @override
   def sample_text(
       self,
       prompt: str,
       *,
-      timeout: float = DEFAULT_TIMEOUT_SECONDS,
-      max_tokens: int = DEFAULT_MAX_TOKENS,
-      max_characters: int = sys.maxsize,
-      terminators: Collection[str] = (),
-      temperature: float = 0.5,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    """Samples a string from the model.
-
-    Args:
-      prompt: the prompt to generate a response for.
-      timeout: timeout for the request.
-      max_tokens: maximum number of tokens to generate.
-      max_characters: maximum number of characters to generate.
-      terminators: delimiters to use in the generated response.
-      temperature: temperature for the model.
-      seed: seed for the random number generator.
-
-    Returns:
-      A string of the generated response.
-    """
     if seed is not None:
       raise NotImplementedError('Unclear how to set seed for sax models.')
     max_tokens = min(max_tokens, max_characters)
@@ -92,6 +77,7 @@ class SAXLanguageModel(language_model.LanguageModel):
         sample, max_length=max_characters, delimiters=terminators
     )
 
+  @override
   def sample_choice(
       self,
       prompt: str,
@@ -99,16 +85,6 @@ class SAXLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    """Samples a response from the model.
-
-    Args:
-      prompt: the prompt to generate a response for.
-      responses: the responses to sample.
-      seed: seed for the random number generator.
-
-    Returns:
-      A tuple of (index, response, debug).
-    """
     scores = self._score_responses(prompt, responses)
     probs = special.softmax(scores)
     entropy = probs @ np.log(probs)

@@ -14,15 +14,14 @@
 """Google Cloud Language Model."""
 
 from collections.abc import Collection, Sequence
-import sys
 
 from concordia.language_model import language_model
 from concordia.utils import text
 from google import auth
+from typing_extensions import override
 import vertexai
 from vertexai.preview import language_models as vertex_models
 
-DEFAULT_MAX_TOKENS = 50
 MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
 
@@ -34,7 +33,7 @@ class CloudLanguageModel(language_model.LanguageModel):
       project_id: str,
       model_name: str = 'text-bison@001',
       location: str = 'us-central1',
-      credentials: auth.credentials.Credentials = None
+      credentials: auth.credentials.Credentials | None = None,
   ) -> None:
     """Initializes a model instance using the Google Cloud language model API.
 
@@ -45,26 +44,25 @@ class CloudLanguageModel(language_model.LanguageModel):
       credentials: Custom credentials to use when making API calls. If not
         provided credentials will be ascertained from the environment.
     """
-    if not credentials:
-      credentials = auth.default()[0]
+    if credentials is None:
+      credentials, _ = auth.default()
     vertexai.init(
-        project=project_id, location=location, credentials=credentials)
+        project=project_id, location=location, credentials=credentials
+    )
     self._model = vertex_models.TextGenerationModel.from_pretrained(model_name)
 
+  @override
   def sample_text(
       self,
       prompt: str,
       *,
-      timeout: float = None,
-      max_tokens: int = DEFAULT_MAX_TOKENS,
-      max_characters: int = sys.maxsize,
-      terminators: Collection[str] = (),
-      temperature: float = 0.5,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    """See base class."""
-    if timeout is not None:
-      raise NotImplementedError('Unclear how to set timeout for cloud models.')
     if seed is not None:
       raise NotImplementedError('Unclear how to set seed for cloud models.')
 
@@ -72,11 +70,13 @@ class CloudLanguageModel(language_model.LanguageModel):
     sample = self._model.predict(
         prompt,
         temperature=temperature,
-        max_output_tokens=max_tokens,)
+        max_output_tokens=max_tokens,
+    )
     return text.truncate(
         sample.text, max_length=max_characters, delimiters=terminators
     )
 
+  @override
   def sample_choice(
       self,
       prompt: str,
@@ -84,7 +84,6 @@ class CloudLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    """See base class."""
     max_characters = max([len(response) for response in responses])
 
     for _ in range(MAX_MULTIPLE_CHOICE_ATTEMPTS):
@@ -93,7 +92,8 @@ class CloudLanguageModel(language_model.LanguageModel):
           max_tokens=1,
           max_characters=max_characters,
           temperature=0.0,
-          seed=seed)
+          seed=seed,
+      )
       try:
         idx = responses.index(sample)
       except ValueError:
@@ -103,4 +103,5 @@ class CloudLanguageModel(language_model.LanguageModel):
         return idx, responses[idx], debug
 
     raise language_model.InvalidResponseError(
-        'Too many multiple choice attempts.')
+        'Too many multiple choice attempts.'
+    )

@@ -14,9 +14,9 @@
 """A mock Language Model."""
 
 from collections.abc import Collection, Sequence
-import sys
 
 from concordia.language_model import language_model
+from typing_extensions import override
 
 
 class MockModel(language_model.LanguageModel):
@@ -32,29 +32,30 @@ class MockModel(language_model.LanguageModel):
     """
     self._response = response
 
+  @override
   def sample_text(
       self,
       prompt: str,
       *,
-      timeout: float = 0,
-      max_tokens: int = 0,
-      max_characters: int = sys.maxsize,
-      terminators: Collection[str] = (),
-      temperature: float = 0.5,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    """See base class."""
     del (
         prompt,
-        timeout,
         max_tokens,
         max_characters,
         terminators,
-        seed,
         temperature,
+        timeout,
+        seed,
     )
     return self._response
 
+  @override
   def sample_choice(
       self,
       prompt: str,
@@ -62,6 +63,5 @@ class MockModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    """See base class."""
     del prompt, seed
     return 0, responses[0], {}
