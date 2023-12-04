@@ -70,7 +70,7 @@ class BasicAgent(
       update_interval: how often to update components. In game time according to
         the clock argument.
       verbose: whether to print chains of thought or not
-      user_controlled: if True, would query user input for speach and action
+      user_controlled: if True, would query user input for speech and action
       print_colour: which colour to use for printing
     """
     self._verbose = verbose
@@ -261,19 +261,16 @@ class BasicAgent(
         f'{self._agent_name} is in the following'
         f' conversation:\n{conversation}\n'
     )
-    call_to_speach = (
-        f'Given the above, what should {self._agent_name} say next? Respond in'
-        f' the format `{self._agent_name} says: "..."` For example, '
-        'Cristina says: "Hello! Mighty fine weather today, right?" '
-        'or Ichabod says: "I wonder if the alfalfa is ready to harvest.\n'
+    call_to_speech = agent.DEFAULT_CALL_TO_SPEECH.format(
+        agent_name=self._agent_name,
     )
     if self._user_controlled:
       utterance = self._ask_for_input(
-          convo_context + call_to_speach, f'{self._agent_name}:'
+          convo_context + call_to_speech, f'{self._agent_name}:'
       )
     else:
       utterance = self.act(
-          action_spec=agent.ActionSpec(convo_context + call_to_speach, 'FREE'),
+          action_spec=agent.ActionSpec(convo_context + call_to_speech, 'FREE'),
       )
 
     return utterance

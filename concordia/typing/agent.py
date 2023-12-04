@@ -47,7 +47,7 @@ class ActionSpec:
 OUTPUT_TYPES = ['FREE', 'CHOICE', 'FLOAT']
 
 DEFAULT_CALL_TO_SPEECH = (
-    'Given the above, what did {agent_name} say? Respond in'
+    'Given the above, what is {agent_name} likely to say next? Respond in'
     ' the format `{agent_name} says: "..."` For example, '
     'Cristina says: "Hello! Mighty fine weather today, right?" '
     'or Ichabod says: "I wonder if the alfalfa is ready to harvest.\n'
