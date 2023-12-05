@@ -67,7 +67,7 @@ class PlayerStatus(component.Component):
     return self._partial_states[player_name]
 
   def update(self) -> None:
-    self._state = '\n'
+    self._state = ''
     self._partial_states = {name: '' for name in self._player_names}
     per_player_prompt = {}
     for player_name in self._player_names:
