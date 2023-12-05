@@ -202,24 +202,12 @@ class GameMaster(simulacrum_game_master.GameMaster):
     def get_externality(externality):
       return externality.update_after_event(event_statement)
 
-    consequences = []
     if self._concurrent_externalities:
       with concurrent.futures.ThreadPoolExecutor() as executor:
-        for result in executor.map(
-            get_externality, list(self._components.values())):
-          if result:
-            consequences.extend(result)
+        executor.map(get_externality, self._components.values())
     else:
       for externality in self._components.values():
-        result = externality.update_after_event(event_statement)
-        if result:
-          consequences.extend(result)
-
-    for fact in consequences:
-      if fact:
-        if self._verbose:
-          self._print(fact, 'white')
-        self._memory.add(fact)  # could be multi-threaded, helps with importance
+        externality.update_after_event(event_statement)
 
     self._last_chain = prompt
 
