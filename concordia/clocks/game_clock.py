@@ -116,6 +116,7 @@ class MultiIntervalClock(clock.GameClock):
     self._current_gear = 0
 
     self._step_lock = threading.RLock()
+    self._control_lock = threading.RLock()
 
   def _gear_up(self) -> None:
     with self._step_lock:
@@ -131,7 +132,7 @@ class MultiIntervalClock(clock.GameClock):
 
   @contextlib.contextmanager
   def higher_gear(self):
-    with self._step_lock:
+    with self._control_lock:
       self._gear_up()
       try:
         yield
@@ -140,14 +141,14 @@ class MultiIntervalClock(clock.GameClock):
 
   def advance(self):
     """Advances time by step_size."""
-    with self._step_lock:
+    with self._control_lock, self._step_lock:
       self._steps[self._current_gear] += 1
       for gear in range(self._current_gear + 1, len(self._step_sizes)):
         self._steps[gear] = 0
       self.set(self.now())  # resolve the higher gear running over the lower
 
   def set(self, time: datetime.datetime):
-    with self._step_lock:
+    with self._control_lock, self._step_lock:
       remainder = time - self._start
       for gear, step_size in enumerate(self._step_sizes):
         self._steps[gear] = remainder // step_size
