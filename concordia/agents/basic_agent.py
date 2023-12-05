@@ -21,12 +21,13 @@ Park, J.S., O'Brien, J.C., Cai, C.J., Morris, M.R., Liang, P. and
 Bernstein, M.S., 2023. Generative agents: Interactive simulacra of human
 behavior. arXiv preprint arXiv:2304.03442.
 """
-
+from collections.abc import Sequence
 import concurrent
 import contextlib
 import copy
 import datetime
 import threading
+
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -50,7 +51,7 @@ class BasicAgent(
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
       clock: game_clock.GameClock,
-      components: list[component.Component] | None = None,
+      components: Sequence[component.Component] | None = None,
       num_memories_retrieved: int = 10,
       update_interval: datetime.timedelta = datetime.timedelta(hours=1),
       verbose: bool = False,
@@ -64,7 +65,9 @@ class BasicAgent(
       memory: an associative memory
       agent_name: the name of the agent
       clock: the game clock is needed to know when is the current time
-      components: components that contextualise the policies
+      components: components that contextualise the policies. The components
+        state will be added to the agents state in the order they are passed
+        here.
       num_memories_retrieved: number of memories to retrieve for acting,
         speaking, testing
       update_interval: how often to update components. In game time according to
@@ -96,6 +99,7 @@ class BasicAgent(
     self._log = []
     self._last_chain_of_thought = None
     self._last_update = datetime.datetime.min
+    self._update()
 
   @property
   def name(self) -> str:
@@ -169,23 +173,21 @@ class BasicAgent(
 
   def state(self):
     with self._state_lock:
-      return self._state
+      return '\n'.join(
+          f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
+          for comp in self._components.values()
+      )
 
   def _maybe_update(self):
     next_update = self._last_update + self._update_interval
     if self._clock.now() >= next_update and not self._under_interrogation:
-      self.update()
+      self._update()
 
-  def update(self):
+  def _update(self):
     self._last_update = self._clock.now()
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for comp in self._components.values():
         executor.submit(comp.update)
-    with self._state_lock:
-      self._state = '\n'.join(
-          f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
-          for comp in self._components.values()
-      )
 
   def observe(self, observation: str):
     if observation and not self._under_interrogation:

@@ -130,7 +130,6 @@ class Conversation(component.Component):
         ],
         verbose=True,
     )
-    npc.update()
     return npc
 
   def _get_nonplayer_characters(
