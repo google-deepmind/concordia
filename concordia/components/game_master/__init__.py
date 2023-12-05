@@ -13,12 +13,12 @@
 # limitations under the License.
 
 
-"""Library of components for generative game master and agents."""
+"""Library of components specifically for generative game master."""
 
-from concordia.environment.components import conversation
-from concordia.environment.components import direct_effect
-from concordia.environment.components import inventory
-from concordia.environment.components import player_status
-from concordia.environment.components import relevant_events
-from concordia.environment.components import schedule
-from concordia.environment.components import time_display
+from concordia.components.game_master import conversation
+from concordia.components.game_master import direct_effect
+from concordia.components.game_master import inventory
+from concordia.components.game_master import player_status
+from concordia.components.game_master import relevant_events
+from concordia.components.game_master import schedule
+from concordia.components.game_master import time_display

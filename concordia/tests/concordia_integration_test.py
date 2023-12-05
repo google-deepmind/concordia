@@ -16,13 +16,14 @@ import datetime
 from typing import List
 from absl.testing import absltest
 from absl.testing import parameterized
+from concordia import components
 from concordia.agents import basic_agent
-from concordia.agents import components
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
-from concordia.environment import components as gm_components
+from concordia.components import agent as agent_components
+from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from concordia.environment.metrics import common_sense_morality
 from concordia.environment.metrics import goal_achievement
@@ -51,13 +52,13 @@ def _make_agent(
       name,
       clock,
       [
-          components.constant.ConstantConstruct(
+          components.constant.ConstantComponent(
               'Instructions:', game_master_instructions
           ),
-          components.constant.ConstantConstruct(
+          components.constant.ConstantComponent(
               'General knowledge:', 'this is a test'
           ),
-          components.observation.Observation('Alice', mem),
+          agent_components.observation.Observation('Alice', mem),
       ],
       verbose=True,
   )
@@ -84,10 +85,10 @@ def _make_environment(
 
   shared_context = 'There is a hamlet named Riverbend.'
 
-  instructions_construct = components.constant.ConstantConstruct(
+  instructions_construct = components.constant.ConstantComponent(
       game_master_instructions, 'Instructions'
   )
-  facts_on_village = components.constant.ConstantConstruct(
+  facts_on_village = components.constant.ConstantComponent(
       ' '.join(shared_memories), 'General knowledge of Riverbend'
   )
   player_status = gm_components.player_status.PlayerStatus(

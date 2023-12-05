@@ -18,7 +18,7 @@
 from concordia.typing import component
 
 
-class ConstantConstruct(component.Component):
+class ConstantComponent(component.Component):
   """A constant memory component."""
 
   def __init__(self, state: str, name: str = 'constant'):

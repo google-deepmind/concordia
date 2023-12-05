@@ -17,11 +17,12 @@
 
 from collections.abc import Sequence
 
+from concordia import components as generic_components
 from concordia.agents import basic_agent
-from concordia.agents import components as sim_components
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
+from concordia.components import agent as sim_components
 from concordia.document import interactive_document
 from concordia.environment.scenes import conversation as conversation_scene
 from concordia.language_model import language_model
@@ -120,10 +121,10 @@ class Conversation(component.Component):
         agent_name=name,
         clock=scene_clock,
         components=[
-            sim_components.constant.ConstantConstruct(
+            generic_components.constant.ConstantComponent(
                 name='Instructions:', state=self._game_master_instructions
             ),
-            sim_components.constant.ConstantConstruct(
+            generic_components.constant.ConstantComponent(
                 name='General knowledge:', state=context
             ),
             sim_components.observation.Observation(agent_name=name, memory=mem),

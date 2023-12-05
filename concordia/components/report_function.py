@@ -13,29 +13,30 @@
 # limitations under the License.
 
 
-"""This components report what the get_state returns at the moment.
+"""This components report what the function returns at the moment.
 
 For example, can be used for reporting current time
-current_time_component = ReportState(
+current_time_component = ReportFunction(
     'Current time',
-    get_state=clock.current_time_interval_str)
+    function=clock.current_time_interval_str)
 """
 
 from typing import Callable
 from concordia.typing import component
 
 
-class ReportState(component.Component):
-  """A component that reports what the get_state returns at the moment."""
+class ReportFunction(component.Component):
+  """A component that reports what the function returns at the moment."""
 
-  def __init__(self, get_state: Callable[[], str], name: str = 'State'):
+  def __init__(self, function: Callable[[], str], name: str = 'State'):
     """Initializes the component.
 
     Args:
-      get_state: the game clock.
+      function: the function that returns a string to report as state of the
+        component.
       name: The name of the component.
     """
-    self._get_state = get_state
+    self._function = function
     self._name = name
 
   def name(self) -> str:
@@ -44,7 +45,7 @@ class ReportState(component.Component):
 
   def state(self) -> str:
     """Returns the state of the component."""
-    return self._get_state()
+    return self._function()
 
   def update(self) -> None:
     """This component always returns the same string, update does nothing."""
