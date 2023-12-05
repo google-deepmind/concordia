@@ -28,7 +28,6 @@ from concordia.typing import agent as simulacrum_agent
 from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.typing import game_master as simulacrum_game_master
-from concordia.typing import metric
 import termcolor
 
 
@@ -48,7 +47,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
       clock: game_clock.GameClock,
       players: Sequence[basic_agent.BasicAgent],
       name: str = 'Game Master',
-      measurements: Sequence[metric.Metric] | None = None,
       update_thought_chain: (
           Sequence[
               Callable[[interactive_document.InteractiveDocument, str], str]
@@ -74,8 +72,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
       players: a sequence of generative agent simulacra which is assumed to
         contain only information that players also can access.
       name: name of the game master.
-      measurements: sequence of measurements which look at text and store the
-        answers to questions in python state variables.
       update_thought_chain: chain of thoughts for update from player
       components: components to condition on
       action_spec: specific action_spec to pass to agents, default is used if
@@ -99,7 +95,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
     self._clock = clock
     self._players = players
     self._log_colour = log_colour
-    self._measurements = measurements or []
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
@@ -222,13 +217,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
         update_log[externality.name()] = last_log
 
     self._log.append(update_log)
-
-    # MULTI-THREAD
-    def process_measurements(signal):
-      return signal.update(event_statement, player_name, prompt)
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-      executor.map(process_measurements, self._measurements)
 
     return event_statement
 

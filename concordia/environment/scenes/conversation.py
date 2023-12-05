@@ -31,7 +31,6 @@ from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
 from concordia.typing import agent as simulacrum_agent
 from concordia.typing import component
-from concordia.typing import metric
 import termcolor
 
 
@@ -102,7 +101,6 @@ def make_conversation_game_master(
     clock: game_clock.MultiIntervalClock,
     model: language_model.LanguageModel,
     memory_factory: blank_memories.MemoryFactory,
-    measurements: Sequence[metric.Metric] | None,
     name: str = 'Conversation scene',
     premise: str = '',
 ):
@@ -113,7 +111,6 @@ def make_conversation_game_master(
     clock: a clock
     model: a language model
     memory_factory: a memory factory
-    measurements: measurements for the game master to use
     name: the name of the game master
     premise: any extra text to be added on top of the conversation (say,
       circumstances of it)
@@ -156,7 +153,6 @@ def make_conversation_game_master(
       clock=clock,
       name=name,
       players=players,
-      measurements=measurements,
       components=[conversation_tracker],
       action_spec=action_spec,
       update_thought_chain=[thought_chains.identity],

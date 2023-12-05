@@ -28,7 +28,6 @@ from concordia.environment.scenes import conversation as conversation_scene
 from concordia.language_model import language_model
 from concordia.typing import clock as clock_lib
 from concordia.typing import component
-from concordia.typing import metric
 from concordia.utils import helper_functions
 import termcolor
 
@@ -46,7 +45,6 @@ class Conversation(component.Component):
       cap_nonplayer_characters: int = 3,
       game_master_instructions: str = '',
       shared_context: str = '',
-      measurements: Sequence[metric.Metric] | None = None,
       components: Sequence[component.Component] | None = None,
       allow_self_talk: bool = False,
       verbose: bool = False,
@@ -66,7 +64,6 @@ class Conversation(component.Component):
         allowed in the conversation.
       game_master_instructions: A string to use as the game master instructions.
       shared_context: A string to use as the generic context for the NPCs.
-      measurements: metrics to pass into the conversation GM
       components: components that contextualise the conversation
       allow_self_talk: allow players to have a conversation with themselves
       verbose: Whether to print debug messages or not.
@@ -84,7 +81,6 @@ class Conversation(component.Component):
     self._clock = clock
     self._burner_memory_factory = burner_memory_factory
     self._memory = memory
-    self._measurements = measurements
     self._allow_self_talk = allow_self_talk
     self._all_player_names = [player.name for player in self._players]
     self._min_speakers = 1 if self._allow_self_talk else 2
@@ -285,7 +281,6 @@ class Conversation(component.Component):
             memory_factory=self._burner_memory_factory,
             name='Conversation scene',
             premise=event_statement,
-            measurements=self._measurements,
         )
         with self._clock.higher_gear():
           scene_output = convo_scene.run_episode()

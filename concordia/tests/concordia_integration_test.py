@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
 import datetime
-from typing import List
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia import components
@@ -25,9 +25,9 @@ from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
-from concordia.environment.metrics import common_sense_morality
-from concordia.environment.metrics import goal_achievement
-from concordia.environment.metrics import reputation
+from concordia.metrics import common_sense_morality
+from concordia.metrics import goal_achievement
+from concordia.metrics import opinion_of_others
 from concordia.tests import mock_model
 import numpy as np
 
@@ -41,11 +41,18 @@ def _make_agent(
     name: str,
     model: mock_model.MockModel,
     clock: game_clock.MultiIntervalClock,
+    player_names: Sequence[str],
     game_master_instructions: str,
     mem_factory: blank_memories.MemoryFactory,
 ) -> basic_agent.BasicAgent:
   """Creates two agents with the same game master instructions."""
   mem = mem_factory.make_blank_memory()
+  goal_metric = goal_achievement.GoalAchievementMetric(
+      model=model, player_name=name, player_goal='win', clock=clock,
+  )
+  morality_metric = common_sense_morality.CommonSenseMoralityMetric(
+      model=model, player_name=name, clock=clock,
+  )
   agent = basic_agent.BasicAgent(
       model,
       mem,
@@ -59,9 +66,16 @@ def _make_agent(
               'General knowledge:', 'this is a test'
           ),
           agent_components.observation.Observation('Alice', mem),
+          goal_metric,
+          morality_metric,
       ],
       verbose=True,
   )
+  reputation_metric = opinion_of_others.OpinionOfOthersMetric(
+      model=model, player_name=name, player_names=player_names,
+      context_fn=agent.state, clock=clock,
+  )
+  agent.add_component(reputation_metric)
 
   return agent
 
@@ -69,7 +83,7 @@ def _make_agent(
 def _make_environment(
     model: mock_model.MockModel,
     clock: game_clock.MultiIntervalClock,
-    players: List[basic_agent.BasicAgent],
+    players: Sequence[basic_agent.BasicAgent],
     game_master_instructions: str,
     importance_model_gm: importance_function.ImportanceModel,
 ) -> game_master.GameMaster:
@@ -140,16 +154,6 @@ def _make_environment(
   schedule_construct = gm_components.schedule.Schedule(
       clock_now=clock.now, schedule=schedule
   )
-  player_goals = {'Alice': 'win', 'Bob': 'win'}
-  goal_metric = goal_achievement.GoalAchievementMetric(
-      model, player_goals, clock, 'Goal achievement', verbose=False
-  )
-  morality_metric = common_sense_morality.CommonSenseMoralityMetric(
-      model, players, clock, 'Morality', verbose=False
-  )
-  reputation_metric = reputation.ReputationMetric(
-      model, players, clock, 'Reputation', verbose=False
-  )
 
   env = game_master.GameMaster(
       model=model,
@@ -164,7 +168,6 @@ def _make_environment(
           convo_externality,
           direct_effect_externality,
       ],
-      measurements=[goal_metric, morality_metric, reputation_metric],
       randomise_initiative=True,
       player_observes_event=False,
       verbose=False,
@@ -200,6 +203,7 @@ class GameMasterTest(parameterized.TestCase):
         name='Alice',
         model=model,
         clock=clock,
+        player_names=['Alice', 'Bob'],
         game_master_instructions=game_master_instructions,
         mem_factory=mem_factory,
     )
@@ -207,6 +211,7 @@ class GameMasterTest(parameterized.TestCase):
         name='Bob',
         model=model,
         clock=clock,
+        player_names=['Alice', 'Bob'],
         game_master_instructions=game_master_instructions,
         mem_factory=mem_factory,
     )
