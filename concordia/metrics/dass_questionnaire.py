@@ -24,7 +24,8 @@ The DASS questionnaire is in the public domain:
 https://www2.psy.unsw.edu.au/dass/DASSFAQ.htm
 """
 
-from collections.abc import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
