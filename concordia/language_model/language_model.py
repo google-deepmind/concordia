@@ -26,6 +26,8 @@ DEFAULT_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_CHARACTERS = sys.maxsize
 DEFAULT_MAX_TOKENS = 50
 
+DEFAULT_STATS_CHANNEL = 'language_model_stats'
+
 
 class InvalidResponseError(Exception):
   """Exception to throw when exceeding max attempts to get a choice."""
