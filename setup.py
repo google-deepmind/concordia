@@ -58,6 +58,7 @@ setuptools.setup(
         'ipython',
         'matplotlib',
         'numpy',
+        'openai',
         'pandas==1.5.3',
         'python-dateutil',
         'reactivex',
