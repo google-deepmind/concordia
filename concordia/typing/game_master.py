@@ -29,7 +29,6 @@ from collections.abc import Sequence
 class GameMaster(metaclass=abc.ABCMeta):
   """A game master class."""
 
-  @property
   @abc.abstractmethod
   def name(
       self,
@@ -40,15 +39,15 @@ class GameMaster(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def update_from_player(
       self,
-      action_attempt: str,
       player_name: str,
+      action_attempt: str,
   ) -> str:
     """Returns the outcome of the action attempt.
 
     Args:
+      player_name: the name of the player performing the action
       action_attempt: a description of an action that the player is trying to
         perform. It can succeed or fail.
-      player_name: the name of the player performing the action
 
     Returns:
       the outcome of the action_attempt.
