@@ -36,7 +36,7 @@ class SimPlan(component.Component):
       timescale: str = 'the rest of the day',
       time_adverb: str = 'hourly',
       verbose: bool = False,
-      log_colour='green',
+      log_color='green',
   ):
     """Initialize a component to represent the agent's plan.
 
@@ -51,13 +51,13 @@ class SimPlan(component.Component):
       timescale: string describing how long the plan should last
       time_adverb: string describing the rate of steps in the plan
       verbose: whether or not to print intermediate reasoning steps
-      log_colour: colour for logging
+      log_color: color for debug logging
     """
     self._model = model
     self._memory = memory
     self._state = ''
     self._agent_name = agent_name
-    self._log_colour = log_colour
+    self._log_color = log_color
     self._components = components
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._goal_component = goal
@@ -77,7 +77,7 @@ class SimPlan(component.Component):
     return self._state
 
   def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_colour), end='')
+    print(termcolor.colored(entry, self._log_color), end='')
 
   def observe(self, observation: str):
     self._last_observation.append(observation)
