@@ -175,7 +175,7 @@ class BasicAgent(
     with self._state_lock:
       return '\n'.join(
           f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
-          for comp in self._components.values()
+          for comp in self._components.values() if comp.state()
       )
 
   def _maybe_update(self):
