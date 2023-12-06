@@ -1,4 +1,4 @@
-[build-system] 
+[build-system]
 requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 profile = "google"
 # TODO remove once https://github.com/PyCQA/isort/pull/2149 submitted.
 line_length = 1000
-single_line_exclusions = ["collections.abc", "typing"]
+single_line_exclusions = ["collections.abc", "typing", "typing_extensions"]
 known_thirdparty = ["concordia"]
 
 [tool.pyink]
