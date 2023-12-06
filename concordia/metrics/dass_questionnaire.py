@@ -25,6 +25,7 @@ https://www2.psy.unsw.edu.au/dass/DASSFAQ.htm
 """
 
 from collections.abc import Callable
+import concurrent
 from typing import Any
 
 from concordia.document import interactive_document
@@ -33,6 +34,7 @@ from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
+import termcolor
 
 
 AGREEMENT_SCALE_CHOICES = [
@@ -57,6 +59,7 @@ class Questionnaire(component.Component):
       verbose: bool = False,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = 'unspecified_subscale',
+      log_color='green',
   ):
     """Initializes the metric.
 
@@ -72,6 +75,7 @@ class Questionnaire(component.Component):
       verbose: Whether to print the metric.
       measurements: The measurements to use.
       channel: The name of the channel to push data
+      log_color: color for debug logging
     """
     self._model = model
     self._name = name
@@ -81,9 +85,11 @@ class Questionnaire(component.Component):
     self._player_name = player_name
     self._measurements = measurements
     self._channel = channel
+    self._log_color = log_color
 
     self._timestep = 0
 
+    # Note: the DASS questionnaire normally asks about the previous week.
     self._preprompt = (
         'Please indicate the extent to which the following statement applied ' +
         f'to {self._player_name} over the past week:\n')
@@ -95,15 +101,17 @@ class Questionnaire(component.Component):
     """See base class."""
     return self._name
 
+  def _log(self, entry: str):
+    print(termcolor.colored(entry, self._log_color), end='')
+
   def update(self) -> None:
     """See base class."""
-
-    prompt = interactive_document.InteractiveDocument(self._model)
     parent_state = self._context_fn()
-    prompt.statement(parent_state)
-
     numeric_results = []
-    for item in self._questionnaire:
+
+    def respond(item: dict[str, Any]) -> None:
+      prompt = interactive_document.InteractiveDocument(self._model)
+      prompt.statement(parent_state)
       prompt.statement(self._preprompt)
 
       answer = prompt.multiple_choice_question(
@@ -115,7 +123,14 @@ class Questionnaire(component.Component):
       else:
         reversed_choices = item['choices'].reverse()
         numeric_result = float(answer) / float(len(reversed_choices) - 1)
+
       numeric_results.append(numeric_result)
+
+      if self._verbose:
+        self._log('\n' + prompt.view().text() + '\n')
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+      executor.map(respond, self._questionnaire)
 
     final_result = np.mean(numeric_results)
     datum = {
@@ -316,7 +331,7 @@ class Anxiety(component.Component):
          'ascending_scale': True},
 
         {'statement': (
-            'I had a feeling of faintness .'),
+            'I had a feeling of faintness.'),
          'choices': AGREEMENT_SCALE_CHOICES,
          'ascending_scale': True},
 
