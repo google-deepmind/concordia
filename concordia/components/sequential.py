@@ -44,9 +44,9 @@ class Sequential(component.Component):
     for comp in self._components:
       comp.observe(observation)
 
-  def update_before_event(self, event_statement: str) -> None:
+  def update_before_event(self, cause_statement: str) -> None:
     for comp in self._components:
-      comp.update_before_event(event_statement)
+      comp.update_before_event(cause_statement)
 
   def update_after_event(self, event_statement: str) -> None:
     for comp in self._components:

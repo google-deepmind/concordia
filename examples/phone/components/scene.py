@@ -15,7 +15,6 @@
 """A GameMaster that simulates a player's interaction with their phone."""
 
 import textwrap
-
 from concordia.agents import basic_agent
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock

@@ -116,7 +116,7 @@ class AssociativeMemory:
       return self._memory_bank.copy()
 
   def _get_top_k_cosine(self, x: np.ndarray, k: int):
-    """Returns the top k rows of a dataframe that have the highest cosine similarity to an input vector x.
+    """Returns the top k most cosine similar rows to an input vector x.
 
     Args:
       x: The input vector.
@@ -139,7 +139,7 @@ class AssociativeMemory:
   def _get_top_k_similar_rows(
       self, x, k: int, use_recency: bool = True, use_importance: bool = True
   ):
-    """Returns the top k rows of a dataframe that have the highest cosine similarity to an input vector x.
+    """Returns the top k most similar rows to an input vector x.
 
     Args:
       x: The input vector.

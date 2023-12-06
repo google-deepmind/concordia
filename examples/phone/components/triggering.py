@@ -16,7 +16,6 @@
 """A component that runs the phone scene when a phone action is detected."""
 
 from collections.abc import Sequence
-
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories

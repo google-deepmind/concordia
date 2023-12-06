@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-"""Construct and an externality that implements elections within a game master."""
+"""Component that implements elections within a game master."""
 
 from collections.abc import Callable, Sequence
 import datetime

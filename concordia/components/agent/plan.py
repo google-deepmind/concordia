@@ -82,7 +82,7 @@ class SimPlan(component.Component):
   def observe(self, observation: str):
     self._last_observation.append(observation)
 
-  def update(self, push_to_mem=True):
+  def update(self):
     observation = '\n'.join(self._last_observation)
     self._last_observation = []
     memories = self._memory.retrieve_associative(
