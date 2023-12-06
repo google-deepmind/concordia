@@ -22,9 +22,9 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
-from concordia.examples.phone.components import apps
-from concordia.examples.phone.components import logging
-from concordia.examples.phone.components import scene
+from examples.phone.components import apps
+from examples.phone.components import logging
+from examples.phone.components import scene
 from concordia.language_model import language_model
 from concordia.typing import component
 from concordia.utils import helper_functions

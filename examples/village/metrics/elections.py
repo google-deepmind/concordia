@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from concordia.document import interactive_document
-from concordia.examples.village.components import elections
+from examples.village.components import elections
 from concordia.typing import clock as game_clock
 from concordia.typing import metric
 
