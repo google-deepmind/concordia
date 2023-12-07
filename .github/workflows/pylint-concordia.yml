@@ -8,7 +8,6 @@ on:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pylint-concordia.yml'
       - '.pylintrc'
-      - 'examples/**'
       - 'concordia/**'
       - 'setup.py'
   pull_request:
@@ -18,7 +17,6 @@ on:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pylint-concordia.yml'
       - '.pylintrc'
-      - 'examples/**'
       - 'concordia/**'
       - 'setup.py'
   workflow_dispatch:

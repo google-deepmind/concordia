@@ -7,7 +7,6 @@ on:
     paths:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pytype-concordia.yml'
-      - 'examples/**'
       - 'concordia/**'
       - 'pyproject.toml'
       - 'setup.py'
@@ -17,7 +16,6 @@ on:
     paths:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pytype-concordia.yml'
-      - 'examples/**'
       - 'concordia/**'
       - 'pyproject.toml'
       - 'setup.py'
