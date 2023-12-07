@@ -95,10 +95,10 @@ class GptLanguageModel(language_model.LanguageModel):
     attempts = 1
     prompt = (
         prompt
-        + '\nRespond with one of the following responses: '
-        + ' ,'.join(responses)
-        + '.'
+        + '\nRespond EXACTLY with one of the following strings:\n'
+        + '\n'.join(responses) + '.'
     )
+
     for _ in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       sample = self.sample_text(
           prompt,
