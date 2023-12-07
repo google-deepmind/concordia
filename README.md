@@ -74,12 +74,11 @@ installation as follows:
 
 ## Bring your own LLM
 
-To work, Concordia requires an access to an LLM API. The example below is 
-written using [Saxml](https://github.com/google/saxml), but any LLM API that 
-supports sampling text and calculating log-likelihood would work. We recommend
-using large (>300B parameters) models. If using a custom LLM API, the user has
-to provide a text embedder to be used by the associative memory. By default we
-use the Sentence-T5 for this, but any fixed-dimensional embedding would work.
+To work, Concordia requires an access to an LLM API. Any LLM API that 
+supports sampling text would work. We tested Concordia with a model with 340B
+parameters. If using a custom LLM API, the user has to provide a text embedder
+to be used by the associative memory. By default we use the Sentence-T5 for
+this, but any fixed-dimensional embedding would work.
 
 ## Example usage
 
@@ -98,13 +97,17 @@ If you use Concordia in your work, please cite the accompanying article:
 <!-- TODO: b/311364310 - update CITATION.bib and README.md once tech report published -->
 
 ```bibtex
-@inproceedings{vezhnevets2023concordia,
-    title={Concordia: a library for generative social simulation},
-    author={Alexander Sasha Vezhnevets AND Joel Z. Leibo AND John P. Agapiou
-    AND Danny Karmon AND Avia Aharon AND Ron Viz
-    AND Jayd Matyas AND Edgar Du\'e\~nez-Guzm\'an AND Wil Cunnigham 
-            AND Simon Osindero},
-    year={2023},
+@misc{vezhnevets2023generative,
+      title={Generative agent-based modeling with actions grounded in physical,
+      social, or digital space using Concordia}, 
+      author={Alexander Sasha Vezhnevets and John P. Agapiou and Avia Aharon and
+      Ron Ziv and Jayd Matyas and Edgar A. Duéñez-Guzmán and
+      William A. Cunningham and Simon Osindero
+      and Danny Karmon and Joel Z. Leibo},
+      year={2023},
+      eprint={2312.03664},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI}
 }
 ```
 
