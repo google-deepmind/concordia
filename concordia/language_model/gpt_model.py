@@ -65,17 +65,16 @@ class GptLanguageModel(language_model.LanguageModel):
   ) -> str:
     messages = [{'role': 'user', 'content': prompt}]
 
-    response = openai.chat.completions.create(
-        api_key=self._api_key,
+    response = self._client.chat.completions.create(
         model=self._model_name,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
         timeout=timeout,
-        request_timeout=timeout,
         stop=terminators,
         seed=seed,
     )
+
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel,
@@ -94,6 +93,12 @@ class GptLanguageModel(language_model.LanguageModel):
     max_characters = len(max(responses, key=len))
 
     attempts = 1
+    prompt = (
+        prompt
+        + '\nRespond with one of the following responses: '
+        + ' ,'.join(responses)
+        + '.'
+    )
     for _ in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       sample = self.sample_text(
           prompt,
