@@ -60,6 +60,8 @@ runs:
     - name: Activate virtual environment
       shell: bash
       run: |
+        pwd
+        ls
         source venv/bin/activate
         pip list
         echo "PATH=${PATH}" >> $GITHUB_ENV
