@@ -84,7 +84,7 @@ class GoalAchievementMetric(component.Component):
         (
             'Evaluate if the following activity brings'
             f' {self._player_name} closer to their goal'
-            f' "{self._player_name} .\n Activity: {observation}\n'
+            f' "{self._player_goal} .\n Activity: {observation}\n'
         ),
         self._scale,
     )
