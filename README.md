@@ -8,8 +8,7 @@
 [![Tests](../../actions/workflows/test-concordia.yml/badge.svg)](../../actions/workflows/test-concordia.yml)
 [![Examples](../../actions/workflows/test-examples.yml/badge.svg)](../../actions/workflows/test-examples.yml)
 
-<!-- TODO: b/311364310 - add link to the tech report once it is published -->
-[Concordia Tech Report]()
+[Concordia Tech Report](https://arxiv.org/abs/2312.03664)
 
 ## About
 
