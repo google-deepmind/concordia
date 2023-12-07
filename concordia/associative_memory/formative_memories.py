@@ -120,7 +120,7 @@ class FormativeMemoryFactory:
 
     query = '\n'.join([
         (
-            'Replace all the pronounce in the following text with the name'
+            'Replace all the pronouns in the following text with the name'
             f' {name}.'
         ),
         'The text:',
