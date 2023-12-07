@@ -35,9 +35,7 @@ runs:
       id: restore
       uses: actions/cache/restore@v3
       with:
-        path: |
-          concordia/assets
-          venv
+        path: venv
         key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ inputs.python-version}}-${{ hashFiles('setup.py') }}
         restore-keys: |
           install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ inputs.python-version }}-
@@ -56,9 +54,7 @@ runs:
       if: steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v3
       with:
-        path:  |
-          concordia/assets
-          venv
+        path: venv
         key: ${{ steps.restore.outputs.cache-primary-key }}
 
     - name: Activate virtual environment
