@@ -94,8 +94,6 @@ have no specific agenda, apart from voting in the election.
 
 If you use Concordia in your work, please cite the accompanying article:
 
-<!-- TODO: b/311364310 - update CITATION.bib and README.md once tech report published -->
-
 ```bibtex
 @misc{vezhnevets2023generative,
       title={Generative agent-based modeling with actions grounded in physical,
