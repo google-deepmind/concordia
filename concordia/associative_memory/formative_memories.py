@@ -112,8 +112,8 @@ class FormativeMemoryFactory:
       question += f'Take into account the following context: {context}'
     result = prompt.open_question(
         question,
-        max_characters=8000,
-        max_tokens=8000,
+        max_characters=4000,
+        max_tokens=4000,
         terminators=[],
     )
     result = re.sub(r'\.\s', '.\n', result)
@@ -204,8 +204,8 @@ class FormativeMemoryFactory:
 
       episode = prompt.open_question(
           question,
-          max_characters=8000,
-          max_tokens=8000,
+          max_characters=4000,
+          max_tokens=4000,
           terminators=[],
       )
       memory.add(

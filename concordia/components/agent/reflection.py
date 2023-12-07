@@ -83,7 +83,7 @@ class Reflection(component.Component):
                 f' answer about {self._agent_name}?'
             ),
         ]),
-        max_characters=5000,
+        max_characters=4000,
         max_tokens=5000,
         terminators=(),
     )
@@ -105,7 +105,7 @@ class Reflection(component.Component):
                 ' statements?'
             ),
         ]),
-        max_characters=5000,
+        max_characters=4000,
         max_tokens=5000,
         terminators=(),
     )
