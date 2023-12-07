@@ -25,8 +25,13 @@ from collections.abc import Callable
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+import tensorflow_text
 
 DEFAULT_ENCODER_URL = "https://tfhub.dev/google/sentence-t5/st5-base/1"
+
+# `import tensorflow_text` required for embedder to work
+# See https://github.com/tensorflow/tensorflow/issues/38597
+del tensorflow_text
 
 
 class EmbedderST5(Callable):

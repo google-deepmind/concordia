@@ -19,7 +19,7 @@ import setuptools
 
 setuptools.setup(
     name='gdm-concordia',
-    version='1.0.0.dev.1',
+    version='1.0.0.dev.4',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
@@ -66,7 +66,8 @@ setuptools.setup(
         'retry',
         'scipy',
         'tensorflow',
-        'tensorflow_hub',
+        'tensorflow-hub',
+        'tensorflow-text',
         'termcolor',
         'typing-extensions',
     ],
