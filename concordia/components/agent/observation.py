@@ -85,7 +85,7 @@ class ObservationSummary(component.Component):
       verbose: bool = False,
       log_colour='green',
   ):
-    """Initialize a construct containing the agent's plan for the day.
+    """Summarize the agent's observations.
 
     Args:
       model: a language model
@@ -120,8 +120,8 @@ class ObservationSummary(component.Component):
     context = '\n'.join(
         [
             f"{self._agent_name}'s "
-            + (construct.name() + ':\n' + construct.state())
-            for construct in self._components
+            + (comp.name() + ':\n' + comp.state())
+            for comp in self._components
         ]
     )
 
