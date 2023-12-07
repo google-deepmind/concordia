@@ -88,7 +88,7 @@ players, Alice and Bob, are running for mayor. The third player, Charlie,
 is trying to ruin Alice's reputation with disinformation. The last two players 
 have no specific agenda, apart from voting in the election.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google-deepmind/concordia/examples/village/riverbend_elections.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google-deepmind/concordia/blob/main/examples/three_key_questions.ipynb)
 
 ## Citing Concordia
 
