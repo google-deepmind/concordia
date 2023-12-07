@@ -19,7 +19,7 @@ import setuptools
 
 setuptools.setup(
     name='gdm-concordia',
-    version='1.0.0.dev.0',
+    version='1.0.0.dev.1',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
@@ -42,6 +42,7 @@ setuptools.setup(
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
         'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
@@ -50,7 +51,7 @@ setuptools.setup(
         'concordia': 'concordia',
     },
     package_data={},
-    python_requires='>=3.11',
+    python_requires='>=3.10',
     install_requires=[
         # TODO: b/312199199 - remove some requirements.
         'absl-py',
