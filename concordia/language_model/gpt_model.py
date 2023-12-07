@@ -47,6 +47,9 @@ class GptLanguageModel(language_model.LanguageModel):
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
+    self._client = openai.OpenAI(
+        api_key=api_key,
+    )
 
   @override
   def sample_text(
@@ -61,7 +64,8 @@ class GptLanguageModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> str:
     messages = [{'role': 'user', 'content': prompt}]
-    response = openai.ChatCompletion.create(
+
+    response = openai.chat.completions.create(
         api_key=self._api_key,
         model=self._model_name,
         messages=messages,
