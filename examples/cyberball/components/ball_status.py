@@ -64,7 +64,7 @@ class BallStatus(component.Component):
     """Return a player-specific view of the ball's state."""
     return self._partial_states[player_name]
 
-  def update(self) -> str:
+  def update(self) -> None:
     self._state = '\n'
     self._partial_states = {name: '' for name in self._player_names}
     per_player_prompt = {}
@@ -99,5 +99,3 @@ class BallStatus(component.Component):
         'per player prompts': per_player_prompt,
     }
     self._history.append(update_log)
-
-    return self._state
