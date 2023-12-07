@@ -59,7 +59,7 @@ setuptools.setup(
         'ipython',
         'matplotlib',
         'numpy',
-        'openai',
+        'openai>=1.3.0',
         'pandas==1.5.3',
         'python-dateutil',
         'reactivex',
