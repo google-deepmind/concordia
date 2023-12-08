@@ -23,3 +23,5 @@ __pycache__/
 
 # Type checking
 .pytype
+
+**/examples/ollama.log
