@@ -37,9 +37,9 @@ runs:
       uses: actions/cache/restore@v3
       with:
         path: venv
-        key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.version }}-${{ hashFiles('setup.py') }}
+        key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('setup.py') }}
         restore-keys: |
-          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.version }}-
+          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-
 
     - name: Install Concordia
       if: steps.restore.outputs.cache-hit != 'true'
