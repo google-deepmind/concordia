@@ -81,11 +81,19 @@ this, but any fixed-dimensional embedding would work.
 
 ## Example usage
 
-Find below an illustrative social simulation with 5 players which simulates the 
-day of mayoral elections in an imaginary town caller Riverbend. First two 
-players, Alice and Bob, are running for mayor. The third player, Charlie, 
-is trying to ruin Alice's reputation with disinformation. The last two players 
-have no specific agenda, apart from voting in the election.
+Find below an illustrative social simulation where 4 friends are stuck in a
+snowed in pub. Two of them have a dispute over a crashed car.
+
+The agents are built using a simple reasoning inspired by March and Olsen (2011)
+who posit that humans generally act as though they choose their actions by
+answering three key questions:
+
+1. What kind of situation is this?
+2. What kind of person am I?
+3. What does a person such as I do in a situation such as this?
+
+The agents used in this example implement exactly these components, and nothing
+else.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google-deepmind/concordia/blob/main/examples/three_key_questions.ipynb)
 
