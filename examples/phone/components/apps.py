@@ -25,7 +25,7 @@ import textwrap
 import typing
 from typing import Any
 
-import docstring_parser
+import docstring_parser  # pytype: disable=import-error  # Fails on GitHub.
 
 _DATE_FORMAT = '%Y-%m-%d %H:%M'
 
