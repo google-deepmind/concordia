@@ -76,11 +76,13 @@ setuptools.setup(
         'dev': [
             'build',
             'isort',
+            'jupyter',
             'pipreqs',
             'pyink',
             'pylint',
             'pytest-xdist',
             'pytype',
+            'twine',
         ],
     },
 )
