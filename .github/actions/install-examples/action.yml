@@ -15,6 +15,7 @@ runs:
       run: pip list
 
     - name: Convert notebooks
+      shell: bash
       run: |
         jupyter nbconvert --to=python --output-dir=notebooks \
             --RegexRemovePreprocessor.patterns='!pip' \
