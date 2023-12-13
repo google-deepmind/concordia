@@ -44,23 +44,21 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip
-          pip install build
+          pip install pip==23.3.1
+          pip install build==1.0.3
+          pip install pytest-xdist==3.5.0
+          pip install setuptools==68.0.0
 
       - name: Build distribution
         run: python -m build --outdir dist/
 
       - name: Install from source distribution
         if: github.event_name == 'release' || inputs.test_wheel
-        run: |
-          pip install setuptools
-          pip -vvv install dist/*.whl
+        run: pip -vvv install dist/*.whl
 
       - name: Test installation
         if: github.event_name == 'release' || inputs.test_wheel
-        run: |
-          pip install pytest-xdist
-          pytest -n auto -rax --pyargs concordia
+        run: pytest -n auto -rax --pyargs concordia
 
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
