@@ -45,3 +45,6 @@ jobs:
 
       - name: Run PyType on examples
         run: pytype examples
+
+      - name: Run PyType on notebooks
+        run: pytype --pythonpath=. notebooks
