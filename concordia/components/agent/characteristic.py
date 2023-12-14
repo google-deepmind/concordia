@@ -104,7 +104,6 @@ class Characteristic(component.Component):
         f"How would one describe {self._agent_name}'s"
         f' {self._characteristic_name} given the following statements? '
         f'{self._extra_instructions}'
-        f'Start the answer with "{self._agent_name} is"'
     )
     if self._clock_now is not None:
       question = f'Current time: {self._clock_now()}.\n{question}'
@@ -113,6 +112,7 @@ class Characteristic(component.Component):
         '\n'.join([question, f'Statements:\n{mems}']),
         max_characters=3000,
         max_tokens=1000,
+        answer_prefix=f'{self._agent_name} is ',
     )
 
     self._last_chain = prompt
