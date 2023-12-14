@@ -71,14 +71,7 @@ class PlayerStatus(component.Component):
     self._partial_states = {name: '' for name in self._player_names}
     per_player_prompt = {}
     for player_name in self._player_names:
-      query = f'{player_name}'
-      mems = (
-          '\n'.join(
-              self._memory.retrieve_associative(
-                  query, k=self._num_memories_to_retrieve, add_time=True)
-          )
-          + '\n'
-      )
+      mems = '\n'.join(self._memory.retrieve_by_regex(player_name)) + '\n'
       prompt = interactive_document.InteractiveDocument(self._model)
       prompt.statement(f'Events:\n{mems}')
       time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
