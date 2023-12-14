@@ -100,12 +100,13 @@ class SimPlan(component.Component):
       )
     memories = '\n'.join(memories)
 
-    components = '\n'.join(
-        [
-            f"{self._agent_name}'s "
-            + (construct.name() + ':\n' + construct.state())
-            for construct in self._components
-        ]
+    components = '\n'.join([
+        f"{self._agent_name}'s {construct.name()}:\n{construct.state()}"
+        for construct in self._components
+    ])
+
+    in_context_example = (
+        'Please format the plan like in this example: [21:00 - 22:00] watch TV'
     )
 
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -116,10 +117,8 @@ class SimPlan(component.Component):
     prompt.statement(f'Current plan: {self._current_plan}')
     prompt.statement(f'Current situation: {observation}')
     should_replan = prompt.yes_no_question(
-        (
-            f'Given the above, should {self._agent_name} change their current '
-            + 'plan?'
-        )
+        f'Given the above, should {self._agent_name} change their current '
+        'plan? '
     )
 
     if should_replan or not self._state:
@@ -127,19 +126,15 @@ class SimPlan(component.Component):
       if self._goal_component:
         goal_mention = ', keep in mind the goal.'
       self._current_plan = prompt.open_question(
-          f"What is {self._agent_name}'s plan for {self._timescale}? Please,"
+          f"Write {self._agent_name}'s plan for {self._timescale}? Please,"
           f' provide a {self._time_adverb} schedule'
-          + goal_mention,
+          + goal_mention + in_context_example,
           max_characters=1200,
           max_tokens=1200,
           terminators=(),
       )
-      if self._goal_component:
-        self._state = (
-            f'The goal: {self._goal_component.state()}\n{self._current_plan}'
-        )
-      else:
-        self._state = self._current_plan
+
+    self._state = self._current_plan
 
     if self._verbose:
       self._log('\n' + prompt.view().text() + '\n')
