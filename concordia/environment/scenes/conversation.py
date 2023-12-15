@@ -88,7 +88,7 @@ class ConversationTracker(component.Component):
     # The event_statement contains the last utterence in the conversation
     self._state += '\n' + event_statement
     if self._verbose:
-      self._log(f'Current state of converstion: {self._state}')
+      self._log(f'Current state of conversation: {self._state}')
     for player in self._players:
       player.observe(event_statement)
 
