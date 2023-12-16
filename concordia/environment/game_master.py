@@ -146,7 +146,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
           lambda construct: construct.update_before_event(
               f'{player_name}: {action_attempt}'
           ),
-          self._components,
+          self._components.values(),
       )
 
     for comp in self._components.values():
