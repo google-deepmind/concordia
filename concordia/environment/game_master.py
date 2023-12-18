@@ -152,7 +152,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     for comp in self._components.values():
       state_of_component = comp.state()
       if state_of_component:
-        prompt.statement(comp.name() + ': ' + comp.state() + '\n')
+        prompt.statement(comp.name() + ': ' + state_of_component + '\n')
 
     prompt.statement(f"\n{player_name}'s attempted action: {action_attempt}")
 
