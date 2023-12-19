@@ -33,6 +33,7 @@ class BallStatus(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       player_names: Sequence[str],
+      num_memories_to_retrieve: int = 10,
       verbose: bool = False,
   ):
     self._memory = memory
@@ -43,6 +44,7 @@ class BallStatus(component.Component):
     self._verbose = verbose
     self._history = []
     self._clock_now = clock_now
+    self._num_memories_to_retrieve = num_memories_to_retrieve
 
   def name(self) -> str:
     return 'Status of the ball'
@@ -69,13 +71,8 @@ class BallStatus(component.Component):
     self._partial_states = {name: '' for name in self._player_names}
     per_player_prompt = {}
     for player_name in self._player_names:
-      query = f'{player_name}'
-      mems = (
-          '\n'.join(
-              self._memory.retrieve_associative(query, k=10, add_time=True)
-          )
-          + '\n'
-      )
+      memories = self._memory.retrieve_by_regex(player_name)
+      mems = memories[-self._num_memories_to_retrieve:]
       prompt = interactive_document.InteractiveDocument(self._model)
       prompt.statement(f'Events:\n{mems}')
       time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
