@@ -60,12 +60,18 @@ class Schedule(component.Component):
   def update(self) -> None:
     now = self._clock_now()
     events = []
-    for _, event_data in self._schedule.items():
+    events_to_pop = []
+    for event_name, event_data in self._schedule.items():
       if now == event_data.time:
         events.append(event_data.description)
         if event_data.trigger is not None:
           event_data.trigger()
+        events_to_pop.append(event_name)
+
+    for event_name in events_to_pop:
+      self._schedule.pop(event_name)
+
     if events:
       self._state = '\n'.join(events)
     else:
-      self._state = None
+      self._state = ''
