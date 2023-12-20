@@ -268,6 +268,31 @@ class AssociativeMemory:
 
     return self._pd_to_text(data, add_time=add_time, sort_by_time=sort_by_time)
 
+  def retrieve_time_interval(
+      self,
+      time_from: datetime.datetime,
+      time_until: datetime.datetime,
+      add_time: bool = False,
+  ):
+    """Retrieve memories within a time interval.
+
+    Args:
+      time_from: the start time of the interval
+      time_until: the end time of the interval
+      add_time: whether to add time stamp to the output
+
+    Returns:
+      List of strings corresponding to memories
+    """
+
+    with self._memory_bank_lock:
+      data = self._memory_bank[
+          (self._memory_bank['time'] >= time_from)
+          & (self._memory_bank['time'] <= time_until)
+      ]
+
+    return self._pd_to_text(data, add_time=add_time, sort_by_time=True)
+
   def retrieve_recent(
       self,
       k: int = 1,

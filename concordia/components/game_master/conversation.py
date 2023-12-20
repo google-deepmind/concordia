@@ -16,6 +16,7 @@
 """Externality for the Game Master, which generates conversations."""
 
 from collections.abc import Sequence
+import datetime
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -123,7 +124,12 @@ class Conversation(component.Component):
             generic_components.constant.ConstantComponent(
                 name='General knowledge:', state=context
             ),
-            sim_components.observation.Observation(agent_name=name, memory=mem),
+            sim_components.observation.Observation(
+                agent_name=name,
+                memory=mem,
+                clock_now=scene_clock.now,
+                timeframe=datetime.timedelta(days=1),
+            ),
         ],
         verbose=True,
     )
