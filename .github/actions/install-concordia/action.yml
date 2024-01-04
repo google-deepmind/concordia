@@ -27,10 +27,6 @@ runs:
     - name: Set up Python ${{ inputs.python-version }}
       id: setup-python
       uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1
-      with:
-        python-version: ${{ inputs.python-version }}
-        cache: 'pip'
-        cache-dependency-path: setup.py
 
     - name: Restore Concordia installation
       id: restore
@@ -39,7 +35,7 @@ runs:
         path: venv
         key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('setup.py') }}
         restore-keys: |
-          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-
+          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-
 
     - name: Install Concordia
       if: steps.restore.outputs.cache-hit != 'true'
