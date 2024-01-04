@@ -43,9 +43,7 @@ runs:
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        pip install --upgrade pip
-        pip install --upgrade virtualenv
-        virtualenv venv
+        python -m venv venv
         source venv/bin/activate
         pip install --editable .[dev]
 

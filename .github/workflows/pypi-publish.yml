@@ -42,23 +42,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
-        run: |
-          pip install pip==23.3.1
-          pip install build==1.0.3
-          pip install pytest-xdist==3.5.0
-          pip install setuptools==68.0.0
-
       - name: Build distribution
-        run: python -m build --outdir dist/
+        run: |
+          pip install build==1.0.3
+          python -m build --outdir dist/
 
-      - name: Install from source distribution
+      - name: Test distribution
         if: github.event_name == 'release' || inputs.test_wheel
-        run: pip -vvv install dist/*.whl
-
-      - name: Test installation
-        if: github.event_name == 'release' || inputs.test_wheel
-        run: pytest -n auto -rax --pyargs concordia
+        run: |
+          VENV="$(mktemp --dry-run)"
+          python -m venv "${VENV}"
+          source "${VENV}/bin/activate"
+          pip install dist/*.whl
+          pip install pytest-xdist
+          pytest -n auto -rax --pyargs concordia
+          deactivate
+          rm -rf "${VENV}"
 
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
