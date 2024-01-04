@@ -78,6 +78,7 @@ setuptools.setup(
             'isort',
             'jupyter',
             'pipreqs',
+            'pip-tools',
             'pyink',
             'pylint',
             'pytest-xdist',
