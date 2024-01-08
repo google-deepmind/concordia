@@ -26,7 +26,7 @@ runs:
 
     - name: Set up Python ${{ inputs.python-version }}
       id: setup-python
-      uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1
+      uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
       with:
         python-version: ${{ inputs.python-version }}
 
