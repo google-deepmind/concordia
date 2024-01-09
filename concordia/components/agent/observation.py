@@ -92,6 +92,7 @@ class ObservationSummary(component.Component):
       memory: associative_memory.AssociativeMemory,
       components: list[component.Component],
       component_name: str = 'Summary of observations',
+      prompt: str | None = None,
       display_timeframe: bool = True,
       verbose: bool = False,
       log_colour='green',
@@ -110,6 +111,7 @@ class ObservationSummary(component.Component):
       memory: Associative memory retrieve observations from.
       components: List of components to summarise.
       component_name: Name of the component.
+      prompt: Language prompt for summarising memories and components.
       display_timeframe: Whether to display the time interval as text.
       verbose: Whether to print the observations.
       log_colour: Colour to print the log.
@@ -125,6 +127,9 @@ class ObservationSummary(component.Component):
     self._components = components
     self._state = ''
     self._display_timeframe = display_timeframe
+    self._prompt = prompt or (
+        'Summarize the memories above into one sentence '
+        f'about {self._agent_name}.')
 
     self._verbose = verbose
 
@@ -159,10 +164,10 @@ class ObservationSummary(component.Component):
         self._agent_name
         + ' '
         + prompt.open_question(
-            'Summarize the memories above into one sentence about'
-            f' {self._agent_name}.',
+            self._prompt,
             answer_prefix=f'{self._agent_name} ',
-            max_characters=500,
+            max_characters=1200,
+            max_tokens=1200,
         )
     )
 
