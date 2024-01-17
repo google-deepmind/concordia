@@ -102,17 +102,15 @@ else.
 If you use Concordia in your work, please cite the accompanying article:
 
 ```bibtex
-@misc{vezhnevets2023generative,
-      title={Generative agent-based modeling with actions grounded in physical,
-      social, or digital space using Concordia}, 
-      author={Alexander Sasha Vezhnevets and John P. Agapiou and Avia Aharon and
-      Ron Ziv and Jayd Matyas and Edgar A. Duéñez-Guzmán and
-      William A. Cunningham and Simon Osindero
-      and Danny Karmon and Joel Z. Leibo},
-      year={2023},
-      eprint={2312.03664},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI}
+@article{vezhnevets2023generative,
+  title={Generative agent-based modeling with actions grounded in physical,
+  social, or digital space using Concordia},
+  author={Vezhnevets, Alexander Sasha and Agapiou, John P and Aharon, Avia and
+  Ziv, Ron and Matyas, Jayd and Du{\'e}{\~n}ez-Guzm{\'a}n, Edgar A and
+  Cunningham, William A and Osindero, Simon and Karmon, Danny and
+  Leibo, Joel Z},
+  journal={arXiv preprint arXiv:2312.03664},
+  year={2023}
 }
 ```
 
