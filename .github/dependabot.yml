@@ -9,3 +9,13 @@ updates:
     directory: /
     schedule:
       interval: monthly
+
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/install-concordia"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: "github-actions"
+    directory: "/.github/actions/install-examples"
+    schedule:
+      interval: monthly

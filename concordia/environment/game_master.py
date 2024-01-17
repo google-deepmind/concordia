@@ -146,13 +146,13 @@ class GameMaster(simulacrum_game_master.GameMaster):
           lambda construct: construct.update_before_event(
               f'{player_name}: {action_attempt}'
           ),
-          self._components,
+          self._components.values(),
       )
 
     for comp in self._components.values():
       state_of_component = comp.state()
       if state_of_component:
-        prompt.statement(comp.name() + ': ' + comp.state() + '\n')
+        prompt.statement(comp.name() + ': ' + state_of_component + '\n')
 
     prompt.statement(f"\n{player_name}'s attempted action: {action_attempt}")
 
@@ -225,9 +225,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
     for comp in self._components.values():
       state_of_component = comp.partial_state(player_name)
       if state_of_component:
-        self._players_by_name[player_name].observe(
-            comp.name() + ': ' + state_of_component
-        )
+        for observation in state_of_component.splitlines():
+          if observation:
+            self._players_by_name[player_name].observe(observation)
 
     return
 

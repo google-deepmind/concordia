@@ -78,6 +78,6 @@ class SimIdentity(component.Component):
       for c in self._identity_components:
         executor.submit(c.update)
 
-    self._state = f'Name: {self._agent_name}\n' + '\n'.join(
-        [c.state() for c in self._identity_components]
+    self._state = '\n'.join(
+        [f'{c.name()}: {c.state()}' for c in self._identity_components]
     )

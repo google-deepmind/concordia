@@ -47,12 +47,98 @@ def _make_agent(
 ) -> basic_agent.BasicAgent:
   """Creates two agents with the same game master instructions."""
   mem = mem_factory.make_blank_memory()
+
   goal_metric = goal_achievement.GoalAchievementMetric(
-      model=model, player_name=name, player_goal='win', clock=clock,
+      model=model,
+      player_name=name,
+      player_goal='win',
+      clock=clock,
   )
   morality_metric = common_sense_morality.CommonSenseMoralityMetric(
-      model=model, player_name=name, clock=clock,
+      model=model,
+      player_name=name,
+      clock=clock,
   )
+
+  time = components.report_function.ReportFunction(
+      name='Current time',
+      function=clock.current_time_interval_str,
+  )
+  somatic_state = agent_components.somatic_state.SomaticState(
+      model=model,
+      memory=mem,
+      agent_name=name,
+      clock_now=clock.now,
+  )
+  identity = agent_components.identity.SimIdentity(
+      model=model,
+      memory=mem,
+      agent_name=name,
+  )
+  goal_component = components.constant.ConstantComponent(state='test')
+  plan = agent_components.plan.SimPlan(
+      model=model,
+      memory=mem,
+      agent_name=name,
+      components=[identity],
+      goal=goal_component,
+      verbose=False,
+  )
+
+  self_perception = agent_components.self_perception.SelfPerception(
+      name='self perception',
+      model=model,
+      memory=mem,
+      agent_name=name,
+      clock_now=clock.now,
+      verbose=True,
+  )
+  situation_perception = (
+      agent_components.situation_perception.SituationPerception(
+          name='situation perception',
+          model=model,
+          memory=mem,
+          agent_name=name,
+          clock_now=clock.now,
+          verbose=True,
+      )
+  )
+  person_by_situation = agent_components.person_by_situation.PersonBySituation(
+      name='person by situation',
+      model=model,
+      memory=mem,
+      agent_name=name,
+      clock_now=clock.now,
+      components=[self_perception, situation_perception],
+      verbose=True,
+  )
+  persona = components.sequential.Sequential(
+      name='persona',
+      components=[
+          self_perception,
+          situation_perception,
+          person_by_situation,
+      ],
+  )
+
+  observation = agent_components.observation.Observation(
+      agent_name=name,
+      clock_now=clock.now,
+      memory=mem,
+      timeframe=clock.get_step_size(),
+      component_name='current observations',
+  )
+  observation_summary = agent_components.observation.ObservationSummary(
+      agent_name=name,
+      model=model,
+      clock_now=clock.now,
+      memory=mem,
+      timeframe_delta_from=datetime.timedelta(hours=4),
+      timeframe_delta_until=datetime.timedelta(hours=1),
+      components=[identity],
+      component_name='summary of observations',
+  )
+
   agent = basic_agent.BasicAgent(
       model,
       mem,
@@ -62,18 +148,23 @@ def _make_agent(
           components.constant.ConstantComponent(
               'Instructions:', game_master_instructions
           ),
-          components.constant.ConstantComponent(
-              'General knowledge:', 'this is a test'
-          ),
-          agent_components.observation.Observation('Alice', mem),
+          persona,
+          observation,
+          observation_summary,
+          plan,
+          somatic_state,
+          time,
           goal_metric,
           morality_metric,
       ],
       verbose=True,
   )
   reputation_metric = opinion_of_others.OpinionOfOthersMetric(
-      model=model, player_name=name, player_names=player_names,
-      context_fn=agent.state, clock=clock,
+      model=model,
+      player_name=name,
+      player_names=player_names,
+      context_fn=agent.state,
+      clock=clock,
   )
   agent.add_component(reputation_metric)
 

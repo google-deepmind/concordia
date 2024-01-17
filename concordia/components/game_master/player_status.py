@@ -36,6 +36,16 @@ class PlayerStatus(component.Component):
       num_memories_to_retrieve: int = 10,
       verbose: bool = False,
   ):
+    """Constructs a PlayerStatus component.
+
+    Args:
+      clock_now: A function that returns the current time.
+      model: A language model.
+      memory: An associative memory.
+      player_names: A list of player names to track.
+      num_memories_to_retrieve: The number of memories to retrieve (max).
+      verbose: Whether to print the prompt to the console.
+    """
     self._memory = memory
     self._model = model
     self._state = ''
@@ -71,16 +81,10 @@ class PlayerStatus(component.Component):
     self._partial_states = {name: '' for name in self._player_names}
     per_player_prompt = {}
     for player_name in self._player_names:
-      query = f'{player_name}'
-      mems = (
-          '\n'.join(
-              self._memory.retrieve_associative(
-                  query, k=self._num_memories_to_retrieve, add_time=True)
-          )
-          + '\n'
-      )
+      memories = self._memory.retrieve_by_regex(player_name)
+      memories = memories[-self._num_memories_to_retrieve:]
       prompt = interactive_document.InteractiveDocument(self._model)
-      prompt.statement(f'Events:\n{mems}')
+      prompt.statement('Events:\n' + '\n'.join(memories) + '\n')
       time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
       prompt.statement(f'The current time is: {time_now}\n')
       player_loc = (

@@ -7,10 +7,6 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      test_wheel:
-        description: 'Test the wheel before uploading'
-        type: boolean
-        default: true
       upload_to_test_pypi:
         description: 'Upload to Test PyPi'
         type: boolean
@@ -37,30 +33,8 @@ jobs:
       - name: Checkout Concordia
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
 
-      - name: Set up Python
-        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install build
-
       - name: Build distribution
-        run: python -m build --outdir dist/
-
-      - name: Install from source distribution
-        if: github.event_name == 'release' || inputs.test_wheel
-        run: |
-          pip install setuptools
-          pip -vvv install dist/*.whl
-
-      - name: Test installation
-        if: github.event_name == 'release' || inputs.test_wheel
-        run: |
-          pip install pytest-xdist
-          pytest -n auto -rax --pyargs concordia
+        run: python setup.py sdist bdist_wheel
 
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi

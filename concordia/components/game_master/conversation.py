@@ -16,6 +16,7 @@
 """Externality for the Game Master, which generates conversations."""
 
 from collections.abc import Sequence
+import datetime
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -123,7 +124,12 @@ class Conversation(component.Component):
             generic_components.constant.ConstantComponent(
                 name='General knowledge:', state=context
             ),
-            sim_components.observation.Observation(agent_name=name, memory=mem),
+            sim_components.observation.Observation(
+                agent_name=name,
+                memory=mem,
+                clock_now=scene_clock.now,
+                timeframe=datetime.timedelta(days=1),
+            ),
         ],
         verbose=True,
     )
@@ -215,7 +221,6 @@ class Conversation(component.Component):
     conversation_occurred = document.yes_no_question(
         'Does the event suggest anyone said anything or is about to speak?'
     )
-    conversation_summary = ''
     if self._verbose:
       self._log('\n Checking if conversation occurred.')
 
@@ -307,10 +312,10 @@ class Conversation(component.Component):
         }
 
         conversation_summary = who_talked + ' ' + conversation_summary
+        self._memory.add(conversation_summary)
 
         if self._verbose:
           self._log(scene_output)
           self._log(conversation_summary)
 
     self._history.append(conversation_log)
-    self._memory.add(conversation_summary)

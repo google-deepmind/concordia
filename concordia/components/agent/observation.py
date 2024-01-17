@@ -15,6 +15,8 @@
 
 """Agent components for representing observation stream."""
 
+from collections.abc import Callable
+import datetime
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -23,31 +25,36 @@ import termcolor
 
 
 class Observation(component.Component):
-  """Component that stacks current observations together, clears on update."""
+  """Component that displays and adds observations to memory."""
 
   def __init__(
       self,
       agent_name: str,
+      clock_now: Callable[[], datetime.datetime],
+      timeframe: datetime.timedelta,
       memory: associative_memory.AssociativeMemory,
       component_name: str = 'Current observation',
       verbose: bool = False,
       log_colour='green',
   ):
-    """Initialize the observation component.
+    """Initializes the component.
 
     Args:
-      agent_name: the name of the agent
-      memory: memory for writing observations into
-      component_name: the name of this component
-      verbose: whether or not to print intermediate reasoning steps
-      log_colour: colour for logging
+      agent_name: Name of the agent.
+      clock_now: Function that returns the current time.
+      timeframe: Delta from current moment to display observations from, e.g. 1h
+        would display all observations made in the last hour.
+      memory: Associative memory to add and retrieve observations.
+      component_name: Name of this component.
+      verbose: Whether to print the observations.
+      log_colour: Colour to print the log.
     """
     self._agent_name = agent_name
     self._log_colour = log_colour
     self._name = component_name
     self._memory = memory
-
-    self._last_observation = []
+    self._timeframe = timeframe
+    self._clock_now = clock_now
 
     self._verbose = verbose
 
@@ -55,57 +62,79 @@ class Observation(component.Component):
     return self._name
 
   def state(self):
+    mems = self._memory.retrieve_time_interval(
+        self._clock_now() - self._timeframe, self._clock_now(), add_time=True
+    )
     if self._verbose:
-      self._log('\n'.join(self._last_observation) + '\n')
-    return '\n'.join(self._last_observation) + '\n'
+      self._log('\n'.join(mems) + '\n')
+    return '\n'.join(mems) + '\n'
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_colour), end='')
 
   def observe(self, observation: str):
-    self._last_observation.append(observation)
     self._memory.add(
         f'[observation] {observation}',
         tags=['observation'],
     )
 
-  def update(self):
-    self._last_observation = []
-    return ''
-
 
 class ObservationSummary(component.Component):
-  """Component that summarises current observations on update."""
+  """Component that summarises observations from a segment of time."""
 
   def __init__(
       self,
-      model: language_model.LanguageModel,
       agent_name: str,
+      model: language_model.LanguageModel,
+      clock_now: Callable[[], datetime.datetime],
+      timeframe_delta_from: datetime.timedelta,
+      timeframe_delta_until: datetime.timedelta,
+      memory: associative_memory.AssociativeMemory,
       components: list[component.Component],
+      component_name: str = 'Summary of observations',
+      prompt: str | None = None,
+      display_timeframe: bool = True,
       verbose: bool = False,
       log_colour='green',
   ):
-    """Summarize the agent's observations.
+    """Initializes the component.
 
     Args:
-      model: a language model
-      agent_name: the name of the agent
-      components: components to condition observation summarisation
-      verbose: whether or not to print intermediate reasoning steps
-      log_colour: colour for logging
+      agent_name: Name of the agent.
+      model: Language model to summarise the observations.
+      clock_now: Function that returns the current time.
+      timeframe_delta_from: delta from the current moment to the begnning of the
+        segment to summarise, e.g. 4h would summarise all observations that
+        happened from 4h ago intil clock_now minus timeframe_delta_until.
+      timeframe_delta_until: delta from the current moment to the end of the
+        segment to summarise.
+      memory: Associative memory retrieve observations from.
+      components: List of components to summarise.
+      component_name: Name of the component.
+      prompt: Language prompt for summarising memories and components.
+      display_timeframe: Whether to display the time interval as text.
+      verbose: Whether to print the observations.
+      log_colour: Colour to print the log.
     """
     self._model = model
-    self._state = ''
     self._agent_name = agent_name
     self._log_colour = log_colour
+    self._name = component_name
+    self._memory = memory
+    self._timeframe_delta_from = timeframe_delta_from
+    self._timeframe_delta_until = timeframe_delta_until
+    self._clock_now = clock_now
     self._components = components
-
-    self._last_observation = []
+    self._state = ''
+    self._display_timeframe = display_timeframe
+    self._prompt = prompt or (
+        'Summarize the memories above into one sentence '
+        f'about {self._agent_name}.')
 
     self._verbose = verbose
 
   def name(self) -> str:
-    return 'Summary of recent observations'
+    return self._name
 
   def state(self):
     return self._state
@@ -113,36 +142,45 @@ class ObservationSummary(component.Component):
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_colour), end='')
 
-  def observe(self, observation: str):
-    self._last_observation.append(observation)
-
   def update(self):
-    context = '\n'.join(
-        [
-            f"{self._agent_name}'s "
-            + (comp.name() + ':\n' + comp.state())
-            for comp in self._components
-        ]
-    )
+    context = '\n'.join([
+        f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
+        for comp in self._components
+    ])
 
-    numbered_observations = [
-        f'{i}. {observation}'
-        for i, observation in enumerate(self._last_observation)
-    ]
-    current_observations = '\n'.join(numbered_observations)
+    segment_start = self._clock_now() - self._timeframe_delta_from
+    segment_end = self._clock_now() - self._timeframe_delta_until
+
+    mems = self._memory.retrieve_time_interval(
+        segment_start,
+        segment_end,
+        add_time=True,
+    )
 
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(context + '\n')
-    prompt.statement(
-        'Current observations, numbered in chronological order:\n'
-        + f'{current_observations}\n'
-    )
-    self._state = prompt.open_question(
-        'Summarize the observations into one sentence.'
+    prompt.statement(f'Recent memories of {self._agent_name}:\n' + f'{mems}\n')
+    self._state = (
+        self._agent_name
+        + ' '
+        + prompt.open_question(
+            self._prompt,
+            answer_prefix=f'{self._agent_name} ',
+            max_characters=1200,
+            max_tokens=1200,
+        )
     )
 
-    self._last_observation = []
+    if self._display_timeframe:
+      if segment_start.date() == segment_end.date():
+        interval = segment_start.strftime(
+            '%d %b %Y [%H:%M:%S  '
+        ) + segment_end.strftime('- %H:%M:%S]: ')
+      else:
+        interval = segment_start.strftime(
+            '[%d %b %Y %H:%M:%S  '
+        ) + segment_end.strftime('- %d %b %Y  %H:%M:%S]: ')
+      self._state = f'{interval} {self._state}'
 
     if self._verbose:
-      self._log('\nObservation summary:')
-      self._log('\n' + prompt.view().text() + '\n')
+      self._log(self._state)

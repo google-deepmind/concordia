@@ -31,14 +31,18 @@ class Sequential(component.Component):
       comp.update()
 
   def state(self) -> str:
-    return '\n'.join(
-        [comp.name() + ': ' + comp.state() for comp in self._components]
-    )
+    return '\n' + '\n'.join([
+        comp.name() + ': ' + comp.state()
+        for comp in self._components
+        if comp.state()
+    ])
 
   def partial_state(self, player_name: str) -> str | None:
-    return '\n'.join(
-        [comp.partial_state(player_name) for comp in self._components]
-    )
+    return '\n'.join([
+        comp.partial_state(player_name)
+        for comp in self._components
+        if comp.partial_state(player_name)
+    ])
 
   def observe(self, observation: str):
     for comp in self._components:

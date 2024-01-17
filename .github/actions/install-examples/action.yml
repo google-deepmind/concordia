@@ -13,3 +13,11 @@ runs:
     - name: Show installed dependencies
       shell: bash
       run: pip list
+
+    - name: Convert notebooks
+      shell: bash
+      run: |
+        jupyter nbconvert --to=python --output-dir=notebooks \
+            --RegexRemovePreprocessor.patterns='!pip' \
+            $(find examples -type f -iname '*.ipynb')
+        ls notebooks/*.py

@@ -175,7 +175,8 @@ class BasicAgent(
     with self._state_lock:
       return '\n'.join(
           f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
-          for comp in self._components.values() if comp.state()
+          for comp in self._components.values()
+          if comp.state()
       )
 
   def _maybe_update(self):
@@ -224,10 +225,12 @@ class BasicAgent(
             call_to_action + '\n',
         )
       else:
-        output = prompt.open_question(
+        output = self._agent_name + ' '
+        output += prompt.open_question(
             call_to_action,
             max_characters=1200,
             max_tokens=1200,
+            answer_prefix=output,
         )
     elif action_spec.output_type == 'CHOICE':
       idx = prompt.multiple_choice_question(

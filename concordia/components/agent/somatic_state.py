@@ -46,7 +46,7 @@ class SomaticState(component.Component):
       agent_name: the name of the agent
       clock_now: time callback to use for the state.
       summarize: if True, the resulting state will be a one sentence summary,
-        otherwise state it would be a concatentation of five separate
+        otherwise state it would be a concatenation of five separate
         characteristics
     """
     self._model = model
