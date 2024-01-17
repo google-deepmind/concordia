@@ -67,7 +67,7 @@ setuptools.setup(
         'scipy',
         'tensorflow',
         'tensorflow-hub',
-        'tensorflow-text',
+        # 'tensorflow-text',
         'termcolor',
         'typing-extensions',
     ],

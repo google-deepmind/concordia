@@ -22,12 +22,14 @@ _MAX_SAMPLE_TEXT_ATTEMPTS = 5
 # PROMPT_TEMPLATE = Template("""<s>[INST] <<SYS>>\n$system_message\n<</SYS>>\n$message[/INST]""")
 PROMPT_TEMPLATE = Template("$system_message\n\n$message")
 
-TEXT_SYSTEM_MESSAGE = """Your task is to follow instructions and answer questions correctly and concisely."""
+# TEXT_SYSTEM_MESSAGE = """Your task is to follow instructions and answer questions correctly and concisely."""
+TEXT_SYSTEM_MESSAGE = ""
 
-MULTIPLE_CHOICE_SYSTEM_MESSAGE = """Your task is to answer a multiple choice question.
-You will be given a prompt and a list of choices. Your answer must be a single letter in parentheses, e.g.: 
-(a)
-"""
+# MULTIPLE_CHOICE_SYSTEM_MESSAGE = """Your task is to answer a multiple choice question.
+# You will be given a prompt and a list of choices. Your answer must be a single letter in parentheses, e.g.: 
+# (a)
+# """
+MULTIPLE_CHOICE_SYSTEM_MESSAGE = ""
 
 class OllamaLanguageModel(language_model.LanguageModel):
     """Language Model that uses Ollama LLM models."""
