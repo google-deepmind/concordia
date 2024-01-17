@@ -19,7 +19,8 @@ logger = logging.getLogger('ollama')
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 3
 _MAX_SAMPLE_TEXT_ATTEMPTS = 5
 
-PROMPT_TEMPLATE = Template("""<s>[INST] <<SYS>>\n$system_message\n<</SYS>>\n$message[/INST]""")
+# PROMPT_TEMPLATE = Template("""<s>[INST] <<SYS>>\n$system_message\n<</SYS>>\n$message[/INST]""")
+PROMPT_TEMPLATE = Template("$system_message\n\n$message")
 
 TEXT_SYSTEM_MESSAGE = """Your task is to follow instructions and answer questions correctly and concisely."""
 
