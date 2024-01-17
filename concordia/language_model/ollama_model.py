@@ -25,11 +25,11 @@ PROMPT_TEMPLATE = Template("$system_message\n\n$message")
 # TEXT_SYSTEM_MESSAGE = """Your task is to follow instructions and answer questions correctly and concisely."""
 TEXT_SYSTEM_MESSAGE = ""
 
-# MULTIPLE_CHOICE_SYSTEM_MESSAGE = """Your task is to answer a multiple choice question.
-# You will be given a prompt and a list of choices. Your answer must be a single letter in parentheses, e.g.: 
-# (a)
-# """
-MULTIPLE_CHOICE_SYSTEM_MESSAGE = ""
+MULTIPLE_CHOICE_SYSTEM_MESSAGE = """The following is a multiple choice question.
+You must always respond with one of the possible choices.
+You may not respond with anything else.
+"""
+# MULTIPLE_CHOICE_SYSTEM_MESSAGE = ""
 
 class OllamaLanguageModel(language_model.LanguageModel):
     """Language Model that uses Ollama LLM models."""
@@ -76,7 +76,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
         message = prompt
         prompt = PROMPT_TEMPLATE.substitute(system_message=system_message, message=message)
 
-        logger.info(f"Sending prompt to LLM: {prompt}")
+        logger.debug(f"Sending prompt to LLM: {prompt}")
         for retry in range(_MAX_SAMPLE_TEXT_ATTEMPTS): 
             try:
                 response = self._client(
@@ -85,13 +85,13 @@ class OllamaLanguageModel(language_model.LanguageModel):
                     temperature=temperature,
                 )
             except ValueError as e:
-                logger.info(f"Error while calling LLM with input: {prompt}. Attempt {retry+1} failed.")
+                logger.error(f"Error while calling LLM with input: {prompt}. Attempt {retry+1} failed.")
                 if retry == _MAX_SAMPLE_TEXT_ATTEMPTS - 1: 
                     logger.error(f"Max retries exceeded. Raising exception.")
                     raise language_model.InvalidResponseError(prompt)
             else:
-                logger.info(f"Succeeded after {retry+1} attempts.")
-                logger.info(f"Response from LLM: {response}")
+                logger.debug(f"Succeeded after {retry+1} attempts.")
+                logger.debug(f"Response from LLM: {response}")
                 break
 
         if self._measurements is not None:
@@ -103,7 +103,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
 
     @staticmethod
     def extract_choices(text):
-        match = re.search(r'\((\w)\)', text)
+        match = re.search(r'\(?(\w)\)', text)
         if match:
             return match.group(1)
         else:
@@ -141,6 +141,8 @@ class OllamaLanguageModel(language_model.LanguageModel):
                     )
                 debug = {}
                 return idx, responses[idx], debug
+
+        logger.error(f"Multiple choice failed after {_MAX_MULTIPLE_CHOICE_ATTEMPTS} attempts.\nLLM Input: {prompt}\nLLM Output: {sample}\nExtracted Answer: {answer}")
 
         raise language_model.InvalidResponseError(
             'Too many multiple choice attempts.'
