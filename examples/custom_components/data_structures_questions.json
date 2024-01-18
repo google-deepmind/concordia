@@ -1,0 +1,115 @@
+{
+    "questions": [
+      {
+        "question": "Which of the following data structures uses a FIFO approach?",
+        "options": [
+          "Stack",
+          "Queue",
+          "Binary Tree",
+          "Graph",
+          "Array"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "What is the time complexity of accessing an element in an array?",
+        "options": [
+          "O(1)",
+          "O(n)",
+          "O(log n)",
+          "O(n^2)",
+          "O(n log n)"
+        ],
+        "correct_answer": 0
+      },
+      {
+        "question": "In a binary search tree, the left child of a node contains a value which is:",
+        "options": [
+          "Greater than the parent node",
+          "Less than the parent node",
+          "Equal to the parent node",
+          "Arbitrarily greater or less than the parent node",
+          "None of the above"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Which of the following is not a linear data structure?",
+        "options": [
+          "Linked List",
+          "Stack",
+          "Queue",
+          "Array",
+          "Graph"
+        ],
+        "correct_answer": 4
+      },
+      {
+        "question": "What data structure is used for implementing recursion?",
+        "options": [
+          "Queue",
+          "Stack",
+          "Tree",
+          "Graph",
+          "Array"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Which of the following sorting algorithms is not a comparison sort?",
+        "options": [
+          "Merge Sort",
+          "Quick Sort",
+          "Bubble Sort",
+          "Insertion Sort",
+          "Counting Sort"
+        ],
+        "correct_answer": 4
+      },
+      {
+        "question": "What is the worst-case time complexity of a binary search algorithm?",
+        "options": [
+          "O(1)",
+          "O(n)",
+          "O(log n)",
+          "O(n log n)",
+          "O(n^2)"
+        ],
+        "correct_answer": 2
+      },
+      {
+        "question": "Which of the following is an example of a dynamic data structure?",
+        "options": [
+          "Array",
+          "Linked List",
+          "Static Array",
+          "Tuple",
+          "Fixed-size Matrix"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "What is the maximum number of children for a node in a binary tree?",
+        "options": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "It depends on the type of binary tree"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "In hash tables, what is a 'collision'?",
+        "options": [
+          "When a hash function generates a unique index for every key",
+          "When two keys are exactly the same",
+          "When two different keys generate the same index",
+          "When the table is full and no more keys can be added",
+          "When the hash function is not defined for a key"
+        ],
+        "correct_answer": 2
+      }
+    ]
+  }
+  
