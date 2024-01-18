@@ -1,0 +1,165 @@
+{
+    "questions": [
+      {
+        "question": "Do you prefer playing video games or dressing up?",
+        "options": [
+          "Video Games",
+          "Dressing Up"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather play with action figures or dolls?",
+        "options": [
+          "Action Figures",
+          "Dolls"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer watching sports or romantic movies?",
+        "options": [
+          "Sports",
+          "Romantic Movies"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather engage in outdoor adventures or do crafts?",
+        "options": [
+          "Outdoor Adventures",
+          "Crafts"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer playing football or doing ballet?",
+        "options": [
+          "Football",
+          "Ballet"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather read science fiction or romance novels?",
+        "options": [
+          "Science Fiction",
+          "Romance Novels"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer working on cars or baking?",
+        "options": [
+          "Working on Cars",
+          "Baking"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather play chess or dress-up games?",
+        "options": [
+          "Chess",
+          "Dress-Up Games"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer coding or interior decorating?",
+        "options": [
+          "Coding",
+          "Interior Decorating"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather go fishing or to a spa?",
+        "options": [
+          "Fishing",
+          "Spa"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer watching action movies or soap operas?",
+        "options": [
+          "Action Movies",
+          "Soap Operas"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather play basketball or do yoga?",
+        "options": [
+          "Basketball",
+          "Yoga"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer playing guitar or harp?",
+        "options": [
+          "Guitar",
+          "Harp"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather go hunting or shopping?",
+        "options": [
+          "Hunting",
+          "Shopping"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer riding motorcycles or horses?",
+        "options": [
+          "Motorcycles",
+          "Horses"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather play rugby or do gymnastics?",
+        "options": [
+          "Rugby",
+          "Gymnastics"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer rock music or pop music?",
+        "options": [
+          "Rock Music",
+          "Pop Music"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather work on DIY projects or go shopping?",
+        "options": [
+          "DIY Projects",
+          "Shopping"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Do you prefer playing racing games or fashion games?",
+        "options": [
+          "Racing Games",
+          "Fashion Games"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Would you rather watch a football match or a beauty pageant?",
+        "options": [
+          "Football Match",
+          "Beauty Pageant"
+        ],
+        "correct_answer": 1
+      }
+    ]
+  }
+  
