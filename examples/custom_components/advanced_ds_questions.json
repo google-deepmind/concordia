@@ -1,0 +1,115 @@
+{
+    "questions": [
+      {
+        "question": "Which of the following is not a property of a Red-Black Tree?",
+        "options": [
+          "Every node is either red or black",
+          "The root is always black",
+          "All leaves (NULL nodes) are black",
+          "If a node is red, then both its children are black",
+          "Every simple path from a node to a descendant leaf has the same number of black nodes"
+        ],
+        "correct_answer": 4
+      },
+      {
+        "question": "In a B-Tree of order m, what is the maximum number of children a node can have?",
+        "options": [
+          "m",
+          "m-1",
+          "2m",
+          "2m-1",
+          "m/2"
+        ],
+        "correct_answer": 2
+      },
+      {
+        "question": "Which of the following is a disadvantage of using hash tables?",
+        "options": [
+          "Constant time complexity for lookups",
+          "Efficient use of storage",
+          "Handling of collisions",
+          "Direct access to elements",
+          "Order preservation of elements"
+        ],
+        "correct_answer": 2
+      },
+      {
+        "question": "In the context of a graph, what does 'DAG' stand for?",
+        "options": [
+          "Directed Acyclic Graph",
+          "Data Aggregation Graph",
+          "Dynamic Algorithm Graph",
+          "Directed Algorithmic Graph",
+          "Dual Access Graph"
+        ],
+        "correct_answer": 0
+      },
+      {
+        "question": "What is the worst-case time complexity of inserting an element in a Fibonacci Heap?",
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)",
+          "O(n log n)",
+          "Amortized O(1)"
+        ],
+        "correct_answer": 4
+      },
+      {
+        "question": "Which algorithm is not typically used for graph traversal?",
+        "options": [
+          "Depth-First Search (DFS)",
+          "Breadth-First Search (BFS)",
+          "Dijkstra's Algorithm",
+          "Quick Sort",
+          "Bellman-Ford Algorithm"
+        ],
+        "correct_answer": 3
+      },
+      {
+        "question": "What is the space complexity of a simple adjacency list representation of a graph with n vertices and e edges?",
+        "options": [
+          "O(n)",
+          "O(e)",
+          "O(n + e)",
+          "O(n^2)",
+          "O(e^2)"
+        ],
+        "correct_answer": 2
+      },
+      {
+        "question": "In AVL trees, what is the maximum difference allowed between the heights of the left and right subtrees of any node?",
+        "options": [
+          "0",
+          "1",
+          "2",
+          "Logarithmic in terms of the number of nodes",
+          "Dependent on the height of the tree"
+        ],
+        "correct_answer": 1
+      },
+      {
+        "question": "Which of the following is a true statement about Splay Trees?",
+        "options": [
+          "Recently accessed elements are moved to the root",
+          "Balance of the tree is always maintained",
+          "All operations have a worst-case time complexity of O(log n)",
+          "It is a type of self-balancing binary search tree",
+          "Insertion and deletion operations are not allowed"
+        ],
+        "correct_answer": 0
+      },
+      {
+        "question": "In the Knuth-Morris-Pratt (KMP) algorithm, what is the purpose of the 'partial match' table?",
+        "options": [
+          "To record the positions of matches found",
+          "To determine the next characters to be matched",
+          "To skip unnecessary comparisons when a mismatch occurs",
+          "To track the current position in the search string",
+          "To maintain the longest prefix which is also a suffix"
+        ],
+        "correct_answer": 2
+      }
+    ]
+  }
+  
