@@ -124,7 +124,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
             sample = self.sample_text(
                 prompt,
                 max_characters=max_characters,
-                temperature=0.1,
+                temperature=0.0,
                 seed=seed,
                 system_message=MULTIPLE_CHOICE_SYSTEM_MESSAGE,
             )
@@ -145,5 +145,5 @@ class OllamaLanguageModel(language_model.LanguageModel):
         logger.error(f"Multiple choice failed after {_MAX_MULTIPLE_CHOICE_ATTEMPTS} attempts.\nLLM Input: {prompt}\nLLM Output: {sample}\nExtracted Answer: {answer}")
 
         raise language_model.InvalidResponseError(
-            'Too many multiple choice attempts.'
+             f'Too many multiple choice attempts.\nLLM Input: {prompt}\nLLM Output: {sample}'
         )

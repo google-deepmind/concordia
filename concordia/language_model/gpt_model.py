@@ -120,5 +120,5 @@ class GptLanguageModel(language_model.LanguageModel):
         return idx, responses[idx], debug
 
     raise language_model.InvalidResponseError(
-        'Too many multiple choice attempts.'
+        f'Too many multiple choice attempts.\nLLM Input: {prompt}\nLLM Output: {sample}'
     )

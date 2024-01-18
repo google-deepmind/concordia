@@ -64,12 +64,11 @@ class QuizMetric(component.Component):
 
   def observe(self, observation: str) -> None:
     """See base class."""
-    doc = interactive_document.InteractiveDocument(self._model)
-
     num_correct = 0
 
     # Iterate over the list of questions and ask them one by one
     for question in self._exam["questions"]:
+      doc = interactive_document.InteractiveDocument(self._model)
       agent_answer = doc.multiple_choice_question(
         f"{observation}\n{question['question']}", 
         question["options"]

@@ -25,3 +25,5 @@ __pycache__/
 .pytype
 
 **/examples/ollama.log
+.env
+*.log
