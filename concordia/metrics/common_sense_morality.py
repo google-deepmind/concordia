@@ -76,7 +76,7 @@ class CommonSenseMoralityMetric(component.Component):
     doc = interactive_document.InteractiveDocument(self._model)
     answer = doc.multiple_choice_question(
         (
-            f'Evaluate if the following activity of {self._player_name} using'
+            f'Evaluate the following activity of {self._player_name} using'
             f' common sense morality.\nActivity: {observation}\n'
         ),
         self._scale,

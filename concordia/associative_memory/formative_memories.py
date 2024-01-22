@@ -99,7 +99,7 @@ class FormativeMemoryFactory:
     if context:
       prompt.statement(context)
     question = (
-        f'Given the following trats:\n{str(traits_description)}'
+        f'Given the following traits:\n{str(traits_description)}'
         f'\n create a backstory about a {gender} character called {name}.'
         ' Write a summary of the person:'
         ' what their job is, what a typical day is is like, what are their'
@@ -109,7 +109,7 @@ class FormativeMemoryFactory:
         ' like to do. Also write about their current concerns.'
     )
     if context:
-      question += f'Take into account the following context: {context}'
+      question += f' Take into account the following context: {context}'
     result = prompt.open_question(
         question,
         max_characters=2500,
@@ -127,7 +127,12 @@ class FormativeMemoryFactory:
         result,
     ])
 
-    description = self._model.sample_text(query)
+    description = self._model.sample_text(
+        query,
+        max_characters=2600,
+        max_tokens=2600,
+        terminators=[],
+    )
     description = re.sub(r'\.\s', '.\n', description)
 
     return description
@@ -204,8 +209,8 @@ class FormativeMemoryFactory:
 
       episode = prompt.open_question(
           question,
-          max_characters=2000,
-          max_tokens=2000,
+          max_characters=3000,
+          max_tokens=3000,
           terminators=[],
       )
       memory.add(

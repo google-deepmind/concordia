@@ -161,13 +161,13 @@ def finalise_html(html_code):
 
 
 def combine_html_pages(
-    html_pages, tab_names, summary="", title="Experiment loggs"
+    html_pages, tab_names, summary="", title="Experiment logs"
 ):
   """Combines multiple HTML pages into a single HTML page with tabs."""
   html_code = ""
   html_code += f"""<h2>{title}</h2>
   <p>{summary}</p>
-  <p>Click on the buttons to see the detailed loggs:</p>
+  <p>Click on the buttons to see the detailed logs:</p>
 
   <div class="tab">
   """
