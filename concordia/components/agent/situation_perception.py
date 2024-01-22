@@ -14,7 +14,7 @@
 
 """Agent component for situation perception."""
 import datetime
-from typing import Callable
+from typing import Callable, Sequence
 
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -32,6 +32,7 @@ class SituationPerception(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
+      components=Sequence[component.Component] | None,
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
@@ -43,6 +44,7 @@ class SituationPerception(component.Component):
       model: The language model to use.
       memory: The memory to use.
       agent_name: The name of the agent.
+      components: The components to condition the answer on.
       clock_now: time callback to use for the state.
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the last chain.
@@ -51,6 +53,7 @@ class SituationPerception(component.Component):
     self._model = model
     self._memory = memory
     self._state = ''
+    self._components = components or []
     self._agent_name = agent_name
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
@@ -75,11 +78,17 @@ class SituationPerception(component.Component):
     if self._clock_now is not None:
       prompt.statement(f'Current time: {self._clock_now()}.\n')
 
-    question = (
-        'Given the memories above, what kind of situation is'
-        f' {self._agent_name} in?'
-    )
+    component_states = '\n'.join([
+        f"{self._agent_name}'s "
+        + (comp.name() + ':\n' + comp.state())
+        for comp in self._components
+    ])
+    prompt.statement(component_states)
 
+    question = (
+        'Given the statements above, what kind of situation is'
+        f' {self._agent_name} in right now?'
+    )
     self._state = prompt.open_question(
         question,
         answer_prefix=f'{self._agent_name} is currently ',
