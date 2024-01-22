@@ -100,10 +100,15 @@ class GptLanguageModel(language_model.LanguageModel):
     )
 
     for _ in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
+      # Increase temperature after the first failed attempt.
+      temperature = 0.0
+      if attempts > 1:
+        temperature = 0.5
+
       sample = self.sample_text(
           prompt,
           max_characters=max_characters,
-          temperature=0.0,
+          temperature=temperature,
           seed=seed,
       )
       try:
