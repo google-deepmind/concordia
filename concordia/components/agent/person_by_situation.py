@@ -101,6 +101,8 @@ class PersonBySituation(component.Component):
 
     self._state = f'{self._agent_name} would {self._state}'
 
+    self._memory.add(f'[intent reflection] {self._state}')
+
     self._last_chain = prompt
     if self._verbose:
-      print(termcolor.colored(self._last_chain.view().text(), 'red'), end='')
+      print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')

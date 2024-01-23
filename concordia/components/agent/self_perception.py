@@ -89,6 +89,8 @@ class SelfPerception(component.Component):
 
     self._state = f'{self._agent_name} is {self._state}'
 
+    self._memory.add(f'[self reflection] {self._state}')
+
     self._last_chain = prompt
     if self._verbose:
       print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
