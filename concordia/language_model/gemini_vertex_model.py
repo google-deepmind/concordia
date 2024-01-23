@@ -106,54 +106,7 @@ class GeminiVertexLanguageModel(language_model.LanguageModel):
     self._n_calls = 0
 
   @override
-  def sample_text_in_basic_mode(
-      self,
-      prompt: str,
-      *,
-      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
-      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
-      temperature: float = language_model.DEFAULT_TEMPERATURE,
-      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
-      seed: int | None = None,
-  ) -> str:
-    del timeout
-    if seed is not None:
-      raise NotImplementedError('Unclear how to set seed for cloud models.')
-    self._n_calls += 1
-    if self._sleep_periodically and (
-        self._n_calls % self._calls_between_sleeping == 0):
-      print('Sleeping for 10 seconds...')
-      time.sleep(10)
-    max_tokens = min(max_tokens, max_characters)
-    sample = self._model.generate_content(
-        prompt,
-        generation_config={
-            'temperature': temperature,
-            'max_output_tokens': max_tokens,
-            'stop_sequences': terminators,
-            'candidate_count': 1,
-        },
-        safety_settings=self._safety_settings,
-        stream=False
-    )
-    try:
-      response = sample.text
-    except ValueError as e:
-      print('An error occured: ', e)
-      print(f'prompt: {prompt}')
-      print(f'sample: {sample}')
-      response = ''
-    if self._measurements is not None:
-      self._measurements.publish_datum(
-          self._channel,
-          {'raw_text_length': len(response)})
-    return text.truncate(
-        response, max_length=max_characters, delimiters=terminators
-    )
-
-  @override
-  def sample_text_in_chat_mode(
+  def sample_text(
       self,
       prompt: str,
       *,
@@ -201,10 +154,6 @@ class GeminiVertexLanguageModel(language_model.LanguageModel):
     return text.truncate(
         response, max_length=max_characters, delimiters=terminators
     )
-
-  @override
-  def sample_text(self, *args, **kwargs) -> str:
-    return self.sample_text_in_chat_mode(*args, **kwargs)
 
   @override
   def sample_choice(
