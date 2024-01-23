@@ -95,7 +95,7 @@ class DirectEffect(component.Component):
       )
       if affected:
         if self._verbose:
-          self._print(f'\n{player_name} affected, might not known.')
+          self._print(f'\n{player_name} affected, might not know it.')
         known = player_doc.yes_no_question(
             f'Does {player_name} know about the event?'
         )
