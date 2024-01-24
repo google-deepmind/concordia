@@ -174,7 +174,7 @@ class BasicAgent(
   def state(self):
     with self._state_lock:
       return '\n'.join(
-          f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state())
+          f"{self._agent_name}'s " + (comp.name() + ':\n' + comp.state() + '\n')
           for comp in self._components.values()
           if comp.state()
       )
