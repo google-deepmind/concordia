@@ -52,8 +52,8 @@ def determine_success_and_why(
   """
   success = chain_of_thought.yes_no_question(
       'Does the attempted action succeed? If the attempted action '
-      + 'is easy to accomplish then the attempt should usually be successful '
-      + 'unless there are specific reason for it to fail.'
+      + 'is easy to accomplish then the attempt should be successful '
+      + 'unless there is a specific reason for it to fail.'
   )
   why_failed = 'this failed'  # will be overwritten if needed.
   if success:
