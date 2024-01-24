@@ -33,7 +33,7 @@ class PersonBySituation(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
-      components=Sequence[component.Component] | None,
+      components: Sequence[component.Component] | None = None,
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
