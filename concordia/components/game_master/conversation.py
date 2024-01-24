@@ -182,11 +182,15 @@ class Conversation(component.Component):
       player_names_in_conversation: list[str],
       nonplayers_in_conversation: list[basic_agent.BasicAgent],
   ):
-    who_talked = (
-        'Summary of a conversation between '
-        + ', '.join(player_names_in_conversation)
-        + '. '
-    )
+    if len(player_names_in_conversation) == 1:
+      self_talker = player_names_in_conversation[0]
+      who_talked = f'Summary of a conversation of {self_talker} with themself.'
+    else:
+      who_talked = (
+          'Summary of a conversation between '
+          + ', '.join(player_names_in_conversation)
+          + '. '
+      )
     if nonplayers_in_conversation:
       who_talked = (
           who_talked

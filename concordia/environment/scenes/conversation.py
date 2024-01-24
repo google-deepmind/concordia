@@ -41,7 +41,7 @@ class ConversationTracker(component.Component):
       self,
       model: language_model.LanguageModel,
       players: Sequence[basic_agent.BasicAgent],
-      premis: str = '',
+      premise: str = '',
       verbose: bool = False,
       log_colour: str = 'red',
   ):
@@ -50,13 +50,13 @@ class ConversationTracker(component.Component):
     Args:
       model: a language model
       players: players participating
-      premis: any extra text to be added on top of the conversation (say,
+      premise: any extra text to be added on top of the conversation (say,
         circumstances of it)
       verbose: whether or not to print intermediate reasoning steps
       log_colour: colour for logging
     """
     self._model = model
-    self._state = premis
+    self._state = premise
     self._log_colour = log_colour
     self._players = players
 
@@ -129,6 +129,8 @@ def make_conversation_game_master(
 
   is_are = 'are' if len(agent_names) > 1 else 'is'
   convo = f'{", ".join(agent_names)} {is_are} in conversation'
+  if len(agent_names) == 1:
+    convo += ' with themself'
   if premise:
     convo = (
         f'{premise}\nAs a result {convo}.\nHere is the conversation from the'
@@ -138,7 +140,7 @@ def make_conversation_game_master(
   conversation_tracker = ConversationTracker(
       model=model,
       players=players,
-      premis=convo,
+      premise=convo,
       verbose=True,
       log_colour='red',
   )
