@@ -170,6 +170,8 @@ class InteractiveDocument(document.Document):
         max_characters=max_characters,
         terminators=terminators,
     )
+    if response.startswith(answer_prefix):
+      response = response[len(answer_prefix):]
     self._model_response(response)
     self._response(f'{answer_suffix}\n')
     return response
