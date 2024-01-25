@@ -92,6 +92,19 @@ class SomaticState(component.Component):
   def state(self):
     return self._state
 
+  def get_last_log(self):
+    current_log = {
+        'Summary': f'somatic state of {self._agent_name}',
+        'state': self._state,
+    }
+    for comp in self._characteristics:
+      last_log = comp.get_last_log()
+      if last_log:
+        if 'date' in last_log.keys():
+          last_log.pop('date')
+        current_log[comp.name()] = last_log
+    return current_log
+
   def update(self):
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for c in self._characteristics:

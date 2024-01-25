@@ -46,12 +46,17 @@ class Reflection(component.Component):
     self._verbose = verbose
     self._name = name
     self._importance_threshold = importance_threshold
+    self._history = []
 
   def name(self) -> str:
     return self._name
 
   def state(self) -> str:
     return self._state
+
+  def get_last_log(self):
+    if self._history:
+      return self._history[-1].copy()
 
   def update(self) -> None:
     mems, importance = self._memory.retrieve_recent_with_importance(
@@ -72,9 +77,9 @@ class Reflection(component.Component):
 
     mems = '\n'.join(mems)
 
-    prompt = interactive_document.InteractiveDocument(self._model)
+    prompt_questions = interactive_document.InteractiveDocument(self._model)
 
-    questions = prompt.open_question(
+    questions = prompt_questions.open_question(
         '\n'.join([
             f'{mems}',
             (
@@ -95,9 +100,9 @@ class Reflection(component.Component):
 
     mems = '\n'.join(mems)
 
-    prompt = interactive_document.InteractiveDocument(self._model)
+    prompt_insights = interactive_document.InteractiveDocument(self._model)
 
-    self._state = prompt.open_question(
+    self._state = prompt_insights.open_question(
         '\n'.join([
             f'{mems}',
             (
@@ -110,6 +115,14 @@ class Reflection(component.Component):
         terminators=(),
     )
     self._memory.extend(self._state.splitlines())
-    self._last_chain = prompt
+    self._last_chain = prompt_insights
     if self._verbose:
       print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
+
+    update_log = {
+        'Summary': 'reflection and insights',
+        'State': self._state.splitlines(),
+        'Questions prompt': prompt_questions.view().text().splitlines(),
+        'Insights prompt': prompt_insights.view().text().splitlines(),
+    }
+    self._history.append(update_log)

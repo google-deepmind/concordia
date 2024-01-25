@@ -67,6 +67,7 @@ class SimPlan(component.Component):
     self._latest_memories = ''
     self._last_observation = []
     self._current_plan = ''
+    self._history = []
 
     self._verbose = verbose
 
@@ -75,6 +76,10 @@ class SimPlan(component.Component):
 
   def state(self):
     return self._state
+
+  def get_last_log(self):
+    if self._history:
+      return self._history[-1].copy()
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')
@@ -138,3 +143,13 @@ class SimPlan(component.Component):
 
     if self._verbose:
       self._log('\n' + prompt.view().text() + '\n')
+
+    update_log = {
+        'Summary': (
+            f'{self._time_adverb} plan of {self._agent_name} '
+            + f'for {self._timescale}'
+        ),
+        'State': self._state,
+        'Chain of thought': prompt.view().text().splitlines(),
+    }
+    self._history.append(update_log)

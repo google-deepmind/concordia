@@ -58,12 +58,17 @@ class SituationPerception(component.Component):
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
+    self._history = []
 
   def name(self) -> str:
     return self._name
 
   def state(self) -> str:
     return self._state
+
+  def get_last_log(self):
+    if self._history:
+      return self._history[-1].copy()
 
   def update(self) -> None:
     mems = '\n'.join(
@@ -100,3 +105,11 @@ class SituationPerception(component.Component):
     self._last_chain = prompt
     if self._verbose:
       print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
+
+    update_log = {
+        'date': self._clock_now(),
+        'Summary': question,
+        'State': self._state,
+        'Chain of thought': prompt.view().text().splitlines(),
+    }
+    self._history.append(update_log)

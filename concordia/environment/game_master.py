@@ -187,9 +187,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
         'Active player': {
             'Name': player_name,
             'Action attempt': action_attempt,
-            'Chain of thought': self._players_by_name[
-                player_name
-            ].get_last_log(),
+            'Context for action selection and components': (
+                self._players_by_name[player_name].get_last_log()
+            ),
         },
     }
 

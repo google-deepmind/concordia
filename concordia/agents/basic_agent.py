@@ -169,7 +169,7 @@ class BasicAgent(
     return result
 
   def get_last_log(self):
-    return self._last_chain_of_thought
+    return self._log[-1]
 
   def state(self):
     with self._state_lock:
@@ -241,6 +241,19 @@ class BasicAgent(
       raise NotImplementedError
 
     self._last_chain_of_thought = prompt.view().text().splitlines()
+    current_log = {
+        'date': self._clock.now(),
+        'Action prompt': self._last_chain_of_thought,
+    }
+
+    for comp in self._components.values():
+      last_log = comp.get_last_log()
+      if last_log:
+        if 'date' in last_log.keys():
+          last_log.pop('date')
+        current_log[comp.name()] = last_log
+
+    self._log.append(current_log)
 
     if self._verbose:
       self._print(

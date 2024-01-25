@@ -80,12 +80,17 @@ class Characteristic(component.Component):
     self._extra_instructions = extra_instructions
     self._clock_now = state_clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
+    self._history = []
 
   def name(self) -> str:
     return self._characteristic_name
 
   def state(self) -> str:
     return self._cache
+
+  def get_last_log(self):
+    if self._history:
+      return self._history[-1].copy()
 
   def update(self) -> None:
     query = f"{self._agent_name}'s {self._characteristic_name}"
@@ -118,3 +123,10 @@ class Characteristic(component.Component):
     self._last_chain = prompt
     if self._verbose:
       print(termcolor.colored(self._last_chain.view().text(), 'red'), end='')
+
+    update_log = {
+        'Summary': question,
+        'State': self._cache,
+        'Chain of thought': prompt.view().text().splitlines(),
+    }
+    self._history.append(update_log)
