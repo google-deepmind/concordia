@@ -19,7 +19,7 @@ import setuptools
 
 setuptools.setup(
     name='gdm-concordia',
-    version='1.0.0',
+    version='1.1.0',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
