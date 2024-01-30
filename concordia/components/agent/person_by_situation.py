@@ -97,6 +97,7 @@ class PersonBySituation(component.Component):
     if self._clock_now is not None:
       question = f'Current time: {self._clock_now()}.\n{question}'
 
+    old_state = self._state
     self._state = prompt.open_question(
         question,
         answer_prefix=f'{self._agent_name} would ',
@@ -106,7 +107,8 @@ class PersonBySituation(component.Component):
 
     self._state = f'{self._agent_name} would {self._state}'
 
-    self._memory.add(f'[intent reflection] {self._state}')
+    if old_state != self._state:
+      self._memory.add(f'[intent reflection] {self._state}')
 
     self._last_chain = prompt
     if self._verbose:

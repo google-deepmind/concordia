@@ -84,7 +84,7 @@ class SelfPerception(component.Component):
     question = (
         f'Given the memories above, what kind of person is {self._agent_name}?'
     )
-
+    old_state = self._state
     self._state = prompt.open_question(
         question,
         answer_prefix=f'{self._agent_name} is ',
@@ -94,7 +94,8 @@ class SelfPerception(component.Component):
 
     self._state = f'{self._agent_name} is {self._state}'
 
-    self._memory.add(f'[self reflection] {self._state}')
+    if old_state != self._state:
+      self._memory.add(f'[self reflection] {self._state}')
 
     self._last_chain = prompt
     if self._verbose:
