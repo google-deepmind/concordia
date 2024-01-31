@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [1.1.0] - 2024-01-30
+## [1.1.1] - 2024-01-30
+
+### Fixed
+
+- Update setup.py to work with earlier setuptools (fixes broken 1.1.0 release).
+
+
+## [1.1.0] - 2024-01-30 [YANKED]
 
 ### Changed
 
