@@ -169,6 +169,8 @@ class BasicAgent(
     return result
 
   def get_last_log(self):
+    if not self._log:
+      return ''
     return self._log[-1]
 
   def state(self):

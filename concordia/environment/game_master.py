@@ -31,10 +31,10 @@ from concordia.typing import game_master as simulacrum_game_master
 import termcolor
 
 
-DEFAULT_THOUGHTS = [
+DEFAULT_THOUGHTS = (
     thought_chains.attempt_to_result,
     thought_chains.result_to_who_what_where,
-]
+)
 
 
 class GameMaster(simulacrum_game_master.GameMaster):
@@ -49,7 +49,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
       name: str = 'Game Master',
       update_thought_chain: (
           Sequence[
-              Callable[[interactive_document.InteractiveDocument, str], str]
+              Callable[
+                  [interactive_document.InteractiveDocument, str, str], str
+              ]
           ]
           | None
       ) = None,
@@ -158,7 +160,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     # Produce the event that has happened as the result of the action attempt
     prompt, event_statement = thought_chains.run_chain_of_thought(
-        self._update_from_player_thoughts, action_attempt, prompt
+        self._update_from_player_thoughts, action_attempt, prompt, player_name,
     )
 
     self._memory.add(event_statement)
