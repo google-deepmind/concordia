@@ -111,7 +111,7 @@ class SimPlan(component.Component):
     ])
 
     in_context_example = (
-        'Please format the plan like in this example: [21:00 - 22:00] watch TV'
+        ' Please format the plan like in this example: [21:00 - 22:00] watch TV'
     )
 
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -131,7 +131,7 @@ class SimPlan(component.Component):
       if self._goal_component:
         goal_mention = ', keep in mind the goal.'
       self._current_plan = prompt.open_question(
-          f"Write {self._agent_name}'s plan for {self._timescale}? Please,"
+          f"Write {self._agent_name}'s plan for {self._timescale}. Please,"
           f' provide a {self._time_adverb} schedule'
           + goal_mention + in_context_example,
           max_characters=1200,
