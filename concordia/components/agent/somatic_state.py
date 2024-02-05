@@ -37,6 +37,7 @@ class SomaticState(component.Component):
       agent_name: str,
       clock_now: Callable[[], datetime.datetime] | None = None,
       summarize: bool = True,
+      verbose: bool = False,
   ):
     """Initialize somatic state component.
 
@@ -48,6 +49,7 @@ class SomaticState(component.Component):
       summarize: if True, the resulting state will be a one sentence summary,
         otherwise state it would be a concatenation of five separate
         characteristics
+      verbose: whether to print the state after updating or not
     """
     self._model = model
     self._memory = memory
@@ -55,6 +57,7 @@ class SomaticState(component.Component):
     self._agent_name = agent_name
     self._clock_now = clock_now
     self._summarize = summarize
+    self._verbose = verbose
 
     self._characteristic_names = [
         'level of hunger',
@@ -125,3 +128,6 @@ class SomaticState(component.Component):
       self._state = f'{self._agent_name} is ' + self._model.sample_text(
           f'{prompt}\n {self._agent_name} is ', max_tokens=500
       )
+
+    if self._verbose:
+      print(self._state)
