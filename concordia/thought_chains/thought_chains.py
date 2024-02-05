@@ -136,7 +136,50 @@ def attempt_to_result(
   del active_player_name
   result = chain_of_thought.open_question(
       'What happens as a result of the attempted action?'
-      ' Consider status and location of each player.',
+      ' Take into account the location and status of each player.',
+      max_characters=1200,
+      max_tokens=1200,
+  )
+  raw_causal_statement = f'{action_attempt} Because of that, {result}'
+  return raw_causal_statement
+
+
+def attempt_to_most_likely_outcome(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    action_attempt: str,
+    active_player_name: str,
+):
+  """Determine success of action_attempt and reason for success/failure.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    action_attempt: the attempted action
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+    string describing the outcome
+  """
+  _ = chain_of_thought.open_question(
+      f'Where is {active_player_name}?',
+      max_characters=1200,
+      max_tokens=1200,
+  )
+  _ = chain_of_thought.open_question(
+      f'What is {active_player_name} trying to do?',
+      max_characters=1200,
+      max_tokens=1200,
+  )
+  _ = chain_of_thought.open_question(
+      f"List some possible direct consequences of {active_player_name}'s "
+      'action. Never assume any other person will take a voluntary action. '
+      'Be specific and concrete. Never beg the question. For instance, it is '
+      'wrong to say "Alex finds something". Instead specify exactly '
+      'what Alex finds. For example "Alex finds a teddy bear".',
+      max_characters=3500,
+      max_tokens=3000,
+  )
+  result = chain_of_thought.open_question(
+      'Which outcome is the most likely?',
       max_characters=1200,
       max_tokens=1200,
   )
@@ -162,10 +205,37 @@ def result_to_who_what_where(
   chain_of_thought.statement(event)
   causal_statement = chain_of_thought.open_question(
       'Rewrite the statements above to be one sentence and to better highlight'
-      ' who the event is about, where and what did they do, what happened as a'
+      ' who the event is about, where and what they did, and what happened as a'
       ' result. Do not express uncertainty (e.g. say '
-      + '"Francis released the demon" not "Francis could release the demon" '
-      + 'and not "The demon may have been released")\n',
+      '"Francis opened the door" not "Francis could open the door" '
+      'and not "The door may have been opened").\n',
+      max_characters=3000,
+      max_tokens=1500,
+  )
+  return causal_statement
+
+
+def result_to_effect_caused_by_active_player(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    event: str,
+    active_player_name: str,
+):
+  """Determines who have done what where, given the event.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    event: the event to determine the causal outcome of
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+  """
+  chain_of_thought.statement(event)
+  causal_statement = chain_of_thought.open_question(
+      'Rewrite the statements above to be one sentence and to better highlight '
+      f'what {active_player_name} did, and what happened as a result. '
+      'Do not express uncertainty (e.g. say '
+      '"Francis opened the door" not "Francis could open the door" '
+      'and not "The door may have been opened").',
       max_characters=3000,
       max_tokens=1500,
   )
@@ -274,7 +344,9 @@ class AccountForAgencyOfOthers:
           f"What happened as a direct result of {active_player_name}'s " +
           'attempted action? Take into account the reactions of ' +
           f'{players_who_would_not_str}. Highlight how ' +
-          f"{active_player_name}'s action caused its actual effect.")
+          f"{active_player_name}'s action caused its actual effect.",
+          max_characters=3000,
+          max_tokens=1500)
       if self._verbose:
         print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
     return candidate_event
