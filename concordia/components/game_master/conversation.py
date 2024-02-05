@@ -139,19 +139,21 @@ class Conversation(component.Component):
       self,
       prompt: interactive_document.InteractiveDocument,
       scene_clock: clock_lib.GameClock,
+      player_names_in_conversation: list[str],
   ) -> list[basic_agent.BasicAgent]:
-    prompt = prompt.copy()
     nonplayer_characters = []
+    player_names_in_conversation_str = ', '.join(player_names_in_conversation)
     npcs_exist = prompt.yes_no_question(
-        'Are there any non-player characters in the conversation?'
+        f'Aside from {player_names_in_conversation_str}, are there any '
+        'other people in the conversation?'
     )
 
     if npcs_exist:
       npcs = prompt.open_question(
-          'Provide the list of non-player characters in the conversation '
+          'Provide the list of additional individuals in the conversation '
           + 'as a comma-separated list. For example: "bartender, merchant" '
-          + 'or "accountant, pharmacist, fishmonger". Non-player '
-          + 'characters should be named only by generic characteristics '
+          + 'or "accountant, pharmacist, fishmonger". These additional '
+          + 'individuals should be named only by generic characteristics '
           + 'such as their profession or role (e.g. shopkeeper).'
       )
       npc_names = helper_functions.extract_from_generated_comma_separated_list(
@@ -169,7 +171,7 @@ class Conversation(component.Component):
   def _generate_convo_summary(self, convo: list[str]):
     summary = self._model.sample_text(
         '\n'.join(
-            convo + ['Summaries the conversation above in one sentence.'],
+            convo + ['Summarize the conversation above in one sentence.'],
         ),
         max_characters=2000,
         max_tokens=2000,
@@ -194,7 +196,7 @@ class Conversation(component.Component):
     if nonplayers_in_conversation:
       who_talked = (
           who_talked
-          + 'Also present: '
+          + ' Also present: '
           + ', '.join([
               npc_conversant.name
               for npc_conversant in nonplayers_in_conversation
@@ -256,7 +258,7 @@ class Conversation(component.Component):
             + '.\n'
         )
       if self._verbose:
-        self._log(document.view().text())
+        self._log('\n\n Conversation preparation: \n' + document.view().text())
 
       if player_names_in_conversation:
         players_in_conversation = [
@@ -266,7 +268,7 @@ class Conversation(component.Component):
         ]
 
         nonplayers_in_conversation = self._get_nonplayer_characters(
-            document, self._clock
+            document, self._clock, player_names_in_conversation
         )
 
         # this ensures that npcs can't duplicate players due to LLM mistake
