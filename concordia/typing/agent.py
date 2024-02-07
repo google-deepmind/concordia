@@ -55,9 +55,7 @@ DEFAULT_CALL_TO_SPEECH = (
 )
 
 DEFAULT_CALL_TO_ACTION = (
-    'What would {agent_name} do for the next'
-    ' {timedelta} to best achieve their goal? Consider their'
-    ' plan, but deviate from it if necessary. '
+    'What would {agent_name} do for the next {timedelta}? '
     'Give a specific activity. Pick an activity that '
     'would normally take about {timedelta} to complete. '
     'If the selected action has a direct or indirect object then it '
