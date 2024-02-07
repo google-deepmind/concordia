@@ -21,6 +21,7 @@ from concordia.associative_memory import associative_memory
 from concordia.components.agent import characteristic
 from concordia.language_model import language_model
 from concordia.typing import component
+import termcolor
 
 
 class SomaticState(component.Component):
@@ -130,4 +131,4 @@ class SomaticState(component.Component):
       )
 
     if self._verbose:
-      print(self._state)
+      print(termcolor.colored(self._state, 'green'), end='')
