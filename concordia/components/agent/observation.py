@@ -15,7 +15,7 @@
 
 """Agent components for representing observation stream."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 import datetime
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -152,6 +152,9 @@ class ObservationSummary(component.Component):
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_colour), end='')
+
+  def get_components(self) -> Sequence[component.Component]:
+    return self._components
 
   def update(self):
     context = '\n'.join([

@@ -16,6 +16,7 @@
 """Base class for generative agent (and game master) components."""
 
 import abc
+from typing import Self, Sequence
 
 
 class Component(metaclass=abc.ABCMeta):
@@ -118,3 +119,9 @@ class Component(metaclass=abc.ABCMeta):
   ):
     """Returns a dictionary with latest log of activity."""
     return None
+
+  def get_components(
+      self,
+  ) -> Sequence[Self]:
+    """Returns a list of components or an empty list."""
+    return []

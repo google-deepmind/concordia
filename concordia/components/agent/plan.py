@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Agent components for planning."""
 
+from typing import Sequence
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -86,6 +86,9 @@ class SimPlan(component.Component):
 
   def observe(self, observation: str):
     self._last_observation.append(observation)
+
+  def get_components(self) -> Sequence[component.Component]:
+    return self._components
 
   def update(self):
     observation = '\n'.join(self._last_observation)

@@ -70,6 +70,9 @@ class DirectEffect(component.Component):
     if self._history:
       return self._history[-1].copy()
 
+  def get_components(self) -> Sequence[component.Component]:
+    return self._components
+
   def update_after_event(
       self,
       event_statement: str,

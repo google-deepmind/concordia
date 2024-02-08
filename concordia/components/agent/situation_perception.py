@@ -70,6 +70,9 @@ class SituationPerception(component.Component):
     if self._history:
       return self._history[-1].copy()
 
+  def get_components(self) -> Sequence[component.Component]:
+    return self._components
+
   def update(self) -> None:
     mems = '\n'.join(
         self._memory.retrieve_recent(

@@ -21,7 +21,7 @@ Park, J.S., O'Brien, J.C., Cai, C.J., Morris, M.R., Liang, P. and
 Bernstein, M.S., 2023. Generative agents: Interactive simulacra of human
 behavior. arXiv preprint arXiv:2304.03442.
 """
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import concurrent
 import contextlib
 import copy
@@ -188,9 +188,14 @@ class BasicAgent(
 
   def _update(self):
     self._last_update = self._clock.now()
+    def _get_recursive_update_func(
+        comp: component.Component) -> Callable[[], None]:
+      return lambda: helper_functions.apply_recursively(comp,
+                                                        function_name='update')
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for comp in self._components.values():
-        executor.submit(comp.update)
+        executor.submit(_get_recursive_update_func(comp))
 
   def observe(self, observation: str):
     if observation and not self._under_interrogation:

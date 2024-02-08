@@ -21,6 +21,7 @@ import datetime
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.typing import component
 
 
 def filter_copy_as_statement(
@@ -107,3 +108,16 @@ def timedelta_to_readable_str(td: datetime.timedelta):
     ]
 
   return ''.join(readable_str)
+
+
+def apply_recursively(parent_component: component.Component,
+                      function_name: str,
+                      function_arg: str | None = None) -> None:
+  """Recursively applies a function to each component in a tree of components.
+  """
+  if function_arg is None:
+    getattr(parent_component, function_name)()
+  else:
+    getattr(parent_component, function_name)(function_arg)
+  for child_component in parent_component.get_components():
+    apply_recursively(child_component, function_name, function_arg=function_arg)

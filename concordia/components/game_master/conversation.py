@@ -205,6 +205,9 @@ class Conversation(component.Component):
       )
     return who_talked
 
+  def get_components(self) -> Sequence[component.Component]:
+    return self._components
+
   def update_after_event(
       self,
       event_statement: str,

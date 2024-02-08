@@ -17,6 +17,7 @@
 from typing import Sequence
 
 from concordia.typing import component
+from concordia.utils import helper_functions
 
 
 class Sequential(component.Component):
@@ -28,7 +29,7 @@ class Sequential(component.Component):
 
   def update(self) -> None:
     for comp in self._components:
-      comp.update()
+      helper_functions.apply_recursively(comp, function_name='update')
 
   def state(self) -> str:
     return '\n' + '\n'.join([
@@ -50,11 +51,17 @@ class Sequential(component.Component):
 
   def update_before_event(self, cause_statement: str) -> None:
     for comp in self._components:
-      comp.update_before_event(cause_statement)
+      helper_functions.apply_recursively(
+          comp,
+          function_name='update_before_event',
+          function_arg=cause_statement)
 
   def update_after_event(self, event_statement: str) -> None:
     for comp in self._components:
-      comp.update_after_event(event_statement)
+      helper_functions.apply_recursively(
+          comp,
+          function_name='update_after_event',
+          function_arg=event_statement)
 
   def terminate_episode(self) -> bool:
     for comp in self._components:
