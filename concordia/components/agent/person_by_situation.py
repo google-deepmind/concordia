@@ -89,13 +89,14 @@ class PersonBySituation(component.Component):
         for construct in self._components
     ])
 
-    prompt.statement(component_states)
+    prompt.statement(
+        f'***\nCurrent time: {self._clock_now()}\n' + component_states)
     question = (
         f'What would a person like {self._agent_name} do in a situation like'
         ' this?'
     )
     if self._clock_now is not None:
-      question = f'Current time: {self._clock_now()}.\n{question}'
+      question = f'{question}'
 
     old_state = self._state
     self._state = prompt.open_question(
