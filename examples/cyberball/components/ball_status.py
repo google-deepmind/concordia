@@ -33,21 +33,22 @@ class BallStatus(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       player_names: Sequence[str],
+      initial_ball_holder: str = '',
       num_memories_to_retrieve: int = 10,
       verbose: bool = False,
   ):
     self._memory = memory
     self._model = model
-    self._state = ''
+    self._state = f'{initial_ball_holder} has the ball.'
     self._player_names = player_names
-    self._partial_states = {name: '' for name in self._player_names}
+    self._partial_states = {name: self._state for name in self._player_names}
     self._verbose = verbose
     self._history = []
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
   def name(self) -> str:
-    return 'Status of the ball'
+    return 'Player who has the ball now'
 
   def state(self) -> str:
     return self._state
@@ -63,36 +64,44 @@ class BallStatus(component.Component):
       self,
       player_name: str,
   ) -> str:
-    """Return a player-specific view of the ball's state."""
+    """Return a player-specific view of who has the ball."""
     return self._partial_states[player_name]
 
-  def update(self) -> None:
+  def update_after_event(
+      self,
+      event_statement: str,
+  ) -> None:
     self._state = '\n'
     self._partial_states = {name: '' for name in self._player_names}
-    per_player_prompt = {}
-    for player_name in self._player_names:
-      memories = self._memory.retrieve_by_regex(player_name)
-      mems = memories[-self._num_memories_to_retrieve:]
-      prompt = interactive_document.InteractiveDocument(self._model)
-      prompt.statement(f'Events:\n{mems}')
-      time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
-      prompt.statement(f'The current time is: {time_now}\n')
-      ball_location = prompt.open_question(
-          'Given the above events and their time, who has the ball now?'
-      )
-      per_player_prompt[player_name] = prompt.view().text().splitlines()
-      if self._verbose:
-        print(prompt.view().text())
 
-      # Indent player status outputs.
-      state_string = f'  {ball_location} has the ball.'
+    prompt = interactive_document.InteractiveDocument(self._model)
+
+    time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
+
+    memories = self._memory.retrieve_by_regex('ball')
+    mems = memories[-self._num_memories_to_retrieve:]
+    prompt.statement(f'Some recent events:\n{mems}')
+    prompt.statement(f'The latest event: {time_now} {event_statement}')
+
+    prompt.statement(f'The current time is: {time_now}\n')
+    ball_location_idx = prompt.multiple_choice_question(
+        question=('Given all the above events and their timestamps, who has ' +
+                  'the ball now?'),
+        answers=self._player_names,
+    )
+    ball_location = self._player_names[ball_location_idx]
+    if self._verbose:
+      print(prompt.view().text())
+
+    state_string = f'{ball_location} has the ball.'
+    self._state = state_string
+    for player_name in self._player_names:
       self._partial_states[player_name] = state_string
-      self._state = self._state + state_string
 
     update_log = {
         'date': self._clock_now(),
         'state': self._state,
         'partial states': self._partial_states,
-        'per player prompts': per_player_prompt,
+        'context': prompt.view().text().splitlines(),
     }
     self._history.append(update_log)
