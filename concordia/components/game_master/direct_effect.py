@@ -94,7 +94,7 @@ class DirectEffect(component.Component):
       player_name = player.name
       player_doc = helper_functions.filter_copy_as_statement(document)
       affected = player_doc.yes_no_question(
-          f'Does the event affect {player_name} status?'
+          f'Does the event affect {player_name}?'
       )
       if affected:
         if self._verbose:
@@ -109,8 +109,11 @@ class DirectEffect(component.Component):
               f'What does {player_name} know about the event?'
           )
           how_player_saw_event_first_person = player_doc.open_question(
-              f"Concisely summarize the event from {player_name}'s "
-              + 'perspective using third-person limited point of view.'
+              f"Summarize the event from {player_name}'s "
+              + 'perspective using third-person limited point of view. '
+              + 'If the event contains a direct quotation of anything said '
+              + 'or written by anyone then it is important to include the '
+              + 'quote verbatim in the summary.'
           )
           player.observe(how_player_saw_event_first_person)
           if self._verbose:
