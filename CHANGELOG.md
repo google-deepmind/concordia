@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [1.2.0] - 2024-02-12
+
+### Changed
+
+- Recursively call update on all components that implement 'get_components'.
+- Require Python >=3.11.
+- Increase default max number of tokens produced at a time by agent speech.
+- generalize the default call to action.
+- Improved steps for the Game Master's thought chain.
+- Improve default call to speech
+- Small text improvements in the Plan component.
+- Small improvements to conversation logic.
+
+### Added
+
+- Option not to state the names of all participants in the scene at the start of
+  each conversation.
+- Add verbose option to somatic state component.
+- prettier verbose printing from the somatic state component.
+- Allow game master to account for agency of inactive players.
+
+### Fixed
+
+- prevent the direct effect component from clobbering quotes of player speech.
+- fix a bug in the cyberball ball status component and generally improve it.
+
+
 ## [1.1.1] - 2024-01-30
 
 ### Fixed
@@ -46,6 +74,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - A test for the GM sequence of calls
 - Add logging to basic agent and agent components for a detailed html generation.
 - Add gemini vertex model wrapper
+
 
 ## [1.0.0] - 2023-12-07
 
