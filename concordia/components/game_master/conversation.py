@@ -48,6 +48,7 @@ class Conversation(component.Component):
       shared_context: str = '',
       components: Sequence[component.Component] | None = None,
       allow_self_talk: bool = False,
+      review_participants: bool = True,
       verbose: bool = False,
       print_colour: str = 'magenta',
   ):
@@ -67,6 +68,8 @@ class Conversation(component.Component):
       shared_context: A string to use as the generic context for the NPCs.
       components: components that contextualise the conversation
       allow_self_talk: allow players to have a conversation with themselves
+      review_participants: whether or not to start each scene by declaring
+        who its participants are.
       verbose: Whether to print debug messages or not.
       print_colour: colour in which to print logs
     """
@@ -85,6 +88,7 @@ class Conversation(component.Component):
     self._allow_self_talk = allow_self_talk
     self._all_player_names = [player.name for player in self._players]
     self._min_speakers = 1 if self._allow_self_talk else 2
+    self._review_participants = review_participants
 
   def name(self) -> str:
     return 'Conversations'
@@ -295,6 +299,7 @@ class Conversation(component.Component):
             memory_factory=self._burner_memory_factory,
             name='Conversation scene',
             premise=event_statement,
+            review_participants=self._review_participants,
         )
         with self._clock.higher_gear():
           scene_output = convo_scene.run_episode()

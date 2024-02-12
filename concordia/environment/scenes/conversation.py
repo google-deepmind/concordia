@@ -103,6 +103,7 @@ def make_conversation_game_master(
     memory_factory: blank_memories.MemoryFactory,
     name: str = 'Conversation scene',
     premise: str = '',
+    review_participants: bool = True,
 ):
   """Creates a game master that runs a conversation between players.
 
@@ -114,6 +115,8 @@ def make_conversation_game_master(
     name: the name of the game master
     premise: any extra text to be added on top of the conversation (say,
       circumstances of it)
+    review_participants: whether or not to start each conversation scene by
+      declaring who its participants are.
 
   Returns:
     a game master
@@ -127,15 +130,19 @@ def make_conversation_game_master(
 
   agent_names = [player.name for player in players]
 
-  is_are = 'are' if len(agent_names) > 1 else 'is'
-  convo = f'{", ".join(agent_names)} {is_are} in conversation'
-  if len(agent_names) == 1:
-    convo += ' with themself'
+  convo = ''
   if premise:
-    convo = (
-        f'{premise}\nAs a result {convo}.\nHere is the conversation from the'
-        ' beginning:'
-    )
+    convo = f'{premise} '
+  if review_participants:
+    if premise:
+      convo += '\nAs a result '
+    is_are = 'are' if len(agent_names) > 1 else 'is'
+    actors_str = f'{", ".join(agent_names)} {is_are} in conversation'
+    if len(agent_names) == 1:
+      actors_str += ' with themself'
+    convo += f'{actors_str}.\n'
+
+  convo += 'Here is the conversation from the beginning:'
 
   conversation_tracker = ConversationTracker(
       model=model,
