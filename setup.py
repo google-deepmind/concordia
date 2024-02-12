@@ -42,14 +42,13 @@ setuptools.setup(
         'Operating System :: POSIX :: Linux',
         'Operating System :: MacOS :: MacOS X',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
     package_data={},
-    python_requires='>=3.10',
+    python_requires='>=3.11',
     install_requires=[
         # TODO: b/312199199 - remove some requirements.
         'absl-py',
