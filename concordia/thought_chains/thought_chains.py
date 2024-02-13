@@ -44,6 +44,37 @@ def identity(
   return premise
 
 
+def extract_direct_quote(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    action_attempt: str,
+    active_player_name: str,
+):
+  """Outputs the premise. Use this to create a pass-through chain of thought.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    action_attempt: the attempted action
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+    string describing the action attempt
+  """
+  inner_chain_of_thought = chain_of_thought.new()
+  inner_chain_of_thought.statement(f'{action_attempt}')
+  proceed = inner_chain_of_thought.yes_no_question(
+      question=f'Did {active_player_name} explicitly say or write anything?')
+  if proceed:
+    direct_quote = inner_chain_of_thought.open_question(
+        question=f'What exactly did {active_player_name} say or write?',
+        max_characters=3000,
+        max_tokens=2500,
+        terminators=(),
+    )
+    chain_of_thought.statement(f'[direct quote] {direct_quote}')
+
+  return action_attempt
+
+
 def determine_success_and_why(
     chain_of_thought: interactive_document.InteractiveDocument,
     action_attempt: str,
@@ -242,6 +273,39 @@ def result_to_effect_caused_by_active_player(
   return causal_statement
 
 
+def restore_direct_quote(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    event: str,
+    active_player_name: str,
+):
+  """Restore details from action attempt lost in subsequent processing.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    event: the candidate event
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+    string describing the outcome
+  """
+  chain_of_thought.statement(
+      f'Candidate event statement which may have lost direct quotes: {event}')
+  event_with_quote = chain_of_thought.open_question(
+      question=(
+          'Incorporate the exact text of anything said or written ' +
+          f'by {active_player_name} into the candidate event statement. ' +
+          'Note that all direct quotes should have been tagged in the ' +
+          f'text above with [direct quote]. If {active_player_name} ' +
+          'said or wrote anything then their direct quote must be part of ' +
+          'the answer. It is also important to maintain as much detail as ' +
+          'possible from the latest candidate event statement.'),
+      max_characters=4000,
+      max_tokens=3500,
+      terminators=(),
+  )
+  return event_with_quote
+
+
 class AccountForAgencyOfOthers:
   """Prevents players from taking voluntary actions they do not agree to take.
   """
@@ -363,7 +427,8 @@ def run_chain_of_thought(
   """Run a chain of thoughts in the document.
 
   Args:
-    thoughts: a sequence of 'thougth' functions
+    thoughts: sequence of 'thought' functions each of which process a document
+      and candidate event string.
     premise:  the starting premise of the chain
     document: the working document
     active_player_name: name of player whose turn it currently is
