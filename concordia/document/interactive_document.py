@@ -142,6 +142,7 @@ class InteractiveDocument(document.Document):
       self,
       question: str,
       *,
+      forced_response: str | None = None,
       answer_prefix: str = '',
       answer_suffix: str = '',
       max_tokens: int = DEFAULT_MAX_TOKENS,
@@ -152,6 +153,9 @@ class InteractiveDocument(document.Document):
 
     Args:
       question: the question to ask.
+      forced_response: forces the document to provide this response. The LLM
+        will not be consulted. If answer_prefix is in the forced response then
+        remove it.
       answer_prefix: a prefix to append to the model's prompt.
       answer_suffix: a suffix to append to the model's response.
       max_tokens: the maximum number of tokens to sample from the model.
@@ -160,18 +164,20 @@ class InteractiveDocument(document.Document):
         emitted by the model the response will be truncated before them.
 
     Returns:
-      The agents truncated response.
+      The agents truncated response (or `forced_response` is provided).
     """
     self._question(f'Question: {question}\n')
     self._response(f'Answer: {answer_prefix}')
-    response = self._model.sample_text(
-        prompt=self._model_view.text(),
-        max_tokens=max_tokens,
-        max_characters=max_characters,
-        terminators=terminators,
-    )
-    if response.startswith(answer_prefix):
-      response = response[len(answer_prefix):]
+    if forced_response is None:
+      response = self._model.sample_text(
+          prompt=self._model_view.text(),
+          max_tokens=max_tokens,
+          max_characters=max_characters,
+          terminators=terminators,
+      )
+    else:
+      response = forced_response
+    response = response.removeprefix(answer_prefix)
     self._model_response(response)
     self._response(f'{answer_suffix}\n')
     return response

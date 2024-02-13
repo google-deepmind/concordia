@@ -82,6 +82,40 @@ Answer: Well...This is a long answer
       )
       self.assertEqual(doc.contents(), expected)
 
+  def test_open_question_with_forced_answer(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = 'This is a long answer'
+
+    doc = interactive_document.InteractiveDocument(model)
+    doc.statement('Hi!')
+    response = doc.open_question(
+        question='What is 1+1?',
+        forced_response='I hereby declare the answer to be 7',
+        answer_prefix='OK then...',
+    )
+
+    with self.subTest('response'):
+      self.assertEqual(response, 'I hereby declare the answer to be 7')
+
+    with self.subTest('text'):
+      expected = """Hi!
+Question: What is 1+1?
+Answer: OK then...I hereby declare the answer to be 7
+"""
+      self.assertEqual(doc.text(), expected)
+
+    with self.subTest('contents'):
+      expected = (
+          STATEMENT('Hi!\n'),
+          QUESTION('Question: What is 1+1?\n'),
+          RESPONSE('Answer: OK then...'),
+          MODEL_RESPONSE('I hereby declare the answer to be 7'),
+          RESPONSE('\n'),
+      )
+      self.assertEqual(doc.contents(), expected)
+
   def test_multiple_choice_question(self):
     model = mock.create_autospec(
         language_model.LanguageModel, instance=True, spec_set=True
