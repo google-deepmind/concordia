@@ -55,16 +55,17 @@ class AssociativeMemory:
     )
     self._clock_now = clock
     self._interval = clock_step_size
+    self._stored_hashes = set()
 
   def add(
       self,
       text: str,
       *,
       timestamp: datetime.datetime | None = None,
-      tags: list[str] | None = None,
+      tags: Iterable[str] = (),
       importance: float | None = None,
   ):
-    """Adds the text to the memory.
+    """Adds nonduplicated entries (time, text, tags, importance) to the memory.
 
     Args:
       text: what goes into the memory
@@ -72,30 +73,31 @@ class AssociativeMemory:
       tags: optional tags
       importance: optionally set the importance of the memory.
     """
-
-    embedding = self._embedder(text)
     if importance is None:
       importance = self._importance(text)
 
     if timestamp is None:
       timestamp = self._clock_now()
 
-    new_df = (
-        pd.Series({
-            'text': text,
-            'time': timestamp,
-            'tags': tags,
-            'embedding': embedding,
-            'importance': importance,
-        })
-        .to_frame()
-        .T
-    )
+    contents = {
+        'text': text,
+        'time': timestamp,
+        'tags': tuple(tags),
+        'importance': importance,
+    }
+    hashed_contents = hash(contents.values())
+    derived = {
+        'embedding': self._embedder(text)
+    }
+    new_df = pd.Series(contents | derived).to_frame().T
 
     with self._memory_bank_lock:
+      if hashed_contents in self._stored_hashes:
+        return
       self._memory_bank = pd.concat(
           [self._memory_bank, new_df], ignore_index=True
       )
+      self._stored_hashes.add(hashed_contents)
 
   def extend(
       self,
