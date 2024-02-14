@@ -58,6 +58,7 @@ class SituationPerception(component.Component):
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
+    self._last_update = self._clock_now() - datetime.timedelta(days=365)
     self._history = []
 
   def name(self) -> str:
@@ -74,6 +75,10 @@ class SituationPerception(component.Component):
     return self._components
 
   def update(self) -> None:
+    if self._clock_now() == self._last_update:
+      return
+    self._last_update = self._clock_now()
+
     mems = '\n'.join(
         self._memory.retrieve_recent(
             self._num_memories_to_retrieve, add_time=True
