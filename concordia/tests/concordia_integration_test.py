@@ -42,10 +42,10 @@ def _make_agent(
     model: mock_model.MockModel,
     clock: game_clock.MultiIntervalClock,
     player_names: Sequence[str],
-    game_master_instructions: str,
+    agent_instructions: str,
     mem_factory: blank_memories.MemoryFactory,
 ) -> basic_agent.BasicAgent:
-  """Creates two agents with the same game master instructions."""
+  """Creates two agents with same instructions."""
   mem = mem_factory.make_blank_memory()
 
   goal_metric = goal_achievement.GoalAchievementMetric(
@@ -146,7 +146,7 @@ def _make_agent(
       clock,
       [
           components.constant.ConstantComponent(
-              'Instructions:', game_master_instructions
+              'Instructions:', agent_instructions
           ),
           persona,
           observation,
@@ -175,7 +175,6 @@ def _make_environment(
     model: mock_model.MockModel,
     clock: game_clock.MultiIntervalClock,
     players: Sequence[basic_agent.BasicAgent],
-    game_master_instructions: str,
     importance_model_gm: importance_function.ImportanceModel,
 ) -> game_master.GameMaster:
   """Creates a game master environment."""
@@ -190,9 +189,6 @@ def _make_environment(
 
   shared_context = 'There is a hamlet named Riverbend.'
 
-  instructions_construct = components.constant.ConstantComponent(
-      game_master_instructions, 'Instructions'
-  )
   facts_on_village = components.constant.ConstantComponent(
       ' '.join(shared_memories), 'General knowledge of Riverbend'
   )
@@ -215,7 +211,6 @@ def _make_environment(
       burner_memory_factory=mem_factory,
       components=[player_status],
       cap_nonplayer_characters=2,
-      game_master_instructions=game_master_instructions,
       shared_context=shared_context,
       verbose=False,
   )
@@ -252,7 +247,6 @@ def _make_environment(
       clock=clock,
       players=players,
       components=[
-          instructions_construct,
           facts_on_village,
           player_status,
           schedule_construct,
@@ -281,7 +275,7 @@ class GameMasterTest(parameterized.TestCase):
         ],
     )
 
-    game_master_instructions = 'This is a social science experiment.'
+    agent_instructions = 'This is a social science experiment.'
 
     mem_factory = blank_memories.MemoryFactory(
         model=model,
@@ -295,7 +289,7 @@ class GameMasterTest(parameterized.TestCase):
         model=model,
         clock=clock,
         player_names=['Alice', 'Bob'],
-        game_master_instructions=game_master_instructions,
+        agent_instructions=agent_instructions,
         mem_factory=mem_factory,
     )
     bob = _make_agent(
@@ -303,18 +297,17 @@ class GameMasterTest(parameterized.TestCase):
         model=model,
         clock=clock,
         player_names=['Alice', 'Bob'],
-        game_master_instructions=game_master_instructions,
+        agent_instructions=agent_instructions,
         mem_factory=mem_factory,
     )
 
     players = [alice, bob]
 
     env = _make_environment(
-        model,
-        clock,
-        players,
-        game_master_instructions,
-        importance_model,
+        model=model,
+        clock=clock,
+        players=players,
+        importance_model_gm=importance_model,
     )
 
     env.run_episode(12)

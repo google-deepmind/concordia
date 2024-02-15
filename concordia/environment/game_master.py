@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """A Generic Game Master."""
 
 from collections.abc import Callable, Sequence
 import concurrent.futures
 import random
 
+from concordia import components as generic_components
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -34,6 +34,23 @@ import termcolor
 DEFAULT_THOUGHTS = (
     thought_chains.attempt_to_result,
     thought_chains.result_to_who_what_where,
+)
+
+
+DEFAULT_GAME_MASTER_INSTRUCTIONS = (
+    'This is a social science experiment. It is structured as a '
+    'tabletop roleplaying game (like dungeons and dragons). You are the '
+    'game master. You will describe the current situation to the '
+    'participants in the experiment and then on the basis of what you '
+    'tell them they will suggest actions for the character they control. '
+    'Aside from you, each other participant controls just one character. '
+    'You are the game master so you may control any non-player '
+    'character. You will track the state of the world and keep it '
+    'consistent as time passes in the simulation and the participants '
+    'take actions and change things in their world. Remember that this '
+    'is a serious social science experiment. It is not just a game. It '
+    'need not be fun for the participants. Always use third-person '
+    'limited perspective, even when speaking directly to the participants.'
 )
 
 
@@ -63,7 +80,8 @@ class GameMaster(simulacrum_game_master.GameMaster):
       verbose: bool = False,
       concurrent_externalities: bool = True,
       concurrent_action: bool = False,
-      log_colour: str = 'red',
+      use_default_instructions: bool = True,
+      log_color: str = 'red',
   ):
     """Game master constructor.
 
@@ -89,19 +107,29 @@ class GameMaster(simulacrum_game_master.GameMaster):
       concurrent_externalities: if true, runs externalities in separate threads
       concurrent_action: if true, runs player actions and events in separate
         threads
-      log_colour: colour in which to print logs
+      use_default_instructions: set to False if you want to skip the standard
+        instructions used for the game master, e.g. do this if you plan to pass
+        custom instructions as a constant component instead.
+      log_color: color in which to print logs
     """
     self._name = name
     self._model = model
     self._memory = memory
     self._clock = clock
     self._players = players
-    self._log_colour = log_colour
+    self._log_color = log_color
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
     self._action_spec = action_spec or simulacrum_agent.DEFAULT_ACTION_SPEC
     self._concurrent_action = concurrent_action
+
+    components = list(components or [])
+    if use_default_instructions:
+      instructions_component = generic_components.constant.ConstantComponent(
+          state=DEFAULT_GAME_MASTER_INSTRUCTIONS,
+          name='Instructions')
+      components.insert(0, instructions_component)
 
     self._components = {}
     for comp in components:
@@ -130,8 +158,8 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def get_data_frame(self):
     return self._memory.get_data_frame()
 
-  def _print(self, entry, colour=None):
-    print(termcolor.colored(entry, colour or self._log_colour))
+  def _print(self, entry, color=None):
+    print(termcolor.colored(entry, color or self._log_color))
 
   def reset(self):
     self._last_chain = None

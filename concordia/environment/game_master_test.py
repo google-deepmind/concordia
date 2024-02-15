@@ -84,7 +84,7 @@ class CallTrackingComponent(component.Component):
     return False
 
 
-class GameMaterTest(parameterized.TestCase):
+class GameMasterTest(parameterized.TestCase):
 
   def test_calls_sequence(self):
     gm_call_tracker = CallTrackingComponent()

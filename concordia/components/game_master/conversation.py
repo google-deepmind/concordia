@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-"""Externality for the Game Master, which generates conversations."""
+"""Externality component for the Game Master, which generates conversations."""
 
 from collections.abc import Sequence
 import datetime
@@ -25,6 +24,7 @@ from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as sim_components
 from concordia.document import interactive_document
+from concordia.environment import game_master
 from concordia.environment.scenes import conversation as conversation_scene
 from concordia.language_model import language_model
 from concordia.typing import clock as clock_lib
@@ -44,13 +44,13 @@ class Conversation(component.Component):
       clock: game_clock.MultiIntervalClock,
       burner_memory_factory: blank_memories.MemoryFactory,
       cap_nonplayer_characters: int = 3,
-      game_master_instructions: str = '',
       shared_context: str = '',
       components: Sequence[component.Component] | None = None,
       allow_self_talk: bool = False,
       review_participants: bool = True,
       verbose: bool = False,
-      print_colour: str = 'magenta',
+      npc_instructions: str = game_master.DEFAULT_GAME_MASTER_INSTRUCTIONS,
+      log_color: str = 'magenta',
   ):
     """Initializes the generator of conversations.
 
@@ -64,23 +64,25 @@ class Conversation(component.Component):
         npcs and conversation gm
       cap_nonplayer_characters: The maximum number of non-player characters
         allowed in the conversation.
-      game_master_instructions: A string to use as the game master instructions.
       shared_context: A string to use as the generic context for the NPCs.
       components: components that contextualise the conversation
       allow_self_talk: allow players to have a conversation with themselves
       review_participants: whether or not to start each scene by declaring
         who its participants are.
       verbose: Whether to print debug messages or not.
-      print_colour: colour in which to print logs
+      npc_instructions: by default use the standard game master instructions
+        for non-player characters. Otherwise override this with custom
+        instructions.
+      log_color: color in which to print logs
     """
     self._players = players
     self._model = model
     self._cap_nonplayer_characters = cap_nonplayer_characters
-    self._game_master_instructions = game_master_instructions
+    self._npc_instructions = npc_instructions
     self._shared_context = shared_context
     self._history = []
     self._verbose = verbose
-    self._print_colour = print_colour
+    self._log_color = log_color
     self._components = components or []
     self._clock = clock
     self._burner_memory_factory = burner_memory_factory
@@ -104,7 +106,7 @@ class Conversation(component.Component):
     return [player.name for player in self._players]
 
   def _log(self, entry):
-    print(termcolor.colored(entry, self._print_colour))
+    print(termcolor.colored(entry, self._log_color))
 
   def _make_npc(
       self, name: str, scene_clock: clock_lib.GameClock
@@ -123,7 +125,7 @@ class Conversation(component.Component):
         clock=scene_clock,
         components=[
             generic_components.constant.ConstantComponent(
-                name='Instructions:', state=self._game_master_instructions
+                name='Instructions:', state=self._npc_instructions
             ),
             generic_components.constant.ConstantComponent(
                 name='General knowledge:', state=context
