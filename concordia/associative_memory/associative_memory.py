@@ -27,6 +27,15 @@ import numpy as np
 import pandas as pd
 
 
+def _check_date_in_range(timestamp: datetime.datetime) -> None:
+  if timestamp < pd.Timestamp.min:
+    min_date = pd.Timestamp.min
+    raise ValueError(f'timestamp {timestamp} < pd.Timestamp.min {min_date}')
+  if timestamp > pd.Timestamp.max:
+    max_date = pd.Timestamp.max
+    raise ValueError(f'timestamp {timestamp} > pd.Timestamp.max {max_date}')
+
+
 class AssociativeMemory:
   """Class that implements associative memory."""
 
@@ -78,6 +87,8 @@ class AssociativeMemory:
 
     if timestamp is None:
       timestamp = self._clock_now()
+
+    _check_date_in_range(timestamp)
 
     contents = {
         'text': text,
