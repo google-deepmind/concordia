@@ -23,6 +23,7 @@ from concordia.language_model import language_model
 from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.utils import measurements as measurements_lib
+import termcolor
 
 
 DEFAULT_SCALE = (
@@ -122,6 +123,7 @@ class Question(component.Component):
 
     datum['time'] = self._clock.now()
     if self._verbose:
+      print(termcolor.colored(prompt.view().text(), 'green'), end='')
       print(f'{question}\n{self._player_name}: {answer_str}')
     self._timestep += 1
 
