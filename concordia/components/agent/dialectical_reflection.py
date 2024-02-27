@@ -82,6 +82,7 @@ class DialecticalReflection(component.Component):
 
     self._name = name
     self._history = []
+    self._last_update = self._clock_now() - datetime.timedelta(days=365)
 
   def name(self) -> str:
     return self._name
@@ -97,6 +98,10 @@ class DialecticalReflection(component.Component):
     return self._components
 
   def update(self) -> None:
+    if self._clock_now() == self._last_update:
+      return
+    self._last_update = self._clock_now()
+
     old_state = self._state
     # The following query looks for conversations using the fact that their
     # observations are preceded by ' -- "'.
