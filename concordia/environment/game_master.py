@@ -116,7 +116,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
     self._model = model
     self._memory = memory
     self._clock = clock
-    self._players = players
     self._log_color = log_color
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
@@ -142,7 +141,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     self._update_from_player_thoughts = update_thought_chain or DEFAULT_THOUGHTS
 
-    self._players_by_name = {player.name: player for player in self._players}
+    self._players_by_name = {player.name: player for player in players}
+    if len(self._players_by_name) != len(players):
+      raise ValueError('Duplicate player names')
 
     self._concurrent_externalities = concurrent_externalities
     self._log = []
@@ -163,10 +164,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
   def reset(self):
     self._last_chain = None
-    self._num_players = len(self._players)
+    self._num_players = len(self._players_by_name.keys())
 
   def get_player_names(self):
-    return [player.name for player in self._players]
+    return list(self._players_by_name.keys())
 
   def update_from_player(self, player_name: str, action_attempt: str):
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -274,14 +275,22 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     self.update_from_player(action_attempt=action, player_name=player.name)
 
-  def step(self):
+  def step(self,
+           *,
+           active_players: Sequence[basic_agent.BasicAgent] | None = None):
     """Steps the game.
 
     At each step players all take a turn 'quasisimultaneously' with regard to
     the main game clock, but still in a specific order within the timestep.
     This is the same principle as initiative order in dungeons and dragons.
+
+    Args:
+      active_players: Optionally specify players to take turns in this round.
     """
-    players = list(self._players)
+    if active_players:
+      players = list(active_players)
+    else:
+      players = list(self._players_by_name.values())
 
     if self._randomise_initiative:
       random.shuffle(players)
