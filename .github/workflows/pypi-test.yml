@@ -21,6 +21,11 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to test'
+        type: string
+        default: ''
 
 permissions: read-all
 
@@ -56,7 +61,8 @@ jobs:
 
       - name: Install from PyPI
         run: |
-          pip -vvv install gdm-concordia
+          VERSION="${{github.event.inputs.version}}"
+          pip -vvv install "gdm-concordia${VERSION:+==$VERSION}"
           pip list
 
       - name: Test installation
