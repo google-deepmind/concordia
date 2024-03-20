@@ -1,0 +1,39 @@
+# A workflow to test the sdist that will be released to PyPI
+
+name: sdist-test
+
+on:
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  sdist-test:
+    name: Test sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Concordia
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+
+      - name: Build source distribution
+        run: python setup.py sdist
+
+      - name: Set up Python
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest-xdist setuptools
+
+      - name: Install source distribution
+        run: |
+          pip install dist/*.tar.gz
+
+      - name: Test source distribution
+        run: |
+          pytest -n auto --pyargs concordia
