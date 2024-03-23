@@ -208,7 +208,9 @@ class Inventory(component.Component):
                       f'How {_many_or_much(self._is_count_noun[item_type])} '
                       + f'{item_type} did {player} gain '
                       + f'as a result of the event? If they lost {item_type} '
-                      'then respond with a negative number.'
+                      + 'then respond with a negative number. Be precise. If '
+                      + 'the original event was imprecise then pick a specific '
+                      + 'value that is consistent with all the text above.'
                   )
               )
               try:
