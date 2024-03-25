@@ -31,7 +31,7 @@ class ActionSpec:
   """A specification of the action that agent is queried for.
 
   Attributes:
-    call_to_action: fromated text that conditions agents response. {agent_name}
+    call_to_action: formatted text conditioning agent response. {agent_name}
       and {timedelta} will be inserted by the agent.
     output_type: type of output - FREE, CHOICE or FLOAT
     options: if multiple choice, then provide possible answers here

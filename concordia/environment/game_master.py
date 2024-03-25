@@ -268,16 +268,25 @@ class GameMaster(simulacrum_game_master.GameMaster):
       executor.map(
           lambda construct: construct.update(), list(self._components.values()))
 
-  def _step_player(self, player: basic_agent.BasicAgent):
+  def _step_player(self,
+                   player: basic_agent.BasicAgent,
+                   action_spec: simulacrum_agent.ActionSpec | None = None):
     self.update_components()
     self.view_for_player(player_name=player.name)
-    action = player.act(self._action_spec)
+
+    if action_spec:
+      action_spec_this_time = action_spec
+    else:
+      action_spec_this_time = self._action_spec
+
+    action = player.act(action_spec_this_time)
 
     self.update_from_player(action_attempt=action, player_name=player.name)
 
   def step(self,
            *,
-           active_players: Sequence[basic_agent.BasicAgent] | None = None):
+           active_players: Sequence[basic_agent.BasicAgent] | None = None,
+           action_spec: simulacrum_agent.ActionSpec | None = None):
     """Steps the game.
 
     At each step players all take a turn 'quasisimultaneously' with regard to
@@ -286,21 +295,30 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     Args:
       active_players: Optionally specify players to take turns in this round.
+      action_spec: Optionally specify what kind of action to ask the agent to
+        generate.
     """
     if active_players:
       players = list(active_players)
     else:
       players = list(self._players_by_name.values())
 
+    override_action_spec = None
+    if action_spec:
+      override_action_spec = action_spec
+
+    step_player_fn = lambda player: self._step_player(
+        player=player, action_spec=override_action_spec)
+
     if self._randomise_initiative:
       random.shuffle(players)
 
     if self._concurrent_action:
       with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(self._step_player, players)
+        executor.map(step_player_fn, players)
     else:
       for player in players:
-        self._step_player(player)
+        step_player_fn(player)
         if not self._players_act_simultaneously:
           self._clock.advance()
     if self._players_act_simultaneously:
