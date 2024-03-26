@@ -18,6 +18,7 @@
 from collections.abc import Callable, Iterable, Sequence
 import dataclasses
 import datetime
+import logging
 import re
 from typing import Any
 from concordia.associative_memory import associative_memory
@@ -26,9 +27,10 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from dateutil.relativedelta import relativedelta  # pylint: disable=g-importing-member
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_DOB = datetime.datetime(year=1984, month=7, day=3, hour=0, minute=0)
-DEFAULT_FORMATIVE_AGES = (3, 7, 12, 16, 21)
+DEFAULT_FORMATIVE_AGES = (6, 9, 13, 16, 21)
 DEFAULT_IMPORTANT_MODEL = importance_function.ConstantImportanceModel()
 
 
@@ -96,52 +98,37 @@ class FormativeMemoryFactory:
     """
     prompt = interactive_document.InteractiveDocument(self._model)
 
-    if context:
-      prompt.statement(context)
     question = (
-        f'Given the following traits:\n{str(traits_description)}'
-        f'\n create a backstory about a {gender} character called {name}.'
-        ' Write a summary of the person:'
-        ' what their job is, what a typical day is is like, what are their'
-        ' goals, desires, hopes, dreams, and aspirations. Also write about'
-        ' their duties, responsibilities, and obligations. What gives them joy'
-        ' and what are they afraid of. Write about their friends and what they'
-        ' like to do. Also write about their current concerns.'
+        'Creative Writing Master Class\n'
+        f'Write a fictional life story for a {gender} character called {name} '
+        f'with the following traits:\n{str(traits_description)}.\nBegin the '
+        f'story when {name} is very young and end it when they are quite old. '
+        'The story should be no more than three paragraphs in total. '
+        'The story may include details such as (but not limited to) any of the '
+        'following: what their job is, what their typical day is like, what '
+        'their goals, desires, hopes, dreams, and aspirations are, as well as '
+        'their drives, duties, responsibilities, and obligations. It should '
+        'clarify what gives them joy and what are they afraid of. It may '
+        'include their friends and family. It should be a complete life story '
+        'but it should not specify how or when their life begins or ends. The '
+        f'reader should come away with a profound understanding of {name}.'
     )
     if context:
-      question += f' Take into account the following context: {context}'
+      question += f' Incorporate the following context: {context}'
     result = prompt.open_question(
         question,
-        max_characters=2500,
-        max_tokens=2500,
+        max_characters=5000,
+        max_tokens=4500,
         terminators=[],
     )
     result = re.sub(r'\.\s', '.\n', result)
-
-    query = '\n'.join([
-        (
-            'Replace all the pronouns in the following text with the name'
-            f' {name}.'
-        ),
-        'The text:',
-        result,
-    ])
-
-    description = self._model.sample_text(
-        query,
-        max_characters=2600,
-        max_tokens=2600,
-        terminators=[],
-    )
-    description = re.sub(r'\.\s', '.\n', description)
-
-    return description
+    return result
 
   def make_memories(
       self,
       agent_config: AgentConfig,
   ) -> associative_memory.AssociativeMemory:
-    """Creates agent memory from the agent card."""
+    """Creates agent memory from the agent config."""
 
     mem = self._blank_memory_factory_call()
     # All players share generic memories.
@@ -158,13 +145,13 @@ class FormativeMemoryFactory:
       context_items = context.split('\n')
       for item in context_items:
         if item:
-          mem.add(item, importance=1.0)
+          mem.add(item, importance=agent_config.formative_memory_importance)
 
     if agent_config.specific_memories:
       specific_memories = agent_config.specific_memories.split('\n')
       for item in specific_memories:
         if item:
-          mem.add(item, importance=1.0)
+          mem.add(item, importance=agent_config.formative_memory_importance)
 
     return mem
 
@@ -189,34 +176,56 @@ class FormativeMemoryFactory:
         agent_config.context,
     )
     prompt = interactive_document.InteractiveDocument(self._model)
-    prompt.statement('Context: ' + description)
+    prompt.statement('Creative Writing Master Class\n')
+    prompt.statement('Character background story:\n\n' + description)
 
-    for episode_age in agent_config.formative_ages:
-      question = (
-          'Given the context above, come up with a formative episode at the '
-          + f'age of {episode_age}, which is consistent with'
-          f" {agent_config.name}'s "
-          + f"personality. Describe the episode from {agent_config.name}'s"
-          ' perspective '
-          + 'using third-person limited point of view. Mention their age at '
-          + 'the time. Use past tense. Write no more than three sentences.'
+    question = (
+        'Given the life story above, invent formative episodes from '
+        f'the life of {agent_config.name} which could have taken '
+        f'place at the following ages: {agent_config.formative_ages}. '
+        'The episodes should be age appropriate and believeable. '
+        f'They should be memorable events for {agent_config.name} and '
+        'important for establishing who they are as a person. They should '
+        f'be consistent with {agent_config.name}\'s personality. '
+        f'Describe each episode from {agent_config.name}\'s perspective '
+        'and use third-person limited point of view. Each episode must '
+        'mention their age at the time the event occurred using language such '
+        f'as "When {agent_config.name} was 5 years old, they experienced..." . '
+        'Use past tense. Write no more than three sentences per episode. '
+        'Separate episodes from one another by the delimiter "\n\n\n". Do not '
+        'apply any other special formatting besides these delimiters.'
+    )
+    if agent_config.traits:
+      question += (
+          '\nTaken as a whole, these formative episodes from the life of '
+          f'{agent_config.name} should explain their personality, which has '
+          f'been described as: "{agent_config.traits}".')
+    if agent_config.context:
+      question += (
+          'Make a few of the episodes relate to the '
+          f'following context: "{agent_config.context}".'
       )
-      if agent_config.context:
-        question += (
-            '\nThe generated episode should be specifically related to some'
-            f' aspect of the following context: "{agent_config.context}"'
-        )
 
-      episode = prompt.open_question(
-          question,
-          max_characters=3000,
-          max_tokens=3000,
-          terminators=[],
-      )
+    aggregated_result = prompt.open_question(
+        question=question,
+        max_characters=8000,
+        max_tokens=6000,
+        terminators=[],
+    )
+
+    episodes = aggregated_result.split('\n\n\n')
+
+    if len(episodes) != len(list(agent_config.formative_ages)):
+      logger.warning(
+          f'Number of generated formative episodes ({len(episodes)}) does ' +
+          'not match number of formative ages ' +
+          f'({len(list(agent_config.formative_ages))}).')
+
+    for episode_age, episode in zip(agent_config.formative_ages, episodes):
       memory.add(
           episode,
           tags=['episode'],
-          timestamp=agent_config.date_of_birth
-          + relativedelta(years=episode_age),
+          timestamp=(
+              agent_config.date_of_birth + relativedelta(years=episode_age)),
           importance=agent_config.formative_memory_importance,
       )
