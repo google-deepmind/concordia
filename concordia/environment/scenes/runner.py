@@ -51,12 +51,12 @@ def _get_interscene_messages(
   messages = []
   for raw_message in raw_messages:
     if isinstance(raw_message, str):
-      messages.append(raw_message)
+      result = raw_message
     else:
       # Assume raw message, when not a literal string, is instead a function of
       # agent_name and world, returning a string.
       result = raw_message(agent_name)
-      messages.append(result)
+    messages.append(result)
 
   return messages
 
