@@ -1,0 +1,122 @@
+# Copyright 2023 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Scene runner."""
+
+from collections.abc import Sequence
+
+from concordia.agents import basic_agent
+from concordia.associative_memory import associative_memory
+from concordia.environment import game_master
+from concordia.typing import clock as game_clock
+from concordia.typing import scene as scene_lib
+
+
+def _get_interscene_messages(
+    key: str,
+    agent_name: str,
+    scene_type_spec: scene_lib.SceneTypeSpec,
+) -> list[str]:
+  """Get messages to for both players and game master before and after a scene.
+
+  Args:
+    key: either get the scene's `premise` or its `conclusion` messages. Each
+      message may be either a string or a function returning a string. If a
+      function then it should take as arguments: agent_name and world.
+    agent_name: get interscene messages for which agent
+    scene_type_spec: configuration of the scene
+    
+  Returns:
+    messages: a list of strings to report.
+  """
+  if key == 'premise':
+    section = scene_type_spec.premise if scene_type_spec.premise else {}
+  elif key == 'conclusion':
+    section = scene_type_spec.conclusion if scene_type_spec.conclusion else {}
+  else:
+    raise ValueError(f'Unknown key: {key}')
+  raw_messages = section.get(agent_name, [])
+
+  messages = []
+  for raw_message in raw_messages:
+    if isinstance(raw_message, str):
+      messages.append(raw_message)
+    else:
+      # Assume raw message, when not a literal string, is instead a function of
+      # agent_name and world, returning a string.
+      result = raw_message(agent_name=agent_name)
+      messages.append(result)
+
+  return messages
+
+
+def run_scenes(
+    environment: game_master.GameMaster,
+    scenes: Sequence[scene_lib.SceneSpec],
+    players: Sequence[basic_agent.BasicAgent],
+    game_master_memory: associative_memory.AssociativeMemory,
+    clock: game_clock.GameClock,
+    verbose: bool = False,
+) -> None:
+  """Run a sequence of scenes.
+
+  Args:
+    environment: the game master
+    scenes: sequence of scene configurations
+    players: full list of players (a subset may participate in each scene)
+    game_master_memory: associative memory of the game master
+    clock: the game clock which may be advanced between scenes
+    verbose: if true then print intermediate outputs
+  """
+  players_by_name = {player.name: player for player in players}
+  if len(players_by_name) != len(players):
+    raise ValueError('Duplicate player names')
+
+  for scene_idx, scene in enumerate(scenes):
+    participant_names = [config.name for config in scene.participant_configs]
+    if verbose:
+      print(f'\n\n    Scene {scene_idx}    Participants: {participant_names}\n')
+    participants = [players_by_name[name] for name in participant_names]
+
+    # Prepare to run the scene
+    clock.set(scene.start_time)
+    for participant in participants:
+      premise_messages = _get_interscene_messages(
+          key='premise',
+          agent_name=participant.name,
+          scene_type_spec=scene.scene_type,
+      )
+      for message in premise_messages:
+        if verbose:
+          print(f'{participant.name} -- premise: {message}')
+        participant.observe(message)
+        game_master_memory.add(message)
+
+    # Run the scene
+    for _ in range(scene.num_rounds):
+      environment.step(active_players=participants,
+                       action_spec=scene.scene_type.action_spec)
+
+    # Conclude the scene
+    for participant in participants:
+      conclusion_messages = _get_interscene_messages(
+          key='conclusion',
+          agent_name=participant.name,
+          scene_type_spec=scene.scene_type,
+      )
+      for message in conclusion_messages:
+        if verbose:
+          print(f'{participant.name} -- conclusion: {message}')
+        participant.observe(message)
+        game_master_memory.add(message)
