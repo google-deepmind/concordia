@@ -25,6 +25,7 @@ REQUIREMENTS = (
     'absl-py',
     'google-cloud-aiplatform',
     'ipython',
+    'langchain',
     'matplotlib',
     'numpy',
     'openai>=1.3.0',
