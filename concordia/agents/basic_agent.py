@@ -188,10 +188,13 @@ class BasicAgent(
 
   def _update(self):
     self._last_update = self._clock.now()
+
     def _get_recursive_update_func(
-        comp: component.Component) -> Callable[[], None]:
-      return lambda: helper_functions.apply_recursively(comp,
-                                                        function_name='update')
+        comp: component.Component,
+    ) -> Callable[[], None]:
+      return lambda: helper_functions.apply_recursively(
+          comp, function_name='update'
+      )
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for comp in self._components.values():
@@ -246,6 +249,12 @@ class BasicAgent(
       output = action_spec.options[idx]
     elif action_spec.output_type == 'FLOAT':
       raise NotImplementedError
+
+    def get_externality(externality):
+      return externality.update_after_event(output)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+      executor.map(get_externality, self._components.values())
 
     self._last_chain_of_thought = prompt.view().text().splitlines()
     current_log = {
