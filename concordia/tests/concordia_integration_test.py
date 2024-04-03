@@ -74,6 +74,7 @@ def _make_agent(
       model=model,
       memory=mem,
       agent_name=name,
+      clock_now=clock.now,
   )
   goal_component = components.constant.ConstantComponent(state='test')
   plan = agent_components.plan.SimPlan(

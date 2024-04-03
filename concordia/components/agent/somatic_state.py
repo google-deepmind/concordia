@@ -59,6 +59,7 @@ class SomaticState(component.Component):
     self._clock_now = clock_now
     self._summarize = summarize
     self._verbose = verbose
+    self._last_update = datetime.datetime.min
 
     self._characteristic_names = [
         'level of hunger',
@@ -110,6 +111,11 @@ class SomaticState(component.Component):
     return current_log
 
   def update(self):
+    if self._clock_now and self._last_update == self._clock_now():
+      return
+    if self._clock_now:
+      self._last_update = self._clock_now()
+
     with concurrent.futures.ThreadPoolExecutor() as executor:
       for c in self._characteristics:
         executor.submit(c.update)
