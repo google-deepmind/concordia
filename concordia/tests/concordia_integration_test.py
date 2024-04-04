@@ -81,6 +81,7 @@ def _make_agent(
       model=model,
       memory=mem,
       agent_name=name,
+      clock_now=clock.now,
       components=[identity],
       goal=goal_component,
       verbose=False,
