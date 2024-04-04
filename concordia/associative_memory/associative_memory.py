@@ -98,7 +98,7 @@ class AssociativeMemory:
     }
     hashed_contents = hash(contents.values())
     derived = {'embedding': self._embedder(text)}
-    new_df = pd.Series(contents | derived).to_frame().T
+    new_df = pd.Series(contents | derived).to_frame().T.infer_objects()
 
     with self._memory_bank_lock:
       if hashed_contents in self._stored_hashes:
