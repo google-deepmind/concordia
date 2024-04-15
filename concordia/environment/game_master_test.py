@@ -161,6 +161,7 @@ class GameMasterTest(parameterized.TestCase):
         'observe',
         'state',
         'state',
+        'update_after_event',
     ]
     self.assertEqual(alice_call_tracker.calls_sequence, alice_expected_calls)
 
@@ -169,6 +170,7 @@ class GameMasterTest(parameterized.TestCase):
         'observe',
         'state',
         'state',
+        'update_after_event',
     ]
     self.assertEqual(bob_call_tracker.calls_sequence, bob_expected_calls)
 

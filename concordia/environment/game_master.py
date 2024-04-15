@@ -28,6 +28,7 @@ from concordia.typing import agent as simulacrum_agent
 from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.typing import game_master as simulacrum_game_master
+from concordia.utils import helper_functions
 import termcolor
 
 
@@ -126,8 +127,8 @@ class GameMaster(simulacrum_game_master.GameMaster):
     components = list(components or [])
     if use_default_instructions:
       instructions_component = generic_components.constant.ConstantComponent(
-          state=DEFAULT_GAME_MASTER_INSTRUCTIONS,
-          name='Instructions')
+          state=DEFAULT_GAME_MASTER_INSTRUCTIONS, name='Instructions'
+      )
       components.insert(0, instructions_component)
 
     self._components = {}
@@ -189,7 +190,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     # Produce the event that has happened as the result of the action attempt
     prompt, event_statement = thought_chains.run_chain_of_thought(
-        self._update_from_player_thoughts, action_attempt, prompt, player_name,
+        self._update_from_player_thoughts,
+        action_attempt,
+        prompt,
+        player_name,
     )
 
     self._memory.add(event_statement)
@@ -264,13 +268,22 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
   def update_components(self) -> None:
     # MULTI THREAD!
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-      executor.map(
-          lambda construct: construct.update(), list(self._components.values()))
+    def _get_recursive_update_func(
+        comp: component.Component,
+    ) -> Callable[[], None]:
+      return lambda: helper_functions.apply_recursively(
+          comp, function_name='update'
+      )
 
-  def _step_player(self,
-                   player: basic_agent.BasicAgent,
-                   action_spec: simulacrum_agent.ActionSpec | None = None):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+      for comp in self._components.values():
+        executor.submit(_get_recursive_update_func(comp))
+
+  def _step_player(
+      self,
+      player: basic_agent.BasicAgent,
+      action_spec: simulacrum_agent.ActionSpec | None = None,
+  ):
     self.update_components()
     self.view_for_player(player_name=player.name)
 
@@ -283,10 +296,12 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     self.update_from_player(action_attempt=action, player_name=player.name)
 
-  def step(self,
-           *,
-           active_players: Sequence[basic_agent.BasicAgent] | None = None,
-           action_spec: simulacrum_agent.ActionSpec | None = None):
+  def step(
+      self,
+      *,
+      active_players: Sequence[basic_agent.BasicAgent] | None = None,
+      action_spec: simulacrum_agent.ActionSpec | None = None,
+  ):
     """Steps the game.
 
     At each step players all take a turn 'quasisimultaneously' with regard to
@@ -308,7 +323,8 @@ class GameMaster(simulacrum_game_master.GameMaster):
       override_action_spec = action_spec
 
     step_player_fn = lambda player: self._step_player(
-        player=player, action_spec=override_action_spec)
+        player=player, action_spec=override_action_spec
+    )
 
     if self._randomise_initiative:
       random.shuffle(players)
