@@ -97,10 +97,8 @@ class AssociativeMemory:
         'importance': importance,
     }
     hashed_contents = hash(contents.values())
-    derived = {
-        'embedding': self._embedder(text)
-    }
-    new_df = pd.Series(contents | derived).to_frame().T
+    derived = {'embedding': self._embedder(text)}
+    new_df = pd.Series(contents | derived).to_frame().T.infer_objects()
 
     with self._memory_bank_lock:
       if hashed_contents in self._stored_hashes:
@@ -344,3 +342,12 @@ class AssociativeMemory:
         self._pd_to_text(data, add_time=add_time, sort_by_time=True),
         list(data['importance']),
     )
+
+  def __len__(self):
+    """Returns the number of entries in the memory bank.
+
+    Since memories cannot be deleted, the length cannot decrease, and can be
+    used to check if the contents of the memory bank have changed.
+    """
+    with self._memory_bank_lock:
+      return len(self._memory_bank)

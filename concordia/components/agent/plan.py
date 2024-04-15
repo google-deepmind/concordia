@@ -13,8 +13,9 @@
 # limitations under the License.
 
 """Agent components for planning."""
-
-from typing import Sequence
+from collections.abc import Sequence
+import datetime
+from typing import Callable
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -31,6 +32,7 @@ class SimPlan(component.Component):
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
       components: list[component.Component],
+      clock_now: Callable[[], datetime.datetime],
       goal: component.Component | None = None,
       num_memories_to_retrieve: int = 5,
       timescale: str = 'the rest of the day',
@@ -45,6 +47,7 @@ class SimPlan(component.Component):
       memory: an associative memory
       agent_name: the name of the agent
       components: components to build the context of planning
+      clock_now: time callback to use for the state.
       goal: a component to represent the goal of planning
       num_memories_to_retrieve: how many memories to retrieve as conditioning
         for the planning chain of thought
@@ -63,6 +66,8 @@ class SimPlan(component.Component):
     self._goal_component = goal
     self._timescale = timescale
     self._time_adverb = time_adverb
+    self._clock_now = clock_now
+    self._last_update = datetime.datetime.min
 
     self._latest_memories = ''
     self._last_observation = []
@@ -91,6 +96,10 @@ class SimPlan(component.Component):
     return self._components
 
   def update(self):
+    if self._last_update == self._clock_now():
+      return
+    self._last_update = self._clock_now()
+
     observation = '\n'.join(self._last_observation)
     self._last_observation = []
     memories = self._memory.retrieve_associative(
@@ -124,6 +133,9 @@ class SimPlan(component.Component):
       prompt.statement(f'Current goal: {self._goal_component.state()}.')
     prompt.statement(f'Current plan: {self._current_plan}')
     prompt.statement(f'Current situation: {observation}')
+
+    time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
+    prompt.statement(f'The current time is: {time_now}\n')
     should_replan = prompt.yes_no_question(
         f'Given the above, should {self._agent_name} change their current '
         'plan? '
@@ -136,7 +148,8 @@ class SimPlan(component.Component):
       self._current_plan = prompt.open_question(
           f"Write {self._agent_name}'s plan for {self._timescale}. Please,"
           f' provide a {self._time_adverb} schedule'
-          + goal_mention + in_context_example,
+          + goal_mention
+          + in_context_example,
           max_characters=1200,
           max_tokens=1200,
           terminators=(),
