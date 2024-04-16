@@ -26,7 +26,8 @@ def plot_line_measurement_channel(measurements_obj: measurements.Measurements,
                                   channel_name: str,
                                   group_by: str = 'player',
                                   xaxis: str = 'time',
-                                  yaxis: str = 'value_float') -> None:
+                                  yaxis: str = 'value_float',
+                                  ax: plt.Axes = None) -> None:
   """Plots a pie chart of a measurement channel."""
   if channel_name not in measurements_obj.available_channels():
     raise ValueError(f'Unknown channel: {channel_name}')
@@ -36,7 +37,7 @@ def plot_line_measurement_channel(measurements_obj: measurements.Measurements,
   channel.subscribe(on_next=data.append)
 
   plot_df_line(pd.DataFrame(data), channel_name, group_by=group_by, xaxis=xaxis,
-               yaxis=yaxis)
+               yaxis=yaxis, ax=ax)
 
 
 def plot_pie_measurement_channel(measurements_obj: measurements.Measurements,
@@ -91,7 +92,8 @@ def plot_df_line(df: pd.DataFrame,
                  title: str = 'Metric',
                  group_by: str = 'player',
                  xaxis: str = 'time',
-                 yaxis: str = 'value_float') -> None:
+                 yaxis: str = 'value_float',
+                 ax: plt.Axes = None) -> None:
   """Plots a line chart of a dataframe.
 
   Args:
@@ -102,8 +104,11 @@ def plot_df_line(df: pd.DataFrame,
       the same value in this field, the y-axis values are averaged.
     yaxis: The name of the column to use as the y-axis. The values in this
       column must be numerical.
+    ax: The axis to plot on. If None, uses the current axis.
   """
-  ax = plt.gca()
+  if ax is None:
+    ax = plt.gca()
+
   for player, group_df in df.groupby(group_by):
     group_df = group_df.groupby(xaxis).mean(numeric_only=True).reset_index()
     group_df.plot(x=xaxis, y=yaxis, label=player, ax=ax)
