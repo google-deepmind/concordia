@@ -13,10 +13,10 @@
 # limitations under the License.
 
 
-"""Helper functions.
-"""
+"""Helper functions."""
 
 from collections.abc import Iterable, Sequence
+import concurrent
 import datetime
 
 from concordia.document import interactive_document
@@ -64,6 +64,7 @@ def is_count_noun(x: str, model: language_model.LanguageModel) -> bool:
   Args:
     x: input string. It should be a noun.
     model: a language model
+
   Returns:
     True if x is a count noun and False if x is a mass noun.
   """
@@ -79,10 +80,7 @@ def is_count_noun(x: str, model: language_model.LanguageModel) -> bool:
           f'{examples}Question: is {x} a count noun? [yes/no]\n' + 'Answer: '),
       responses=['no', 'yes'],
   )
-  if idx == 0:
-    return False
-  if idx == 1:
-    return True
+  return idx == 1
 
 
 def timedelta_to_readable_str(td: datetime.timedelta):
@@ -110,14 +108,42 @@ def timedelta_to_readable_str(td: datetime.timedelta):
   return ''.join(readable_str)
 
 
-def apply_recursively(parent_component: component.Component,
-                      function_name: str,
-                      function_arg: str | None = None) -> None:
+def apply_recursively(
+    parent_component: component.Component,
+    function_name: str,
+    function_arg: str | None = None,
+    concurrent_child_calls: bool = False,
+) -> None:
   """Recursively applies a function to each component in a tree of components.
+
+  Args:
+    parent_component: the component to apply the function to.
+    function_name: the name of the function to apply.
+    function_arg: the argument to pass to the function.
+    concurrent_child_calls: whether to call the function on child components
+      concurrently.
   """
+
+  if concurrent_child_calls:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=len(parent_component.get_components())
+    ) as executor:
+      for child_component in parent_component.get_components():
+        executor.submit(
+            apply_recursively,
+            child_component,
+            function_name,
+            function_arg=function_arg,
+            concurrent_child_calls=concurrent_child_calls,
+            executor=executor,
+        )
+  else:
+    for child_component in parent_component.get_components():
+      apply_recursively(
+          child_component, function_name, function_arg=function_arg
+      )
+
   if function_arg is None:
     getattr(parent_component, function_name)()
   else:
     getattr(parent_component, function_name)(function_arg)
-  for child_component in parent_component.get_components():
-    apply_recursively(child_component, function_name, function_arg=function_arg)
