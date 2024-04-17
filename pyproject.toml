@@ -11,7 +11,7 @@ known_thirdparty = ["concordia"]
 
 [tool.pyink]
 line-length = 80
-preview = true
+unstable = true
 pyink-indentation = 2
 pyink-use-majority-quotes = true
 
