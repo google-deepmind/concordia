@@ -17,6 +17,7 @@
 
 from collections.abc import Callable, Sequence
 import datetime
+import threading
 
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -55,59 +56,70 @@ class PlayerStatus(component.Component):
     self._verbose = verbose
     self._history = []
     self._clock_now = clock_now
+    self._last_memory_len = 0
+    self._state_lock = threading.Lock()
 
   def name(self) -> str:
     return 'Status of players'
 
   def state(self) -> str:
-    return self._state
+    with self._state_lock:
+      return self._state
 
   def get_history(self):
-    return self._history.copy()
+    with self._state_lock:
+      return self._history.copy()
 
   def get_last_log(self):
-    if self._history:
-      return self._history[-1].copy()
+    with self._state_lock:
+      if self._history:
+        return self._history[-1].copy()
 
   def partial_state(
       self,
       player_name: str,
   ) -> str:
     """Return a player-specific view of the construct's state."""
-    return self._partial_states[player_name]
+    with self._state_lock:
+      return self._partial_states[player_name]
 
   def update(self) -> None:
-    self._state = ''
-    self._partial_states = {name: '' for name in self._player_names}
-    per_player_prompt = {}
-    for player_name in self._player_names:
-      memories = self._memory.retrieve_by_regex(player_name)
-      memories = memories[-self._num_memories_to_retrieve:]
-      prompt = interactive_document.InteractiveDocument(self._model)
-      prompt.statement('Events:\n' + '\n'.join(memories) + '\n')
-      time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
-      prompt.statement(f'The current time is: {time_now}\n')
-      player_loc = (
-          prompt.open_question(
-              'Given the above events and their time, what is the latest'
-              f' location of {player_name} and what are they doing?',
-              answer_prefix=f'{player_name} is ',
-          )
-          + '\n'
-      )
-      per_player_prompt[player_name] = prompt.view().text().splitlines()
-      if self._verbose:
-        print(prompt.view().text())
+    with self._state_lock:
+      if self._last_memory_len == len(self._memory):
+        return
+      self._last_memory_len = len(self._memory)
 
-      # Indent player status outputs.
-      player_state_string = f'  {player_name} is ' + player_loc
-      self._partial_states[player_name] = player_state_string
-      self._state = self._state + player_state_string
+      self._state = ''
+      self._partial_states = {name: '' for name in self._player_names}
+      per_player_prompt = {}
+      for player_name in self._player_names:
+        memories = self._memory.retrieve_by_regex(player_name)
+        memories = memories[-self._num_memories_to_retrieve:]
+        prompt = interactive_document.InteractiveDocument(self._model)
+        prompt.statement('Events:\n' + '\n'.join(memories) + '\n')
+        time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
+        prompt.statement(f'The current time is: {time_now}\n')
+        player_loc = (
+            prompt.open_question(
+                'Given the above events and their time, what is the latest'
+                f' location of {player_name} and what are they doing?',
+                answer_prefix=f'{player_name} is ',
+            )
+            + '\n'
+        )
+        per_player_prompt[player_name] = prompt.view().text().splitlines()
+        if self._verbose:
+          print(prompt.view().text())
 
-    update_log = {
-        'date': self._clock_now(),
-        'state': self._state,
-        'partial states': self._partial_states,
-        'per player prompts': per_player_prompt,
-    }
-    self._history.append(update_log)
+        # Indent player status outputs.
+        player_state_string = f'  {player_name} is ' + player_loc
+        self._partial_states[player_name] = player_state_string
+        self._state = self._state + player_state_string
+
+      update_log = {
+          'date': self._clock_now(),
+          'state': self._state,
+          'partial states': self._partial_states,
+          'per player prompts': per_player_prompt,
+      }
+      self._history.append(update_log)

@@ -40,6 +40,7 @@ class PlayerStatusTest(parameterized.TestCase):
     model.sample_text.return_value = location
     memory = mock.create_autospec(associative_memory.AssociativeMemory,
                                   instance=True)
+    memory.__len__.return_value = 1
     memory.retrieve_associative.return_value = "gibberish"
     player_names = ["Alice", "Bob"]
     component = player_status.PlayerStatus(
