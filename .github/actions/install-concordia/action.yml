@@ -57,6 +57,11 @@ runs:
     - name: Activate virtual environment
       shell: bash
       run: |
-        source venv/bin/activate
+        echo "${PWD}/venv/bin" >> $GITHUB_PATH
+
+    - name: Show installation
+      shell: bash
+      run: |
+        which python
+        which pip
         pip list
-        echo "PATH=${PATH}" >> $GITHUB_ENV
