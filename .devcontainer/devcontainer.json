@@ -1,0 +1,19 @@
+// For format details, see https://aka.ms/devcontainer.json
+{
+  "name": "Concordia",
+  "image": "mcr.microsoft.com/devcontainers/python:0-3.11",
+  "postCreateCommand": "pip install --editable .[dev]",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "donjayamanne.githistory",
+        "ms-azuretools.vscode-docker",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "ms-python.pylint",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  }
+}

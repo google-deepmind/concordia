@@ -1,0 +1,50 @@
+// See https://code.visualstudio.com/docs/getstarted/settings
+{
+  // Google formatting settings.
+  "editor.rulers": [80],
+  "editor.detectIndentation": false,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+
+  // Format modified lines on save.
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "modifications",
+
+  // File types used in this project.
+  "files.associations": {
+    ".pylintrc": "ini"
+  },
+
+  // Ignore Git and caches.
+  "files.watcherExclude": {
+    "**/.git/**": true
+  },
+  "files.exclude": {
+    "**/*.egg-info": true,
+    "**/.eggs": true,
+    "**/*.py[cod]": true,
+    "**/__pycache__": true,
+    "**/.cache": true,
+    "**/.pytest_cache": true,
+    "**/.pytype": true
+  },
+
+  // Python settings.
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.linting.pylintUseMinimalCheckers": false,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  },
+  "python.formatting.provider": "none",
+  "black-formatter.path": ["pyink"],
+  "isort.args": ["--resolve-all-configs"],
+  "isort.check": true
+}
