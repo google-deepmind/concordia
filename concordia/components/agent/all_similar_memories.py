@@ -60,7 +60,7 @@ class AllSimilarMemories(component.Component):
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
-    self._last_update = self._clock_now() - datetime.timedelta(days=365)
+    self._last_update = datetime.datetime.min
     self._history = []
 
   def name(self) -> str:
@@ -79,6 +79,7 @@ class AllSimilarMemories(component.Component):
   def update(self) -> None:
     if self._clock_now() == self._last_update:
       return
+    self._last_update = self._clock_now()
 
     prompt = interactive_document.InteractiveDocument(self._model)
 
