@@ -64,13 +64,18 @@ def extract_direct_quote(
   proceed = inner_chain_of_thought.yes_no_question(
       question=f'Did {active_player_name} explicitly say or write anything?')
   if proceed:
-    direct_quote = inner_chain_of_thought.open_question(
-        question=f'What exactly did {active_player_name} say or write?',
-        max_characters=3000,
-        max_tokens=2500,
-        terminators=(),
-    )
-    chain_of_thought.statement(f'[direct quote] {direct_quote}')
+    proceed_with_exact = inner_chain_of_thought.yes_no_question(
+        question=(
+            f'Does the text state exactly what {active_player_name} said or '
+            'wrote?'))
+    if proceed_with_exact:
+      direct_quote = inner_chain_of_thought.open_question(
+          question=f'What exactly did {active_player_name} say or write?',
+          max_characters=3000,
+          max_tokens=2500,
+          terminators=(),
+      )
+      chain_of_thought.statement(f'[direct quote] {direct_quote}')
 
   return action_attempt
 
