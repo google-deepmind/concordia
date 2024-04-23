@@ -77,14 +77,14 @@ class GoalAchievementMetric(component.Component):
     """See base class."""
     return self._name
 
-  def observe(self, observation: str) -> None:
+  def update_after_event(self, action: str) -> None:
     """See base class."""
     doc = interactive_document.InteractiveDocument(self._model)
     answer = doc.multiple_choice_question(
         (
             'Evaluate if the following activity brings'
             f' {self._player_name} closer to their goal'
-            f' "{self._player_goal} .\n Activity: {observation}\n'
+            f' "{self._player_goal} .\n Activity: {action}\n'
         ),
         self._scale,
     )
