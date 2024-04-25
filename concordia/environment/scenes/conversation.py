@@ -101,6 +101,7 @@ def make_conversation_game_master(
     clock: game_clock.MultiIntervalClock,
     model: language_model.LanguageModel,
     memory_factory: blank_memories.MemoryFactory,
+    call_to_speech: str = simulacrum_agent.DEFAULT_CALL_TO_SPEECH,
     name: str = 'Conversation scene',
     premise: str = '',
     review_participants: bool = True,
@@ -112,6 +113,7 @@ def make_conversation_game_master(
     clock: a clock
     model: a language model
     memory_factory: a memory factory
+    call_to_speech: prompt to use to invoke the agents speech
     name: the name of the game master
     premise: any extra text to be added on top of the conversation (say,
       circumstances of it)
@@ -123,7 +125,7 @@ def make_conversation_game_master(
   """
 
   action_spec = simulacrum_agent.ActionSpec(
-      simulacrum_agent.DEFAULT_CALL_TO_SPEECH,
+      call_to_speech,
       'FREE',
       tag='speech',
   )
