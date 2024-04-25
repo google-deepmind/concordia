@@ -16,6 +16,7 @@
 """Library of components specifically for generative game master."""
 
 from concordia.components.game_master import conversation
+from concordia.components.game_master import current_scene
 from concordia.components.game_master import direct_effect
 from concordia.components.game_master import inventory
 from concordia.components.game_master import player_status

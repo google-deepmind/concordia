@@ -27,6 +27,7 @@ class SceneTypeSpec:
   """A specification for a type of scene.
 
   Attributes:
+    name: name of this type of scene.
     premise: map player names to messages they receive before the scene.
       Messages may be either literal strings or functions that return strings.
     conclusion: map player names to messages they receive after the scene.
@@ -35,6 +36,7 @@ class SceneTypeSpec:
     action_spec: optionally specify an action spec other than the default for
       the game master to ask the agents to produce during steps of this scene.
   """
+  name: str
   premise: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
   conclusion: Mapping[str,
                       Sequence[str | Callable[[str], str]]] | None = None

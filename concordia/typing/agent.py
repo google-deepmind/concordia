@@ -35,7 +35,7 @@ class ActionSpec:
       and {timedelta} will be inserted by the agent.
     output_type: type of output - FREE, CHOICE or FLOAT
     options: if multiple choice, then provide possible answers here
-    tag: a tag to add to the activity memory (e.g. action, speach, etc.)
+    tag: a tag to add to the activity memory (e.g. action, speech, etc.)
   """
 
   call_to_action: str
