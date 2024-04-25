@@ -65,6 +65,9 @@ class Observation(component.Component):
     mems = self._memory.retrieve_time_interval(
         self._clock_now() - self._timeframe, self._clock_now(), add_time=True
     )
+    # removes memories that are not observations
+    mems = [mem for mem in mems if '[observation]' in mem]
+
     if self._verbose:
       self._log('\n'.join(mems) + '\n')
     return '\n'.join(mems) + '\n'
@@ -134,8 +137,9 @@ class ObservationSummary(component.Component):
     self._state = ''
     self._display_timeframe = display_timeframe
     self._prompt = prompt or (
-        'Summarize the memories above into one sentence '
-        f'about {self._agent_name}.')
+        'Summarize the observations above into one sentence '
+        f'about {self._agent_name}.'
+    )
 
     self._verbose = verbose
     self._history = []
@@ -171,9 +175,14 @@ class ObservationSummary(component.Component):
         add_time=True,
     )
 
+    # removes memories that are not observations
+    mems = [mem for mem in mems if '[observation]' in mem]
+
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(context + '\n')
-    prompt.statement(f'Recent memories of {self._agent_name}:\n' + f'{mems}\n')
+    prompt.statement(
+        f'Recent observations of {self._agent_name}:\n' + f'{mems}\n'
+    )
     self._state = (
         self._agent_name
         + ' '
