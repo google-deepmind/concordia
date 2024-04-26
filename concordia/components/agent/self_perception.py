@@ -53,10 +53,14 @@ class SelfPerception(component.Component):
     self._memory = memory
     self._state = ''
     self._agent_name = agent_name
+
     self._clock_now = clock_now
+    if clock_now is None:
+      self._clock_now = lambda: ''
+
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._name = name
-    self._last_update = self._clock_now() - datetime.timedelta(days=365)
+    self._last_update = datetime.datetime.min
     self._history = []
 
   def name(self) -> str:
