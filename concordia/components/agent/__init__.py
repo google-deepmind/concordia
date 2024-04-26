@@ -20,6 +20,7 @@ from concordia.components import report_function
 from concordia.components import sequential
 from concordia.components.agent import all_similar_memories
 from concordia.components.agent import characteristic
+from concordia.components.agent import creative_reflection
 from concordia.components.agent import dialectical_reflection
 from concordia.components.agent import identity
 from concordia.components.agent import observation
