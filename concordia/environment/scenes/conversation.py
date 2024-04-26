@@ -42,6 +42,7 @@ class ConversationTracker(component.Component):
       model: language_model.LanguageModel,
       players: Sequence[basic_agent.BasicAgent],
       premise: str = '',
+      check_for_termination: bool = True,
       verbose: bool = False,
       log_colour: str = 'red',
   ):
@@ -52,6 +53,8 @@ class ConversationTracker(component.Component):
       players: players participating
       premise: any extra text to be added on top of the conversation (say,
         circumstances of it)
+      check_for_termination: whether or not to check for termination of the
+        conversation
       verbose: whether or not to print intermediate reasoning steps
       log_colour: colour for logging
     """
@@ -59,6 +62,7 @@ class ConversationTracker(component.Component):
     self._state = premise
     self._log_colour = log_colour
     self._players = players
+    self._check_for_termination = check_for_termination
 
     self._verbose = verbose
 
@@ -69,6 +73,8 @@ class ConversationTracker(component.Component):
     return self._state
 
   def terminate_episode(self) -> bool:
+    if not self._check_for_termination:
+      return False
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(f'Conversation:\n{self._state}\n')
 
@@ -102,6 +108,8 @@ def make_conversation_game_master(
     model: language_model.LanguageModel,
     memory_factory: blank_memories.MemoryFactory,
     call_to_speech: str = simulacrum_agent.DEFAULT_CALL_TO_SPEECH,
+    check_for_termination: bool = True,
+    randomise_initiative: bool = False,
     name: str = 'Conversation scene',
     premise: str = '',
     review_participants: bool = True,
@@ -114,6 +122,10 @@ def make_conversation_game_master(
     model: a language model
     memory_factory: a memory factory
     call_to_speech: prompt to use to invoke the agents speech
+    check_for_termination: whether or not to check for termination of the
+      conversation
+    randomise_initiative: whether or not to randomise the initiative of the
+      players at each step
     name: the name of the game master
     premise: any extra text to be added on top of the conversation (say,
       circumstances of it)
@@ -150,8 +162,9 @@ def make_conversation_game_master(
       model=model,
       players=players,
       premise=convo,
-      verbose=True,
+      verbose=False,
       log_colour='red',
+      check_for_termination=check_for_termination
   )
 
   for player in players:
@@ -167,7 +180,7 @@ def make_conversation_game_master(
       components=[conversation_tracker],
       action_spec=action_spec,
       update_thought_chain=[thought_chains.identity],
-      randomise_initiative=False,
+      randomise_initiative=randomise_initiative,
       player_observes_event=False,
       concurrent_externalities=False,
       verbose=True,
