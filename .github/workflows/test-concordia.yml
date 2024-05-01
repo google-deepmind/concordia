@@ -44,7 +44,7 @@ jobs:
           - '3.11'
     steps:
       - name: Checkout Concordia
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b
       - name: Install Concordia
         uses: ./.github/actions/install-concordia
         with:
