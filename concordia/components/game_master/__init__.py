@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-"""Library of components specifically for generative game master."""
+"""Library of components specifically for generative game masters."""
 
 from concordia.components.game_master import conversation
 from concordia.components.game_master import current_scene
@@ -22,4 +21,5 @@ from concordia.components.game_master import inventory
 from concordia.components.game_master import player_status
 from concordia.components.game_master import relevant_events
 from concordia.components.game_master import schedule
+from concordia.components.game_master import schelling_diagram_payoffs
 from concordia.components.game_master import time_display
