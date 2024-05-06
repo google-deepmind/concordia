@@ -19,6 +19,7 @@ import dataclasses
 import datetime
 
 from concordia.associative_memory import formative_memories
+from concordia.environment import game_master
 from concordia.typing import agent as agent_lib
 
 
@@ -35,12 +36,15 @@ class SceneTypeSpec:
       to strings.
     action_spec: optionally specify an action spec other than the default for
       the game master to ask the agents to produce during steps of this scene.
+    override_game_master: optionally specify a game master to use instead of the
+      default one.
   """
   name: str
   premise: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
   conclusion: Mapping[str,
                       Sequence[str | Callable[[str], str]]] | None = None
   action_spec: agent_lib.ActionSpec | None = None
+  override_game_master: game_master.GameMaster | None = None
 
 
 @dataclasses.dataclass(frozen=True)

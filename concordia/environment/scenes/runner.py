@@ -17,7 +17,6 @@
 from collections.abc import Sequence
 
 from concordia.agents import basic_agent
-from concordia.associative_memory import associative_memory
 from concordia.environment import game_master
 from concordia.typing import clock as game_clock
 from concordia.typing import scene as scene_lib
@@ -32,11 +31,10 @@ def _get_interscene_messages(
 
   Args:
     key: either get the scene's `premise` or its `conclusion` messages. Each
-      message may be either a string or a function returning a string. If a
-      function then it should take as arguments: agent_name and world.
+      message should be a string.
     agent_name: get interscene messages for which agent
     scene_type_spec: configuration of the scene
-    
+
   Returns:
     messages: a list of strings to report.
   """
@@ -52,11 +50,7 @@ def _get_interscene_messages(
   for raw_message in raw_messages:
     if isinstance(raw_message, str):
       result = raw_message
-    else:
-      # Assume raw message, when not a literal string, is instead a function of
-      # agent_name and world, returning a string.
-      result = raw_message(agent_name)
-    messages.append(result)
+      messages.append(result)
 
   return messages
 
@@ -65,7 +59,6 @@ def run_scenes(
     environment: game_master.GameMaster,
     scenes: Sequence[scene_lib.SceneSpec],
     players: Sequence[basic_agent.BasicAgent],
-    game_master_memory: associative_memory.AssociativeMemory,
     clock: game_clock.GameClock,
     verbose: bool = False,
 ) -> None:
@@ -75,7 +68,6 @@ def run_scenes(
     environment: the game master
     scenes: sequence of scene configurations
     players: full list of players (a subset may participate in each scene)
-    game_master_memory: associative memory of the game master
     clock: the game clock which may be advanced between scenes
     verbose: if true then print intermediate outputs
   """
@@ -84,6 +76,13 @@ def run_scenes(
     raise ValueError('Duplicate player names')
 
   for scene_idx, scene in enumerate(scenes):
+    if scene.scene_type.override_game_master:
+      this_scene_environment = scene.scene_type.override_game_master
+      this_scene_game_master_memory = this_scene_environment.get_memory()
+    else:
+      this_scene_environment = environment
+      this_scene_game_master_memory = environment.get_memory()
+
     participant_names = [config.name for config in scene.participant_configs]
     if verbose:
       print(f'\n\n    Scene {scene_idx}    Participants: {participant_names}\n')
@@ -101,13 +100,13 @@ def run_scenes(
         if verbose:
           print(f'{participant.name} -- premise: {message}')
         participant.observe(message)
-        game_master_memory.add(message)
+        this_scene_game_master_memory.add(message)
 
     # Run the scene
     for _ in range(scene.num_rounds):
-      game_master_memory.add(f'[scene type] {scene.scene_type.name}')
-      environment.step(active_players=participants,
-                       action_spec=scene.scene_type.action_spec)
+      this_scene_game_master_memory.add(f'[scene type] {scene.scene_type.name}')
+      this_scene_environment.step(active_players=participants,
+                                  action_spec=scene.scene_type.action_spec)
 
     # Conclude the scene
     for participant in participants:
@@ -120,4 +119,4 @@ def run_scenes(
         if verbose:
           print(f'{participant.name} -- conclusion: {message}')
         participant.observe(message)
-        game_master_memory.add(message)
+        this_scene_game_master_memory.add(message)

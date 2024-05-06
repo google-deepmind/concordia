@@ -151,11 +151,15 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     self.reset()
 
-  def name(self):
+  @property
+  def name(self) -> str:
     return self._name
 
   def get_history(self):
     return self._log.copy()
+
+  def get_memory(self) -> associative_memory.AssociativeMemory:
+    return self._memory
 
   def get_data_frame(self):
     return self._memory.get_data_frame()

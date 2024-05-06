@@ -50,6 +50,7 @@ class CurrentScene(component.Component):
     return self._current_scene_type
 
   def update(self) -> None:
+    self._current_scene_type = ''
     retrieved = self._memory.retrieve_by_regex(
         regex=r'\[scene type\].*',
         sort_by_time=True,
