@@ -85,6 +85,11 @@ class Questionnaire(component.Component):
     self._player_name = player_name
     self._measurements = measurements
     self._channel = channel
+    # Get the channel so it is initialized. This is not strictly necessary, but
+    # enables us to know which channels exist after initialization of agents and
+    # GM.
+    if self._measurements:
+      self._measurements.get_channel(self._channel)
     self._log_color = log_color
 
     self._timestep = 0
