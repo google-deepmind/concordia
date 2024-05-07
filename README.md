@@ -1,4 +1,4 @@
-# Concordia 
+# Concordia
 
 *A library for generative social simulation*
 
@@ -73,11 +73,11 @@ installation as follows:
 
 ## Bring your own LLM
 
-To work, Concordia requires an access to an LLM API. Any LLM API that 
-supports sampling text would work. We tested Concordia with a model with 340B
-parameters. If using a custom LLM API, the user has to provide a text embedder
-to be used by the associative memory. By default we use the Sentence-T5 for
-this, but any fixed-dimensional embedding would work.
+To work, Concordia requires a access to an LLM API. Any LLM API that
+supports sampling text would work. We tested Concordia using a model with 340B
+parameters. The user must also provide a text embedder for the associative
+memory. Any fixed-dimensional embedding would work. Ideally it would be one that
+works well for sentence similarity or semantic search.
 
 ## Example usage
 
