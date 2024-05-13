@@ -16,12 +16,22 @@
 """Language Model that uses OpenAI's GPT models."""
 
 from collections.abc import Collection, Sequence
+import re
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 import openai
 from typing_extensions import override
 
-_MAX_MULTIPLE_CHOICE_ATTEMPTS = 3
+_MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
+
+
+def extract_response(sample: str):
+  """Given text formatted as 'lorum(a)ipsum', return 'a'."""
+  match = re.search(r'\(?(\w)\)', sample)
+  if match:
+    return match.group(1)
+  else:
+    return None
 
 
 class GptLanguageModel(language_model.LanguageModel):
@@ -63,7 +73,28 @@ class GptLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    messages = [{'role': 'user', 'content': prompt}]
+    # gpt models do not support `max_characters`.
+    del max_characters
+    # gpt models do not support `max_tokens` > 4096.
+    max_tokens = min(max_tokens, 4000)
+
+    messages = [
+        {'role': 'system',
+         'content': ('You always continue sentences provided ' +
+                     'by the user and you never repeat what ' +
+                     'the user already said.')},
+        {'role': 'user',
+         'content': 'Question: Is Jake a turtle?\nAnswer: Jake is '},
+        {'role': 'assistant',
+         'content': 'not a turtle.'},
+        {'role': 'user',
+         'content': ('Question: What is Priya doing right now?\nAnswer: ' +
+                     'Priya is currently ')},
+        {'role': 'assistant',
+         'content': 'sleeping.'},
+        {'role': 'user',
+         'content': prompt}
+    ]
 
     response = self._client.chat.completions.create(
         model=self._model_name,
@@ -90,7 +121,6 @@ class GptLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    max_characters = len(max(responses, key=len))
 
     attempts = 1
     prompt = (
@@ -99,6 +129,8 @@ class GptLanguageModel(language_model.LanguageModel):
         + '\n'.join(responses) + '.'
     )
 
+    sample = ''
+    answer = ''
     for _ in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
       temperature = 0.0
@@ -107,12 +139,20 @@ class GptLanguageModel(language_model.LanguageModel):
 
       sample = self.sample_text(
           prompt,
-          max_characters=max_characters,
           temperature=temperature,
           seed=seed,
       )
+      if len(sample) == 1:
+        # i.e. this would be a sample such as "a"
+        answer = sample
+      elif len(sample) == 2:
+        # i.e. this would be a sample such as "a)"
+        answer = sample[0]
+      else:
+        # extract a substring like "(a)" wherever it may be in a longer string
+        answer = extract_response(sample)
       try:
-        idx = responses.index(sample)
+        idx = responses.index(answer)
       except ValueError:
         attempts += 1
         continue
@@ -125,5 +165,6 @@ class GptLanguageModel(language_model.LanguageModel):
         return idx, responses[idx], debug
 
     raise language_model.InvalidResponseError(
-        'Too many multiple choice attempts.'
+        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
+         f'extracted: {answer}')
     )
