@@ -23,6 +23,7 @@ from concordia.components.agent import characteristic
 from concordia.components.agent import creative_reflection
 from concordia.components.agent import dialectical_reflection
 from concordia.components.agent import identity
+from concordia.components.agent import justify_recent_voluntary_actions
 from concordia.components.agent import observation
 from concordia.components.agent import person_by_situation
 from concordia.components.agent import plan

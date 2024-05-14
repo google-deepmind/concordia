@@ -82,7 +82,7 @@ class DialecticalReflection(component.Component):
 
     self._name = name
     self._history = []
-    self._last_update = self._clock_now() - datetime.timedelta(days=365)
+    self._last_update = datetime.datetime.min
 
   def name(self) -> str:
     return self._name
