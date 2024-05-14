@@ -134,6 +134,7 @@ class JustifyRecentVoluntaryActions(component.Component):
         ),
         max_characters=2000,
         max_tokens=1000,
+        terminators=(),
     )
     what_effect_it_had = what_they_did_chain_of_thought.open_question(
         question=(
@@ -143,6 +144,7 @@ class JustifyRecentVoluntaryActions(component.Component):
         ),
         max_characters=2000,
         max_tokens=1000,
+        terminators=(),
     )
     # Now consider how to justify the voluntary actions for all audiences.
     justification_chain_of_thought = interactive_document.InteractiveDocument(
@@ -169,6 +171,7 @@ class JustifyRecentVoluntaryActions(component.Component):
         ),
         max_characters=3000,
         max_tokens=2000,
+        terminators=(),
     )
     most_salient_justification = justification_chain_of_thought.open_question(
         question=(
@@ -181,6 +184,7 @@ class JustifyRecentVoluntaryActions(component.Component):
         answer_prefix=f'{self._agent_name}',
         max_characters=2000,
         max_tokens=1000,
+        terminators=(),
     )
     salient_justification = (
         f'[thought] {self._agent_name} {most_salient_justification}')

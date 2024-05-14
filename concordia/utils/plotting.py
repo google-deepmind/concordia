@@ -73,7 +73,7 @@ def plot_df_pie(df: pd.DataFrame,
     group_by: Group data by this field, plot each one in its own figure.
     value: The name of the value to aggregate for the pie chart regions.
   """
-  cmap = mpl.colormaps['Paired']
+  cmap = mpl.colormaps['Paired']  # pylint: disable=unsubscriptable-object
   colours = cmap(range(len(scale)))
   scale_to_colour = dict(zip(scale, colours))
 
