@@ -181,7 +181,7 @@ class JustifyRecentVoluntaryActions(component.Component):
             'justified. Feel free to blend justifications crafted for ' +
             'different audiences.'
         ),
-        answer_prefix=f'{self._agent_name}',
+        answer_prefix=f'{self._agent_name} ',
         max_characters=2000,
         max_tokens=1000,
         terminators=(),
