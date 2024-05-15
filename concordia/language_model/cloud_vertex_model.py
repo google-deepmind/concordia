@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Google Cloud Gemini Vertex Language Model."""
+"""Google Cloud Vertex Language Model."""
 
 from collections.abc import Collection, Sequence
 import copy
@@ -71,8 +71,8 @@ def extract_response(sample: str):
     return None
 
 
-class GeminiVertexLanguageModel(language_model.LanguageModel):
-  """Language model via the vertex API for Gemini (google cloud)."""
+class VertexLanguageModel(language_model.LanguageModel):
+  """Language model via the vertex API for Google Cloud."""
 
   def __init__(
       self,

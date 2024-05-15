@@ -53,6 +53,7 @@ setuptools.setup(
         # TODO: b/312199199 - remove some requirements.
         'absl-py',
         'google-cloud-aiplatform',
+        'google-generativeai',
         'ipython',
         'langchain',
         'matplotlib',
