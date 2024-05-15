@@ -17,8 +17,7 @@
 
 import dataclasses
 import datetime
-from typing import Callable
-from typing import Optional
+from typing import Callable, Optional
 
 from concordia.typing import component
 
@@ -46,10 +45,13 @@ class Schedule(component.Component):
       self,
       clock_now: Callable[[], datetime.datetime],
       schedule: dict[str, EventData],
+      players_observe: bool = False,
   ):
     self._clock_now = clock_now
     self._schedule = schedule
     self._state = None
+    self._last_update = datetime.datetime.min
+    self._players_observe = players_observe
 
   def name(self) -> str:
     return 'Current events'
@@ -57,7 +59,19 @@ class Schedule(component.Component):
   def state(self) -> str | None:
     return self._state
 
+  def partial_state(
+      self,
+      player_name: str,
+  ) -> str | None:
+    """Return a player-specific view of the construct's state."""
+    if self._players_observe:
+      if self._state:
+        return self._state
+
   def update(self) -> None:
+    if self._last_update == self._clock_now():
+      return
+    self._last_update = self._clock_now()
     now = self._clock_now()
     events = []
     events_to_pop = []
@@ -74,4 +88,4 @@ class Schedule(component.Component):
     if events:
       self._state = '\n'.join(events)
     else:
-      self._state = ''
+      self._state = 'None'
