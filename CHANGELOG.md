@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.4.0] - 2024-05-15
+
+### Changed
+
+- Remove python 3.11-specific typing
+- Improve the gpt_model wrapper
+- Improve scene-related functionality
+
+### Added
+
+- Add aistudio model, remove deprecated cloud model, and rename vertex model.
+- Add a debug language model that always returns empty strings and choice 0.
+- Add a component that gets agents to think about justifications for their actions.
+- Metrics initialize the measurements channel at construction time. This convention enables us to know which channels exist after initialization of players and GM.
+- Add Schelling diagram payoffs computation for game master
+
+### Fixed
+
+- Make sure events only pop after current step and add player-specific view toggle.
+- fix typo
+
+
 ## [1.3.0] - 2024-05-4
 
 ### Changed
