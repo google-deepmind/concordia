@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ollama Language Model."""
+"""Ollama Language Model, for models running on the local machine."""
 
 from collections.abc import Collection, Sequence
 import re
@@ -31,7 +31,7 @@ def _extract_choices(text):
 
 
 class OllamaLanguageModel(language_model.LanguageModel):
-  """Language Model that uses Ollama LLM models."""
+  """Language Model that uses Ollama LLM models running on the local machine."""
 
   def __init__(
       self,

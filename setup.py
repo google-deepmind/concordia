@@ -65,6 +65,7 @@ setuptools.setup(
         'retry',
         'scipy',
         'termcolor',
+        'transformers',
         'typing-extensions',
     ),
     extras_require={
