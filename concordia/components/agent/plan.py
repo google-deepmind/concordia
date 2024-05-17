@@ -33,6 +33,7 @@ class SimPlan(component.Component):
       agent_name: str,
       components: list[component.Component],
       clock_now: Callable[[], datetime.datetime],
+      name: str = 'plan',
       goal: component.Component | None = None,
       num_memories_to_retrieve: int = 5,
       timescale: str = 'the rest of the day',
@@ -48,6 +49,7 @@ class SimPlan(component.Component):
       agent_name: the name of the agent
       components: components to build the context of planning
       clock_now: time callback to use for the state.
+      name: name of the component
       goal: a component to represent the goal of planning
       num_memories_to_retrieve: how many memories to retrieve as conditioning
         for the planning chain of thought
@@ -62,6 +64,7 @@ class SimPlan(component.Component):
     self._agent_name = agent_name
     self._log_color = log_color
     self._components = components
+    self._name = name
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._goal_component = goal
     self._timescale = timescale
@@ -77,7 +80,7 @@ class SimPlan(component.Component):
     self._verbose = verbose
 
   def name(self) -> str:
-    return 'Plan'
+    return self._name
 
   def state(self):
     return self._state
