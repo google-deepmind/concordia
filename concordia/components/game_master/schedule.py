@@ -88,4 +88,4 @@ class Schedule(component.Component):
     if events:
       self._state = '\n'.join(events)
     else:
-      self._state = 'None'
+      self._state = None
