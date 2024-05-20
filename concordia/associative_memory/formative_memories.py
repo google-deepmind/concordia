@@ -74,11 +74,22 @@ class FormativeMemoryFactory:
       *,
       model: language_model.LanguageModel,
       shared_memories: Sequence[str] = (),
+      delimiter_symbol: str = '\n\n\n',
       blank_memory_factory_call: Callable[
           [], associative_memory.AssociativeMemory
       ],
   ):
+    """Initializes the formative memory factory.
+
+    Args:
+      model: the language model to use for generating memories
+      shared_memories: memories to be added to all agents
+      delimiter_symbol: the delimiter to use when splitting the generated
+        episodes
+      blank_memory_factory_call: a function that returns a new blank memory
+    """
     self._model = model
+    self._delimiter_symbol = delimiter_symbol
     self._blank_memory_factory_call = blank_memory_factory_call
     self._shared_memories = shared_memories
 
@@ -192,8 +203,9 @@ class FormativeMemoryFactory:
         'mention their age at the time the event occurred using language such '
         f'as "When {agent_config.name} was 5 years old, they experienced..." . '
         'Use past tense. Write no more than three sentences per episode. '
-        'Separate episodes from one another by the delimiter "\n\n\n". Do not '
-        'apply any other special formatting besides these delimiters.'
+        'Separate episodes from one another by the delimiter '
+        f'"{self._delimiter_symbol}". Do not apply any other '
+        'special formatting besides these delimiters.'
     )
     if agent_config.traits:
       question += (
@@ -213,7 +225,7 @@ class FormativeMemoryFactory:
         terminators=[],
     )
 
-    episodes = aggregated_result.split('\n\n\n')
+    episodes = aggregated_result.split(self._delimiter_symbol)
 
     if len(episodes) != len(list(agent_config.formative_ages)):
       logger.warning(
