@@ -15,4 +15,5 @@
 
 """Library of components contributed by users."""
 
+from concordia.components.agent.contrib import affect_reflection
 from concordia.components.agent.contrib import illness_representation
