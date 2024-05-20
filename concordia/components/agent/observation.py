@@ -114,7 +114,7 @@ class ObservationSummary(component.Component):
       clock_now: Function that returns the current time.
       timeframe_delta_from: delta from the current moment to the begnning of the
         segment to summarise, e.g. 4h would summarise all observations that
-        happened from 4h ago intil clock_now minus timeframe_delta_until.
+        happened from 4h ago until clock_now minus timeframe_delta_until.
       timeframe_delta_until: delta from the current moment to the end of the
         segment to summarise.
       memory: Associative memory retrieve observations from.
