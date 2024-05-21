@@ -19,10 +19,12 @@ Park, J.S., O'Brien, J.C., Cai, C.J., Morris, M.R., Liang, P. and Bernstein,
 M.S., 2023. Generative agents: Interactive simulacra of human behavior. arXiv
 preprint arXiv:2304.03442.
 """
+
 from collections.abc import Callable, Iterable
 import datetime
 import threading
 
+from concordia.associative_memory import importance_function
 import numpy as np
 import pandas as pd
 
@@ -42,7 +44,7 @@ class AssociativeMemory:
   def __init__(
       self,
       sentence_embedder: Callable[[str], np.ndarray],
-      importance: Callable[[str], float],
+      importance: Callable[[str], float] | None = None,
       clock: Callable[[], datetime.datetime] = datetime.datetime.now,
       clock_step_size: datetime.timedelta | None = None,
   ):
@@ -50,14 +52,16 @@ class AssociativeMemory:
 
     Args:
       sentence_embedder: text embedding model
-      importance: maps a sentence into [0,1] scale of importance
+      importance: maps a sentence into [0, 1] scale of importance, if None then
+        use a constant importance model that sets all memories to importance 1.0
       clock: a callable to get time when adding memories
       clock_step_size: sets the step size of the clock. If None, assumes precise
         time
     """
     self._memory_bank_lock = threading.Lock()
     self._embedder = sentence_embedder
-    self._importance = importance
+    self._importance = (
+        importance or importance_function.ConstantImportanceModel())
 
     self._memory_bank = pd.DataFrame(
         columns=['text', 'time', 'tags', 'embedding', 'importance']
