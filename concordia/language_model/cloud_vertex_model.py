@@ -15,11 +15,11 @@
 
 from collections.abc import Collection, Sequence
 import copy
-import re
 import time
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import sampling
 from concordia.utils import text
 
 from typing_extensions import override
@@ -60,15 +60,6 @@ DEFAULT_HISTORY = (
         parts=[Part.from_dict({
             'text': 'sleeping.'})]),
 )
-
-
-def extract_response(sample: str):
-  """Given text formatted as 'lorum(a)ipsum', return 'a'."""
-  match = re.search(r'\(?(\w)\)', sample)
-  if match:
-    return match.group(1)
-  else:
-    return None
 
 
 class VertexLanguageModel(language_model.LanguageModel):
@@ -163,12 +154,12 @@ class VertexLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    attempts = 1
-    for _ in range(MAX_MULTIPLE_CHOICE_ATTEMPTS):
+    sample = ''
+    answer = ''
+    for attempts in range(MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
-      temperature = 0.0
-      if attempts > 1:
-        temperature = 0.5
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, MAX_MULTIPLE_CHOICE_ATTEMPTS)
 
       question = (
           'The following is a multiple choice question. Respond ' +
@@ -180,19 +171,10 @@ class VertexLanguageModel(language_model.LanguageModel):
           temperature=temperature,
           seed=seed,
       )
-      if len(sample) == 1:
-        # i.e. this would be a sample such as "a"
-        answer = sample
-      elif len(sample) == 2:
-        # i.e. this would be a sample such as "a)"
-        answer = sample[0]
-      else:
-        # extract a substring like "(a)" wherever it may be in a longer string
-        answer = extract_response(sample)
+      answer = sampling.extract_choice_response(sample)
       try:
         idx = responses.index(answer)
       except ValueError:
-        attempts += 1
         print(f'Sample choice fail: {answer} extracted from {sample}.')
         continue
       else:
@@ -204,5 +186,6 @@ class VertexLanguageModel(language_model.LanguageModel):
         return idx, responses[idx], debug
 
     raise language_model.InvalidResponseError(
-        'Too many multiple choice attempts.'
+        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
+         f'extracted: {answer}')
     )

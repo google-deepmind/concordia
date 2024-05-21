@@ -16,21 +16,14 @@
 
 from collections.abc import Collection, Sequence
 import os
-import re
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import sampling
 import numpy as np
 import transformers
 
 from typing_extensions import override
-
-
-def _extract_choices(text):
-  match = re.search(r'\(?(\w)\)', text)
-  if match:
-    return match.group(1)
-  return None
 
 
 class PyTorchGemmaLanguageModel(language_model.LanguageModel):
@@ -135,15 +128,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
         [np.argmax(generated_tokens.scores[0][0])],
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False)[0]
-    if len(sample) == 1:
-      # i.e. this would be a sample such as "a"
-      answer = sample
-    elif len(sample) == 2:
-      # i.e. this would be a sample such as "a)"
-      answer = sample[0]
-    else:
-      # extract a substring like "(a)" wherever it may be in a longer string
-      answer = _extract_choices(sample)
+    answer = sampling.extract_choice_response(sample)
     try:
       idx = responses.index(answer)
       print(f'sample: {sample}, response: {idx}')

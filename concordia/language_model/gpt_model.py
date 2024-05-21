@@ -16,22 +16,13 @@
 """Language Model that uses OpenAI's GPT models."""
 
 from collections.abc import Collection, Sequence
-import re
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import sampling
 import openai
 from typing_extensions import override
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
-
-
-def extract_response(sample: str):
-  """Given text formatted as 'lorum(a)ipsum', return 'a'."""
-  match = re.search(r'\(?(\w)\)', sample)
-  if match:
-    return match.group(1)
-  else:
-    return None
 
 
 class GptLanguageModel(language_model.LanguageModel):
@@ -121,8 +112,6 @@ class GptLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-
-    attempts = 1
     prompt = (
         prompt
         + '\nRespond EXACTLY with one of the following strings:\n'
@@ -131,30 +120,20 @@ class GptLanguageModel(language_model.LanguageModel):
 
     sample = ''
     answer = ''
-    for _ in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
+    for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
-      temperature = 0.0
-      if attempts > 1:
-        temperature = 0.5
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS)
 
       sample = self.sample_text(
           prompt,
           temperature=temperature,
           seed=seed,
       )
-      if len(sample) == 1:
-        # i.e. this would be a sample such as "a"
-        answer = sample
-      elif len(sample) == 2:
-        # i.e. this would be a sample such as "a)"
-        answer = sample[0]
-      else:
-        # extract a substring like "(a)" wherever it may be in a longer string
-        answer = extract_response(sample)
+      answer = sampling.extract_choice_response(sample)
       try:
         idx = responses.index(answer)
       except ValueError:
-        attempts += 1
         continue
       else:
         if self._measurements is not None:

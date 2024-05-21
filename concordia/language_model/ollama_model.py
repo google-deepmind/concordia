@@ -12,32 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ollama Language Model, for models running on the local machine."""
+"""Ollama Language Model, a wrapper for models running on the local machine."""
 
 from collections.abc import Collection, Sequence
-import re
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import sampling
 from langchain import llms
+
 from typing_extensions import override
 
-
-def _extract_choices(text):
-  match = re.search(r"\(?(\w)\)", text)
-  if match:
-    return match.group(1)
-  return None
+_MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
+_DEFAULT_TEMPERATURE = 0.5
+_DEFAULT_TERMINATORS = ()
+_DEFAULT_SYSTEM_MESSAGE = (
+    'Continue the user\'s sentences. Never repeat their starts. For example, '
+    'when you see \'Bob is\', you should continue the sentence after '
+    'the word \'is\'.'
+)
 
 
 class OllamaLanguageModel(language_model.LanguageModel):
-  """Language Model that uses Ollama LLM models running on the local machine."""
+  """Language Model that uses Ollama LLM models."""
 
   def __init__(
       self,
       model_name: str,
       *,
-      system_message: str = "",
+      system_message: str = _DEFAULT_SYSTEM_MESSAGE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ) -> None:
@@ -53,23 +56,41 @@ class OllamaLanguageModel(language_model.LanguageModel):
     """
     self._model_name = model_name
     self._system_message = system_message
+    self._terminators = []
+    if 'llama3' in self._model_name:
+      self._terminators.extend(['<|eot_id|>'])
+    self._client = llms.Ollama(model=model_name, stop=self._terminators)
+
     self._measurements = measurements
     self._channel = channel
-    self._client = llms.Ollama(model=model_name)
 
   @override
   def sample_text(
       self,
       prompt: str,
       *,
-      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
-      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
-      temperature: float = language_model.DEFAULT_TEMPERATURE,
-      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      max_tokens: int = -1,
+      max_characters: int = -1,
+      terminators: Collection[str] = _DEFAULT_TERMINATORS,
+      temperature: float = _DEFAULT_TEMPERATURE,
+      timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    prompt_with_system_message = f"{self._system_message}\n\n{prompt}"
+    if max_tokens != -1:
+      raise ValueError('max_tokens is not supported.')
+    if max_characters != -1:
+      raise ValueError('max_characters is not supported.')
+    if timeout != -1:
+      raise ValueError('timeout is not supported.')
+    if seed is not None:
+      raise ValueError('seed is not supported.')
+
+    del max_tokens, max_characters, timeout, seed  # Unused.
+
+    prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
+
+    terminators = (self._terminators.extend(terminators)
+                   if terminators is not None else self._terminators)
 
     response = self._client(
         prompt_with_system_message,
@@ -79,8 +100,9 @@ class OllamaLanguageModel(language_model.LanguageModel):
 
     if self._measurements is not None:
       self._measurements.publish_datum(
-          self._channel, {"raw_text_length": len(response)}
-      )
+          self._channel,
+          {'raw_text_length': len(response)})
+
     return response
 
   @override
@@ -92,23 +114,34 @@ class OllamaLanguageModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
     max_characters = len(max(responses, key=len))
-    prompt_with_system_message = f"{self._system_message}\n\n{prompt}"
-    sample = self.sample_text(
-        prompt_with_system_message,
-        max_characters=max_characters,
-        temperature=0.0,
-        seed=seed,
-    )
-    answer = _extract_choices(sample)
-    try:
-      idx = responses.index(answer)
-    except ValueError:
-      raise language_model.InvalidResponseError(
-          f"Invalid response: {answer}. "
-          f"LLM Input: {prompt}\nLLM Output: {sample}"
-      ) from None
+    prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
+    sample = ''
+    answer = ''
+    for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
+      # Increase temperature after the first failed attempt.
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS)
 
-    if self._measurements is not None:
-      self._measurements.publish_datum(self._channel, {"choices_calls": 1})
-    debug = {}
-    return idx, responses[idx], debug
+      sample = self.sample_text(
+          prompt_with_system_message,
+          max_characters=max_characters,
+          temperature=temperature,
+          seed=seed,
+      )
+      answer = sampling.extract_choice_response(sample)
+      try:
+        idx = responses.index(answer)
+      except ValueError:
+        continue
+      else:
+        if self._measurements is not None:
+          self._measurements.publish_datum(
+              self._channel, {'choices_calls': attempts}
+          )
+        debug = {}
+        return idx, responses[idx], debug
+
+    raise language_model.InvalidResponseError(
+        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
+         f'extracted: {answer}')
+    )
