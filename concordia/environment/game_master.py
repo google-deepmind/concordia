@@ -16,6 +16,8 @@
 
 from collections.abc import Callable, Sequence
 import concurrent.futures
+import dataclasses
+import datetime
 import random
 
 from concordia import components as generic_components
@@ -53,6 +55,20 @@ DEFAULT_GAME_MASTER_INSTRUCTIONS = (
     'need not be fun for the participants. Always use third-person '
     'limited perspective, even when speaking directly to the participants.'
 )
+
+
+@dataclasses.dataclass
+class LogEntry:
+  """A log entry to be inserted into the game master's log at a given time.
+
+  Attributes:
+    date: the time associated with this log entry (in-game time)
+    event_statement: a statement of the event that occurred
+    summary: information about the event
+  """
+  date: datetime.datetime
+  event_statement: str
+  summary: str
 
 
 class GameMaster(simulacrum_game_master.GameMaster):
@@ -157,6 +173,15 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
   def get_history(self):
     return self._log.copy()
+
+  def insert_history(self, log_entry: LogEntry):
+    """Insert a log entry into the game master's log, often used with scenes."""
+    update_log = {
+        'date': log_entry.date,
+        'Event statement': log_entry.event_statement,
+        'Summary': log_entry.summary,
+    }
+    self._log.append(update_log)
 
   def get_memory(self) -> associative_memory.AssociativeMemory:
     return self._memory

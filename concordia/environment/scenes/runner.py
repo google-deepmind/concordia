@@ -90,6 +90,8 @@ def run_scenes(
 
     # Prepare to run the scene
     clock.set(scene.start_time)
+
+    all_premises = ''
     for participant in participants:
       premise_messages = _get_interscene_messages(
           key='premise',
@@ -97,10 +99,19 @@ def run_scenes(
           scene_type_spec=scene.scene_type,
       )
       for message in premise_messages:
+        all_premises += f'{participant.name} -- premise: {message}      \n'
         if verbose:
           print(f'{participant.name} -- premise: {message}')
         participant.observe(message)
         this_scene_game_master_memory.add(message)
+
+    # Add the scene and its premise to the history
+    scene_update_log_entry = game_master.LogEntry(
+        date=clock.now(),
+        event_statement=all_premises,
+        summary=f'Scene {scene_idx} --- Participants: {participant_names}',
+    )
+    environment.insert_history(log_entry=scene_update_log_entry)
 
     # Run the scene
     for _ in range(scene.num_rounds):
