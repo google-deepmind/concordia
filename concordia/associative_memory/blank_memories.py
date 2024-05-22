@@ -47,7 +47,7 @@ class MemoryFactory:
     self._model = model
     self._embedder = embedder
     self._importance = (
-        importance or importance_function.ConstantImportanceModel())
+        importance or importance_function.ConstantImportanceModel().importance)
     self._clock_now = clock_now or datetime.datetime.now
 
   def make_blank_memory(

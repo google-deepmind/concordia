@@ -61,7 +61,7 @@ class AssociativeMemory:
     self._memory_bank_lock = threading.Lock()
     self._embedder = sentence_embedder
     self._importance = (
-        importance or importance_function.ConstantImportanceModel())
+        importance or importance_function.ConstantImportanceModel().importance)
 
     self._memory_bank = pd.DataFrame(
         columns=['text', 'time', 'tags', 'embedding', 'importance']
