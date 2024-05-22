@@ -89,7 +89,6 @@ class SchellingPayoffs(component.Component):
 
     self._history = []
     self._state = ''
-    self._last_update = self._clock_now() - datetime.timedelta(days=365)
     self._partial_states = {player.name: '' for player in self._players}
     self._player_scores = {player.name: 0 for player in self._players}
 
@@ -107,9 +106,9 @@ class SchellingPayoffs(component.Component):
 
   def reset(self) -> None:
     self._stage_idx = 0
-    # Per stage, map each player's name to their component of the joint action.
-    self._stage_to_joint_action = [
-        {name: None for name in self._acting_player_names}]
+    # Map each player's name to their component of the joint action.
+    self._partial_joint_action = {
+        name: None for name in self._acting_player_names}
 
   def name(self) -> str:
     """Returns the name of this component."""
@@ -143,21 +142,20 @@ class SchellingPayoffs(component.Component):
 
   def _binarize_joint_action(
       self,
-      joint_action: Mapping[str, str]) -> Mapping[str, int]:
+      joint_action: Mapping[str, str]) -> Mapping[str, bool]:
     binary_joint_action = {name: act == self._cooperative_option
                            for name, act in joint_action.items()}
     return binary_joint_action
 
   def _get_rewards_from_joint_action(
-      self, binary_joint_action: Mapping[str, int]) -> Mapping[str, float]:
-    # For now, this only supports "Schelling style" (binary choice with
+      self, binary_joint_action: Mapping[str, bool]) -> Mapping[str, float]:
+    # This scoring function only supports "Schelling style" (binary choice with
     # externalities) type of game representations. This means the critical
     # factor is the number of players picking the cooperate option.
     num_cooperators = np.sum(list(binary_joint_action.values()))
 
     rewards = {}
-    for player_name, is_cooperator in zip(self._acting_player_names,
-                                          binary_joint_action):
+    for player_name, is_cooperator in binary_joint_action.items():
       if is_cooperator:
         rewards[player_name] = self._cooperator_reward_fn(num_cooperators)
       else:
@@ -199,21 +197,20 @@ class SchellingPayoffs(component.Component):
   def update_before_event(self, player_action_attempt: str) -> None:
     # `player_action_attempt` is formatted as "name: attempt".
     player_name, choice_str = player_action_attempt.split(': ')
-    self._stage_to_joint_action[self._stage_idx][player_name] = choice_str
+    self._partial_joint_action[player_name] = choice_str
+    self._state = ''
 
   def update_after_event(
       self,
       event_statement: str,
   ) -> None:
-    if self._clock_now() == self._last_update:
-      return
-    self._last_update = self._clock_now()
-
     current_scene_type = self._current_scene.state()
-    joint_action = []
+    payoffs_for_log = ''
+    joint_action_for_log = ''
+    finished = False
     if current_scene_type == self._resolution_scene:
       # Check if all players have acted so far in the current stage game.
-      joint_action = self._stage_to_joint_action[self._stage_idx]
+      joint_action = self._partial_joint_action.copy()
       if self._joint_action_is_complete(joint_action):
         # Map the joint action to rewards per player.
         binary_joint_action = self._binarize_joint_action(joint_action)
@@ -223,22 +220,33 @@ class SchellingPayoffs(component.Component):
         for name in self._acting_player_names:
           self._player_scores[name] += rewards[name]
 
-        # Determine summary messages for each player and the GM.
+        # Use the outcome summarization function to get the state.
         self._set_outcome_messages(binary_joint_action, rewards)
+        self._memory.extend([self.state(),])
 
-        # Advance to the next stage.
-        self._stage_idx += 1
-        self._stage_to_joint_action.append(
-            {name: None for name in self._acting_player_names})
+        joint_action_for_log = str(self._partial_joint_action)
+        payoffs_for_log = self.state()
+        finished = True
 
-      if self._verbose:
-        print(termcolor.colored(self.state(), 'yellow'))
+        if self._verbose:
+          print(termcolor.colored(self.state(), 'yellow'))
 
+    num_players_already_acted = np.sum(
+        [value is not None for value in self._partial_joint_action.values()])
+    total_num_players_to_act = len(self._partial_joint_action)
     update_log = {
         'date': self._clock_now(),
         'Summary': self.name(),
-        'Schelling diagram payoffs': self.state(),
-        'Joint action': str(joint_action),
+        'Stage index': self._stage_idx,
+        'How many players acted so far this stage': (
+            f'{num_players_already_acted}/{total_num_players_to_act}'),
+        'Schelling diagram payoffs': payoffs_for_log,
+        'Joint action': joint_action_for_log,
     }
-    self._memory.extend([self._state,])
     self._history.append(update_log)
+
+    if finished:
+      # Advance to the next stage.
+      self._stage_idx += 1
+      self._partial_joint_action = {
+          name: None for name in self._acting_player_names}
