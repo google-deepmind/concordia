@@ -16,7 +16,7 @@
 """Agent identity component."""
 import concurrent
 import datetime
-from typing import Callable
+from typing import Callable, Sequence
 from concordia.associative_memory import associative_memory
 from concordia.components.agent import characteristic
 from concordia.language_model import language_model
@@ -37,6 +37,7 @@ class SimIdentity(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       agent_name: str,
+      name: str = 'identity',
       clock_now: Callable[[], datetime.datetime] | None = None,
   ):
     """Initialize an identity component.
@@ -45,14 +46,17 @@ class SimIdentity(component.Component):
       model: a language model
       memory: an associative memory
       agent_name: the name of the agent
+      name: the name of the component
       clock_now: time callback to use for the state.
     """
     self._model = model
     self._memory = memory
     self._state = ''
     self._agent_name = agent_name
+    self._name = name
     self._clock_now = clock_now
     self._last_update = datetime.datetime.min
+    self._history = []
 
     self._identity_component_names = [
         'core characteristics',
@@ -73,23 +77,19 @@ class SimIdentity(component.Component):
       )
 
   def name(self) -> str:
-    return 'Identity'
+    return self._name
 
   def state(self):
     return self._state
 
   def get_last_log(self):
-    current_log = {
-        'Summary': f'identity of {self._agent_name}',
-        'state': self._state,
-    }
-    for comp in self._identity_components:
-      last_log = comp.get_last_log()
-      if last_log:
-        if 'date' in last_log.keys():
-          last_log.pop('date')
-        current_log[comp.name()] = last_log
-    return current_log
+    if self._history:
+      return self._history[-1].copy()
+
+  def get_components(self) -> Sequence[component.Component]:
+    # Since this component handles updating of its subcomponents itself, we
+    # therefore do not need to return them here.
+    return []
 
   def update(self):
     if self._clock_now() == self._last_update:
@@ -103,3 +103,10 @@ class SimIdentity(component.Component):
     self._state = '\n'.join(
         [f'{c.name()}: {c.state()}' for c in self._identity_components]
     )
+
+    update_log = {
+        'date': self._clock_now(),
+        'Summary': self._name,
+        'State': self._state,
+    }
+    self._history.append(update_log)
