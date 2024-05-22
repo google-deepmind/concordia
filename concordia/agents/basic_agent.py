@@ -287,9 +287,6 @@ class BasicAgent(
 
     return output
 
-  def add_memory(self, memory: str, importance: float | None = None):
-    self._memory.add(memory, importance=importance)
-
   def say(self, conversation: str) -> str:
     convo_context = (
         f'{self._agent_name} is in the following'
