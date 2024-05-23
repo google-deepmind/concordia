@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Return all memories similar to the prompt.
+"""Return all memories similar to a prompt and filter them for relevance.
 """
 
 from collections.abc import Callable, Sequence
@@ -25,7 +25,7 @@ import termcolor
 
 
 class AllSimilarMemories(component.Component):
-  """Get all memories similar to the state of the components."""
+  """Get all memories similar to the state of the components and filter them."""
 
   def __init__(
       self,
@@ -38,7 +38,7 @@ class AllSimilarMemories(component.Component):
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
-    """Initializes the AllSimilarMemories component.
+    """Initialize a component to report relevant memories (similar to a prompt).
 
     Args:
       name: The name of the component.
@@ -88,7 +88,10 @@ class AllSimilarMemories(component.Component):
         for comp in self._components
     ])
     prompt.statement(f'Statements:\n{component_states}\n')
-    prompt_summary = prompt.open_question('Summarize the statements above.')
+    prompt_summary = prompt.open_question(
+        'Summarize the statements above.',
+        max_characters=2000,
+        max_tokens=750)
 
     query = f'{self._agent_name}, {prompt_summary}'
     if self._clock_now is not None:
@@ -101,22 +104,28 @@ class AllSimilarMemories(component.Component):
     )
 
     question = (
-        'Select all the following statements that are important for '
-        f'{self._agent_name} to consider right now. Whenever statements '
-        'are not mutally consistent, then pick whichever one is the most '
-        'recent.'
+        'Select the subset of the following set of statements that is most '
+        f'important for {self._agent_name} to consider right now. Whenever two '
+        'or more statements are not mutally consistent with each other '
+        'select whichever statement is more recent. Repeat all the '
+        'selected statements verbatim. Do not summarize. Include timestamps. '
+        'When in doubt, err on the side of including more, especially for '
+        'recent events. As long as they are not inconsistent, revent events '
+        'are usually important to consider.'
     )
     if self._clock_now is not None:
-      question = f'Current time: {self._clock_now()}.\n{question}'
+      question = f'The current date/time is: {self._clock_now()}.\n{question}'
     new_prompt = prompt.new()
     self._state = new_prompt.open_question(
         f'{question}\nStatements:\n{mems}',
         max_characters=3000,
         max_tokens=2000,
+        terminators=(),
     )
 
     if self._verbose:
       print(termcolor.colored(prompt.view().text(), 'green'), end='')
+      print(termcolor.colored(f'Query: {query}\n', 'green'), end='')
       print(termcolor.colored(new_prompt.view().text(), 'green'), end='')
       print(termcolor.colored(self._state, 'green'), end='')
 
@@ -125,6 +134,7 @@ class AllSimilarMemories(component.Component):
         'Summary': self._name,
         'State': self._state,
         'Initial chain of thought': prompt.view().text().splitlines(),
+        'Query': f'{query}',
         'Final chain of thought': new_prompt.view().text().splitlines(),
     }
     self._history.append(update_log)
