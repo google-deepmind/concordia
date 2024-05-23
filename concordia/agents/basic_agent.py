@@ -288,7 +288,7 @@ class BasicAgent(
 
     return output
 
-  def observe_latest(self, conversation: str):
+  def _observe_latest(self, conversation: str):
     # If the prefix is not found then `find` returns -1.
     prefix_start_index = conversation.find(self._conversation_prefix)
     if prefix_start_index >= 0:
@@ -303,7 +303,7 @@ class BasicAgent(
       self._conversation_prefix = conversation
 
   def say(self, conversation: str) -> str:
-    self.observe_latest(conversation)
+    self._observe_latest(conversation)
     convo_context = (
         f'{self._agent_name} is in the following'
         f' conversation:\n{conversation}\n'
