@@ -71,9 +71,9 @@ class RelevantEvents(component.Component):
     if self._history:
       return self._history[-1].copy()
 
-  def update_before_event(self, cause_statement: str) -> None:
+  def update_before_event(self, action_attempt: str) -> None:
     mem_retrieved = self._memory.retrieve_associative(
-        cause_statement,
+        action_attempt,
         use_recency=self._use_recency,
         add_time=self._add_time,
         k=self._num_memories_retrieved_for_update,
@@ -85,6 +85,6 @@ class RelevantEvents(component.Component):
     update_log = {
         'date': self._clock_now(),
         'state': self._state,
-        'cause_statement': cause_statement,
+        'action_attempt': action_attempt,
     }
     self._history.append(update_log)
