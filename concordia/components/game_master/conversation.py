@@ -120,7 +120,6 @@ class Conversation(component.Component):
 
     npc = basic_agent.BasicAgent(
         model=self._model,
-        memory=mem,
         agent_name=name,
         clock=scene_clock,
         components=[

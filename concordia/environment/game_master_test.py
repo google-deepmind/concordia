@@ -18,7 +18,6 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
-from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.environment import game_master
@@ -94,20 +93,10 @@ class GameMasterTest(parameterized.TestCase):
     importance_model = importance_function.ConstantImportanceModel()
 
     clock = game_clock.FixedIntervalClock()
-    mem_factory = blank_memories.MemoryFactory(
-        model=model,
-        embedder=embedder,
-        importance=importance_model.importance,
-        clock_now=clock.now,
-    )
-
-    mem = mem_factory.make_blank_memory()
-
     alice_call_tracker = CallTrackingComponent()
 
     alice = basic_agent.BasicAgent(
         model,
-        mem,
         'Alice',
         clock,
         [alice_call_tracker],
@@ -118,7 +107,6 @@ class GameMasterTest(parameterized.TestCase):
 
     bob = basic_agent.BasicAgent(
         model,
-        mem,
         'Bob',
         clock,
         [bob_call_tracker],

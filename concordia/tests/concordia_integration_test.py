@@ -143,7 +143,6 @@ def _make_agent(
 
   agent = basic_agent.BasicAgent(
       model,
-      mem,
       name,
       clock,
       [

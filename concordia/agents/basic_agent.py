@@ -27,7 +27,6 @@ import copy
 import datetime
 import threading
 
-from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import agent
@@ -47,28 +46,23 @@ class BasicAgent(
   def __init__(
       self,
       model: language_model.LanguageModel,
-      memory: associative_memory.AssociativeMemory,
       agent_name: str,
       clock: game_clock.GameClock,
       components: Sequence[component.Component] | None = None,
-      num_memories_retrieved: int = 10,
       update_interval: datetime.timedelta = datetime.timedelta(hours=1),
       verbose: bool = False,
       user_controlled: bool = False,
-      print_colour='green',
+      print_colour: str = 'green',
   ):
     """A generative agent.
 
     Args:
       model: a language model
-      memory: an associative memory
       agent_name: the name of the agent
       clock: the game clock is needed to know when is the current time
       components: components that contextualise the policies. The components
         state will be added to the agents state in the order they are passed
         here.
-      num_memories_retrieved: number of memories to retrieve for acting,
-        speaking, testing
       update_interval: how often to update components. In game time according to
         the clock argument.
       verbose: whether to print chains of thought or not
@@ -79,11 +73,9 @@ class BasicAgent(
     self._print_colour = print_colour
 
     self._model = model
-    self._memory = memory
 
     self._agent_name = agent_name
     self._clock = clock
-    self._num_memories_retrieved = num_memories_retrieved
     self._user_controlled = user_controlled
     self._update_interval = update_interval
 
@@ -107,19 +99,14 @@ class BasicAgent(
     """Creates a copy of the agent."""
     new_sim = BasicAgent(
         model=self._model,
-        memory=self._memory,
         agent_name=self._agent_name,
         clock=self._clock,
         components=copy.copy(list(self._components.values())),
-        num_memories_retrieved=self._num_memories_retrieved,
         verbose=self._verbose,
         user_controlled=self._user_controlled,
         print_colour=self._print_colour,
     )
     return new_sim
-
-  def get_memory(self) -> associative_memory.AssociativeMemory:
-    return self._memory
 
   def _print(self, entry: str):
     print(termcolor.colored(entry, self._print_colour), end='')
@@ -184,7 +171,6 @@ class BasicAgent(
   def act(
       self,
       action_spec: agent.ActionSpec = agent.DEFAULT_ACTION_SPEC,
-      memorize: bool = False,
   ) -> str:
     if not action_spec:
       action_spec = agent.DEFAULT_ACTION_SPEC
@@ -253,14 +239,6 @@ class BasicAgent(
           + prompt.view().text()
           + '\n'
       )
-
-    if memorize:
-      if action_spec.tag:
-        self._memory.add(
-            f'[{action_spec.tag}] {output}', tags=[action_spec.tag]
-        )
-      else:
-        self._memory.add(output)
 
     return output
 
