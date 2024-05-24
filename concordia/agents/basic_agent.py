@@ -23,7 +23,6 @@ behavior. arXiv preprint arXiv:2304.03442.
 """
 from collections.abc import Callable, Sequence
 import concurrent
-import contextlib
 import copy
 import datetime
 import threading
@@ -89,7 +88,6 @@ class BasicAgent(
     self._update_interval = update_interval
 
     self._conversation_prefix = ''
-    self._under_interrogation = False
     self._state_lock = threading.Lock()
 
     self._components = {}
@@ -140,28 +138,6 @@ class BasicAgent(
   def set_clock(self, clock: game_clock.GameClock):
     self._clock = clock
 
-  def enter_interrogation(self):
-    self._under_interrogation = True
-
-  def leave_interrogation(self):
-    self._under_interrogation = False
-
-  @contextlib.contextmanager
-  def interrogate(self):
-    """Context manager to interrogate the agent.
-
-    When in this context, agent makes no memories or observations and doesn't
-    update components.
-
-    Yields:
-      None
-    """
-    self.enter_interrogation()
-    try:
-      yield
-    finally:
-      self.leave_interrogation()
-
   def _ask_for_input(self, context: str, prompt: str) -> str:
     display.clear_output()
     print(context, flush=True)
@@ -183,7 +159,7 @@ class BasicAgent(
 
   def _maybe_update(self):
     next_update = self._last_update + self._update_interval
-    if self._clock.now() >= next_update and not self._under_interrogation:
+    if self._clock.now() >= next_update:
       self._update()
 
   def _update(self):
@@ -201,7 +177,7 @@ class BasicAgent(
         executor.submit(_get_recursive_update_func(comp))
 
   def observe(self, observation: str):
-    if observation and not self._under_interrogation:
+    if observation:
       for comp in self._components.values():
         comp.observe(observation)
 
@@ -209,7 +185,7 @@ class BasicAgent(
       self,
       action_spec: agent.ActionSpec = agent.DEFAULT_ACTION_SPEC,
       memorize: bool = False,
-  ):
+  ) -> str:
     if not action_spec:
       action_spec = agent.DEFAULT_ACTION_SPEC
     self._maybe_update()
@@ -278,7 +254,7 @@ class BasicAgent(
           + '\n'
       )
 
-    if memorize and not self._under_interrogation:  # observe instead?
+    if memorize:
       if action_spec.tag:
         self._memory.add(
             f'[{action_spec.tag}] {output}', tags=[action_spec.tag]
