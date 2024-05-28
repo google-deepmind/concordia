@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.5.0] - 2024-05-27
+
+### Changed
+
+- Remove the memory from the basic_agent to simplify the agent API.
+- Remove unused `add_memory` method on the basic_agent to simplify the API.
+- Remove interrogation (legacy) API from basic agent.
+- Clarify prompts in the `all_similar_memories` component.
+- Add logging to identity component and make its name configurable.
+- Add default importance and clock to blank memory factory (previous required).
+- Add default importance function to associative memory (previous required).
+- Improve the ollama model wrapper and refactor choice sampling for all LLMs.
+- Allow the self perception component to have subcomponents.
+- The delimiter symbol used to separate generated episodes in the formative
+memories generator is now configurable.
+- Add 'name' argument to plan component.
+
+### Added
+
+- Add PyTorch Gemma Language Model
+- Automatically add log entries corresponding to scene boundaries.
+- Add game master components contrib directory to house components contributed
+by users.
+- Add game master contrib component: `world_background_and_relevance`.
+- Create agent components contrib directory to house components contributed by
+users.
+- Add agent contrib component: `affect_reflection`.
+- Add agent contrib component: `illness_representation` component.
+
+
+### Fixed
+
+- Fix bug which would have occurred in the case where the user produces a
+conversation by repeatedly calling `agent.say` outside a conversation scene.
+Previously the agent would not observe the conversation in that case since the
+usual way of observing the conversation happens in the conversation scene, which
+this approach bypasses.
+- Fix bug which would cause a crash if no importance is passed in to memory.
+- Fix bug in Schelling diagram payoffs component and refactor it.
+- Fix bug in the Schedule component that adds 'None.' to memory when no events
+are scheduled on a given step.
+
+
 ## [1.4.0] - 2024-05-15
 
 ### Changed
