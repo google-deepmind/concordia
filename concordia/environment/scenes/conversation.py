@@ -113,6 +113,7 @@ def make_conversation_game_master(
     name: str = 'Conversation scene',
     premise: str = '',
     review_participants: bool = True,
+    verbose: bool = False,
 ):
   """Creates a game master that runs a conversation between players.
 
@@ -131,6 +132,7 @@ def make_conversation_game_master(
       circumstances of it)
     review_participants: whether or not to start each conversation scene by
       declaring who its participants are.
+    verbose: whether or not to print
 
   Returns:
     a game master
@@ -162,7 +164,7 @@ def make_conversation_game_master(
       model=model,
       players=players,
       premise=convo,
-      verbose=False,
+      verbose=verbose,
       log_colour='red',
       check_for_termination=check_for_termination
   )

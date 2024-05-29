@@ -301,6 +301,7 @@ class Conversation(component.Component):
             name='Conversation scene',
             premise=event_statement,
             review_participants=self._review_participants,
+            verbose=self._verbose,
         )
         with self._clock.higher_gear():
           scene_output = convo_scene.run_episode()
