@@ -41,10 +41,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-11
           - macos-12
+          - macos-latest
           - ubuntu-20.04
-          - ubuntu-22.04
+          - ubuntu-latest
         python-version:
           - '3.11'
 
