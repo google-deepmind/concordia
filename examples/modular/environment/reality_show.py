@@ -19,6 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 import concurrent.futures
 import dataclasses
 import datetime
+import types
 
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
@@ -427,7 +428,7 @@ def configure_scenes(
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
 ) -> tuple[Sequence[scene_lib.SceneSpec], game_master.GameMaster | None]:
   """Configure the scene storyboard structure.
-  
+
   Args:
     model: the language model to use.
     game_master_memory: the game master memory to use.
@@ -515,7 +516,8 @@ class Simulation(Runnable):
       self,
       model: language_model.LanguageModel,
       embedder: sentence_transformers.SentenceTransformer,
-      measurements: measurements_lib.Measurements
+      measurements: measurements_lib.Measurements,
+      agent_module: types.ModuleType = basic_agent__main_role,
   ):
     """Initialize the simulation object.
 
@@ -525,7 +527,9 @@ class Simulation(Runnable):
       model: the language model to use.
       embedder: the sentence transformer to use.
       measurements: the measurements object to use.
+      agent_module: the agent module to use for all main characters.
     """
+    self._agent_module = agent_module
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
@@ -566,7 +570,7 @@ class Simulation(Runnable):
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=num_main_players) as pool:
       for agent, mem in pool.map(
-          basic_agent__main_role.build_agent,
+          self._agent_module.build_agent,
           # All players get a reference to the same language model.
           [self._model] * num_main_players,
           # All players get a reference to the same clock.
@@ -590,31 +594,32 @@ class Simulation(Runnable):
         self._all_memories[agent.name] = mem
 
     supporting_players = []
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=num_supporting_players) as pool:
-      for agent, mem in pool.map(
-          basic_agent__supporting_role.build_agent,
-          # All players get a reference to the same language model.
-          [self._model] * num_supporting_players,
-          # All players get a reference to the same clock.
-          [self._clock] * num_supporting_players,
-          # All players have the same time increment.
-          [MAJOR_TIME_STEP] * num_supporting_players,
-          # Each player gets a blank memory factory.
-          [blank_memory_factory] * num_supporting_players,
-          # player gets a formative memory factory.
-          [formative_memory_factory] * num_supporting_players,
-          # One specific player config per player.
-          supporting_player_configs,
-          # All players get the same list of `all_player_names`.
-          [all_player_names] * num_supporting_players,
-          # All players get the same custom components.
-          [custom_components] * num_supporting_players,
-          # All players get the same `measurements` logging object.
-          [self._measurements] * num_supporting_players,
-      ):
-        supporting_players.append(agent)
-        self._all_memories[agent.name] = mem
+    if num_supporting_players > 0:
+      with concurrent.futures.ThreadPoolExecutor(
+          max_workers=num_supporting_players) as pool:
+        for agent, mem in pool.map(
+            basic_agent__supporting_role.build_agent,
+            # All players get a reference to the same language model.
+            [self._model] * num_supporting_players,
+            # All players get a reference to the same clock.
+            [self._clock] * num_supporting_players,
+            # All players have the same time increment.
+            [MAJOR_TIME_STEP] * num_supporting_players,
+            # Each player gets a blank memory factory.
+            [blank_memory_factory] * num_supporting_players,
+            # player gets a formative memory factory.
+            [formative_memory_factory] * num_supporting_players,
+            # One specific player config per player.
+            supporting_player_configs,
+            # All players get the same list of `all_player_names`.
+            [all_player_names] * num_supporting_players,
+            # All players get the same custom components.
+            [custom_components] * num_supporting_players,
+            # All players get the same `measurements` logging object.
+            [self._measurements] * num_supporting_players,
+        ):
+          supporting_players.append(agent)
+          self._all_memories[agent.name] = mem
 
     self._all_players = main_players + supporting_players
 
