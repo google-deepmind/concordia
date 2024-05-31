@@ -50,6 +50,7 @@ class Conversation(component.Component):
       review_participants: bool = True,
       verbose: bool = False,
       npc_instructions: str = game_master.DEFAULT_GAME_MASTER_INSTRUCTIONS,
+      max_conversation_length: int = 20,
       log_color: str = 'magenta',
   ):
     """Initializes the generator of conversations.
@@ -73,6 +74,7 @@ class Conversation(component.Component):
       npc_instructions: by default use the standard game master instructions
         for non-player characters. Otherwise override this with custom
         instructions.
+      max_conversation_length: maximum number of rounds in a conversation scene.
       log_color: color in which to print logs
     """
     self._players = players
@@ -91,6 +93,7 @@ class Conversation(component.Component):
     self._all_player_names = [player.name for player in self._players]
     self._min_speakers = 1 if self._allow_self_talk else 2
     self._review_participants = review_participants
+    self._max_conversation_length = max_conversation_length
 
   def name(self) -> str:
     return 'Conversations'
@@ -304,7 +307,8 @@ class Conversation(component.Component):
             verbose=self._verbose,
         )
         with self._clock.higher_gear():
-          scene_output = convo_scene.run_episode()
+          scene_output = convo_scene.run_episode(
+              max_steps=self._max_conversation_length)
         conversation_summary = self._generate_convo_summary(scene_output)
 
         for player in players_in_conversation:
