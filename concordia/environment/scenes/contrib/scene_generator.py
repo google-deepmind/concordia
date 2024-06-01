@@ -58,7 +58,6 @@ class SceneGenerator:
             f"should be {length} words long. Include details about objects, challenges, "
             "opportunities, and characters in the scene, written in the present tense. "
             f"Use {participant_configs[0].name} for the main character. "
-            "Add line breaks for readability. "
             "Do not include instructions or a title in the output."
         )
         generated_premise = model.sample_text(prompt)
