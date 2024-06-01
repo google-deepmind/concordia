@@ -25,6 +25,7 @@ from concordia.typing.scene import SceneTypeSpec, SceneSpec
 class SceneGenerator:
     """Class to generate scene specifications based on given parameters."""
 
+    @staticmethod
     def generate_scene_spec(
         model: language_model.LanguageModel,
         premise_name: str,
