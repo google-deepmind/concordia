@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import dataclasses
 
 from concordia.associative_memory import formative_memories
+from concordia.language_model import language_model
 from concordia.typing.scene import SceneTypeSpec, SceneSpec
 
 @dataclasses.dataclass
@@ -25,7 +26,7 @@ class SceneGenerator:
     """Class to generate scene specifications based on given parameters."""
 
     def generate_scene_spec(
-        model,
+        model: language_model.LanguageModel,
         premise_name: str,
         situation: str,
         length: int,
