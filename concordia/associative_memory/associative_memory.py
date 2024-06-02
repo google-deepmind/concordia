@@ -100,7 +100,7 @@ class AssociativeMemory:
         'tags': tuple(tags),
         'importance': importance,
     }
-    hashed_contents = hash(contents.values())
+    hashed_contents = hash(tuple(contents.values()))
     derived = {'embedding': self._embedder(text)}
     new_df = pd.Series(contents | derived).to_frame().T.infer_objects()
 

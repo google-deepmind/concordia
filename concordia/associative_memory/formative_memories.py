@@ -225,13 +225,28 @@ class FormativeMemoryFactory:
         terminators=[],
     )
 
-    episodes = aggregated_result.split(self._delimiter_symbol)
+    episodes = list(aggregated_result.split(self._delimiter_symbol))
 
-    if len(episodes) != len(list(agent_config.formative_ages)):
+    # If some episodes are still missing then try to regenerate them.
+    formative_ages_list = list(agent_config.formative_ages)
+    if len(episodes) != len(formative_ages_list):
+      num_missing = len(formative_ages_list) - len(episodes)
+      if num_missing > 0:
+        for age in list(formative_ages_list[len(episodes):]):
+          episode = prompt.open_question(
+              question=(f'What is {agent_config.name}\'s formative memory from '
+                        f'age {age}?'),
+              max_characters=2000,
+              max_tokens=1000,
+              terminators=(self._delimiter_symbol, '.\n', '\nQuestion:')
+          )
+          episodes.append(episode)
+
+    if len(episodes) != len(formative_ages_list):
       logger.warning(
           f'Number of generated formative episodes ({len(episodes)}) does ' +
           'not match number of formative ages ' +
-          f'({len(list(agent_config.formative_ages))}).')
+          f'({len(formative_ages_list)}).')
 
     for episode_age, episode in zip(agent_config.formative_ages, episodes):
       memory.add(

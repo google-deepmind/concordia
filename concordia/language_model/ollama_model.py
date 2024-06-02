@@ -69,22 +69,13 @@ class OllamaLanguageModel(language_model.LanguageModel):
       self,
       prompt: str,
       *,
-      max_tokens: int = -1,
-      max_characters: int = -1,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = _DEFAULT_TERMINATORS,
       temperature: float = _DEFAULT_TEMPERATURE,
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    if max_tokens != -1:
-      raise ValueError('max_tokens is not supported.')
-    if max_characters != -1:
-      raise ValueError('max_characters is not supported.')
-    if timeout != -1:
-      raise ValueError('timeout is not supported.')
-    if seed is not None:
-      raise ValueError('seed is not supported.')
-
     del max_tokens, max_characters, timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'

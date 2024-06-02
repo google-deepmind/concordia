@@ -15,6 +15,7 @@
 """Generates facts about an imagined world and highlights them when needed."""
 
 import datetime
+import logging
 import random
 from typing import Callable, Sequence
 
@@ -23,8 +24,10 @@ from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
-
 import termcolor
+
+
+logger = logging.getLogger(__name__)
 
 
 class WorldBackgroundAndRelevance(component.Component):
@@ -180,6 +183,11 @@ class WorldBackgroundAndRelevance(component.Component):
         terminators=(),
     )
     factoids = factoids_str.split(self._delimiter_symbol)
+    if len(factoids) != self.num_factoids:
+      logger.warning(
+          f'Number of generated facts ({len(factoids)}) does ' +
+          f'not match number requested {self.num_factoids}.')
+
     for factoid in factoids:
       self._memory.add(factoid, tags=['world fact'])
 
@@ -255,7 +263,7 @@ class WorldBackgroundAndRelevance(component.Component):
         question=f'{question}',
         max_characters=3000,
         max_tokens=2000,
-        terminators=(),
+        terminators=('\nQuestion',),
     )
     for player in self._players:
       self._partial_states[player.name] = new_prompt.open_question(
@@ -264,7 +272,7 @@ class WorldBackgroundAndRelevance(component.Component):
               'right now? If none, then leave the answer blank.'),
           max_characters=3000,
           max_tokens=2000,
-          terminators=(),
+          terminators=('\nQuestion',),
       )
 
     if self._verbose:
@@ -295,6 +303,6 @@ class WorldBackgroundAndRelevance(component.Component):
         answer_prefix='Because of it, ',
         max_characters=2000,
         max_tokens=1000,
-        terminators=(),
+        terminators=('\nQuestion',),
     )
     self._memory.add(significance, tags=['event significance'])

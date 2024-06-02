@@ -19,11 +19,13 @@ cd {concordia_root}/
 python examples/modular/launch.py \
   --agent=AGENT_NAME \
   --environment=ENVIRONMENT_NAME \
+  --api_type=API_TYPE \
   --model=MODEL_NAME \
   --embedder=EMBEDDER_NAME
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
 ENVIRONMENT_NAME indicates a file under examples/modular/environment,
+API_TYPE is either 'openai' or 'mistral',
 MODEL_NAME is a model listed at https://platform.openai.com/docs/models,
 and EMBEDDER_NAME specifies a sentence transformers embedding model listed at
 https://huggingface.co/sentence-transformers.
@@ -43,6 +45,7 @@ import importlib
 import os
 
 from concordia.language_model import gpt_model
+from concordia.language_model import mistral_model
 from concordia.language_model import no_language_model
 from concordia.utils import measurements as measurements_lib
 import openai
@@ -59,6 +62,10 @@ parser.add_argument('--environment',
                     action='store',
                     default='reality_show',
                     dest='environment_name')
+parser.add_argument('--api_type',
+                    action='store',
+                    default='openai',
+                    dest='api_type')
 parser.add_argument('--model',
                     action='store',
                     default='gpt-4o',
@@ -92,13 +99,20 @@ if not args.disable_language_model:
   # Note that it is also possible to use local models or other API models,
   # simply replace the following with the correct initialization for the model
   # you want to use.
-  openai.api_key = os.environ['OPENAI_API_KEY']
-  gpt_api_key = openai.api_key
-  model_name = ''
-  if not gpt_api_key:
-    raise ValueError('gpt_api_key is required.')
-  model = gpt_model.GptLanguageModel(api_key=gpt_api_key,
-                                     model_name=args.model_name)
+  if args.api_type == 'openai':
+    openai.api_key = os.environ['OPENAI_API_KEY']
+    if not openai.api_key:
+      raise ValueError('OpenAI api_key is required.')
+    model = gpt_model.GptLanguageModel(api_key=openai.api_key,
+                                       model_name=args.model_name)
+  elif args.api_type == 'mistral':
+    mistral_api_key = os.environ['MISTRAL_API_KEY']
+    if not mistral_api_key:
+      raise ValueError('Mistral api_key is required.')
+    model = mistral_model.MistralLanguageModel(api_key=mistral_api_key,
+                                               model_name=args.model_name)
+  else:
+    raise ValueError(f'Unrecognized api type: {args.api_type}')
 else:
   model = no_language_model.NoLanguageModel()
 

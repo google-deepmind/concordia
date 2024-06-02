@@ -294,7 +294,8 @@ def restore_direct_quote(
     string describing the outcome
   """
   chain_of_thought.statement(
-      f'Candidate event statement which may have lost direct quotes: {event}')
+      '\n\nCandidate event statement which may have lost direct '
+      f'quotes: {event}')
   event_with_quote = chain_of_thought.open_question(
       question=(
           'Incorporate the exact text of anything said or written ' +
@@ -306,7 +307,9 @@ def restore_direct_quote(
           'possible from the latest candidate event statement.'),
       max_characters=4000,
       max_tokens=3500,
-      terminators=(),
+      # Prevent runaway generations from completion models.
+      terminators=(
+          '\nCandidate event statement', '\nQuestion', '\nAnswer', '\n\n'),
   )
   return event_with_quote
 

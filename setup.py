@@ -74,6 +74,7 @@ setuptools.setup(
         'ipython',
         'langchain',
         'matplotlib',
+        'mistralai',
         'numpy',
         'openai>=1.3.0',
         'pandas<=2.0.3',
