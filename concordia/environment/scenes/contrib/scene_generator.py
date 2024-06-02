@@ -13,25 +13,23 @@
 # limitations under the License.
 
 
-from datetime import datetime
 from collections.abc import Sequence
-import dataclasses
+import datetime
 
 from concordia.associative_memory import formative_memories
 from concordia.language_model import language_model
 from concordia.typing.scene import SceneTypeSpec, SceneSpec
 
-@dataclasses.dataclass
+
 class SceneGenerator:
     """Class to generate scene specifications based on given parameters."""
 
-    @staticmethod
     def generate_scene_spec(
         model: language_model.LanguageModel,
-        premise_name: str,
+        scene_type_name: str,
         situation: str,
         length: int,
-        start_time: datetime,
+        start_time: datetime.datetime,
         participant_configs: Sequence[formative_memories.AgentConfig],
         num_rounds: int,
     ) -> SceneSpec:
@@ -58,14 +56,14 @@ class SceneGenerator:
             f"Generate a scene where {situation} is the basis of the scene. The scene "
             f"should be {length} words long. Include details about objects, challenges, "
             "opportunities, and characters in the scene, written in the present tense. "
-            f"Use {participant_configs[0].name} for the main character. "
-            "Do not include instructions or a title in the output."
+            "Write in a way that the characters in an agent based model can respond to "
+            "the situation. Do not include instructions or a title in the output."
         )
-        generated_premise = model.sample_text(prompt)
+        generated_premise = model.sample_text(prompt, max_characters=3500, max_tokens=3500)
 
         # Create the scene type specification
         scene_type_spec = SceneTypeSpec(
-            name=premise_name,
+            name=scene_type_name,
             premise={pc.name: [generated_premise] for pc in participant_configs},
             conclusion=None,  # Optionally define a conclusion or other attributes
             action_spec=None,  # Optionally define action spec
