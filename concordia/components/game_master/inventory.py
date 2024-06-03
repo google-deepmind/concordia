@@ -42,7 +42,7 @@ class ItemTypeConfig:
   force_integer: bool = False
 
 
-def _many_or_much(is_count_noun: bool) -> str:
+def _many_or_much_fn(is_count_noun: bool) -> str:
   """Return 'many' if input is True and 'much' if input is False."""
   if is_count_noun:
     return 'many'
@@ -201,41 +201,57 @@ class Inventory(component.Component):
           )
           players_whose_inventory_changed = players_who_changed_str.split(',')
           for player in players_whose_inventory_changed:
-            if player.rstrip(' ') in self._player_names:
-              prefix = f"[effect on {player}'s {self._name}]"
+            formatted_player = player.lstrip(' ').rstrip(' ')
+            if formatted_player in self._player_names:
+              prefix = f"[effect on {formatted_player}'s {self._name}]"
+              many_or_much = _many_or_much_fn(self._is_count_noun[item_type])
               amount = chain_of_thought.open_question(
                   question=(
-                      f'How {_many_or_much(self._is_count_noun[item_type])} '
+                      f'How {many_or_much} '
                       + f'{item_type} did {player} gain '
                       + f'as a result of the event? If they lost {item_type} '
                       + 'then respond with a negative number. Be precise. If '
                       + 'the original event was imprecise then pick a specific '
-                      + 'value that is consistent with all the text above.'
+                      + 'value that is consistent with all the text above. '
+                      + 'Respond in the format: "number|explanation".'
                   )
               )
               try:
+                if '|' in amount:
+                  amount = amount.split('|')[0]
                 amount = float(amount)
               except ValueError:
-                amount = 0.0
+                # Assume worst case, if player gained item, they gain 1 unit. If
+                # player lost item, they lose all units they have.
+                increased = chain_of_thought.yes_no_question(
+                    question=(f'Did the amount of {item_type} possessed '
+                              f'by {player} increase?'))
+                if increased:
+                  amount = 1.0
+                else:
+                  amount = -self._inventories[player][item_type]
+
               if self._item_types_dict[item_type].force_integer:
-                if not amount.is_integer():
+                if not float(amount).is_integer():
                   inventory_effects.append(
                       f'{prefix} no effect since amount of {item_type} must '
                       + f'be a whole number but {amount} is not.'
                   )
                   continue
-              old_total = self._inventories[player][item_type]
-              self._inventories[player][item_type] += amount
+
+              old_total = self._inventories[formatted_player][item_type]
+              self._inventories[formatted_player][item_type] += amount
               maximum = self._item_types_dict[item_type].maximum
               minimum = self._item_types_dict[item_type].minimum
-              self._inventories[player][item_type] = np.min(
-                  [self._inventories[player][item_type], maximum]
+              self._inventories[formatted_player][item_type] = np.min(
+                  [self._inventories[formatted_player][item_type], maximum]
               )
-              self._inventories[player][item_type] = np.max(
-                  [self._inventories[player][item_type], minimum]
+              self._inventories[formatted_player][item_type] = np.max(
+                  [self._inventories[formatted_player][item_type], minimum]
               )
               # Get amount actually gained/lost once bounds accounted for.
-              amount = self._inventories[player][item_type] - old_total
+              amount = (
+                  self._inventories[formatted_player][item_type] - old_total)
               effect = ''
               if amount > 0:
                 effect = f'{prefix} gained {amount} {item_type}'
