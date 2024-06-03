@@ -30,7 +30,7 @@ from dateutil.relativedelta import relativedelta  # pylint: disable=g-importing-
 logger = logging.getLogger(__name__)
 
 DEFAULT_DOB = datetime.datetime(year=1984, month=7, day=3, hour=0, minute=0)
-DEFAULT_FORMATIVE_AGES = (6, 9, 13, 16, 21)
+DEFAULT_FORMATIVE_AGES = (6, 9, 13, 16, 19, 21, 23)
 DEFAULT_IMPORTANT_MODEL = importance_function.ConstantImportanceModel()
 
 
@@ -56,7 +56,7 @@ class AgentConfig:
 
   name: str
   gender: str
-  traits: str
+  traits: str = ''
   context: str = ''
   specific_memories: str = ''
   goal: str = ''
@@ -74,10 +74,11 @@ class FormativeMemoryFactory:
       *,
       model: language_model.LanguageModel,
       shared_memories: Sequence[str] = (),
-      delimiter_symbol: str = '\n\n\n',
+      delimiter_symbol: str = '***',
       blank_memory_factory_call: Callable[
           [], associative_memory.AssociativeMemory
       ],
+      current_date: datetime.datetime | None = None,
   ):
     """Initializes the formative memory factory.
 
@@ -87,84 +88,61 @@ class FormativeMemoryFactory:
       delimiter_symbol: the delimiter to use when splitting the generated
         episodes
       blank_memory_factory_call: a function that returns a new blank memory
+      current_date: (optional) the date of the simulation, used to calculate
+        the age of each individual at the time of the simulation.
     """
     self._model = model
     self._delimiter_symbol = delimiter_symbol
     self._blank_memory_factory_call = blank_memory_factory_call
     self._shared_memories = shared_memories
+    self._current_date = current_date
 
-  def make_backstory(
-      self, name: str, gender: str, traits_description: str, context: str | None
-  ) -> str:
-    """Creates a backstory of an agent based on traits.
+  def make_backstory(self, agent_config: AgentConfig) -> str:
+    """Creates a backstory for an agent based on the data provided.
 
     Args:
-      name: name of the agent
-      gender: gender of the agent
-      traits_description: descriptive traits of an agent, for example big five
-      context: any context to add to the generation, i.e. genre
+      agent_config: structured description of an agent
 
     Returns:
       Descriptive text about the agent
     """
     prompt = interactive_document.InteractiveDocument(self._model)
+    prompt.statement('----- Creative Writing Master Class -----\n')
+    prompt.statement('Question: What is the protagonist\'s name?')
+    prompt.statement(f'Answer: {agent_config.name}\n')
 
     question = (
-        'Creative Writing Master Class\n'
-        f'Write a fictional life story for a {gender} character called {name} '
-        f'with the following traits:\n{str(traits_description)}.\nBegin the '
-        f'story when {name} is very young and end it when they are quite old. '
-        'The story should be no more than three paragraphs in total. '
-        'The story may include details such as (but not limited to) any of the '
-        'following: what their job is, what their typical day is like, what '
-        'their goals, desires, hopes, dreams, and aspirations are, as well as '
-        'their drives, duties, responsibilities, and obligations. It should '
-        'clarify what gives them joy and what are they afraid of. It may '
-        'include their friends and family. It should be a complete life story '
-        'but it should not specify how or when their life begins or ends. The '
-        f'reader should come away with a profound understanding of {name}.'
+        f'Write a life story for a {agent_config.gender} character '
+        f'named {agent_config.name} ')
+    question += (
+        f'who was born in the year {str(agent_config.date_of_birth.year)} ')
+    if agent_config.traits:
+      question += (
+          f'with the following traits: {agent_config.traits}. ')
+    question += (
+        f'Begin the story when {agent_config.name} is very young and end it '
+        'when they are quite old. The story should be no more than four '
+        'paragraphs in total. The story may include details such as (but not '
+        'limited to) any of the following: what their job is or was, what '
+        'their typical day was or is like, what their goals, desires, '
+        'hopes, dreams, and aspirations are, and have been, as well as their '
+        'drives, duties, responsibilities, and obligations. It should clarify '
+        'what gives them joy and what are they afraid of. It may include their '
+        'friends and family, as well as antagonists. It should be a complete '
+        'life story for a complete person but it should not specify how '
+        'their life ends. The reader should be left with a profound '
+        f'understanding of {agent_config.name}.'
     )
-    if context:
-      question += f' Incorporate the following context: {context}'
+    if agent_config.context:
+      question += f' Incorporate the following context: {agent_config.context}'
     result = prompt.open_question(
         question,
         max_characters=5000,
         max_tokens=4500,
-        terminators=[],
+        terminators=['\nQuestion', '-----'],
     )
     result = re.sub(r'\.\s', '.\n', result)
     return result
-
-  def make_memories(
-      self,
-      agent_config: AgentConfig,
-  ) -> associative_memory.AssociativeMemory:
-    """Creates agent memory from the agent config."""
-
-    mem = self._blank_memory_factory_call()
-    # All players share generic memories.
-    for item in self._shared_memories:
-      mem.add(item)
-
-    context = agent_config.context
-    if agent_config.goal:
-      context += '\n' + agent_config.goal
-
-    self.add_memories(memory=mem, agent_config=agent_config)
-
-    if context:
-      context_items = context.split('\n')
-      for item in context_items:
-        if item:
-          mem.add(item, importance=agent_config.formative_memory_importance)
-
-    if agent_config.specific_memories:
-      specific_memories = agent_config.specific_memories.split('\n')
-      for item in specific_memories:
-        if item:
-          mem.add(item, importance=agent_config.formative_memory_importance)
-
-    return mem
 
   def add_memories(
       self,
@@ -178,14 +156,9 @@ class FormativeMemoryFactory:
     as well.
     Args:
       memory: the memory structure to fill
-      agent_config: the card describing the agent properties
+      agent_config: structured description of an agent
     """
-    description = self.make_backstory(
-        agent_config.name,
-        agent_config.gender,
-        agent_config.traits,
-        agent_config.context,
-    )
+    description = self.make_backstory(agent_config)
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement('Creative Writing Master Class\n')
     prompt.statement('Character background story:\n\n' + description)
@@ -197,13 +170,13 @@ class FormativeMemoryFactory:
         'The episodes should be age appropriate and believeable. '
         f'They should be memorable events for {agent_config.name} and '
         'important for establishing who they are as a person. They should '
-        f'be consistent with {agent_config.name}\'s personality. '
-        f'Describe each episode from {agent_config.name}\'s perspective '
-        'and use third-person limited point of view. Each episode must '
-        'mention their age at the time the event occurred using language such '
-        f'as "When {agent_config.name} was 5 years old, they experienced..." . '
-        'Use past tense. Write no more than three sentences per episode. '
-        'Separate episodes from one another by the delimiter '
+        f'be consistent with {agent_config.name}\'s personality and '
+        f'circumstances. Describe each episode from {agent_config.name}\'s '
+        'perspective and use third-person limited point of view. Each episode '
+        'must mention their age at the time the event occurred using language '
+        f'such as "When {agent_config.name} was 5 years old, they '
+        'experienced..." . Use past tense. Write no more than three sentences '
+        'per episode. Separate episodes from one another by the delimiter '
         f'"{self._delimiter_symbol}". Do not apply any other '
         'special formatting besides these delimiters.'
     )
@@ -256,3 +229,43 @@ class FormativeMemoryFactory:
               agent_config.date_of_birth + relativedelta(years=episode_age)),
           importance=agent_config.formative_memory_importance,
       )
+
+    if self._current_date:
+      age = relativedelta(self._current_date, agent_config.date_of_birth).years
+      memory.add(
+          f'{agent_config.name} is {age} years old.',
+          tags=['info'],
+          timestamp=self._current_date,
+          importance=agent_config.formative_memory_importance,
+      )
+
+  def make_memories(
+      self,
+      agent_config: AgentConfig,
+  ) -> associative_memory.AssociativeMemory:
+    """Creates agent memory from the agent config."""
+
+    mem = self._blank_memory_factory_call()
+    # All players share generic memories.
+    for item in self._shared_memories:
+      mem.add(item)
+
+    context = agent_config.context
+    if agent_config.goal:
+      context += '\n' + agent_config.goal
+
+    self.add_memories(memory=mem, agent_config=agent_config)
+
+    if context:
+      context_items = context.split('\n')
+      for item in context_items:
+        if item:
+          mem.add(item, importance=agent_config.formative_memory_importance)
+
+    if agent_config.specific_memories:
+      specific_memories = agent_config.specific_memories.split('\n')
+      for item in specific_memories:
+        if item:
+          mem.add(item, importance=agent_config.formative_memory_importance)
+
+    return mem
