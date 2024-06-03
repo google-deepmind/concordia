@@ -94,6 +94,9 @@ class AssociativeMemory:
 
     _check_date_in_range(timestamp)
 
+    # Remove all newline characters from memories.
+    text = text.replace('\n', ' ')
+
     contents = {
         'text': text,
         'time': timestamp,
