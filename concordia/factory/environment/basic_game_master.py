@@ -28,6 +28,7 @@ from concordia.environment.scenes import runner
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import agent as agent_lib
+from concordia.typing import component
 from concordia.typing import scene as scene_lib
 from concordia.utils import html as html_lib
 import numpy as np
@@ -43,7 +44,9 @@ def build_game_master(
     shared_context: str,
     blank_memory_factory: blank_memories.MemoryFactory,
     cap_nonplayer_characters_in_conversation: int = 0,
+    memory: associative_memory.AssociativeMemory | None = None,
     supporting_players_at_fixed_locations: Sequence[str] | None = None,
+    additional_components: Sequence[component.Component] | None = tuple([]),
 ) -> tuple[game_master.GameMaster, associative_memory.AssociativeMemory]:
   """Build a game master (i.e., an environment).
 
@@ -60,16 +63,23 @@ def build_game_master(
       non-player characters.
     cap_nonplayer_characters_in_conversation: The maximum number of simple
       non-player characters (without memory) to include in conversations.
+    memory: optionally provide a prebuilt memory, otherwise build it here.
     supporting_players_at_fixed_locations: The locations where supporting
       characters who never move are located.
+    additional_components: Add more components specific to the current
+      environment.
 
   Returns:
     A tuple consisting of a game master and its memory.
   """
-  game_master_memory = associative_memory.AssociativeMemory(
-      sentence_embedder=embedder,
-      importance=importance_model.importance,
-      clock=clock.now)
+  if memory:
+    game_master_memory = memory
+  else:
+    game_master_memory = associative_memory.AssociativeMemory(
+        sentence_embedder=embedder,
+        importance=importance_model.importance,
+        clock=clock.now)
+
   player_names = [player.name for player in players]
 
   scenario_knowledge = generic_components.constant.ConstantComponent(
@@ -144,6 +154,7 @@ def build_game_master(
           convo_externality,
           direct_effect_externality,
           time_display,
+          *additional_components,
       ],
       randomise_initiative=True,
       player_observes_event=False,

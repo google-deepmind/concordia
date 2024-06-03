@@ -236,7 +236,7 @@ class Conversation(component.Component):
 
     document.statement(f'Event: {event_statement}\n')
     conversation_occurred = document.yes_no_question(
-        'Does the event suggest anyone said anything or is about to speak?'
+        'Does the event suggest anyone spoke or communicated?'
     )
     if self._verbose:
       self._log('\n Checking if conversation occurred.')
@@ -257,8 +257,8 @@ class Conversation(component.Component):
         in_conversation = helper_functions.filter_copy_as_statement(
             document
         ).yes_no_question(
-            'Does the event description explicitly state that'
-            f' {player_name} took part in the conversation?'
+            'Does the event suggest, state, or entail that'
+            f' {player_name} probably took part in a conversation?'
         )
         if in_conversation:
           player_names_in_conversation.append(player_name)
@@ -296,6 +296,35 @@ class Conversation(component.Component):
           self._history.append(conversation_log)
           return
 
+        # Determine the key question to answer in the conversation to follow.
+        nonplayer_names_in_conversation = [
+            nonplayer.name for nonplayer in nonplayers_in_conversation]
+        comma_separated = (', '.join(player_names_in_conversation) + ', ' +
+                           ', '.join(nonplayer_names_in_conversation))
+        document.statement(
+            f'Conversation participants: {comma_separated}')
+        # The following prompt references a game design mechanic from
+        #   Robbins, Ben., 2011. Microscope: A Fractal Roleplaying Game of Epic
+        #   Histories. Lame Mage Productions.
+        document.statement('The tabletop role-playing game Microscrope '
+                           'features a mechanic wherein players role play a '
+                           'scene until a predesignated "key question" has '
+                           'been answered. The key question is selected '
+                           'before starting the scene in order to provide '
+                           'focus and direction to the scene, ensuring it has '
+                           'a clear point and purpose, maximizing its '
+                           'relevance to rest of the narrative. Once the key '
+                           'question is decided, the players role play by '
+                           'speaking and making decisions until they know the '
+                           'answer to the question.')
+        key_question = document.open_question(
+            question=('What key question may have been resolved by the '
+                      'conversation which the players will now role play?'),
+            max_characters=700,
+            max_tokens=256,
+            terminators=('\n',)
+        )
+
         convo_scene = conversation_scene.make_conversation_game_master(
             players_in_conversation + nonplayers_in_conversation,
             clock=self._clock,
@@ -304,6 +333,7 @@ class Conversation(component.Component):
             name='Conversation scene',
             premise=event_statement,
             review_participants=self._review_participants,
+            key_question=key_question,
             verbose=self._verbose,
         )
         with self._clock.higher_gear():

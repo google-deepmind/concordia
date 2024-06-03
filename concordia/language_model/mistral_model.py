@@ -190,7 +190,8 @@ class MistralLanguageModel(language_model.LanguageModel):
     prompt = (
         prompt
         + '\nChoose one:\n'
-        + '\n'.join(responses) + '.\nchoice=('
+        + '\n'.join(responses)
+        + '\nchoice=('
     )
 
     sample = ''

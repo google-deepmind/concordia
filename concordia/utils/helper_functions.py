@@ -75,12 +75,10 @@ def is_count_noun(x: str, model: language_model.LanguageModel) -> bool:
       'Question: is apple a count noun? [yes/no]\n' + 'Answer: yes\n'
       'Question: is token a count noun? [yes/no]\n' + 'Answer: yes\n'
   )
-  idx, _, _ = model.sample_choice(
-      prompt=(
-          f'{examples}Question: is {x} a count noun? [yes/no]\n' + 'Answer: '),
-      responses=['no', 'yes'],
-  )
-  return idx == 1
+  doc = interactive_document.InteractiveDocument(model=model)
+  doc.statement(examples)
+  answer = doc.yes_no_question(question=f'is {x} a count noun? [yes/no]')
+  return answer
 
 
 def timedelta_to_readable_str(td: datetime.timedelta):

@@ -15,8 +15,8 @@
 
 """The conversation scene.
 
-The conversation scene configures of the game master that runs a
-conversation between players, while conditining them on the full history of the
+The conversation scene configures the game master that runs a
+conversation between players, while conditioning them on the full history of the
 conversation at each step through the ConversationTracker component.
 """
 
@@ -43,6 +43,7 @@ class ConversationTracker(component.Component):
       players: Sequence[basic_agent.BasicAgent],
       premise: str = '',
       check_for_termination: bool = True,
+      key_question: str | None = None,
       verbose: bool = False,
       log_colour: str = 'red',
   ):
@@ -55,6 +56,8 @@ class ConversationTracker(component.Component):
         circumstances of it)
       check_for_termination: whether or not to check for termination of the
         conversation
+      key_question: End the scene once the game master knows the answer to this
+        question.
       verbose: whether or not to print intermediate reasoning steps
       log_colour: colour for logging
     """
@@ -63,6 +66,7 @@ class ConversationTracker(component.Component):
     self._log_colour = log_colour
     self._players = players
     self._check_for_termination = check_for_termination
+    self._key_question = key_question
 
     self._verbose = verbose
 
@@ -76,16 +80,31 @@ class ConversationTracker(component.Component):
     if not self._check_for_termination:
       return False
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
+    chain_of_thought.statement('\n')
+    chain_of_thought.statement(f'Key question: {self._key_question}')
     chain_of_thought.statement(f'Conversation:\n{self._state}\n')
 
-    did_conclude = chain_of_thought.multiple_choice_question(
-        'Is the conversation above over and not going to continue?',
+    key_question_answered = chain_of_thought.multiple_choice_question(
+        question=('Has the answer to the key question been revealed or '
+                  'elucidated in the conversation?'),
         answers=['No', 'Yes'],
     )
+    did_conclude = False
+    if key_question_answered:
+      did_conclude = True
+    else:
+      will_not_answer = chain_of_thought.multiple_choice_question(
+          question=('Is it clear now that the conversation is unlikely to '
+                    'reveal the answer to or elucidate the key question?'),
+          answers=['No', 'Yes'],
+      )
+      if will_not_answer:
+        did_conclude = True
+
     if self._verbose:
       self._log(chain_of_thought.view().text())
 
-    return did_conclude == 1
+    return did_conclude
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_colour), end='')
@@ -113,6 +132,7 @@ def make_conversation_game_master(
     name: str = 'Conversation scene',
     premise: str = '',
     review_participants: bool = True,
+    key_question: str | None = None,
     verbose: bool = False,
 ):
   """Creates a game master that runs a conversation between players.
@@ -132,6 +152,8 @@ def make_conversation_game_master(
       circumstances of it)
     review_participants: whether or not to start each conversation scene by
       declaring who its participants are.
+    key_question: optionally, end the scene once the game master knows the
+      answer to this question.
     verbose: whether or not to print
 
   Returns:
@@ -166,7 +188,8 @@ def make_conversation_game_master(
       premise=convo,
       verbose=verbose,
       log_colour='red',
-      check_for_termination=check_for_termination
+      check_for_termination=check_for_termination,
+      key_question=key_question,
   )
 
   for player in players:
