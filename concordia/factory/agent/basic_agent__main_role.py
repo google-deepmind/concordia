@@ -32,6 +32,9 @@ from concordia.typing import component
 from concordia.utils import measurements as measurements_lib
 
 
+DEFAULT_PLANNING_HORIZON = 'the rest of the day, focusing most on the near term'
+
+
 def get_instructions(agent_name: str) -> component.Component:
   """Get role playing instructions for the agent."""
   instructions = generic_components.constant.ConstantComponent(
@@ -229,7 +232,6 @@ def build_agent(
       components=[summary_obs, self_perception],
       clock_now=clock.now,
       num_memories_to_retrieve=10,
-      verbose=True,
     )
 
   person_by_situation = (
@@ -243,7 +245,6 @@ def build_agent(
           agent_name=agent_name,
           clock_now=clock.now,
           components=[self_perception, situation_perception],
-          verbose=True,
       )
   )
   persona = generic_components.sequential.Sequential(
@@ -255,21 +256,19 @@ def build_agent(
       ]
   )
 
-  initial_goal_component = generic_components.constant.ConstantComponent(
+  overarching_goal = generic_components.constant.ConstantComponent(
       state=agent_config.goal, name='overarching goal')
   plan = agent_components.plan.SimPlan(
       model,
       mem,
       agent_name,
       clock_now=clock.now,
-      components=[initial_goal_component,
+      components=[overarching_goal,
                   somatic_state,
                   relevant_memories,
                   persona],
       goal=person_by_situation,
-      timescale='the next few days',
-      time_adverb='detailed',
-      verbose=True,
+      horizon=DEFAULT_PLANNING_HORIZON,
   )
   type_specific_components = [relevant_memories,
                               persona,
@@ -285,10 +284,11 @@ def build_agent(
       agent_name=agent_name,
       clock=clock,
       components=[instructions,
+                  overarching_goal,
                   time,
                   current_obs,
                   *type_specific_components],
-      update_interval=time_step
+      update_interval=time_step,
   )
 
   goal_metric = goal_achievement.GoalAchievementMetric(
@@ -299,14 +299,12 @@ def build_agent(
       name='Goal Achievement',
       measurements=measurements,
       channel='goal_achievement',
-      verbose=False,
   )
   morality_metric = common_sense_morality.CommonSenseMoralityMetric(
       model=model,
       player_name=agent_name,
       clock=clock,
       name='Morality',
-      verbose=False,
       measurements=measurements,
       channel='common_sense_morality',
   )
@@ -317,7 +315,6 @@ def build_agent(
       context_fn=agent.state,
       clock=clock,
       name='Opinion',
-      verbose=False,
       measurements=measurements,
       channel='opinion_of_others',
       question='What is {opining_player}\'s opinion of {of_player}?',

@@ -36,8 +36,7 @@ class SimPlan(component.Component):
       name: str = 'plan',
       goal: component.Component | None = None,
       num_memories_to_retrieve: int = 5,
-      timescale: str = 'the rest of the day',
-      time_adverb: str = 'hourly',
+      horizon: str = 'the rest of the day',
       verbose: bool = False,
       log_color='green',
   ):
@@ -53,8 +52,7 @@ class SimPlan(component.Component):
       goal: a component to represent the goal of planning
       num_memories_to_retrieve: how many memories to retrieve as conditioning
         for the planning chain of thought
-      timescale: string describing how long the plan should last
-      time_adverb: string describing the rate of steps in the plan
+      horizon: string describing how long the plan should last
       verbose: whether or not to print intermediate reasoning steps
       log_color: color for debug logging
     """
@@ -67,8 +65,7 @@ class SimPlan(component.Component):
     self._name = name
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._goal_component = goal
-    self._timescale = timescale
-    self._time_adverb = time_adverb
+    self._horizon = horizon
     self._clock_now = clock_now
     self._last_update = datetime.datetime.min
 
@@ -149,8 +146,8 @@ class SimPlan(component.Component):
       if self._goal_component:
         goal_mention = ', keep in mind the goal.'
       self._current_plan = prompt.open_question(
-          f"Write {self._agent_name}'s plan for {self._timescale}. Please,"
-          f' provide a {self._time_adverb} schedule'
+          f"Write {self._agent_name}'s plan for {self._horizon}. Please,"
+          f' provide a detailed schedule'
           + goal_mention
           + in_context_example,
           max_characters=1200,
@@ -165,8 +162,8 @@ class SimPlan(component.Component):
 
     update_log = {
         'Summary': (
-            f'{self._time_adverb} plan of {self._agent_name} '
-            + f'for {self._timescale}'
+            f'detailed plan of {self._agent_name} '
+            + f'for {self._horizon}'
         ),
         'State': self._state,
         'Chain of thought': prompt.view().text().splitlines(),
