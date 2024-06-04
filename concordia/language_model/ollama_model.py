@@ -70,13 +70,12 @@ class OllamaLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = _DEFAULT_TERMINATORS,
       temperature: float = _DEFAULT_TEMPERATURE,
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, max_characters, timeout, seed  # Unused.
+    del max_tokens, timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -104,7 +103,6 @@ class OllamaLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    max_characters = len(max(responses, key=len))
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
     sample = ''
     answer = ''
@@ -115,7 +113,6 @@ class OllamaLanguageModel(language_model.LanguageModel):
 
       sample = self.sample_text(
           prompt_with_system_message,
-          max_characters=max_characters,
           temperature=temperature,
           seed=seed,
       )

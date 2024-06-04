@@ -189,7 +189,6 @@ class ObservationSummary(component.Component):
         + prompt.open_question(
             self._prompt,
             answer_prefix=f'{self._agent_name} ',
-            max_characters=1200,
             max_tokens=1200,
         )
     )

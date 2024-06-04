@@ -110,7 +110,6 @@ class SelfPerception(component.Component):
     self._state = prompt.open_question(
         question,
         answer_prefix=f'{self._agent_name} is ',
-        max_characters=3000,
         max_tokens=1000,
     )
 

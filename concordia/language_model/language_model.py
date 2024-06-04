@@ -17,13 +17,11 @@
 
 import abc
 from collections.abc import Collection, Mapping, Sequence
-import sys
 from typing import Any
 
 DEFAULT_TEMPERATURE = 0.5
 DEFAULT_TERMINATORS = ()
 DEFAULT_TIMEOUT_SECONDS = 60
-DEFAULT_MAX_CHARACTERS = sys.maxsize
 DEFAULT_MAX_TOKENS = 256
 
 DEFAULT_STATS_CHANNEL = 'language_model_stats'
@@ -43,7 +41,6 @@ class LanguageModel(metaclass=abc.ABCMeta):
       prompt: str,
       *,
       max_tokens: int = DEFAULT_MAX_TOKENS,
-      max_characters: int = DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = DEFAULT_TERMINATORS,
       temperature: float = DEFAULT_TEMPERATURE,
       timeout: float = DEFAULT_TIMEOUT_SECONDS,
@@ -57,7 +54,6 @@ class LanguageModel(metaclass=abc.ABCMeta):
     Args:
       prompt: the initial text to condition on.
       max_tokens: the maximum number of tokens in the response.
-      max_characters: the maximum number of characters in the response.
       terminators: the response will be terminated before any of these
         characters.
       temperature: temperature for the model.

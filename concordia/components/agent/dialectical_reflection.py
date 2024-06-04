@@ -152,7 +152,6 @@ class DialecticalReflection(component.Component):
 
     thesis = thesis_chain.open_question(
         thesis_question,
-        max_characters=1200,
         max_tokens=1200,
         terminators=(),
     )
@@ -171,28 +170,34 @@ class DialecticalReflection(component.Component):
                   f'{self._agent_name} consider next?'),
         forced_response=thesis)
     _ = synthesis_chain.open_question(
-        question=(f'How would {self._agent_name} describe the antithesis of ' +
-                  'the aforementioned thesis?'),
-        max_characters=3000,
+        question=(
+            f'How would {self._agent_name} describe the antithesis of '
+            + 'the aforementioned thesis?'
+        ),
         max_tokens=2000,
         terminators=(),
     )
     _ = synthesis_chain.open_question(
-        question=(f'How would {self._agent_name} synthesize the thesis with ' +
-                  'its antithesis in a novel and insightful way?'),
+        question=(
+            f'How would {self._agent_name} synthesize the thesis with '
+            + 'its antithesis in a novel and insightful way?'
+        ),
         answer_prefix=(
-            f'{self._agent_name} would think step by step, and start by ' +
-            'pointing out that '),
-        max_characters=3000,
+            f'{self._agent_name} would think step by step, and start by '
+            + 'pointing out that '
+        ),
         max_tokens=2000,
         terminators=(),
     )
     synthesis = synthesis_chain.open_question(
-        question=(f'How might {self._agent_name} summarize the synthesis ' +
-                  'above as a bold new argument?'),
-        answer_prefix=(f"In {self._agent_name}'s view, the full argument " +
-                       'is complex but the TLDR is that '),
-        max_characters=2000,
+        question=(
+            f'How might {self._agent_name} summarize the synthesis '
+            + 'above as a bold new argument?'
+        ),
+        answer_prefix=(
+            f"In {self._agent_name}'s view, the full argument "
+            + 'is complex but the TLDR is that '
+        ),
         max_tokens=1000,
         terminators=('\n',),
     )

@@ -36,7 +36,6 @@ class NoLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,

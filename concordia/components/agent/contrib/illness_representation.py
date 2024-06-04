@@ -107,10 +107,7 @@ class IllnessRepresentation(component.Component):
         f'What symptoms does {self._agent_name} experience? Separate them with '
         f'{delimiter}, for example: "headache{delimiter}pain{delimiter}nausea".'
     )
-    symptoms_str = illness_chain.open_question(
-        question,
-        max_characters=900,
-        max_tokens=750)
+    symptoms_str = illness_chain.open_question(question, max_tokens=750)
     symptoms = symptoms_str.split(delimiter)
     relevance_to_illness = {}
     for symptom in symptoms:
@@ -119,21 +116,24 @@ class IllnessRepresentation(component.Component):
            'an illness?'))
 
     illness_identity = illness_chain.open_question(
-        (f'Does {self._agent_name} believe they have an '
-         'illness? If so, which illness? Why?'),
-        max_characters=1500,
+        (
+            f'Does {self._agent_name} believe they have an '
+            'illness? If so, which illness? Why?'
+        ),
         max_tokens=900,
     )
     illness_consequences = illness_chain.open_question(
-        (f'Does {self._agent_name} believe there are the consequences of the '
-         'above? If so, what are they?'),
-        max_characters=1500,
+        (
+            f'Does {self._agent_name} believe there are the consequences of the'
+            ' above? If so, what are they?'
+        ),
         max_tokens=900,
     )
     illness_to_do = illness_chain.open_question(
-        (f'Given the above, does {self._agent_name} believe they should do '
-         'anything in particular? What?'),
-        max_characters=1500,
+        (
+            f'Given the above, does {self._agent_name} believe they should do '
+            'anything in particular? What?'
+        ),
         max_tokens=900,
     )
 
@@ -148,9 +148,8 @@ class IllnessRepresentation(component.Component):
 
     summary = summarization_prompt.open_question(
         f'How would {self._agent_name} summarize all the information above?',
-        max_characters=2000,
         max_tokens=1500,
-        answer_prefix=f'{self._agent_name} believes that '
+        answer_prefix=f'{self._agent_name} believes that ',
     )
     self._state = f'{self._agent_name} believes that {summary}'
     self._memory.add(f'[idea] {self._state}')

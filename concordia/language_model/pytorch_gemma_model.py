@@ -68,7 +68,6 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
@@ -95,7 +94,6 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     )
     response = response[prompt_length:]
 
-    response = response[:max_characters]
     # It would be better to implement terminators in the model generation, but
     # this is a quick way to implement our API for now.
     for terminator in terminators:

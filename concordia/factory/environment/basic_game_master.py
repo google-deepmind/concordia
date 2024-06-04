@@ -213,7 +213,9 @@ def create_html_log(
       f'Sequence of events:\n{detailed_story}'+
       '\nNarratively summarize the above temporally ordered ' +
       'sequence of events. Write it as a news report. Summary:\n',
-      max_characters=3500, max_tokens=3500, terminators=())
+      max_tokens=3500,
+      terminators=(),
+  )
 
   history_sources = [primary_environment] + list(secondary_environments)
   histories_html = [

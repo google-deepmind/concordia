@@ -146,7 +146,6 @@ class InteractiveDocument(document.Document):
       answer_prefix: str = '',
       answer_suffix: str = '',
       max_tokens: int = DEFAULT_MAX_TOKENS,
-      max_characters: int = DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = ('\n',),
   ) -> str:
     """Asks the agent an open question and appends it to the document.
@@ -159,7 +158,6 @@ class InteractiveDocument(document.Document):
       answer_prefix: a prefix to append to the model's prompt.
       answer_suffix: a suffix to append to the model's response.
       max_tokens: the maximum number of tokens to sample from the model.
-      max_characters: the maximum number of characters to sample from the model.
       terminators: strings that must not be present in the model's response. If
         emitted by the model the response will be truncated before them.
 
@@ -172,7 +170,6 @@ class InteractiveDocument(document.Document):
       response = self._model.sample_text(
           prompt=self._model_view.text(),
           max_tokens=max_tokens,
-          max_characters=max_characters,
           terminators=terminators,
       )
     else:

@@ -54,7 +54,6 @@ class RetryLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
@@ -62,16 +61,31 @@ class RetryLanguageModel(language_model.LanguageModel):
   ) -> str:
     @retry.retry(self._retry_on_exceptions, tries=self._retry_tries,
                  delay=self._retry_delay, jitter=self._jitter)
-    def _sample_text(model, prompt, *, max_tokens=max_tokens,
-                     max_characters=max_characters, terminators=terminators,
-                     temperature=temperature, seed=seed):
+    def _sample_text(
+        model,
+        prompt,
+        *,
+        max_tokens=max_tokens,
+        terminators=terminators,
+        temperature=temperature,
+        seed=seed,
+    ):
       return model.sample_text(
-          prompt, max_tokens=max_tokens, max_characters=max_characters,
-          terminators=terminators, temperature=temperature, seed=seed)
+          prompt,
+          max_tokens=max_tokens,
+          terminators=terminators,
+          temperature=temperature,
+          seed=seed,
+      )
 
-    return _sample_text(self._model, prompt, max_tokens=max_tokens,
-                        max_characters=max_characters, terminators=terminators,
-                        temperature=temperature, seed=seed)
+    return _sample_text(
+        self._model,
+        prompt,
+        max_tokens=max_tokens,
+        terminators=terminators,
+        temperature=temperature,
+        seed=seed,
+    )
 
   @override
   def sample_choice(

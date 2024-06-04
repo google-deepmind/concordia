@@ -102,7 +102,6 @@ class VertexLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
@@ -116,8 +115,6 @@ class VertexLanguageModel(language_model.LanguageModel):
         self._n_calls % self._calls_between_sleeping == 0):
       print('Sleeping for 10 seconds...')
       time.sleep(10)
-
-    max_tokens = min(max_tokens, max_characters)
 
     chat = self._model.start_chat(history=copy.deepcopy(DEFAULT_HISTORY))
     sample = chat.send_message(
@@ -142,9 +139,7 @@ class VertexLanguageModel(language_model.LanguageModel):
       self._measurements.publish_datum(
           self._channel,
           {'raw_text_length': len(response)})
-    return text.truncate(
-        response, max_length=max_characters, delimiters=terminators
-    )
+    return text.truncate(response, delimiters=terminators)
 
   @override
   def sample_choice(

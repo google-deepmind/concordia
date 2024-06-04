@@ -128,21 +128,19 @@ class JustifyRecentVoluntaryActions(component.Component):
         f'The current time: {self._clock_now()}.')
     what_they_did = what_they_did_chain_of_thought.open_question(
         question=(
-            f'Summarize the gist of {self._agent_name}\'s most recent ' +
-            'voluntary actions. Do not speculate about their motives. ' +
-            'Just straightforwardly describe what they did most recently.'
+            f"Summarize the gist of {self._agent_name}'s most recent "
+            + 'voluntary actions. Do not speculate about their motives. '
+            + 'Just straightforwardly describe what they did most recently.'
         ),
-        max_characters=2000,
         max_tokens=1000,
         terminators=(),
     )
     what_effect_it_had = what_they_did_chain_of_thought.open_question(
         question=(
-            f'If any, what consequences did {self._agent_name}\'s ' +
-            'most recent voluntary actions have? Only consider effects ' +
-            f'that have already occurred (before {self._clock_now()}).'
+            f"If any, what consequences did {self._agent_name}'s "
+            + 'most recent voluntary actions have? Only consider effects '
+            + f'that have already occurred (before {self._clock_now()}).'
         ),
-        max_characters=2000,
         max_tokens=1000,
         terminators=(),
     )
@@ -166,23 +164,21 @@ class JustifyRecentVoluntaryActions(component.Component):
     audiences_str += f', and {self._audiences[-1]}'
     _ = justification_chain_of_thought.open_question(
         question=(
-            f'How would {self._agent_name} justify their actions to all the ' +
-            f'following audiences: {audiences_str}?'
+            f'How would {self._agent_name} justify their actions to all the '
+            + f'following audiences: {audiences_str}?'
         ),
-        max_characters=3000,
         max_tokens=2000,
         terminators=(),
     )
     most_salient_justification = justification_chain_of_thought.open_question(
         question=(
-            f'Given {self._agent_name}\'s current situation, which ' +
-            'justification is most salient to them? Describe the action ' +
-            'itself, as well as some reasons why, and to whom, it can be ' +
-            'justified. Feel free to blend justifications crafted for ' +
-            'different audiences.'
+            f"Given {self._agent_name}'s current situation, which "
+            + 'justification is most salient to them? Describe the action '
+            + 'itself, as well as some reasons why, and to whom, it can be '
+            + 'justified. Feel free to blend justifications crafted for '
+            + 'different audiences.'
         ),
         answer_prefix=f'{self._agent_name} ',
-        max_characters=2000,
         max_tokens=1000,
         terminators=(),
     )

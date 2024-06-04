@@ -109,7 +109,6 @@ class CreativeReflection(component.Component):
             f'{self._agent_name} uses the following principles to guide its'
             ' thinking: '
         ),
-        max_characters=3000,
         max_tokens=2000,
         terminators=(),
     )
@@ -123,7 +122,6 @@ class CreativeReflection(component.Component):
     observations = application_chain.open_question(
         f'What observations would {self._agent_name} make on the following'
         f' topic, given the principles: {self._topic_component.state()}',
-        max_characters=3000,
         max_tokens=2000,
         terminators=(),
     )

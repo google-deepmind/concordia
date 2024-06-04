@@ -47,7 +47,6 @@ class InteractiveDocumentTest(parameterized.TestCase):
         question='What is 1+1?',
         answer_prefix='Well...',
         max_tokens=mock.sentinel.max_tokens,
-        max_characters=mock.sentinel.max_characters,
         terminators=mock.sentinel.terminators,
     )
 
@@ -61,7 +60,6 @@ Answer: Well..."""
       model.sample_text.assert_called_once_with(
           prompt=prompt,
           max_tokens=mock.sentinel.max_tokens,
-          max_characters=mock.sentinel.max_characters,
           terminators=mock.sentinel.terminators,
       )
 

@@ -123,7 +123,6 @@ class WorldBackgroundAndRelevance(component.Component):
     # Ask the first question before inserting the user-provided elements.
     _ = chain_of_thought.open_question(
         question=permuted_world_building_prompt_questions[0],
-        max_characters=10000,
         max_tokens=1000,
     )
     # Insert the user-provided elements.
@@ -136,7 +135,6 @@ class WorldBackgroundAndRelevance(component.Component):
     for question in permuted_world_building_prompt_questions[1:]:
       _ = chain_of_thought.open_question(
           question=question,
-          max_characters=10000,
           max_tokens=1000,
       )
     # Generate life stories for important people in the world.
@@ -150,7 +148,6 @@ class WorldBackgroundAndRelevance(component.Component):
             'the themes embodied in the foundational elements:\n'
             f'{initial_user_elements} and {final_user_element}.'
         ),
-        max_characters=10000,
         max_tokens=2000,
     )
     # Generate discrete factoids based on all of the above.
@@ -178,7 +175,6 @@ class WorldBackgroundAndRelevance(component.Component):
             f'{example_elements[2]}{self._delimiter_symbol}...". Do '
             'not apply any other special formatting besides these delimiters.'
         ),
-        max_characters=10000,
         max_tokens=8000,
         terminators=(),
     )
@@ -227,8 +223,8 @@ class WorldBackgroundAndRelevance(component.Component):
     prompt.statement(f'Statements:\n{component_states}\n')
     prompt_summary = prompt.open_question(
         question='Summarize the statements above in a few sentences.',
-        max_characters=3000,
-        max_tokens=1500)
+        max_tokens=1500,
+    )
 
     query = f'{prompt_summary}'
     if self._clock_now is not None:
@@ -261,7 +257,6 @@ class WorldBackgroundAndRelevance(component.Component):
 
     self._state = new_prompt.open_question(
         question=f'{question}',
-        max_characters=3000,
         max_tokens=2000,
         terminators=('\nQuestion',),
     )
@@ -269,8 +264,8 @@ class WorldBackgroundAndRelevance(component.Component):
       self._partial_states[player.name] = new_prompt.open_question(
           question=(
               f'What part of the information above is salient to {player.name} '
-              'right now? If none, then leave the answer blank.'),
-          max_characters=3000,
+              'right now? If none, then leave the answer blank.'
+          ),
           max_tokens=2000,
           terminators=('\nQuestion',),
       )
@@ -299,9 +294,8 @@ class WorldBackgroundAndRelevance(component.Component):
         'significance.\n')
     chain_of_thought.statement(f'Event: {event_statement}\n')
     significance = chain_of_thought.open_question(
-        question='What is the event\'s significance?',
+        question="What is the event's significance?",
         answer_prefix='Because of it, ',
-        max_characters=2000,
         max_tokens=1000,
         terminators=('\nQuestion',),
     )

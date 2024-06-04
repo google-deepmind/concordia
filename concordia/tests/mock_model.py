@@ -38,7 +38,6 @@ class MockModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
@@ -47,7 +46,6 @@ class MockModel(language_model.LanguageModel):
     del (
         prompt,
         max_tokens,
-        max_characters,
         terminators,
         temperature,
         timeout,

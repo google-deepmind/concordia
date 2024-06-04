@@ -107,7 +107,6 @@ class DirectEffect(component.Component):
             self._print(f'\n{player_name} known.')
           _ = player_doc.open_question(
               f'What does {player_name} know about the event?',
-              max_characters=3000,
               max_tokens=2500,
           )
           how_player_saw_event_first_person = player_doc.open_question(
@@ -116,7 +115,6 @@ class DirectEffect(component.Component):
               + 'If the event contains a direct quotation of anything said '
               + 'or written by anyone then it is important to include the '
               + 'quote verbatim in the summary.',
-              max_characters=3000,
               max_tokens=2500,
           )
           player.observe(how_player_saw_event_first_person)
@@ -132,7 +130,6 @@ class DirectEffect(component.Component):
           effect_despite_ignorance = player_doc.open_question(
               f"How does the event affect {player_name}'s status, despite them"
               ' not knowing about it?',
-              max_characters=3000,
               max_tokens=2500,
           )
           if self._verbose:

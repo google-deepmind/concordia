@@ -115,7 +115,6 @@ class Characteristic(component.Component):
 
     self._cache = prompt.open_question(
         '\n'.join([question, f'Statements:\n{mems}']),
-        max_characters=3000,
         max_tokens=1000,
         answer_prefix=f'{self._agent_name} is ',
     )

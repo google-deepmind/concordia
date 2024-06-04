@@ -71,7 +71,6 @@ def extract_direct_quote(
     if proceed_with_exact:
       direct_quote = inner_chain_of_thought.open_question(
           question=f'What exactly did {active_player_name} say or write?',
-          max_characters=3000,
           max_tokens=2500,
           terminators=(),
       )
@@ -107,7 +106,7 @@ def determine_success_and_why(
   else:
     chain_of_thought.statement('The attempt failed.')
     why_failed = chain_of_thought.open_question(
-        'Why did the attempt fail?', max_characters=1200, max_tokens=1200
+        'Why did the attempt fail?',
     )
 
   if action_attempt[-1] == '.':
@@ -138,7 +137,6 @@ def result_to_causal_statement(
   del active_player_name
   effect = chain_of_thought.open_question(
       'Because of that, what happens as a result?',
-      max_characters=1200,
       max_tokens=1200,
   )
   raw_causal_statement = f'{event} Because of that, {effect}'
@@ -173,7 +171,6 @@ def attempt_to_result(
   result = chain_of_thought.open_question(
       'What happens as a result of the attempted action?'
       ' Take into account the location and status of each player.',
-      max_characters=1200,
       max_tokens=1200,
   )
   raw_causal_statement = f'{action_attempt} Because of that, {result}'
@@ -197,12 +194,10 @@ def attempt_to_most_likely_outcome(
   """
   _ = chain_of_thought.open_question(
       f'Where is {active_player_name}?',
-      max_characters=1200,
       max_tokens=1200,
   )
   _ = chain_of_thought.open_question(
       f'What is {active_player_name} trying to do?',
-      max_characters=1200,
       max_tokens=1200,
   )
   _ = chain_of_thought.open_question(
@@ -211,12 +206,10 @@ def attempt_to_most_likely_outcome(
       'Be specific and concrete. Never beg the question. For instance, it is '
       'wrong to say "Alex finds something". Instead specify exactly '
       'what Alex finds. For example "Alex finds a teddy bear".',
-      max_characters=3500,
       max_tokens=3000,
   )
   result = chain_of_thought.open_question(
       'Which outcome is the most likely?',
-      max_characters=1200,
       max_tokens=1200,
   )
   raw_causal_statement = f'{action_attempt} Because of that, {result}'
@@ -245,7 +238,6 @@ def result_to_who_what_where(
       ' result. Do not express uncertainty (e.g. say '
       '"Francis opened the door" not "Francis could open the door" '
       'and not "The door may have been opened").\n',
-      max_characters=3000,
       max_tokens=1500,
   )
   return causal_statement
@@ -272,7 +264,6 @@ def result_to_effect_caused_by_active_player(
       'Do not express uncertainty (e.g. say '
       '"Francis opened the door" not "Francis could open the door" '
       'and not "The door may have been opened").',
-      max_characters=3000,
       max_tokens=1500,
   )
   return causal_statement
@@ -298,18 +289,22 @@ def restore_direct_quote(
       f'quotes: {event}')
   event_with_quote = chain_of_thought.open_question(
       question=(
-          'Incorporate the exact text of anything said or written ' +
-          f'by {active_player_name} into the candidate event statement. ' +
-          'Note that all direct quotes should have been tagged in the ' +
-          f'text above with [direct quote]. If {active_player_name} ' +
-          'said or wrote anything then their direct quote must be part of ' +
-          'the answer. It is also important to maintain as much detail as ' +
-          'possible from the latest candidate event statement.'),
-      max_characters=4000,
+          'Incorporate the exact text of anything said or written '
+          + f'by {active_player_name} into the candidate event statement. '
+          + 'Note that all direct quotes should have been tagged in the '
+          + f'text above with [direct quote]. If {active_player_name} '
+          + 'said or wrote anything then their direct quote must be part of '
+          + 'the answer. It is also important to maintain as much detail as '
+          + 'possible from the latest candidate event statement.'
+      ),
       max_tokens=3500,
       # Prevent runaway generations from completion models.
       terminators=(
-          '\nCandidate event statement', '\nQuestion', '\nAnswer', '\n\n'),
+          '\nCandidate event statement',
+          '\nQuestion',
+          '\nAnswer',
+          '\n\n',
+      ),
   )
   return event_with_quote
 
@@ -338,9 +333,8 @@ class AccountForAgencyOfOthers:
         model=self._model)
     tmp_chain_of_thought.statement(f'Event: {candidate_event}')
     _ = tmp_chain_of_thought.open_question(
-        'Describe all voluntary actions taken by any individual in the ' +
-        'event above.',
-        max_characters=3000,
+        'Describe all voluntary actions taken by any individual in the '
+        + 'event above.',
         max_tokens=1500,
     )
 
@@ -413,12 +407,12 @@ class AccountForAgencyOfOthers:
             'Therefore a likely effect of ' +
             f"{active_player_name}'s attempted action is: " + outcome)
       candidate_event = chain_of_thought.open_question(
-          f"What happened as a direct result of {active_player_name}'s " +
-          'attempted action? Take into account the reactions of ' +
-          f'{players_who_would_not_str}. Highlight how ' +
-          f"{active_player_name}'s action caused its actual effect.",
-          max_characters=3000,
-          max_tokens=1500)
+          f"What happened as a direct result of {active_player_name}'s "
+          + 'attempted action? Take into account the reactions of '
+          + f'{players_who_would_not_str}. Highlight how '
+          + f"{active_player_name}'s action caused its actual effect.",
+          max_tokens=1500,
+      )
       if self._verbose:
         print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
     return candidate_event

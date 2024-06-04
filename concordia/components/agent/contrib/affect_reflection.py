@@ -99,7 +99,6 @@ class AffectReflection(component.Component):
             f'questions that can be answered about what {self._agent_name} ' +
             'might be feeling about the current moment?'),
         answer_prefix='- ',
-        max_characters=3000,
         max_tokens=3000,
         terminators=(),
     ).split('\n')
@@ -124,7 +123,9 @@ class AffectReflection(component.Component):
         'What high-level insight can be inferred from the above ' +
         f'statements about what {self._agent_name} might be feeling ' +
         'in the current moment?',
-        max_characters=4000, max_tokens=2000, terminators=(),)
+        max_tokens=2000,
+        terminators=(),
+    )
     insights.append(insight)
 
     self._state = '\n'.join(insights)

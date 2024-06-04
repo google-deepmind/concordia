@@ -137,7 +137,6 @@ class FormativeMemoryFactory:
       question += f' Incorporate the following context: {agent_config.context}'
     result = prompt.open_question(
         question,
-        max_characters=5000,
         max_tokens=4500,
         terminators=['\nQuestion', '-----'],
     )
@@ -193,7 +192,6 @@ class FormativeMemoryFactory:
 
     aggregated_result = prompt.open_question(
         question=question,
-        max_characters=8000,
         max_tokens=6000,
         terminators=[],
     )
@@ -207,11 +205,12 @@ class FormativeMemoryFactory:
       if num_missing > 0:
         for age in list(formative_ages_list[len(episodes):]):
           episode = prompt.open_question(
-              question=(f'What is {agent_config.name}\'s formative memory from '
-                        f'age {age}?'),
-              max_characters=2000,
+              question=(
+                  f"What is {agent_config.name}'s formative memory from "
+                  f'age {age}?'
+              ),
               max_tokens=1000,
-              terminators=(self._delimiter_symbol, '.\n', '\nQuestion:')
+              terminators=(self._delimiter_symbol, '.\n', '\nQuestion:'),
           )
           episodes.append(episode)
 

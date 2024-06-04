@@ -89,9 +89,8 @@ class AllSimilarMemories(component.Component):
     ])
     prompt.statement(f'Statements:\n{component_states}\n')
     prompt_summary = prompt.open_question(
-        'Summarize the statements above.',
-        max_characters=2000,
-        max_tokens=750)
+        'Summarize the statements above.', max_tokens=750
+    )
 
     query = f'{self._agent_name}, {prompt_summary}'
     if self._clock_now is not None:
@@ -118,7 +117,6 @@ class AllSimilarMemories(component.Component):
     new_prompt = prompt.new()
     self._state = new_prompt.open_question(
         f'{question}\nStatements:\n{mems}',
-        max_characters=3000,
         max_tokens=2000,
         terminators=(),
     )

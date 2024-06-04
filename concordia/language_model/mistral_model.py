@@ -66,12 +66,10 @@ class MistralLanguageModel(language_model.LanguageModel):
       *,
       suffix: str | None = None,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       seed: int | None = None,
   ) -> str:
-    max_tokens = min(max_tokens, max_characters)
     if not terminators:
       # It is essential to set a terminator since these models otherwise always
       # continue till max_tokens.
@@ -105,12 +103,11 @@ class MistralLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       seed: int | None = None,
   ) -> str:
-    del max_characters, terminators
+    del terminators
     messages = [
         ChatMessage(role='system',
                     content=('You always continue sentences provided ' +
@@ -143,21 +140,18 @@ class MistralLanguageModel(language_model.LanguageModel):
       prompt: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
-      max_characters: int = language_model.DEFAULT_MAX_CHARACTERS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
     del timeout
-    max_tokens = min(max_tokens, max_characters)
 
     if self._completion:
       response = self._complete_text(
           prompt=prompt,
           suffix='.\n',
           max_tokens=max_tokens,
-          max_characters=max_characters,
           terminators=terminators,
           temperature=temperature,
           seed=seed,
@@ -166,7 +160,6 @@ class MistralLanguageModel(language_model.LanguageModel):
       response = self._chat_text(
           prompt=prompt,
           max_tokens=max_tokens,
-          max_characters=max_characters,
           terminators=terminators,
           temperature=temperature,
           seed=seed,

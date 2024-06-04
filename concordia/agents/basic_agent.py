@@ -200,7 +200,6 @@ class BasicAgent(
         output = self._agent_name + ' '
         output += prompt.open_question(
             call_to_action,
-            max_characters=2500,
             max_tokens=2200,
             answer_prefix=output,
         )

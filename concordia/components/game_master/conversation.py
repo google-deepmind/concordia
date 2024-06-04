@@ -181,7 +181,6 @@ class Conversation(component.Component):
         '\n'.join(
             convo + ['Summarize the conversation above in one sentence.'],
         ),
-        max_characters=2000,
         max_tokens=2000,
         terminators=(),
     )
@@ -318,11 +317,12 @@ class Conversation(component.Component):
                            'speaking and making decisions until they know the '
                            'answer to the question.')
         key_question = document.open_question(
-            question=('What key question may have been resolved by the '
-                      'conversation which the players will now role play?'),
-            max_characters=700,
+            question=(
+                'What key question may have been resolved by the '
+                'conversation which the players will now role play?'
+            ),
             max_tokens=256,
-            terminators=('\n',)
+            terminators=('\n',),
         )
 
         convo_scene = conversation_scene.make_conversation_game_master(
