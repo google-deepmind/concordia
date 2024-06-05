@@ -43,6 +43,8 @@ import argparse
 import datetime
 import importlib
 import os
+import pathlib
+import sys
 
 from concordia.language_model import gpt_model
 from concordia.language_model import mistral_model
@@ -87,11 +89,13 @@ args = parser.parse_args()
 # Load the agent config with importlib
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
 agent_module = importlib.import_module(
-    f'{IMPORT_AGENT_BASE_DIR}.{args.agent_name}', __name__)
+    f'{IMPORT_AGENT_BASE_DIR}.{args.agent_name}')
 # Load the environment config with importlib
+concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
+sys.path.append(f'{concordia_root_dir}')
 IMPORT_ENV_BASE_DIR = 'environment'
 simulation = importlib.import_module(
-    f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}', __name__)
+    f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 
 # Language Model setup
 if not args.disable_language_model:
