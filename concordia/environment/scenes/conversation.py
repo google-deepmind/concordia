@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """The conversation scene.
 
 The conversation scene configures the game master that runs a
@@ -85,8 +84,8 @@ class ConversationTracker(component.Component):
     chain_of_thought.statement(f'Conversation:\n{self._state}\n')
 
     key_question_answered = chain_of_thought.multiple_choice_question(
-        question=('Has the answer to the key question been revealed or '
-                  'elucidated in the conversation?'),
+        question=('Has the answer to the key question been revealed '
+                  'by the conversation so far?'),
         answers=['No', 'Yes'],
     )
     did_conclude = False
@@ -94,8 +93,15 @@ class ConversationTracker(component.Component):
       did_conclude = True
     else:
       will_not_answer = chain_of_thought.multiple_choice_question(
-          question=('Is it clear now that the conversation is unlikely to '
-                    'reveal the answer to or elucidate the key question?'),
+          question=('Considerations on whether or not to end the scene now:\n '
+                    'Is it clear now that the conversation is unlikely to '
+                    'reveal the answer to the key question? If so '
+                    'then the scene should end. However, if answering the '
+                    'question is still possible by continuing the conversation '
+                    'then it is best to do so. However, if ending the '
+                    'scene now would not make sense narratively then do not '
+                    'end it. Given these considerations, should the scene '
+                    'end now?'),
           answers=['No', 'Yes'],
       )
       if will_not_answer:

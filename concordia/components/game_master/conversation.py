@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Externality component for the Game Master, which generates conversations."""
+"""Component for the Game Master to handle conversations between players."""
 
 from collections.abc import Sequence
 import datetime
+import random
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -31,6 +32,56 @@ from concordia.typing import clock as clock_lib
 from concordia.typing import component
 from concordia.utils import helper_functions
 import termcolor
+
+CONVERSATIONALIST_STYLES = (
+    'succinct',
+    'laconic',
+    'pithy',
+    'curt',
+    'terse',
+    'loquacious',
+    'voluble',
+    'garrulous',
+    'effusive',
+    'prolix',
+    'discursive',
+    'comical',
+    'witty',
+    'riotous',
+    'whimsical',
+    'satirical',
+    'dry',
+    'sarcastic',
+    'teasing',
+    'folksy',
+    'breezy',
+    'convivial',
+    'playful',
+    'chummy',
+    'provocative',
+    'evocative',
+    'animated',
+    'droll',
+    'quick-witted',
+    'observant',
+    'bantering',
+    'self-deprecating',
+    'scathing',
+    'cutting',
+    'acerbic',
+    'barbed',
+    'snarky',
+    'earnest',
+    'candid',
+    'passionate',
+    'rambling',
+    'meandering',
+    'eloquent',
+    'blunt',
+    'evasive',
+    'pedantic',
+    'condescending'
+)
 
 
 class Conversation(component.Component):
@@ -115,8 +166,8 @@ class Conversation(component.Component):
       self, name: str, scene_clock: clock_lib.GameClock
   ) -> basic_agent.BasicAgent:
     context = (
-        f'{name} is a non-player character. Everyone knows the'
-        f' following:\n{self._shared_context}'
+        f'{name} is a non-player character (an NPC).\n'
+        f'Their knowledge includes:\n{self._shared_context}'
     )
 
     mem = self._burner_memory_factory.make_blank_memory()
@@ -127,10 +178,14 @@ class Conversation(component.Component):
         clock=scene_clock,
         components=[
             generic_components.constant.ConstantComponent(
-                name='Instructions:', state=self._npc_instructions
+                name='general instructions', state=self._npc_instructions
             ),
             generic_components.constant.ConstantComponent(
-                name='General knowledge:', state=context
+                name='NPC role playing instructions', state=context
+            ),
+            generic_components.constant.ConstantComponent(
+                name='usual manner of speaking',
+                state=random.choice(CONVERSATIONALIST_STYLES)
             ),
             sim_components.observation.Observation(
                 agent_name=name,
@@ -301,29 +356,48 @@ class Conversation(component.Component):
         comma_separated = (', '.join(player_names_in_conversation) + ', ' +
                            ', '.join(nonplayer_names_in_conversation))
         document.statement(
-            f'Conversation participants: {comma_separated}')
+            f'\nConversation participants: {comma_separated}')
         # The following prompt references a game design mechanic from
         #   Robbins, Ben., 2011. Microscope: A Fractal Roleplaying Game of Epic
         #   Histories. Lame Mage Productions.
-        document.statement('The tabletop role-playing game Microscrope '
-                           'features a mechanic wherein players role play a '
-                           'scene until a predesignated "key question" has '
-                           'been answered. The key question is selected '
-                           'before starting the scene in order to provide '
-                           'focus and direction to the scene, ensuring it has '
-                           'a clear point and purpose, maximizing its '
-                           'relevance to rest of the narrative. Once the key '
-                           'question is decided, the players role play by '
-                           'speaking and making decisions until they know the '
-                           'answer to the question.')
+        key_question_mechanic_explanation = (
+            '\nThe tabletop role-playing game Microscrope '
+            'features a mechanic wherein players role play a '
+            'scene until a predesignated "key question" has '
+            'been answered. The key question is selected '
+            'before starting the scene in order to provide '
+            'focus and direction to the scene, ensuring it has '
+            'a clear point and purpose, maximizing its '
+            'relevance to rest of the narrative. Once the key '
+            'question is decided, the players role play by '
+            'speaking and making decisions until they know the '
+            'answer to the question.\n'
+        )
+        document.statement(key_question_mechanic_explanation)
         key_question = document.open_question(
             question=(
                 'What key question may have been resolved by the '
-                'conversation which the players will now role play?'
+                'conversation which the players will now role play? Note that '
+                'a good key question is one that expands a bit beyond the '
+                'literal content of the event statement. The idea is that the '
+                'story will progress narratively once the answer to the key '
+                'question is known, so it should be the kind of question for '
+                'which revealing the answer is a consequential event in itself '
+                'and ideally it should be a dynamic event, the kind that sets '
+                'further events in motion.'
             ),
             max_tokens=256,
             terminators=('\n',),
         )
+
+        # Communicate the key question to the NPCs
+        for npc in nonplayers_in_conversation:
+          npc.observe(key_question_mechanic_explanation)
+          npc.observe('The purpose of the current scene is to answer the key '
+                      f'question: "{key_question}". Note that it is critical '
+                      'always to stay in character and never to divulge the '
+                      'key question explicitly in conversation since it is '
+                      'a game mechanic, and not itself part of the game.')
 
         convo_scene = conversation_scene.make_conversation_game_master(
             players_in_conversation + nonplayers_in_conversation,
@@ -353,6 +427,7 @@ class Conversation(component.Component):
             'Who talked?': who_talked,
             'Event statement': event_statement,
             'Summary': conversation_summary,
+            'Key question': key_question,
             'Full conversation': scene_output,
             'Chain of thought': {
                 'Summary': 'Conversation chain of thought',

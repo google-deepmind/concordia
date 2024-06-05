@@ -47,6 +47,7 @@ def build_game_master(
     memory: associative_memory.AssociativeMemory | None = None,
     supporting_players_at_fixed_locations: Sequence[str] | None = None,
     additional_components: Sequence[component.Component] | None = tuple([]),
+    npc_context: str = '',
 ) -> tuple[game_master.GameMaster, associative_memory.AssociativeMemory]:
   """Build a game master (i.e., an environment).
 
@@ -68,6 +69,7 @@ def build_game_master(
       characters who never move are located.
     additional_components: Add more components specific to the current
       environment.
+    npc_context: extra context provided only to non-player characters
 
   Returns:
     A tuple consisting of a game master and its memory.
@@ -111,7 +113,7 @@ def build_game_master(
       burner_memory_factory=blank_memory_factory,
       components=[player_status],
       cap_nonplayer_characters=cap_nonplayer_characters_in_conversation,
-      shared_context=shared_context,
+      shared_context=f'{shared_context}\n{npc_context}',
       verbose=False,
   )
 
