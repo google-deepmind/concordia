@@ -196,7 +196,9 @@ class Inventory(component.Component):
               question=(
                   f'Which individuals gained or lost {item_type}?\n'
                   + 'Respond with a comma-separated list, for example: \n'
-                  + 'Jacob,Alfred,Patricia'
+                  + 'Jacob,Alfred,Patricia. Note that transactions between '
+                  + 'named individuals must be balanced. If someone gained '
+                  + 'something then someone else must have lost it.'
               )
           )
           players_whose_inventory_changed = players_who_changed_str.split(',')
