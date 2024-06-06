@@ -15,12 +15,12 @@
 """A Concordia Environment Configuration."""
 
 from collections.abc import Callable, Sequence
-import concurrent.futures
 import datetime
 import random
 import types
 
 from concordia import components as generic_components
+from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
@@ -34,6 +34,7 @@ from concordia.factory.agent import basic_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import scene as scene_lib
+from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 
 import numpy as np
@@ -220,8 +221,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           goal='accumulate as much money and fame as possible',
           context=('Born in London, Aldous has fallen on hard times of late '
                    'due to his morphinomania. As a result, he must sell some '
-                   'of his most prized possessions. He is also aware of the '
-                   'following '
+                   'of his most prized possessions, perhaps even his copy of '
+                   'the tabula smaragdina. He is also aware of the following '
                    f'information: {joined_supporting_player_knowledge[0]}'),
           traits='Personality: TBD',
           extras={
@@ -232,6 +233,17 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'came to market today to do just that.'),
                   ('Aldous knows that Molly "Poppy" Jennings owns a genuine '
                    'copy of the secreta secretorum'),
+                  ('Aldous Pendleton owns a genuine copy of the tabula '
+                   'smaragdina, it is his most prized possession.'),
+                  ('The tabula smaragdina is a cryptic text attributed to '
+                   'Hermes Trismegistus, is said to hold the key to unlocking '
+                   'the greatest alchemical secrets. However, deciphering its '
+                   'enigmatic symbols can drive the unworthy mad, their minds '
+                   'succumbing to the chaos hidden within its pages.'),
+                  ('The tabula smaragdina is also called the codex of the '
+                   'emerald tablet.'),
+                  ('The secreta secretorum is a compendium of letters from '
+                   'Aristotle to his student Alexander the Great'),
                   *supporting_player_knowledge[0]
               ],
               'main_character': False,
@@ -248,9 +260,11 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           goal='accumulate as much money and fame as possible',
           context=('Born in London, Molly has fallen on hard times of late '
                    'due to her morphinomania. As a result, she must sell some '
-                   'of her most prized possessions. She is also aware of the '
-                   'following '
-                   f'information: {joined_supporting_player_knowledge[1]}'),
+                   'of her most prized possessions, perhaps even her copy of '
+                   'the secreta secretorum. She is also aware of the following '
+                   f'information: {joined_supporting_player_knowledge[1]} '
+                   'The circumstances in which the secreta secretorum came '
+                   'into Molly\'s possession are a secret she guards closely.'),
           traits='Personality: TBD',
           extras={
               'player_specific_memories': [
@@ -260,6 +274,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'came to market today to do just that.'),
                   ('Molly knows that Professor Aldous Pendleton owns a genuine '
                    'copy of the tabula smaragdina'),
+                  ('Molly "Poppy" Jennings owns a genuine copy of the '
+                   'secreta secretorum, it is her most prized possession.'),
                   *supporting_player_knowledge[1]
               ],
               'main_character': False,
@@ -382,6 +398,7 @@ def configure_scenes(
 def get_inventories_component(
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
+    players: Sequence[basic_agent.BasicAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
 ):
@@ -403,6 +420,7 @@ def get_inventories_component(
                          laudanum_config,
                          tabula_smaragdina_config,
                          secreta_secretorum_config],
+      players=players,
       player_initial_endowments=player_initial_endowments,
       clock_now=clock_now,
       financial=True,
@@ -457,8 +475,6 @@ class Simulation(Runnable):
         current_date=SETUP_TIME,
     )
 
-    custom_agent_components = None
-
     main_player_configs, supporting_player_configs, player_configs_dict = (
         configure_players()
     )
@@ -471,59 +487,49 @@ class Simulation(Runnable):
     self._all_memories = {}
 
     main_players = []
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=num_main_players) as pool:
-      for agent, mem in pool.map(
-          self._agent_module.build_agent,
-          # All players get a reference to the same language model.
-          [self._model] * num_main_players,
-          # All players get a reference to the same clock.
-          [self._clock] * num_main_players,
-          # All players have the same time increment.
-          [MAJOR_TIME_STEP] * num_main_players,
-          # Each player gets a blank memory factory.
-          [blank_memory_factory] * num_main_players,
-          # player gets a formative memory factory.
-          [formative_memory_factory] * num_main_players,
-          # One specific player config per player.
-          main_player_configs,
-          # All players get the same list of `all_player_names`.
-          [all_player_names] * num_main_players,
-          # All players get the same custom components.
-          [custom_agent_components] * num_main_players,
-          # All players get the same `measurements` logging object.
-          [self._measurements] * num_main_players,
-      ):
-        main_players.append(agent)
-        self._all_memories[agent.name] = mem
+    main_player_futures = []
+    with concurrency.executor(max_workers=num_main_players) as pool:
+      for player_config in main_player_configs:
+        future = pool.submit(
+            self._agent_module.build_agent,
+            model=self._model,
+            clock=self._clock,
+            time_step=MAJOR_TIME_STEP,
+            blank_memory_factory=blank_memory_factory,
+            formative_memory_factory=formative_memory_factory,
+            agent_config=player_config,
+            player_names=all_player_names,
+            custom_components=None,
+            measurements=self._measurements,
+        )
+        main_player_futures.append(future)
+      for future in main_player_futures:
+        player, mem = future.result()  # This is where the threads wait.
+        main_players.append(player)
+        self._all_memories[player.name] = mem
 
     supporting_players = []
+    supporting_player_futures = []
     if num_supporting_players > 0:
-      with concurrent.futures.ThreadPoolExecutor(
-          max_workers=num_supporting_players) as pool:
-        for agent, mem in pool.map(
-            basic_agent__supporting_role.build_agent,
-            # All players get a reference to the same language model.
-            [self._model] * num_supporting_players,
-            # All players get a reference to the same clock.
-            [self._clock] * num_supporting_players,
-            # All players have the same time increment.
-            [MAJOR_TIME_STEP] * num_supporting_players,
-            # Each player gets a blank memory factory.
-            [blank_memory_factory] * num_supporting_players,
-            # player gets a formative memory factory.
-            [formative_memory_factory] * num_supporting_players,
-            # One specific player config per player.
-            supporting_player_configs,
-            # All players get the same list of `all_player_names`.
-            [all_player_names] * num_supporting_players,
-            # All players get the same custom components.
-            [custom_agent_components] * num_supporting_players,
-            # All players get the same `measurements` logging object.
-            [self._measurements] * num_supporting_players,
-        ):
-          supporting_players.append(agent)
-          self._all_memories[agent.name] = mem
+      with concurrency.executor(max_workers=num_supporting_players) as pool:
+        for player_config in supporting_player_configs:
+          future = pool.submit(
+              basic_agent__supporting_role.build_agent,
+              model=self._model,
+              clock=self._clock,
+              time_step=MAJOR_TIME_STEP,
+              blank_memory_factory=blank_memory_factory,
+              formative_memory_factory=formative_memory_factory,
+              agent_config=player_config,
+              player_names=all_player_names,
+              custom_components=None,
+              measurements=self._measurements,
+          )
+          supporting_player_futures.append(future)
+        for future in supporting_player_futures:
+          player, mem = future.result()  # This is where the threads wait.
+          supporting_players.append(player)
+          self._all_memories[player.name] = mem
 
     self._all_players = main_players + supporting_players
 
@@ -537,19 +543,33 @@ class Simulation(Runnable):
         name='Important Fact')
     only_named_characters_sell_str = (
         'The only people in London with alchemical texts to sell are ' +
-        ' and '.join(supporting_player_names) + '.')
+        ' and '.join(supporting_player_names) + '. There are no other ' +
+        'venders of alchemical texts.')
     only_named_characters_sell = generic_components.constant.ConstantComponent(
         state=only_named_characters_sell_str,
         name='Fact')
+    categories_and_aliases = generic_components.constant.ConstantComponent(
+        state=('The tabula smaragdina and the secreta secretorum are both '
+               'alchemical texts. The tabula smaragdina is also called the '
+               'codex of the emerald tablet.'),
+        name='More facts')
+    easy_to_find = generic_components.constant.ConstantComponent(
+        state=(' and '.join(supporting_player_names) + ' are easy to find '
+               'in the marketplace by the docks. Anyone looking for them '
+               'will find them there.'),
+        name='Another fact')
     inventories = get_inventories_component(
         model=model,
         memory=game_master_memory,
+        players=self._all_players,
         player_configs=main_player_configs + supporting_player_configs,
         clock_now=self._clock.now
     )
     additional_gm_components = [
         magic_is_not_real,
         only_named_characters_sell,
+        easy_to_find,
+        categories_and_aliases,
         inventories,
     ]
 
@@ -563,10 +583,10 @@ class Simulation(Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=blank_memory_factory,
-            memory=game_master_memory,
             cap_nonplayer_characters_in_conversation=2,
-            additional_components=additional_gm_components,
+            memory=game_master_memory,
             supporting_players_at_fixed_locations=SUPPORTING_PLAYER_LOCATIONS,
+            additional_components=additional_gm_components,
             npc_context=only_named_characters_sell_str,
         )
     )

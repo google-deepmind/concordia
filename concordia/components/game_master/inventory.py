@@ -20,6 +20,7 @@ import concurrent
 import dataclasses
 import datetime
 
+from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -58,6 +59,7 @@ class Inventory(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       item_type_configs: Sequence[ItemTypeConfig],
+      players: Sequence[basic_agent.BasicAgent],
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
       financial: bool = False,
@@ -70,6 +72,7 @@ class Inventory(component.Component):
       model: a language model
       memory: an associative memory
       item_type_configs: sequence of item type configurations
+      players: sequence of players who have an inventory and will observe it.
       player_initial_endowments: dict mapping player name to a dictionary with
         item types as keys and initial endownments as values.
       clock_now: Function to call to get current time.
@@ -81,6 +84,7 @@ class Inventory(component.Component):
     """
     self._model = model
     self._memory = memory
+    self._players = players
     self._player_initial_endowments = player_initial_endowments
     self._financial = financial
     self._clock_now = clock_now
@@ -140,13 +144,6 @@ class Inventory(component.Component):
   def state(self) -> str:
     return self._state
 
-  def partial_state(
-      self,
-      player_name: str,
-  ) -> str:
-    """Return a player-specific view of the component's state."""
-    return self._partial_states[player_name]
-
   def update(self) -> None:
     self._state = '\n'.join(
         [self._get_player_inventory_str(name) for name in self._player_names]
@@ -155,6 +152,14 @@ class Inventory(component.Component):
         name: self._get_player_inventory_str(name)
         for name in self._player_names
     }
+    # Explicitly pass partial states to agents here in `update` instead of
+    # relying on the game master to call partial state on all players. This is
+    # because we frequently have supporting characters who participate in
+    # conversations but do not take active turns with the top-level game master
+    # themselves. This method of passing the partial state information ensures
+    # that theses players still get to observe their inventory.
+    for player in self._players:
+      player.observe(self._partial_states[player.name])
 
   def update_after_event(
       self,
