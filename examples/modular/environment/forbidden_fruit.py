@@ -129,7 +129,7 @@ SCENARIO_PREMISE = [
 ]
 
 FRUIT_DESCRIPTION = (
-    'The fruit of the {TREE} wasn\'t merely fruit; it was a supernova trapped '
+    f'The fruit of the {TREE} wasn\'t merely fruit; it was a supernova trapped '
     'in a pearlescent cage. Its skin, if you could call it that, shimmered '
     'like the ghost of an opal, catching the sunlight and shattering it into a '
     'kaleidoscope of impossible hues. Fuchsia veins pulsed beneath the '
@@ -140,7 +140,7 @@ FRUIT_DESCRIPTION = (
     'can\'t even be named, each note a heady, swirling nebula of scent. '
     'Imagine sunshine distilled into a perfume, so bright it tickles the '
     'nose. Imagine the laughter of angels, bottled and uncorked. That is what '
-    'the barest whisper of fragrance emanating from the {TREE}\'s fruit is '
+    f'the barest whisper of fragrance emanating from the {TREE}\'s fruit is '
     'like. It is a smell that could rewrite the very definition of beauty. '
     'Each fruit hangs suspended in mid-air, a constellation unto itself. They '
     'cluster together, forming impossible geometries, a celestial fruit '
