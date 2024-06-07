@@ -110,6 +110,9 @@ class FormativeMemoryFactory:
     prompt.statement('----- Creative Writing Master Class -----\n')
     prompt.statement('Question: What is the protagonist\'s name?')
     prompt.statement(f'Answer: {agent_config.name}\n')
+    prompt.statement('Question: Describe the setting or background.')
+    shared_memories = '\n'.join(self._shared_memories)
+    prompt.statement(f'Answer: {shared_memories}\n')
 
     question = (
         f'Write a life story for a {agent_config.gender} character '
