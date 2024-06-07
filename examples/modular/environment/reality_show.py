@@ -16,7 +16,6 @@
 """
 
 from collections.abc import Callable, Mapping, Sequence
-import concurrent.futures
 import dataclasses
 import datetime
 import types
@@ -36,12 +35,14 @@ from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import agent as agent_lib
 from concordia.typing import scene as scene_lib
+from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
 
 
 Runnable = Callable[[], str]
+SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
@@ -75,14 +76,7 @@ actions.
 5) the true number of rounds the minigame will run (unknown to the players).
 '''
 SCENARIO_PREMISE = []
-DECISION_ACTION_SPEC = agent_lib.ActionSpec(
-    call_to_action=(
-        'Would {agent_name} follow through with their obligation under '
-        'the agreement?'),
-    output_type='CHOICE',
-    options=('no', 'yes'),
-    tag='decision',
-)
+
 CANDIDATE_SHOW_TITLES = [
     'Motive Madness',
     'The Motivation Marathon',
@@ -137,21 +131,6 @@ CANDIDATE_SHOW_DESCRIPTIONS = [
 MINIGAME_INTRO_PREMISE = (
     'The show\'s host arrived to explain the next minigame. They '
     'said the following:\n')
-
-# A Schelling Function maps number of cooperators to reward.
-SchellingFunction = Callable[[int], float]
-
-
-# A Schelling diagram consists of two Schelling functions: one describing the
-# reward for cooperation and the other describing the reward for defection.
-# See: Schelling, T. C. (1973). Hockey helmets, concealed weapons, and daylight
-# saving: A study of binary choices with externalities. Journal of Conflict
-# resolution, 17(3), 381-428.
-@dataclasses.dataclass(frozen=True)
-class SchellingDiagram:
-  """A Schelling diagram."""
-  cooperation: SchellingFunction
-  defection: SchellingFunction
 
 
 @dataclasses.dataclass(frozen=True)
@@ -554,8 +533,6 @@ class Simulation(Runnable):
         blank_memory_factory_call=blank_memory_factory.make_blank_memory,
     )
 
-    custom_components = None
-
     main_player_configs, supporting_player_configs, player_configs_dict = (
         configure_players(show_title=show_title)
     )
@@ -567,59 +544,49 @@ class Simulation(Runnable):
     self._all_memories = {}
 
     main_players = []
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=num_main_players) as pool:
-      for agent, mem in pool.map(
-          self._agent_module.build_agent,
-          # All players get a reference to the same language model.
-          [self._model] * num_main_players,
-          # All players get a reference to the same clock.
-          [self._clock] * num_main_players,
-          # All players have the same time increment.
-          [MAJOR_TIME_STEP] * num_main_players,
-          # Each player gets a blank memory factory.
-          [blank_memory_factory] * num_main_players,
-          # player gets a formative memory factory.
-          [formative_memory_factory] * num_main_players,
-          # One specific player config per player.
-          main_player_configs,
-          # All players get the same list of `all_player_names`.
-          [all_player_names] * num_main_players,
-          # All players get the same custom components.
-          [custom_components] * num_main_players,
-          # All players get the same `measurements` logging object.
-          [self._measurements] * num_main_players,
-      ):
-        main_players.append(agent)
-        self._all_memories[agent.name] = mem
+    main_player_futures = []
+    with concurrency.executor(max_workers=num_main_players) as pool:
+      for player_config in main_player_configs:
+        future = pool.submit(
+            self._agent_module.build_agent,
+            model=self._model,
+            clock=self._clock,
+            time_step=MAJOR_TIME_STEP,
+            blank_memory_factory=blank_memory_factory,
+            formative_memory_factory=formative_memory_factory,
+            agent_config=player_config,
+            player_names=all_player_names,
+            custom_components=None,
+            measurements=self._measurements,
+        )
+        main_player_futures.append(future)
+      for future in main_player_futures:
+        player, mem = future.result()  # This is where the threads wait.
+        main_players.append(player)
+        self._all_memories[player.name] = mem
 
     supporting_players = []
+    supporting_player_futures = []
     if num_supporting_players > 0:
-      with concurrent.futures.ThreadPoolExecutor(
-          max_workers=num_supporting_players) as pool:
-        for agent, mem in pool.map(
-            basic_agent__supporting_role.build_agent,
-            # All players get a reference to the same language model.
-            [self._model] * num_supporting_players,
-            # All players get a reference to the same clock.
-            [self._clock] * num_supporting_players,
-            # All players have the same time increment.
-            [MAJOR_TIME_STEP] * num_supporting_players,
-            # Each player gets a blank memory factory.
-            [blank_memory_factory] * num_supporting_players,
-            # player gets a formative memory factory.
-            [formative_memory_factory] * num_supporting_players,
-            # One specific player config per player.
-            supporting_player_configs,
-            # All players get the same list of `all_player_names`.
-            [all_player_names] * num_supporting_players,
-            # All players get the same custom components.
-            [custom_components] * num_supporting_players,
-            # All players get the same `measurements` logging object.
-            [self._measurements] * num_supporting_players,
-        ):
-          supporting_players.append(agent)
-          self._all_memories[agent.name] = mem
+      with concurrency.executor(max_workers=num_supporting_players) as pool:
+        for player_config in supporting_player_configs:
+          future = pool.submit(
+              basic_agent__supporting_role.build_agent,
+              model=self._model,
+              clock=self._clock,
+              time_step=MAJOR_TIME_STEP,
+              blank_memory_factory=blank_memory_factory,
+              formative_memory_factory=formative_memory_factory,
+              agent_config=player_config,
+              player_names=all_player_names,
+              custom_components=None,
+              measurements=self._measurements,
+          )
+          supporting_player_futures.append(future)
+        for future in supporting_player_futures:
+          player, mem = future.result()  # This is where the threads wait.
+          supporting_players.append(player)
+          self._all_memories[player.name] = mem
 
     self._all_players = main_players + supporting_players
 
