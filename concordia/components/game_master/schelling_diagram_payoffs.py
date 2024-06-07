@@ -16,6 +16,7 @@
 """
 
 from collections.abc import Callable, Mapping, Sequence
+import dataclasses
 import datetime
 
 from concordia.agents import basic_agent
@@ -26,6 +27,22 @@ from concordia.typing import component
 import numpy as np
 
 import termcolor
+
+
+# A Schelling Function maps number of cooperators to reward.
+SchellingFunction = Callable[[int], float]
+
+
+# A Schelling diagram consists of two Schelling functions: one describing the
+# reward for cooperation and the other describing the reward for defection.
+# See: Schelling, T. C. (1973). Hockey helmets, concealed weapons, and daylight
+# saving: A study of binary choices with externalities. Journal of Conflict
+# resolution, 17(3), 381-428.
+@dataclasses.dataclass(frozen=True)
+class SchellingDiagram:
+  """A Schelling diagram."""
+  cooperation: SchellingFunction
+  defection: SchellingFunction
 
 
 class SchellingPayoffs(component.Component):
@@ -44,8 +61,8 @@ class SchellingPayoffs(component.Component):
       memory: associative_memory.AssociativeMemory,
       cooperative_option: str,
       resolution_scene: str,
-      cooperator_reward_fn: Callable[[int], float],
-      defector_reward_fn: Callable[[int], float],
+      cooperator_reward_fn: SchellingFunction,
+      defector_reward_fn: SchellingFunction,
       players: Sequence[basic_agent.BasicAgent],
       acting_player_names: Sequence[str],
       outcome_summarization_fn: Callable[[Mapping[str, int],
@@ -250,3 +267,7 @@ class SchellingPayoffs(component.Component):
       self._stage_idx += 1
       self._partial_joint_action = {
           name: None for name in self._acting_player_names}
+
+  def get_scores(self) -> Mapping[str, float]:
+    """Return the cumulative score for each player."""
+    return self._player_scores
