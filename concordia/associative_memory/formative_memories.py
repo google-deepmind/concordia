@@ -55,7 +55,7 @@ class AgentConfig:
   """
 
   name: str
-  gender: str
+  gender: str = ''
   traits: str = ''
   context: str = ''
   specific_memories: str = ''
