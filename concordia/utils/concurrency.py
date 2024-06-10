@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Better error handling for threads.
-"""
+"""Better error handling for ThreadPoolExecutors."""
 
 from collections.abc import Iterator
 from concurrent import futures
@@ -21,23 +20,29 @@ import contextlib
 
 
 @contextlib.contextmanager
-def executor(
-    **kwargs,
-) -> Iterator[futures.ThreadPoolExecutor]:
-  """Context manager for a thread executor.
+def executor(**kwargs) -> Iterator[futures.ThreadPoolExecutor]:
+  """Context manager for a concurrent.futures.ThreadPoolExecutor.
 
-  On __exit__ the thread executor will be shutdown and all futures cancelled,
-  this allows errors to quickly propogate to the caller. When using this ensure
-  you wait on all futures before __exit__.
+  On normal __exit__ this context manager will behave like
+  `ThreadPoolExecutor.__exit__`: it will block until all running and pending
+  threads complete.
+
+  However, on an __exit__ due to an error, the executor will be shutdown
+  immediately without waiting for the running futures to complete, and all
+  pending futures will be cancelled. This allows errors to quickly propagate to
+  the caller.
 
   Args:
-    **kwargs: Args to pass to the thread executor.
+    **kwargs: Forwarded to ThreadPoolExecutor.
 
   Yields:
     A thread pool executor.
   """
-
-  with contextlib.ExitStack() as stack:
-    thread_executor = futures.ThreadPoolExecutor(**kwargs)
-    stack.callback(thread_executor.shutdown, wait=False, cancel_futures=True)
+  thread_executor = futures.ThreadPoolExecutor(**kwargs)
+  try:
     yield thread_executor
+  except BaseException:
+    thread_executor.shutdown(wait=False, cancel_futures=True)
+    raise
+  else:
+    thread_executor.shutdown()
