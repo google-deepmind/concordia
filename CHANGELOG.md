@@ -2,8 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](http://keepachangelog.com/)
-and this project adheres to [Semantic Versioning](http://semver.org/).
+The format is based on [Keep a Changelog](http://keepachangelog.com/).
+
+## [1.6.0] - 2024-06-11
+
+### Changed
+
+- Reorganize modular launch files to better separate agent and environment concerns from each other, start reporting scores from all modular environments (printing them at the end of the run). Also, add a notebook to illustrate the new way of modularizing things. Also, various small improvements to all three modular environments, and use concurrency with better error handling in more places.
+- Remove max_characters parameter on language model wrappers. It previously had
+different semantics from model to model, so it would have produced bugs if
+anyone was relying on it. It's better to remove it entirely since it's not needed.
+- Now possible to not specify gender in formative memories and fix last update in situation perception.
+- Reorganize Schelling diagram types and add get_scores function.
+- Increase shared memory influence on output of formative memory generator.
+- Improve inventory calculation prompt
+- further improve conversations, especially handling of non-player characters
+- Remove the confusing and hard to use 'adverb' parameter on the Plan component. Also rename plan timescale to horizon.
+- Remove all newline characters from memories.
+- Improve conversation termination conditions. Before this change it was very common for conversations to run on much too long.
+- Improve handling of improperly formatted generated formative memories.
+- Make maximum conversation length configurable
+- Make verbosity of conversation tracker configurable
+- Only shutdown without waiting on error (better concurrent error handling)
+
+### Added
+- Add parallel map utility (concurrency with better error handling)
+- Add concurrency utility to better handle errors in threads
+- Create scene_generator.py
+- Add rational agent factory and its components.
+- Add option to pass the current year to the formative memory generator and improve backstory generation.
+- Make components and memory used in game master factory configurable.
+- Add wrapper for Mistral language models.
+- Add generic launch script to run experiments without a notebook.
+- Add configurable factories to create agents and game masters. Also add a preliminary version of a modular reality show environment.
+
+### Fixed
+- Fix hash bug in associative memory, it had caused occasional memory loss.
+- Improve robustness of inventory component.
+- Add players parameter to Inventory to fix a bug with supporting players and improve london esoteric market scenario.
+- Fix a bug that arises with some completion models where the response to a  specific quote processing thought in the game master sometimes ends up never terminating.
+- Ensure completion models terminate when sampling for world background.
+
 
 ## [1.5.0] - 2024-05-27
 
