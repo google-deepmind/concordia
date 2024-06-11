@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """A component to represent each agent's inventory or possessions."""
 
 from collections.abc import Callable, Sequence
@@ -291,3 +290,7 @@ class Inventory(component.Component):
     }
     self._memory.extend(inventory_effects)
     self._history.append(update_log)
+
+  def get_player_inventory(self, player_name: str) -> dict[str, float | int]:
+    """Return the inventory of player `player_name`."""
+    return self._inventories[player_name]

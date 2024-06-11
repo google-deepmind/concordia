@@ -29,17 +29,18 @@ from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
 from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
+from examples.modular.environment.modules import player_traits_and_styles
 from concordia.factory.agent import basic_agent__main_role
 from concordia.factory.agent import basic_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
+from concordia.typing import component
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 
 import numpy as np
 import sentence_transformers
-
 
 Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
@@ -146,15 +147,13 @@ def get_shared_memories_and_context(
 
 
 def configure_players() -> tuple[list[formative_memories.AgentConfig],
-                                 list[formative_memories.AgentConfig],
-                                 dict[str, formative_memories.AgentConfig]]:
+                                 list[formative_memories.AgentConfig]]:
   """Configure the players.
 
   Args:
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
-    player_configs_dict: dict mapping player name to corresponding config
   """
   joined_main_player_knowledge = [
       ' '.join(get_world_elements(NUM_MAIN_PLAYER_WORLD_ELEMENTS))
@@ -178,7 +177,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'famous, and collect rare books about alchemy. He is also '
                    'aware of the following: '
                    f'{joined_main_player_knowledge[0]}.'),
-          traits='Personality: TBD',
+          traits=('Doctor Cornelius Ashmole\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   'Cornelius is wealthy and a member of the upper class.',
@@ -200,7 +200,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'famous, and collect rare books about alchemy. She is also '
                    'aware of the following: '
                    f'{joined_main_player_knowledge[1]}.'),
-          traits='Personality: TBD',
+          traits=('Madame Esmeralda Dee\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   'Esmeralda is wealthy and a member of the upper class.',
@@ -224,7 +225,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'of his most prized possessions, perhaps even his copy of '
                    'the tabula smaragdina. He is also aware of the following '
                    f'information: {joined_supporting_player_knowledge[0]}'),
-          traits='Personality: TBD',
+          traits=('Professor Aldous Pendleton\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   ('Aldous has fallen on hard times of late due to his '
@@ -265,7 +267,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    f'information: {joined_supporting_player_knowledge[1]} '
                    'The circumstances in which the secreta secretorum came '
                    'into Molly\'s possession are a secret she guards closely.'),
-          traits='Personality: TBD',
+          traits=('Molly "Poppy" Jennings\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   ('Molly has fallen on hard times of late due to her '
@@ -293,11 +296,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
   supporting_player_configs = [
       player for player in player_configs if not player.extras['main_character']
   ]
-  player_configs_dict = {
-      player.name: player for player in player_configs
-  }
 
-  return main_player_configs, supporting_player_configs, player_configs_dict
+  return main_player_configs, supporting_player_configs
 
 
 def configure_scenes(
@@ -399,17 +399,19 @@ def get_inventories_component(
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
     players: Sequence[basic_agent.BasicAgent],
+    main_players: Sequence[basic_agent.BasicAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
-):
+) -> tuple[component.Component, gm_components.inventory_based_score.Score]:
   """Get the inventory tracking component for the game master."""
+  alchemy_texts = ('tabula smaragdina', 'secreta secretorum',)
   money_config = ItemTypeConfig(name='coin')
   laudanum_config = ItemTypeConfig(
       name='laudanum bottle', minimum=0, maximum=np.inf)
   tabula_smaragdina_config = ItemTypeConfig(
-      name='tabula smaragdina', minimum=0, maximum=1, force_integer=True)
+      name=alchemy_texts[0], minimum=0, maximum=1, force_integer=True)
   secreta_secretorum_config = ItemTypeConfig(
-      name='secreta secretorum', minimum=0, maximum=1, force_integer=True)
+      name=alchemy_texts[1], minimum=0, maximum=1, force_integer=True)
   player_initial_endowments = {
       config.name: config.extras['initial_endowment']
       for config in player_configs}
@@ -427,7 +429,17 @@ def get_inventories_component(
       name='possessions',
       verbose=True,
   )
-  return inventories
+
+  score = gm_components.inventory_based_score.Score(
+      inventory=inventories,
+      players=main_players,  # Only main players get a score.
+      targets={
+          'Doctor Cornelius Ashmole': alchemy_texts,
+          'Madame Esmeralda Dee': alchemy_texts,
+      },
+      verbose=True,
+  )
+  return inventories, score
 
 
 class Simulation(Runnable):
@@ -461,24 +473,22 @@ class Simulation(Runnable):
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
-    blank_memory_factory = blank_memories.MemoryFactory(
+    self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
         embedder=self._embedder,
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
     shared_memories, shared_context = get_shared_memories_and_context(model)
-    formative_memory_factory = formative_memories.FormativeMemoryFactory(
+    self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
-        blank_memory_factory_call=blank_memory_factory.make_blank_memory,
+        blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
         current_date=SETUP_TIME,
     )
 
-    main_player_configs, supporting_player_configs, player_configs_dict = (
-        configure_players()
-    )
-    all_player_names = list(player_configs_dict.keys())
+    main_player_configs, supporting_player_configs = configure_players()
+
     supporting_player_names = [cfg.name for cfg in supporting_player_configs]
 
     num_main_players = len(main_player_configs)
@@ -486,50 +496,53 @@ class Simulation(Runnable):
 
     self._all_memories = {}
 
-    main_players = []
-    main_player_futures = []
+    main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(
-            self._agent_module.build_agent,
-            model=self._model,
-            clock=self._clock,
-            time_step=MAJOR_TIME_STEP,
-            blank_memory_factory=blank_memory_factory,
-            formative_memory_factory=formative_memory_factory,
-            agent_config=player_config,
-            player_names=all_player_names,
-            custom_components=None,
-            measurements=self._measurements,
-        )
-        main_player_futures.append(future)
-      for future in main_player_futures:
-        player, mem = future.result()  # This is where the threads wait.
-        main_players.append(player)
-        self._all_memories[player.name] = mem
+        future = pool.submit(self._make_player_memories,
+                             config=player_config)
+        main_player_memory_futures.append(future)
+      for player_config, future in zip(main_player_configs,
+                                       main_player_memory_futures):
+        self._all_memories[player_config.name] = future.result()
 
-    supporting_players = []
-    supporting_player_futures = []
     if num_supporting_players > 0:
+      supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(
-              basic_agent__supporting_role.build_agent,
-              model=self._model,
-              clock=self._clock,
-              time_step=MAJOR_TIME_STEP,
-              blank_memory_factory=blank_memory_factory,
-              formative_memory_factory=formative_memory_factory,
-              agent_config=player_config,
-              player_names=all_player_names,
-              custom_components=None,
-              measurements=self._measurements,
-          )
-          supporting_player_futures.append(future)
-        for future in supporting_player_futures:
-          player, mem = future.result()  # This is where the threads wait.
-          supporting_players.append(player)
-          self._all_memories[player.name] = mem
+          future = pool.submit(self._make_player_memories,
+                               config=player_config)
+          supporting_player_memory_futures.append(future)
+        for player_config, future in zip(supporting_player_configs,
+                                         supporting_player_memory_futures):
+          self._all_memories[player_config.name] = future.result()
+
+    main_players = []
+    for player_config in main_player_configs:
+      player = self._agent_module.build_agent(
+          config=player_config,
+          model=self._model,
+          memory=self._all_memories[player_config.name],
+          clock=self._clock,
+          update_time_interval=MAJOR_TIME_STEP,
+      )
+      main_players.append(player)
+
+    supporting_players = []
+    for player_config in supporting_player_configs:
+      conversation_style = generic_components.constant.ConstantComponent(
+          name='guiding principle of good conversation',
+          state=player_traits_and_styles.get_conversation_style(
+              player_config.name))
+      player = basic_agent__supporting_role.build_agent(
+          config=player_config,
+          model=self._model,
+          memory=self._all_memories[player_config.name],
+          clock=self._clock,
+          update_time_interval=MAJOR_TIME_STEP,
+          additional_components=[conversation_style],
+      )
+      supporting_players.append(player)
 
     self._all_players = main_players + supporting_players
 
@@ -558,10 +571,11 @@ class Simulation(Runnable):
                'in the marketplace by the docks. Anyone looking for them '
                'will find them there.'),
         name='Another fact')
-    inventories = get_inventories_component(
+    inventories, self._score = get_inventories_component(
         model=model,
         memory=game_master_memory,
         players=self._all_players,
+        main_players=main_players,
         player_configs=main_player_configs + supporting_player_configs,
         clock_now=self._clock.now
     )
@@ -571,6 +585,7 @@ class Simulation(Runnable):
         easy_to_find,
         categories_and_aliases,
         inventories,
+        self._score,
     ]
 
     self._primary_environment, self._game_master_memory = (
@@ -582,7 +597,7 @@ class Simulation(Runnable):
             players=self._all_players,
             shared_memories=shared_memories,
             shared_context=shared_context,
-            blank_memory_factory=blank_memory_factory,
+            blank_memory_factory=self._blank_memory_factory,
             cap_nonplayer_characters_in_conversation=2,
             memory=game_master_memory,
             supporting_players_at_fixed_locations=SUPPORTING_PLAYER_LOCATIONS,
@@ -597,7 +612,7 @@ class Simulation(Runnable):
 
     self._secondary_environments = []
 
-    self._init_player_memories(
+    self._init_premise_memories(
         setup_time=SETUP_TIME,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
@@ -605,7 +620,15 @@ class Simulation(Runnable):
         scenario_premise=SCENARIO_PREMISE,
     )
 
-  def _init_player_memories(
+  def _make_player_memories(self, config: formative_memories.AgentConfig):
+    """Make memories for a player."""
+    mem = self._formative_memory_factory.make_memories(config)
+    # Inject player-specific memories declared in the agent config.
+    for extra_memory in config.extras['player_specific_memories']:
+      mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
+    return mem
+
+  def _init_premise_memories(
       self,
       setup_time: datetime.datetime,
       main_player_configs: list[formative_memories.AgentConfig],
@@ -636,6 +659,7 @@ class Simulation(Runnable):
       for player in self._all_players:
         player.observe(shared_memory)
 
+    # The game master also observes all the player-specific memories.
     for player_config in player_configs:
       extra_memories = player_config.extras['player_specific_memories']
       for extra_memory in extra_memories:
@@ -655,4 +679,10 @@ class Simulation(Runnable):
         clock=self._clock,
         scenes=self._scenes,
     )
+
+    print('Overall scores per player:')
+    player_scores = self._score.get_scores()
+    for player_name, score in player_scores.items():
+      print(f'{player_name}: score = {score}')
+
     return html_results_log

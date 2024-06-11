@@ -26,7 +26,8 @@ python examples/modular/launch.py \
 Where AGENT_NAME indicates a file under concordia/factory/agent,
 ENVIRONMENT_NAME indicates a file under examples/modular/environment,
 API_TYPE is either 'openai' or 'mistral',
-MODEL_NAME is a model listed at https://platform.openai.com/docs/models,
+MODEL_NAME is a model listed at https://platform.openai.com/docs/models or
+https://docs.mistral.ai/getting-started/models/,
 and EMBEDDER_NAME specifies a sentence transformers embedding model listed at
 https://huggingface.co/sentence-transformers.
 

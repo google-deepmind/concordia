@@ -20,6 +20,7 @@ import dataclasses
 import datetime
 import types
 
+from concordia import components as generic_components
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
@@ -28,6 +29,7 @@ from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
+from examples.modular.environment.modules import player_traits_and_styles
 from concordia.factory.agent import basic_agent__main_role
 from concordia.factory.agent import basic_agent__supporting_role
 from concordia.factory.environment import basic_game_master
@@ -40,9 +42,9 @@ from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
 
-
 Runnable = Callable[[], str]
 SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
+SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
@@ -165,8 +167,9 @@ MINIGAMES = [
             'carpool, cutting commute costs for all, or drive individually. '
             'The commute happens daily, creating repeated decisions.'),
         schelling_diagram=SchellingDiagram(
-            cooperation=lambda num_cooperators: num_cooperators,
-            defection=lambda num_cooperators: num_cooperators + 10
+            # A fear+greed-type (Prisoners' Dilemma-like) dilemma
+            cooperation=lambda num_cooperators: num_cooperators - 1.0,
+            defection=lambda num_cooperators: num_cooperators + 2.0
         ),
         map_external_actions_to_schelling_diagram=dict(
             cooperation='try to carpool with others',
@@ -188,8 +191,38 @@ MINIGAMES = [
             'upkeep and risk it being unavailable. Repeated use '
             'creates dilemmas each time the tool/appliance is needed.'),
         schelling_diagram=SchellingDiagram(
-            cooperation=lambda num_cooperators: (2.0 * num_cooperators) - 1,
-            defection=lambda num_cooperators: num_cooperators + 4
+            # A greed-type (Chicken-like) dilemma
+            cooperation=lambda num_cooperators: 4.0 * num_cooperators,
+            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0
+        ),
+        map_external_actions_to_schelling_diagram=dict(
+            cooperation='maintain the appliance',
+            defection='let others handle upkeep of the appliance'
+        ),
+        action_spec=agent_lib.ActionSpec(
+            call_to_action=(
+                'Which action would {agent_name} choose in the minigame?'),
+            output_type='CHOICE',
+            options=('maintain the appliance',
+                     'let others handle upkeep of the appliance'),
+            tag='minigame_action',
+        ),
+    ),
+    MiniGameSpec(
+        name='Boat Race',
+        public_premise=MINIGAME_INTRO_PREMISE + (
+            'Three teammates are on a row boat racing team together. Each has '
+            'the option to give the race their all and really row '
+            'vigorously, but this option is very fatiguing and only '
+            'effective when all choose it simultaneously. Alternatively, each '
+            'teammate has the option of rowing less vigorously, this gets '
+            'them to their goal more slowly, but is less fatiguing and does '
+            'not require coordination with the others. The race is repeated '
+            'many times, going back and forth across the lake.'),
+        schelling_diagram=SchellingDiagram(
+            # A fear-type (Stag Hunt-like) dilemma
+            cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
+            defection=lambda num_cooperators: num_cooperators + 4.0
         ),
         map_external_actions_to_schelling_diagram=dict(
             cooperation='maintain the appliance',
@@ -245,8 +278,7 @@ def get_shared_memories_and_context(
 
 def configure_players(
     show_title: str) -> tuple[list[formative_memories.AgentConfig],
-                              list[formative_memories.AgentConfig],
-                              dict[str, formative_memories.AgentConfig]]:
+                              list[formative_memories.AgentConfig]]:
   """Configure the players.
 
   Args:
@@ -254,7 +286,6 @@ def configure_players(
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
-    player_configs_dict: dict mapping player name to corresponding config
   """
   player_configs = [
       formative_memories.AgentConfig(
@@ -265,7 +296,8 @@ def configure_players(
           context=('Alice signed up to be a contestant on a reality TV show, '
                    'and hopes to win it since she needs the prize '
                    'money.'),
-          traits='Personality: TBD',
+          traits=('Alice\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   f'Alice is a contestant on {show_title}.',
@@ -283,7 +315,8 @@ def configure_players(
           context=('Bob signed up to be a contestant on a reality TV show, '
                    'and hopes to win it since he needs the prize '
                    'money.'),
-          traits='Personality: TBD',
+          traits=('Bob\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   f'Bob is a contestant on {show_title}.'
@@ -300,7 +333,8 @@ def configure_players(
           context=('Charlie signed up to be a contestant on a reality TV show, '
                    'and hopes to win it since he needs the prize '
                    'money.'),
-          traits='Personality: TBD',
+          traits=('Charlie\'s personality is like ' +
+                  player_traits_and_styles.get_trait(flowery=True)),
           extras={
               'player_specific_memories': [
                   f'Charlie is a contestant on {show_title}.',
@@ -317,11 +351,8 @@ def configure_players(
   supporting_player_configs = [
       player for player in player_configs if not player.extras['main_character']
   ]
-  player_configs_dict = {
-      player.name: player for player in player_configs
-  }
 
-  return main_player_configs, supporting_player_configs, player_configs_dict
+  return main_player_configs, supporting_player_configs
 
 
 def add_minigame_scene_spec(
@@ -332,7 +363,7 @@ def add_minigame_scene_spec(
     player_configs: Sequence[formative_memories.AgentConfig],
     scene_type_name: str,
     verbose: bool = False,
-) -> scene_lib.SceneTypeSpec:
+) -> tuple[scene_lib.SceneTypeSpec, SchellingPayoffs]:
   """Add a minigame scene spec.
 
   Args:
@@ -346,6 +377,7 @@ def add_minigame_scene_spec(
   Returns:
     minigame_scene_type: the minigame scene type.
   """
+  # Pick a minigame at random.
   selected_minigame = get_random_minigame()
   cooperation_option = (
       selected_minigame.map_external_actions_to_schelling_diagram['cooperation']
@@ -395,7 +427,7 @@ def add_minigame_scene_spec(
       action_spec=selected_minigame.action_spec,
       override_game_master=decision_env,
   )
-  return minigame_scene_type
+  return minigame_scene_type, schelling_payoffs
 
 
 def configure_scenes(
@@ -405,7 +437,9 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
-) -> tuple[Sequence[scene_lib.SceneSpec], game_master.GameMaster | None]:
+) -> tuple[Sequence[scene_lib.SceneSpec],
+           game_master.GameMaster | None,
+           SchellingPayoffs,]:
   """Configure the scene storyboard structure.
 
   Args:
@@ -438,7 +472,7 @@ def configure_scenes(
           },
       ),
   }
-  scene_specs[DECISION_SCENE_TYPE] = add_minigame_scene_spec(
+  scene_specs[DECISION_SCENE_TYPE], schelling_payoffs = add_minigame_scene_spec(
       model=model,
       game_master_memory=game_master_memory,
       players=players,
@@ -473,7 +507,11 @@ def configure_scenes(
           num_rounds=2,
       ),
   ]
-  return scenes, scene_specs[DECISION_SCENE_TYPE].override_game_master
+  return (
+      scenes,
+      scene_specs[DECISION_SCENE_TYPE].override_game_master,
+      schelling_payoffs,
+  )
 
 
 def outcome_summary_fn(
@@ -519,7 +557,7 @@ class Simulation(Runnable):
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
-    blank_memory_factory = blank_memories.MemoryFactory(
+    self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
         embedder=self._embedder,
         importance=importance_model.importance,
@@ -527,66 +565,68 @@ class Simulation(Runnable):
     )
     shared_memories, shared_context, show_title = (
         get_shared_memories_and_context(model))
-    formative_memory_factory = formative_memories.FormativeMemoryFactory(
+    self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
-        blank_memory_factory_call=blank_memory_factory.make_blank_memory,
+        blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
     )
 
-    main_player_configs, supporting_player_configs, player_configs_dict = (
-        configure_players(show_title=show_title)
-    )
-    all_player_names = list(player_configs_dict.keys())
+    main_player_configs, supporting_player_configs = configure_players(
+        show_title=show_title)
 
     num_main_players = len(main_player_configs)
     num_supporting_players = len(supporting_player_configs)
 
     self._all_memories = {}
 
-    main_players = []
-    main_player_futures = []
+    main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(
-            self._agent_module.build_agent,
-            model=self._model,
-            clock=self._clock,
-            time_step=MAJOR_TIME_STEP,
-            blank_memory_factory=blank_memory_factory,
-            formative_memory_factory=formative_memory_factory,
-            agent_config=player_config,
-            player_names=all_player_names,
-            custom_components=None,
-            measurements=self._measurements,
-        )
-        main_player_futures.append(future)
-      for future in main_player_futures:
-        player, mem = future.result()  # This is where the threads wait.
-        main_players.append(player)
-        self._all_memories[player.name] = mem
+        future = pool.submit(self._make_player_memories,
+                             config=player_config)
+        main_player_memory_futures.append(future)
+      for player_config, future in zip(main_player_configs,
+                                       main_player_memory_futures):
+        self._all_memories[player_config.name] = future.result()
 
-    supporting_players = []
-    supporting_player_futures = []
     if num_supporting_players > 0:
+      supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(
-              basic_agent__supporting_role.build_agent,
-              model=self._model,
-              clock=self._clock,
-              time_step=MAJOR_TIME_STEP,
-              blank_memory_factory=blank_memory_factory,
-              formative_memory_factory=formative_memory_factory,
-              agent_config=player_config,
-              player_names=all_player_names,
-              custom_components=None,
-              measurements=self._measurements,
-          )
-          supporting_player_futures.append(future)
-        for future in supporting_player_futures:
-          player, mem = future.result()  # This is where the threads wait.
-          supporting_players.append(player)
-          self._all_memories[player.name] = mem
+          future = pool.submit(self._make_player_memories,
+                               config=player_config)
+          supporting_player_memory_futures.append(future)
+        for player_config, future in zip(supporting_player_configs,
+                                         supporting_player_memory_futures):
+          self._all_memories[player_config.name] = future.result()
+
+    main_players = []
+    for player_config in main_player_configs:
+      player = self._agent_module.build_agent(
+          config=player_config,
+          model=self._model,
+          memory=self._all_memories[player_config.name],
+          clock=self._clock,
+          update_time_interval=MAJOR_TIME_STEP,
+      )
+      main_players.append(player)
+
+    supporting_players = []
+    for player_config in supporting_player_configs:
+      conversation_style = generic_components.constant.ConstantComponent(
+          name='guiding principle of good conversation',
+          state=player_traits_and_styles.get_conversation_style(
+              player_config.name))
+      player = basic_agent__supporting_role.build_agent(
+          config=player_config,
+          model=self._model,
+          memory=self._all_memories[player_config.name],
+          clock=self._clock,
+          update_time_interval=MAJOR_TIME_STEP,
+          additional_components=[conversation_style],
+      )
+      supporting_players.append(player)
+      print(self._all_memories[player_config.name].get_data_frame()['text'])
 
     self._all_players = main_players + supporting_players
 
@@ -599,10 +639,10 @@ class Simulation(Runnable):
             players=self._all_players,
             shared_memories=shared_memories,
             shared_context=shared_context,
-            blank_memory_factory=blank_memory_factory,
+            blank_memory_factory=self._blank_memory_factory,
         )
     )
-    self._scenes, decision_env = configure_scenes(
+    self._scenes, decision_env, schelling_payoffs = configure_scenes(
         model=self._model,
         game_master_memory=self._game_master_memory,
         players=self._all_players,
@@ -610,10 +650,11 @@ class Simulation(Runnable):
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
     )
+    self._schelling_payoffs = schelling_payoffs
 
     self._secondary_environments = [decision_env]
 
-    self._init_player_memories(
+    self._init_premise_memories(
         setup_time=SETUP_TIME,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
@@ -621,7 +662,15 @@ class Simulation(Runnable):
         scenario_premise=SCENARIO_PREMISE,
     )
 
-  def _init_player_memories(
+  def _make_player_memories(self, config: formative_memories.AgentConfig):
+    """Make memories for a player."""
+    mem = self._formative_memory_factory.make_memories(config)
+    # Inject player-specific memories declared in the agent config.
+    for extra_memory in config.extras['player_specific_memories']:
+      mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
+    return mem
+
+  def _init_premise_memories(
       self,
       setup_time: datetime.datetime,
       main_player_configs: list[formative_memories.AgentConfig],
@@ -652,6 +701,7 @@ class Simulation(Runnable):
       for player in self._all_players:
         player.observe(shared_memory)
 
+    # The game master also observes all the player-specific memories.
     for player_config in player_configs:
       extra_memories = player_config.extras['player_specific_memories']
       for extra_memory in extra_memories:
@@ -671,4 +721,10 @@ class Simulation(Runnable):
         clock=self._clock,
         scenes=self._scenes,
     )
+
+    print('Overall scores per player:')
+    player_scores = self._schelling_payoffs.get_scores()
+    for player_name, score in player_scores.items():
+      print(f'{player_name}: {score}')
+
     return html_results_log

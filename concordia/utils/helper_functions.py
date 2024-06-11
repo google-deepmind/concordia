@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Helper functions."""
 
 from collections.abc import Iterable, Sequence
-import concurrent
 import datetime
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
+from concordia.utils import concurrency
 
 
 def filter_copy_as_statement(
@@ -123,9 +122,8 @@ def apply_recursively(
   """
 
   if concurrent_child_calls:
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=len(parent_component.get_components())
-    ) as executor:
+    with concurrency.executor(
+        max_workers=len(parent_component.get_components())) as executor:
       for child_component in parent_component.get_components():
         executor.submit(
             apply_recursively,

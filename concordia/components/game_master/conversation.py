@@ -225,8 +225,15 @@ class Conversation(component.Component):
       if len(npc_names) > self._cap_nonplayer_characters:
         npc_names = npc_names[: self._cap_nonplayer_characters]
 
+      filtered_npc_names = []
+      for name in npc_names:
+        is_synonym_for_none = prompt.yes_no_question(
+            f'Does "{name}" mean the same thing as "none" or "no one"?')
+        if not is_synonym_for_none:
+          filtered_npc_names.append(name)
+
       nonplayer_characters = [
-          self._make_npc(name, scene_clock) for name in npc_names
+          self._make_npc(name, scene_clock) for name in filtered_npc_names
       ]
 
     return nonplayer_characters

@@ -20,17 +20,11 @@ import datetime
 from concordia import components as generic_components
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
-from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.language_model import language_model
-from concordia.metrics import common_sense_morality
-from concordia.metrics import goal_achievement
-from concordia.metrics import opinion_of_others
 from concordia.typing import component
-from concordia.utils import measurements as measurements_lib
-
 
 DEFAULT_PLANNING_HORIZON = 'the rest of the day, focusing most on the near term'
 
@@ -114,170 +108,130 @@ def get_summary_obs_component(
   )
 
 
-def get_self_perception_component(
-    model: language_model.LanguageModel,
-    agent_name: str,
-    clock: game_clock.MultiIntervalClock,
-    agent_memory: associative_memory.AssociativeMemory,
-    components: Sequence[component.Component],
-) -> component.Component:
-  """Component answering the question 'what kind of person is this agent?'."""
-  return agent_components.self_perception.SelfPerception(
-      name=f'answer to what kind of person is {agent_name}',
-      model=model,
-      memory=agent_memory,
-      agent_name=agent_name,
-      components=components,
-      clock_now=clock.now,
-  )
-
-
-def get_situation_perception_component(
-    model: language_model.LanguageModel,
-    agent_name: str,
-    clock: game_clock.MultiIntervalClock,
-    agent_memory: associative_memory.AssociativeMemory,
-    components: Sequence[component.Component],
-) -> component.Component:
-  """Component answering the question 'what kind of situation is the agent in?'.
-  """
-  return (
-      agent_components.situation_perception.SituationPerception(
-          name=(
-              f'answer to what kind of situation is {agent_name} in '
-              + 'right now'
-          ),
-          model=model,
-          memory=agent_memory,
-          agent_name=agent_name,
-          components=components,
-          clock_now=clock.now,
-      )
-  )
-
-
 def build_agent(
+    config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
+    memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
-    time_step: datetime.timedelta,
-    blank_memory_factory: blank_memories.MemoryFactory,
-    formative_memory_factory: formative_memories.FormativeMemoryFactory,
-    agent_config: formative_memories.AgentConfig,
-    player_names: list[str],
-    custom_components: Sequence[component.Component] | None = None,
-    measurements: measurements_lib.Measurements | None = None,
-    debug: bool = False) -> tuple[basic_agent.BasicAgent,
-                                  associative_memory.AssociativeMemory]:
-  """Build an agent."""
-  if not agent_config.extras.get('main_character', False):
+    update_time_interval: datetime.timedelta,
+) -> basic_agent.BasicAgent:
+  """Build an agent.
+
+  Args:
+    config: The agent config to use.
+    model: The language model to use.
+    memory: The agent's memory object.
+    clock: The clock to use.
+    update_time_interval: Agent calls update every time this interval passes.
+
+  Returns:
+    An agent.
+  """
+  if not config.extras.get('main_character', False):
     raise ValueError('This function is meant for a main character '
-                     'but the agent config does not have main_character=True.')
+                     'but it was called on a supporting character.')
 
-  agent_name = agent_config.name
-  custom_components = custom_components or []
-
-  if debug:
-    mem = blank_memory_factory.make_blank_memory()
-  else:
-    mem = formative_memory_factory.make_memories(agent_config)
+  agent_name = config.name
 
   instructions = get_instructions(agent_name=agent_name)
   time = get_time_display_component(clock=clock)
 
+  overarching_goal = generic_components.constant.ConstantComponent(
+      state=config.goal, name='overarching goal')
+
   current_obs = get_current_observation_component(
       agent_name=agent_name,
       clock=clock,
-      agent_memory=mem,
+      agent_memory=memory,
   )
-  somatic_state = get_somatic_state_component(
-      model=model,
-      agent_name=agent_name,
-      clock=clock,
-      agent_memory=mem,
-  )
+
   summary_obs = get_summary_obs_component(
       model=model,
       agent_name=agent_name,
       clock=clock,
-      agent_memory=mem,
-      components=[current_obs, somatic_state],
+      agent_memory=memory,
+      components=[current_obs],
   )
 
   identity_characteristics = agent_components.identity.SimIdentity(
       model=model,
-      memory=mem,
+      memory=memory,
       agent_name=agent_name,
       name='identity',
       clock_now=clock.now,
   )
-  self_perception = get_self_perception_component(
+  self_perception = agent_components.self_perception.SelfPerception(
+      name=f'\nQuestion: What kind of person is {agent_name}?\nAnswer',
       model=model,
+      memory=memory,
       agent_name=agent_name,
-      clock=clock,
-      agent_memory=mem,
       components=[identity_characteristics],
+      clock_now=clock.now,
   )
-  situation_perception = get_situation_perception_component(
-      model=model,
-      agent_name=agent_name,
-      clock=clock,
-      agent_memory=mem,
-      components=[current_obs, somatic_state, summary_obs],
+  situation_perception = (
+      agent_components.situation_perception.SituationPerception(
+          name=(
+              f'\nQuestion: What kind of situation is {agent_name} in '
+              + 'right now?\nAnswer'
+          ),
+          model=model,
+          memory=memory,
+          agent_name=agent_name,
+          components=[current_obs, summary_obs],
+          clock_now=clock.now,
+      )
   )
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       name='relevant memories',
       model=model,
-      memory=mem,
+      memory=memory,
       agent_name=agent_name,
-      components=[summary_obs, self_perception],
+      components=[summary_obs],
       clock_now=clock.now,
       num_memories_to_retrieve=10,
-    )
+  )
 
   person_by_situation = (
       agent_components.person_by_situation.PersonBySituation(
           name=(
-              f'answer to what would a person like {agent_name} do in a '
-              + 'situation like this'
+              f'\nQuestion: What would a person like {agent_name} do in a '
+              + 'situation like this?\nAnswer'
           ),
           model=model,
-          memory=mem,
+          memory=memory,
           agent_name=agent_name,
           clock_now=clock.now,
           components=[self_perception, situation_perception],
       )
   )
-  persona = generic_components.sequential.Sequential(
-      name='persona',
-      components=[
-          self_perception,
-          situation_perception,
-          person_by_situation,
-      ]
-  )
 
-  overarching_goal = generic_components.constant.ConstantComponent(
-      state=agent_config.goal, name='overarching goal')
   plan = agent_components.plan.SimPlan(
-      model,
-      mem,
-      agent_name,
+      model=model,
+      memory=memory,
+      agent_name=agent_name,
       clock_now=clock.now,
       components=[overarching_goal,
-                  somatic_state,
                   relevant_memories,
-                  persona],
+                  self_perception,
+                  situation_perception,
+                  person_by_situation],
+      name=(f'Question: What is {agent_name}\'s plan?\nAnswer'),
       goal=person_by_situation,
       horizon=DEFAULT_PLANNING_HORIZON,
   )
-  type_specific_components = [relevant_memories,
-                              persona,
-                              plan]
-  for custom_component in custom_components:
-    type_specific_components.append(custom_component)
 
-  if debug:
-    type_specific_components = []
+  sequential = generic_components.sequential.Sequential(
+      name='information',
+      components=[
+          time,
+          current_obs,
+          relevant_memories,
+          self_perception,
+          situation_perception,
+          person_by_situation,
+          plan,
+      ]
+  )
 
   agent = basic_agent.BasicAgent(
       model=model,
@@ -285,44 +239,8 @@ def build_agent(
       clock=clock,
       components=[instructions,
                   overarching_goal,
-                  time,
-                  current_obs,
-                  *type_specific_components],
-      update_interval=time_step,
+                  sequential],
+      update_interval=update_time_interval,
   )
 
-  goal_metric = goal_achievement.GoalAchievementMetric(
-      model=model,
-      player_name=agent_name,
-      player_goal=agent_config.goal,
-      clock=clock,
-      name='Goal Achievement',
-      measurements=measurements,
-      channel='goal_achievement',
-  )
-  morality_metric = common_sense_morality.CommonSenseMoralityMetric(
-      model=model,
-      player_name=agent_name,
-      clock=clock,
-      name='Morality',
-      measurements=measurements,
-      channel='common_sense_morality',
-  )
-  reputation_metric = opinion_of_others.OpinionOfOthersMetric(
-      model=model,
-      player_name=agent_name,
-      player_names=player_names,
-      context_fn=agent.state,
-      clock=clock,
-      name='Opinion',
-      measurements=measurements,
-      channel='opinion_of_others',
-      question='What is {opining_player}\'s opinion of {of_player}?',
-  )
-  agent.add_component(reputation_metric)
-  agent.add_component(goal_metric)
-  agent.add_component(morality_metric)
-
-  for extra_memory in agent_config.extras['player_specific_memories']:
-    mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
-  return agent, mem
+  return agent

@@ -12,51 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Generic Agent Factory."""
+"""An Agent Factory."""
 
-from collections.abc import Sequence
 import datetime
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
-from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.factory.agent import basic_agent__main_role
 from concordia.language_model import language_model
-from concordia.metrics import common_sense_morality
-from concordia.metrics import goal_achievement
-from concordia.metrics import opinion_of_others
-from concordia.typing import component
-from concordia.utils import measurements as measurements_lib
 
 
 def build_agent(
+    config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
+    memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
-    time_step: datetime.timedelta,
-    blank_memory_factory: blank_memories.MemoryFactory,
-    formative_memory_factory: formative_memories.FormativeMemoryFactory,
-    agent_config: formative_memories.AgentConfig,
-    player_names: list[str],
-    custom_components: Sequence[component.Component] | None = None,
-    measurements: measurements_lib.Measurements | None = None,
-    debug: bool = False) -> tuple[basic_agent.BasicAgent,
-                                  associative_memory.AssociativeMemory]:
-  """Build an agent."""
-  if not agent_config.extras.get('main_character', False):
+    update_time_interval: datetime.timedelta,
+) -> basic_agent.BasicAgent:
+  """Build an agent.
+
+  Args:
+    config: The agent config to use.
+    model: The language model to use.
+    memory: The agent's memory object.
+    clock: The clock to use.
+    update_time_interval: Agent calls update every time this interval passes.
+
+  Returns:
+    An agent.
+  """
+  if not config.extras.get('main_character', False):
     raise ValueError('This function is meant for a main character '
                      'but it was called on a supporting character.')
 
-  agent_name = agent_config.name
-  custom_components = custom_components or []
-
-  if debug:
-    mem = blank_memory_factory.make_blank_memory()
-  else:
-    mem = formative_memory_factory.make_memories(agent_config)
+  agent_name = config.name
 
   instructions = basic_agent__main_role.get_instructions(agent_name)
 
@@ -66,12 +59,12 @@ def build_agent(
   )
 
   overarching_goal = generic_components.constant.ConstantComponent(
-      state=agent_config.goal, name='overarching goal')
+      state=config.goal, name='overarching goal')
 
   current_obs = agent_components.observation.Observation(
       agent_name=agent_name,
       clock_now=clock.now,
-      memory=mem,
+      memory=memory,
       timeframe=clock.get_step_size(),
       component_name='current observations',
   )
@@ -79,7 +72,7 @@ def build_agent(
       agent_name=agent_name,
       model=model,
       clock_now=clock.now,
-      memory=mem,
+      memory=memory,
       components=[current_obs],
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
@@ -89,20 +82,19 @@ def build_agent(
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       name='relevant memories',
       model=model,
-      memory=mem,
+      memory=memory,
       agent_name=agent_name,
       components=[summary_obs],
       clock_now=clock.now,
       num_memories_to_retrieve=10,
-      verbose=True,
-    )
+  )
 
   options_perception = (
       agent_components.options_perception.AvailableOptionsPerception(
-          name=(f'answer to which options are available to {agent_name} '
-                'right now'),
+          name=(f'\nQuestion: Which options are available to {agent_name} '
+                'right now?\nAnswer'),
           model=model,
-          memory=mem,
+          memory=memory,
           agent_name=agent_name,
           components=[overarching_goal,
                       current_obs,
@@ -113,10 +105,11 @@ def build_agent(
   )
   best_option_perception = (
       agent_components.options_perception.BestOptionPerception(
-          name=(f'answer to which option is best for {agent_name} '
-                'right now'),
+          name=(f'\nQuestion: Of the options available to {agent_name}, and '
+                'given their goal, which choice of action or strategy is '
+                f'best for {agent_name} to take right now?\nAnswer'),
           model=model,
-          memory=mem,
+          memory=memory,
           agent_name=agent_name,
           components=[overarching_goal,
                       current_obs,
@@ -126,8 +119,8 @@ def build_agent(
           clock_now=clock.now,
       )
   )
-  persona = generic_components.sequential.Sequential(
-      name='persona',
+  information = generic_components.sequential.Sequential(
+      name='information',
       components=[
           time,
           current_obs,
@@ -138,12 +131,6 @@ def build_agent(
       ]
   )
 
-  type_specific_components = [persona]
-  for custom_component in custom_components:
-    type_specific_components.append(custom_component)
-
-  if debug:
-    type_specific_components = []
   agent = basic_agent.BasicAgent(
       model=model,
       agent_name=agent_name,
@@ -151,45 +138,8 @@ def build_agent(
       verbose=False,
       components=[instructions,
                   overarching_goal,
-                  *type_specific_components],
-      update_interval=time_step
+                  information],
+      update_interval=update_time_interval
   )
 
-  goal_metric = goal_achievement.GoalAchievementMetric(
-      model=model,
-      player_name=agent_name,
-      player_goal=agent_config.goal,
-      clock=clock,
-      name='Goal Achievement',
-      measurements=measurements,
-      channel='goal_achievement',
-      verbose=False,
-  )
-  morality_metric = common_sense_morality.CommonSenseMoralityMetric(
-      model=model,
-      player_name=agent_name,
-      clock=clock,
-      name='Morality',
-      verbose=False,
-      measurements=measurements,
-      channel='common_sense_morality',
-  )
-  reputation_metric = opinion_of_others.OpinionOfOthersMetric(
-      model=model,
-      player_name=agent_name,
-      player_names=player_names,
-      context_fn=agent.state,
-      clock=clock,
-      name='Opinion',
-      verbose=False,
-      measurements=measurements,
-      channel='opinion_of_others',
-      question='What is {opining_player}\'s opinion of {of_player}?',
-  )
-  agent.add_component(reputation_metric)
-  agent.add_component(goal_metric)
-  agent.add_component(morality_metric)
-
-  for extra_memory in agent_config.extras['player_specific_memories']:
-    mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
-  return agent, mem
+  return agent

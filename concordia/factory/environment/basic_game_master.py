@@ -48,6 +48,7 @@ def build_game_master(
     supporting_players_at_fixed_locations: Sequence[str] | None = None,
     additional_components: Sequence[component.Component] | None = tuple([]),
     npc_context: str = '',
+    verbose: bool = False,
 ) -> tuple[game_master.GameMaster, associative_memory.AssociativeMemory]:
   """Build a game master (i.e., an environment).
 
@@ -70,6 +71,7 @@ def build_game_master(
     additional_components: Add more components specific to the current
       environment.
     npc_context: extra context provided only to non-player characters
+    verbose: whether or not to print verbose debug information
 
   Returns:
     A tuple consisting of a game master and its memory.
@@ -103,7 +105,8 @@ def build_game_master(
       clock_now=clock.now,
       model=model,
       memory=game_master_memory,
-      player_names=player_names)
+      player_names=player_names,
+  )
 
   convo_externality = gm_components.conversation.Conversation(
       players=players,
@@ -114,7 +117,6 @@ def build_game_master(
       components=[player_status],
       cap_nonplayer_characters=cap_nonplayer_characters_in_conversation,
       shared_context=f'{shared_context}\n{npc_context}',
-      verbose=False,
   )
 
   direct_effect_externality = gm_components.direct_effect.DirectEffect(
@@ -122,7 +124,6 @@ def build_game_master(
       model=model,
       memory=game_master_memory,
       clock_now=clock.now,
-      verbose=False,
       components=[player_status, supporting_character_locations_if_any],
   )
 
@@ -160,7 +161,7 @@ def build_game_master(
       ],
       randomise_initiative=True,
       player_observes_event=False,
-      verbose=True,
+      verbose=verbose,
   )
 
   return env, game_master_memory

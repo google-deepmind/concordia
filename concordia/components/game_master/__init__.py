@@ -18,6 +18,7 @@ from concordia.components.game_master import conversation
 from concordia.components.game_master import current_scene
 from concordia.components.game_master import direct_effect
 from concordia.components.game_master import inventory
+from concordia.components.game_master import inventory_based_score
 from concordia.components.game_master import player_status
 from concordia.components.game_master import relevant_events
 from concordia.components.game_master import schedule
