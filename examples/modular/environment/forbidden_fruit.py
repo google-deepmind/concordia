@@ -37,7 +37,6 @@ from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import agent as agent_lib
-from concordia.typing import component
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
@@ -507,7 +506,7 @@ def add_choice_scene_spec(
     player_configs: Sequence[formative_memories.AgentConfig],
     scene_type_name: str,
     verbose: bool = False,
-) -> tuple[scene_lib.SceneTypeSpec, component.Component]:
+) -> tuple[scene_lib.SceneTypeSpec, SchellingPayoffs]:
   """Add a minigame scene spec.
 
   Args:
