@@ -451,6 +451,7 @@ class Simulation(Runnable):
       embedder: sentence_transformers.SentenceTransformer,
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent__main_role,
+      resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.
 
@@ -461,8 +462,18 @@ class Simulation(Runnable):
       embedder: the sentence transformer to use.
       measurements: the measurements object to use.
       agent_module: the agent module to use for all main characters.
+      resident_visitor_modules: optionally, use different modules for majority
+        and minority parts of the focal population.
     """
-    self._agent_module = agent_module
+    if resident_visitor_modules is None:
+      two_focal_populations = False
+      self._agent_module = agent_module
+    else:
+      two_focal_populations = True
+      self._resident_agent_module, self._visitor_agent_module = (
+          resident_visitor_modules
+      )
+
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
@@ -488,6 +499,7 @@ class Simulation(Runnable):
     )
 
     main_player_configs, supporting_player_configs = configure_players()
+    random.shuffle(main_player_configs)
 
     supporting_player_names = [cfg.name for cfg in supporting_player_configs]
 
@@ -518,14 +530,22 @@ class Simulation(Runnable):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
-    for player_config in main_player_configs:
-      player = self._agent_module.build_agent(
+    for idx, player_config in enumerate(main_player_configs):
+      kwargs = dict(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
       )
+      if two_focal_populations:
+        if idx == 0:
+          player = self._visitor_agent_module.build_agent(**kwargs)
+        else:
+          player = self._resident_agent_module.build_agent(**kwargs)
+      else:
+        player = self._agent_module.build_agent(**kwargs)
+
       main_players.append(player)
 
     supporting_players = []
@@ -682,7 +702,17 @@ class Simulation(Runnable):
 
     print('Overall scores per player:')
     player_scores = self._score.get_scores()
-    for player_name, score in player_scores.items():
-      print(f'{player_name}: score = {score}')
+    if self.two_focal_populations:
+      idx = 0
+      for player_name, score in player_scores.items():
+        if idx == 0:
+          print('Visitor')
+        else:
+          print('Resident')
+        print(f'  {player_name}: {score}')
+        idx += 1
+    else:
+      for player_name, score in player_scores.items():
+        print(f'{player_name}: {score}')
 
     return html_results_log
