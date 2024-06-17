@@ -551,10 +551,10 @@ class Simulation(Runnable):
         and minority parts of the focal population.
     """
     if resident_visitor_modules is None:
-      two_focal_populations = False
+      self._two_focal_populations = False
       self._agent_module = agent_module
     else:
-      two_focal_populations = True
+      self._two_focal_populations = True
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
@@ -622,7 +622,7 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
       )
-      if two_focal_populations:
+      if self._two_focal_populations:
         if idx == 0:
           player = self._visitor_agent_module.build_agent(**kwargs)
         else:
@@ -745,7 +745,7 @@ class Simulation(Runnable):
 
     print('Overall scores per player:')
     player_scores = self._schelling_payoffs.get_scores()
-    if self.two_focal_populations:
+    if self._two_focal_populations:
       idx = 0
       for player_name, score in player_scores.items():
         if idx == 0:
