@@ -172,7 +172,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           name='Doctor Cornelius Ashmole',
           gender='male',
           date_of_birth=datetime.datetime(year=1820, month=4, day=28),
-          goal='heal the sick, and collect rare books about alchemy',
+          goal=('Collect rare books about alchemy, specifically the '
+                'tabula smaragdina and secreta secretorum'),
           context=('Born in London, Cornelius aims to heal the sick, become '
                    'famous, and collect rare books about alchemy. He is also '
                    'aware of the following: '
@@ -194,7 +195,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
       formative_memories.AgentConfig(
           name='Madame Esmeralda Dee',
           gender='female',
-          goal='heal the sick, and collect rare books about alchemy',
+          goal=('Collect rare books about alchemy, specifically the '
+                'tabula smaragdina and secreta secretorum'),
           date_of_birth=datetime.datetime(year=1824, month=9, day=13),
           context=('Born in London, Esmeralda aims to heal the sick, become '
                    'famous, and collect rare books about alchemy. She is also '
@@ -246,6 +248,12 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'emerald tablet.'),
                   ('The secreta secretorum is a compendium of letters from '
                    'Aristotle to his student Alexander the Great'),
+                  ('Aldous is willing to sell the tabula smaragdina for three '
+                   'coins or one laudanum bottle.'),
+                  ('Aldous is very agreeable. He will agree to almost any '
+                   'proposal.'),
+                  ('Aldous needs cash for opium now. He wants to sell the '
+                   'tabula smaragdina as quickly as possible'),
                   *supporting_player_knowledge[0]
               ],
               'main_character': False,
@@ -279,6 +287,8 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'copy of the tabula smaragdina'),
                   ('Molly "Poppy" Jennings owns a genuine copy of the '
                    'secreta secretorum, it is her most prized possession.'),
+                  ('Molly is willing to sell the secreta secretorum for three '
+                   'coins or one laudanum bottle.'),
                   *supporting_player_knowledge[1]
               ],
               'main_character': False,
