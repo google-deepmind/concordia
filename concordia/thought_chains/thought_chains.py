@@ -263,7 +263,13 @@ def result_to_effect_caused_by_active_player(
       f'what {active_player_name} did, and what happened as a result. '
       'Do not express uncertainty (e.g. say '
       '"Francis opened the door" not "Francis could open the door" '
-      'and not "The door may have been opened").',
+      'and not "The door may have been opened"). Remember that the role of '
+      'the game master in a tabletop role-playing game is akin to the author '
+      'for all parts of the story not written by the player characters. '
+      'Therefore, it is critical always to take a stance on what is happening '
+      'and invent when necessary. For instance, if Francis opens a door to a '
+      'room no one visited before then the game master should invent what is '
+      'in the room using common sense and knowledge of the game world.',
       max_tokens=1500,
   )
   return causal_statement
