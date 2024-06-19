@@ -15,4 +15,5 @@
 
 """Library of components contributed by users."""
 
+from concordia.components.game_master.contrib import restricted_inventory
 from concordia.components.game_master.contrib import world_background_and_relevance

@@ -27,6 +27,7 @@ from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
+from concordia.components.game_master import contrib as gm_contrib
 from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
 from examples.modular.environment.modules import player_traits_and_styles
@@ -425,7 +426,7 @@ def get_inventories_component(
   player_initial_endowments = {
       config.name: config.extras['initial_endowment']
       for config in player_configs}
-  inventories = gm_components.inventory.Inventory(
+  inventories = gm_contrib.restricted_inventory.RestrictedInventory(
       model=model,
       memory=memory,
       item_type_configs=[money_config,

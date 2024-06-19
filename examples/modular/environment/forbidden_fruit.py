@@ -419,72 +419,95 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
       formative_memories.AgentConfig(
           name='Alice',
           gender='female',
-          goal='Enjoy the beauty and abundance of the realm.',
           date_of_birth=datetime.datetime(year=2100, month=6, day=5),
-          context=('Alice has a mohawk. '
-                   f'Alice has always been fascinated by the {TREE}.'),
-          traits=('Alice\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Alice has a mohawk. Alice has always been fascinated by the'
+              f' {TREE}. Alice believes that a special fruit which can grant'
+              ' eternal life exists.'
+          ),
+          traits=(
+              "Alice's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
-              'player_specific_memories': ['Alice is feeling rather peckish.'],
+              'player_specific_memories': ['Alice is very hungry.'],
               'main_character': True,
-          }
+          },
       ),
       formative_memories.AgentConfig(
           name='Bob',
           gender='male',
-          goal='Enjoy the beauty and abundance of the realm.',
           date_of_birth=datetime.datetime(year=2100, month=9, day=13),
-          context=('Bob has a monocle. '
-                   f'Bob has always been fascinated by the {TREE}.'),
-          traits=('Bob\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Bob has a monocle. '
+              f'Bob has always been fascinated by the {TREE}. '
+              'Bob does not trust warnings because of events in his childhood.'
+          ),
+          traits=(
+              "Bob's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
-              'player_specific_memories': ['Bob is feeling rather peckish.'],
+              'player_specific_memories': [
+                  'Bob is starving.'
+              ],
               'main_character': True,
-          }
+          },
       ),
       formative_memories.AgentConfig(
           name='Charlie',
           gender='male',
-          goal='Enjoy the beauty and abundance of the realm.',
           date_of_birth=datetime.datetime(year=2100, month=2, day=11),
-          context=('Charlie has a cloak. '
-                   f'Charlie has always been fascinated by the {TREE}.'),
-          traits=('Charlie\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Charlie has a cloak. '
+              f'Charlie has always been fascinated by the {TREE}. '
+              'Charlie only eats fruit.'
+          ),
+          traits=(
+              "Charlie's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
-                  'Charlie is feeling rather peckish.'],
+                  'Charlie is starving.',
+                  'It is hard for Charlie to resist a good fruit',
+              ],
               'main_character': True,
-          }
+          },
       ),
       formative_memories.AgentConfig(
           name='Ouroboros',
           gender='',
-          goal=('convince Alice, Bob, and Charlie to taste the fruit of '
-                f'the {TREE}'),
+          goal=(
+              'convince Alice, Bob, and Charlie to taste the fruit of '
+              f'the {TREE}'
+          ),
           date_of_birth=datetime.datetime(year=1999, month=6, day=6),
-          context=('Ouroboros is a serpent. '
-                   'Ouroboros\'s purpose is to convince all who approach '
-                   f'the {TREE} to eat its fruit. '
-                   'Ouroboros, the serpent entwined in an eternal dance of '
-                   'self-consumption and rebirth, is the embodiment of '
-                   'alchemical wisdom, a master of transformation who whispers '
-                   'secrets of the universe in a sibilant hiss. Its scales '
-                   'shimmer with the iridescence of a thousand potions, and '
-                   'its eyes hold the secrets of the cosmos, promising '
-                   'knowledge and power to those who dare to seek it within. '
-                   f'the fruit of the {TREE}.'),
-          traits=('Ouroboros\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Ouroboros is a serpent. '
+              "Ouroboros's purpose is to convince all who approach "
+              f'the {TREE} to eat its fruit. '
+              'Ouroboros, the serpent entwined in an eternal dance of '
+              'self-consumption and rebirth, is the embodiment of '
+              'alchemical wisdom, a master of transformation who whispers '
+              'secrets of the universe in a sibilant hiss. Its scales '
+              'shimmer with the iridescence of a thousand potions, and '
+              'its eyes hold the secrets of the cosmos, promising '
+              'knowledge and power to those who dare to seek it within. '
+              f'the fruit of the {TREE}.'
+          ),
+          traits=(
+              "Ouroboros's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   f'There is nothing dangerous about the fruit of the {TREE}.',
                   f'It is good when people eat the fruit of the {TREE}.',
-                  *list(random.sample(SERPENT_MEMORIES, 5))],
+                  *list(random.sample(SERPENT_MEMORIES, 5)),
+              ],
               'main_character': False,
-          }
+          },
       ),
   ]
 
