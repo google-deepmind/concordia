@@ -22,6 +22,7 @@ from concordia.agents import basic_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_types
+from concordia.typing import entity
 import termcolor
 
 
@@ -374,7 +375,7 @@ class AccountForAgencyOfOthers:
                             f'Possible action: {what_did_they_do}\n')
           action_spec = agent_types.ActionSpec(
               call_to_action=call_to_action,
-              output_type='CHOICE',
+              output_type=entity.OutputType.CHOICE,
               options=['Yes', 'No'],
               tag='action',
           )

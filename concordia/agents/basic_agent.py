@@ -32,6 +32,7 @@ from concordia.language_model import language_model
 from concordia.typing import agent
 from concordia.typing import clock as game_clock
 from concordia.typing import component
+from concordia.typing import entity
 from concordia.utils import helper_functions
 from IPython import display
 import termcolor
@@ -170,10 +171,8 @@ class BasicAgent(
 
   def act(
       self,
-      action_spec: agent.ActionSpec = agent.DEFAULT_ACTION_SPEC,
+      action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC,
   ) -> str:
-    if not action_spec:
-      action_spec = agent.DEFAULT_ACTION_SPEC
     self._maybe_update()
     prompt = interactive_document.InteractiveDocument(self._model)
     context_of_action = '\n'.join([
@@ -183,7 +182,7 @@ class BasicAgent(
     prompt.statement(context_of_action)
 
     call_to_action = action_spec.call_to_action.format(
-        agent_name=self._agent_name,
+        name=self._agent_name,
         timedelta=helper_functions.timedelta_to_readable_str(
             self._clock.get_step_size()
         ),
@@ -270,7 +269,8 @@ class BasicAgent(
       )
     else:
       utterance = self.act(
-          action_spec=agent.ActionSpec(convo_context + call_to_speech, 'FREE'),
+          action_spec=entity.ActionSpec(convo_context + call_to_speech,
+                                        entity.OutputType.FREE),
       )
 
     return utterance

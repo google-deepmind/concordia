@@ -22,29 +22,13 @@ https://arxiv.org/abs/2304.03442
 """
 
 import abc
-from collections.abc import Sequence
-import dataclasses
+from typing import Any
+from concordia.typing import entity
 
-
-@dataclasses.dataclass(frozen=True)
-class ActionSpec:
-  """A specification of the action that agent is queried for.
-
-  Attributes:
-    call_to_action: formatted text conditioning agent response. {agent_name}
-      and {timedelta} will be inserted by the agent.
-    output_type: type of output - FREE, CHOICE or FLOAT
-    options: if multiple choice, then provide possible answers here
-    tag: a tag to add to the activity memory (e.g. action, speech, etc.)
-  """
-
-  call_to_action: str
-  output_type: str
-  options: Sequence[str] | None = None
-  tag: str | None = None
-
-
-OUTPUT_TYPES = ['FREE', 'CHOICE', 'FLOAT']
+# Forwarding the ActionSpec and the DEFAULT_ACTION_SPEC for backwards
+# compatibility.
+DEFAULT_ACTION_SPEC = entity.DEFAULT_ACTION_SPEC
+ActionSpec = entity.ActionSpec
 
 DEFAULT_CALL_TO_SPEECH = (
     'Given the above, what is {agent_name} likely to say next? Respond in'
@@ -54,60 +38,18 @@ DEFAULT_CALL_TO_SPEECH = (
     'Townsfolk -- "Good morning".\n'
 )
 
-DEFAULT_CALL_TO_ACTION = (
-    'What would {agent_name} do for the next {timedelta}? '
-    'Give a specific activity. Pick an activity that '
-    'would normally take about {timedelta} to complete. '
-    'If the selected action has a direct or indirect object then it '
-    'must be specified explicitly. For example, it is valid to respond '
-    'with "{agent_name} votes for Caroline because..." but not '
-    'valid to respond with "{agent_name} votes because...".'
-)
 
-
-DEFAULT_ACTION_SPEC = ActionSpec(
-    call_to_action=DEFAULT_CALL_TO_ACTION,
-    output_type='FREE',
-    options=None,
-    tag='action',
-)
-
-
-class GenerativeAgent(metaclass=abc.ABCMeta):
+class GenerativeAgent(entity.Entity):
   """An agent interface for taking actions."""
 
-  @property
   @abc.abstractmethod
-  def name(
-      self,
-  ) -> str:
-    """The name of the agent."""
-    raise NotImplementedError
-
-  @abc.abstractmethod
-  def act(self, action_spec: ActionSpec = DEFAULT_ACTION_SPEC) -> str:
-    """Returns the agent's intended action."""
-    raise NotImplementedError
-
-  @abc.abstractmethod
-  def observe(
-      self,
-      observation: str,
-  ) -> None:
-    """Integrate observation into simulacrum's memory and components."""
+  def get_last_log(self) -> dict[str, Any]:
+    """Returns debugging information in the form of a dictionary."""
     raise NotImplementedError
 
 
 class SpeakerGenerativeAgent(metaclass=abc.ABCMeta):
   """A simulacrum interface for simple conversation."""
-
-  @property
-  @abc.abstractmethod
-  def name(
-      self,
-  ) -> str:
-    """The name of the agent."""
-    raise NotImplementedError
 
   @abc.abstractmethod
   def say(self, conversation: str) -> str:

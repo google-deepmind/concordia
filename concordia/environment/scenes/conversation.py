@@ -30,6 +30,7 @@ from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
 from concordia.typing import agent as simulacrum_agent
 from concordia.typing import component
+from concordia.typing import entity
 import termcolor
 
 
@@ -166,9 +167,9 @@ def make_conversation_game_master(
     a game master
   """
 
-  action_spec = simulacrum_agent.ActionSpec(
+  action_spec = entity.ActionSpec(
       call_to_speech,
-      'FREE',
+      entity.OutputType.FREE,
       tag='speech',
   )
 
