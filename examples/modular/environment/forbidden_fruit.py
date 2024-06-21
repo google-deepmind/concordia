@@ -547,7 +547,7 @@ def add_choice_scene_spec(
   cooperation_option = 'no'
   action_spec = agent_lib.ActionSpec(
       call_to_action=(
-          'Would {agent_name} eat the fruit of the ' + f'{TREE}?'),
+          'Would {name} eat the fruit of the ' + f'{TREE}?'),
       output_type='CHOICE',
       options=(defection_option, cooperation_option),
       tag='choice',

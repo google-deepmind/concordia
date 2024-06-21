@@ -43,7 +43,7 @@ class ActionSpec:
   """
 
   call_to_action: str
-  output_type: OutputType
+  output_type: OutputType | str
   options: Sequence[str] | None = None
   tag: str | None = None
 
@@ -68,12 +68,12 @@ DEFAULT_ACTION_SPEC = ActionSpec(
 
 class Entity(metaclass=abc.ABCMeta):
   """Base class for entities.
-  
+
   Entities are the basic building blocks of a game. They are the entities
   that the game master explicitly keeps track of. Entities can be anything,
   from the player's character to an inanimate object. At its core, an entity
   is an entity that has a name, can act, and can observe.
-  
+
   Entities are sent observations by the game master, and they can be asked to
   act by the game master. Multiple observations can be sent to an entity before
   a request for an action attempt is made. The entities are responsible for
@@ -108,7 +108,7 @@ class Entity(metaclass=abc.ABCMeta):
       observation: str,
   ) -> None:
     """Informs the Entity of an observation.
-    
+
     Args:
       observation: The observation for the entity to process. Always a string.
     """
