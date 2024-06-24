@@ -64,7 +64,7 @@ class SceneGenerator:
         ' instructions or a title in the output.'
     )
     generated_premise = model.sample_text(
-        prompt, max_characters=3500, max_tokens=3500
+        prompt, max_tokens=3500,
     )
 
     # Create the scene type specification
