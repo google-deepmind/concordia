@@ -242,9 +242,9 @@ def run_simulation(
     model: language_model.LanguageModel,
     players: Sequence[basic_agent.BasicAgent],
     primary_environment: game_master.GameMaster,
-    secondary_environments: Sequence[game_master.GameMaster],
     clock: game_clock.MultiIntervalClock,
     scenes: Sequence[scene_lib.SceneSpec],
+    secondary_environments: Sequence[game_master.GameMaster] = tuple(),
 ) -> str:
   """Run a simulation.
 
@@ -252,9 +252,9 @@ def run_simulation(
     model: The language model to use.
     players: The players.
     primary_environment: The main game master.
-    secondary_environments: Sequence of secondary game masters for scenes.
     clock: The clock of the run.
     scenes: Sequence of scenes to simulate.
+    secondary_environments: Sequence of secondary game masters for scenes.
 
   Returns:
     an HTML string log of the simulation.
