@@ -15,5 +15,5 @@
 
 """Library of components contributed by users."""
 
-from concordia.components.game_master.contrib import restricted_inventory
-from concordia.components.game_master.contrib import world_background_and_relevance
+from concordia.contrib.components.agent import affect_reflection
+from concordia.contrib.components.agent import illness_representation
