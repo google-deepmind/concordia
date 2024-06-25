@@ -15,7 +15,6 @@
 """A Generic Game Master."""
 
 from collections.abc import Callable, Sequence
-import concurrent.futures
 import dataclasses
 import datetime
 import random
@@ -30,6 +29,7 @@ from concordia.typing import agent as simulacrum_agent
 from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.typing import game_master as simulacrum_game_master
+from concordia.utils import concurrency
 from concordia.utils import helper_functions
 import termcolor
 
@@ -202,13 +202,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def update_from_player(self, player_name: str, action_attempt: str):
     prompt = interactive_document.InteractiveDocument(self._model)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-      executor.map(
-          lambda construct: construct.update_before_event(
-              f'{player_name}: {action_attempt}'
-          ),
-          self._components.values(),
-      )
+    concurrency.map_parallel(
+        lambda construct: construct.update_before_event(
+            f'{player_name}: {action_attempt}'),
+        self._components.values())
 
     for comp in self._components.values():
       state_of_component = comp.state()
@@ -262,8 +259,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       return externality.update_after_event(event_statement)
 
     if self._concurrent_externalities:
-      with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(get_externality, self._components.values())
+      concurrency.map_parallel(get_externality, self._components.values())
     else:
       for externality in self._components.values():
         externality.update_after_event(event_statement)
@@ -304,9 +300,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
           comp, function_name='update'
       )
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrency.executor() as pool:
       for comp in self._components.values():
-        executor.submit(_get_recursive_update_func(comp))
+        pool.submit(_get_recursive_update_func(comp))
 
   def _step_player(
       self,
@@ -359,8 +355,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       random.shuffle(players)
 
     if self._concurrent_action:
-      with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(step_player_fn, players)
+      concurrency.map_parallel(step_player_fn, players)
     else:
       for player in players:
         step_player_fn(player)
