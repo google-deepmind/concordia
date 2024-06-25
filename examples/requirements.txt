@@ -1,5 +1,10 @@
 absl-py
 docstring-parser
 gdm-concordia
+IPython
+matplotlib
+numpy
+openai
+pandas
 sentence_transformers
 termcolor
