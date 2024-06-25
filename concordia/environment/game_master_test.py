@@ -21,7 +21,7 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.environment import game_master
-from concordia.tests import mock_model
+from concordia.testing import mock_model
 from concordia.typing import component
 import numpy as np
 
