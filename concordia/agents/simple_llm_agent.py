@@ -52,6 +52,7 @@ class SimpleLLMAgent(agent.GenerativeAgent):
       model: The language model to use for the agent.
       memories_length: The maximum number of memories to keep.
     """
+    super().__init__()
     self._model = model
     self._agent_name = agent_name
     self._agent_background = agent_background
@@ -62,6 +63,7 @@ class SimpleLLMAgent(agent.GenerativeAgent):
   def name(self) -> str:
     return self._agent_name
 
+  # pytype: disable=override-error
   @override
   def act(self, action_spec=entity.DEFAULT_ACTION_SPEC) -> str:
     previous_observations = "\n".join(self._memory)
@@ -89,7 +91,9 @@ class SimpleLLMAgent(agent.GenerativeAgent):
         f"Unsupported output type: {action_spec.output_type}. "
         "Supported output types are: FREE, CHOICE, and FLOAT."
     )
+  # pytype: enable=override-error
 
+  # pytype: disable=override-error
   @override
   def observe(
       self,
@@ -97,3 +101,4 @@ class SimpleLLMAgent(agent.GenerativeAgent):
   ) -> None:
     # If the memory is full, we pop the oldest memory.
     self._memory.append(observation)
+  # pytype: enable=override-error
