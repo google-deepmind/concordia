@@ -21,7 +21,7 @@ from concordia.typing import entity as entity_lib
 
 ComponentName = str
 ComponentContext = str
-ComponentsContext = Mapping[ComponentName, ComponentContext]
+ComponentContextMapping = Mapping[ComponentName, ComponentContext]
 
 
 class BaseComponent:
@@ -144,7 +144,7 @@ class ActingComponent(BaseComponent, metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def get_action_attempt(
       self,
-      context: ComponentsContext,
+      context: ComponentContextMapping,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     """Decides the action of an entity.

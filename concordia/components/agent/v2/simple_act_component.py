@@ -29,7 +29,8 @@ class SimpleActComponent(component_v2.ActingComponent):
   This component will receive the contexts from `pre_act` from all the
   components, and assemble them in the order specified to `__init__`. If the
   component order is not specified, then components will be assembled in the
-  iteration order of the `ComponentsContext` passed to `get_action_attempt`.
+  iteration order of the `ComponentContextMapping` passed to
+  `get_action_attempt`.
   """
 
   def __init__(
@@ -43,13 +44,13 @@ class SimpleActComponent(component_v2.ActingComponent):
       model: The language model to use for generating the action attempt.
       component_order: The order in which the component contexts will be
         assembled when calling the act component. If None, the contexts will be
-        assembled in the iteration order of the `ComponentsContext` passed to
-        `get_action_attempt`. If the component order is specified, but does not
-        contain all the components passed to `get_action_attempt`, the missing
-        components will be appended at the end in the iteration order of the
-        `ComponentsContext` passed to `get_action_attempt`. The same component
-        cannot appear twice in the component order. All components in the
-        component order must be in the `ComponentsContext` passed to
+        assembled in the iteration order of the `ComponentContextMapping` passed
+        to `get_action_attempt`. If the component order is specified, but does
+        not contain all the components passed to `get_action_attempt`, the
+        missing components will be appended at the end in the iteration order of
+        the `ComponentContextMapping` passed to `get_action_attempt`. The same
+        component cannot appear twice in the component order. All components in
+        the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
 
     Raises:
@@ -70,7 +71,7 @@ class SimpleActComponent(component_v2.ActingComponent):
 
   def _context_for_action(
       self,
-      contexts: component_v2.ComponentsContext,
+      contexts: component_v2.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
       return "\n".join(
@@ -87,7 +88,7 @@ class SimpleActComponent(component_v2.ActingComponent):
   @override
   def get_action_attempt(
       self,
-      contexts: component_v2.ComponentsContext,
+      contexts: component_v2.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     context = self._context_for_action(contexts)
