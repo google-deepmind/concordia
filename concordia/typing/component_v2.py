@@ -16,41 +16,12 @@
 
 import abc
 from collections.abc import Mapping
-import enum
 
 from concordia.typing import entity as entity_lib
 
 ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
-
-
-class Phase(enum.Enum):
-  """Phases of the agent lifecycle.
-
-  Attributes:
-    INIT: The agent has just been created. No action has been requested nor
-      observation has been received. This can be followed by a call to `pre_act`
-      or `pre_observe`.
-    PRE_ACT: The agent has received a request to act. Components are being
-      requested for their action context. This will be followed by `POST_ACT`.
-    POST_ACT: The agent has just submitted an action attempt. Components are
-      being informed of the action attempt. This will be followed by
-      `UPDATE`.
-    PRE_OBSERVE: The agent has received an observation. Components are being
-      informed of the observation. This will be followed by `POST_OBSERVE`.
-    POST_OBSERVE: The agent has just observed. Components are given a chance to
-      provide context after processing the observation. This will be followed by
-      `UPDATE`.
-    UPDATE: The agent is about to update its internal state. This will be
-      followed by `PRE_ACT` or `PRE_OBSERVE`.
-  """
-  INIT = enum.auto()
-  PRE_ACT = enum.auto()
-  POST_ACT = enum.auto()
-  PRE_OBSERVE = enum.auto()
-  POST_OBSERVE = enum.auto()
-  UPDATE = enum.auto()
 
 
 class BaseComponent:
@@ -199,7 +170,6 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def process(
       self,
-      phase: Phase,
       contexts: ComponentContextMapping,
   ) -> None:
     """Processes the context from components.
@@ -209,6 +179,5 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
     internal state or access other components.
 
     Args:
-      phase: The phase in which the context is being processed.
       contexts: The context from other components.
     """

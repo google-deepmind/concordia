@@ -25,7 +25,6 @@ class NoOpContextProcessor(component_v2.ContextProcessorComponent):
   @override
   def process(
       self,
-      phase: component_v2.Phase,
       contexts: component_v2.ComponentContextMapping,
   ) -> None:
-    del phase, contexts
+    del contexts
