@@ -23,7 +23,7 @@ import functools
 
 
 @enum.unique
-class OutputType(enum.StrEnum):
+class OutputType(enum.Enum):
   """The type of output that a entity can produce."""
   FREE = enum.auto()
   CHOICE = enum.auto()
