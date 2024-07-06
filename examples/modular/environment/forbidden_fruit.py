@@ -1046,7 +1046,7 @@ class Simulation(Runnable):
     elif self._get_num_cataclysms(env=self._primary_environment) == 2:
       runner.run_scenes(
           environment=self._primary_environment,
-          scenes=self._scenes[2]['worst'],
+          scenes=self._scenes[2]['worse'],
           players=self._all_players,
           clock=self._clock,
       )
