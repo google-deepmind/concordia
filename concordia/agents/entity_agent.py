@@ -15,7 +15,6 @@
 """A modular entity agent using the new component system."""
 
 from collections.abc import Mapping
-import enum
 import functools
 import types
 
@@ -24,41 +23,13 @@ from concordia.typing import component_v2
 from concordia.typing import entity
 from concordia.utils import concurrency
 
-from typing_extensions import override
+import overrides
 
 
 _EMPTY_MAPPING = types.MappingProxyType({})
 
 
-class Phase(enum.Enum):
-  """Phases of the agent lifecycle.
-
-  Attributes:
-    INIT: The agent has just been created. No action has been requested nor
-      observation has been received. This can be followed by a call to `pre_act`
-      or `pre_observe`.
-    PRE_ACT: The agent has received a request to act. Components are being
-      requested for their action context. This will be followed by `POST_ACT`.
-    POST_ACT: The agent has just submitted an action attempt. Components are
-      being informed of the action attempt. This will be followed by
-      `UPDATE`.
-    PRE_OBSERVE: The agent has received an observation. Components are being
-      informed of the observation. This will be followed by `POST_OBSERVE`.
-    POST_OBSERVE: The agent has just observed. Components are given a chance to
-      provide context after processing the observation. This will be followed by
-      `UPDATE`.
-    UPDATE: The agent is about to update its internal state. This will be
-      followed by `PRE_ACT` or `PRE_OBSERVE`.
-  """
-  INIT = enum.auto()
-  PRE_ACT = enum.auto()
-  POST_ACT = enum.auto()
-  PRE_OBSERVE = enum.auto()
-  POST_OBSERVE = enum.auto()
-  UPDATE = enum.auto()
-
-
-class EntityAgent(entity.Entity):
+class EntityAgent(component_v2.ComponentEntity):
   """An agent that has its functionality defined by components.
 
   The agent has a set of components that define its functionality. The agent
@@ -88,6 +59,7 @@ class EntityAgent(entity.Entity):
       components: The components that will be used by the agent.
     """
     self._agent_name = agent_name
+    self._phase = component_v2.Phase.INIT
 
     self._act_component = act_component
     self._act_component.set_entity(self)
@@ -102,14 +74,12 @@ class EntityAgent(entity.Entity):
     for component in self._components.values():
       component.set_entity(self)
 
-    self._phase = Phase.INIT
-
   @functools.cached_property
-  @override
+  @overrides.overrides
   def name(self) -> str:
     return self._agent_name
 
-  def get_phase(self) -> Phase:
+  def get_phase(self) -> component_v2.Phase:
     """Returns the current phase of the agent."""
     return self._phase
 
@@ -145,37 +115,38 @@ class EntityAgent(entity.Entity):
         name: future.result() for name, future in context_futures.items()
     }
 
-  @override
-  def act(self, action_spec=entity.DEFAULT_ACTION_SPEC) -> str:
-    self._phase = Phase.PRE_ACT
+  @overrides.overrides
+  def act(self,
+          action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC) -> str:
+    self._phase = component_v2.Phase.PRE_ACT
     contexts = self._parallel_call_('pre_act', action_spec)
 
     action_attempt = self._act_component.get_action_attempt(
         contexts, action_spec)
 
-    self._phase = Phase.POST_ACT
+    self._phase = component_v2.Phase.POST_ACT
     contexts = self._parallel_call_('post_act', action_spec)
     self._context_processor.process(contexts)
 
-    self._phase = Phase.UPDATE
+    self._phase = component_v2.Phase.UPDATE
     self._parallel_call_('update')
 
     return action_attempt
 
-  @override
+  @overrides.overrides
   def observe(
       self,
       observation: str,
   ) -> None:
-    self._phase = Phase.PRE_OBSERVE
+    self._phase = component_v2.Phase.PRE_OBSERVE
     contexts = self._parallel_call_('pre_observe', observation)
     self._context_processor.process(contexts)
 
-    self._phase = Phase.POST_OBSERVE
+    self._phase = component_v2.Phase.POST_OBSERVE
     contexts = self._parallel_call_('post_observe')
     self._context_processor.process(contexts)
 
-    self._phase = Phase.UPDATE
+    self._phase = component_v2.Phase.UPDATE
     self._parallel_call_('update')
 
   def get_last_log(self):
