@@ -12,3 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Library of components specifically for generative agents."""
+
+from concordia.components.agent.v2 import constant
+from concordia.components.agent.v2 import legacy_act_component
+from concordia.components.agent.v2 import no_op_context_processor
+from concordia.components.agent.v2 import observation
+from concordia.components.agent.v2 import simple_act_component

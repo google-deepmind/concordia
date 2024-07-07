@@ -158,7 +158,7 @@ class EntityAgent(entity.Entity):
     self._context_processor.process(contexts)
 
     self._phase = Phase.UPDATE
-    self._parallel_call_('update', ())
+    self._parallel_call_('update')
 
     return action_attempt
 
@@ -172,8 +172,11 @@ class EntityAgent(entity.Entity):
     self._context_processor.process(contexts)
 
     self._phase = Phase.POST_OBSERVE
-    contexts = self._parallel_call_('post_observe', ())
+    contexts = self._parallel_call_('post_observe')
     self._context_processor.process(contexts)
 
     self._phase = Phase.UPDATE
-    self._parallel_call_('update', ())
+    self._parallel_call_('update')
+
+  def get_last_log(self):
+    return '`get_last_log` is deprecated.'
