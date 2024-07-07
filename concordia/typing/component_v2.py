@@ -21,6 +21,7 @@ import types
 from typing import Any
 
 from concordia.typing import entity as entity_lib
+import overrides
 
 ComponentName = str
 ComponentContext = str
@@ -75,7 +76,7 @@ class ComponentEntity(entity_lib.Entity):
     raise NotImplementedError()
 
 
-class BaseComponent:
+class BaseComponent(overrides.EnforceOverrides):
   """A base class for components."""
 
   def __init__(self):

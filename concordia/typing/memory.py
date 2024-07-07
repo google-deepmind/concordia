@@ -17,6 +17,7 @@
 import abc
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
+import overrides
 
 
 class MemoryScorer(Protocol):
@@ -32,7 +33,7 @@ class MemoryScorer(Protocol):
     """
 
 
-class MemoryBank(metaclass=abc.ABCMeta):
+class MemoryBank(overrides.EnforceOverrides, metaclass=abc.ABCMeta):
   """Base class for memory banks."""
 
   @abc.abstractmethod
