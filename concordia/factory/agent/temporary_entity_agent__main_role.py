@@ -78,18 +78,22 @@ def build_agent(
       memory=memory
   )
 
+  time_display = agent_components.report_function.ReportFunction(
+      function=clock.current_time_interval_str,
+  )
+
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
       memory=memory,
-      agent_name=agent_name,
-      components={'summary of recent obervations': observation},
-      clock_now=clock.now,
+      components={'summary of recent obervations': observation,
+                  'The current date/time is': time_display},
       num_memories_to_retrieve=10,
   )
 
   components_of_agent = {
       'Role playing instructions': instructions,
       'Observation': observation,
+      'Current time': time_display,
       'Recalled memories and observations': relevant_memories,
   }
   component_order = list(components_of_agent.keys())

@@ -15,15 +15,13 @@
 """Return all memories similar to a prompt and filter them for relevance.
 """
 
-from collections.abc import Callable, Mapping
-import datetime
+from collections.abc import Mapping
 import types
 
 from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-import overrides
 import termcolor
 
 
@@ -37,10 +35,8 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
-      agent_name: str,
       components: Mapping[
           str, action_spec_ignored.ActionSpecIgnored] = _EMPTY_MAPPING,
-      clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
@@ -49,9 +45,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     Args:
       model: The language model to use.
       memory: The memory to use.
-      agent_name: The name of the agent.
       components: The components to condition the answer on.
-      clock_now: time callback to use for the state.
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the state of the component.
     """
@@ -61,7 +55,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     self._memory = memory
     self._state = ''
     self._components = dict(components)
-    self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._history = []
 
@@ -69,7 +62,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     if self._history:
       return self._history[-1].copy()
 
-  @overrides.override
   def make_pre_act_context(self) -> str:
     agent_name = self.get_entity().name
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -84,9 +76,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     )
 
     query = f'{agent_name}, {prompt_summary}'
-    if self._clock_now is not None:
-      query = f'[{self._clock_now()}] {query}'
-
     mems = '\n'.join(
         self._memory.retrieve_associative(
             query, self._num_memories_to_retrieve, add_time=True
@@ -103,8 +92,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
         'recent events. As long as they are not inconsistent, revent events '
         'are usually important to consider.'
     )
-    if self._clock_now is not None:
-      question = f'The current date/time is: {self._clock_now()}.\n{question}'
     new_prompt = prompt.new()
     result = new_prompt.open_question(
         f'{question}\nStatements:\n{mems}',
@@ -119,7 +106,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       print(termcolor.colored(result, 'green'), end='')
 
     update_log = {
-        'date': self._clock_now(),
         'State': result,
         'Initial chain of thought': prompt.view().text().splitlines(),
         'Query': f'{query}',

@@ -23,8 +23,6 @@ from concordia.typing import component_v2
 from concordia.typing import entity
 from concordia.utils import concurrency
 
-import overrides
-
 
 _EMPTY_MAPPING = types.MappingProxyType({})
 
@@ -75,7 +73,6 @@ class EntityAgent(component_v2.ComponentEntity):
       component.set_entity(self)
 
   @functools.cached_property
-  @overrides.override
   def name(self) -> str:
     return self._agent_name
 
@@ -115,7 +112,6 @@ class EntityAgent(component_v2.ComponentEntity):
         name: future.result() for name, future in context_futures.items()
     }
 
-  @overrides.override
   def act(self,
           action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC) -> str:
     self._phase = component_v2.Phase.PRE_ACT
@@ -133,7 +129,6 @@ class EntityAgent(component_v2.ComponentEntity):
 
     return action_attempt
 
-  @overrides.override
   def observe(
       self,
       observation: str,

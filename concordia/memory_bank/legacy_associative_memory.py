@@ -23,8 +23,6 @@ from typing import Any
 from concordia.associative_memory import associative_memory
 from concordia.typing import memory as memory_lib
 
-import overrides
-
 
 # These are dummy scoring functions that will be used to know the appropriate
 # method to call in AssociativeMemory.
@@ -90,7 +88,6 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
   def __init__(self, memory: associative_memory.AssociativeMemory):
     self._memory = memory
 
-  @overrides.override
   def add(self, text: str, metadata: Mapping[str, Any]) -> None:
     self._memory.add(text, **metadata)
 
@@ -98,7 +95,6 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       self, texts: Sequence[str]) -> Sequence[tuple[str, float]]:
     return [(t, 0.0) for t in texts]
 
-  @overrides.override
   def retrieve(
       self,
       query: str,

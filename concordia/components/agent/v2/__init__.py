@@ -20,4 +20,5 @@ from concordia.components.agent.v2 import constant
 from concordia.components.agent.v2 import legacy_act_component
 from concordia.components.agent.v2 import no_op_context_processor
 from concordia.components.agent.v2 import observation
+from concordia.components.agent.v2 import report_function
 from concordia.components.agent.v2 import simple_act_component
