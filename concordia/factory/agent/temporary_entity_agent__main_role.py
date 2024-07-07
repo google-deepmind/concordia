@@ -87,20 +87,24 @@ def build_agent(
       num_memories_to_retrieve=10,
   )
 
-  act_component = agent_components.legacy_act_component.ActComponent(
-      model=model,
-      clock=clock,
-  )
-
   components_of_agent = {
       'Role playing instructions': instructions,
       'Observation': observation,
       'Recalled memories and observations': relevant_memories,
   }
+  component_order = list(components_of_agent.keys())
   if config.goal:
+    key = 'Overarching goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal)
-    components_of_agent['Overarching goal'] = overarching_goal
+    components_of_agent[key] = overarching_goal
+    component_order.insert(1, key)  # Place the goal after the instructions.
+
+  act_component = agent_components.legacy_act_component.ActComponent(
+      model=model,
+      clock=clock,
+      component_order=component_order,
+  )
 
   agent = entity_agent.EntityAgent(
       agent_name=agent_name,
