@@ -17,12 +17,16 @@
 import abc
 from collections.abc import Mapping
 import enum
+import types
+from typing import Any
 
 from concordia.typing import entity as entity_lib
 
 ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
+
+_EMPTY_MAPPING = types.MappingProxyType({})
 
 
 class Phase(enum.Enum):
@@ -180,9 +184,9 @@ class EntityComponent(BaseComponent):
 
   def get_last_log(
       self,
-  ):
+  ) -> Mapping[str, Any]:
     """Returns a dictionary with latest log of activity."""
-    return None
+    return _EMPTY_MAPPING
 
 
 class ActingComponent(BaseComponent, metaclass=abc.ABCMeta):
