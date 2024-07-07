@@ -78,6 +78,15 @@ def build_agent(
       memory=memory
   )
 
+  relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
+      model=model,
+      memory=memory,
+      agent_name=agent_name,
+      components={'summary of recent obervations': observation},
+      clock_now=clock.now,
+      num_memories_to_retrieve=10,
+  )
+
   act_component = agent_components.legacy_act_component.ActComponent(
       model=model,
       clock=clock,
@@ -85,7 +94,8 @@ def build_agent(
 
   components_of_agent = {
       'Role playing instructions': instructions,
-      'Observation': observation
+      'Observation': observation,
+      'Recalled memories and observations': relevant_memories,
   }
   if config.goal:
     overarching_goal = agent_components.constant.Constant(
