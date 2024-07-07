@@ -44,7 +44,7 @@ class EntityAgent(component_v2.ComponentEntity):
       agent_name: str,
       act_component: component_v2.ActingComponent,
       context_processor: component_v2.ContextProcessorComponent | None = None,
-      components: Mapping[str, component_v2.BaseComponent] = _EMPTY_MAPPING,
+      components: Mapping[str, component_v2.EntityComponent] = _EMPTY_MAPPING,
   ):
     """Initializes the agent.
 
@@ -150,4 +150,8 @@ class EntityAgent(component_v2.ComponentEntity):
     self._parallel_call_('update')
 
   def get_last_log(self):
-    return '`get_last_log` is deprecated.'
+    log = {}
+    for name, component in self._components.items():
+      log[name] = component.get_last_log()
+
+    return log
