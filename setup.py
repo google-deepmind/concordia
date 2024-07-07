@@ -77,6 +77,7 @@ setuptools.setup(
         'mistralai',
         'numpy',
         'openai>=1.3.0',
+        'overrides',
         'pandas<=2.0.3',
         'python-dateutil',
         'reactivex',
