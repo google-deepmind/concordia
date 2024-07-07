@@ -17,13 +17,13 @@
 from collections.abc import Callable
 import datetime
 from concordia.associative_memory import associative_memory
-from concordia.typing import component_v2
-from concordia.typing import entity as entity_lib
+from concordia.components.agent.v2 import action_spec_ignored
+
+import overrides
 
 
-class Observation(component_v2.EntityComponent):
-  """A simple component to receive observations.
-  """
+class Observation(action_spec_ignored.ActionSpecIgnored):
+  """A simple component to receive observations."""
 
   def __init__(
       self,
@@ -45,10 +45,8 @@ class Observation(component_v2.EntityComponent):
     )
     return ''
 
-  def pre_act(
-      self,
-      unused_action_spec: entity_lib.ActionSpec,
-  ) -> str:
+  @overrides.overrides
+  def make_pre_act_context(self) -> str:
     mems = self._memory.retrieve_time_interval(
         self._clock_now() - self._timeframe, self._clock_now(), add_time=True
     )

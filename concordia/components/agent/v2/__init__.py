@@ -14,6 +14,7 @@
 
 """Library of components specifically for generative agents."""
 
+from concordia.components.agent.v2 import action_spec_ignored
 from concordia.components.agent.v2 import constant
 from concordia.components.agent.v2 import legacy_act_component
 from concordia.components.agent.v2 import no_op_context_processor
