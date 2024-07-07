@@ -90,7 +90,7 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
   def __init__(self, memory: associative_memory.AssociativeMemory):
     self._memory = memory
 
-  @overrides.overrides
+  @overrides.override
   def add(self, text: str, metadata: Mapping[str, Any]) -> None:
     self._memory.add(text, **metadata)
 
@@ -98,7 +98,7 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       self, texts: Sequence[str]) -> Sequence[tuple[str, float]]:
     return [(t, 0.0) for t in texts]
 
-  @overrides.overrides
+  @overrides.override
   def retrieve(
       self,
       query: str,

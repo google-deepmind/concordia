@@ -45,7 +45,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
     )
     return ''
 
-  @overrides.overrides
+  @overrides.override
   def make_pre_act_context(self) -> str:
     mems = self._memory.retrieve_time_interval(
         self._clock_now() - self._timeframe, self._clock_now(), add_time=True

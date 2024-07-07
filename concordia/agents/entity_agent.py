@@ -75,7 +75,7 @@ class EntityAgent(component_v2.ComponentEntity):
       component.set_entity(self)
 
   @functools.cached_property
-  @overrides.overrides
+  @overrides.override
   def name(self) -> str:
     return self._agent_name
 
@@ -115,7 +115,7 @@ class EntityAgent(component_v2.ComponentEntity):
         name: future.result() for name, future in context_futures.items()
     }
 
-  @overrides.overrides
+  @overrides.override
   def act(self,
           action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC) -> str:
     self._phase = component_v2.Phase.PRE_ACT
@@ -133,7 +133,7 @@ class EntityAgent(component_v2.ComponentEntity):
 
     return action_attempt
 
-  @overrides.overrides
+  @overrides.override
   def observe(
       self,
       observation: str,

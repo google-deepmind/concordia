@@ -69,7 +69,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     if self._history:
       return self._history[-1].copy()
 
-  @overrides.overrides
+  @overrides.override
   def make_pre_act_context(self) -> str:
     agent_name = self.get_entity().name
     prompt = interactive_document.InteractiveDocument(self._model)
