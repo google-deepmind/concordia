@@ -121,7 +121,7 @@ class EntityAgent(component_v2.ComponentEntity):
         contexts, action_spec)
 
     self._phase = component_v2.Phase.POST_ACT
-    contexts = self._parallel_call_('post_act', action_spec)
+    contexts = self._parallel_call_('post_act', action_attempt)
     self._context_processor.process(contexts)
 
     self._phase = component_v2.Phase.UPDATE
