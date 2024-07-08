@@ -33,7 +33,8 @@ class ActComponent(component_v2.ActingComponent):
   components, and assemble them in the order specified to `__init__`. If the
   component order is not specified, then components will be assembled in the
   iteration order of the `ComponentContextMapping` passed to
-  `get_action_attempt`.
+  `get_action_attempt`. Components that return empty strings from `pre_act` are
+  ignored.
   """
 
   def __init__(
@@ -75,20 +76,22 @@ class ActComponent(component_v2.ActingComponent):
             + ', '.join(self._component_order)
         )
 
+    self._last_log = None
+
   def _context_for_action(
       self,
       contexts: component_v2.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
       return '\n'.join(
-          f'{name}: {context}' for name, context in contexts.items()
+          f'{name}: {context}' for name, context in contexts.items() if context
       )
     else:
       order = self._component_order + tuple(
           set(contexts.keys()) - set(self._component_order)
       )
       return '\n'.join(
-          f'{name}: {contexts[name]}' for name in order
+          f'{name}: {contexts[name]}' for name in order if contexts[name]
       )
 
   @override
@@ -114,12 +117,14 @@ class ActComponent(component_v2.ActingComponent):
           max_tokens=2200,
           answer_prefix=output,
       )
+      self._make_update_log(output, prompt)
       return output
     elif action_spec.output_type == 'CHOICE' or entity_lib.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
       output = action_spec.options[idx]
+      self._make_update_log(output, prompt)
       return output
     elif action_spec.output_type == 'FLOAT' or entity_lib.OutputType.FLOAT:
       prefix = self.get_entity().name + ' '
@@ -128,6 +133,7 @@ class ActComponent(component_v2.ActingComponent):
           max_tokens=2200,
           answer_prefix=prefix,
       )
+      self._make_update_log(sampled_text, prompt)
       try:
         return str(float(sampled_text))
       except ValueError:
@@ -137,3 +143,13 @@ class ActComponent(component_v2.ActingComponent):
           f'Unsupported output type: {action_spec.output_type}. '
           'Supported output types are: FREE, CHOICE, and FLOAT.'
       )
+
+  def _make_update_log(self,
+                       result: str,
+                       prompt: interactive_document.InteractiveDocument):
+    self._last_log = {'Output': result,
+                      'Prompt': prompt.view().text().splitlines()}
+
+  def get_last_log(self):
+    if self._last_log:
+      return self._last_log.copy()

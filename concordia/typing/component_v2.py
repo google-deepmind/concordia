@@ -26,7 +26,7 @@ ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
 
-_EMPTY_MAPPING = types.MappingProxyType({})
+EMPTY_MAPPING = types.MappingProxyType({})
 
 
 class Phase(enum.Enum):
@@ -94,6 +94,12 @@ class BaseComponent():
     if self._entity is None:
       raise ValueError("Entity is not set.")
     return self._entity
+
+  def get_last_log(
+      self,
+  ) -> Mapping[str, Any]:
+    """Returns a dictionary with latest log of activity."""
+    return EMPTY_MAPPING
 
 
 class EntityComponent(BaseComponent):
@@ -181,12 +187,6 @@ class EntityComponent(BaseComponent):
     received a `post_act` or `post_observe` call. This is an opportunity for the
     component to update its internal state, and replace any cached information.
     """
-
-  def get_last_log(
-      self,
-  ) -> Mapping[str, Any]:
-    """Returns a dictionary with latest log of activity."""
-    return _EMPTY_MAPPING
 
 
 class ActingComponent(BaseComponent, metaclass=abc.ABCMeta):

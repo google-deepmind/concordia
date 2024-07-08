@@ -16,16 +16,16 @@
 """
 
 from collections.abc import Mapping
-import types
 
 from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.typing import component_v2
 import termcolor
 
 
-_EMPTY_MAPPING = types.MappingProxyType({})
+EMPTY_MAPPING = component_v2.EMPTY_MAPPING
 
 
 class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
@@ -36,7 +36,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       components: Mapping[
-          str, action_spec_ignored.ActionSpecIgnored] = _EMPTY_MAPPING,
+          str, action_spec_ignored.ActionSpecIgnored] = EMPTY_MAPPING,
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
@@ -56,11 +56,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     self._state = ''
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
-    self._history = []
-
-  def get_last_log(self):
-    if self._history:
-      return self._history[-1].copy()
+    self._last_log = None
 
   def make_pre_act_context(self) -> str:
     agent_name = self.get_entity().name
@@ -105,12 +101,15 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       print(termcolor.colored(new_prompt.view().text(), 'green'), end='')
       print(termcolor.colored(result, 'green'), end='')
 
-    update_log = {
+    self._last_log = {
         'State': result,
         'Initial chain of thought': prompt.view().text().splitlines(),
         'Query': f'{query}',
         'Final chain of thought': new_prompt.view().text().splitlines(),
     }
-    self._history.append(update_log)
 
     return result
+
+  def get_last_log(self):
+    if self._last_log:
+      return self._last_log.copy()

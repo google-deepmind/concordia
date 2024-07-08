@@ -14,11 +14,10 @@
 
 """A simple acting component that aggregates contexts from components."""
 
-from concordia.typing import component_v2
-from concordia.typing import entity as entity_lib
+from concordia.components.agent.v2 import action_spec_ignored
 
 
-class Constant(component_v2.EntityComponent):
+class Constant(action_spec_ignored.ActionSpecIgnored):
   """A simple component that returns a constant.
   """
 
@@ -37,9 +36,8 @@ class Constant(component_v2.EntityComponent):
     """
     self._state = state
 
-  def pre_act(
-      self,
-      unused_action_spec: entity_lib.ActionSpec,
-  ) -> str:
-    del unused_action_spec
+  def make_pre_act_context(self) -> str:
     return self._state
+
+  def get_last_log(self):
+    return {'State': self._state}

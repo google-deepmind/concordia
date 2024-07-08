@@ -75,28 +75,51 @@ def build_agent(
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
-      memory=memory
+      memory=memory,
+      verbose=True,
   )
-
+  observation_summary = agent_components.observation.ObservationSummary(
+      model=model,
+      clock_now=clock.now,
+      memory=memory,
+      timeframe_delta_from=datetime.timedelta(hours=4),
+      timeframe_delta_until=datetime.timedelta(hours=1),
+      verbose=True,
+  )
   time_display = agent_components.report_function.ReportFunction(
       function=clock.current_time_interval_str,
   )
-
+  identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
+      model=model,
+      memory=memory,
+      verbose=True,
+  )
+  self_perception = agent_components.self_perception.SelfPerception(
+      model=model,
+      memory=memory,
+      components={'identity_characteristics': identity_characteristics},
+      verbose=True,
+  )
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
       memory=memory,
-      components={'summary of recent obervations': observation,
+      components={'Summary of recent observations': observation_summary,
                   'The current date/time is': time_display},
       num_memories_to_retrieve=10,
+      verbose=True,
   )
 
   components_of_agent = {
       'Role playing instructions': instructions,
       'Observation': observation,
+      'Summary of recent observations': observation_summary,
+      f'\nQuestion: What kind of person is {agent_name}?\nAnswer':
+          self_perception,
       'Current time': time_display,
       'Recalled memories and observations': relevant_memories,
   }
   component_order = list(components_of_agent.keys())
+  components_of_agent['Identity'] = identity_characteristics
   if config.goal:
     key = 'Overarching goal'
     overarching_goal = agent_components.constant.Constant(
