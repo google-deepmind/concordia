@@ -41,13 +41,20 @@ class ActionSpecIgnored(component_v2.EntityComponent, metaclass=abc.ABCMeta):
     raise NotImplementedError()
 
   def get_pre_act_context(self) -> str:
-    """Gets the pre-act context."""
-    assert (
-        self.get_entity().get_phase() == component_v2.Phase.PRE_ACT or
-        self.get_entity().get_phase() == component_v2.Phase.POST_ACT), (
-            "You can only access the pre-act context in the `PRE_ACT` or "
-            "`POST_ACT` phase. The entity is currently in the "
-            f"{self.get_entity().get_phase()} phase.")
+    """Gets the pre-act context.
+
+    Returns:
+      The pre-act context, as created by `make_pre_act_context`.
+
+    Raises:
+      ValueError: If the entity is not in the `PRE_ACT` or `POST_ACT` phase.
+    """
+    if (self.get_entity().get_phase() != component_v2.Phase.PRE_ACT and
+        self.get_entity().get_phase() != component_v2.Phase.POST_ACT):
+      raise ValueError(
+          "You can only access the pre-act context in the `PRE_ACT` or "
+          "`POST_ACT` phase. The entity is currently in the "
+          f"{self.get_entity().get_phase()} phase.")
 
     if self._pre_act_context is None:
       self._pre_act_context = self.make_pre_act_context()
