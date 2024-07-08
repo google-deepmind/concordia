@@ -55,6 +55,7 @@ class MemoryComponent(component_v2.EntityComponent):
       scoring_fn: memory_lib.MemoryScorer,
       limit: int,
   ) -> Sequence[tuple[str, float]]:
+    self._check_phase()
     return self._memory.retrieve(query, scoring_fn, limit)
 
   def add(
@@ -62,6 +63,7 @@ class MemoryComponent(component_v2.EntityComponent):
       text: str,
       metadata: Mapping[str, Any],
   ) -> None:
+    self._check_phase()
     with self._lock:
       self._buffer.append({'text': text, 'metadata': metadata})
 
@@ -70,6 +72,7 @@ class MemoryComponent(component_v2.EntityComponent):
       texts: Sequence[str],
       metadata: Mapping[str, Any],
   ) -> None:
+    self._check_phase()
     for text in texts:
       self.add(text, metadata)
 
