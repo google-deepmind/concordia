@@ -16,14 +16,12 @@
 
 from collections.abc import Mapping
 import functools
+import types
 
 from concordia.components.agent.v2 import no_op_context_processor
 from concordia.typing import component_v2
 from concordia.typing import entity
 from concordia.utils import concurrency
-
-
-EMPTY_MAPPING = component_v2.EMPTY_MAPPING
 
 
 class EntityAgent(component_v2.ComponentEntity):
@@ -41,7 +39,9 @@ class EntityAgent(component_v2.ComponentEntity):
       agent_name: str,
       act_component: component_v2.ActingComponent,
       context_processor: component_v2.ContextProcessorComponent | None = None,
-      components: Mapping[str, component_v2.EntityComponent] = EMPTY_MAPPING,
+      components: Mapping[str, component_v2.EntityComponent] = (
+          types.MappingProxyType({})
+      ),
   ):
     """Initializes the agent.
 
@@ -55,6 +55,7 @@ class EntityAgent(component_v2.ComponentEntity):
         None, a NoOpContextProcessor will be used.
       components: The components that will be used by the agent.
     """
+    super().__init__()
     self._agent_name = agent_name
     self._phase = component_v2.Phase.INIT
 

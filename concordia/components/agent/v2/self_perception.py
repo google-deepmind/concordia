@@ -13,17 +13,14 @@
 # limitations under the License.
 
 """Agent component for representing what kind of person the agent is."""
+import types
 from typing import Mapping
 
 from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import component_v2
-
 import termcolor
-
-EMPTY_MAPPING = component_v2.EMPTY_MAPPING
 
 
 class SelfPerception(action_spec_ignored.ActionSpecIgnored):
@@ -33,8 +30,9 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
-      components: Mapping[
-          str, action_spec_ignored.ActionSpecIgnored] = EMPTY_MAPPING,
+      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
+          types.MappingProxyType({})
+      ),
       num_memories_to_retrieve: int = 100,
       verbose: bool = False,
       log_color: str = 'green',

@@ -17,7 +17,6 @@
 import abc
 from collections.abc import Mapping
 import enum
-import types
 from typing import Any
 
 from concordia.typing import entity as entity_lib
@@ -25,8 +24,6 @@ from concordia.typing import entity as entity_lib
 ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
-
-EMPTY_MAPPING = types.MappingProxyType({})
 
 
 class Phase(enum.Enum):
@@ -78,28 +75,34 @@ class ComponentEntity(entity_lib.Entity):
 class BaseComponent():
   """A base class for components."""
 
-  def __init__(self):
-    self._entity: ComponentEntity | None = None
+  _entity: ComponentEntity | None = None
 
   def set_entity(self, entity: ComponentEntity) -> None:
-    """Sets the entity that this component belongs to."""
+    """Sets the entity that this component belongs to.
+
+    Args:
+      entity: The entity that this component belongs to.
+
+    Raises:
+      RuntimeError: If the entity is already set.
+    """
+    if self._entity is not None:
+      raise RuntimeError("Entity is already set.")
     self._entity = entity
 
   def get_entity(self) -> ComponentEntity:
     """Returns the entity that this component belongs to.
 
     Raises:
-      ValueError: If the entity is not set.
+      RuntimeError: If the entity is not set.
     """
     if self._entity is None:
-      raise ValueError("Entity is not set.")
+      raise RuntimeError("Entity is not set.")
     return self._entity
 
-  def get_last_log(
-      self,
-  ) -> Mapping[str, Any]:
+  def get_last_log(self) -> Mapping[str, Any]:
     """Returns a dictionary with latest log of activity."""
-    return EMPTY_MAPPING
+    return {}
 
 
 class EntityComponent(BaseComponent):

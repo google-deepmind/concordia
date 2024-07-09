@@ -16,16 +16,13 @@
 """
 
 from collections.abc import Mapping
+import types
 
 from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import component_v2
 import termcolor
-
-
-EMPTY_MAPPING = component_v2.EMPTY_MAPPING
 
 
 class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
@@ -35,8 +32,9 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
-      components: Mapping[
-          str, action_spec_ignored.ActionSpecIgnored] = EMPTY_MAPPING,
+      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
+          types.MappingProxyType({})
+      ),
       num_memories_to_retrieve: int = 25,
       verbose: bool = False,
   ):
@@ -49,7 +47,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the state of the component.
     """
-
     self._verbose = verbose
     self._model = model
     self._memory = memory

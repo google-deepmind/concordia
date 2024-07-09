@@ -16,15 +16,13 @@
 
 from collections.abc import Callable, Mapping
 import datetime
+import types
+
 from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import component_v2
-
 import termcolor
-
-EMPTY_MAPPING = component_v2.EMPTY_MAPPING
 
 
 class Observation(action_spec_ignored.ActionSpecIgnored):
@@ -96,8 +94,9 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       timeframe_delta_from: datetime.timedelta,
       timeframe_delta_until: datetime.timedelta,
       memory: associative_memory.AssociativeMemory,
-      components: Mapping[
-          str, action_spec_ignored.ActionSpecIgnored] = EMPTY_MAPPING,
+      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
+          types.MappingProxyType({})
+      ),
       prompt: str | None = None,
       display_timeframe: bool = True,
       verbose: bool = False,

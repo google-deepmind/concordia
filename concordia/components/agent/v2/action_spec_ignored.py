@@ -31,9 +31,7 @@ class ActionSpecIgnored(component_v2.EntityComponent, metaclass=abc.ABCMeta):
   cleaned up by `update`.
   """
 
-  def __init__(self):
-    """Initializes the component."""
-    self._pre_act_context: str | None = None
+  _pre_act_context: str | None = None
 
   @abc.abstractmethod
   def make_pre_act_context(self) -> str:
