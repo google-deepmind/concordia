@@ -261,7 +261,7 @@ class BasicAgent(
         f' conversation:\n{conversation}\n'
     )
     call_to_speech = agent.DEFAULT_CALL_TO_SPEECH.format(
-        agent_name=self._agent_name,
+        name=self._agent_name,
     )
     if self._user_controlled:
       utterance = self._ask_for_input(
