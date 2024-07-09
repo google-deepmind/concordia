@@ -374,7 +374,7 @@ class AccountForAgencyOfOthers:
                             f'Possible action: {what_did_they_do}\n')
           action_spec = agent_types.ActionSpec(
               call_to_action=call_to_action,
-              output_type='CHOICE',
+              output_type=agent_types.OutputType.CHOICE,
               options=['Yes', 'No'],
               tag='action',
           )

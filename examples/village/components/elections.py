@@ -151,7 +151,7 @@ class Elections(component.Component):
         )
         action_spec = agent.ActionSpec(
             call_to_action=question,
-            output_type='CHOICE',
+            output_type=agent.OutputType.CHOICE,
             options=self._candidates,
             tag='vote',
         )

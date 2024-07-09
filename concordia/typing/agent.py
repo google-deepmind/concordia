@@ -29,6 +29,7 @@ from concordia.typing import entity
 # compatibility.
 DEFAULT_ACTION_SPEC = entity.DEFAULT_ACTION_SPEC
 ActionSpec = entity.ActionSpec
+OutputType = entity.OutputType
 
 DEFAULT_CALL_TO_SPEECH = (
     'Given the above, what is {name} likely to say next? Respond in'

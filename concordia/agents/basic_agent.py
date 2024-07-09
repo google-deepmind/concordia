@@ -189,7 +189,7 @@ class BasicAgent(
     )
     output = ''
 
-    if action_spec.output_type == 'FREE':
+    if action_spec.output_type == entity.OutputType.FREE:
       if self._user_controlled:
         output = self._ask_for_input(
             context_of_action,
@@ -202,12 +202,12 @@ class BasicAgent(
             max_tokens=2200,
             answer_prefix=output,
         )
-    elif action_spec.output_type == 'CHOICE':
+    elif action_spec.output_type == entity.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
       output = action_spec.options[idx]
-    elif action_spec.output_type == 'FLOAT':
+    elif action_spec.output_type == entity.OutputType.FLOAT:
       raise NotImplementedError
 
     def get_externality(externality):

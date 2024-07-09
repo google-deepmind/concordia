@@ -179,7 +179,7 @@ MINIGAMES = [
         action_spec=agent_lib.ActionSpec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type='CHOICE',
+            output_type=agent_lib.OutputType.CHOICE,
             options=('try to carpool with others', 'drive individually'),
             tag='minigame_action',
         ),
@@ -203,7 +203,7 @@ MINIGAMES = [
         action_spec=agent_lib.ActionSpec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type='CHOICE',
+            output_type=agent_lib.OutputType.CHOICE,
             options=('maintain the appliance',
                      'let others handle upkeep of the appliance'),
             tag='minigame_action',
@@ -232,7 +232,7 @@ MINIGAMES = [
         action_spec=agent_lib.ActionSpec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type='CHOICE',
+            output_type=agent_lib.OutputType.CHOICE,
             options=('maintain the appliance',
                      'let others handle upkeep of the appliance'),
             tag='minigame_action',

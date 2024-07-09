@@ -110,7 +110,7 @@ class ActComponent(component_v2.ActingComponent):
             self._clock.get_step_size()
         ),
     )
-    if action_spec.output_type == 'FREE' or entity_lib.OutputType.FREE:
+    if action_spec.output_type == entity_lib.OutputType.FREE:
       output = self.get_entity().name + ' '
       output += prompt.open_question(
           call_to_action,
@@ -119,14 +119,14 @@ class ActComponent(component_v2.ActingComponent):
       )
       self._make_update_log(output, prompt)
       return output
-    elif action_spec.output_type == 'CHOICE' or entity_lib.OutputType.CHOICE:
+    elif action_spec.output_type == entity_lib.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
       output = action_spec.options[idx]
       self._make_update_log(output, prompt)
       return output
-    elif action_spec.output_type == 'FLOAT' or entity_lib.OutputType.FLOAT:
+    elif action_spec.output_type == entity_lib.OutputType.FLOAT:
       prefix = self.get_entity().name + ' '
       sampled_text = prompt.open_question(
           call_to_action,

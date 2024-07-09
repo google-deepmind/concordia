@@ -36,7 +36,7 @@ import numpy as np
 OPTIONS = ('x', 'y')
 DECISION_ACTION_SPEC = agent_lib.ActionSpec(
     call_to_action='Does {name} prefer x or y?',
-    output_type='CHOICE',
+    output_type=agent_lib.OutputType.CHOICE,
     options=OPTIONS,
     tag='decision',
 )
