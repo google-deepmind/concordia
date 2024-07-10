@@ -92,15 +92,15 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
     self._memory.add(text, **metadata)
 
   def _texts_with_constant_score(
-      self, texts: Sequence[str]) -> Sequence[tuple[str, float]]:
-    return [(t, 0.0) for t in texts]
+      self, texts: Sequence[str]) -> Sequence[memory_lib.MemoryResult]:
+    return [memory_lib.MemoryResult(text=t, score=0.0) for t in texts]
 
   def retrieve(
       self,
       query: str,
       scoring_fn: memory_lib.MemoryScorer,
       limit: int,
-  ) -> Sequence[tuple[str, float]]:
+  ) -> Sequence[memory_lib.MemoryResult]:
     if isinstance(scoring_fn, RetrieveAssociative):
       return self._texts_with_constant_score(self._memory.retrieve_associative(
           query=query,
@@ -133,10 +133,10 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       ))
     elif isinstance(scoring_fn, RetrieveRecentWithImportance):
       del query
-      return zip(*self._memory.retrieve_recent_with_importance(
-          k=limit,
-          add_time=scoring_fn.add_time,
-      ))
+      return [
+          memory_lib.MemoryResult(text=t, score=s) for t, s in zip(
+              *self._memory.retrieve_recent_with_importance(
+                  k=limit, add_time=scoring_fn.add_time))]
     else:
       raise ValueError(
           'Unknown scoring function. Only instances of RetrieveAssociative, '

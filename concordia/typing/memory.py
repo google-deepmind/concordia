@@ -16,6 +16,7 @@
 
 import abc
 from collections.abc import Mapping, Sequence
+import dataclasses
 from typing import Any, Protocol
 
 
@@ -30,6 +31,19 @@ class MemoryScorer(Protocol):
       text: The text of the memory.
       **metadata: The metadata of the memory.
     """
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class MemoryResult:
+  """The result item of a memory bank retrieval.
+
+  Attributes:
+    text: The text of the memory.
+    score: The score of the memory.
+  """
+
+  text: str
+  score: float
 
 
 class MemoryBank(metaclass=abc.ABCMeta):
@@ -66,7 +80,7 @@ class MemoryBank(metaclass=abc.ABCMeta):
       query: str,
       scoring_fn: MemoryScorer,
       limit: int,
-  ) -> Sequence[tuple[str, float]]:
+  ) -> Sequence[MemoryResult]:
     """Retrieves memories from the memory bank using the given scoring function.
 
     This function retrieves the memories from the memory bank that are most

@@ -54,7 +54,7 @@ class MemoryComponent(component_v2.EntityComponent):
       query: str,
       scoring_fn: memory_lib.MemoryScorer,
       limit: int,
-  ) -> Sequence[tuple[str, float]]:
+  ) -> Sequence[memory_lib.MemoryResult]:
     self._check_phase()
     return self._memory.retrieve(query, scoring_fn, limit)
 
