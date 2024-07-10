@@ -110,7 +110,7 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
       return self._last_log.copy()
 
 
-class IdentityWithoutPreAct(component_v2.EntityComponent):
+class IdentityWithoutPreAct(component_v2.ContextComponent):
   """An identity component that does not output its state to pre_act."""
 
   def __init__(self, *args, **kwargs):

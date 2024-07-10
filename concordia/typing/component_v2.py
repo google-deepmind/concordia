@@ -72,7 +72,7 @@ class ComponentEntity(entity_lib.Entity):
     raise NotImplementedError()
 
 
-class BaseComponent():
+class BaseComponent:
   """A base class for components."""
 
   _entity: ComponentEntity | None = None
@@ -105,7 +105,7 @@ class BaseComponent():
     return {}
 
 
-class EntityComponent(BaseComponent):
+class ContextComponent(BaseComponent):
   """A building block of a ComponentEntity.
 
   Components are stand-alone pieces of functionality insterted into a GameObject
@@ -226,12 +226,13 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
       self,
       contexts: ComponentContextMapping,
   ) -> None:
-    """Processes the context from components.
+    """Processes the context from ContextComponents.
 
     This function will be called by the entity with the context from other
     components. The component should process the context and possibly update its
     internal state or access other components.
 
     Args:
-      contexts: The context from other components.
+      contexts: The context from ContextComponents.
     """
+    raise NotImplementedError()

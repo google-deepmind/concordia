@@ -136,7 +136,7 @@ def build_agent(
   agent = entity_agent.EntityAgent(
       agent_name=agent_name,
       act_component=act_component,
-      components=components_of_agent,
+      context_components=components_of_agent,
   )
 
   return agent

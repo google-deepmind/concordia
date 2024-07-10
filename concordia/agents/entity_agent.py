@@ -43,7 +43,7 @@ class EntityAgent(component_v2.ComponentEntity):
       agent_name: str,
       act_component: component_v2.ActingComponent,
       context_processor: component_v2.ContextProcessorComponent | None = None,
-      components: Mapping[str, component_v2.EntityComponent] = (
+      context_components: Mapping[str, component_v2.ContextComponent] = (
           types.MappingProxyType({})
       ),
   ):
@@ -57,7 +57,7 @@ class EntityAgent(component_v2.ComponentEntity):
       act_component: The component that will be used to act.
       context_processor: The component that will be used to process contexts. If
         None, a NoOpContextProcessor will be used.
-      components: The components that will be used by the agent.
+      context_components: The ContextComponents that will be used by the agent.
     """
     super().__init__()
     self._agent_name = agent_name
@@ -72,8 +72,8 @@ class EntityAgent(component_v2.ComponentEntity):
       self._context_processor = context_processor
     self._context_processor.set_entity(self)
 
-    self._components = dict(components)
-    for component in self._components.values():
+    self._context_components = dict(context_components)
+    for component in self._context_components.values():
       component.set_entity(self)
 
   @override
@@ -89,7 +89,7 @@ class EntityAgent(component_v2.ComponentEntity):
   @override
   def get_component(self, component_name: str) -> component_v2.BaseComponent:
     """Returns the component with the given name."""
-    return self._components[component_name]
+    return self._context_components[component_name]
 
   def _parallel_call_(
       self,
@@ -110,7 +110,7 @@ class EntityAgent(component_v2.ComponentEntity):
     """
     context_futures = {}
     with concurrency.executor() as pool:
-      for name, component in self._components.items():
+      for name, component in self._context_components.items():
         context_futures[name] = pool.submit(
             getattr(component, method_name), *args
         )
@@ -152,10 +152,8 @@ class EntityAgent(component_v2.ComponentEntity):
     self._parallel_call_('update')
 
   def get_last_log(self):
-    log = {}
-    for name, component in self._components.items():
-      log[name] = component.get_last_log()
-
-    # Append the log of the act component.
-    log['__act__'] = self._act_component.get_last_log()
-    return log
+    logs = self._parallel_call_('get_last_log')
+    return {
+        '__act__': self._act_component.get_last_log(),
+        **logs,
+    }

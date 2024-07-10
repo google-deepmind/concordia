@@ -22,7 +22,7 @@ from concordia.typing import component_v2
 from concordia.typing import memory as memory_lib
 
 
-class MemoryComponent(component_v2.EntityComponent):
+class MemoryComponent(component_v2.ContextComponent):
   """A component backed by a memory bank.
 
   This component caches additions to the memory bank issued within an `act` or

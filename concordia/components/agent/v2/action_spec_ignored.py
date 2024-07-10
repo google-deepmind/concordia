@@ -20,9 +20,9 @@ from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
 
 
-class ActionSpecIgnored(component_v2.EntityComponent, metaclass=abc.ABCMeta):
+class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
   """A component that ignores the action spec in the `pre_act` method.
-  
+
   As a consequence, its `pre_act` state can be accessed safely by other
   components. This is useful for components that need to condition their
   `pre_act` state on the state of other components. Derived classes should
