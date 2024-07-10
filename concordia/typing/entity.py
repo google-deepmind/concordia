@@ -83,10 +83,9 @@ class Entity(metaclass=abc.ABCMeta):
 
   @functools.cached_property
   @abc.abstractmethod
-  def name(
-      self,
-  ) -> str:
+  def name(self) -> str:
     """The name of the entity."""
+    raise NotImplementedError()
 
   @abc.abstractmethod
   def act(self, action_spec: ActionSpec = DEFAULT_ACTION_SPEC) -> str:
@@ -101,14 +100,13 @@ class Entity(metaclass=abc.ABCMeta):
     Returns:
       The entity's intended action.
     """
+    raise NotImplementedError()
 
   @abc.abstractmethod
-  def observe(
-      self,
-      observation: str,
-  ) -> None:
+  def observe(self, observation: str) -> None:
     """Informs the Entity of an observation.
 
     Args:
       observation: The observation for the entity to process. Always a string.
     """
+    raise NotImplementedError()

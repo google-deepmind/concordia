@@ -22,6 +22,10 @@ from concordia.components.agent.v2 import no_op_context_processor
 from concordia.typing import component_v2
 from concordia.typing import entity
 from concordia.utils import concurrency
+from typing_extensions import override
+
+# TODO: b/313715068 - remove disable once pytype bug is fixed.
+# pytype: disable=override-error
 
 
 class EntityAgent(component_v2.ComponentEntity):
@@ -72,14 +76,17 @@ class EntityAgent(component_v2.ComponentEntity):
     for component in self._components.values():
       component.set_entity(self)
 
+  @override
   @functools.cached_property
   def name(self) -> str:
     return self._agent_name
 
+  @override
   def get_phase(self) -> component_v2.Phase:
     """Returns the current phase of the agent."""
     return self._phase
 
+  @override
   def get_component(self, component_name: str) -> component_v2.BaseComponent:
     """Returns the component with the given name."""
     return self._components[component_name]
@@ -112,13 +119,15 @@ class EntityAgent(component_v2.ComponentEntity):
         name: future.result() for name, future in context_futures.items()
     }
 
-  def act(self,
-          action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC) -> str:
+  @override
+  def act(
+      self, action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC
+  ) -> str:
     self._phase = component_v2.Phase.PRE_ACT
     contexts = self._parallel_call_('pre_act', action_spec)
-
     action_attempt = self._act_component.get_action_attempt(
-        contexts, action_spec)
+        contexts, action_spec
+    )
 
     self._phase = component_v2.Phase.POST_ACT
     contexts = self._parallel_call_('post_act', action_attempt)
@@ -129,10 +138,8 @@ class EntityAgent(component_v2.ComponentEntity):
 
     return action_attempt
 
-  def observe(
-      self,
-      observation: str,
-  ) -> None:
+  @override
+  def observe(self, observation: str) -> None:
     self._phase = component_v2.Phase.PRE_OBSERVE
     contexts = self._parallel_call_('pre_observe', observation)
     self._context_processor.process(contexts)
