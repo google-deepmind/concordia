@@ -16,15 +16,6 @@
 
 from concordia.typing import component_v2
 
-from typing_extensions import override
-
 
 class NoOpContextProcessor(component_v2.ContextProcessorComponent):
   """A context processor component that does nothing."""
-
-  @override
-  def process(
-      self,
-      contexts: component_v2.ComponentContextMapping,
-  ) -> None:
-    del contexts
