@@ -125,13 +125,14 @@ class EntityAgent(component_v2.ComponentEntity):
   ) -> str:
     self._phase = component_v2.Phase.PRE_ACT
     contexts = self._parallel_call_('pre_act', action_spec)
+    self._context_processor.pre_act(types.MappingProxyType(contexts))
     action_attempt = self._act_component.get_action_attempt(
         contexts, action_spec
     )
 
     self._phase = component_v2.Phase.POST_ACT
     contexts = self._parallel_call_('post_act', action_attempt)
-    self._context_processor.process(contexts)
+    self._context_processor.post_act(contexts)
 
     self._phase = component_v2.Phase.UPDATE
     self._parallel_call_('update')
@@ -142,11 +143,11 @@ class EntityAgent(component_v2.ComponentEntity):
   def observe(self, observation: str) -> None:
     self._phase = component_v2.Phase.PRE_OBSERVE
     contexts = self._parallel_call_('pre_observe', observation)
-    self._context_processor.process(contexts)
+    self._context_processor.pre_observe(contexts)
 
     self._phase = component_v2.Phase.POST_OBSERVE
     contexts = self._parallel_call_('post_observe')
-    self._context_processor.process(contexts)
+    self._context_processor.post_observe(contexts)
 
     self._phase = component_v2.Phase.UPDATE
     self._parallel_call_('update')

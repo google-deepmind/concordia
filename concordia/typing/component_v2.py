@@ -219,20 +219,36 @@ class ActingComponent(BaseComponent, metaclass=abc.ABCMeta):
 
 
 class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
-  """A component that processes context from components."""
+  """A component that processes context from ContextComponents."""
 
-  @abc.abstractmethod
-  def process(
-      self,
-      contexts: ComponentContextMapping,
-  ) -> None:
-    """Processes the context from ContextComponents.
-
-    This function will be called by the entity with the context from other
-    components. The component should process the context and possibly update its
-    internal state or access other components.
+  def pre_act(self, contexts: ComponentContextMapping) -> None:
+    """Processes the pre_act contexts returned by the ContextComponents.
 
     Args:
-      contexts: The context from ContextComponents.
+      contexts: A mapping from ComponentName to ComponentContext.
     """
-    raise NotImplementedError()
+    del contexts
+
+  def post_act(self, contexts: ComponentContextMapping) -> None:
+    """Processes the post_act contexts returned by the ContextComponents.
+
+    Args:
+      contexts: A mapping from ComponentName to ComponentContext.
+    """
+    del contexts
+
+  def pre_observe(self, contexts: ComponentContextMapping) -> None:
+    """Processes the pre_observe contexts returned by the ContextComponents.
+
+    Args:
+      contexts: A mapping from ComponentName to ComponentContext.
+    """
+    del contexts
+
+  def post_observe(self, contexts: ComponentContextMapping) -> None:
+    """Processes the post_observe contexts returned by the ContextComponents.
+
+    Args:
+      contexts: The context from other components.
+    """
+    del contexts
