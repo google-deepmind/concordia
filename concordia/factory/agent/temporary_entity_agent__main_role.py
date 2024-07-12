@@ -22,10 +22,10 @@ from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent import v2 as agent_components
 from concordia.language_model import language_model
-from concordia.typing import component
+from concordia.typing import component_v2
 
 
-def get_instructions(agent_name: str) -> component.Component:
+def get_instructions(agent_name: str) -> component_v2.ContextComponent:
   """Get role playing instructions for the agent."""
   instructions = agent_components.constant.Constant(
       state=(
