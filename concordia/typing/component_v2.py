@@ -17,13 +17,14 @@
 import abc
 from collections.abc import Mapping
 import enum
-from typing import Any
+from typing import Any, TypeVar
 
 from concordia.typing import entity as entity_lib
 
 ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
+ComponentT = TypeVar("ComponentT", bound="BaseComponent")
 
 
 class Phase(enum.Enum):
@@ -54,30 +55,12 @@ class Phase(enum.Enum):
   UPDATE = enum.auto()
 
 
-class ComponentEntity(entity_lib.Entity):
-  """An entity that contains components."""
-
-  @abc.abstractmethod
-  def get_phase(self) -> Phase:
-    """Returns the current phase of the component entity."""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def get_component(self, component_name: str) -> "BaseComponent":
-    """Returns the component with the given name.
-
-    Args:
-      component_name: The name of the component to return.
-    """
-    raise NotImplementedError()
-
-
 class BaseComponent:
   """A base class for components."""
 
-  _entity: ComponentEntity | None = None
+  _entity: "ComponentEntity | None" = None
 
-  def set_entity(self, entity: ComponentEntity) -> None:
+  def set_entity(self, entity: "ComponentEntity") -> None:
     """Sets the entity that this component belongs to.
 
     Args:
@@ -90,7 +73,7 @@ class BaseComponent:
       raise RuntimeError("Entity is already set.")
     self._entity = entity
 
-  def get_entity(self) -> ComponentEntity:
+  def get_entity(self) -> "ComponentEntity":
     """Returns the entity that this component belongs to.
 
     Raises:
@@ -103,6 +86,30 @@ class BaseComponent:
   def get_last_log(self) -> Mapping[str, Any]:
     """Returns a dictionary with latest log of activity."""
     return {}
+
+
+class ComponentEntity(entity_lib.Entity):
+  """An entity that contains components."""
+
+  @abc.abstractmethod
+  def get_phase(self) -> Phase:
+    """Returns the current phase of the component entity."""
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def get_component(
+      self,
+      name: str,
+      *,
+      type_: type[ComponentT] = BaseComponent,
+  ) -> ComponentT:
+    """Returns the component with the given name.
+
+    Args:
+      name: The name of the component to fetch.
+      type_: If passed, the returned component will be cast to this type.
+    """
+    raise NotImplementedError()
 
 
 class ContextComponent(BaseComponent):

@@ -17,6 +17,7 @@
 from collections.abc import Mapping
 import functools
 import types
+from typing import cast
 
 from concordia.components.agent.v2 import no_op_context_processor
 from concordia.typing import component_v2
@@ -83,13 +84,17 @@ class EntityAgent(component_v2.ComponentEntity):
 
   @override
   def get_phase(self) -> component_v2.Phase:
-    """Returns the current phase of the agent."""
     return self._phase
 
   @override
-  def get_component(self, component_name: str) -> component_v2.BaseComponent:
-    """Returns the component with the given name."""
-    return self._context_components[component_name]
+  def get_component(
+      self,
+      name: str,
+      *,
+      type_: type[component_v2.ComponentT] = component_v2.BaseComponent,
+  ) -> component_v2.ComponentT:
+    component = self._context_components[name]
+    return cast(component_v2.ComponentT, component)
 
   def _parallel_call_(
       self,
