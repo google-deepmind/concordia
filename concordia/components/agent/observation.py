@@ -17,6 +17,7 @@
 
 from collections.abc import Callable, Sequence
 import datetime
+
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -83,7 +84,7 @@ class Observation(component.Component):
 
   def observe(self, observation: str):
     self._memory.add(
-        f'[observation] {observation}',
+        f'[observation] {observation.strip()}',
         tags=['observation'],
     )
 

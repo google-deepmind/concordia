@@ -59,7 +59,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       observation: str,
   ) -> str:
     self._memory.add(
-        f'[observation] {observation}',
+        f'[observation] {observation.strip()}',
         tags=['observation'],
     )
     return ''
