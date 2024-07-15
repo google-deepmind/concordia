@@ -16,17 +16,19 @@
 """A component that runs the phone scene when a phone action is detected."""
 
 from collections.abc import Sequence
+
 from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
-from examples.phone.components import apps
-from examples.phone.components import logging
-from examples.phone.components import scene
 from concordia.language_model import language_model
 from concordia.typing import component
 from concordia.utils import helper_functions
+
+from examples.phone.components import apps
+from examples.phone.components import logging
+from examples.phone.components import scene
 
 
 class SceneTriggeringComponent(component.Component):
@@ -60,7 +62,17 @@ class SceneTriggeringComponent(component.Component):
     document.statement(f'Event: {event_statement}')
 
     return document.yes_no_question(
-        'Did a player interact with their smartphone as part of this event?'
+        'Did a player engage in any activity typically associated with'
+        ' smartphone use during this event? Consider not only explicit mentions'
+        ' of phone interaction, but also actions commonly performed using'
+        ' mobile apps or smartphone features. This includes, but is not limited'
+        ' to:\n- Communicating (e.g., messaging, calling, emailing)\n-'
+        ' Accessing information (e.g., browsing the internet, checking social'
+        ' media)\n- Using utility apps (e.g., calendar, notes, calculator)\n-'
+        ' Navigation or location services\n- Taking photos or videos\n- Using'
+        ' mobile payment systems\n- Playing mobile gamesEven if a phone is not'
+        ' explicitly mentioned, consider whether the described actions strongly'
+        ' imply smartphone use in modern contexts.'
     )
 
   def _get_player_from_event(
@@ -76,8 +88,18 @@ class SceneTriggeringComponent(component.Component):
       is_player_using_phone = helper_functions.filter_copy_as_statement(
           document
       ).yes_no_question(
-          f'Does the event description explicitly state that {player.name}'
-          ' interacted with their phone?'
+          f'Does the event description indicate that {player.name} engaged in'
+          ' any activity typically associated with smartphone use? Consider'
+          ' both explicit mentions of phone interaction and actions commonly'
+          ' performed using mobile apps or smartphone features, including but'
+          ' not limited to:\n- Communicating (e.g., messaging, calling,'
+          ' emailing)\n- Accessing information (e.g., browsing the internet,'
+          ' checking social media)\n- Using utility apps (e.g., calendar,'
+          ' notes, calculator)\n- Navigation or location services\n- Taking'
+          ' photos or videos\n- Using mobile payment systems\n- Playing mobile'
+          f' gamesEven if {player.name} is not explicitly described as using a'
+          ' phone, consider whether their actions strongly imply smartphone'
+          ' use in modern contexts.'
       )
       if is_player_using_phone:
         return player
