@@ -69,6 +69,7 @@ setuptools.setup(
     install_requires=(
         # TODO: b/312199199 - remove some requirements.
         'absl-py',
+        'boto3',
         'google-cloud-aiplatform',
         'google-generativeai',
         'ipython',
