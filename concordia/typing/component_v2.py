@@ -58,9 +58,9 @@ class Phase(enum.Enum):
 class BaseComponent:
   """A base class for components."""
 
-  _entity: "ComponentEntity | None" = None
+  _entity: "EntityWithComponents | None" = None
 
-  def set_entity(self, entity: "ComponentEntity") -> None:
+  def set_entity(self, entity: "EntityWithComponents") -> None:
     """Sets the entity that this component belongs to.
 
     Args:
@@ -73,7 +73,7 @@ class BaseComponent:
       raise RuntimeError("Entity is already set.")
     self._entity = entity
 
-  def get_entity(self) -> "ComponentEntity":
+  def get_entity(self) -> "EntityWithComponents":
     """Returns the entity that this component belongs to.
 
     Raises:
@@ -88,7 +88,7 @@ class BaseComponent:
     return {}
 
 
-class ComponentEntity(entity_lib.Entity):
+class EntityWithComponents(entity_lib.Entity):
   """An entity that contains components."""
 
   @abc.abstractmethod
@@ -113,7 +113,7 @@ class ComponentEntity(entity_lib.Entity):
 
 
 class ContextComponent(BaseComponent):
-  """A building block of a ComponentEntity.
+  """A building block of a EntityWithComponents.
 
   Components are stand-alone pieces of functionality insterted into a GameObject
   that have hooks for processing events for acting and observing.
@@ -226,10 +226,10 @@ class ActingComponent(BaseComponent, metaclass=abc.ABCMeta):
 
 
 class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
-  """A component that processes context from ContextComponents."""
+  """A component that processes context from EntityWithComponents."""
 
   def pre_act(self, contexts: ComponentContextMapping) -> None:
-    """Processes the pre_act contexts returned by the ContextComponents.
+    """Processes the pre_act contexts returned by the EntityWithComponents.
 
     Args:
       contexts: A mapping from ComponentName to ComponentContext.
@@ -237,7 +237,7 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
     del contexts
 
   def post_act(self, contexts: ComponentContextMapping) -> None:
-    """Processes the post_act contexts returned by the ContextComponents.
+    """Processes the post_act contexts returned by the EntityWithComponents.
 
     Args:
       contexts: A mapping from ComponentName to ComponentContext.
@@ -245,7 +245,7 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
     del contexts
 
   def pre_observe(self, contexts: ComponentContextMapping) -> None:
-    """Processes the pre_observe contexts returned by the ContextComponents.
+    """Processes the pre_observe contexts returned by the EntityWithComponents.
 
     Args:
       contexts: A mapping from ComponentName to ComponentContext.
@@ -253,7 +253,7 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
     del contexts
 
   def post_observe(self, contexts: ComponentContextMapping) -> None:
-    """Processes the post_observe contexts returned by the ContextComponents.
+    """Processes the post_observe contexts returned by the EntityWithComponents.
 
     Args:
       contexts: The context from other components.

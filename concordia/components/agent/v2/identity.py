@@ -13,16 +13,21 @@
 # limitations under the License.
 
 """Agent identity component."""
-from typing import Sequence
-from concordia.associative_memory import associative_memory
+
+from collections.abc import Sequence
+
 from concordia.components.agent.v2 import action_spec_ignored
+from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
-
 import termcolor
+
+
+_ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
 
 
 class Identity(action_spec_ignored.ActionSpecIgnored):
@@ -37,8 +42,10 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
 
   def __init__(
       self,
+      *,
       model: language_model.LanguageModel,
-      memory: associative_memory.AssociativeMemory,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
       queries: Sequence[str] = (
           'core characteristics',
           'current daily occupation',
@@ -52,14 +59,15 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: a language model
-      memory: an associative memory
+      memory_component_name: The name of the memory component from which to
+        retrieve related memories.
       queries: strings to use as queries to the associative memory
       num_memories_to_retrieve: how many related memories to retrieve per query
       verbose: whether or not to print the result for debugging
       log_color: color to print the debug log
     """
     self._model = model
-    self._memory = memory
+    self._memory_component_name = memory_component_name
     self._last_log = None
 
     self._queries = queries
@@ -70,11 +78,15 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
 
   def _query_memory(self, query: str) -> str:
     agent_name = self.get_entity().name
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
     name_with_query = f"{agent_name}'s {query}"
     mems = '\n'.join(
-        self._memory.retrieve_associative(
-            name_with_query, self._num_memories_to_retrieve, add_time=True
-        )
+        [mem.text for mem in memory.retrieve(
+            query=name_with_query,
+            scoring_fn=_ASSOCIATIVE_RETRIEVAL,
+            limit=self._num_memories_to_retrieve)]
     )
     prompt = interactive_document.InteractiveDocument(self._model)
     question = (
@@ -116,7 +128,7 @@ class IdentityWithoutPreAct(action_spec_ignored.ActionSpecIgnored):
   def __init__(self, *args, **kwargs):
     self._component = Identity(*args, **kwargs)
 
-  def set_entity(self, entity: component_v2.ComponentEntity) -> None:
+  def set_entity(self, entity: component_v2.EntityWithComponents) -> None:
     self._component.set_entity(entity)
 
   def make_pre_act_context(self) -> str:

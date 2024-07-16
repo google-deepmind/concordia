@@ -29,7 +29,7 @@ from typing_extensions import override
 # pytype: disable=override-error
 
 
-class EntityAgent(component_v2.ComponentEntity):
+class EntityAgent(component_v2.EntityWithComponents):
   """An agent that has its functionality defined by components.
 
   The agent has a set of components that define its functionality. The agent

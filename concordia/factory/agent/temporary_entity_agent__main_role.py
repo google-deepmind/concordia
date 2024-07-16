@@ -22,10 +22,11 @@ from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent import v2 as agent_components
 from concordia.language_model import language_model
-from concordia.typing import component_v2
+from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import component
 
 
-def get_instructions(agent_name: str) -> component_v2.ContextComponent:
+def get_instructions(agent_name: str) -> component.Component:
   """Get role playing instructions for the agent."""
   instructions = agent_components.constant.Constant(
       state=(
@@ -70,18 +71,18 @@ def build_agent(
 
   agent_name = config.name
 
+  raw_memory = legacy_associative_memory.AssociativeMemoryBank(memory)
+
   instructions = get_instructions(agent_name=agent_name)
 
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
-      memory=memory,
       verbose=True,
   )
   observation_summary = agent_components.observation.ObservationSummary(
       model=model,
       clock_now=clock.now,
-      memory=memory,
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
       verbose=True,
@@ -91,22 +92,27 @@ def build_agent(
   )
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
-      memory=memory,
       verbose=True,
   )
   self_perception = agent_components.self_perception.SelfPerception(
       model=model,
-      memory=memory,
       components={'identity_characteristics': identity_characteristics},
       verbose=True,
   )
+  situation_perception = (
+      agent_components.situation_perception.SituationPerception(
+          model=model,
+          components={'Observation': observation,
+                      'Summary of recent observations': observation_summary},
+          clock_now=clock.now,
+          verbose=True,
+      )
+  )
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
-      memory=memory,
       components={'Summary of recent observations': observation_summary,
                   'The current date/time is': time_display},
       num_memories_to_retrieve=10,
-      verbose=True,
   )
 
   components_of_agent = {
@@ -115,11 +121,15 @@ def build_agent(
       'Summary of recent observations': observation_summary,
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer':
           self_perception,
+      (f'\nQuestion: What kind of situation is {agent_name} in '
+       'right now?\nAnswer'): situation_perception,
       'Current time': time_display,
       'Recalled memories and observations': relevant_memories,
   }
   component_order = list(components_of_agent.keys())
   components_of_agent['Identity'] = identity_characteristics
+  components_of_agent['__memory__'] = (
+      agent_components.memory_component.MemoryComponent(raw_memory))
   if config.goal:
     key = 'Overarching goal'
     overarching_goal = agent_components.constant.Constant(

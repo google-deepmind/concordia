@@ -1,0 +1,170 @@
+# Copyright 2023 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Agent components for planning."""
+
+from collections.abc import Callable, Mapping
+import datetime
+import types
+
+from concordia.components.agent.v2 import action_spec_ignored
+from concordia.components.agent.v2 import memory_component
+from concordia.components.agent.v2 import observation
+from concordia.document import interactive_document
+from concordia.language_model import language_model
+from concordia.memory_bank import legacy_associative_memory
+import termcolor
+
+_ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
+
+
+class Plan(action_spec_ignored.ActionSpecIgnored):
+  """Component representing the agent's plan."""
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      observation_component_name: str,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
+      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
+          types.MappingProxyType({})
+      ),
+      clock_now: Callable[[], datetime.datetime] | None = None,
+      goal_component_key: str | None = None,
+      num_memories_to_retrieve: int = 10,
+      horizon: str = 'the rest of the day',
+      verbose: bool = False,
+      log_color='green',
+  ):
+    """Initialize a component to represent the agent's plan.
+
+    Args:
+      model: a language model
+      observation_component_name: The name of the observation component from
+        which to retrieve obervations.
+      memory_component_name: The name of the memory component from which to
+        retrieve memories
+      components: components to build the context of planning
+      clock_now: time callback to use for the state.
+      goal_component_key: index into `components` to use to represent the goal
+        of planning
+      num_memories_to_retrieve: how many memories to retrieve as conditioning
+        for the planning chain of thought
+      horizon: string describing how long the plan should last
+      verbose: whether or not to print intermediate reasoning steps
+      log_color: color for debug logging
+    """
+    self._model = model
+    self._observation_component_name = observation_component_name
+    self._memory_component_name = memory_component_name
+    self._components = dict(components)
+    self._clock_now = clock_now
+    self._goal_component_key = goal_component_key
+    self._num_memories_to_retrieve = num_memories_to_retrieve
+    self._horizon = horizon
+
+    self._current_plan = ''
+
+    self._verbose = verbose
+    self._log_color = log_color
+    self._last_log = None
+
+  def make_pre_act_context(self) -> str:
+    agent_name = self.get_entity().name
+    observation_component = self.get_entity().get_component(
+        self._observation_component_name,
+        type_=observation.Observation)
+    latest_observations = observation_component.get_pre_act_context()
+
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
+
+    memories = [mem.text for mem in memory.retrieve(
+        query=latest_observations,
+        scoring_fn=_ASSOCIATIVE_RETRIEVAL,
+        limit=self._num_memories_to_retrieve)]
+
+    goal_component = action_spec_ignored.ActionSpecIgnored()
+    if self._goal_component_key:
+      goal_component = self.get_entity().get_component(
+          self._goal_component_key,
+          type_=action_spec_ignored.ActionSpecIgnored)
+      memories = memories + memory.retrieve(
+          query=goal_component.get_pre_act_context(),
+          scoring_fn=_ASSOCIATIVE_RETRIEVAL,
+          limit=self._num_memories_to_retrieve,
+      )
+    memories = '\n'.join(memories)
+
+    component_states = '\n'.join([
+        f"{agent_name}'s {key}:\n{component.get_pre_act_context()}"
+        for key, component in self._components.items()
+    ])
+
+    in_context_example = (
+        ' Please format the plan like in this example: [21:00 - 22:00] watch TV'
+    )
+
+    prompt = interactive_document.InteractiveDocument(self._model)
+    prompt.statement(f'{component_states}\n')
+    prompt.statement(f'Relevant memories:\n{memories}')
+    if self._goal_component_key:
+      prompt.statement(f'Current goal: {goal_component.get_pre_act_context()}.')
+    prompt.statement(f'Current plan: {self._current_plan}')
+    prompt.statement(f'Current situation: {observation}')
+
+    time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
+    prompt.statement(f'The current time is: {time_now}\n')
+    should_replan = prompt.yes_no_question(
+        f'Given the above, should {agent_name} change their current '
+        'plan? '
+    )
+
+    if should_replan or not self._current_plan:
+      # Replan on the first turn and whenever the LLM suggests the agent should.
+      goal_mention = '.'
+      if self._goal_component_key:
+        goal_mention = ', keep in mind the goal.'
+      self._current_plan = prompt.open_question(
+          f"Write {agent_name}'s plan for {self._horizon}."
+          ' Provide a detailed schedule'
+          + goal_mention
+          + in_context_example,
+          max_tokens=1200,
+          terminators=(),
+      )
+
+    result = self._current_plan
+
+    self._last_log = {
+        'Summary': (
+            f'detailed plan of {agent_name} '
+            + f'for {self._horizon}'
+        ),
+        'State': result,
+        'Chain of thought': prompt.view().text().splitlines(),
+    }
+    if self._verbose:
+      self._log('\n' + prompt.view().text() + '\n')
+
+    return result
+
+  def _log(self, entry: str):
+    print(termcolor.colored(entry, self._log_color), end='')
+
+  def get_last_log(self):
+    if self._last_log:
+      return self._last_log.copy()
