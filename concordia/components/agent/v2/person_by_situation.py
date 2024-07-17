@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Agent component for representing what kind of person the agent is."""
+"""Agent component for self perception."""
 
+from collections.abc import Callable, Mapping
+import datetime
 import types
-from typing import Mapping
 
 from concordia.components.agent.v2 import action_spec_ignored
 from concordia.components.agent.v2 import memory_component
@@ -25,8 +26,8 @@ from concordia.memory_bank import legacy_associative_memory
 import termcolor
 
 
-class SelfPerception(action_spec_ignored.ActionSpecIgnored):
-  """This component answers the question 'what kind of person is the agent?'."""
+class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
+  """What would a person like the agent do in a situation like this?"""
 
   def __init__(
       self,
@@ -36,24 +37,27 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
       components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
           types.MappingProxyType({})
       ),
-      num_memories_to_retrieve: int = 100,
+      clock_now: Callable[[], datetime.datetime] | None = None,
+      num_memories_to_retrieve: int = 25,
       verbose: bool = False,
       log_color: str = 'green',
   ):
-    """Initializes the SelfPerception component.
+    """Initializes the PersonBySituation component.
 
     Args:
-      model: Language model.
+      model: The language model to use.
       memory_component_name: The name of the memory component from which to
         retrieve recent memories.
       components: The components to condition the answer on.
-      num_memories_to_retrieve: Number of memories to retrieve.
-      verbose: Whether to print the state or not for debugging.
+      clock_now: time callback to use.
+      num_memories_to_retrieve: The number of recent memories to retrieve.
+      verbose: Whether to print intermediate reasoning.
       log_color: color to print the debug log.
     """
     self._model = model
     self._memory_component_name = memory_component_name
     self._components = dict(components)
+    self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
     self._verbose = verbose
@@ -73,7 +77,11 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
     )
 
     prompt = interactive_document.InteractiveDocument(self._model)
-    prompt.statement(f'Memories of {agent_name}:\n{mems}')
+    prompt.statement(
+        f'Recent observations of {agent_name}:\n{mems}')
+
+    if self._clock_now is not None:
+      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     component_states = '\n'.join([
         f"{agent_name}'s {key}:\n{component.get_pre_act_context()}"
@@ -82,16 +90,17 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
     prompt.statement(component_states)
 
     question = (
-        f'Given the above, what kind of person is {agent_name}?'
+        f'What would a person like {agent_name} do in a situation like'
+        ' this?'
     )
     result = prompt.open_question(
         question,
-        answer_prefix=f'{agent_name} is ',
+        answer_prefix=f'{agent_name} would ',
         max_tokens=1000,
     )
-    result = f'{agent_name} is {result}'
+    result = f'{agent_name} would {result}'
 
-    memory.add(f'[self reflection] {result}', metadata={})
+    memory.add(f'[intent reflection] {result}', metadata={})
 
     self._last_log = {
         'Summary': question,
@@ -99,12 +108,9 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
         'Chain of thought': prompt.view().text().splitlines(),
     }
     if self._verbose:
-      self._log(prompt.view().text())
+      print(termcolor.colored(prompt.view().text(), 'green'), end='')
 
     return result
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
 
   def get_last_log(self):
     if self._last_log:

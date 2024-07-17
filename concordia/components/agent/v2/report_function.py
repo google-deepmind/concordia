@@ -36,10 +36,16 @@ class ReportFunction(action_spec_ignored.ActionSpecIgnored):
         component.
     """
     self._function = function
+    self._last_log = None
 
   def make_pre_act_context(self) -> str:
     """Returns state of this component obtained by calling a function."""
-    return self._function()
+    state = self._function()
+    self._last_log = {
+        'State': state,
+    }
+    return state
 
   def get_last_log(self):
-    return {'State': self.get_pre_act_context()}
+    if self._last_log:
+      return self._last_log.copy()

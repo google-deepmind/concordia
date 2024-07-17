@@ -18,11 +18,15 @@
 from collections.abc import Mapping
 import types
 
-from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
+from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.memory_bank import legacy_associative_memory
 import termcolor
+
+
+_ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
 
 
 class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
@@ -31,7 +35,8 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      memory: associative_memory.AssociativeMemory,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
       components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
           types.MappingProxyType({})
       ),
@@ -42,14 +47,15 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The language model to use.
-      memory: The memory to use.
+      memory_component_name: The name of the memory component from which to
+        retrieve related memories.
       components: The components to condition the answer on.
       num_memories_to_retrieve: The number of memories to retrieve.
       verbose: Whether to print the state of the component.
     """
     self._verbose = verbose
     self._model = model
-    self._memory = memory
+    self._memory_component_name = memory_component_name
     self._state = ''
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
@@ -68,11 +74,16 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
         'Summarize the statements above.', max_tokens=750
     )
 
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
+
     query = f'{agent_name}, {prompt_summary}'
     mems = '\n'.join(
-        self._memory.retrieve_associative(
-            query, self._num_memories_to_retrieve, add_time=True
-        )
+        [mem.text for mem in memory.retrieve(
+            query=query,
+            scoring_fn=_ASSOCIATIVE_RETRIEVAL,
+            limit=self._num_memories_to_retrieve)]
     )
 
     question = (

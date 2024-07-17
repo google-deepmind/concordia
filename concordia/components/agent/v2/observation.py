@@ -18,10 +18,11 @@ from collections.abc import Callable, Mapping
 import datetime
 import types
 
-from concordia.associative_memory import associative_memory
 from concordia.components.agent.v2 import action_spec_ignored
+from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.memory_bank import legacy_associative_memory
 import termcolor
 
 
@@ -32,7 +33,8 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       self,
       clock_now: Callable[[], datetime.datetime],
       timeframe: datetime.timedelta,
-      memory: associative_memory.AssociativeMemory,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
       verbose: bool = False,
       log_color: str = 'green',
   ):
@@ -43,45 +45,61 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       clock_now: Function that returns the current time.
       timeframe: Delta from current moment to display observations from, e.g. 1h
         would display all observations made in the last hour.
-      memory: Memory bank to add and retrieve observations.
+      memory_component_name: Name of the memory component to add observations to
+        in `pre_observe` and to retrieve observations from in `pre_act`.
       verbose: Whether to print the observations.
       log_color: Color to print the log.
     """
-    self._timeframe = timeframe
     self._clock_now = clock_now
-    self._memory = memory
+    self._timeframe = timeframe
+    self._memory_component_name = memory_component_name
 
     self._verbose = verbose
     self._log_color = log_color
+    self._last_log = None
 
   def pre_observe(
       self,
       observation: str,
   ) -> str:
-    self._memory.add(
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
+    memory.add(
         f'[observation] {observation.strip()}',
-        tags=['observation'],
+        metadata={'tags': ['observation']},
     )
     return ''
 
   def make_pre_act_context(self) -> str:
-    mems = self._memory.retrieve_time_interval(
-        self._clock_now() - self._timeframe, self._clock_now(), add_time=True
+    """Returns the latest observations to preact."""
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
+    interval_scorer = legacy_associative_memory.RetrieveTimeInterval(
+        time_from=self._clock_now() - self._timeframe,
+        time_until=self._clock_now(),
+        add_time=True,
     )
+    mems = memory.retrieve(scoring_fn=interval_scorer)
+    # Remove memories that are not observations.
+    mems = [mem.text for mem in mems if '[observation]' in mem.text]
+    result = '\n'.join(mems) + '\n'
+    self._last_log = {
+        'Summary': 'observation',
+        'state': result,
+    }
     if self._verbose:
-      self._log('\n'.join(mems) + '\n')
-    # removes memories that are not observations
-    mems = [mem for mem in mems if '[observation]' in mem]
-    return '\n'.join(mems) + '\n'
+      self._log(result)
+
+    return result
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')
 
   def get_last_log(self):
-    return {
-        'Summary': 'observation',
-        'state': self.get_pre_act_context().splitlines(),
-    }
+    if self._last_log:
+      return self._last_log.copy()
 
 
 class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
@@ -93,7 +111,8 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       clock_now: Callable[[], datetime.datetime],
       timeframe_delta_from: datetime.timedelta,
       timeframe_delta_until: datetime.timedelta,
-      memory: associative_memory.AssociativeMemory,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
       components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
           types.MappingProxyType({})
       ),
@@ -112,7 +131,8 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
         happened from 4h ago until clock_now minus timeframe_delta_until.
       timeframe_delta_until: delta from the current moment to the end of the
         segment to summarise.
-      memory: Associative memory retrieve observations from.
+      memory_component_name: Name of the memory component from which to retrieve
+        observations to summarize.
       components: Components to summarise along with the observations.
       prompt: Language prompt for summarising memories and components.
       display_timeframe: Whether to display the time interval as text.
@@ -123,7 +143,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     self._clock_now = clock_now
     self._timeframe_delta_from = timeframe_delta_from
     self._timeframe_delta_until = timeframe_delta_until
-    self._memory = memory
+    self._memory_component_name = memory_component_name
     self._components = dict(components)
 
     self._prompt = prompt or (
@@ -146,14 +166,18 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     segment_start = self._clock_now() - self._timeframe_delta_from
     segment_end = self._clock_now() - self._timeframe_delta_until
 
-    mems = self._memory.retrieve_time_interval(
-        segment_start,
-        segment_end,
+    memory = self.get_entity().get_component(
+        self._memory_component_name,
+        type_=memory_component.MemoryComponent)
+    interval_scorer = legacy_associative_memory.RetrieveTimeInterval(
+        time_from=segment_start,
+        time_until=segment_end,
         add_time=True,
     )
+    mems = memory.retrieve(scoring_fn=interval_scorer)
 
     # removes memories that are not observations
-    mems = [mem for mem in mems if '[observation]' in mem]
+    mems = [mem.text for mem in mems if '[observation]' in mem.text]
 
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(context + '\n')

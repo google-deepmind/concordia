@@ -21,6 +21,14 @@ from typing import Any
 from concordia.typing import component_v2
 from concordia.typing import memory as memory_lib
 
+DEFAULT_MEMORY_COMPONENT_NAME = '__memory__'
+
+
+def _default_scorer(query: str, text: str, **metadata: Any) -> float:
+  """A memory scorer that always returns a default value of 1.0."""
+  del query, text, metadata  # Unused.
+  return 1.0
+
 
 class MemoryComponent(component_v2.ContextComponent):
   """A component backed by a memory bank.
@@ -51,10 +59,20 @@ class MemoryComponent(component_v2.ContextComponent):
 
   def retrieve(
       self,
-      query: str,
-      scoring_fn: memory_lib.MemoryScorer,
-      limit: int,
+      query: str = '',
+      scoring_fn: memory_lib.MemoryScorer = _default_scorer,
+      limit: int = -1,
   ) -> Sequence[memory_lib.MemoryResult]:
+    """Retrieves memories from the memory bank using the given scoring function.
+
+    Args:
+      query: The query to use for retrieval.
+      scoring_fn: The scoring function to use for retrieval.
+      limit: The number of memories to retrieve.
+
+    Returns:
+      A list of memory results.
+    """
     self._check_phase()
     return self._memory.retrieve(query, scoring_fn, limit)
 
