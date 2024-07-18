@@ -22,7 +22,10 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import entity as entity_lib
 import termcolor
+
+DEFAULT_PRE_ACT_LABEL = 'Who they are'
 
 
 class SelfPerception(action_spec_ignored.ActionSpecIgnored):
@@ -37,6 +40,7 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
           types.MappingProxyType({})
       ),
       num_memories_to_retrieve: int = 100,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
       verbose: bool = False,
       log_color: str = 'green',
   ):
@@ -48,6 +52,8 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
         retrieve recent memories.
       components: The components to condition the answer on.
       num_memories_to_retrieve: Number of memories to retrieve.
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
       verbose: Whether to print the state or not for debugging.
       log_color: color to print the debug log.
     """
@@ -55,12 +61,13 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
     self._memory_component_name = memory_component_name
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
+    self._pre_act_label = pre_act_label
 
     self._verbose = verbose
     self._log_color = log_color
     self._last_log = None
 
-  def make_pre_act_context(self) -> str:
+  def _make_pre_act_context(self) -> str:
     agent_name = self.get_entity().name
 
     memory = self.get_entity().get_component(
@@ -76,8 +83,9 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
     prompt.statement(f'Memories of {agent_name}:\n{mems}')
 
     component_states = '\n'.join([
-        f"{agent_name}'s {key}:\n{component.get_pre_act_context()}"
-        for key, component in self._components.items()
+        f"{agent_name}'s"
+        f' {prefix}:\n{self.get_named_component_pre_act_context(key)}'
+        for key, prefix in self._components.items()
     ])
     prompt.statement(component_states)
 
@@ -102,6 +110,10 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
       self._log(prompt.view().text())
 
     return result
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    context = super().pre_act(action_spec)
+    return  f'{self._pre_act_label}: {context}'
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')

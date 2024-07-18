@@ -23,26 +23,12 @@ from concordia.clocks import game_clock
 from concordia.components.agent import v2 as agent_components
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import component
+
+DEFAULT_PLANNING_HORIZON = 'the rest of the day, focusing most on the near term'
 
 
-def get_instructions(agent_name: str) -> component.Component:
-  """Get role playing instructions for the agent."""
-  instructions = agent_components.constant.Constant(
-      state=(
-          f'The instructions for how to play the role of {agent_name} are as '
-          'follows. This is a social science experiment studying how well you '
-          f'play the role of a character named {agent_name}. The experiment '
-          'is structured as a tabletop roleplaying game (like dungeons and '
-          'dragons). However, in this case it is a serious social science '
-          'experiment and simulation. The goal is to be realistic. It is '
-          f'important to play the role of a person like {agent_name} as '
-          f'accurately as possible, i.e., by responding in ways that you think '
-          f'it is likely a person like {agent_name} would respond, and taking '
-          f'into account all information about {agent_name} that you have. '
-          'Always use third-person limited perspective.'
-      ))
-  return instructions
+def _get_class_name(object_: object) -> str:
+  return object_.__class__.__name__
 
 
 def build_agent(
@@ -73,71 +59,134 @@ def build_agent(
 
   raw_memory = legacy_associative_memory.AssociativeMemoryBank(memory)
 
-  instructions = get_instructions(agent_name=agent_name)
+  instructions = agent_components.instructions.Instructions(
+      agent_name=agent_name)
 
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
+      pre_act_label='Observation',
       verbose=True,
   )
+
   observation_summary = agent_components.observation.ObservationSummary(
       model=model,
       clock_now=clock.now,
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
+      pre_act_label='Summary of recent observations',
       verbose=True,
   )
   time_display = agent_components.report_function.ReportFunction(
       function=clock.current_time_interval_str,
+      pre_act_label='Current time',
   )
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
       verbose=True,
   )
+  self_perception_label = (
+      f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
   self_perception = agent_components.self_perception.SelfPerception(
       model=model,
-      components={'identity_characteristics': identity_characteristics},
+      components={_get_class_name(
+          identity_characteristics): 'Identity characteristics'},
+      pre_act_label=self_perception_label,
       verbose=True,
   )
+  situation_perception_label = (
+      f'\nQuestion: What kind of situation is {agent_name} in '
+      'right now?\nAnswer')
   situation_perception = (
       agent_components.situation_perception.SituationPerception(
           model=model,
-          components={'Observation': observation,
-                      'Summary of recent observations': observation_summary},
+          components={
+              _get_class_name(observation): 'Observation',
+              _get_class_name(observation_summary): (
+                  'Summary of recent observations'),
+          },
           clock_now=clock.now,
+          pre_act_label=situation_perception_label,
           verbose=True,
       )
   )
+  person_by_situation_label = (
+      f'\nQuestion: What would a person like {agent_name} do in '
+      'a situation like this?\nAnswer')
+  person_by_situation = agent_components.person_by_situation.PersonBySituation(
+      model=model,
+      components={
+          _get_class_name(self_perception): self_perception_label,
+          _get_class_name(situation_perception): situation_perception_label,
+      },
+      clock_now=clock.now,
+      pre_act_label=person_by_situation_label,
+  )
+  relevant_memories_label = 'Recalled memories and observations'
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
-      components={'Summary of recent observations': observation_summary,
-                  'The current date/time is': time_display},
+      components={
+          _get_class_name(
+              observation_summary): 'Summary of recent observations',
+          _get_class_name(time_display): 'The current date/time is'},
       num_memories_to_retrieve=10,
+      pre_act_label=relevant_memories_label,
   )
 
-  components_of_agent = {
-      'Role playing instructions': instructions,
-      'Observation': observation,
-      'Summary of recent observations': observation_summary,
-      f'\nQuestion: What kind of person is {agent_name}?\nAnswer':
-          self_perception,
-      (f'\nQuestion: What kind of situation is {agent_name} in '
-       'right now?\nAnswer'): situation_perception,
-      'Current time': time_display,
-      'Recalled memories and observations': relevant_memories,
-  }
-  component_order = list(components_of_agent.keys())
-  components_of_agent['Identity'] = identity_characteristics
-  components_of_agent['__memory__'] = (
-      agent_components.memory_component.MemoryComponent(raw_memory))
+  plan_components = {}
   if config.goal:
-    key = 'Overarching goal'
+    goal_label = 'Overarching goal'
     overarching_goal = agent_components.constant.Constant(
-        state=config.goal)
-    components_of_agent[key] = overarching_goal
-    component_order.insert(1, key)  # Place the goal after the instructions.
+        state=config.goal,
+        pre_act_label=goal_label)
+    plan_components[_get_class_name(overarching_goal)] = goal_label
+  else:
+    goal_label = None
+    overarching_goal = None
 
-  act_component = agent_components.legacy_act_component.ActComponent(
+  plan_components.update({
+      _get_class_name(relevant_memories): relevant_memories_label,
+      _get_class_name(self_perception): self_perception_label,
+      _get_class_name(situation_perception): situation_perception_label,
+      _get_class_name(person_by_situation): person_by_situation_label,
+  })
+  plan = agent_components.plan.Plan(
+      model=model,
+      observation_component_name=_get_class_name(observation),
+      components=plan_components,
+      clock_now=clock.now,
+      goal_component_name=_get_class_name(person_by_situation),
+      horizon=DEFAULT_PLANNING_HORIZON,
+      pre_act_label='Plan',
+  )
+
+  entity_components = (
+      # Components that provide pre_act context.
+      instructions,
+      observation,
+      observation_summary,
+      self_perception,
+      relevant_memories,
+      situation_perception,
+      person_by_situation,
+      time_display,
+      plan,
+
+      # Components that do not provide pre_act context.
+      identity_characteristics,
+  )
+  components_of_agent = {_get_class_name(component): component
+                         for component in entity_components}
+  components_of_agent[
+      agent_components.memory_component.DEFAULT_MEMORY_COMPONENT_NAME] = (
+          agent_components.memory_component.MemoryComponent(raw_memory))
+  component_order = list(components_of_agent.keys())
+  if overarching_goal is not None:
+    components_of_agent[goal_label] = overarching_goal
+    # Place goal after the instructions.
+    component_order.insert(1, goal_label)
+
+  act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       clock=clock,
       component_order=component_order,

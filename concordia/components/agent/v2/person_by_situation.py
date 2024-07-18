@@ -23,7 +23,11 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import entity as entity_lib
 import termcolor
+
+DEFAULT_PRE_ACT_LABEL = (
+    'What would a person like them do in a situation like this?')
 
 
 class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
@@ -39,6 +43,7 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       ),
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
       verbose: bool = False,
       log_color: str = 'green',
   ):
@@ -51,6 +56,8 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       components: The components to condition the answer on.
       clock_now: time callback to use.
       num_memories_to_retrieve: The number of recent memories to retrieve.
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
       verbose: Whether to print intermediate reasoning.
       log_color: color to print the debug log.
     """
@@ -59,12 +66,13 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
     self._components = dict(components)
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
+    self._pre_act_label = pre_act_label
 
     self._verbose = verbose
     self._log_color = log_color
     self._last_log = None
 
-  def make_pre_act_context(self) -> str:
+  def _make_pre_act_context(self) -> str:
     agent_name = self.get_entity().name
 
     memory = self.get_entity().get_component(
@@ -84,8 +92,9 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     component_states = '\n'.join([
-        f"{agent_name}'s {key}:\n{component.get_pre_act_context()}"
-        for key, component in self._components.items()
+        f"{agent_name}'s"
+        f' {prefix}:\n{self.get_named_component_pre_act_context(key)}'
+        for key, prefix in self._components.items()
     ])
     prompt.statement(component_states)
 
@@ -111,6 +120,10 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       print(termcolor.colored(prompt.view().text(), 'green'), end='')
 
     return result
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    context = super().pre_act(action_spec)
+    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     if self._last_log:

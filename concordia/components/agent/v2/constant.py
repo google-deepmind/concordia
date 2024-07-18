@@ -15,6 +15,9 @@
 """A simple acting component that aggregates contexts from components."""
 
 from concordia.components.agent.v2 import action_spec_ignored
+from concordia.typing import entity as entity_lib
+
+DEFAULT_PRE_ACT_LABEL = 'Constant'
 
 
 class Constant(action_spec_ignored.ActionSpecIgnored):
@@ -24,20 +27,28 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       state: str,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
   ):
     """Initializes the agent.
 
     Args:
       state: the state of the component.
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
         components.
     """
     self._state = state
+    self._pre_act_label = pre_act_label
 
-  def make_pre_act_context(self) -> str:
+  def _make_pre_act_context(self) -> str:
     return self._state
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    context = super().pre_act(action_spec)
+    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     return {'State': self._state}

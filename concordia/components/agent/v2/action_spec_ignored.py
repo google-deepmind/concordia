@@ -32,9 +32,10 @@ class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
   """
 
   _pre_act_context: str | None = None
+  _pre_act_label: str | None = None
 
   @abc.abstractmethod
-  def make_pre_act_context(self) -> str:
+  def _make_pre_act_context(self) -> str:
     """Creates the pre-act context."""
     raise NotImplementedError()
 
@@ -42,7 +43,8 @@ class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
     """Gets the pre-act context.
 
     Returns:
-      The pre-act context, as created by `make_pre_act_context`.
+      The pre-act context, as created by `make_pre_act_context`. Note that
+      `pre_act` returns a string of the form f'{label}: {context}'.
 
     Raises:
       ValueError: If the entity is not in the `PRE_ACT` or `POST_ACT` phase.
@@ -55,8 +57,13 @@ class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
           f"{self.get_entity().get_phase()} phase.")
 
     if self._pre_act_context is None:
-      self._pre_act_context = self.make_pre_act_context()
+      self._pre_act_context = self._make_pre_act_context()
     return self._pre_act_context
+
+  def get_pre_act_label(self) -> str | None:
+    """Returns the label used as a prefix in the string returned by `pre_act`.
+    """
+    return self._pre_act_label
 
   def pre_act(
       self,
@@ -67,3 +74,8 @@ class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
 
   def update(self) -> None:
     self._pre_act_context = None
+
+  def get_named_component_pre_act_context(self, component_name: str) -> str:
+    """Returns the pre-act context of a named component of the parent entity."""
+    return self.get_entity().get_component(
+        component_name, type_=ActionSpecIgnored).get_pre_act_context()
