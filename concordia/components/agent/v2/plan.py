@@ -24,10 +24,9 @@ from concordia.components.agent.v2 import observation
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import entity as entity_lib
 import termcolor
 
-DEFAULT_PRE_ACT_LABEL = 'Plan'
+DEFAULT_PRE_ACT_KEY = 'Plan'
 _ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
 
 
@@ -47,7 +46,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       goal_component_name: str | None = None,
       num_memories_to_retrieve: int = 10,
       horizon: str = 'the rest of the day',
-      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
+      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       verbose: bool = False,
       log_color='green',
   ):
@@ -66,11 +65,12 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: how many memories to retrieve as conditioning
         for the planning chain of thought
       horizon: string describing how long the plan should last
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       verbose: whether or not to print intermediate reasoning steps
       log_color: color for debug logging
     """
+    super().__init__(pre_act_key)
     self._model = model
     self._observation_component_name = observation_component_name
     self._memory_component_name = memory_component_name
@@ -79,7 +79,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     self._goal_component_name = goal_component_name
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._horizon = horizon
-    self._pre_act_label = pre_act_label
 
     self._current_plan = ''
 
@@ -87,12 +86,12 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     self._log_color = log_color
     self._last_log = None
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
     observation_component = self.get_entity().get_component(
         self._observation_component_name,
         type_=observation.Observation)
-    latest_observations = observation_component.get_pre_act_context()
+    latest_observations = observation_component.get_pre_act_value()
 
     memory = self.get_entity().get_component(
         self._memory_component_name,
@@ -108,7 +107,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
           self._goal_component_name,
           type_=action_spec_ignored.ActionSpecIgnored)
       memories = memories + [mem.text for mem in memory.retrieve(
-          query=goal_component.get_pre_act_context(),
+          query=goal_component.get_pre_act_value(),
           scoring_fn=_ASSOCIATIVE_RETRIEVAL,
           limit=self._num_memories_to_retrieve)]
     else:
@@ -118,7 +117,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
     component_states = '\n'.join([
         f"{agent_name}'s"
-        f' {prefix}:\n{self.get_named_component_pre_act_context(key)}'
+        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
         for key, prefix in self._components.items()
     ])
 
@@ -131,7 +130,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     prompt.statement(f'Relevant memories:\n{memories}')
     if goal_component is not None:
       prompt.statement(
-          f'Current goal: {goal_component.get_pre_act_context()}.')  # pylint: disable=undefined-variable
+          f'Current goal: {goal_component.get_pre_act_value()}.')  # pylint: disable=undefined-variable
     prompt.statement(f'Current plan: {self._current_plan}')
     prompt.statement(f'Current situation: {observation}')
 
@@ -173,10 +172,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     if self._last_log:

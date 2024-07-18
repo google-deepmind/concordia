@@ -16,7 +16,7 @@
 
 from concordia.components.agent.v2 import constant
 
-DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = 'Role playing instructions'
+DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = 'Role playing instructions'
 
 
 class Instructions(constant.Constant):
@@ -24,7 +24,7 @@ class Instructions(constant.Constant):
 
   def __init__(self,
                agent_name: str,
-               pre_act_label: str = DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL):
+               pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY):
     state = (
         f'The instructions for how to play the role of {agent_name} are as '
         'follows. This is a social science experiment studying how well you '
@@ -38,4 +38,4 @@ class Instructions(constant.Constant):
         f'into account all information about {agent_name} that you have. '
         'Always use third-person limited perspective.'
     )
-    super().__init__(state=state, pre_act_label=pre_act_label)
+    super().__init__(state=state, pre_act_key=pre_act_key)

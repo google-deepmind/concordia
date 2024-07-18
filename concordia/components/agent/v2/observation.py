@@ -23,11 +23,10 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import entity as entity_lib
 import termcolor
 
-DEFAULT_OBSERVATION_PRE_ACT_LABEL = 'Observation'
-DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_LABEL = 'Summary of recent observations'
+DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observation'
+DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY = 'Summary of recent observations'
 
 
 class Observation(action_spec_ignored.ActionSpecIgnored):
@@ -39,7 +38,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       timeframe: datetime.timedelta,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      pre_act_label: str = DEFAULT_OBSERVATION_PRE_ACT_LABEL,
+      pre_act_key: str = DEFAULT_OBSERVATION_PRE_ACT_KEY,
       verbose: bool = False,
       log_color: str = 'green',
   ):
@@ -52,15 +51,15 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         would display all observations made in the last hour.
       memory_component_name: Name of the memory component to add observations to
         in `pre_observe` and to retrieve observations from in `pre_act`.
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       verbose: Whether to print the observations.
       log_color: Color to print the log.
     """
+    super().__init__(pre_act_key)
     self._clock_now = clock_now
     self._timeframe = timeframe
     self._memory_component_name = memory_component_name
-    self._pre_act_label = pre_act_label
 
     self._verbose = verbose
     self._log_color = log_color
@@ -79,7 +78,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
     )
     return ''
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
     memory = self.get_entity().get_component(
         self._memory_component_name,
@@ -101,10 +100,6 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       self._log(result)
 
     return result
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')
@@ -130,7 +125,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       ),
       prompt: str | None = None,
       display_timeframe: bool = True,
-      pre_act_label: str = DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_LABEL,
+      pre_act_key: str = DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY,
       verbose: bool = False,
       log_color='green',
   ):
@@ -149,11 +144,12 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       components: Components to summarise along with the observations.
       prompt: Language prompt for summarising memories and components.
       display_timeframe: Whether to display the time interval as text.
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       verbose: Whether to print the observations.
       log_color: Color to print the log.
     """
+    super().__init__(pre_act_key)
     self._model = model
     self._clock_now = clock_now
     self._timeframe_delta_from = timeframe_delta_from
@@ -165,17 +161,16 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
         'Summarize the observations above into one or two sentences.'
     )
     self._display_timeframe = display_timeframe
-    self._pre_act_label = pre_act_label
 
     self._verbose = verbose
     self._log_color = log_color
 
     self._last_log = None
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
     context = '\n'.join([
-        f"{agent_name}'s {key}:\n{component.get_pre_act_context()}"
+        f"{agent_name}'s {key}:\n{component.get_pre_act_value()}"
         for key, component in self._components.items()
     ])
 
@@ -231,10 +226,6 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     }
 
     return result
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     if self._last_log:

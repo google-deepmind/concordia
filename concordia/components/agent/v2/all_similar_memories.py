@@ -23,7 +23,6 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import entity as entity_lib
 import termcolor
 
 
@@ -42,7 +41,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
           types.MappingProxyType({})
       ),
       num_memories_to_retrieve: int = 25,
-      pre_act_label: str = 'Relevant memories',
+      pre_act_key: str = 'Relevant memories',
       verbose: bool = False,
   ):
     """Initialize a component to report relevant memories (similar to a prompt).
@@ -53,26 +52,26 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
         retrieve related memories.
       components: The components to condition the answer on.
       num_memories_to_retrieve: The number of memories to retrieve.
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       verbose: Whether to print the state of the component.
     """
+    super().__init__(pre_act_key)
     self._verbose = verbose
     self._model = model
     self._memory_component_name = memory_component_name
     self._state = ''
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
-    self._pre_act_label = pre_act_label
     self._last_log = None
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
     prompt = interactive_document.InteractiveDocument(self._model)
 
     component_states = '\n'.join([
         f"{agent_name}'s"
-        f' {prefix}:\n{self.get_named_component_pre_act_context(key)}'
+        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
         for key, prefix in self._components.items()
     ])
     prompt.statement(f'Statements:\n{component_states}\n')
@@ -123,10 +122,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     }
 
     return result
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     if self._last_log:

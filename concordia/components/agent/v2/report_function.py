@@ -23,9 +23,8 @@ current_time_component = ReportFunction(
 
 from typing import Callable
 from concordia.components.agent.v2 import action_spec_ignored
-from concordia.typing import entity as entity_lib
 
-DEFAULT_PRE_ACT_LABEL = 'Report'
+DEFAULT_PRE_ACT_KEY = 'Report'
 
 
 class ReportFunction(action_spec_ignored.ActionSpecIgnored):
@@ -34,31 +33,27 @@ class ReportFunction(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       function: Callable[[], str],
-      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
+      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
   ):
     """Initializes the component.
 
     Args:
       function: the function that returns a string to report as state of the
         component.
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
     """
+    super().__init__(pre_act_key)
     self._function = function
-    self._pre_act_label = pre_act_label
     self._last_log = None
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     """Returns state of this component obtained by calling a function."""
     state = self._function()
     self._last_log = {
         'State': state,
     }
     return state
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def get_last_log(self):
     if self._last_log:

@@ -65,7 +65,7 @@ def build_agent(
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
-      pre_act_label='Observation',
+      pre_act_key='Observation',
       verbose=True,
   )
 
@@ -74,12 +74,12 @@ def build_agent(
       clock_now=clock.now,
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
-      pre_act_label='Summary of recent observations',
+      pre_act_key='Summary of recent observations',
       verbose=True,
   )
   time_display = agent_components.report_function.ReportFunction(
       function=clock.current_time_interval_str,
-      pre_act_label='Current time',
+      pre_act_key='Current time',
   )
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
@@ -91,7 +91,7 @@ def build_agent(
       model=model,
       components={_get_class_name(
           identity_characteristics): 'Identity characteristics'},
-      pre_act_label=self_perception_label,
+      pre_act_key=self_perception_label,
       verbose=True,
   )
   situation_perception_label = (
@@ -106,7 +106,7 @@ def build_agent(
                   'Summary of recent observations'),
           },
           clock_now=clock.now,
-          pre_act_label=situation_perception_label,
+          pre_act_key=situation_perception_label,
           verbose=True,
       )
   )
@@ -120,7 +120,7 @@ def build_agent(
           _get_class_name(situation_perception): situation_perception_label,
       },
       clock_now=clock.now,
-      pre_act_label=person_by_situation_label,
+      pre_act_key=person_by_situation_label,
   )
   relevant_memories_label = 'Recalled memories and observations'
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
@@ -130,7 +130,7 @@ def build_agent(
               observation_summary): 'Summary of recent observations',
           _get_class_name(time_display): 'The current date/time is'},
       num_memories_to_retrieve=10,
-      pre_act_label=relevant_memories_label,
+      pre_act_key=relevant_memories_label,
   )
 
   plan_components = {}
@@ -138,7 +138,7 @@ def build_agent(
     goal_label = 'Overarching goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
-        pre_act_label=goal_label)
+        pre_act_key=goal_label)
     plan_components[_get_class_name(overarching_goal)] = goal_label
   else:
     goal_label = None
@@ -157,7 +157,7 @@ def build_agent(
       clock_now=clock.now,
       goal_component_name=_get_class_name(person_by_situation),
       horizon=DEFAULT_PLANNING_HORIZON,
-      pre_act_label='Plan',
+      pre_act_key='Plan',
   )
 
   entity_components = (

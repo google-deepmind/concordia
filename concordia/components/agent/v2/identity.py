@@ -27,7 +27,7 @@ from concordia.utils import concurrency
 import termcolor
 
 
-DEFAULT_PRE_ACT_LABEL = 'Identity characteristics'
+DEFAULT_PRE_ACT_KEY = 'Identity characteristics'
 _ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
 
 
@@ -53,7 +53,7 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
           'feeling about recent progress in life',
       ),
       num_memories_to_retrieve: int = 25,
-      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
+      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       verbose: bool = False,
       log_color: str = 'green',
   ):
@@ -65,18 +65,18 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
         retrieve related memories.
       queries: strings to use as queries to the associative memory
       num_memories_to_retrieve: how many related memories to retrieve per query
-      pre_act_label: Prefix to add to the output of the component when called
+      pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       verbose: whether or not to print the result for debugging
       log_color: color to print the debug log
     """
+    super().__init__(pre_act_key)
     self._model = model
     self._memory_component_name = memory_component_name
     self._last_log = None
 
     self._queries = queries
     self._num_memories_to_retrieve = num_memories_to_retrieve
-    self._pre_act_label = pre_act_label
 
     self._verbose = verbose
     self._log_color = log_color
@@ -105,7 +105,7 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
     )
     return result
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     results = concurrency.map_parallel(self._query_memory, self._queries)
     output = '\n'.join(
         [f'{query}: {result}' for query, result in zip(self._queries, results)]
@@ -118,10 +118,6 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
       self._log(output)
 
     return output
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    context = super().pre_act(action_spec)
-    return  f'{self._pre_act_label}: {context}'
 
   def _log(self, entry: str):
     print(termcolor.colored(entry, self._log_color), end='')
@@ -140,11 +136,11 @@ class IdentityWithoutPreAct(action_spec_ignored.ActionSpecIgnored):
   def set_entity(self, entity: component_v2.EntityWithComponents) -> None:
     self._component.set_entity(entity)
 
-  def _make_pre_act_context(self) -> str:
+  def _make_pre_act_value(self) -> str:
     return ''
 
-  def get_pre_act_context(self) -> str:
-    return self._component.get_pre_act_context()
+  def get_pre_act_value(self) -> str:
+    return self._component.get_pre_act_value()
 
   def pre_act(
       self,
