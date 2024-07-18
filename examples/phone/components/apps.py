@@ -26,6 +26,7 @@ import typing
 from typing import Any
 
 import docstring_parser  # pytype: disable=import-error  # Fails on GitHub.
+import termcolor
 
 _DATE_FORMAT = '%Y-%m-%d %H:%M'
 
@@ -143,6 +144,8 @@ class PhoneApp(metaclass=abc.ABCMeta):
   simulation with @app_action.
   """
 
+  _log_color = 'blue'
+
   @abc.abstractmethod
   def name(self) -> str:
     """Returns the name of the app."""
@@ -152,6 +155,9 @@ class PhoneApp(metaclass=abc.ABCMeta):
   def description(self) -> str:
     """Returns a description of the app."""
     raise NotImplementedError
+
+  def _print(self, entry, color=None):
+    print(termcolor.colored(entry, color or self._log_color))
 
   def actions(self) -> Sequence[ActionDescriptor]:
     """Returns this app's callable actions."""
@@ -183,15 +189,32 @@ class PhoneApp(metaclass=abc.ABCMeta):
 
     Raises:
       ActionArgumentError: If any of the arguments expected by the action are
-      missing.
+      missing or if unexpected arguments are provided.
     """
     args = _parse_argument_text(args_text)
-    for p in action.parameters:
-      if p.name not in args:
-        raise ActionArgumentError(f'Parameter {p.name} not provided.')
-      args[p.name] = p.value_from_text(args[p.name])
+    expected_params = {p.name: p for p in action.parameters}
 
-    return getattr(self, action.name)(**args)
+    # Check for missing arguments
+    missing_args = set(expected_params) - set(args)
+    if missing_args:
+      raise ActionArgumentError(
+          f"Missing argument(s): {', '.join(missing_args)}"
+      )
+
+    # Check for unexpected arguments
+    unexpected_args = set(args) - set(expected_params)
+    if unexpected_args:
+      raise ActionArgumentError(
+          f"Unexpected argument(s): {', '.join(unexpected_args)}"
+      )
+
+    # Process values
+    processed_args = {
+        name: expected_params[name].value_from_text(args[name])
+        for name in expected_params
+    }
+
+    return getattr(self, action.name)(**processed_args)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -203,9 +226,9 @@ class Phone:
 
   def description(self):
     return textwrap.dedent(f"""\
-    {self.player_name} has a smartphone. 
+    {self.player_name} has a smartphone.
     {self.player_name} uses their phone frequently to achieve their daily goals.
-    {self.player_name}'s phone has the following apps available:
+    {self.player_name}'s phone has only the following apps available:
     {', '.join(self.app_names())}."
     """)
 
@@ -244,7 +267,7 @@ class ToyCalendar(PhoneApp):
   def add_meeting(self, time: str, participant: str, title: str):
     """Add a meeting to the calendar.
 
-    This action schedule a meeting with the participant
+    This action schedules a meeting with the participant
     and sends them a notification about the meeting.
 
     Args:
@@ -259,6 +282,37 @@ class ToyCalendar(PhoneApp):
     """
     meeting = _Meeting(time=time, participant=participant, title=title)
     self._meetings.append(meeting)
-    return (
-        f'A meeting with {meeting.participant} was scheduled at {meeting.time}.'
+    output = (
+        f"🗓️ A meeting with '{meeting.participant}' was scheduled at"
+        f" '{meeting.time}' with title '{meeting.title}'."
     )
+    self._print(output)
+    return output
+
+  @app_action
+  def check_calendar(self, num_recent_meetings: int):
+    """Check the calendar for scheduled meetings.
+
+    This action checks the calendar to view and confirm meetings.
+
+    Args:
+        num_recent_meetings (int): The number of most recent meetings to check.
+                                  Use a large number (e.g., 1000) to see all
+                                  meetings.
+
+    Returns:
+        str: A description of the scheduled meetings.
+    """
+    if not self._meetings:
+      output = 'No meetings scheduled.'
+    else:
+      meetings_to_check = self._meetings[-num_recent_meetings:]
+      output = f'Scheduled meetings (showing last {num_recent_meetings}):\n'
+      for meeting in meetings_to_check:
+        output += (
+            f"- Title: '{meeting.title}', Time: '{meeting.time}',"
+            f" Participant: '{meeting.participant}'\n"
+        )
+
+    self._print(output)
+    return output

@@ -74,7 +74,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         self._memory_component_name,
         type_=memory_component.MemoryComponent)
     memory.add(
-        f'[observation] {observation}',
+        f'[observation] {observation.strip()}',
         metadata={'tags': ['observation']},
     )
     return ''

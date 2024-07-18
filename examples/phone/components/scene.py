@@ -15,6 +15,7 @@
 """A GameMaster that simulates a player's interaction with their phone."""
 
 import textwrap
+
 from concordia.agents import basic_agent
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
@@ -26,19 +27,19 @@ from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
 from concordia.typing import agent
 from concordia.typing import component
+import concordia.typing.entity as entity_lib
 
 
 _PHONE_CALL_TO_ACTION = textwrap.dedent("""\
-  What actions would {agent_name} perform with their phone 
-  now to best achieve their goal? 
-  Consider their plan, but deviate from it if necessary.
-  Give a specific activity that can be performed using a
-  single app on the phone. For example, {agent_name} uses 
-  the Chat app to send a message to George saying 'hi, what's up?".
+  What action is {name} currently performing or has just performed
+  with their smartphone to best achieve their goal?
+  Consider their plan, but deviate if necessary.
+  Give a specific activity using one app. For example:
+  {name} uses/used the Chat app to send "hi, what's up?" to George.
   """)
 
 _PHONE_ACTION_SPEC = agent.ActionSpec(
-    _PHONE_CALL_TO_ACTION, 'FREE', tag='phone'
+    _PHONE_CALL_TO_ACTION, entity_lib.OutputType.FREE, tag='phone'
 )
 
 
@@ -101,7 +102,8 @@ class _PhoneComponent(component.Component):
     chain_of_thought.statement(f'Interaction with phone:\n{self._state}')
 
     did_conclude = chain_of_thought.yes_no_question(
-        'Is the user finished using their phone?'
+        'Has the user achieved their goal with their phone or are they still'
+        ' actively in the process of completing a phone task?'
     )
     return did_conclude
 
@@ -114,7 +116,6 @@ class _PhoneComponent(component.Component):
         'In the above transcript, what app did the user use?',
         answers=self._phone.app_names(),
     )
-
     app = self._phone.apps[app_index]
     action_names = [a.name for a in app.actions()]
     chain_of_thought.statement(app.description())

@@ -234,10 +234,10 @@ def result_to_who_what_where(
   chain_of_thought.statement(event)
   causal_statement = chain_of_thought.open_question(
       'Rewrite the statements above to be one sentence and to better highlight'
-      ' who the event is about, where and what they did, and what happened as a'
-      ' result. Do not express uncertainty (e.g. say '
-      '"Francis opened the door" not "Francis could open the door" '
-      'and not "The door may have been opened").\n',
+      ' the main person the event is about, where and what they did, and what'
+      ' happened as a result. Do not express uncertainty (e.g. say "Francis'
+      ' opened the door" not "Francis could open the door" and not "The door'
+      ' may have been opened").\n',
       max_tokens=1500,
   )
   return causal_statement
