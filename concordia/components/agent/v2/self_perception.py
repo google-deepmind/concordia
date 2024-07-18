@@ -22,7 +22,7 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-import termcolor
+from concordia.typing import logging
 
 DEFAULT_PRE_ACT_KEY = 'Who they are'
 
@@ -40,8 +40,7 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
       ),
       num_memories_to_retrieve: int = 100,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color: str = 'green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the SelfPerception component.
 
@@ -53,8 +52,7 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: Number of memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: Whether to print the state or not for debugging.
-      log_color: color to print the debug log.
+      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._model = model
@@ -62,9 +60,7 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
-    self._verbose = verbose
-    self._log_color = log_color
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -100,19 +96,10 @@ class SelfPerception(action_spec_ignored.ActionSpecIgnored):
 
     memory.add(f'[self reflection] {result}', metadata={})
 
-    self._last_log = {
-        'Summary': question,
-        'State': result,
+    self._logging_channel({
+        'Key': self.get_pre_act_key(),
+        'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
-    }
-    if self._verbose:
-      self._log(prompt.view().text())
+    })
 
     return result
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()

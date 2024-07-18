@@ -23,7 +23,7 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-import termcolor
+from concordia.typing import logging
 
 
 _ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
@@ -42,7 +42,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       ),
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = 'Relevant memories',
-      verbose: bool = False,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to report relevant memories (similar to a prompt).
 
@@ -54,16 +54,15 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: The number of memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: Whether to print the state of the component.
+      logging_channel: The channel to log debug information to.
     """
     super().__init__(pre_act_key)
-    self._verbose = verbose
     self._model = model
     self._memory_component_name = memory_component_name
     self._state = ''
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -108,21 +107,12 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
         terminators=(),
     )
 
-    if self._verbose:
-      print(termcolor.colored(prompt.view().text(), 'green'), end='')
-      print(termcolor.colored(f'Query: {query}\n', 'green'), end='')
-      print(termcolor.colored(new_prompt.view().text(), 'green'), end='')
-      print(termcolor.colored(result, 'green'), end='')
-
-    self._last_log = {
-        'State': result,
+    self._logging_channel({
+        'Key': self.get_pre_act_key(),
+        'Value': result,
         'Initial chain of thought': prompt.view().text().splitlines(),
         'Query': f'{query}',
         'Final chain of thought': new_prompt.view().text().splitlines(),
-    }
+    })
 
     return result
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()

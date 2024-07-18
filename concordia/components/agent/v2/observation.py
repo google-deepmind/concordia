@@ -22,8 +22,9 @@ from concordia.components.agent.v2 import action_spec_ignored
 from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+
 from concordia.memory_bank import legacy_associative_memory
-import termcolor
+from concordia.typing import logging
 
 DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observation'
 DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY = 'Summary of recent observations'
@@ -39,8 +40,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
       pre_act_key: str = DEFAULT_OBSERVATION_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color: str = 'green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
@@ -53,17 +53,14 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         in `pre_observe` and to retrieve observations from in `pre_act`.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: Whether to print the observations.
-      log_color: Color to print the log.
+      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._clock_now = clock_now
     self._timeframe = timeframe
     self._memory_component_name = memory_component_name
 
-    self._verbose = verbose
-    self._log_color = log_color
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def pre_observe(
       self,
@@ -73,7 +70,7 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         self._memory_component_name,
         type_=memory_component.MemoryComponent)
     memory.add(
-        f'[observation] {observation.strip()}',
+        f'[observation] {observation}',
         metadata={'tags': ['observation']},
     )
     return ''
@@ -88,25 +85,15 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         time_until=self._clock_now(),
         add_time=True,
     )
+    # removes memories that are not observations
     mems = memory.retrieve(scoring_fn=interval_scorer)
     # Remove memories that are not observations.
     mems = [mem.text for mem in mems if '[observation]' in mem.text]
     result = '\n'.join(mems) + '\n'
-    self._last_log = {
-        'Summary': 'observation',
-        'state': result,
-    }
-    if self._verbose:
-      self._log(result)
+    self._logging_channel(
+        {'Key': self.get_pre_act_key(), 'Value': result.splitlines()})
 
     return result
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()
 
 
 class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
@@ -126,8 +113,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       prompt: str | None = None,
       display_timeframe: bool = True,
       pre_act_key: str = DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color='green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -146,8 +132,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       display_timeframe: Whether to display the time interval as text.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: Whether to print the observations.
-      log_color: Color to print the log.
+      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._model = model
@@ -162,10 +147,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     )
     self._display_timeframe = display_timeframe
 
-    self._verbose = verbose
-    self._log_color = log_color
-
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -216,20 +198,11 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
         ) + segment_end.strftime('- %d %b %Y  %H:%M:%S]: ')
       result = f'{interval} {result}'
 
-    if self._verbose:
-      self._log(result)
-
-    self._last_log = {
-        'Summary': 'observation summary',
-        'State': result,
+    self._logging_channel({
+        'Key': self.get_pre_act_key(),
+        'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
-    }
+    })
 
     return result
 
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')

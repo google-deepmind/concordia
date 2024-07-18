@@ -16,13 +16,14 @@
 
 import datetime
 
-from concordia.agents import entity_agent
+from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent import v2 as agent_components
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.utils import measurements as measurements_lib
 
 DEFAULT_PLANNING_HORIZON = 'the rest of the day, focusing most on the near term'
 
@@ -37,7 +38,7 @@ def build_agent(
     memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
     update_time_interval: datetime.timedelta,
-) -> entity_agent.EntityAgent:
+) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
   Args:
@@ -59,14 +60,17 @@ def build_agent(
 
   raw_memory = legacy_associative_memory.AssociativeMemoryBank(memory)
 
+  measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
-      agent_name=agent_name)
+      agent_name=agent_name,
+      logging_channel=measurements.get_channel('Instructions').on_next,
+  )
 
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
       pre_act_key='Observation',
-      verbose=True,
+      logging_channel=measurements.get_channel('Observation').on_next,
   )
 
   observation_summary = agent_components.observation.ObservationSummary(
@@ -75,15 +79,16 @@ def build_agent(
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
       pre_act_key='Summary of recent observations',
-      verbose=True,
+      logging_channel=measurements.get_channel('ObservationSummary').on_next,
   )
   time_display = agent_components.report_function.ReportFunction(
       function=clock.current_time_interval_str,
       pre_act_key='Current time',
+      logging_channel=measurements.get_channel('TimeDisplay').on_next,
   )
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
-      verbose=True,
+      logging_channel=measurements.get_channel('Identity').on_next,
   )
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
@@ -92,7 +97,7 @@ def build_agent(
       components={_get_class_name(
           identity_characteristics): 'Identity characteristics'},
       pre_act_key=self_perception_label,
-      verbose=True,
+      logging_channel=measurements.get_channel('SelfPerception').on_next,
   )
   situation_perception_label = (
       f'\nQuestion: What kind of situation is {agent_name} in '
@@ -107,7 +112,8 @@ def build_agent(
           },
           clock_now=clock.now,
           pre_act_key=situation_perception_label,
-          verbose=True,
+          logging_channel=measurements.get_channel(
+              'SituationPerception').on_next,
       )
   )
   person_by_situation_label = (
@@ -131,6 +137,7 @@ def build_agent(
           _get_class_name(time_display): 'The current date/time is'},
       num_memories_to_retrieve=10,
       pre_act_key=relevant_memories_label,
+      logging_channel=measurements.get_channel('AllSimilarMemories').on_next,
   )
 
   plan_components = {}
@@ -190,12 +197,14 @@ def build_agent(
       model=model,
       clock=clock,
       component_order=component_order,
+      logging_channel=measurements.get_channel('ActComponent').on_next,
   )
 
-  agent = entity_agent.EntityAgent(
+  agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=agent_name,
       act_component=act_component,
       context_components=components_of_agent,
+      component_logging=measurements,
   )
 
   return agent

@@ -15,6 +15,7 @@
 """A simple acting component that aggregates contexts from components."""
 
 from concordia.components.agent.v2 import action_spec_ignored
+from concordia.typing import logging
 
 DEFAULT_PRE_ACT_KEY = 'Constant'
 
@@ -27,6 +28,7 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
       self,
       state: str,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
 
@@ -34,6 +36,7 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
       state: the state of the component.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
+      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -44,6 +47,3 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
 
   def _make_pre_act_value(self) -> str:
     return self._state
-
-  def get_last_log(self):
-    return {'State': self._state}

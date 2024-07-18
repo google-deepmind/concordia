@@ -156,10 +156,3 @@ class EntityAgent(component_v2.EntityWithComponents):
 
     self._phase = component_v2.Phase.UPDATE
     self._parallel_call_('update')
-
-  def get_last_log(self):
-    logs = self._parallel_call_('get_last_log')
-    return {
-        '__act__': self._act_component.get_last_log(),
-        **logs,
-    }

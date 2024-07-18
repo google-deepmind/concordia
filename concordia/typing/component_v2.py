@@ -17,7 +17,7 @@
 import abc
 from collections.abc import Mapping
 import enum
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from concordia.typing import entity as entity_lib
 
@@ -82,10 +82,6 @@ class BaseComponent:
     if self._entity is None:
       raise RuntimeError("Entity is not set.")
     return self._entity
-
-  def get_last_log(self) -> Mapping[str, Any]:
-    """Returns a dictionary with latest log of activity."""
-    return {}
 
 
 class EntityWithComponents(entity_lib.Entity):

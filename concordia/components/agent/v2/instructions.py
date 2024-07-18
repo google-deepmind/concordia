@@ -15,6 +15,7 @@
 """Component that provides the default role playing instructions to an agent."""
 
 from concordia.components.agent.v2 import constant
+from concordia.typing import logging
 
 DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = 'Role playing instructions'
 
@@ -22,9 +23,12 @@ DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = 'Role playing instructions'
 class Instructions(constant.Constant):
   """A component that provides the role playing instructions for the agent."""
 
-  def __init__(self,
-               agent_name: str,
-               pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY):
+  def __init__(
+      self,
+      agent_name: str,
+      pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
     state = (
         f'The instructions for how to play the role of {agent_name} are as '
         'follows. This is a social science experiment studying how well you '
@@ -38,4 +42,5 @@ class Instructions(constant.Constant):
         f'into account all information about {agent_name} that you have. '
         'Always use third-person limited perspective.'
     )
-    super().__init__(state=state, pre_act_key=pre_act_key)
+    super().__init__(
+        state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)

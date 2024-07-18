@@ -22,7 +22,7 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-import termcolor
+from concordia.typing import logging
 
 DEFAULT_PRE_ACT_KEY = 'What situation they are in'
 
@@ -41,8 +41,7 @@ class SituationPerception(action_spec_ignored.ActionSpecIgnored):
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color: str = 'green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -55,8 +54,7 @@ class SituationPerception(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: The number of recent memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: Whether to print intermediate reasoning.
-      log_color: color to print the debug log.
+      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._model = model
@@ -65,9 +63,7 @@ class SituationPerception(action_spec_ignored.ActionSpecIgnored):
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
-    self._verbose = verbose
-    self._log_color = log_color
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -105,19 +101,11 @@ class SituationPerception(action_spec_ignored.ActionSpecIgnored):
     )
     result = f'{agent_name} is currently {result}'
 
-    self._last_log = {
+    self._logging_channel({
+        'Key': self.get_pre_act_key(),
         'Summary': question,
-        'State': result,
+        'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
-    }
-    if self._verbose:
-      print(termcolor.colored(prompt.view().text(), 'green'), end='')
+    })
 
     return result
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()

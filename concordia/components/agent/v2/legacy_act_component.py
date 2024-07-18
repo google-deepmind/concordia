@@ -22,8 +22,11 @@ from concordia.language_model import language_model
 from concordia.typing import clock as game_clock
 from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import logging
 from concordia.utils import helper_functions
 from typing_extensions import override
+
+DEFAULT_PRE_ACT_KEY = 'Act'
 
 
 class ActComponent(component_v2.ActingComponent):
@@ -42,6 +45,8 @@ class ActComponent(component_v2.ActingComponent):
       model: language_model.LanguageModel,
       clock: game_clock.GameClock,
       component_order: Sequence[str] | None = None,
+      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
 
@@ -58,6 +63,8 @@ class ActComponent(component_v2.ActingComponent):
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
+      pre_act_key: Prefix to add to the context of the component.
+      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -76,7 +83,8 @@ class ActComponent(component_v2.ActingComponent):
             + ', '.join(self._component_order)
         )
 
-    self._last_log = None
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
 
   def _context_for_action(
       self,
@@ -117,14 +125,14 @@ class ActComponent(component_v2.ActingComponent):
           max_tokens=2200,
           answer_prefix=output,
       )
-      self._make_update_log(output, prompt)
+      self._log(output, prompt)
       return output
     elif action_spec.output_type == entity_lib.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
       output = action_spec.options[idx]
-      self._make_update_log(output, prompt)
+      self._log(output, prompt)
       return output
     elif action_spec.output_type == entity_lib.OutputType.FLOAT:
       prefix = self.get_entity().name + ' '
@@ -133,7 +141,7 @@ class ActComponent(component_v2.ActingComponent):
           max_tokens=2200,
           answer_prefix=prefix,
       )
-      self._make_update_log(sampled_text, prompt)
+      self._log(sampled_text, prompt)
       try:
         return str(float(sampled_text))
       except ValueError:
@@ -144,12 +152,11 @@ class ActComponent(component_v2.ActingComponent):
           'Supported output types are: FREE, CHOICE, and FLOAT.'
       )
 
-  def _make_update_log(self,
-                       result: str,
-                       prompt: interactive_document.InteractiveDocument):
-    self._last_log = {'Output': result,
-                      'Prompt': prompt.view().text().splitlines()}
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()
+  def _log(self,
+           result: str,
+           prompt: interactive_document.InteractiveDocument):
+    self._logging_channel({
+        'Key': self._pre_act_key,
+        'Value': result,
+        'Prompt': prompt.view().text().splitlines(),
+    })

@@ -23,8 +23,8 @@ from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import logging
 from concordia.utils import concurrency
-import termcolor
 
 
 DEFAULT_PRE_ACT_KEY = 'Identity characteristics'
@@ -54,8 +54,7 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
       ),
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color: str = 'green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize an identity component.
 
@@ -67,19 +66,16 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: how many related memories to retrieve per query
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: whether or not to print the result for debugging
-      log_color: color to print the debug log
+      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._model = model
     self._memory_component_name = memory_component_name
-    self._last_log = None
 
     self._queries = queries
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
-    self._verbose = verbose
-    self._log_color = log_color
+    self._logging_channel = logging_channel
 
   def _query_memory(self, query: str) -> str:
     agent_name = self.get_entity().name
@@ -111,20 +107,9 @@ class Identity(action_spec_ignored.ActionSpecIgnored):
         [f'{query}: {result}' for query, result in zip(self._queries, results)]
     )
 
-    self._last_log = {
-        'State': output,
-    }
-    if self._verbose:
-      self._log(output)
+    self._logging_channel({'Key': self.get_pre_act_key(), 'Value': output})
 
     return output
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()
 
 
 class IdentityWithoutPreAct(action_spec_ignored.ActionSpecIgnored):
@@ -151,6 +136,3 @@ class IdentityWithoutPreAct(action_spec_ignored.ActionSpecIgnored):
 
   def update(self) -> None:
     self._component.update()
-
-  def get_last_log(self):
-    return self._component.get_last_log()
