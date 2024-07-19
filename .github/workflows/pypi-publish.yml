@@ -30,10 +30,8 @@ jobs:
     steps:
       - name: Checkout Concordia
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
-      - name: Update Python setup
+      - name: Show Python setup
         run: |
-          pip install --upgrade pip
-          pip install --upgrade setuptools
           python --version
           pip list
       - name: Build distribution
@@ -64,7 +62,8 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest-xdist setuptools
+          pip install --upgrade setuptools
+          pip install pytest-xdist
       - name: Install source distribution
         run: |
           pip install dist/*.tar.gz
