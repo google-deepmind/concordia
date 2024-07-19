@@ -23,6 +23,7 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
+from concordia.document import interactive_document
 from concordia.environment import game_master
 from concordia.environment.scenes import runner
 from concordia.language_model import language_model
@@ -47,7 +48,14 @@ def build_game_master(
     memory: associative_memory.AssociativeMemory | None = None,
     supporting_players_at_fixed_locations: Sequence[str] | None = None,
     additional_components: Sequence[component.Component] | None = tuple([]),
+    thought_chain: (
+        Sequence[
+            Callable[[interactive_document.InteractiveDocument, str, str], str]
+        ]
+        | None
+    ) = None,
     npc_context: str = '',
+    max_conversation_length: int = 10,
     verbose: bool = False,
 ) -> tuple[game_master.GameMaster, associative_memory.AssociativeMemory]:
   """Build a game master (i.e., an environment).
@@ -70,7 +78,9 @@ def build_game_master(
       characters who never move are located.
     additional_components: Add more components specific to the current
       environment.
+    thought_chain: The thought chain to use for the game master.
     npc_context: extra context provided only to non-player characters
+    max_conversation_length: The maximum number of turns in a conversation.
     verbose: whether or not to print verbose debug information
 
   Returns:
@@ -82,24 +92,26 @@ def build_game_master(
     game_master_memory = associative_memory.AssociativeMemory(
         sentence_embedder=embedder,
         importance=importance_model.importance,
-        clock=clock.now)
+        clock=clock.now,
+    )
 
   player_names = [player.name for player in players]
 
   scenario_knowledge = generic_components.constant.ConstantComponent(
-      state='\n'.join(shared_memories),
-      name='Background:\n')
+      state='\n'.join(shared_memories), name='Background:\n'
+  )
 
   if supporting_players_at_fixed_locations is not None:
     supporting_character_locations_if_any = (
         generic_components.constant.ConstantComponent(
             state='\n'.join(supporting_players_at_fixed_locations),
-            name='Notes:\n'))
+            name='Notes:\n',
+        )
+    )
   else:
     supporting_character_locations_if_any = (
-        generic_components.constant.ConstantComponent(
-            state='',
-            name='Notes:\n'))
+        generic_components.constant.ConstantComponent(state='', name='Notes:\n')
+    )
 
   player_status = gm_components.player_status.PlayerStatus(
       clock_now=clock.now,
@@ -117,6 +129,7 @@ def build_game_master(
       components=[player_status],
       cap_nonplayer_characters=cap_nonplayer_characters_in_conversation,
       shared_context=f'{shared_context}\n{npc_context}',
+      max_conversation_length=max_conversation_length,
   )
 
   direct_effect_externality = gm_components.direct_effect.DirectEffect(
@@ -128,13 +141,15 @@ def build_game_master(
   )
 
   relevant_events = gm_components.relevant_events.RelevantEvents(
-      clock.now, model, game_master_memory)
+      clock.now, model, game_master_memory
+  )
   time_display = gm_components.time_display.TimeDisplay(clock)
 
   # Create the game master's thought chain
   account_for_agency_of_others = thought_chains_lib.AccountForAgencyOfOthers(
-      model=model, players=players, verbose=False)
-  thought_chain = [
+      model=model, players=players, verbose=False
+  )
+  thought_chain = thought_chain or [
       thought_chains_lib.extract_direct_quote,
       thought_chains_lib.attempt_to_most_likely_outcome,
       thought_chains_lib.result_to_effect_caused_by_active_player,
@@ -205,17 +220,19 @@ def create_html_log(
     model: The language model to use.
     primary_environment: The main game master.
     secondary_environments: Sequence of secondary game masters.
+
   Returns:
     An HTML string log of the simulation.
   """
-  primary_gm_memories = (
-      primary_environment.get_memory().retrieve_recent(k=10000, add_time=True))
+  primary_gm_memories = primary_environment.get_memory().retrieve_recent(
+      k=10000, add_time=True
+  )
 
   detailed_story = '\n'.join(primary_gm_memories)
   episode_summary = model.sample_text(
-      f'Sequence of events:\n{detailed_story}'+
-      '\nNarratively summarize the above temporally ordered ' +
-      'sequence of events. Write it as a news report. Summary:\n',
+      f'Sequence of events:\n{detailed_story}'
+      + '\nNarratively summarize the above temporally ordered '
+      + 'sequence of events. Write it as a news report. Summary:\n',
       max_tokens=3500,
       terminators=(),
   )
@@ -223,11 +240,13 @@ def create_html_log(
   history_sources = [primary_environment] + list(secondary_environments)
   histories_html = [
       html_lib.PythonObjectToHTMLConverter(history.get_history()).convert()
-      for history in history_sources]
+      for history in history_sources
+  ]
   histories_names = [history.name for history in history_sources]
 
   gm_mem_html = html_lib.PythonObjectToHTMLConverter(
-      primary_gm_memories).convert()
+      primary_gm_memories
+  ).convert()
   tabbed_html = html_lib.combine_html_pages(
       histories_html + [gm_mem_html],
       histories_names + ['GM'],
