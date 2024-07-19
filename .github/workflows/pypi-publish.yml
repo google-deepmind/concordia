@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Concordia
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
       - name: Update Python setup
         run: |
           pip install --upgrade pip
@@ -39,7 +39,7 @@ jobs:
       - name: Build distribution
         run: python setup.py sdist bdist_wheel
       - name: Save artifact
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b
         with:
           name: dist
           path: ./dist
@@ -53,12 +53,12 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Load artifact
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
           name: dist
           path: ./dist
       - name: Set up Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f
         with:
           python-version: '3.11'
       - name: Install Python dependencies
@@ -86,18 +86,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Load artifact
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
           name: dist
           path: ./dist
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
-        uses: pypa/gh-action-pypi-publish@e53eb8b103ffcb59469888563dc324e3c8ba6f06
+        uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
       - name: Publish to PyPI
         if: github.event_name == 'release' || inputs.upload_to_pypi
-        uses: pypa/gh-action-pypi-publish@e53eb8b103ffcb59469888563dc324e3c8ba6f06
+        uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0
         with:
           verbose: true
