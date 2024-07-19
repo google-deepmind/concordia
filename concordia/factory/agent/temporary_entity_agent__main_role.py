@@ -127,6 +127,7 @@ def build_agent(
       },
       clock_now=clock.now,
       pre_act_key=person_by_situation_label,
+      logging_channel=measurements.get_channel('PersonBySituation').on_next,
   )
   relevant_memories_label = 'Recalled memories and observations'
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
@@ -165,6 +166,7 @@ def build_agent(
       goal_component_name=_get_class_name(person_by_situation),
       horizon=DEFAULT_PLANNING_HORIZON,
       pre_act_key='Plan',
+      logging_channel=measurements.get_channel('Plan').on_next,
   )
 
   entity_components = (

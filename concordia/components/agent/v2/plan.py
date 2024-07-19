@@ -25,7 +25,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import component_v2
-import termcolor
+from concordia.typing import logging
 
 DEFAULT_PRE_ACT_KEY = 'Plan'
 _ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
@@ -47,8 +47,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: int = 10,
       horizon: str = 'the rest of the day',
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
-      verbose: bool = False,
-      log_color='green',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to represent the agent's plan.
 
@@ -68,8 +67,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       horizon: string describing how long the plan should last
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
-      verbose: whether or not to print intermediate reasoning steps
-      log_color: color for debug logging
+      logging_channel: channel to use for debug logging.
     """
     super().__init__(pre_act_key)
     self._model = model
@@ -83,9 +81,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
     self._current_plan = ''
 
-    self._verbose = verbose
-    self._log_color = log_color
-    self._last_log = None
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -158,22 +154,14 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
     result = self._current_plan
 
-    self._last_log = {
+    self._logging_channel({
         'Summary': (
             f'detailed plan of {agent_name} '
             + f'for {self._horizon}'
         ),
-        'State': result,
+        'Key': self.get_pre_act_key(),
+        'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
-    }
-    if self._verbose:
-      self._log('\n' + prompt.view().text() + '\n')
+    })
 
     return result
-
-  def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
-
-  def get_last_log(self):
-    if self._last_log:
-      return self._last_log.copy()
