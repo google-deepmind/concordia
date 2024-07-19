@@ -39,9 +39,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       observation_component_name: str,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
-          types.MappingProxyType({})
-      ),
+      components: Mapping[str, str] = types.MappingProxyType({}),
       clock_now: Callable[[], datetime.datetime] | None = None,
       goal_component_name: str | None = None,
       num_memories_to_retrieve: int = 10,
@@ -58,7 +56,8 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
         which to retrieve obervations.
       memory_component_name: The name of the memory component from which to
         retrieve memories
-      components: components to build the context of planning
+      components: components to build the context of planning. This is a mapping
+        of the component name to a prefix to use in the prompt.
       clock_now: time callback to use for the state.
       goal_component_name: index into `components` to use to represent the goal
         of planning

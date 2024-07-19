@@ -37,9 +37,7 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       model: language_model.LanguageModel,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
-          types.MappingProxyType({})
-      ),
+      components: Mapping[str, str] = types.MappingProxyType({}),
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
@@ -52,7 +50,8 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
       model: The language model to use.
       memory_component_name: The name of the memory component from which to
         retrieve recent memories.
-      components: The components to condition the answer on.
+      components: The components to condition the answer on. This is a mapping
+        of the component name to a prefix to use in the prompt.
       clock_now: time callback to use.
       num_memories_to_retrieve: The number of recent memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called

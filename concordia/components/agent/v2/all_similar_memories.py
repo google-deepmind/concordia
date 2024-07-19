@@ -37,9 +37,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       model: language_model.LanguageModel,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
-          types.MappingProxyType({})
-      ),
+      components: Mapping[str, str] = types.MappingProxyType({}),
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = 'Relevant memories',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -50,7 +48,8 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       model: The language model to use.
       memory_component_name: The name of the memory component from which to
         retrieve related memories.
-      components: The components to condition the answer on.
+      components: The components to condition the answer on. This is a mapping
+        of the component name to a prefix to use in the prompt.
       num_memories_to_retrieve: The number of memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
