@@ -24,6 +24,7 @@ from concordia.components.agent.v2 import observation
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import component_v2
 import termcolor
 
 DEFAULT_PRE_ACT_KEY = 'Plan'
@@ -39,7 +40,8 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       observation_component_name: str,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, str] = types.MappingProxyType({}),
+      components: Mapping[
+          component_v2.ComponentName, str] = types.MappingProxyType({}),
       clock_now: Callable[[], datetime.datetime] | None = None,
       goal_component_name: str | None = None,
       num_memories_to_retrieve: int = 10,
@@ -57,7 +59,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: The name of the memory component from which to
         retrieve memories
       components: components to build the context of planning. This is a mapping
-        of the component name to a prefix to use in the prompt.
+        of the component name to a label to use in the prompt.
       clock_now: time callback to use for the state.
       goal_component_name: index into `components` to use to represent the goal
         of planning

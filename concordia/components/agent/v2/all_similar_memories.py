@@ -23,6 +23,7 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import component_v2
 from concordia.typing import logging
 
 
@@ -37,7 +38,8 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       model: language_model.LanguageModel,
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, str] = types.MappingProxyType({}),
+      components: Mapping[
+          component_v2.ComponentName, str] = types.MappingProxyType({}),
       num_memories_to_retrieve: int = 25,
       pre_act_key: str = 'Relevant memories',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -49,7 +51,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: The name of the memory component from which to
         retrieve related memories.
       components: The components to condition the answer on. This is a mapping
-        of the component name to a prefix to use in the prompt.
+        of the component name to a label to use in the prompt.
       num_memories_to_retrieve: The number of memories to retrieve.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
