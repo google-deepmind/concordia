@@ -370,7 +370,7 @@ class AccountForAgencyOfOthers:
               answer_prefix=f'{player} ')
           what_did_they_do = f'{player} {what_did_they_do}'
           call_to_action = ('Is the following possible action something that ' +
-                            '{agent_name} would do in this situation?\n' +
+                            '{name} would do in this situation?\n' +
                             f'Possible action: {what_did_they_do}\n')
           action_spec = agent_types.ActionSpec(
               call_to_action=call_to_action,
