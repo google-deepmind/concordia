@@ -69,7 +69,7 @@ def build_agent(
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
-      pre_act_key='Observation',
+      pre_act_key='\nObservation',
       logging_channel=measurements.get_channel('Observation').on_next,
   )
 
@@ -83,12 +83,12 @@ def build_agent(
   )
   time_display = agent_components.report_function.ReportFunction(
       function=clock.current_time_interval_str,
-      pre_act_key='Current time',
+      pre_act_key='\nCurrent time',
       logging_channel=measurements.get_channel('TimeDisplay').on_next,
   )
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
-      logging_channel=measurements.get_channel('Identity').on_next,
+      logging_channel=measurements.get_channel('IdentityWithoutPreAct').on_next,
   )
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
@@ -129,7 +129,7 @@ def build_agent(
       pre_act_key=person_by_situation_label,
       logging_channel=measurements.get_channel('PersonBySituation').on_next,
   )
-  relevant_memories_label = 'Recalled memories and observations'
+  relevant_memories_label = '\nRecalled memories and observations'
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
       components={
@@ -143,11 +143,12 @@ def build_agent(
 
   plan_components = {}
   if config.goal:
-    goal_label = 'Overarching goal'
+    goal_label = '\nOverarching goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
-        pre_act_key=goal_label)
-    plan_components[_get_class_name(overarching_goal)] = goal_label
+        pre_act_key=goal_label,
+        logging_channel=measurements.get_channel(goal_label).on_next)
+    plan_components[goal_label] = goal_label
   else:
     goal_label = None
     overarching_goal = None
@@ -165,7 +166,7 @@ def build_agent(
       clock_now=clock.now,
       goal_component_name=_get_class_name(person_by_situation),
       horizon=DEFAULT_PLANNING_HORIZON,
-      pre_act_key='Plan',
+      pre_act_key='\nPlan',
       logging_channel=measurements.get_channel('Plan').on_next,
   )
 
@@ -174,12 +175,12 @@ def build_agent(
       instructions,
       observation,
       observation_summary,
-      self_perception,
       relevant_memories,
+      self_perception,
       situation_perception,
       person_by_situation,
-      time_display,
       plan,
+      time_display,
 
       # Components that do not provide pre_act context.
       identity_characteristics,

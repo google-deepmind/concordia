@@ -44,6 +44,9 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
     """
     super().__init__(pre_act_key)
     self._state = state
+    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
+    self._logging_channel(
+        {'Key': self.get_pre_act_key(), 'Value': self._state})
     return self._state

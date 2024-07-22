@@ -108,7 +108,6 @@ class PersonBySituation(action_spec_ignored.ActionSpecIgnored):
     memory.add(f'[intent reflection] {result}', metadata={})
 
     self._logging_channel({
-        'Summary': question,
         'Key': self.get_pre_act_key(),
         'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),

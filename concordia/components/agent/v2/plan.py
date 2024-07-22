@@ -129,7 +129,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       prompt.statement(
           f'Current goal: {goal_component.get_pre_act_value()}.')  # pylint: disable=undefined-variable
     prompt.statement(f'Current plan: {self._current_plan}')
-    prompt.statement(f'Current situation: {observation}')
+    prompt.statement(f'Current situation: {latest_observations}')
 
     time_now = self._clock_now().strftime('[%d %b %Y %H:%M:%S]')
     prompt.statement(f'The current time is: {time_now}\n')
@@ -155,10 +155,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     result = self._current_plan
 
     self._logging_channel({
-        'Summary': (
-            f'detailed plan of {agent_name} '
-            + f'for {self._horizon}'
-        ),
         'Key': self.get_pre_act_key(),
         'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),

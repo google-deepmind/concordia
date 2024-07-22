@@ -105,7 +105,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     result = new_prompt.open_question(
         f'{question}\nStatements:\n{mems}',
         max_tokens=2000,
-        terminators=(),
+        terminators=('\n\n',),
     )
 
     self._logging_channel({

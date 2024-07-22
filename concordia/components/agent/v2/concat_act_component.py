@@ -109,7 +109,7 @@ class ConcatActComponent(component_v2.ActingComponent):
   ) -> str:
     prompt = interactive_document.InteractiveDocument(self._model)
     context = self._context_for_action(contexts)
-    prompt.statement(context)
+    prompt.statement(context + '\n')
 
     call_to_action = action_spec.call_to_action.format(
         name=self.get_entity().name,
