@@ -26,10 +26,11 @@ from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.factory.agent import basic_agent__main_role
 from concordia.factory.agent import basic_agent__supporting_role
+from concordia.factory.agent import basic_entity_agent__main_role
 from concordia.factory.agent import rational_agent__main_role
-from concordia.factory.agent import temporary_entity_agent__main_role
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
+from concordia.typing import entity as entity_lib
 import numpy as np
 
 
@@ -40,13 +41,19 @@ DECISION_ACTION_SPEC = agent_lib.ActionSpec(
     options=OPTIONS,
     tag='decision',
 )
+SPEECH_ACTION_SPEC = entity_lib.ActionSpec(
+    call_to_action=agent_lib.DEFAULT_CALL_TO_SPEECH,
+    output_type=agent_lib.OutputType.FREE,
+    options=None,
+    tag='speech',
+)
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic_agent__main_role': basic_agent__main_role,
     'basic_agent__supporting_role': basic_agent__supporting_role,
     'rational_agent__main_role': rational_agent__main_role,
-    'temporary_entity_agent__main_role': temporary_entity_agent__main_role,
+    'basic_entity_agent__main_role': basic_entity_agent__main_role,
 }
 
 
@@ -67,8 +74,8 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(testcase_name='rational_agent__main_role',
            agent_name='rational_agent__main_role',
            main_role=True),
-      dict(testcase_name='temporary_entity_agent__main_role',
-           agent_name='temporary_entity_agent__main_role',
+      dict(testcase_name='basic_entity_agent__main_role',
+           agent_name='basic_entity_agent__main_role',
            main_role=True),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):
@@ -102,13 +109,15 @@ class AgentFactoriesTest(parameterized.TestCase):
     self.assertIsInstance(action, str)
 
     # Choice action
-    if isinstance(agent, basic_agent.BasicAgent):
-      action = agent.act(action_spec=DECISION_ACTION_SPEC)
-      self.assertIn(action, OPTIONS)
+    action = agent.act(action_spec=DECISION_ACTION_SPEC)
+    self.assertIn(action, OPTIONS)
 
     # Speech action
     if isinstance(agent, basic_agent.BasicAgent):
       action = agent.say(conversation='')
+      self.assertIsInstance(action, str)
+    else:
+      action = agent.act(action_spec=SPEECH_ACTION_SPEC)
       self.assertIsInstance(action, str)
 
 if __name__ == '__main__':

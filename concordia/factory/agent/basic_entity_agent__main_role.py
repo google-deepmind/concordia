@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Generic Agent Factory. This is temporary code. Do not use it."""
+"""A factory implementing the three key questions agent as an entity."""
 
 import datetime
 
