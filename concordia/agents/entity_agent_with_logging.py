@@ -17,6 +17,7 @@
 from collections.abc import Mapping
 import types
 from typing import Any
+from absl import logging
 
 from concordia.agents import entity_agent
 from concordia.typing import agent
@@ -69,7 +70,9 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
           self._component_logging.get_channel(channel)  # pylint: disable=attribute-error  pytype mistakenly forgets that `_component_logging` is not None.
           for channel in self._channel_names
       ]
-      rx.with_latest_from(self._tick, *channels).subscribe(self._set_log)
+      rx.with_latest_from(self._tick, *channels).subscribe(
+          self._set_log,
+          on_error=lambda e: logging.error('Error in component logging: %s', e))
     else:
       self._channel_names = []
 
