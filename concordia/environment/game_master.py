@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 import dataclasses
 import datetime
 import random
+from typing import Any, Mapping, Union
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -25,7 +26,7 @@ from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
-from concordia.typing import agent as simulacrum_agent
+from concordia.typing import agent as agent_lib
 from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.typing import game_master as simulacrum_game_master
@@ -66,6 +67,7 @@ class LogEntry:
     event_statement: a statement of the event that occurred
     summary: information about the event
   """
+
   date: datetime.datetime
   event_statement: str
   summary: str
@@ -90,7 +92,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
           | None
       ) = None,
       components: Sequence[component.Component] | None = None,
-      action_spec: simulacrum_agent.ActionSpec | None = None,
+      action_spec: agent_lib.ActionSpec | None = None,
       randomise_initiative: bool = False,
       player_observes_event: bool = True,
       players_act_simultaneously: bool = True,
@@ -137,7 +139,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
-    self._action_spec = action_spec or simulacrum_agent.DEFAULT_ACTION_SPEC
+    self._action_spec = action_spec or agent_lib.DEFAULT_ACTION_SPEC
     self._concurrent_action = concurrent_action
 
     components = list(components or [])
@@ -183,6 +185,9 @@ class GameMaster(simulacrum_game_master.GameMaster):
     }
     self._log.append(update_log)
 
+  def extend_history(self, new_history: Sequence[Any]):
+    self._log.extend(new_history)
+
   def get_memory(self) -> associative_memory.AssociativeMemory:
     return self._memory
 
@@ -204,8 +209,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     concurrency.map_parallel(
         lambda construct: construct.update_before_event(
-            f'{player_name}: {action_attempt}'),
-        self._components.values())
+            f'{player_name}: {action_attempt}'
+        ),
+        self._components.values(),
+    )
 
     for comp in self._components.values():
       state_of_component = comp.state()
@@ -240,7 +247,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     update_log = {
         'date': self._clock.now(),
         'Event statement': event_statement,
-        'Summary': event_statement,
+        'Summary': f'{player_name} -- {event_statement}',
         'Chain of thought': {
             'Summary': "Game Master's chain of thought",
             'Chain': prompt.view().text().splitlines(),
@@ -307,7 +314,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def _step_player(
       self,
       player: basic_agent.BasicAgent,
-      action_spec: simulacrum_agent.ActionSpec | None = None,
+      action_spec: agent_lib.ActionSpec | None = None,
   ):
     self.update_components()
     self.view_for_player(player_name=player.name)
@@ -325,7 +332,13 @@ class GameMaster(simulacrum_game_master.GameMaster):
       self,
       *,
       active_players: Sequence[basic_agent.BasicAgent] | None = None,
-      action_spec: simulacrum_agent.ActionSpec | None = None,
+      action_spec: (
+          Union[
+              Mapping[str, agent_lib.ActionSpec],
+              agent_lib.ActionSpec,
+          ]
+          | None
+      ) = None,
   ):
     """Steps the game.
 
@@ -343,13 +356,19 @@ class GameMaster(simulacrum_game_master.GameMaster):
     else:
       players = list(self._players_by_name.values())
 
-    override_action_spec = None
     if action_spec:
-      override_action_spec = action_spec
-
-    step_player_fn = lambda player: self._step_player(
-        player=player, action_spec=override_action_spec
-    )
+      if isinstance(action_spec, Mapping):
+        step_player_fn = lambda player: self._step_player(
+            player=player, action_spec=action_spec[player.name]
+        )
+      elif isinstance(action_spec, agent_lib.ActionSpec):
+        step_player_fn = lambda player: self._step_player(
+            player=player, action_spec=action_spec
+        )
+      else:
+        raise TypeError('Invalid action_spec parameter type')
+    else:
+      step_player_fn = lambda player: self._step_player(player=player)
 
     if self._randomise_initiative:
       random.shuffle(players)
