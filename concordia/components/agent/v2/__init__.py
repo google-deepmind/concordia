@@ -20,6 +20,7 @@ from concordia.components.agent.v2 import concat_act_component
 from concordia.components.agent.v2 import constant
 from concordia.components.agent.v2 import identity
 from concordia.components.agent.v2 import instructions
+from concordia.components.agent.v2 import justify_recent_voluntary_actions
 from concordia.components.agent.v2 import legacy_act_component
 from concordia.components.agent.v2 import memory_component
 from concordia.components.agent.v2 import no_op_context_processor

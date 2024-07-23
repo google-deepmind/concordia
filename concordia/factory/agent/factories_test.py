@@ -30,6 +30,7 @@ from concordia.factory.agent import basic_entity_agent__main_role
 from concordia.factory.agent import basic_entity_agent__supporting_role
 from concordia.factory.agent import rational_agent__main_role
 from concordia.factory.agent import rational_entity_agent__main_role
+from concordia.factory.agent import synthetic_user
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
 from concordia.typing import entity as entity_lib
@@ -58,6 +59,7 @@ AGENT_FACTORIES = {
     'basic_entity_agent__supporting_role': basic_entity_agent__supporting_role,
     'rational_agent__main_role': rational_agent__main_role,
     'rational_entity_agent__main_role': rational_entity_agent__main_role,
+    'synthetic_user': synthetic_user,
 }
 
 
@@ -86,6 +88,9 @@ class AgentFactoriesTest(parameterized.TestCase):
            main_role=True),
       dict(testcase_name='rational_entity_agent__main_role',
            agent_name='rational_entity_agent__main_role',
+           main_role=True),
+      dict(testcase_name='synthetic_user',
+           agent_name='synthetic_user',
            main_role=True),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):
