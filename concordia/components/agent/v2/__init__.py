@@ -24,6 +24,7 @@ from concordia.components.agent.v2 import legacy_act_component
 from concordia.components.agent.v2 import memory_component
 from concordia.components.agent.v2 import no_op_context_processor
 from concordia.components.agent.v2 import observation
+from concordia.components.agent.v2 import options_perception
 from concordia.components.agent.v2 import person_by_situation
 from concordia.components.agent.v2 import plan
 from concordia.components.agent.v2 import report_function
