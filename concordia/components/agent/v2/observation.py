@@ -152,8 +152,9 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
     context = '\n'.join([
-        f"{agent_name}'s {key}:\n{component.get_pre_act_value()}"
-        for key, component in self._components.items()
+        f"{agent_name}'s"
+        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
+        for key, prefix in self._components.items()
     ])
 
     segment_start = self._clock_now() - self._timeframe_delta_from

@@ -31,3 +31,4 @@ from concordia.components.agent.v2 import report_function
 from concordia.components.agent.v2 import self_perception
 from concordia.components.agent.v2 import simple_act_component
 from concordia.components.agent.v2 import situation_perception
+from concordia.components.agent.v2 import somatic_state
