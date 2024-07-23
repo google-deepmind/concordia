@@ -253,8 +253,6 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
                    'coins or one laudanum bottle.'),
                   ('Aldous is very agreeable. He will agree to almost any '
                    'proposal.'),
-                  ('Aldous needs cash for opium now. He wants to sell the '
-                   'tabula smaragdina as quickly as possible'),
                   *supporting_player_knowledge[0]
               ],
               'main_character': False,

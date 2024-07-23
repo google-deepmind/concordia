@@ -66,19 +66,20 @@ def build_agent(
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
+  observation_label = '\nObservation'
   observation = agent_components.observation.Observation(
       clock_now=clock.now,
       timeframe=clock.get_step_size(),
-      pre_act_key='\nObservation',
+      pre_act_key=observation_label,
       logging_channel=measurements.get_channel('Observation').on_next,
   )
-
+  observation_summary_label = '\nSummary of recent observations'
   observation_summary = agent_components.observation.ObservationSummary(
       model=model,
       clock_now=clock.now,
       timeframe_delta_from=datetime.timedelta(hours=4),
       timeframe_delta_until=datetime.timedelta(hours=1),
-      pre_act_key='Summary of recent observations',
+      pre_act_key=observation_summary_label,
       logging_channel=measurements.get_channel('ObservationSummary').on_next,
   )
   time_display = agent_components.report_function.ReportFunction(
@@ -86,6 +87,7 @@ def build_agent(
       pre_act_key='\nCurrent time',
       logging_channel=measurements.get_channel('TimeDisplay').on_next,
   )
+  identity_label = '\nIdentity characteristics'
   identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
       model=model,
       logging_channel=measurements.get_channel('IdentityWithoutPreAct').on_next,
@@ -94,8 +96,7 @@ def build_agent(
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
   self_perception = agent_components.self_perception.SelfPerception(
       model=model,
-      components={_get_class_name(
-          identity_characteristics): 'Identity characteristics'},
+      components={_get_class_name(identity_characteristics): identity_label},
       pre_act_key=self_perception_label,
       logging_channel=measurements.get_channel('SelfPerception').on_next,
   )
@@ -106,9 +107,8 @@ def build_agent(
       agent_components.situation_perception.SituationPerception(
           model=model,
           components={
-              _get_class_name(observation): 'Observation',
-              _get_class_name(observation_summary): (
-                  'Summary of recent observations'),
+              _get_class_name(observation): observation_label,
+              _get_class_name(observation_summary): observation_summary_label,
           },
           clock_now=clock.now,
           pre_act_key=situation_perception_label,
@@ -133,8 +133,7 @@ def build_agent(
   relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
       model=model,
       components={
-          _get_class_name(
-              observation_summary): 'Summary of recent observations',
+          _get_class_name(observation_summary): observation_summary_label,
           _get_class_name(time_display): 'The current date/time is'},
       num_memories_to_retrieve=10,
       pre_act_key=relevant_memories_label,
