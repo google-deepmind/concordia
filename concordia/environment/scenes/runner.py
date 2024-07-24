@@ -118,6 +118,8 @@ def run_scenes(
       this_scene_game_master_memory.add(f'[scene type] {scene.scene_type.name}')
       this_scene_environment.step(active_players=participants,
                                   action_spec=scene.scene_type.action_spec)
+      if this_scene_environment.terminate_episode():
+        break
 
     # Conclude the scene
     for participant in participants:

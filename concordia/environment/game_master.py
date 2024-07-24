@@ -398,3 +398,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def remove_component(self, component_name: str) -> None:
     """Remove a component from the game master by name."""
     del self._components[component_name]
+
+  def terminate_episode(self) -> bool:
+    """Check if the episode should be terminated."""
+    for comp in self._components.values():
+      if comp.terminate_episode():
+        return True
+    return False
