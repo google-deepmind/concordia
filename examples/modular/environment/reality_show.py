@@ -23,6 +23,7 @@ import types
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
@@ -226,15 +227,15 @@ MINIGAMES = [
             defection=lambda num_cooperators: num_cooperators + 4.0
         ),
         map_external_actions_to_schelling_diagram=dict(
-            cooperation='maintain the appliance',
-            defection='let others handle upkeep of the appliance'
+            cooperation='row vigorously',
+            defection='row less vigorously',
         ),
         action_spec=agent_lib.ActionSpec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
             output_type=agent_lib.OutputType.CHOICE,
-            options=('maintain the appliance',
-                     'let others handle upkeep of the appliance'),
+            options=('row vigorously',
+                     'row less vigorously'),
             tag='minigame_action',
         ),
     ),
@@ -434,7 +435,7 @@ def add_minigame_scene_spec(
 def configure_scenes(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
@@ -452,6 +453,8 @@ def configure_scenes(
     supporting_player_configs: configs for the supporting characters
   Returns:
     scenes: a sequence of scene specifications
+    decision_env: a game master to handle choice scenes
+    schelling_payoffs: a component to compute rewards of collective action
   """
 
   player_configs = list(main_player_configs) + list(supporting_player_configs)
