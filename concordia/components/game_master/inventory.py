@@ -20,6 +20,7 @@ import dataclasses
 import datetime
 
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -58,7 +59,7 @@ class Inventory(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       item_type_configs: Sequence[ItemTypeConfig],
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
       financial: bool = False,

@@ -20,6 +20,7 @@ import dataclasses
 import datetime
 
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.components.game_master import current_scene
 from concordia.language_model import language_model
@@ -63,7 +64,7 @@ class SchellingPayoffs(component.Component):
       resolution_scene: str,
       cooperator_reward_fn: SchellingFunction,
       defector_reward_fn: SchellingFunction,
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
       acting_player_names: Sequence[str],
       outcome_summarization_fn: Callable[[Mapping[str, int],
                                           Mapping[str, float]],

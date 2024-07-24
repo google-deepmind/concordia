@@ -20,6 +20,7 @@ import random
 from typing import Callable, Sequence
 
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -39,7 +40,7 @@ class WorldBackgroundAndRelevance(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       world_building_elements: Sequence[str],
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
       components: Sequence[component.Component] | None = None,
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_factoids: int = 30,
