@@ -86,7 +86,7 @@ def build_game_master(
   Returns:
     A tuple consisting of a game master and its memory.
   """
-  if memory:
+  if memory is not None:
     game_master_memory = memory
   else:
     game_master_memory = associative_memory.AssociativeMemory(
