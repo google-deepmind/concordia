@@ -16,11 +16,13 @@
 
 import abc
 
-from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 
 
-class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
+class ActionSpecIgnored(
+    entity_component.ContextComponent, metaclass=abc.ABCMeta
+):
   """A component that ignores the action spec in the `pre_act` method.
 
   As a consequence, its `pre_act` state can be accessed safely by other
@@ -51,8 +53,10 @@ class ActionSpecIgnored(component_v2.ContextComponent, metaclass=abc.ABCMeta):
     Raises:
       ValueError: If the entity is not in the `PRE_ACT` or `POST_ACT` phase.
     """
-    if (self.get_entity().get_phase() != component_v2.Phase.PRE_ACT and
-        self.get_entity().get_phase() != component_v2.Phase.POST_ACT):
+    if (
+        self.get_entity().get_phase() != entity_component.Phase.PRE_ACT
+        and self.get_entity().get_phase() != entity_component.Phase.POST_ACT
+    ):
       raise ValueError(
           "You can only access the pre-act value in the `PRE_ACT` or "
           "`POST_ACT` phase. The entity is currently in the "

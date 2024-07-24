@@ -20,8 +20,8 @@ import types
 from typing import cast
 
 from concordia.components.agent.v2 import no_op_context_processor
-from concordia.typing import component_v2
 from concordia.typing import entity
+from concordia.typing import entity_component
 from concordia.utils import concurrency
 from typing_extensions import override
 
@@ -29,7 +29,7 @@ from typing_extensions import override
 # pytype: disable=override-error
 
 
-class EntityAgent(component_v2.EntityWithComponents):
+class EntityAgent(entity_component.EntityWithComponents):
   """An agent that has its functionality defined by components.
 
   The agent has a set of components that define its functionality. The agent
@@ -42,9 +42,11 @@ class EntityAgent(component_v2.EntityWithComponents):
   def __init__(
       self,
       agent_name: str,
-      act_component: component_v2.ActingComponent,
-      context_processor: component_v2.ContextProcessorComponent | None = None,
-      context_components: Mapping[str, component_v2.ContextComponent] = (
+      act_component: entity_component.ActingComponent,
+      context_processor: (
+          entity_component.ContextProcessorComponent | None
+      ) = None,
+      context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
   ):
@@ -62,7 +64,7 @@ class EntityAgent(component_v2.EntityWithComponents):
     """
     super().__init__()
     self._agent_name = agent_name
-    self._phase = component_v2.Phase.INIT
+    self._phase = entity_component.Phase.INIT
 
     self._act_component = act_component
     self._act_component.set_entity(self)
@@ -83,7 +85,7 @@ class EntityAgent(component_v2.EntityWithComponents):
     return self._agent_name
 
   @override
-  def get_phase(self) -> component_v2.Phase:
+  def get_phase(self) -> entity_component.Phase:
     return self._phase
 
   @override
@@ -91,16 +93,16 @@ class EntityAgent(component_v2.EntityWithComponents):
       self,
       name: str,
       *,
-      type_: type[component_v2.ComponentT] = component_v2.BaseComponent,
-  ) -> component_v2.ComponentT:
+      type_: type[entity_component.ComponentT] = entity_component.BaseComponent,
+  ) -> entity_component.ComponentT:
     component = self._context_components[name]
-    return cast(component_v2.ComponentT, component)
+    return cast(entity_component.ComponentT, component)
 
   def _parallel_call_(
       self,
       method_name: str,
       *args,
-  ) -> component_v2.ComponentContextMapping:
+  ) -> entity_component.ComponentContextMapping:
     """Calls the named method in parallel on all components.
 
     All calls will be issued with the same payloads.
@@ -128,31 +130,31 @@ class EntityAgent(component_v2.EntityWithComponents):
   def act(
       self, action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC
   ) -> str:
-    self._phase = component_v2.Phase.PRE_ACT
+    self._phase = entity_component.Phase.PRE_ACT
     contexts = self._parallel_call_('pre_act', action_spec)
     self._context_processor.pre_act(types.MappingProxyType(contexts))
     action_attempt = self._act_component.get_action_attempt(
         contexts, action_spec
     )
 
-    self._phase = component_v2.Phase.POST_ACT
+    self._phase = entity_component.Phase.POST_ACT
     contexts = self._parallel_call_('post_act', action_attempt)
     self._context_processor.post_act(contexts)
 
-    self._phase = component_v2.Phase.UPDATE
+    self._phase = entity_component.Phase.UPDATE
     self._parallel_call_('update')
 
     return action_attempt
 
   @override
   def observe(self, observation: str) -> None:
-    self._phase = component_v2.Phase.PRE_OBSERVE
+    self._phase = entity_component.Phase.PRE_OBSERVE
     contexts = self._parallel_call_('pre_observe', observation)
     self._context_processor.pre_observe(contexts)
 
-    self._phase = component_v2.Phase.POST_OBSERVE
+    self._phase = entity_component.Phase.POST_OBSERVE
     contexts = self._parallel_call_('post_observe')
     self._context_processor.post_observe(contexts)
 
-    self._phase = component_v2.Phase.UPDATE
+    self._phase = entity_component.Phase.UPDATE
     self._parallel_call_('update')

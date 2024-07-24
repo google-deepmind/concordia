@@ -22,8 +22,8 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.typing import logging
 from concordia.utils import concurrency
 
@@ -144,7 +144,7 @@ class SomaticStateWithoutPreAct(action_spec_ignored.ActionSpecIgnored):
   def __init__(self, *args, **kwargs):
     self._component = SomaticState(*args, **kwargs)
 
-  def set_entity(self, entity: component_v2.EntityWithComponents) -> None:
+  def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
     self._component.set_entity(entity)
 
   def _make_pre_act_value(self) -> str:

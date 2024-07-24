@@ -14,8 +14,8 @@
 
 """A context processor component that does nothing."""
 
-from concordia.typing import component_v2
+from concordia.typing import entity_component
 
 
-class NoOpContextProcessor(component_v2.ContextProcessorComponent):
+class NoOpContextProcessor(entity_component.ContextProcessorComponent):
   """A context processor component that does nothing."""

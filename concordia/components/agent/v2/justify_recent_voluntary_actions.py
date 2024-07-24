@@ -23,7 +23,7 @@ from concordia.components.agent.v2 import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import component_v2
+from concordia.typing import entity_component
 from concordia.typing import logging
 
 
@@ -65,9 +65,11 @@ class JustifyRecentVoluntaryActions(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      ),
       components: Mapping[
-          component_v2.ComponentName, str] = types.MappingProxyType({}),
+          entity_component.ComponentName, str
+      ] = types.MappingProxyType({}),
       audiences: Sequence[str] = DEFAULT_AUDIENCES,
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 100,

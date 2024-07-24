@@ -18,12 +18,12 @@
 from collections.abc import Sequence
 
 from concordia.language_model import language_model
-from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from typing_extensions import override
 
 
-class SimpleActComponent(component_v2.ActingComponent):
+class SimpleActComponent(entity_component.ActingComponent):
   """A simple acting component that aggregates contexts from components.
 
   This component will receive the contexts from `pre_act` from all the
@@ -71,7 +71,7 @@ class SimpleActComponent(component_v2.ActingComponent):
 
   def _context_for_action(
       self,
-      contexts: component_v2.ComponentContextMapping,
+      contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
       return "\n".join(
@@ -88,7 +88,7 @@ class SimpleActComponent(component_v2.ActingComponent):
   @override
   def get_action_attempt(
       self,
-      contexts: component_v2.ComponentContextMapping,
+      contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     context = self._context_for_action(contexts)

@@ -18,12 +18,10 @@ from collections.abc import Mapping
 import types
 from typing import Any
 from absl import logging
-
 from concordia.agents import entity_agent
 from concordia.typing import agent
-from concordia.typing import component_v2
+from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
-
 import reactivex as rx
 
 
@@ -33,9 +31,11 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
   def __init__(
       self,
       agent_name: str,
-      act_component: component_v2.ActingComponent,
-      context_processor: component_v2.ContextProcessorComponent | None = None,
-      context_components: Mapping[str, component_v2.ContextComponent] = (
+      act_component: entity_component.ActingComponent,
+      context_processor: (
+          entity_component.ContextProcessorComponent | None
+      ) = None,
+      context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
       component_logging: measurements_lib.Measurements | None = None,

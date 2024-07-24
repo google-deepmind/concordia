@@ -18,7 +18,7 @@ from collections.abc import Mapping, Sequence
 import threading
 from typing import Any
 
-from concordia.typing import component_v2
+from concordia.typing import entity_component
 from concordia.typing import memory as memory_lib
 
 DEFAULT_MEMORY_COMPONENT_NAME = '__memory__'
@@ -30,7 +30,7 @@ def _default_scorer(query: str, text: str, **metadata: Any) -> float:
   return 1.0
 
 
-class MemoryComponent(component_v2.ContextComponent):
+class MemoryComponent(entity_component.ContextComponent):
   """A component backed by a memory bank.
 
   This component caches additions to the memory bank issued within an `act` or
@@ -52,7 +52,7 @@ class MemoryComponent(component_v2.ContextComponent):
     self._buffer = []
 
   def _check_phase(self) -> None:
-    if self.get_entity().get_phase() == component_v2.Phase.UPDATE:
+    if self.get_entity().get_phase() == entity_component.Phase.UPDATE:
       raise ValueError(
           'You can only access the memory outside of the `UPDATE` phase.'
       )

@@ -20,8 +20,8 @@ from collections.abc import Sequence
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import clock as game_clock
-from concordia.typing import component_v2
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.typing import logging
 from concordia.utils import helper_functions
 from typing_extensions import override
@@ -29,7 +29,7 @@ from typing_extensions import override
 DEFAULT_PRE_ACT_KEY = 'Act'
 
 
-class ActComponent(component_v2.ActingComponent):
+class ActComponent(entity_component.ActingComponent):
   """A component which mimics the older act behavior of basic_agent.py.
 
   This component will receive the contexts from `pre_act` from all the
@@ -88,7 +88,7 @@ class ActComponent(component_v2.ActingComponent):
 
   def _context_for_action(
       self,
-      contexts: component_v2.ComponentContextMapping,
+      contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
       return '\n'.join(
@@ -105,7 +105,7 @@ class ActComponent(component_v2.ActingComponent):
   @override
   def get_action_attempt(
       self,
-      contexts: component_v2.ComponentContextMapping,
+      contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     prompt = interactive_document.InteractiveDocument(self._model)

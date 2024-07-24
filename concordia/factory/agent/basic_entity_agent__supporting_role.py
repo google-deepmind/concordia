@@ -26,7 +26,7 @@ from concordia.clocks import game_clock
 from concordia.components.agent import v2 as agent_components
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
-from concordia.typing import component_v2
+from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
 
 
@@ -41,7 +41,8 @@ def build_agent(
     clock: game_clock.MultiIntervalClock,
     update_time_interval: datetime.timedelta,
     additional_components: Mapping[
-        component_v2.ComponentName, str] = types.MappingProxyType({}),
+        entity_component.ComponentName, str
+    ] = types.MappingProxyType({}),
 ) -> basic_agent.BasicAgent:
   """Build an agent.
 
