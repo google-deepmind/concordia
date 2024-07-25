@@ -124,6 +124,10 @@ class ActComponent(entity_component.ActingComponent):
           call_to_action,
           max_tokens=2200,
           answer_prefix=output,
+          # This terminator protects against the model providing extra context
+          # after the end of a directly spoken response, since it normally
+          # puts a space after a quotation mark only in these cases.
+          terminators=('" ', '\n'),
       )
       self._log(output, prompt)
       return output
