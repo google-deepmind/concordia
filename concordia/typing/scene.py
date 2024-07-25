@@ -14,9 +14,10 @@
 
 """Dataclasses used to structure simulations using scenes."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 import dataclasses
 import datetime
+from typing import Mapping, Union
 
 from concordia.associative_memory import formative_memories
 from concordia.environment import game_master
@@ -39,11 +40,17 @@ class SceneTypeSpec:
     override_game_master: optionally specify a game master to use instead of the
       default one.
   """
+
   name: str
   premise: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
-  conclusion: Mapping[str,
-                      Sequence[str | Callable[[str], str]]] | None = None
-  action_spec: agent_lib.ActionSpec | None = None
+  conclusion: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
+  action_spec: (
+      Union[
+          Mapping[str, agent_lib.ActionSpec],
+          agent_lib.ActionSpec,
+      ]
+      | None
+  ) = None
   override_game_master: game_master.GameMaster | None = None
 
 
@@ -58,6 +65,7 @@ class SceneSpec:
     participant_configs: Which players participate in the scene.
     num_rounds: How many rounds the scene lasts.
   """
+
   scene_type: SceneTypeSpec
   start_time: datetime.datetime
   participant_configs: Sequence[formative_memories.AgentConfig]
