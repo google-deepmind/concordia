@@ -15,6 +15,7 @@
 """A Generic Environment Factory."""
 
 from collections.abc import Callable, Sequence
+import operator
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -238,11 +239,25 @@ def create_html_log(
   )
 
   history_sources = [primary_environment] + list(secondary_environments)
+
+  joint_histories = []
+  for history in history_sources:
+    joint_histories.extend(history.get_history())
+
+  sorted_joint_history = sorted(
+      joint_histories, key=operator.itemgetter('date')
+  )
+
   histories_html = [
+      html_lib.PythonObjectToHTMLConverter(sorted_joint_history).convert()
+  ] + [
       html_lib.PythonObjectToHTMLConverter(history.get_history()).convert()
       for history in history_sources
   ]
-  histories_names = [history.name for history in history_sources]
+
+  histories_names = ['Joint log'] + [
+      history.name for history in history_sources
+  ]
 
   gm_mem_html = html_lib.PythonObjectToHTMLConverter(
       primary_gm_memories
