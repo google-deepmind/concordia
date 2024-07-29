@@ -20,28 +20,29 @@ import random
 import types
 
 from concordia import components as generic_components
-from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
+from concordia.components.agent import v2 as agent_components
 from concordia.contrib.components import game_master as gm_contrib
 from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
 from examples.modular.environment.modules import player_traits_and_styles
-from concordia.factory.agent import basic_agent__main_role
-from concordia.factory.agent import basic_agent__supporting_role
+from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_entity_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import component
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
-
 import numpy as np
 import sentence_transformers
+
 
 Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
@@ -407,8 +408,8 @@ def configure_scenes(
 def get_inventories_component(
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent],
-    main_players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[entity_agent.EntityAgent],
+    main_players: Sequence[entity_agent.EntityAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
 ) -> tuple[component.Component, gm_components.inventory_based_score.Score]:
@@ -459,7 +460,7 @@ class Simulation(Runnable):
       model: language_model.LanguageModel,
       embedder: sentence_transformers.SentenceTransformer,
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_agent__main_role,
+      agent_module: types.ModuleType = basic_entity_agent__main_role,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.
@@ -559,17 +560,18 @@ class Simulation(Runnable):
 
     supporting_players = []
     for player_config in supporting_player_configs:
-      conversation_style = generic_components.constant.ConstantComponent(
-          name='guiding principle of good conversation',
+      conversation_style = agent_components.constant.Constant(
+          pre_act_key='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
               player_config.name))
-      player = basic_agent__supporting_role.build_agent(
+      player = basic_entity_agent__supporting_role.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
-          additional_components=[conversation_style],
+          additional_components={
+              'Guiding principle of good conversation': conversation_style},
       )
       supporting_players.append(player)
 

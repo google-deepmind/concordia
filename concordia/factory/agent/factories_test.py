@@ -24,11 +24,8 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
-from concordia.factory.agent import basic_agent__main_role
-from concordia.factory.agent import basic_agent__supporting_role
 from concordia.factory.agent import basic_entity_agent__main_role
 from concordia.factory.agent import basic_entity_agent__supporting_role
-from concordia.factory.agent import rational_agent__main_role
 from concordia.factory.agent import rational_entity_agent__main_role
 from concordia.factory.agent import synthetic_user
 from concordia.language_model import no_language_model
@@ -53,11 +50,8 @@ SPEECH_ACTION_SPEC = entity_lib.ActionSpec(
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
-    'basic_agent__main_role': basic_agent__main_role,
-    'basic_agent__supporting_role': basic_agent__supporting_role,
     'basic_entity_agent__main_role': basic_entity_agent__main_role,
     'basic_entity_agent__supporting_role': basic_entity_agent__supporting_role,
-    'rational_agent__main_role': rational_agent__main_role,
     'rational_entity_agent__main_role': rational_entity_agent__main_role,
     'synthetic_user': synthetic_user,
 }
@@ -71,21 +65,12 @@ def _embedder(text: str):
 class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='basic_agent__main_role',
-           agent_name='basic_agent__main_role',
-           main_role=True),
-      dict(testcase_name='basic_agent__supporting_role',
-           agent_name='basic_agent__supporting_role',
-           main_role=False),
       dict(testcase_name='basic_entity_agent__main_role',
            agent_name='basic_entity_agent__main_role',
            main_role=True),
       dict(testcase_name='basic_entity_agent__supporting_role',
            agent_name='basic_entity_agent__supporting_role',
            main_role=False),
-      dict(testcase_name='rational_agent__main_role',
-           agent_name='rational_agent__main_role',
-           main_role=True),
       dict(testcase_name='rational_entity_agent__main_role',
            agent_name='rational_entity_agent__main_role',
            main_role=True),
@@ -128,12 +113,8 @@ class AgentFactoriesTest(parameterized.TestCase):
     self.assertIn(action, OPTIONS)
 
     # Speech action
-    if isinstance(agent, basic_agent.BasicAgent):
-      action = agent.say(conversation='')
-      self.assertIsInstance(action, str)
-    else:
-      action = agent.act(action_spec=SPEECH_ACTION_SPEC)
-      self.assertIsInstance(action, str)
+    action = agent.act(action_spec=SPEECH_ACTION_SPEC)
+    self.assertIsInstance(action, str)
 
 if __name__ == '__main__':
   absltest.main()

@@ -19,7 +19,7 @@ import datetime
 import random
 import types
 
-from concordia.agents import basic_agent
+from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
@@ -33,7 +33,7 @@ from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
-from concordia.factory.agent import basic_agent__main_role
+from concordia.factory.agent import basic_entity_agent__main_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_lib
@@ -170,7 +170,7 @@ def configure_players() -> list[formative_memories.AgentConfig]:
 def add_choice_scene_spec(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     player_configs: Sequence[formative_memories.AgentConfig],
     scene_type_name: str,
@@ -265,7 +265,7 @@ def add_choice_scene_spec(
 def configure_scenes(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
 ) -> tuple[
@@ -363,7 +363,7 @@ class Simulation(Runnable):
       model: language_model.LanguageModel,
       embedder: sentence_transformers.SentenceTransformer,
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_agent__main_role,
+      agent_module: types.ModuleType = basic_entity_agent__main_role,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.

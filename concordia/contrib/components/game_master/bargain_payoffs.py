@@ -17,7 +17,7 @@
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.components.game_master import current_scene
 from concordia.language_model import language_model
@@ -43,8 +43,8 @@ class BargainPayoffs(component.Component):
       buyer_base_reward: float,
       seller_base_reward: float,
       action_to_reward: Mapping[str, float],
-      buyer: basic_agent.BasicAgent,
-      seller: basic_agent.BasicAgent,
+      buyer: entity_agent.EntityAgent,
+      seller: entity_agent.EntityAgent,
       resolution_scene: str,
       acting_player_names: Sequence[str],
       outcome_summarization_fn: Callable[

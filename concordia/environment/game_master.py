@@ -22,6 +22,7 @@ from typing import Any, Mapping, Union
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -81,7 +82,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       clock: game_clock.GameClock,
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[
+          basic_agent.BasicAgent
+          | entity_agent_with_logging.EntityAgentWithLogging
+      ],
       name: str = 'Game Master',
       update_thought_chain: (
           Sequence[
