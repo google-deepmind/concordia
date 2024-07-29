@@ -105,27 +105,27 @@ class DialecticalReflection(component.Component):
     old_state = self._state
     # The following query looks for conversations using the fact that their
     # observations are preceded by ' -- "'.
-    prethoughts = self._memory.retrieve_associative(
+    prethoughts = list(self._memory.retrieve_associative(
         ' -- "',
         self._num_memories_to_retrieve,
         use_recency=True,
         add_time=False
-    )
+    ))
     # The following query looks for memories of reading and learning.
-    prethoughts += self._memory.retrieve_associative(
+    prethoughts += list(self._memory.retrieve_associative(
         'book, article, read, idea, concept, study, learn, research, theory',
         k=self._num_memories_to_retrieve,
         use_recency=False,
         add_time=False,
-    )
+    ))
 
     if self._topic_component:
-      prethoughts += self._memory.retrieve_associative(
+      prethoughts += list(self._memory.retrieve_associative(
           self._topic_component.state(),
           k=self._num_memories_to_retrieve,
           use_recency=False,
           add_time=False,
-      )
+      ))
 
     prethoughts = '-' + '\n-'.join(prethoughts) + '\n'
 

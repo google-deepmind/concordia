@@ -75,7 +75,7 @@ class Reflection(component.Component):
 
       return
 
-    mems = '\n'.join(mems)
+    mems = '\n'.join(list(mems))
 
     prompt_questions = interactive_document.InteractiveDocument(self._model)
 
@@ -95,7 +95,8 @@ class Reflection(component.Component):
     mems = []
     # make sure that the answer comes out of LLM in the right format
     for question in questions.splitlines():
-      mems += self._memory.retrieve_associative(question, 10, add_time=True)
+      mems += list(
+          self._memory.retrieve_associative(question, 10, add_time=True))
 
     mems = '\n'.join(mems)
 

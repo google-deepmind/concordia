@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Memory importance function."""
 
 import abc
@@ -29,11 +28,16 @@ class ImportanceModel(metaclass=abc.ABCMeta):
   """Memory importance module for generative agents."""
 
   @abc.abstractmethod
-  def importance(self, memory: str) -> float:
+  def importance(self,
+                 memory: str,
+                 context: Sequence[tuple[str, float]] = ()) -> float:
     """Computes importance of a memory.
 
     Args:
       memory: a memory (text) to compute importance of
+      context: a sequence of tuples of (old memory (str), importance
+        (float between 0 and 1)) used to provide context and relative scale for
+        the decision of the importance of the new memory.
 
     Returns:
       Value of importance in the [0,1] interval
@@ -62,29 +66,43 @@ class AgentImportanceModel(ImportanceModel):
     self._model = model
     self._importance_scale = [str(i) for i in sorted(importance_scale)]
 
-  def importance(self, memory: str) -> float:
+  def importance(
+      self,
+      memory: str,
+      context: Sequence[tuple[str, float]] = ()) -> float:
     """Computes importance of a memory by quering LLM.
 
     Args:
       memory: memory to compute importance of
+      context: a sequence of tuples of (old memory (str), importance
+        (float between 0 and 1)) used to provide context and relative scale for
+        the decision of the importance of the new memory.
 
     Returns:
       Value of importance in the [0,1] interval
     """
     zero, *_, one = self._importance_scale
     prompt = interactive_document.InteractiveDocument(self._model)
-    action = prompt.multiple_choice_question(
-        f"On the scale of {zero} to"
-        f" {one}, where {zero} is"
-        " purely mundane (e.g., brushing teeth, making bed) and"
-        f" {one} is extremely poignant (e.g., a break"
-        " up, college acceptance), rate the likely poignancy of the following"
-        " piece of memory.\nMemory:"
+    if context:
+      context_string = '\n'.join(
+          f'{context[0]} -- how memorable: {context[1]}'
+          for context in context)
+      prompt.statement(context_string)
+    question = (
+        f'on a scale from {zero} to'
+        f' {one}, where {zero} is'
+        ' entirely mundane (e.g., brushing teeth, making bed) and'
+        f' {one} is extremely poignant (e.g., a breakup of a romantic '
+        'relationship, college acceptance, a wedding), rate the likely '
+        'memorableness of the following new memory.\nMemory:'
         + memory
-        + "\nRating: ",
-        answers=self._importance_scale,
-    )
-    return action / (len(self._importance_scale) - 1)
+        + '\nRating: ')
+    if context is not None:
+      question = (
+          f'{context}\nRelative to the life memories above, {question}')
+    action = prompt.multiple_choice_question(
+        question=question, answers=self._importance_scale)
+    return action / len(self._importance_scale)
 
 
 class GMImportanceModel(ImportanceModel):
@@ -107,29 +125,43 @@ class GMImportanceModel(ImportanceModel):
     self._model = model
     self._importance_scale = [str(i) for i in sorted(importance_scale)]
 
-  def importance(self, memory: str) -> float:
+  def importance(self,
+                 memory: str,
+                 context: Sequence[tuple[str, float]] = ()) -> float:
     """Computes importance of a memory by quering LLM.
 
     Args:
       memory: memory to compute importance of
+      context: a sequence of tuples of (old memory (str), importance
+        (float between 0 and 1)) used to provide context and relative scale for
+        the decision of the importance of the new memory.
 
     Returns:
       Value of importance
     """
     zero, *_, one = self._importance_scale
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
-    action = chain_of_thought.multiple_choice_question(
-        f"On the scale of {zero} to "
-        f"{one}, where {zero} is purely mundane "
-        f"(e.g., wind blowing, bus arriving) and {one} is "
-        "extremely poignant (e.g., an earthquake, end of war,  "
-        "revolution), rate the likely poignancy of the "
-        "following event.\nEvent:"
+    if context:
+      context_string = '\n'.join(
+          f'{context[0]} -- likely importance to the plot: {context[1]}'
+          for context in context)
+      chain_of_thought.statement(context_string)
+    question = (
+        f'You are the game master of a tabletop role-playing game. On a '
+        f'scale from {zero} to '
+        f'{one}, where {zero} is purely mundane '
+        f'(e.g., wind blowing, bus arriving) and {one} is '
+        'extremely important (e.g., an earthquake, '
+        'the end of a war, a revolution), rate the likely importance of the '
+        'following event for advancing the overall plot.\nEvent:'
         + memory
-        + "\nRating: ",
-        answers=self._importance_scale,
-    )
-    return action / (len(self._importance_scale) - 1)
+        + '\nRating: ')
+    if context is not None:
+      question = (
+          f'{context}\nRelative to the life memories above, {question}')
+    action = chain_of_thought.multiple_choice_question(
+        question=question, answers=self._importance_scale)
+    return action / len(self._importance_scale)
 
 
 class ConstantImportanceModel(ImportanceModel):
@@ -149,15 +181,19 @@ class ConstantImportanceModel(ImportanceModel):
     """
     self._fixed_importance = fixed_importance
 
-  def importance(self, memory: str) -> float:
-    """Computes importance of a memory by quering LLM.
+  def importance(self,
+                 memory: str,
+                 context: Sequence[tuple[str, float]] = ()) -> float:
+    """Computes importance of a memory by querying the LLM.
 
     Args:
       memory: memory to compute importance of
+      context: unused
 
     Returns:
       Value of importance
     """
-    del memory
+    del memory, context
 
     return self._fixed_importance
+

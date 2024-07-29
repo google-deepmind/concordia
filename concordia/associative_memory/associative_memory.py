@@ -20,13 +20,16 @@ M.S., 2023. Generative agents: Interactive simulacra of human behavior. arXiv
 preprint arXiv:2304.03442.
 """
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 import datetime
+import random
 import threading
 
 from concordia.associative_memory import importance_function
 import numpy as np
 import pandas as pd
+
+_NUM_TO_RETRIEVE_TO_CONTEXTUALIZE_IMPORTANCE = 25
 
 
 def _check_date_in_range(timestamp: datetime.datetime) -> None:
@@ -44,9 +47,11 @@ class AssociativeMemory:
   def __init__(
       self,
       sentence_embedder: Callable[[str], np.ndarray],
-      importance: Callable[[str], float] | None = None,
+      importance: Callable[[str, Sequence[tuple[str, float]]],
+                           float] | None = None,
       clock: Callable[[], datetime.datetime] = datetime.datetime.now,
       clock_step_size: datetime.timedelta | None = None,
+      seed: int | None = None,
   ):
     """Constructor.
 
@@ -57,9 +62,17 @@ class AssociativeMemory:
       clock: a callable to get time when adding memories
       clock_step_size: sets the step size of the clock. If None, assumes precise
         time
+      seed: the seed to use for the random number generator if None then use the
+        current time
     """
     self._memory_bank_lock = threading.Lock()
+    if seed is None:
+      self._seed = random.seed(int(datetime.datetime.now().timestamp()))
+    else:
+      self._seed = seed
     self._embedder = sentence_embedder
+    self._num_to_retrieve_to_contextualize_importance = (
+        _NUM_TO_RETRIEVE_TO_CONTEXTUALIZE_IMPORTANCE)
     self._importance = (
         importance or importance_function.ConstantImportanceModel().importance)
 
@@ -77,7 +90,7 @@ class AssociativeMemory:
       timestamp: datetime.datetime | None = None,
       tags: Iterable[str] = (),
       importance: float | None = None,
-  ):
+  ) -> None:
     """Adds nonduplicated entries (time, text, tags, importance) to the memory.
 
     Args:
@@ -87,7 +100,13 @@ class AssociativeMemory:
       importance: optionally set the importance of the memory.
     """
     if importance is None:
-      importance = self._importance(text)
+      with self._memory_bank_lock:
+        memory_size = len(self._memory_bank)
+      num_to_retrieve = self._num_to_retrieve_to_contextualize_importance
+      if memory_size < num_to_retrieve:
+        num_to_retrieve = memory_size
+      context = self.retrieve_random_with_importance(k=num_to_retrieve)
+      importance = self._importance(text, context)
 
     if timestamp is None:
       timestamp = self._clock_now()
@@ -119,7 +138,7 @@ class AssociativeMemory:
       self,
       texts: Iterable[str],
       **kwargs,
-  ):
+  ) -> None:
     """Adds the texts to the memory.
 
     Args:
@@ -129,7 +148,7 @@ class AssociativeMemory:
     for text in texts:
       self.add(text, **kwargs)
 
-  def get_data_frame(self):
+  def get_data_frame(self) -> pd.DataFrame:
     with self._memory_bank_lock:
       return self._memory_bank.copy()
 
@@ -202,7 +221,7 @@ class AssociativeMemory:
       data: pd.DataFrame,
       add_time: bool = False,
       sort_by_time: bool = True,
-  ):
+  ) -> Sequence[str]:
     """Formats a dataframe into list of strings.
 
     Args:
@@ -240,7 +259,7 @@ class AssociativeMemory:
       use_importance: bool = True,
       add_time: bool = True,
       sort_by_time: bool = True,
-  ):
+  ) -> Sequence[str]:
     """Retrieve memories associatively.
 
     Args:
@@ -270,7 +289,7 @@ class AssociativeMemory:
       regex: str,
       add_time: bool = True,
       sort_by_time: bool = True,
-  ):
+  ) -> Sequence[str]:
     """Retrieve memories matching a regex.
 
     Args:
@@ -291,7 +310,7 @@ class AssociativeMemory:
       time_from: datetime.datetime,
       time_until: datetime.datetime,
       add_time: bool = False,
-  ):
+  ) -> Sequence[str]:
     """Retrieve memories within a time interval.
 
     Args:
@@ -315,7 +334,7 @@ class AssociativeMemory:
       self,
       k: int = 1,
       add_time: bool = False,
-  ):
+  ) -> Sequence[str]:
     """Retrieve memories by recency.
 
     Args:
@@ -333,7 +352,7 @@ class AssociativeMemory:
       self,
       k: int = 1,
       add_time: bool = False,
-  ):
+  ) -> tuple[Sequence[str], Sequence[float]]:
     """Retrieve memories by recency and return importance alongside.
 
     Args:
@@ -350,6 +369,40 @@ class AssociativeMemory:
         list(data['importance']),
     )
 
+  def retrieve_random(
+      self,
+      k: int = 1,
+      add_time: bool = False,
+  ) -> Sequence[str]:
+    """Retrieve random memories.
+
+    Args:
+      k: number of entries to retrieve
+      add_time: whether to add time stamp to the output
+
+    Returns:
+      List of strings corresponding to memories
+    """
+    with self._memory_bank_lock:
+      data = self._memory_bank.sample(k, random_state=self._seed)
+    return self._pd_to_text(data, add_time=add_time, sort_by_time=True)
+
+  def retrieve_random_with_importance(
+      self,
+      k: int = 1,
+  ) -> Sequence[tuple[str, float]]:
+    """Retrieve random memories and return importance alongside.
+
+    Args:
+      k: number of entries to retrieve
+
+    Returns:
+      List of tuples of (memory, importance)
+    """
+    with self._memory_bank_lock:
+      data = self._memory_bank.sample(k, random_state=self._seed)
+    return tuple(zip(list(data['text']), list(data['importance'])))
+
   def __len__(self):
     """Returns the number of entries in the memory bank.
 
@@ -358,3 +411,30 @@ class AssociativeMemory:
     """
     with self._memory_bank_lock:
       return len(self._memory_bank)
+
+  def get_mean_importance(self) -> float:
+    """Returns the mean importance of the memories in the memory bank."""
+    with self._memory_bank_lock:
+      return self._memory_bank['importance'].mean()
+
+  def get_max_importance(self) -> float:
+    """Returns the max importance of the memories in the memory bank."""
+    with self._memory_bank_lock:
+      return self._memory_bank['importance'].max()
+
+  def get_min_importance(self) -> float:
+    """Returns the min importance of the memories in the memory bank."""
+    with self._memory_bank_lock:
+      return self._memory_bank['importance'].min()
+
+  def set_num_to_retrieve_to_contextualize_importance(
+      self, num_to_retrieve: int) -> None:
+    """Sets the number of memories to retrieve for contextualizing importance.
+
+    Set this to 0 if you want to disable contextualization of importance.
+
+    Args:
+      num_to_retrieve: the number of memories to retrieve for contextualizing
+        importance.
+    """
+    self._num_to_retrieve_to_contextualize_importance = num_to_retrieve

@@ -102,19 +102,19 @@ class SimPlan(component.Component):
 
     observation = '\n'.join(self._last_observation)
     self._last_observation = []
-    memories = self._memory.retrieve_associative(
+    memories = list(self._memory.retrieve_associative(
         observation,
         k=self._num_memories_to_retrieve,
         use_recency=True,
         add_time=True,
-    )
+    ))
     if self._goal_component:
-      memories = memories + self._memory.retrieve_associative(
+      memories = memories + list(self._memory.retrieve_associative(
           self._goal_component.state(),
           k=self._num_memories_to_retrieve,
           use_recency=True,
           add_time=True,
-      )
+      ))
     memories = '\n'.join(memories)
 
     components = '\n'.join([

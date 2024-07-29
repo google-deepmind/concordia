@@ -383,7 +383,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     if self._players_act_simultaneously:
       self._clock.advance()
 
-  def run_episode(self, max_steps: int = 20) -> list[str]:
+  def run_episode(self, max_steps: int = 20) -> Sequence[str]:
     for _ in range(max_steps):
       self.step()
       for comp in self._components.values():

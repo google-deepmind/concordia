@@ -22,7 +22,6 @@ import logging
 import re
 from typing import Any
 from concordia.associative_memory import associative_memory
-from concordia.associative_memory import importance_function
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from dateutil.relativedelta import relativedelta  # pylint: disable=g-importing-member
@@ -31,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DOB = datetime.datetime(year=1984, month=7, day=3, hour=0, minute=0)
 DEFAULT_FORMATIVE_AGES = (6, 9, 13, 16, 19, 21, 23)
-DEFAULT_IMPORTANT_MODEL = importance_function.ConstantImportanceModel()
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -49,7 +47,6 @@ class AgentConfig:
     goal: defines agents goal. Can be left blank if not used.
     date_of_birth: the date of birth for the agent.
     formative_ages: ages at which the formative episodes will be created
-    formative_memory_importance: the importance value of formative memories.
     extras: a field for the user to keep any experiment specific data they need
       to define an agent
   """
@@ -62,7 +59,6 @@ class AgentConfig:
   goal: str = ''
   date_of_birth: datetime.datetime = DEFAULT_DOB
   formative_ages: Iterable[int] = DEFAULT_FORMATIVE_AGES
-  formative_memory_importance: float = 1.0
   extras: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
@@ -229,7 +225,6 @@ class FormativeMemoryFactory:
           tags=['episode'],
           timestamp=(
               agent_config.date_of_birth + relativedelta(years=episode_age)),
-          importance=agent_config.formative_memory_importance,
       )
 
     if self._current_date:
@@ -238,7 +233,6 @@ class FormativeMemoryFactory:
           f'{agent_config.name} is {age} years old.',
           tags=['info'],
           timestamp=self._current_date,
-          importance=agent_config.formative_memory_importance,
       )
 
   def make_memories(
@@ -262,12 +256,12 @@ class FormativeMemoryFactory:
       context_items = context.split('\n')
       for item in context_items:
         if item:
-          mem.add(item, importance=agent_config.formative_memory_importance)
+          mem.add(item)
 
     if agent_config.specific_memories:
       specific_memories = agent_config.specific_memories.split('\n')
       for item in specific_memories:
         if item:
-          mem.add(item, importance=agent_config.formative_memory_importance)
+          mem.add(item)
 
     return mem
