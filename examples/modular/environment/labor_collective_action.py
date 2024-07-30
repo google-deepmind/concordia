@@ -51,7 +51,7 @@ import sentence_transformers
 
 
 ENVIRONMENT_MODULES = (
-    # 'garment_factory_labor',
+    'garment_factory_labor',
     'wild_west_railroad_construction_labor',
 )
 env_module_name = random.choice(ENVIRONMENT_MODULES)
@@ -60,7 +60,6 @@ env_module_name = random.choice(ENVIRONMENT_MODULES)
 concordia_root_dir = pathlib.Path(
     __file__
 ).parent.parent.parent.parent.resolve()
-print('concordia_root_dir: ', concordia_root_dir)
 sys.path.append(f'{concordia_root_dir}')
 environment_params = importlib.import_module(
     f'examples.modular.environment.modules.{env_module_name}'
@@ -82,7 +81,7 @@ START_TIME = datetime.datetime(
 
 environment_config = environment_params.sample_parameters()
 
-NUM_MAIN_PLAYERS = 3
+NUM_MAIN_PLAYERS = 4
 
 DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 LOW_DAILY_PAY = 1.25
@@ -238,7 +237,7 @@ def configure_players(
       future = pool.submit(
           get_agent_config,
           player_name=player_name,
-          environment_config=environment_config,
+          environment_cfg=environment_config,
       )
       main_player_config_futures.append(future)
     for future in main_player_config_futures:
@@ -806,7 +805,6 @@ class Simulation(Runnable):
           if player_choice == BOSS_OPTIONS['cave to pressure']:
             # The boss caves to pressure and raises wages.
             wage = wage * WAGE_INCREASE_FACTOR
-            print(f'!!THE BOSS CAVED TO PRESSURE AND RAISED WAGES TO {wage}!!')
             for player in players:
               player.observe(
                   f'Boss {environment_config.antagonist} caves '
@@ -815,7 +813,6 @@ class Simulation(Runnable):
               )
           else:
             # The boss holds firm and leaves wages unchanged.
-            print(f'!!BOSS HOLDS FIRM, WAGES REMAIN UNCHANGED AT {wage}!!')
             for player in players:
               player.observe(
                   f'Boss {environment_config.antagonist} holds '
