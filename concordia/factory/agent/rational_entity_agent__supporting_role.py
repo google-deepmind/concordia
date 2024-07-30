@@ -18,7 +18,6 @@ from collections.abc import Mapping
 import datetime
 import types
 
-from concordia.agents import basic_agent
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
@@ -43,7 +42,7 @@ def build_agent(
     additional_components: Mapping[
         entity_component.ComponentName, str
     ] = types.MappingProxyType({}),
-) -> basic_agent.BasicAgent:
+) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
   Args:

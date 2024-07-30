@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Library of components contributed by users."""
 
 from concordia.contrib.components.game_master import bargain_payoffs
+from concordia.contrib.components.game_master import industrial_action
 from concordia.contrib.components.game_master import restricted_inventory
 from concordia.contrib.components.game_master import world_background_and_relevance
