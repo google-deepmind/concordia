@@ -57,6 +57,28 @@ class ActionSpec:
       raise ValueError('Options not supported for non-CHOICE output type.')
     object.__setattr__(self, 'options', tuple(self.options))
 
+  def validate(self, action: str) -> None:
+    """Validates the specified action against the action spec.
+
+    Args:
+      action: The action to validate.
+
+    Raises:
+      ValueError: If the action is invalid.
+    """
+    if self.output_type == OutputType.FREE:
+      return
+    elif self.output_type == OutputType.CHOICE:
+      if action not in self.options:
+        raise ValueError(f'Action {action!r} is not one of {self.options!r}.')
+    elif self.output_type == OutputType.FLOAT:
+      try:
+        float(action)
+      except ValueError:
+        raise ValueError(f'Action {action!r} is not a valid float.') from None
+    else:
+      raise NotImplementedError(f'Unsupported output type: {self.output_type}')
+
 
 def free_action_spec(**kwargs) -> ActionSpec:
   """Returns an action spec with output type FREE."""

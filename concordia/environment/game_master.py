@@ -329,6 +329,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       action_spec_this_time = self._action_spec
 
     action = player.act(action_spec_this_time)
+    action_spec_this_time.validate(action)
 
     self.update_from_player(action_attempt=action, player_name=player.name)
 

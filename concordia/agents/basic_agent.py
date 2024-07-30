@@ -272,5 +272,6 @@ class BasicAgent(
           call_to_action=convo_context + call_to_speech
       )
       utterance = self.act(action_spec)
+      action_spec.validate(utterance)
 
     return utterance

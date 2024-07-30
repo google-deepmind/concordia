@@ -378,6 +378,7 @@ class AccountForAgencyOfOthers:
               tag='action',
           )
           would_they_do_it = self._player_by_name[player].act(action_spec)
+          action_spec.validate(would_they_do_it)
           if self._verbose:
             print(termcolor.colored(
                 tmp_chain_of_thought_per_player.view().text(), 'yellow'))

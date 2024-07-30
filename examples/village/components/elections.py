@@ -155,6 +155,7 @@ class Elections(component.Component):
             tag='vote',
         )
         vote = self._voter_by_name[active_voter].act(action_spec)
+        action_spec.validate(vote)
 
         self._vote_count[vote] += 1
         self._citizens_who_already_voted.add(active_voter)
