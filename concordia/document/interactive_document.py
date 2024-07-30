@@ -147,6 +147,8 @@ class InteractiveDocument(document.Document):
       answer_suffix: str = '',
       max_tokens: int = DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = ('\n',),
+      question_label: str = 'Question',
+      answer_label: str = 'Answer',
   ) -> str:
     """Asks the agent an open question and appends it to the document.
 
@@ -160,12 +162,14 @@ class InteractiveDocument(document.Document):
       max_tokens: the maximum number of tokens to sample from the model.
       terminators: strings that must not be present in the model's response. If
         emitted by the model the response will be truncated before them.
+      question_label: the label to use for the question, typically "Question".
+      answer_label: the label to use for the answer, typically "Answer".
 
     Returns:
       The agents truncated response (or `forced_response` is provided).
     """
-    self._question(f'Question: {question}\n')
-    self._response(f'Answer: {answer_prefix}')
+    self._question(f'{question_label}: {question}\n')
+    self._response(f'{answer_label}: {answer_prefix}')
     if forced_response is None:
       response = self._model.sample_text(
           prompt=self._model_view.text(),

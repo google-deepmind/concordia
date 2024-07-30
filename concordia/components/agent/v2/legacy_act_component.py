@@ -128,6 +128,7 @@ class ActComponent(entity_component.ActingComponent):
           # after the end of a directly spoken response, since it normally
           # puts a space after a quotation mark only in these cases.
           terminators=('" ', '\n'),
+          question_label='Exercise',
       )
       self._log(output, prompt)
       return output
