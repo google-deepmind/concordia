@@ -25,3 +25,5 @@ from concordia.components.game_master import relevant_events
 from concordia.components.game_master import schedule
 from concordia.components.game_master import schelling_diagram_payoffs
 from concordia.components.game_master import time_display
+from concordia.components.game_master import triggered_function
+from concordia.components.game_master import triggered_inventory_effect
