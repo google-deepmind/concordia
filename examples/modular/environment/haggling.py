@@ -190,15 +190,13 @@ def add_choice_scene_spec(
   Returns:
     choice_scene_type: the choice scene type.
   """
-  action_spec_propose = agent_lib.ActionSpec(
+  action_spec_propose = agent_lib.choice_action_spec(
       call_to_action='What price would {name} propose?:',
-      output_type=agent_lib.OutputType.CHOICE,
       options=('1 coin', '2 coins', '3 coins', '4 coins'),
       tag='choice',
   )
-  action_spec_accept = agent_lib.ActionSpec(
+  action_spec_accept = agent_lib.choice_action_spec(
       call_to_action='Would {name} accept the offer?:',
-      output_type=agent_lib.OutputType.CHOICE,
       options=('accept', 'reject'),
       tag='choice',
   )

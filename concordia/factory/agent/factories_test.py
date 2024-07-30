@@ -30,23 +30,16 @@ from concordia.factory.agent import rational_entity_agent__main_role
 from concordia.factory.agent import synthetic_user
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
-from concordia.typing import entity as entity_lib
 import numpy as np
 
 
 OPTIONS = ('x', 'y')
-DECISION_ACTION_SPEC = agent_lib.ActionSpec(
+DECISION_ACTION_SPEC = agent_lib.choice_action_spec(
     call_to_action='Does {name} prefer x or y?',
-    output_type=agent_lib.OutputType.CHOICE,
     options=OPTIONS,
     tag='decision',
 )
-SPEECH_ACTION_SPEC = entity_lib.ActionSpec(
-    call_to_action=agent_lib.DEFAULT_CALL_TO_SPEECH,
-    output_type=agent_lib.OutputType.FREE,
-    options=None,
-    tag='speech',
-)
+SPEECH_ACTION_SPEC = agent_lib.DEFAULT_SPEECH_ACTION_SPEC
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {

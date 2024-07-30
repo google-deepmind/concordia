@@ -226,9 +226,8 @@ def add_choice_scene_spec(
   """
   defection_option = 'The Princess of Wales'
   cooperation_option = 'The Crooked Billet'
-  action_spec = agent_lib.ActionSpec(
+  action_spec = agent_lib.choice_action_spec(
       call_to_action='Which pub would {name} go to watch the game?',
-      output_type=agent_lib.OutputType.CHOICE,
       options=(defection_option, cooperation_option),
       tag='choice',
   )

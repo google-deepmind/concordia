@@ -149,9 +149,8 @@ class Elections(component.Component):
             f'Current activity: {event_statement}.\nGiven the above, who whould'
             f' {active_voter} vote for?'
         )
-        action_spec = agent.ActionSpec(
+        action_spec = agent.choice_action_spec(
             call_to_action=question,
-            output_type=agent.OutputType.CHOICE,
             options=self._candidates,
             tag='vote',
         )

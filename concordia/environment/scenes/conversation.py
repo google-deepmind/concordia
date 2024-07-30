@@ -167,9 +167,8 @@ def make_conversation_game_master(
     a game master
   """
 
-  action_spec = entity.ActionSpec(
-      call_to_speech,
-      entity.OutputType.FREE,
+  action_spec = entity.free_action_spec(
+      call_to_action=call_to_speech,
       tag='speech',
   )
 

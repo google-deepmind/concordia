@@ -29,7 +29,9 @@ from concordia.typing import entity
 # compatibility.
 DEFAULT_ACTION_SPEC = entity.DEFAULT_ACTION_SPEC
 ActionSpec = entity.ActionSpec
-OutputType = entity.OutputType
+free_action_spec = entity.free_action_spec
+float_action_spec = entity.float_action_spec
+choice_action_spec = entity.choice_action_spec
 
 DEFAULT_CALL_TO_SPEECH = (
     'Given the above, what is {name} likely to say next? Respond in'
@@ -37,6 +39,11 @@ DEFAULT_CALL_TO_SPEECH = (
     'Cristina -- "Hello! Mighty fine weather today, right?", '
     'Ichabod -- "I wonder if the alfalfa is ready to harvest", or '
     'Townsfolk -- "Good morning".\n'
+)
+
+DEFAULT_SPEECH_ACTION_SPEC = free_action_spec(
+    call_to_action=DEFAULT_CALL_TO_SPEECH,
+    tag='speech',
 )
 
 

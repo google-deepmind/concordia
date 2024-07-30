@@ -27,7 +27,6 @@ from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
 from concordia.typing import agent
 from concordia.typing import component
-import concordia.typing.entity as entity_lib
 
 
 _PHONE_CALL_TO_ACTION = textwrap.dedent("""\
@@ -38,8 +37,9 @@ _PHONE_CALL_TO_ACTION = textwrap.dedent("""\
   {name} uses/used the Chat app to send "hi, what's up?" to George.
   """)
 
-_PHONE_ACTION_SPEC = agent.ActionSpec(
-    _PHONE_CALL_TO_ACTION, entity_lib.OutputType.FREE, tag='phone'
+_PHONE_ACTION_SPEC = agent.free_action_spec(
+    call_to_action=_PHONE_CALL_TO_ACTION,
+    tag='phone',
 )
 
 

@@ -268,9 +268,9 @@ class BasicAgent(
           convo_context + call_to_speech, f'{self._agent_name}:'
       )
     else:
-      utterance = self.act(
-          action_spec=entity.ActionSpec(convo_context + call_to_speech,
-                                        entity.OutputType.FREE),
+      action_spec = entity.free_action_spec(
+          call_to_action=convo_context + call_to_speech
       )
+      utterance = self.act(action_spec)
 
     return utterance

@@ -176,10 +176,9 @@ MINIGAMES = [
             cooperation='try to carpool with others',
             defection='drive individually'
         ),
-        action_spec=agent_lib.ActionSpec(
+        action_spec=agent_lib.choice_action_spec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type=agent_lib.OutputType.CHOICE,
             options=('try to carpool with others', 'drive individually'),
             tag='minigame_action',
         ),
@@ -200,10 +199,9 @@ MINIGAMES = [
             cooperation='maintain the appliance',
             defection='let others handle upkeep of the appliance'
         ),
-        action_spec=agent_lib.ActionSpec(
+        action_spec=agent_lib.choice_action_spec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type=agent_lib.OutputType.CHOICE,
             options=('maintain the appliance',
                      'let others handle upkeep of the appliance'),
             tag='minigame_action',
@@ -229,10 +227,9 @@ MINIGAMES = [
             cooperation='row vigorously',
             defection='row less vigorously',
         ),
-        action_spec=agent_lib.ActionSpec(
+        action_spec=agent_lib.choice_action_spec(
             call_to_action=(
                 'Which action would {name} choose in the minigame?'),
-            output_type=agent_lib.OutputType.CHOICE,
             options=('row vigorously',
                      'row less vigorously'),
             tag='minigame_action',

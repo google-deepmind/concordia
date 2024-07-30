@@ -30,7 +30,7 @@ class OutputType(enum.Enum):
   FLOAT = enum.auto()
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class ActionSpec:
   """A specification of the action that entity is queried for.
 
@@ -43,9 +43,34 @@ class ActionSpec:
   """
 
   call_to_action: str
-  output_type: OutputType | str
-  options: Sequence[str] | None = None
+  output_type: OutputType
+  options: Sequence[str] = ()
   tag: str | None = None
+
+  def __post_init__(self):
+    if self.output_type == OutputType.CHOICE:
+      if not self.options:
+        raise ValueError('Options must be provided for CHOICE output type.')
+      if len(set(self.options)) != len(self.options):
+        raise ValueError('Options must not contain duplicate choices.')
+    elif self.options:
+      raise ValueError('Options not supported for non-CHOICE output type.')
+    object.__setattr__(self, 'options', tuple(self.options))
+
+
+def free_action_spec(**kwargs) -> ActionSpec:
+  """Returns an action spec with output type FREE."""
+  return ActionSpec(output_type=OutputType.FREE, **kwargs)
+
+
+def float_action_spec(**kwargs) -> ActionSpec:
+  """Returns an action spec with output type FLOAT."""
+  return ActionSpec(output_type=OutputType.FLOAT, **kwargs)
+
+
+def choice_action_spec(**kwargs) -> ActionSpec:
+  """Returns an action spec with output type CHOICE."""
+  return ActionSpec(output_type=OutputType.CHOICE, **kwargs)
 
 
 DEFAULT_CALL_TO_ACTION = (
@@ -58,10 +83,8 @@ DEFAULT_CALL_TO_ACTION = (
     'valid to respond with "{name} votes because...".'
 )
 
-DEFAULT_ACTION_SPEC = ActionSpec(
+DEFAULT_ACTION_SPEC = free_action_spec(
     call_to_action=DEFAULT_CALL_TO_ACTION,
-    output_type=OutputType.FREE,
-    options=None,
     tag='action',
 )
 
