@@ -22,7 +22,6 @@ preprint arXiv:2304.03442.
 
 from collections.abc import Callable, Iterable, Sequence
 import datetime
-import random
 import threading
 
 from concordia.associative_memory import importance_function
@@ -62,14 +61,11 @@ class AssociativeMemory:
       clock: a callable to get time when adding memories
       clock_step_size: sets the step size of the clock. If None, assumes precise
         time
-      seed: the seed to use for the random number generator if None then use the
-        current time
+      seed: optional seed to use for the random number generator. If None, uses
+        the default rng.
     """
     self._memory_bank_lock = threading.Lock()
-    if seed is None:
-      self._seed = random.seed(int(datetime.datetime.now().timestamp()))
-    else:
-      self._seed = seed
+    self._seed = seed
     self._embedder = sentence_embedder
     self._num_to_retrieve_to_contextualize_importance = (
         _NUM_TO_RETRIEVE_TO_CONTEXTUALIZE_IMPORTANCE)
