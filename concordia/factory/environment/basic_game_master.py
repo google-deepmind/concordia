@@ -19,6 +19,7 @@ import operator
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
@@ -274,7 +275,7 @@ def create_html_log(
 
 def run_simulation(
     model: language_model.LanguageModel,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
     primary_environment: game_master.GameMaster,
     clock: game_clock.MultiIntervalClock,
     scenes: Sequence[scene_lib.SceneSpec],
