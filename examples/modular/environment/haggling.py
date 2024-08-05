@@ -40,7 +40,7 @@ from concordia.typing import agent as agent_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
-import sentence_transformers
+import numpy as np
 
 Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
@@ -359,7 +359,7 @@ class Simulation(Runnable):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      embedder: sentence_transformers.SentenceTransformer,
+      embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_entity_agent__main_role,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,

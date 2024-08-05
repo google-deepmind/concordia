@@ -41,7 +41,6 @@ from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import numpy as np
-import sentence_transformers
 
 
 Runnable = Callable[[], str]
@@ -458,7 +457,7 @@ class Simulation(Runnable):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      embedder: sentence_transformers.SentenceTransformer,
+      embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_entity_agent__main_role,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
