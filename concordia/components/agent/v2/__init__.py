@@ -29,6 +29,7 @@ from concordia.components.agent.v2 import options_perception
 from concordia.components.agent.v2 import person_by_situation
 from concordia.components.agent.v2 import plan
 from concordia.components.agent.v2 import report_function
+from concordia.components.agent.v2 import scheduled_hint
 from concordia.components.agent.v2 import self_perception
 from concordia.components.agent.v2 import simple_act_component
 from concordia.components.agent.v2 import situation_perception
