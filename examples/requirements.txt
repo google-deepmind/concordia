@@ -3,6 +3,7 @@ docstring-parser
 gdm-concordia
 IPython
 matplotlib
+ml_collections
 numpy
 openai
 pandas

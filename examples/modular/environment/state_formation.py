@@ -16,8 +16,13 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import datetime
+import importlib
+import pathlib
+import random
+import sys
 import types
 
+from concordia import components as generic_components
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
@@ -37,6 +42,23 @@ from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
 
+ENVIRONMENT_MODULES = ('prestate_villages',)
+env_module_name = random.choice(ENVIRONMENT_MODULES)
+
+# Load the environment config with importlib
+concordia_root_dir = pathlib.Path(
+    __file__
+).parent.parent.parent.parent.resolve()
+sys.path.append(f'{concordia_root_dir}')
+environment_module = importlib.import_module(
+    f'examples.modular.environment.modules.{env_module_name}'
+)
+config = environment_module.get_world_config()
+
+BASIC_SETTING = environment_module.BASIC_SETTING.format(
+    village_a_name=config.village_a_name, village_b_name=config.village_b_name
+)
+
 Runnable = Callable[[], str]
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=20)
@@ -48,59 +70,72 @@ HILL_TIME = datetime.datetime(hour=18, year=1750, month=10, day=3)
 RETURN_HOME_SCENE_TIME = datetime.datetime(hour=20, year=1750, month=10, day=4)
 DECISION_TIME = datetime.datetime(hour=20, year=1750, month=12, day=6)
 
+SUPPORTING_PLAYER_NAMES_VILLAGE_A = [
+    player[0] for player in config.supporting_characters.a
+]
+SUPPORTING_PLAYER_NAMES_VILLAGE_B = [
+    player[0] for player in config.supporting_characters.b
+]
+
 RESOLUTION_SCENE_TYPE = 'decision'
 SCENARIO_PREMISE = [
     (
-        'Alice and Charlie meet periodically at the hill of accord to '
-        'discuss current events and conduct diplomacy on behalf of the '
-        'villages they represent.'
+        f'{config.main_characters.a.name} and {config.main_characters.b.name} '
+        'meet periodically at the hill of accord to discuss current events and '
+        'conduct diplomacy on behalf of the villages they represent.'
     ),
 ]
 REPRESENTATIVE_BY_VILLAGE = {
-    'Auroria': 'Alice',
-    'Havenwood': 'Charlie',
+    config.village_a_name: config.main_characters.a.name,
+    config.village_b_name: config.main_characters.b.name,
 }
-SUPPORTING_PLAYER_LOCATIONS = [
-    'Diana waits for Alice in the center of Auroria.',
-    'George waits for Charlie in the center of Havenwood.',
-]
+SUPPORTING_PLAYER_LOCATIONS = []
+SUPPORTING_PLAYER_LOCATIONS.extend([
+    (
+        f'{player_data[0]} waits for {config.main_characters.a.name} in the '
+        f'center of {config.village_a_name}.'
+    )
+    for player_data in config.supporting_characters.a
+])
+SUPPORTING_PLAYER_LOCATIONS.extend([
+    (
+        f'{player_data[0]} waits for {config.main_characters.b.name} in the '
+        f'center of {config.village_b_name}.'
+    )
+    for player_data in config.supporting_characters.b
+])
 DECISION_ACTION_SPEC = agent_lib.choice_action_spec(
     call_to_action=(
-        'Would {name} follow through with their obligation under '
-        'the agreement?'),
+        'Would {name} follow through with their obligation under the agreement?'
+    ),
     options=('no', 'yes'),
     tag='decision',
 )
 
 
+def _get_conjunction_of_names_string(
+    player_names: Sequence[str], and_or: str = 'or'
+) -> str:
+  """Get a string listing the players [a, b, c] like 'a, b, or c'."""
+  player_names_str = ''
+  if len(player_names) > 1:
+    player_names_str = ', '.join(player_names[:-1])
+    player_names_str += f', {and_or} {player_names[-1]}'
+  elif len(player_names) == 1:
+    player_names_str = player_names[0]
+  return player_names_str
+
+
 def get_shared_memories_and_context(
-    model: language_model.LanguageModel) -> tuple[Sequence[str], str]:
+    model: language_model.LanguageModel,
+) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
-  shared_memories = [
-      'There are two villages: Auroria and Havenwood.',
-      ('Elder representatives of the two villages meet one another at the ' +
-       'hill of accord to discuss current events and conduct diplomacy.'),
-      'Alice represents Auroria.',
-      'Charlie represents Havenwood.',
-      ('Havenwood, which is on the coast, is threatened by barbarian ' +
-       'raiders who have been attacking from the sea more often lately.'),
-      'Auroria is up in the mountains, far from the sea.',
-      'Havenwood is on the coast.',
-      ('Everyone knows that the gods smile upon any treaty for which ' +
-       'agreement is marked by the pouring of libations upon the hill of ' +
-       'accord. This ritual involves pouring precious wines upon the hill ' +
-       "of accord's sacred ground."),
-      ('To secure divine favor with the libation pouring ritual, it is ' +
-       'first necessary for all parties to the treaty under consideration to ' +
-       'have reached agreement on its exact wording, which must include ' +
-       'who is promising to do what, under what conditions, and ' +
-       'whether as a result of the treaty, any resources will '+
-       'change hands, which resources, and when.'),
-  ]
+  shared_memories = config.barbarian_raid_info
+
   # The shared context will be used for the NPC context. It reflects general
   # knowledge and is possessed by all characters.
   shared_context = model.sample_text(
-      'Summarize the following passage in a concise and insightful fashion:\n'
+      'Summarize the following passage in a concise and insightful fashion.\n'
       + '\n'.join(shared_memories)
       + '\n'
       + 'Summary:'
@@ -108,300 +143,219 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-village_facts = {}
-village_facts['auroria'] = [
-    (
-        'In Auroria, leadership is earned through skill and knowledge, without'
-        ' regard to familial lineage.'
-    ),
-    (
-        'The people of Auroria worship multiple gods, each representing'
-        ' different natural elements, which are central to their celebrations'
-        ' and daily lives.'
-    ),
-    (
-        'Auroria follows a matrilineal lineage system, where family and'
-        ' inheritance are traced through the mother\'s side, shaping social and'
-        ' family structures.'
-    ),
-    (
-        'Aurorian art is known for its geometric patterns and symbols,'
-        ' reflecting the community\'s connection with nature.'
-    ),
-    (
-        'Auroria has a gift-giving economy, where status is gained through'
-        ' generosity and the ability to host elaborate feasts.'
-    ),
-    (
-        'The political structure in Auroria is upheld by a council of elders,'
-        ' who make decisions through consensus, embodying the village\'s'
-        ' democratic values.'
-    ),
-    (
-        'Auroria has a specialization of labor, with skilled craftspeople such'
-        ' as potters, blacksmiths, and weavers. Their goods are traded within'
-        ' the village and with neighboring communities.'
-    ),
-    (
-        'Artistic expression is highly valued in Auroria. This could manifest'
-        ' in decorated pottery, intricate carvings, or textiles with symbolic'
-        ' designs.'
-    ),
-    (
-        'The solstice festival, Lumina, is a significant event in Auroria,'
-        ' featuring communal feasting, dancing, and bonfires to celebrate'
-        ' seasonal cycles and community prosperity.'
-    ),
-    (
-        'The elite of Auroria distinguish themselves through their stewardship'
-        ' of knowledge and culture, hosting gatherings where wisdom, poetry,'
-        ' and ancestral stories are shared.'
-    ),
-    (
-        'The elite in Auroria may be expected to perform conspicuous displays'
-        ' of generosity, such as sponsoring large feasts or communal projects.'
-        ' This reinforces their social standing and positions them as'
-        ' benefactors of the community.'
-    ),
-    (
-        'In Auroria, the homes of the elite are recognized not by their size'
-        ' but by the presence of rare artifacts and artworks that symbolize'
-        ' their role as custodians of the community\'s heritage.'
-    ),
-    (
-        'The elite in Auroria play a crucial role in the village\'s external'
-        ' relations, representing their people in negotiations with neighboring'
-        ' communities to ensure peace and mutual prosperity.'
-    ),
-    (
-        'Rituals and ceremonies in Auroria often see the elite taking on'
-        ' significant roles, wearing ceremonial attire that features intricate'
-        ' designs symbolizing their responsibilities to the community and the'
-        ' gods they venerate.'
-    ),
-    (
-        'Many members of the elite in Auroria are very xenophobic, moreso than'
-        ' the non-elite villagers.'
-    ),
-]
-
-village_facts['havenwood'] = [
-    (
-        'Legend says Havenwood\'s founders are survivors of a shipwreck. They'
-        ' found shelter in a hidden cove and built a new life, vigilant against'
-        ' the dangers of the sea.'
-    ),
-    (
-        'A tall, weathered tower built on the highest cliff overlooking the sea'
-        ' serves as Havenwood\'s primary watchpoint. A signal fire is'
-        ' ever-ready to warn of approaching raiders.'
-    ),
-    (
-        'Havenwood is partially encircled by a sturdy wooden palisade,'
-        ' reinforced with driftwood and scavenged debris from wrecked ships, a'
-        ' testament to past raids.'
-    ),
-    (
-        'A network of sea caves carved into the cliffs below Havenwood provides'
-        ' hiding places for people and supplies when the barbarians attack.'
-    ),
-    (
-        'The villagers of Havenwood repurposed their large fishing nets,'
-        ' rigging them to ensnare smaller raiding boats attempting to land on'
-        ' their shores.'
-    ),
-    (
-        'Every Havenwood villager possesses both fishing and basic combat'
-        ' skills. Survival depends on their ability to defend themselves and'
-        ' reap the bounty of the sea.'
-    ),
-    (
-        'Havenwood\'s diet relies heavily on fish, shellfish, and edible'
-        ' seaweed. Their skills in navigating the coastal waters and tides are'
-        ' unmatched.)'
-    ),
-    (
-        'The barbarian raids have severely disrupted Havenwood\'s once-active'
-        ' trade with inland settlements, limiting supplies and the exchange of'
-        ' goods.'
-    ),
-    (
-        'After raids, Havenwood villagers comb beaches and cliffsides for'
-        ' usable items left behind by the barbarians, some of which find their'
-        ' way into homes and tools.'
-    ),
-    (
-        'Children in Havenwood learn cautionary songs and stories about the'
-        ' raiders, weaving a mixture of fear and defiance into the tradition'
-        ' and folklore of Havenwood.'
-    ),
-    (
-        'Havenwood lacks a dedicated blacksmith, so villagers craft makeshift'
-        ' weapons from fishing tools, boat parts, and sharpened flotsam.'
-    ),
-    (
-        'Sacred relics and charms which protect Havenwood from harm are kept by'
-        ' the elders, used in rituals to seek the favor of ancestral spirits.'
-    ),
-    (
-        'The elite of Havenwood lead by example, joining the front lines in'
-        " defense and sharing their own resources to strengthen the village's"
-        ' protection.'
-    ),
-    (
-        'The villagers of Havenwood engage in regular evacuation drills,'
-        ' ensuring that everyone, including children, knows where to go and'
-        ' what to do in the event of a barbarian attack.'
-    ),
-    (
-        'Havenwood\'s most respected families hold knowledge of the tides and'
-        ' secret paths through the coastal waters, guiding allies and evading'
-        ' foes.'
-    ),
-]
-
-
-def get_village_factoids(village: str, size: int) -> list[str]:
-  """Get a random selection of village factoids from a preset list."""
-  return np.random.choice(village_facts[village], size=size, replace=False)
-
-
-def configure_players(
-    shared_context: str) -> tuple[list[formative_memories.AgentConfig],
-                                  list[formative_memories.AgentConfig],
-                                  dict[str, formative_memories.AgentConfig]]:
+def configure_players() -> tuple[
+    list[formative_memories.AgentConfig],
+    list[formative_memories.AgentConfig],
+    dict[str, formative_memories.AgentConfig],
+]:
   """Configure the players.
 
-  Args:
-    shared_context: context known to all players and the game master.
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     player_configs_dict: dict mapping player name to corresponding config
   """
-  auroria_factoids = get_village_factoids('auroria', 5)
-  havenwood_factoids = get_village_factoids('havenwood', 5)
+  and_stakeholders_village_a = _get_conjunction_of_names_string(
+      SUPPORTING_PLAYER_NAMES_VILLAGE_A, and_or='and'
+  )
+  and_stakeholders_village_b = _get_conjunction_of_names_string(
+      SUPPORTING_PLAYER_NAMES_VILLAGE_B, and_or='and'
+  )
+  if len(SUPPORTING_PLAYER_NAMES_VILLAGE_A) > 1:
+    is_or_are = 'are'
+  else:
+    is_or_are = 'is'
+  elder_village_a_stakeholder_knowledge = (
+      f'{and_stakeholders_village_a} are respected and influential in '
+      f'{config.village_a_name}. It is critical to gain their support for any '
+      f'agreement to be made with {config.village_b_name}. '
+      f'{and_stakeholders_village_a} {is_or_are} '
+      "generally pretty reasonable. It's a good idea for "
+      f'{config.main_characters.a} to try to represent '
+      'their interests in the negotiation at the hill of accord.'
+  )
+  elder_village_b_stakeholder_knowledge = (
+      f'{and_stakeholders_village_b} are respected and influential in '
+      f'{config.village_b_name}. It is critical to gain their support for any '
+      f'agreement to be made with {config.village_a_name}. '
+      f'{and_stakeholders_village_b} {is_or_are} '
+      "generally pretty reasonable. It's a good idea for "
+      f'{config.main_characters.b} to try to represent '
+      'their interests in the negotiation at the hill of accord.'
+  )
 
   player_configs = [
       # Main characters:
       formative_memories.AgentConfig(
-          name='Alice',
-          gender='female',
+          name=config.main_characters.a.name,
+          gender=config.main_characters.a.gender,
           date_of_birth=datetime.datetime(year=1700, month=9, day=13),
-          goal=('Alice wants to do what is best for Auroria, especially when ' +
-                'it is also best for Alice herself.'),
-          context=shared_context,
-          traits=(f'Personality: {player_traits_and_styles.get_trait()} and '
-                  f'{player_traits_and_styles.get_trait()}'),
+          goal=(
+              f'{config.main_characters.a.name} wants to do what is best for '
+              f'{config.village_a_name}, especially when '
+              + f'it is also best for {config.main_characters.a.name}.'
+          ),
+          context=' '.join(config.villages.a) + ' ' + BASIC_SETTING,
+          traits=(
+              f'Personality: {player_traits_and_styles.get_trait()} and '
+              f'{player_traits_and_styles.get_trait()}'
+          ),
           extras={
               'player_specific_memories': [
-                  'Alice is an elder of Auroria.',
-                  'Alice represents Auroria at the meeting.',
-                  'Auroria has 100 warriors.',
-                  'Auroria is a prosperous place.',
-                  *auroria_factoids,
+                  (
+                      f'{config.main_characters.a.name} is an elder of '
+                      f'{config.village_a_name}.'
+                  ),
+                  (
+                      f'{config.main_characters.a.name} represents'
+                      f' {config.village_a_name} at the diplomatic meeting at'
+                      ' the hill of accord.'
+                  ),
+                  (
+                      f'The center of {config.village_a_name} is a good place'
+                      ' to meet other villagers.'
+                  ),
+                  elder_village_a_stakeholder_knowledge,
+                  *config.villages.a,
               ],
-              'home_village': 'Auroria',
+              'home_village': config.village_a_name,
               'main_character': True,
           },
       ),
       formative_memories.AgentConfig(
-          name='Charlie',
-          gender='male',
+          name=config.main_characters.b.name,
+          gender=config.main_characters.b.gender,
           date_of_birth=datetime.datetime(year=1700, month=2, day=12),
           goal=(
-              'Charlie wants to do what is best for Havenwood, especially ' +
-              'when it is also best for Charlie himself.'),
-          context=shared_context,
-          traits=(f'Personality: {player_traits_and_styles.get_trait()} and '
-                  f'{player_traits_and_styles.get_trait()}'),
-          extras={
-              'player_specific_memories': [
-                  'Charlie is an elder of Havenwood.',
-                  'Charlie represents Havenwood at the meeting.',
-                  'Havenwood has 5 warriors.',
-                  ('The barbarians are destroying so much of Havenwood\'s ' +
-                   'nearby farmland that the people may soon starve if ' +
-                   'the status quo persists much longer.'),
-                  'Havenwood\'s granaries are almost empty.',
-                  *havenwood_factoids,
-              ],
-              'home_village': 'Havenwood',
-              'main_character': True,
-          },
-      ),
-
-      # Supporting characters
-      formative_memories.AgentConfig(
-          name='Diana',
-          gender='female',
-          date_of_birth=datetime.datetime(year=1725, month=4, day=28),
-          goal=(
-              'Diana manages the Auroria granary, she wants to do a good job ' +
-              'and become a respected leader herself in the future.'),
-          context=shared_context,
-          traits=(f'Personality: {player_traits_and_styles.get_trait()} and '
-                  f'{player_traits_and_styles.get_trait()}'),
-          extras={
-              'player_specific_memories': [
-                  'Diana is from Auroria.',
-                  'Diana manages the Auroria granary.',
-                  ('Diana knows that Alice will represent Auroria in the ' +
-                   'meeting at the hill of accord.'),
-                  'Auroria is a prosperous place.',
-                  ('Diana believes that Auroria is superior to Havenwood and '
-                   'that Havenwood should be forced to pay tribute and '
-                   'acknowledge Auroria\'s higher status.'),
-                  *auroria_factoids,
-              ],
-              'home_village': 'Auroria',
-              'main_character': False,
-          },
-      ),
-      formative_memories.AgentConfig(
-          name='George',
-          gender='male',
-          date_of_birth=datetime.datetime(year=1725, month=2, day=3),
-          goal=(
-              'George wants to be able to feed his family, and he wants ' +
-              'compensation for his farm (which the barbarians destroyed), ' +
-              'and he wants revenge, and security in the future.'
+              f'({config.main_characters.b.name} wants to do what is best '
+              f'for {config.village_b_name}, especially '
+              + f'when it is also best for {config.main_characters.b.name}.'
           ),
-          context=shared_context,
-          traits=(f'Personality: {player_traits_and_styles.get_trait()} and '
-                  f'{player_traits_and_styles.get_trait()}'),
+          context=' '.join(config.villages.b) + ' ' + BASIC_SETTING,
+          traits=(
+              f'Personality: {player_traits_and_styles.get_trait()} and '
+              f'{player_traits_and_styles.get_trait()}'
+          ),
           extras={
               'player_specific_memories': [
-                  'George is from Havenwood.',
-                  ('George was a farmer, and could be one again if it were ' +
-                   'safe to return to his farm and he had help to rebuild.'),
-                  ('George\'s farm near the sea was razed to the ground by ' +
-                   'barbarians. He lost everything.'),
-                  ('George knows that Charlie will represent Havenwood in ' +
-                   'the meeting at the hill of accord.'),
-                  'George was driven from his land by marauding barbarians.',
-                  'George is in danger of starvation.',
-                  ('George and his family are camped out in the center of ' +
-                   'Havenwood, having lost the farm to barbarians. The ' +
-                   'village was the only safe place to go.'),
-                  ("The barbarians are destroying a lot Havenwood's " +
-                   'nearby farmland.'),
-                  *havenwood_factoids,
+                  (
+                      f'{config.main_characters.b.name} is an elder of '
+                      f'{config.village_b_name}.'
+                  ),
+                  (
+                      f'{config.main_characters.b.name} represents'
+                      f' {config.village_b_name} at the diplomatic meeting at'
+                      ' the hill of accord.'
+                  ),
+                  (
+                      f'The center of {config.village_b_name} is a good place'
+                      ' to meet other villagers.'
+                  ),
+                  elder_village_b_stakeholder_knowledge,
+                  *config.villages.b,
               ],
-              'home_village': 'Havenwood',
-              'main_character': False,
+              'home_village': config.village_b_name,
+              'main_character': True,
           },
       ),
   ]
 
-  main_player_configs = [
-      player for player in player_configs if player.extras['main_character']]
-  supporting_player_configs = [
-      player for player in player_configs
-      if not player.extras['main_character']]
+  for idx in range(len(config.supporting_characters.a)):
+    birth_month = random.randint(1, 12)
+    birth_day = random.randint(1, 28)
+    gender = config.supporting_characters.a[idx][1]
+    him_or_her = 'her'
+    his_or_her = 'her'
+    if gender == 'male':
+      him_or_her = 'him'
+      his_or_her = 'his'
+    supporting_player_config = formative_memories.AgentConfig(
+        name=config.supporting_characters.a[idx][0],
+        gender=gender,
+        date_of_birth=datetime.datetime(
+            year=1725, month=birth_month, day=birth_day
+        ),
+        goal=(
+            f'{config.supporting_characters.a[0][0]} wants to secure '
+            f'prosperity for {him_or_her}self and {his_or_her} family.'
+        ),
+        context=' '.join(config.villages.a) + ' ' + BASIC_SETTING,
+        traits=(
+            f'Personality: {player_traits_and_styles.get_trait()} and '
+            f'{player_traits_and_styles.get_trait()}'
+        ),
+        extras={
+            'player_specific_memories': [
+                (
+                    f'{config.supporting_characters.a[0][0]} is from '
+                    f'{config.village_a_name}.'
+                ),
+                (
+                    f'{config.supporting_characters.a[0][0]} knows that '
+                    f'{config.main_characters.a.name} will represent '
+                    f'{config.village_a_name} in the meeting at the hill of '
+                    'accord.'
+                ),
+                *config.villages.a,
+            ],
+            'home_village': config.village_a_name,
+            'main_character': False,
+        },
+    )
+    player_configs.append(supporting_player_config)
 
-  player_configs_dict = {
-      player.name: player for player in player_configs}
+  for idx in range(len(config.supporting_characters.b)):
+    birth_month = random.randint(1, 12)
+    birth_day = random.randint(1, 28)
+    gender = config.supporting_characters.b[idx][1]
+    him_or_her = 'her'
+    his_or_her = 'her'
+    if gender == 'male':
+      him_or_her = 'him'
+      his_or_her = 'his'
+    supporting_player_config = formative_memories.AgentConfig(
+        name=config.supporting_characters.b[idx][0],
+        gender=gender,
+        date_of_birth=datetime.datetime(
+            year=1725, month=birth_month, day=birth_day
+        ),
+        goal=(
+            f'{config.supporting_characters.a[0][0]} wants to secure '
+            f'prosperity for {him_or_her}self and {his_or_her} family.'
+        ),
+        context=' '.join(config.villages.b) + ' ' + BASIC_SETTING,
+        traits=(
+            f'Personality: {player_traits_and_styles.get_trait()} and '
+            f'{player_traits_and_styles.get_trait()}'
+        ),
+        extras={
+            'player_specific_memories': [
+                (
+                    f'{config.supporting_characters.b[0][0]} is from '
+                    f'{config.village_b_name}.'
+                ),
+                (
+                    f'{config.supporting_characters.b[0][0]} knows that '
+                    f'{config.main_characters.b.name} will represent '
+                    f'{config.village_b_name} in the meeting at the hill of '
+                    'accord.'
+                ),
+                *config.villages.b,
+            ],
+            'home_village': config.village_b_name,
+            'main_character': False,
+        },
+    )
+    player_configs.append(supporting_player_config)
+
+  main_player_configs = [
+      player for player in player_configs if player.extras['main_character']
+  ]
+  supporting_player_configs = [
+      player for player in player_configs if not player.extras['main_character']
+  ]
+
+  player_configs_dict = {player.name: player for player in player_configs}
 
   return main_player_configs, supporting_player_configs, player_configs_dict
 
@@ -419,146 +373,144 @@ def configure_scenes(
     supporting_player_configs: configs for the supporting characters
     player_configs_dict: dict mapping player name to corresponding config
     decision_env: the decision environment to use
+
   Returns:
     scenes: the scenes to use
   """
   year_increment = datetime.timedelta(days=365)
 
+  main_player_names = [config.name for config in main_player_configs]
+  supporting_player_names = [
+      config.name for config in supporting_player_configs
+  ]
+
   home_phase_premise = (
-      'Elder {player_name} is home in {village_name}. They know that it will '
+      'Elder {player_name} is home in {village_name}, and knows it will '
       'be critical to gain the support of influential stakeholders in the '
-      'village if any agreement is to last. They should start now. There is '
-      'no time to rest. Everyone in {village_name} knows {player_name} has '
-      'been negotiating on their behalf at the hill of accord. Many will want '
-      'to seek them out to convey their views, hopes, fears, and plans, and to '
-      'try to influence {player_name} to align with them and their incentives.')
+      'village if any agreement is to last. {player_name} should start seeking '
+      'their support now. There is no time to rest.'
+  )
 
   supporting_character_home_phase_premise = (
       '{player_name} is currently in {village_name} and has no intention of '
       'leaving today.'
   )
 
+  elder_a = config.main_characters.a.name
+  elder_b = config.main_characters.b.name
+
   negotiation_phase_premise = (
       'Elder {player_name} left {village_name} early in the morning and '
       'arrived just now at the hill of accord. The reason for this meeting '
       'of the two elder representatives of their respective villages '
-      '(Alice representing Auroria and Charlie representing Havenwood) is as '
-      'follows: barbarian raiders have been pillaging and burning the land, '
+      f'({elder_a} representing {config.village_a_name} and '
+      f'{elder_b} representing {config.village_b_name}) is '
+      'as follows: barbarian raiders have been pillaging and burning the land, '
       'and menacing both villages. It has been suggested that an alliance for '
-      'the mutual defense of both villages against the barbarian threat would '
-      'be beneficial. The elders are meeting to discuss this possibility.')
+      'mutual defense against the barbarian threat would be beneficial. The '
+      'elders are meeting today to try to negotiate such an alliance.'
+  )
 
-  scene_specs = {
-      'home': scene_lib.SceneTypeSpec(
-          name='home',
-          premise={
-              'Alice': [
-                  home_phase_premise.format(
-                      player_name=player_configs_dict['Alice'].name,
-                      village_name=player_configs_dict['Alice'].extras[
-                          'home_village'])
-              ],
-              'Charlie': [
-                  home_phase_premise.format(
-                      player_name=player_configs_dict['Charlie'].name,
-                      village_name=player_configs_dict['Charlie'].extras[
-                          'home_village'])
-              ],
-              'Diana': [
-                  supporting_character_home_phase_premise.format(
-                      player_name=player_configs_dict['Diana'].name,
-                      village_name=player_configs_dict['Diana'].extras[
-                          'home_village'])
-              ],
-              'George': [
-                  supporting_character_home_phase_premise.format(
-                      player_name=player_configs_dict['George'].name,
-                      village_name=player_configs_dict['George'].extras[
-                          'home_village'])
-              ],
-          },
-      ),
-      'negotiation': scene_lib.SceneTypeSpec(
-          name='negotiation',
-          premise={
-              'Alice': [
-                  negotiation_phase_premise.format(
-                      player_name=player_configs_dict['Alice'].name,
-                      village_name=player_configs_dict['Alice'].extras[
-                          'home_village'])
-              ],
-              'Charlie': [
-                  negotiation_phase_premise.format(
-                      player_name=player_configs_dict['Charlie'].name,
-                      village_name=player_configs_dict['Charlie'].extras[
-                          'home_village'])
-              ],
-          },
-      ),
-      RESOLUTION_SCENE_TYPE: scene_lib.SceneTypeSpec(
-          name=RESOLUTION_SCENE_TYPE,
-          premise={},
-          action_spec=DECISION_ACTION_SPEC,
-          override_game_master=decision_env,
-      ),
-  }
+  home_scene_premises = {}
+  for name in main_player_names:
+    home_scene_premises[name] = (
+        home_phase_premise.format(
+            player_name=name,
+            village_name=player_configs_dict[name].extras['home_village'],
+        ),
+    )
+  for name in supporting_player_names:
+    home_scene_premises[name] = (
+        supporting_character_home_phase_premise.format(
+            player_name=name,
+            village_name=player_configs_dict[name].extras['home_village'],
+        ),
+    )
+
+  negotiation_phase_premises = {}
+  for name in main_player_names:
+    negotiation_phase_premises[name] = (
+        negotiation_phase_premise.format(
+            player_name=name,
+            village_name=player_configs_dict[name].extras['home_village'],
+        ),
+        (
+            "There is no time to waste on small talk. It's important to get"
+            ' down to business immediately by proposing specific provisions for'
+            ' the alliance and responding to the proposals of others.'
+        ),
+    )
+
+  scene_types = {}
+  scene_types['home'] = scene_lib.SceneTypeSpec(
+      name='home',
+      premise=home_scene_premises,
+  )
+  scene_types['negotiation'] = scene_lib.SceneTypeSpec(
+      name='negotiation',
+      premise=negotiation_phase_premises,
+  )
+  scene_types[RESOLUTION_SCENE_TYPE] = scene_lib.SceneTypeSpec(
+      name=RESOLUTION_SCENE_TYPE,
+      premise={},
+      action_spec=DECISION_ACTION_SPEC,
+      override_game_master=decision_env,
+  )
 
   scenes = [
       # Year 1
       scene_lib.SceneSpec(
-          scene_type=scene_specs['home'],
+          scene_type=scene_types['home'],
           start_time=START_TIME,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs['negotiation'],
+          scene_type=scene_types['negotiation'],
           start_time=HILL_TIME,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs['home'],
+          scene_type=scene_types['home'],
           start_time=RETURN_HOME_SCENE_TIME,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs[RESOLUTION_SCENE_TYPE],
+          scene_type=scene_types[RESOLUTION_SCENE_TYPE],
           start_time=DECISION_TIME,
           participant_configs=supporting_player_configs,
           num_rounds=1,
       ),
-
       # Year 2
       scene_lib.SceneSpec(
-          scene_type=scene_specs['home'],
+          scene_type=scene_types['home'],
           start_time=START_TIME + year_increment,
           participant_configs=main_player_configs,
           num_rounds=2,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs['negotiation'],
+          scene_type=scene_types['negotiation'],
           start_time=HILL_TIME + year_increment,
           participant_configs=main_player_configs,
           num_rounds=2,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs['home'],
+          scene_type=scene_types['home'],
           start_time=RETURN_HOME_SCENE_TIME + year_increment,
           participant_configs=main_player_configs,
           num_rounds=2,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_specs[RESOLUTION_SCENE_TYPE],
+          scene_type=scene_types[RESOLUTION_SCENE_TYPE],
           start_time=DECISION_TIME + year_increment,
           participant_configs=supporting_player_configs,
           num_rounds=1,
       ),
-
       # Year 3
       scene_lib.SceneSpec(
-          scene_type=scene_specs['home'],
+          scene_type=scene_types['home'],
           start_time=START_TIME + (2 * year_increment),
           participant_configs=main_player_configs,
           num_rounds=1,
@@ -568,8 +520,7 @@ def configure_scenes(
 
 
 def outcome_summary_fn(
-    binary_joint_action: Mapping[str, int],
-    unused_rewards: Mapping[str, float]
+    binary_joint_action: Mapping[str, int], unused_rewards: Mapping[str, float]
 ) -> Mapping[str, str]:
   """Summarize outcome of decision scene (used by Schelling payoffs component).
 
@@ -577,6 +528,7 @@ def outcome_summary_fn(
     binary_joint_action: map each player name to whether they cooperated or
       defected (0 indicates defection and 1 indicates cooperation).
     unused_rewards: map each player name to the reward they received
+
   Returns:
     result: dict mapping player name to outcome summary
   """
@@ -588,28 +540,37 @@ def outcome_summary_fn(
     common_part += 'The barbarian invasion was successfully repulsed. '
   else:
     common_part += (
-        'The barbarian invasion was not stopped. Barbarians ' +
-        'overrun the region, taking whatever they please. After a season of ' +
-        'terror they finally leave the region, not because they were driven ' +
-        'out, but because precious little worth plundering remained. ')
+        'The barbarian invasion was not stopped. Barbarians '
+        + 'overrun the region, taking whatever they please. After a season of '
+        + 'terror they finally leave the region, not because they were driven '
+        + 'out, but because precious little worth plundering remained. '
+    )
   for player_name, action in binary_joint_action.items():
     result[player_name] += common_part
     # action == 1 indicates cooperation while action == 0 indicates defection
     if success and action == 1:
-      result[player_name] += (f'{player_name} did their duty and helped ' +
-                              'achieve this great victory.')
+      result[player_name] += (
+          f'{player_name} did their duty and helped '
+          + 'achieve this great victory.'
+      )
     elif success and action == 0:
-      result[player_name] += (f'{player_name} chose not to do their duty, ' +
-                              'but victory was obtained nonetheless.')
+      result[player_name] += (
+          f'{player_name} chose not to do their duty, '
+          + 'but victory was obtained nonetheless.'
+      )
     elif not success and action == 1:
-      result[player_name] += (f'{player_name} did their duty. However, too ' +
-                              'few others joined. The wanton cruelty of the ' +
-                              'barbarians caused much suffering throughout ' +
-                              'the region.')
+      result[player_name] += (
+          f'{player_name} did their duty. However, too '
+          + 'few others joined. The wanton cruelty of the '
+          + 'barbarians caused much suffering throughout '
+          + 'the region.'
+      )
     elif not success and action == 0:
-      result[player_name] += (f'{player_name} did not do their duty. ' +
-                              'The wanton cruelty of the barbarians caused ' +
-                              'much suffering throughout the region.')
+      result[player_name] += (
+          f'{player_name} did not do their duty. '
+          + 'The wanton cruelty of the barbarians caused '
+          + 'much suffering throughout the region.'
+      )
   return result
 
 
@@ -631,14 +592,15 @@ class Simulation(Runnable):
       measurements: the measurements object to use.
       agent_module: the agent module to use for all main characters.
     """
+
     self._agent_module = agent_module
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME,
-        step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP])
+        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+    )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
@@ -653,10 +615,11 @@ class Simulation(Runnable):
         model=self._model,
         shared_memories=shared_memories,
         blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
+        current_date=SETUP_TIME,
     )
 
     main_player_configs, supporting_player_configs, player_configs_dict = (
-        configure_players(shared_context=shared_context)
+        configure_players()
     )
 
     num_main_players = len(main_player_configs)
@@ -667,22 +630,22 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories,
-                             config=player_config)
+        future = pool.submit(self._make_player_memories, config=player_config)
         main_player_memory_futures.append(future)
-      for player_config, future in zip(main_player_configs,
-                                       main_player_memory_futures):
+      for player_config, future in zip(
+          main_player_configs, main_player_memory_futures
+      ):
         self._all_memories[player_config.name] = future.result()
 
     if num_supporting_players > 0:
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories,
-                               config=player_config)
+          future = pool.submit(self._make_player_memories, config=player_config)
           supporting_player_memory_futures.append(future)
-        for player_config, future in zip(supporting_player_configs,
-                                         supporting_player_memory_futures):
+        for player_config, future in zip(
+            supporting_player_configs, supporting_player_memory_futures
+        ):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
@@ -703,9 +666,10 @@ class Simulation(Runnable):
       supporting_character_plan = agent_components.constant.Constant(
           pre_act_key='plan',
           state=(
-              f'{player_config.name}\'s plan is to find {representative} to '
+              f"{player_config.name}'s plan is to find {representative} to "
               'discuss weighty matters.'
-          ))
+          ),
+      )
       conversation_style = agent_components.constant.Constant(
           pre_act_key='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
@@ -731,6 +695,50 @@ class Simulation(Runnable):
 
     self._all_players = main_players + supporting_players
 
+    setting = generic_components.constant.ConstantComponent(
+        state=BASIC_SETTING,
+        name='Setting',
+    )
+    magic_is_not_real = generic_components.constant.ConstantComponent(
+        state='Magic is not real. Superatural events are impossible.',
+        name='Important fact',
+    )
+    barbarians_never_nice = generic_components.constant.ConstantComponent(
+        state=(
+            'It is not possible to communicate with the barbarian raiders '
+            'from the sea. They do not speak any language in common with '
+            'the villagers. They cannot be reasoned with. They will '
+            'always attempt to invade and plunder the villages.'
+        ),
+        name='Critical premise',
+    )
+
+    supporting_player_names_village_a_str = _get_conjunction_of_names_string(
+        config.supporting_characters.a, and_or='or'
+    )
+    supporting_player_names_village_b_str = _get_conjunction_of_names_string(
+        config.supporting_characters.b, and_or='or'
+    )
+    stakeholders_easy_to_find = generic_components.constant.ConstantComponent(
+        state=(
+            f'Anyone in {config.village_a_name} looking for '
+            f'{supporting_player_names_village_a_str} easily finds them in the '
+            'village center. They are influential and respected stakeholders '
+            f'in {config.village_a_name} society.\n'
+            f'Anyone in {config.village_b_name} looking for '
+            f'{supporting_player_names_village_b_str} easily finds them in the '
+            'village center. They are influential and respected stakeholders '
+            f'in {config.village_b_name} society.'
+        ),
+    )
+
+    additional_gm_components = [
+        setting,
+        magic_is_not_real,
+        barbarians_never_nice,
+        stakeholders_easy_to_find,
+    ]
+
     self._primary_environment, self._game_master_memory = (
         basic_game_master.build_game_master(
             model=self._model,
@@ -742,6 +750,7 @@ class Simulation(Runnable):
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
             supporting_players_at_fixed_locations=SUPPORTING_PLAYER_LOCATIONS,
+            additional_components=additional_gm_components,
         )
     )
     payoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs(
@@ -777,15 +786,15 @@ class Simulation(Runnable):
         setup_time=SETUP_TIME,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
-        shared_memories=shared_memories,
+        shared_memories=(),
         scenario_premise=SCENARIO_PREMISE,
     )
 
-  def _make_player_memories(self, config: formative_memories.AgentConfig):
+  def _make_player_memories(self, cfg: formative_memories.AgentConfig):
     """Make memories for a player."""
-    mem = self._formative_memory_factory.make_memories(config)
+    mem = self._formative_memory_factory.make_memories(cfg)
     # Inject player-specific memories declared in the agent config.
-    for extra_memory in config.extras['player_specific_memories']:
+    for extra_memory in cfg.extras['player_specific_memories']:
       mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
     return mem
 
@@ -809,11 +818,17 @@ class Simulation(Runnable):
     """
     player_configs = main_player_configs + supporting_player_configs
     main_players = [
-        player for player in self._all_players if player.name in [
-            player_config.name for player_config in main_player_configs]]
+        player
+        for player in self._all_players
+        if player.name
+        in [player_config.name for player_config in main_player_configs]
+    ]
     supporting_players = [
-        player for player in self._all_players if player.name in [
-            player_config.name for player_config in supporting_player_configs]]
+        player
+        for player in self._all_players
+        if player.name
+        in [player_config.name for player_config in supporting_player_configs]
+    ]
 
     self._clock.set(setup_time)
 
@@ -839,15 +854,34 @@ class Simulation(Runnable):
       scene_premise = (
           f'Elder {player.name} is home in {village}. It is one day before '
           'they are to depart their village to travel to the hill of accord to '
-          f'meet the representative of the other village.')
+          'meet the representative of the other village. It has been '
+          'suggested that an alliance for the mutual defense of both '
+          'villages against the growing threat of barbarian sea raiders would '
+          'be beneficial. The purpose of the upcoming meeting is to negotiate '
+          'the terms of the agreement to underpin such an alliance. To be '
+          'successful, the agreement must incentivize people from both '
+          'villages to spend time and resources training as warriors, '
+          'and to be ready to fight wherever the raiders come ashore. When '
+          'individuals spend their time training as warriors they are less '
+          'able to spend time on other activities like farming or fishing, so '
+          'it is necessary to secure enough resources to compensate them for '
+          'the time they spend training. An effective alliance agreement will '
+          'have to be concerned with how these resources are to be obtained '
+          f'and distributed. Influential people in {village} will surely have '
+          'a lot of thoughts on this matter, best to consult them first in '
+          'order to represent their interests effectively in the negotiation.'
+      )
+
       # Add memory to both player and GM.
       player.observe(scene_premise)
       self._game_master_memory.add(scene_premise)
 
     for idx, player in enumerate(supporting_players):
       village = player_configs[idx].extras['home_village']
-      teleport = (f'{player.name} is currently in {village} and has no ' +
-                  'intention of leaving today.')
+      teleport = (
+          f'{player.name} is currently in {village} and has no '
+          + 'intention of leaving today.'
+      )
       player.observe(teleport)
       self._game_master_memory.add(teleport)
 
