@@ -110,7 +110,7 @@ def build_agent(
       f'\nQuestion: Which options are available to {agent_name} '
       'right now?\nAnswer')
   options_perception = (
-      components.options_perception.AvailableOptionsPerception(
+      components.question_of_recent_memories.AvailableOptionsPerception(
           model=model,
           components=options_perception_components,
           clock_now=clock.now,
@@ -126,7 +126,7 @@ def build_agent(
   )
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
-  self_perception = components.self_perception.SelfPerception(
+  self_perception = components.question_of_recent_memories.SelfPerception(
       model=model,
       components={_get_class_name(identity_characteristics): identity_label},
       pre_act_key=self_perception_label,
@@ -136,7 +136,7 @@ def build_agent(
       f'\nQuestion: What kind of situation is {agent_name} in '
       'right now?\nAnswer')
   situation_perception = (
-      components.situation_perception.SituationPerception(
+      components.question_of_recent_memories.SituationPerception(
           model=model,
           components={
               _get_class_name(observation): observation_label,
@@ -146,21 +146,24 @@ def build_agent(
           clock_now=clock.now,
           pre_act_key=situation_perception_label,
           logging_channel=measurements.get_channel(
-              'SituationPerception').on_next,
+              'SituationPerception'
+          ).on_next,
       )
   )
   person_by_situation_label = (
       f'\nQuestion: What would a person like {agent_name} do in '
       'a situation like this?\nAnswer')
-  person_by_situation = components.person_by_situation.PersonBySituation(
-      model=model,
-      components={
-          _get_class_name(self_perception): self_perception_label,
-          _get_class_name(situation_perception): situation_perception_label,
-      },
-      clock_now=clock.now,
-      pre_act_key=person_by_situation_label,
-      logging_channel=measurements.get_channel('PersonBySituation').on_next,
+  person_by_situation = (
+      components.question_of_recent_memories.PersonBySituation(
+          model=model,
+          components={
+              _get_class_name(self_perception): self_perception_label,
+              _get_class_name(situation_perception): situation_perception_label,
+          },
+          clock_now=clock.now,
+          pre_act_key=person_by_situation_label,
+          logging_channel=measurements.get_channel('PersonBySituation').on_next,
+      )
   )
   reflection_label = '\nReflection'
   reflection = (

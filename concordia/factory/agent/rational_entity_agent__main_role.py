@@ -119,13 +119,14 @@ def build_agent(
       f'\nQuestion: Which options are available to {agent_name} '
       'right now?\nAnswer')
   options_perception = (
-      agent_components.options_perception.AvailableOptionsPerception(
+      agent_components.question_of_recent_memories.AvailableOptionsPerception(
           model=model,
           components=options_perception_components,
           clock_now=clock.now,
           pre_act_key=options_perception_label,
           logging_channel=measurements.get_channel(
-              'AvailableOptionsPerception').on_next,
+              'AvailableOptionsPerception'
+          ).on_next,
       )
   )
   best_option_perception_label = (
@@ -142,13 +143,14 @@ def build_agent(
       _get_class_name(options_perception): options_perception_label,
   })
   best_option_perception = (
-      agent_components.options_perception.BestOptionPerception(
+      agent_components.question_of_recent_memories.BestOptionPerception(
           model=model,
           components=best_option_perception,
           clock_now=clock.now,
           pre_act_key=best_option_perception_label,
           logging_channel=measurements.get_channel(
-              'BestOptionPerception').on_next,
+              'BestOptionPerception'
+          ).on_next,
       )
   )
 

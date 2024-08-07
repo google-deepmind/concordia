@@ -25,13 +25,10 @@ from concordia.components.agent.v2 import legacy_act_component
 from concordia.components.agent.v2 import memory_component
 from concordia.components.agent.v2 import no_op_context_processor
 from concordia.components.agent.v2 import observation
-from concordia.components.agent.v2 import options_perception
-from concordia.components.agent.v2 import person_by_situation
 from concordia.components.agent.v2 import plan
+from concordia.components.agent.v2 import question_of_recent_memories
 from concordia.components.agent.v2 import relationships
 from concordia.components.agent.v2 import report_function
 from concordia.components.agent.v2 import scheduled_hint
-from concordia.components.agent.v2 import self_perception
 from concordia.components.agent.v2 import simple_act_component
-from concordia.components.agent.v2 import situation_perception
 from concordia.components.agent.v2 import somatic_state
