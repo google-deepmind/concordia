@@ -47,12 +47,56 @@ import os
 import pathlib
 import sys
 
+from concordia.language_model import amazon_bedrock_model
+from concordia.language_model import google_aistudio_model
 from concordia.language_model import gpt_model
+from concordia.language_model import langchain_ollama_model
 from concordia.language_model import mistral_model
 from concordia.language_model import no_language_model
+from concordia.language_model import ollama_model
+from concordia.language_model import pytorch_gemma_model
 from concordia.utils import measurements as measurements_lib
 import openai
 import sentence_transformers
+
+
+def language_model_setup(args):
+  """Get the wrapped language model."""
+  if not args.disable_language_model:
+    # By default this script uses GPT-4, so you must provide an API key.
+    # Note that it is also possible to use local models or other API models,
+    # simply replace the following with the correct initialization for the model
+    # you want to use.
+    if args.api_type == 'amazon_bedrock':
+      return amazon_bedrock_model.AmazonBedrockLanguageModel(
+          model_name=args.model_name)
+    elif args.api_type == 'google_aistudio_model':
+      return google_aistudio_model.GoogleAIStudioLanguageModel(
+          model_name=args.model_name)
+    elif args.api_type == 'langchain_ollama':
+      return langchain_ollama_model.LangchainOllamaLanguageModel(
+          model_name=args.model_name)
+    elif args.api_type == 'mistral':
+      mistral_api_key = os.environ['MISTRAL_API_KEY']
+      if not mistral_api_key:
+        raise ValueError('Mistral api_key is required.')
+      return mistral_model.MistralLanguageModel(api_key=mistral_api_key,
+                                                model_name=args.model_name)
+    elif args.api_type == 'ollama':
+      return ollama_model.OllamaLanguageModel(model_name=args.model_name)
+    elif args.api_type == 'openai':
+      openai.api_key = os.environ['OPENAI_API_KEY']
+      if not openai.api_key:
+        raise ValueError('OpenAI api_key is required.')
+      return gpt_model.GptLanguageModel(api_key=openai.api_key,
+                                        model_name=args.model_name)
+    elif args.api_type == 'pytorch_gemma':
+      return pytorch_gemma_model.PyTorchGemmaLanguageModel(
+          model_name=args.model_name)
+    else:
+      raise ValueError(f'Unrecognized api type: {args.api_type}')
+  else:
+    return no_language_model.NoLanguageModel()
 
 
 # Setup for command line arguments
@@ -85,45 +129,24 @@ parser.add_argument('--disable_language_model',
                     default=False,
                     dest='disable_language_model')
 # Parse command line arguments
-args = parser.parse_args()
+command_line_args = parser.parse_args()
 
 # Load the agent config with importlib
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
 agent_module = importlib.import_module(
-    f'{IMPORT_AGENT_BASE_DIR}.{args.agent_name}')
+    f'{IMPORT_AGENT_BASE_DIR}.{command_line_args.agent_name}')
 # Load the environment config with importlib
 concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
 sys.path.append(f'{concordia_root_dir}')
 IMPORT_ENV_BASE_DIR = 'environment'
 simulation = importlib.import_module(
-    f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
+    f'{IMPORT_ENV_BASE_DIR}.{command_line_args.environment_name}')
 
 # Language Model setup
-if not args.disable_language_model:
-  # By default this script uses GPT-4, so you must provide an API key.
-  # Note that it is also possible to use local models or other API models,
-  # simply replace the following with the correct initialization for the model
-  # you want to use.
-  if args.api_type == 'openai':
-    openai.api_key = os.environ['OPENAI_API_KEY']
-    if not openai.api_key:
-      raise ValueError('OpenAI api_key is required.')
-    model = gpt_model.GptLanguageModel(api_key=openai.api_key,
-                                       model_name=args.model_name)
-  elif args.api_type == 'mistral':
-    mistral_api_key = os.environ['MISTRAL_API_KEY']
-    if not mistral_api_key:
-      raise ValueError('Mistral api_key is required.')
-    model = mistral_model.MistralLanguageModel(api_key=mistral_api_key,
-                                               model_name=args.model_name)
-  else:
-    raise ValueError(f'Unrecognized api type: {args.api_type}')
-else:
-  model = no_language_model.NoLanguageModel()
-
+model = language_model_setup(command_line_args)
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
-    f'sentence-transformers/{args.embedder_name}')
+    f'sentence-transformers/{command_line_args.embedder_name}')
 embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 
 # Initialize the simulation

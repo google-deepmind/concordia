@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ollama Language Model, a wrapper for models running on the local machine."""
+"""Langchain-based language model using ollama to run on the local machine."""
 
 from collections.abc import Collection, Sequence
-import json
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
-import ollama
-from typing_extensions import override
+from langchain import llms
 
+from typing_extensions import override
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
@@ -61,9 +60,11 @@ class OllamaLanguageModel(language_model.LanguageModel):
         channel: The channel to write the statistics to.
     """
     self._model_name = model_name
-    self._client = ollama.Client()
     self._system_message = system_message
     self._terminators = []
+    if 'llama3' in self._model_name:
+      self._terminators.extend(['<|eot_id|>'])
+    self._client = llms.Ollama(model=model_name, stop=self._terminators)
 
     self._measurements = measurements
     self._channel = channel
@@ -79,26 +80,25 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed, temperature  # Unused.
+    del max_tokens, timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
-    terminators = self._terminators + list(terminators)
+    terminators = (self._terminators.extend(terminators)
+                   if terminators is not None else self._terminators)
 
-    response = self._client.generate(
-        model=self._model_name,
-        prompt=prompt_with_system_message,
-        options={'stop': terminators},
-        keep_alive='10m',
+    response = self._client(
+        prompt_with_system_message,
+        stop=terminators,
+        temperature=temperature,
     )
-    result = response['response']
 
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel,
-          {'raw_text_length': len(result)})
+          {'raw_text_length': len(response)})
 
-    return result
+    return response
 
   @override
   def sample_choice(
@@ -108,9 +108,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    del seed  # Unused.
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
-    template = {'choice': '', 'single sentence explanation': ''}
     sample = ''
     answer = ''
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
@@ -118,32 +116,11 @@ class OllamaLanguageModel(language_model.LanguageModel):
       temperature = sampling.dynamically_adjust_temperature(
           attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS)
 
-      response = self._client.generate(
-          model=self._model_name,
-          prompt=(f'{prompt_with_system_message}.\n'
-                  f'Use the following json template: {json.dumps(template)}.'),
-          options={'stop': (), 'temperature': temperature},
-          format='json',
-          keep_alive='10m',
+      sample = self.sample_text(
+          prompt_with_system_message,
+          temperature=temperature,
+          seed=seed,
       )
-      json_data = response
-      try:
-        json_data_response = json.loads(json_data['response'])
-      except json.JSONDecodeError:
-        continue
-      sample_or_none = json_data_response.get('choice', None)
-      if sample_or_none is None:
-        if isinstance(json_data_response, dict) and json_data_response:
-          sample = next(iter(json_data_response.values()))
-        elif isinstance(json_data_response, str) and json_data_response:
-          sample = sample_or_none.strip()
-        else:
-          continue
-      else:
-        sample = sample_or_none
-        if isinstance(sample, str) and sample:
-          sample = sample.strip()
-
       answer = sampling.extract_choice_response(sample)
       try:
         idx = responses.index(answer)

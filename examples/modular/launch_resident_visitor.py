@@ -44,15 +44,11 @@ asked for a multiple choice.
 import argparse
 import datetime
 import importlib
-import os
 import pathlib
 import sys
 
-from concordia.language_model import gpt_model
-from concordia.language_model import mistral_model
-from concordia.language_model import no_language_model
 from concordia.utils import measurements as measurements_lib
-import openai
+from examples.modular import launch
 import sentence_transformers
 
 
@@ -106,27 +102,7 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 
 # Language Model setup
-if not args.disable_language_model:
-  # By default this script uses GPT-4, so you must provide an API key.
-  # Note that it is also possible to use local models or other API models,
-  # simply replace the following with the correct initialization for the model
-  # you want to use.
-  if args.api_type == 'openai':
-    openai.api_key = os.environ['OPENAI_API_KEY']
-    if not openai.api_key:
-      raise ValueError('OpenAI api_key is required.')
-    model = gpt_model.GptLanguageModel(api_key=openai.api_key,
-                                       model_name=args.model_name)
-  elif args.api_type == 'mistral':
-    mistral_api_key = os.environ['MISTRAL_API_KEY']
-    if not mistral_api_key:
-      raise ValueError('Mistral api_key is required.')
-    model = mistral_model.MistralLanguageModel(api_key=mistral_api_key,
-                                               model_name=args.model_name)
-  else:
-    raise ValueError(f'Unrecognized api type: {args.api_type}')
-else:
-  model = no_language_model.NoLanguageModel()
+model = launch.language_model_setup(args)
 
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(

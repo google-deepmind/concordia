@@ -57,33 +57,33 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      model_id: str,
+      model_name: str,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):
     """Initializes the instance.
 
     Args:
-      model_id: The language model to use. For more details, see
+      model_name: The language model to use. For more details, see
         https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
-    self._model_id = model_id
+    self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._max_tokens_limit = self._get_max_tokens_limit(model_id)
+    self._max_tokens_limit = self._get_max_tokens_limit(model_name)
 
     # AWS credentials are passed via environment variables, see:
     # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
     self._client = boto3.client('bedrock-runtime')
 
-  def _get_max_tokens_limit(self, model_id: str) -> int:
+  def _get_max_tokens_limit(self, model_name: str) -> int:
     """Get the max tokens limit for the given model ID."""
     for pattern, value in MODEL_MAX_OUTPUT_TOKENS_LIMITS.items():
-      if model_id.startswith(pattern):
+      if model_name.startswith(pattern):
         return value
-    raise ValueError(f'Unknown model ID: {model_id}')
+    raise ValueError(f'Unknown model ID: {model_name}')
 
   @override
   def sample_text(
@@ -147,7 +147,7 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
       del inference_config['stopSequences']
 
     response = self._client.converse(
-        modelId=self._model_id,
+        modelId=self._model_name,
         system=system,
         messages=messages,
         inferenceConfig=inference_config,
