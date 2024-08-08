@@ -38,7 +38,7 @@ _DEFAULT_SYSTEM_MESSAGE = (
 )
 
 
-class OllamaLanguageModel(language_model.LanguageModel):
+class LangchainOllamaLanguageModel(language_model.LanguageModel):
   """Language Model that uses Ollama LLM models."""
 
   def __init__(

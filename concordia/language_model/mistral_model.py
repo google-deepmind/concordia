@@ -19,9 +19,10 @@ import time
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
-from mistralai.client import MistralClient
-from mistralai.exceptions import MistralException
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
+from mistralai.models import AssistantMessage
+from mistralai.models import SystemMessage
+from mistralai.models import UserMessage
 from typing_extensions import override
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
@@ -59,7 +60,7 @@ class MistralLanguageModel(language_model.LanguageModel):
     self._text_model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._client = MistralClient(api_key=api_key)
+    self._client = Mistral(api_key=api_key)
 
     self._choice_model_name = self._text_model_name
     if use_codestral_for_choices:
@@ -88,7 +89,7 @@ class MistralLanguageModel(language_model.LanguageModel):
       # continue till max_tokens.
       terminators = ('\n\n',)
 
-    response = self._client.completion(
+    response = self._client.fim.complete(
         model=self._choice_model_name,
         prompt=prompt,
         suffix=suffix,
@@ -122,20 +123,20 @@ class MistralLanguageModel(language_model.LanguageModel):
   ) -> str:
     del terminators
     messages = [
-        ChatMessage(role='system',
-                    content=('You always continue sentences provided ' +
-                             'by the user and you never repeat what ' +
-                             'the user already said.')),
-        ChatMessage(role='user',
+        SystemMessage(role='system',
+                      content=('You always continue sentences provided ' +
+                               'by the user and you never repeat what ' +
+                               'the user already said.')),
+        UserMessage(role='user',
                     content='Question: Is Jake a turtle?\nAnswer: Jake is '),
-        ChatMessage(role='assistant',
-                    content='not a turtle.'),
-        ChatMessage(role='user',
+        AssistantMessage(role='assistant',
+                         content='not a turtle.'),
+        UserMessage(role='user',
                     content=('Question: What is Priya doing right '
                              'now?\nAnswer: Priya is currently ')),
-        ChatMessage(role='assistant',
-                    content='sleeping.'),
-        ChatMessage(role='user',
+        AssistantMessage(role='assistant',
+                         content='sleeping.'),
+        UserMessage(role='user',
                     content=prompt)
     ]
     for attempts in range(_MAX_CHAT_ATTEMPTS):
@@ -153,7 +154,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             max_tokens=max_tokens,
             random_seed=seed,
         )
-      except MistralException:
+      except ValueError:
         continue
       else:
         return response.choices[0].message.content
