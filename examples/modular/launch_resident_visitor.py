@@ -56,7 +56,7 @@ import sentence_transformers
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
 parser.add_argument('--agent_resident',
                     action='store',
-                    default='basic_agent__main_role',
+                    default='basic_entity_agent__main_role',
                     dest='resident_agent_name')
 parser.add_argument('--agent_visitor',
                     action='store',

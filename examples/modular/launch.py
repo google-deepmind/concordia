@@ -103,7 +103,7 @@ def language_model_setup(args):
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
 parser.add_argument('--agent',
                     action='store',
-                    default='basic_agent__main_role',
+                    default='basic_entity_agent__main_role',
                     dest='agent_name')
 parser.add_argument('--environment',
                     action='store',
