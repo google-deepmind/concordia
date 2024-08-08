@@ -88,9 +88,14 @@ def build_agent(
       logging_channel=measurements.get_channel('TimeDisplay').on_next,
   )
   identity_label = '\nIdentity characteristics'
-  identity_characteristics = agent_components.identity.IdentityWithoutPreAct(
-      model=model,
-      logging_channel=measurements.get_channel('IdentityWithoutPreAct').on_next,
+  identity_characteristics = (
+      agent_components.question_of_query_associated_memories.IdentityWithoutPreAct(
+          model=model,
+          logging_channel=measurements.get_channel(
+              'IdentityWithoutPreAct'
+          ).on_next,
+          pre_act_key=identity_label,
+      )
   )
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')

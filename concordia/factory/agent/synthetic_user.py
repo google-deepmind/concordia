@@ -116,16 +116,23 @@ def build_agent(
           clock_now=clock.now,
           pre_act_key=options_perception_label,
           logging_channel=measurements.get_channel(
-              'AvailableOptionsPerception').on_next,
+              'AvailableOptionsPerception'
+          ).on_next,
       )
   )
   identity_label = '\nIdentity characteristics'
-  identity_characteristics = components.identity.IdentityWithoutPreAct(
-      model=model,
-      logging_channel=measurements.get_channel('IdentityWithoutPreAct').on_next,
+  identity_characteristics = (
+      components.question_of_query_associated_memories.IdentityWithoutPreAct(
+          model=model,
+          logging_channel=measurements.get_channel(
+              'IdentityWithoutPreAct'
+          ).on_next,
+          pre_act_key=identity_label,
+      )
   )
   self_perception_label = (
-      f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
+      f'\nQuestion: What kind of person is {agent_name}?\nAnswer'
+  )
   self_perception = components.question_of_recent_memories.SelfPerception(
       model=model,
       components={_get_class_name(identity_characteristics): identity_label},

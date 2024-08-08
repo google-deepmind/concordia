@@ -82,10 +82,11 @@ def build_agent(
       logging_channel=measurements.get_channel('Observation').on_next,
   )
   somatic_state_label = '\nSensations and feelings'
-  somatic_state = agent_components.somatic_state.SomaticStateWithoutPreAct(
+  somatic_state = agent_components.question_of_query_associated_memories.SomaticStateWithoutPreAct(
       model=model,
       clock_now=clock.now,
-      logging_channel=measurements.get_channel('SomaticState').on_next
+      logging_channel=measurements.get_channel('SomaticState').on_next,
+      pre_act_key=somatic_state_label,
   )
   observation_summary_label = '\nSummary of recent observations'
   observation_summary = agent_components.observation.ObservationSummary(
