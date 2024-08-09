@@ -14,6 +14,7 @@
 
 """A Concordia Environment Configuration."""
 
+import collections
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 import random
@@ -28,6 +29,7 @@ from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
 from concordia.components.agent import v2 as agent_components
 from concordia.environment import game_master
+from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
@@ -46,10 +48,11 @@ Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 
-MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
+MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-SETUP_TIME = datetime.datetime(hour=20, year=2024, month=10, day=1)
-START_TIME = datetime.datetime(hour=12, year=2024, month=10, day=2)
+YEAR = 2024
+SETUP_TIME = datetime.datetime(hour=20, year=YEAR, month=10, day=1)
+START_TIME = datetime.datetime(hour=12, year=YEAR, month=10, day=2)
 
 DECISION_SCENE_TYPE = 'choice'
 
@@ -65,14 +68,18 @@ NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS = 5
 NUM_LAUDANUM_ADVERTISEMENTS = 2
 
 SCENARIO_PREMISE = [
-    'The year is 2024. Today England plays Spain in the Euro finals.'
+    f'The year is {YEAR}. This week is the European football cup.'
 ]
+USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
 SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
-PUB_QUALITY = {'The Princess of Wales': 1.0, 'The Crooked Billet': 0.9}
-NUM_GAMES = 2
-pub_preferences = {
+PUB_QUALITY = {'The Princess of Wales': 1.0, 'The Crooked Billet': 1.0}
+NUM_GAMES = 3
+
+PUBS = ['The Princess of Wales', 'The Crooked Billet']
+
+PUB_PREFERENCES = {
     'The Princess of Wales': [
         (
             'The Princess of Wales boasts an extensive collection of rare'
@@ -119,6 +126,64 @@ pub_preferences = {
     ],
 }
 
+euro_cup_countries = [
+    'Albania',
+    'Andorra',
+    'Armenia',
+    'Austria',
+    'Azerbaijan',
+    'Belarus',
+    'Belgium',
+    'Bosnia and Herzegovina',
+    'Bulgaria',
+    'Croatia',
+    'Cyprus',
+    'Czech Republic',
+    'Denmark',
+    'England',
+    'Estonia',
+    'Faroe Islands',
+    'Finland',
+    'France',
+    'Georgia',
+    'Germany',
+    'Gibraltar',
+    'Greece',
+    'Hungary',
+    'Iceland',
+    'Ireland',
+    'Israel',
+    'Italy',
+    'Kazakhstan',
+    'Kosovo',
+    'Latvia',
+    'Liechtenstein',
+    'Lithuania',
+    'Luxembourg',
+    'Malta',
+    'Moldova',
+    'Monaco',
+    'Montenegro',
+    'Netherlands',
+    'North Macedonia',
+    'Norway',
+    'Poland',
+    'Portugal',
+    'Romania',
+    'Russia',
+    'San Marino',
+    'Scotland',
+    'Serbia',
+    'Slovakia',
+    'Slovenia',
+    'Spain',
+    'Sweden',
+    'Switzerland',
+    'Turkey',
+    'Ukraine',
+    'Wales',
+]
+
 
 def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
@@ -127,7 +192,7 @@ def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
       'Games are best watched in pubs with a lot of friends.',
   ]
   shared_context = (
-      'The year is 2024. The place is London, Hackney. The European football'
+      f'The year is {YEAR}. The place is London, Hackney. The European football'
       ' cup is on.\n'
   )
   return shared_memories, shared_context
@@ -140,22 +205,21 @@ def configure_players() -> tuple[
   """Configure the players.
 
   Args:
+
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  pubs = ['The Princess of Wales', 'The Crooked Billet']
   social_classes = ['working', 'middle', 'upper']
-  teams_to_support = ['England', 'Spain']
   names = random.sample(FIRST_NAMES, NUM_MAIN_PLAYERS)
   all_players = ', '.join(names)
   player_configs = []
   for i in range(NUM_MAIN_PLAYERS):
     name = names[i]
-    fav_pub = pubs[i % 2]
+    fav_pub = PUBS[i % 2]
 
     social_class = random.choice(social_classes)
-    reasons = random.choice(pub_preferences[fav_pub])
+    reasons = random.choice(PUB_PREFERENCES[fav_pub])
     config = formative_memories.AgentConfig(
         name=name,
         gender=random.choice(['male', 'female']),
@@ -167,7 +231,7 @@ def configure_players() -> tuple[
         ),
         context=(
             f"{all_players}' are best friends."
-            f'Born in London, {name} has a favoirite pub which is {fav_pub}.'
+            f'Born in London, {name} has a favorite pub which is {fav_pub}.'
             f' They are also aware of the following:{reasons}'
         ),
         traits=(
@@ -176,14 +240,14 @@ def configure_players() -> tuple[
         ),
         extras={
             'player_specific_memories': [
-                f'{name} is wealthy and a member of the {social_class} class.',
+                f'{name} is a member of the {social_class} class.',
                 (
-                    f'{name} supports {random.choice(teams_to_support)} in'
+                    f'{name} supports {random.choice(euro_cup_countries)} in'
                     ' football.'
                 ),
             ],
             'main_character': True,
-            'preference': {pub: 1.0 if pub == fav_pub else 0.8 for pub in pubs},
+            'preference': {pub: 1.0 if pub == fav_pub else 0.8 for pub in PUBS},
         },
     )
     player_configs.append(config)
@@ -207,6 +271,7 @@ def add_choice_scene_spec(
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     player_configs: Sequence[formative_memories.AgentConfig],
+    option_multiplier: Mapping[str, float],
     scene_type_name: str,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, CoordinationPayoffs]:
@@ -218,6 +283,7 @@ def add_choice_scene_spec(
     players: the players to use.
     clock: the clock to use.
     player_configs: the player configs to use.
+    option_multiplier: the option multipliers to use.
     scene_type_name: the name of the scene type.
     verbose: whether to print verbose output or not.
 
@@ -234,7 +300,6 @@ def add_choice_scene_spec(
   player_multipliers = {
       cfg.name: cfg.extras['preference'] for cfg in player_configs
   }
-  option_multiplier = PUB_QUALITY
 
   coordination_payoffs = CoordinationPayoffs(
       model=model,
@@ -287,7 +352,7 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
-) -> tuple[Sequence[scene_lib.SceneSpec], CoordinationPayoffs]:
+) -> tuple[Sequence[scene_lib.SceneSpec], Callable[[], Mapping[str, float]]]:
   """Configure the scene storyboard structure.
 
   Args:
@@ -304,33 +369,61 @@ def configure_scenes(
 
   player_configs = list(main_player_configs) + list(supporting_player_configs)
 
-  choice_scene_spec, coordination_payoffs = add_choice_scene_spec(
-      model=model,
-      game_master_memory=game_master_memory,
-      players=players,
-      clock=clock,
-      player_configs=main_player_configs,
-      scene_type_name=DECISION_SCENE_TYPE,
-  )
-
+  coordination_payoffs = []
   scenes = []
   for i in range(NUM_GAMES):
+    closed_pub = None
+    if random.random() < 0.5:
+      closed_pub = random.choice(PUBS)
+
+    playing_tonight = random.sample(euro_cup_countries, 2)
+    coordination_prompt = (
+        f'Tonight is the night of the game between {playing_tonight[0]} and'
+        f' {playing_tonight[1]}. Friends are going to watch the game at a pub,'
+        ' but they are not sure which pub to go to.'
+    )
     scene = random.choice(SOCIAL_CONTEXT)
+
+    per_player_premise = {
+        cfg.name: [
+            scene.format(
+                player_name=cfg.name,
+                players=', '.join([player.name for player in players]),
+            ),
+            coordination_prompt,
+        ]
+        for cfg in player_configs
+    }
+
+    if closed_pub:
+      players_in_the_know = random.choice(player_configs)
+      player_name = players_in_the_know.name
+      per_player_premise[player_name].append(
+          f'{player_name} have learnt that {closed_pub} is closed today. Going'
+          ' there would be a bad idea.'
+      )
+
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
             name='day',
-            premise={
-                cfg.name: [
-                    scene.format(
-                        player_name=cfg.name,
-                        players=', '.join([player.name for player in players]),
-                    )
-                ]
-                for cfg in player_configs
-            },
+            premise=per_player_premise,
         ),
     }
 
+    option_multiplier = PUB_QUALITY.copy()
+    if closed_pub:
+      option_multiplier[closed_pub] = 0.0
+
+    choice_scene_spec, this_coordination_payoff = add_choice_scene_spec(
+        model=model,
+        game_master_memory=game_master_memory,
+        players=players,
+        clock=clock,
+        option_multiplier=option_multiplier,
+        player_configs=main_player_configs,
+        scene_type_name=DECISION_SCENE_TYPE,
+    )
+    coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
     scenes = scenes + [
         scene_lib.SceneSpec(
@@ -348,7 +441,16 @@ def configure_scenes(
             num_rounds=1,
         ),
     ]
-  return (scenes, coordination_payoffs)
+
+  def return_payoffs_sum():
+    result = collections.defaultdict(float)
+    for payoff in coordination_payoffs:
+      results_dict = payoff.get_scores()
+      for name, score in results_dict.items():
+        result[name] += score
+    return result
+
+  return (scenes, return_payoffs_sum)
 
 
 def outcome_summary_fn(
@@ -357,6 +459,21 @@ def outcome_summary_fn(
     rewards: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
+
+  players_by_choice = {}
+  for name, choice in joint_action.items():
+    if choice not in players_by_choice:
+      players_by_choice[choice] = []
+    players_by_choice[choice].append(name)
+
+  summary_of_attendance = ''
+
+  for choice in players_by_choice:
+    if players_by_choice[choice]:
+      all_players_with_this_choice = ', '.join(players_by_choice[choice])
+      summary_of_attendance += (
+          f'{all_players_with_this_choice} went to {choice}. '
+      )
 
   results = {}
   for name, score in rewards.items():
@@ -367,15 +484,19 @@ def outcome_summary_fn(
           'had an ok time watching the game, but it could have been better if'
           ' more friends showed up'
       )
+    elif score == 0.0:
+      outcome_str = (
+          'turned up at a pub, which was closed. Had to go home with'
+          ' disappointment.'
+      )
     else:
       outcome_str = (
           'had a bad time watching the game, since barely any of their friends'
           ' showed up'
       )
-    results[name] = outcome_str
+    results[name] = f'{summary_of_attendance}. {name} {outcome_str}'
 
-  print(joint_action)
-  print(results)
+  print(summary_of_attendance)
   return results
 
 
@@ -416,8 +537,8 @@ class Simulation(Runnable):
     self._measurements = measurements
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME,
-        step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP])
+        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+    )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
@@ -446,22 +567,22 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories,
-                             config=player_config)
+        future = pool.submit(self._make_player_memories, config=player_config)
         main_player_memory_futures.append(future)
-      for player_config, future in zip(main_player_configs,
-                                       main_player_memory_futures):
+      for player_config, future in zip(
+          main_player_configs, main_player_memory_futures
+      ):
         self._all_memories[player_config.name] = future.result()
 
     if num_supporting_players > 0:
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories,
-                               config=player_config)
+          future = pool.submit(self._make_player_memories, config=player_config)
           supporting_player_memory_futures.append(future)
-        for player_config, future in zip(supporting_player_configs,
-                                         supporting_player_memory_futures):
+        for player_config, future in zip(
+            supporting_player_configs, supporting_player_memory_futures
+        ):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
@@ -488,7 +609,9 @@ class Simulation(Runnable):
       conversation_style = agent_components.constant.Constant(
           pre_act_key='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
-              player_config.name))
+              player_config.name
+          ),
+      )
       player = basic_entity_agent__supporting_role.build_agent(
           config=player_config,
           model=self._model,
@@ -496,7 +619,8 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
           additional_components={
-              'Guiding principle of good conversation': conversation_style},
+              'Guiding principle of good conversation': conversation_style
+          },
       )
       supporting_players.append(player)
 
@@ -505,23 +629,39 @@ class Simulation(Runnable):
     game_master_memory = associative_memory.AssociativeMemory(
         sentence_embedder=self._embedder,
         importance=importance_model_gm.importance,
-        clock=self._clock.now)
-
-    self._primary_environment, self._game_master_memory = (
-        basic_game_master.build_game_master(
-            model=self._model,
-            embedder=self._embedder,
-            importance_model=importance_model_gm,
-            clock=self._clock,
-            players=self._all_players,
-            shared_memories=shared_memories,
-            shared_context=shared_context,
-            blank_memory_factory=self._blank_memory_factory,
-            cap_nonplayer_characters_in_conversation=0,
-            memory=game_master_memory,
-            thought_chain=[thought_chains_lib.identity],
-        )
+        clock=self._clock.now,
     )
+
+    if USE_CONVERSATION_GM:
+      self._game_master_memory = game_master_memory
+      self._primary_environment = conversation.make_conversation_game_master(
+          players=self._all_players,
+          clock=self._clock,
+          model=self._model,
+          memory_factory=self._blank_memory_factory,
+          check_for_termination=True,
+          randomise_initiative=True,
+          name='Conversation scene',
+          premise='',
+          review_participants=False,
+          verbose=True,
+      )
+    else:
+      self._primary_environment, self._game_master_memory = (
+          basic_game_master.build_game_master(
+              model=self._model,
+              embedder=self._embedder,
+              importance_model=importance_model_gm,
+              clock=self._clock,
+              players=self._all_players,
+              shared_memories=shared_memories,
+              shared_context=shared_context,
+              blank_memory_factory=self._blank_memory_factory,
+              cap_nonplayer_characters_in_conversation=0,
+              memory=game_master_memory,
+              thought_chain=[thought_chains_lib.identity],
+          )
+      )
     self._scenes, self._coordination_payoffs = configure_scenes(
         model=self._model,
         game_master_memory=game_master_memory,
@@ -602,7 +742,7 @@ class Simulation(Runnable):
     )
 
     print('Overall scores per player:')
-    player_scores = self._coordination_payoffs.get_scores()
+    player_scores = self._coordination_payoffs()
     if self._two_focal_populations:
       idx = 0
       for player_name, score in player_scores.items():
