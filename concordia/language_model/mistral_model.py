@@ -157,7 +157,7 @@ class MistralLanguageModel(language_model.LanguageModel):
         temperature = sampling.dynamically_adjust_temperature(
             attempts, _MAX_CHAT_ATTEMPTS)
       try:
-        response = self._client.chat(
+        response = self._client.chat.complete(
             model=self._text_model_name,
             messages=messages,
             temperature=temperature,
