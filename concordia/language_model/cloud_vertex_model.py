@@ -68,6 +68,7 @@ class VertexLanguageModel(language_model.LanguageModel):
   def __init__(
       self,
       model_name: str = 'gemini-pro',
+      *,
       harm_block_threshold: HarmBlockThreshold = HarmBlockThreshold.BLOCK_NONE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,

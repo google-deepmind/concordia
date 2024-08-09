@@ -31,9 +31,8 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      *,
-      # The default model is the 2 billion parameter instruction-tuned Gemma.
       model_name: str = 'google/gemma-2b-it',
+      *,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ) -> None:

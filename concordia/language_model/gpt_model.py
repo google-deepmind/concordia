@@ -16,6 +16,8 @@
 """Language Model that uses OpenAI's GPT models."""
 
 from collections.abc import Collection, Sequence
+import os
+
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
@@ -30,27 +32,29 @@ class GptLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      api_key: str,
       model_name: str,
+      *,
+      api_key: str | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):
     """Initializes the instance.
 
     Args:
-      api_key: The API key to use when accessing the OpenAI API.
       model_name: The language model to use. For more details, see
         https://platform.openai.com/docs/guides/text-generation/which-model-should-i-use.
+      api_key: The API key to use when accessing the OpenAI API. If None, will
+        use the OPENAI_API_KEY environment variable.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
+    if api_key is None:
+      api_key = os.environ['OPENAI_API_KEY']
     self._api_key = api_key
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._client = openai.OpenAI(
-        api_key=api_key,
-    )
+    self._client = openai.OpenAI(api_key=self._api_key)
 
   @override
   def sample_text(

@@ -15,14 +15,14 @@
 """Language Model wrapper for Mistral models."""
 
 from collections.abc import Collection, Sequence
+import os
 import time
+
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
-from mistralai import Mistral
-from mistralai.models import AssistantMessage
-from mistralai.models import SystemMessage
-from mistralai.models import UserMessage
+import mistralai
+from mistralai import models
 from typing_extensions import override
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
@@ -39,8 +39,9 @@ class MistralLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      api_key: str,
       model_name: str,
+      *,
+      api_key: str | None = None,
       use_codestral_for_choices: bool = False,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
@@ -48,19 +49,22 @@ class MistralLanguageModel(language_model.LanguageModel):
     """Initializes the instance.
 
     Args:
-      api_key: The API key to use when accessing the OpenAI API.
       model_name: The language model to use. For more details, see
         https://docs.mistral.ai/getting-started/models/.
+      api_key: The API key to use when accessing the OpenAI API, if None will
+        use the MISTRAL_API_KEY environment variable.
       use_codestral_for_choices: When enabled, use codestral for multiple choice
         questions. Otherwise, use the model specified in the param `model_name`.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
+    if api_key is None:
+      api_key = os.environ['MISTRAL_API_KEY']
     self._api_key = api_key
     self._text_model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._client = Mistral(api_key=api_key)
+    self._client = mistralai.Mistral(api_key=api_key)
 
     self._choice_model_name = self._text_model_name
     if use_codestral_for_choices:
@@ -123,21 +127,27 @@ class MistralLanguageModel(language_model.LanguageModel):
   ) -> str:
     del terminators
     messages = [
-        SystemMessage(role='system',
-                      content=('You always continue sentences provided ' +
-                               'by the user and you never repeat what ' +
-                               'the user already said.')),
-        UserMessage(role='user',
-                    content='Question: Is Jake a turtle?\nAnswer: Jake is '),
-        AssistantMessage(role='assistant',
-                         content='not a turtle.'),
-        UserMessage(role='user',
-                    content=('Question: What is Priya doing right '
-                             'now?\nAnswer: Priya is currently ')),
-        AssistantMessage(role='assistant',
-                         content='sleeping.'),
-        UserMessage(role='user',
-                    content=prompt)
+        models.SystemMessage(
+            role='system',
+            content=(
+                'You always continue sentences provided by the user and you '
+                'never repeat what the user already said.'
+            )
+        ),
+        models.UserMessage(
+            role='user',
+            content='Question: Is Jake a turtle?\nAnswer: Jake is ',
+        ),
+        models.AssistantMessage(role='assistant', content='not a turtle.'),
+        models.UserMessage(
+            role='user',
+            content=(
+                'Question: What is Priya doing right now?\n'
+                'Answer: Priya is currently '
+            ),
+        ),
+        models.AssistantMessage(role='assistant', content='sleeping.'),
+        models.UserMessage(role='user', content=prompt),
     ]
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:

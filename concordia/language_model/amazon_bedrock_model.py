@@ -58,6 +58,7 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
   def __init__(
       self,
       model_name: str,
+      *,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):

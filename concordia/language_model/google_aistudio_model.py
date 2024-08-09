@@ -16,6 +16,7 @@
 
 from collections.abc import Collection, Mapping, Sequence
 import copy
+import os
 import time
 
 from concordia.language_model import language_model
@@ -97,8 +98,9 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      api_key: str,
       model_name: str = 'gemini-1.5-pro-latest',
+      *,
+      api_key: str | None = None,
       safety_settings: Sequence[Mapping[str, str]] = DEFAULT_SAFETY_SETTINGS,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
@@ -107,14 +109,17 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     """Initializes a model API instance using Google AI Studio.
 
     Args:
-      api_key: The API key to use when accessing the Google AI Studio API
       model_name: which language model to use. For more details, see
         https://aistudio.google.com/
+      api_key: The API key to use when accessing the Google AI Studio API, if
+        None will use the GOOGLE_API_KEY environment variable.
       safety_settings: See https://ai.google.dev/gemini-api/docs/safety-guidance
       measurements: The measurements object to log usage statistics to
       channel: The channel to write the statistics to
       sleep_periodically: Whether to sleep between API calls to avoid rate limit
     """
+    if api_key is None:
+      api_key = os.environ['GOOGLE_API_KEY']
     self._api_key = api_key
     self._model_name = model_name
     self._safety_settings = safety_settings
