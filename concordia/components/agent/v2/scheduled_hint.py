@@ -23,7 +23,7 @@ from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import logging
 
-DEFAULT_PRE_ACT_KEY = 'Hint'
+DEFAULT_PRE_ACT_KEY = '\nHint'
 
 
 class ScheduledHint(action_spec_ignored.ActionSpecIgnored):
@@ -58,7 +58,6 @@ class ScheduledHint(action_spec_ignored.ActionSpecIgnored):
     self._components = dict(components)
     self._clock_now = clock_now
     self._hints = hints
-    self._history = []
     self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
