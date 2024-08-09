@@ -41,7 +41,7 @@ from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
-ENVIRONMENT_MODULES = ('prestate_villages',)
+ENVIRONMENT_MODULES = ('pre_state_villages',)
 env_module_name = random.choice(ENVIRONMENT_MODULES)
 
 # Load the environment config with importlib
@@ -629,7 +629,8 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories, config=player_config)
+        future = pool.submit(self._make_player_memories,
+                             player_config=player_config)
         main_player_memory_futures.append(future)
       for player_config, future in zip(
           main_player_configs, main_player_memory_futures
@@ -640,7 +641,8 @@ class Simulation(Runnable):
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories, config=player_config)
+          future = pool.submit(self._make_player_memories,
+                               player_config=player_config)
           supporting_player_memory_futures.append(future)
         for player_config, future in zip(
             supporting_player_configs, supporting_player_memory_futures
@@ -713,10 +715,10 @@ class Simulation(Runnable):
     )
 
     supporting_player_names_village_a_str = _get_conjunction_of_names_string(
-        config.supporting_characters.a, and_or='or'
+        [name for name, gender in config.supporting_characters.a], and_or='or'
     )
     supporting_player_names_village_b_str = _get_conjunction_of_names_string(
-        config.supporting_characters.b, and_or='or'
+        [name for name, gender in config.supporting_characters.b], and_or='or'
     )
     stakeholders_easy_to_find = generic_components.constant.ConstantComponent(
         state=(
@@ -789,11 +791,12 @@ class Simulation(Runnable):
         scenario_premise=SCENARIO_PREMISE,
     )
 
-  def _make_player_memories(self, cfg: formative_memories.AgentConfig):
+  def _make_player_memories(
+      self, player_config: formative_memories.AgentConfig):
     """Make memories for a player."""
-    mem = self._formative_memory_factory.make_memories(cfg)
+    mem = self._formative_memory_factory.make_memories(player_config)
     # Inject player-specific memories declared in the agent config.
-    for extra_memory in cfg.extras['player_specific_memories']:
+    for extra_memory in player_config.extras['player_specific_memories']:
       mem.add(f'{extra_memory}', tags=['initial_player_specific_memory'])
     return mem
 
