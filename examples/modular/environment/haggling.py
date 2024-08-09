@@ -14,6 +14,7 @@
 
 """A Concordia Environment Configuration."""
 
+import collections
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 import random
@@ -46,31 +47,66 @@ Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 
-MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
-MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-SETUP_TIME = datetime.datetime(hour=20, year=2024, month=10, day=1)
-START_TIME = datetime.datetime(hour=12, year=2024, month=10, day=2)
-
-DECISION_SCENE_TYPE = 'choice'
-
-
-TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=1)
-
 NUM_MAIN_PLAYERS = 2
 
 NUM_BACKGROUND_WORLD_ELEMENTS = 7
 NUM_MAIN_PLAYER_WORLD_ELEMENTS = 2
 NUM_LAUDANUM_ADVERTISEMENTS = 2
 
-SCENARIO_PREMISE = [
-    'In a small village in the realm of Ouroboros, there is a quiet village of'
-    ' Fruitville, which is famous for its fruits and vegetables. Traders from'
-    ' all over the realm come to Fruitville to buy its produce.'
+SCENARIO_PREMISE = (
+    'In the realm of Ouroboros, there is a quiet village of'
+    ' Fruitville, which is famous for its fruit market. Traders from'
+    ' all over the realm come to Fruitville to buy and sell produce.'
+)
+
+VISUAL_SCENE_OPENINGS = [
+    (
+        'The first rays of dawn painted the sky above Fruitville in hues of'
+        ' orange and gold, casting a warm glow over the bustling market. Stalls'
+        ' overflowed with vibrant fruits, their aromas mingling in the crisp'
+        ' morning air.'
+    ),
+    (
+        'As the sun peeked over the horizon, the market of Fruitville stirred'
+        ' to life. Merchants, their voices a cheerful symphony, arranged their'
+        ' wares: glistening berries, plump melons, and exotic fruits from'
+        ' distant lands.'
+    ),
+    (
+        'Dewdrops clung to the colorful fruits displayed in the market of'
+        ' Fruitville, reflecting the soft morning light. The air buzzed with'
+        " anticipation as traders and customers alike gathered for the day's"
+        ' trade.'
+    ),
+    (
+        'The cobblestone streets of Fruitville echoed with the clatter of'
+        ' hooves and the rumble of carts as the market awoke. Underneath'
+        ' colorful awnings, merchants proudly presented their bountiful'
+        ' harvests, their voices a chorus of greetings and bartering.'
+    ),
+    (
+        'In the heart of Fruitville, the market square transformed into a'
+        ' kaleidoscope of colors as the sun rose. Fruits of every imaginable'
+        ' shape and size adorned the stalls, a feast for the eyes and a promise'
+        ' of delightful flavors.'
+    ),
 ]
+
 
 FIRST_NAMES = player_names.FIRST_NAMES
 SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
-NUM_GAMES = 1
+NUM_GAMES = 4
+YEAR = 1895
+
+MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
+MINOR_TIME_STEP = datetime.timedelta(seconds=10)
+SETUP_TIME = datetime.datetime(hour=20, year=YEAR, month=10, day=1)
+START_TIME = datetime.datetime(hour=12, year=YEAR, month=10, day=2)
+
+DECISION_SCENE_TYPE = 'choice'
+
+
+TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(days=1)
 
 
 def bargain_statements(
@@ -105,14 +141,10 @@ def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
       'Fruits are sold by weight.',
       (
           'The price of one kilogram of fruit is, on average, 3 coins. 1 coin'
-          ' is really cheap and 4 coins is really expensive.'
+          ' is really cheap and 5 coins is really expensive.'
       ),
   ]
-  shared_context = (
-      'In a small village in the realm of Ouroboros, there is a quite village'
-      ' of Fruitville, which is famous for its fruits and vegetables. Traders'
-      ' from all over the realm come to Fruitville to buy its produce.'
-  )
+  shared_context = SCENARIO_PREMISE
   return shared_memories, shared_context
 
 
@@ -124,41 +156,40 @@ def configure_players() -> list[formative_memories.AgentConfig]:
   Returns:
     main_player_configs: configs for the main characters
   """
-  player_configs = [
-      formative_memories.AgentConfig(
-          name='Alice',
-          gender='female',
-          date_of_birth=datetime.datetime(year=1984, month=6, day=5),
-          context=(
-              'Alice is a travelling merchant. Her business is buying and'
-              ' selling fruit.'
-          ),
-          traits=(
-              "Alice's personality is like "
-              + player_traits_and_styles.get_trait(flowery=True)
-          ),
-          extras={
-              'player_specific_memories': [
-                  'Alice alway drives a hard bargain.'
-              ],
-              'main_character': True,
-          },
-      ),
-      formative_memories.AgentConfig(
-          name='Bob',
-          gender='male',
-          date_of_birth=datetime.datetime(year=1989, month=9, day=13),
-          context='Bob keeps a shop that sells fruit.',
-          traits=(
-              "Bob's personality is like "
-              + player_traits_and_styles.get_trait(flowery=True)
-          ),
-          extras={
-              'player_specific_memories': ['Bob is easy to convince.'],
-              'main_character': True,
-          },
-      ),
-  ]
+
+  names = {'male': player_names.MALE_NAMES, 'female': player_names.FEMALE_NAMES}
+
+  player_configs = []
+  for i in range(NUM_MAIN_PLAYERS):
+
+    gender = random.choice(['male', 'female'])
+    name = names[gender][i]
+
+    player_configs.append(
+        formative_memories.AgentConfig(
+            name=name,
+            gender=gender,
+            date_of_birth=datetime.datetime(
+                year=YEAR - random.randint(25, 54),
+                month=random.randint(1, 12),
+                day=random.randint(1, 30),
+            ),
+            context=(
+                f'{name} is a travelling merchant. Her business is buying and'
+                ' selling fruit.'
+            ),
+            traits=(
+                f"{name}'s personality is like "
+                + player_traits_and_styles.get_trait(flowery=True)
+            ),
+            extras={
+                'player_specific_memories': [
+                    f'{name} alway drives a hard bargain.'
+                ],
+                'main_character': True,
+            },
+        )
+    )
 
   main_player_configs = [
       player for player in player_configs if player.extras['main_character']
@@ -170,10 +201,13 @@ def configure_players() -> list[formative_memories.AgentConfig]:
 def add_choice_scene_spec(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
-    players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
+    scene_name: str,
+    buyer: entity_agent_with_logging.EntityAgentWithLogging,
+    seller: entity_agent_with_logging.EntityAgentWithLogging,
     clock: game_clock.MultiIntervalClock,
-    player_configs: Sequence[formative_memories.AgentConfig],
     scene_type_name: str,
+    buyer_base_reward: float,
+    seller_base_reward: float,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, bargain_payoffs_lib.BargainPayoffs]:
   """Add a minigame scene spec.
@@ -181,10 +215,13 @@ def add_choice_scene_spec(
   Args:
     model: the language model to use.
     game_master_memory: the game master memory to use.
-    players: the players to use.
+    scene_name: the name of the scene.
+    buyer: the buyer agent.
+    seller: the seller agent.
     clock: the clock to use.
-    player_configs: the player configs to use.
     scene_type_name: the name of the scene type.
+    buyer_base_reward: how much the buyer can get for selling the fruit later
+    seller_base_reward: how much it costs for the seller to buy the fruit
     verbose: whether to print verbose output or not.
 
   Returns:
@@ -192,7 +229,7 @@ def add_choice_scene_spec(
   """
   action_spec_propose = agent_lib.choice_action_spec(
       call_to_action='What price would {name} propose?:',
-      options=('1 coin', '2 coins', '3 coins', '4 coins'),
+      options=('1 coin', '2 coins', '3 coins', '4 coins', '5 coins'),
       tag='choice',
   )
   action_spec_accept = agent_lib.choice_action_spec(
@@ -201,29 +238,27 @@ def add_choice_scene_spec(
       tag='choice',
   )
 
-  if len(players) != 2:
-    raise ValueError('Only two players are supported.')
-
   action_spec_dict = {
-      players[0].name: action_spec_propose,
-      players[1].name: action_spec_accept,
+      buyer.name: action_spec_propose,
+      seller.name: action_spec_accept,
   }
 
   bargain_payoffs = bargain_payoffs_lib.BargainPayoffs(
       model=model,
       memory=game_master_memory,
-      buyer_base_reward=5.0,
-      seller_base_reward=1.0,
+      buyer_base_reward=buyer_base_reward,
+      seller_base_reward=seller_base_reward,
       action_to_reward={
           '1 coin': 1.0,
           '2 coins': 2.0,
           '3 coins': 3.0,
           '4 coins': 4.0,
+          '5 coins': 5.0,
       },
-      buyer=players[0],
-      seller=players[1],
+      buyer=buyer,
+      seller=seller,
       resolution_scene=DECISION_SCENE_TYPE,
-      acting_player_names=[cfg.name for cfg in player_configs],
+      acting_player_names=[buyer.name, seller.name],
       outcome_summarization_fn=outcome_summary_fn,
       clock_now=clock.now,
       name='scoring function',
@@ -233,8 +268,8 @@ def add_choice_scene_spec(
       model=model,
       memory=game_master_memory,
       clock=clock,
-      name=f'{scene_type_name} decision environment',
-      players=players,
+      name=scene_name,
+      players=[buyer, seller],
       components=[bargain_payoffs],
       action_spec=action_spec_dict,
       update_thought_chain=[bargain_statements],
@@ -245,10 +280,8 @@ def add_choice_scene_spec(
   )
 
   premise = {
-      players[0].name: [f'{players[0].name} is ready to make an offer.'],
-      players[1].name: [
-          f'{players[1].name} has to accept or reject the offer.'
-      ],
+      buyer.name: [f'{buyer.name} is ready to make an offer.'],
+      seller.name: [f'{seller.name} has to accept or reject the offer.'],
   }
 
   choice_scene_type = scene_lib.SceneTypeSpec(
@@ -268,8 +301,8 @@ def configure_scenes(
     main_player_configs: Sequence[formative_memories.AgentConfig],
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
-    game_master.GameMaster | None,
-    bargain_payoffs_lib.BargainPayoffs,
+    list[game_master.GameMaster] | list[None],
+    Callable[[], Mapping[str, float]],
 ]:
   """Configure the scene storyboard structure.
 
@@ -284,41 +317,62 @@ def configure_scenes(
     scenes: a sequence of scene specifications
   """
 
-  choice_scene_spec, coordination_payoffs = add_choice_scene_spec(
-      model=model,
-      game_master_memory=game_master_memory,
-      players=players,
-      clock=clock,
-      player_configs=main_player_configs,
-      scene_type_name=DECISION_SCENE_TYPE,
-  )
-
+  coordination_payoffs = []
+  game_masters = []
   scenes = []
   for i in range(NUM_GAMES):
+
+    buyer_base_reward = random.randint(3, 6)
+    seller_base_reward = random.randint(1, 3)
+
+    this_game_players = random.sample(players, 2)
+    this_game_configs = [
+        cfg
+        for cfg in main_player_configs
+        if cfg.name in [this_game_players[0].name, this_game_players[1].name]
+    ]
+    scene_opening = random.choice(VISUAL_SCENE_OPENINGS)
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
             name='day',
             premise={
-                'Alice': [(
-                    "Alice is in Bob's shop, trying to buy some fruit. They are"
-                    ' negotiating a price. Alice can sell the fruit for 5 coins'
-                    ' back in her home town.'
+                this_game_players[0].name: [(
+                    f'{scene_opening} {this_game_players[0].name} is trying to'
+                    f' buy some fruit from {this_game_players[1].name}. They'
+                    f' are negotiating a price. {this_game_players[1].name} can'
+                    f' sell the fruit for {buyer_base_reward} coins back in her'
+                    ' home town.'
                 )],
-                'Bob': [(
-                    'Bob is in his shop, trying to sell some fruit. He is'
-                    ' negotiating a price with Alice.'
-                    'It costs Bob 1 coin to buy the fruit from the farm.'
+                this_game_players[1].name: [(
+                    f'{scene_opening} {this_game_players[1].name} is  trying to'
+                    ' sell some fruit. He is negotiating a price with'
+                    f' {this_game_players[0].name}. It costs'
+                    f' {this_game_players[1].name} {seller_base_reward} coin to'
+                    ' buy the fruit from the farm.'
                 )],
             },
         ),
     }
 
+    choice_scene_spec, this_coordination_payoff = add_choice_scene_spec(
+        model=model,
+        game_master_memory=game_master_memory,
+        scene_name=f'Deal or no deal game {i}',
+        buyer=this_game_players[0],
+        seller=this_game_players[1],
+        clock=clock,
+        scene_type_name=DECISION_SCENE_TYPE,
+        buyer_base_reward=buyer_base_reward,
+        seller_base_reward=seller_base_reward,
+    )
+    coordination_payoffs.append(this_coordination_payoff)
+    game_masters.append(choice_scene_spec.override_game_master)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
     scenes = scenes + [
         scene_lib.SceneSpec(
             scene_type=scene_specs['social'],
             start_time=START_TIME + i * TIME_INCREMENT_BETWEEN_SCENES,
-            participant_configs=main_player_configs,
+            participant_configs=this_game_configs,
             num_rounds=2,
         ),
         scene_lib.SceneSpec(
@@ -326,11 +380,21 @@ def configure_scenes(
             start_time=START_TIME
             + i * TIME_INCREMENT_BETWEEN_SCENES
             + datetime.timedelta(minutes=10),
-            participant_configs=main_player_configs,
+            participant_configs=this_game_configs,
             num_rounds=1,
         ),
     ]
-  return (scenes, choice_scene_spec.override_game_master, coordination_payoffs)
+
+  def return_payoffs_sum():
+    result = collections.defaultdict(float)
+    for payoff in coordination_payoffs:
+      results_dict = payoff.get_scores()
+      for name, score in results_dict.items():
+        result[name] += score
+    return result
+
+  # choice_scene_spec.override_game_master
+  return (scenes, game_masters, return_payoffs_sum)
 
 
 def outcome_summary_fn(
@@ -340,16 +404,26 @@ def outcome_summary_fn(
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
 
-  results = {}
-  for name, score in rewards.items():
-    if score == 0:
-      outcome_str = " couldn't agree on a price and the deal fell through."
-    else:
-      outcome_str = ' agreed on a price and the deal was successful!'
-    results[name] = outcome_str
+  if 'reject' in joint_action.values():
+    outcome_str = " couldn't agree on a price and the deal fell through."
+  else:
+    outcome_str = ' agreed on a price and the deal was successful!'
 
-  print(joint_action)
-  print(results)
+  results = {}
+  buyer_and_seller = ' and '.join(joint_action.keys())
+  for name, score in rewards.items():
+    if score > 0:
+      results[name] = (
+          f'{buyer_and_seller}{outcome_str} {name} stands to make profit of'
+          f' {score} coins from the deal.'
+      )
+    else:
+      results[name] = (
+          f'{buyer_and_seller}{outcome_str} However, {name} stands to lose'
+          f' {-score} coins from the deal.'
+      )
+    print(results[name])
+
   return results
 
 
@@ -466,7 +540,7 @@ class Simulation(Runnable):
         verbose=True,
     )
 
-    self._scenes, choice_gm, self._coordination_payoffs = configure_scenes(
+    self._scenes, choice_gms, self._coordination_payoffs = configure_scenes(
         model=self._model,
         game_master_memory=game_master_memory,
         players=self._all_players,
@@ -474,13 +548,13 @@ class Simulation(Runnable):
         main_player_configs=main_player_configs,
     )
 
-    self._secondary_environments = [choice_gm]
+    self._secondary_environments = choice_gms
 
     self._init_premise_memories(
         setup_time=SETUP_TIME,
         main_player_configs=main_player_configs,
         shared_memories=shared_memories,
-        scenario_premise=SCENARIO_PREMISE,
+        scenario_premise=[SCENARIO_PREMISE],
     )
 
   def _make_player_memories(self, config: formative_memories.AgentConfig):
@@ -542,7 +616,7 @@ class Simulation(Runnable):
     )
 
     print('Overall scores per player:')
-    player_scores = self._coordination_payoffs.get_scores()
+    player_scores = self._coordination_payoffs()
     if self._two_focal_populations:
       idx = 0
       for player_name, score in player_scores.items():
