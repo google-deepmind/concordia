@@ -77,6 +77,7 @@ setuptools.setup(
         'matplotlib',
         'mistralai',
         'numpy',
+        'ollama',
         'openai>=1.3.0',
         'pandas<=2.0.3',
         'python-dateutil',
