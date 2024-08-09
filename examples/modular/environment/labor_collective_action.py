@@ -43,7 +43,6 @@ from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import agent as agent_lib
-from concordia.typing import component
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
@@ -518,7 +517,10 @@ def get_inventories_component(
     main_players: Sequence[basic_agent.BasicAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
-) -> tuple[component.Component, gm_components.inventory_based_score.Score]:
+) -> tuple[
+    gm_components.inventory.Inventory,
+    gm_components.inventory_based_score.Score,
+]:
   """Get the inventory tracking component for the game master."""
   money_config = ItemTypeConfig(name='coin')
   player_initial_endowments = {
@@ -536,7 +538,6 @@ def get_inventories_component(
       name='possessions',
       verbose=True,
   )
-
   score = gm_components.inventory_based_score.Score(
       inventory=inventories,
       players=main_players,  # Only main players get a score.

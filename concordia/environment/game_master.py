@@ -14,11 +14,11 @@
 
 """A Generic Game Master."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import datetime
 import random
-from typing import Any, Mapping, Union
+from typing import Any
 
 from concordia import components as generic_components
 from concordia.agents import basic_agent
@@ -79,6 +79,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
   def __init__(
       self,
+      *,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       clock: game_clock.GameClock,
@@ -93,10 +94,11 @@ class GameMaster(simulacrum_game_master.GameMaster):
                   [interactive_document.InteractiveDocument, str, str], str
               ]
           ]
-          | None
-      ) = None,
-      components: Sequence[component.Component] | None = None,
-      action_spec: agent_lib.ActionSpec | None = None,
+      ) = DEFAULT_THOUGHTS,
+      components: Sequence[component.Component] = (),
+      action_spec: agent_lib.ActionSpec | Mapping[str, agent_lib.ActionSpec] = (
+          agent_lib.DEFAULT_ACTION_SPEC
+      ),
       randomise_initiative: bool = False,
       player_observes_event: bool = True,
       players_act_simultaneously: bool = True,
@@ -117,8 +119,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       name: name of the game master.
       update_thought_chain: chain of thoughts for update from player
       components: components to condition on
-      action_spec: specific action_spec to pass to agents, default is used if
-        None
+      action_spec: action_specs to pass to agents
       randomise_initiative: whether to randomise initiative (who goes first )
         order
       player_observes_event: send outcome of the players action back as
@@ -143,10 +144,13 @@ class GameMaster(simulacrum_game_master.GameMaster):
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
-    self._action_spec = action_spec or agent_lib.DEFAULT_ACTION_SPEC
+    if isinstance(action_spec, agent_lib.ActionSpec):
+      self._action_spec = {player.name: action_spec for player in players}
+    else:
+      self._action_spec = dict(action_spec)
     self._concurrent_action = concurrent_action
 
-    components = list(components or [])
+    components = list(components)
     if use_default_instructions:
       instructions_component = generic_components.constant.ConstantComponent(
           state=DEFAULT_GAME_MASTER_INSTRUCTIONS, name='Instructions'
@@ -162,7 +166,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     self._verbose = verbose
 
-    self._update_from_player_thoughts = update_thought_chain or DEFAULT_THOUGHTS
+    self._update_from_player_thoughts = update_thought_chain
 
     self._players_by_name = {player.name: player for player in players}
     if len(self._players_by_name) != len(players):
@@ -177,7 +181,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def name(self) -> str:
     return self._name
 
-  def get_history(self):
+  def get_history(self) -> Sequence[Mapping[str, Any]]:
     return self._log.copy()
 
   def insert_history(self, log_entry: LogEntry):
@@ -189,7 +193,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     }
     self._log.append(update_log)
 
-  def extend_history(self, new_history: Sequence[Any]):
+  def extend_history(self, new_history: Sequence[Mapping[str, Any]]):
     self._log.extend(new_history)
 
   def get_memory(self) -> associative_memory.AssociativeMemory:
@@ -323,10 +327,10 @@ class GameMaster(simulacrum_game_master.GameMaster):
     self.update_components()
     self.view_for_player(player_name=player.name)
 
-    if action_spec:
-      action_spec_this_time = action_spec
+    if action_spec is None:
+      action_spec_this_time = self._action_spec[player.name]
     else:
-      action_spec_this_time = self._action_spec
+      action_spec_this_time = action_spec
 
     action = player.act(action_spec_this_time)
     action_spec_this_time.validate(action)
@@ -338,11 +342,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       *,
       active_players: Sequence[basic_agent.BasicAgent] | None = None,
       action_spec: (
-          Union[
-              Mapping[str, agent_lib.ActionSpec],
-              agent_lib.ActionSpec,
-          ]
-          | None
+          agent_lib.ActionSpec | Mapping[str, agent_lib.ActionSpec] | None
       ) = None,
   ):
     """Steps the game.
@@ -353,7 +353,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     Args:
       active_players: Optionally specify players to take turns in this round.
-      action_spec: Optionally specify what kind of action to ask the agent to
+      action_spec: Optionally specify what kind of actions to ask the agents to
         generate.
     """
     if active_players:
@@ -361,19 +361,18 @@ class GameMaster(simulacrum_game_master.GameMaster):
     else:
       players = list(self._players_by_name.values())
 
-    if action_spec:
-      if isinstance(action_spec, Mapping):
-        step_player_fn = lambda player: self._step_player(
-            player=player, action_spec=action_spec[player.name]
-        )
-      elif isinstance(action_spec, agent_lib.ActionSpec):
-        step_player_fn = lambda player: self._step_player(
-            player=player, action_spec=action_spec
-        )
-      else:
-        raise TypeError('Invalid action_spec parameter type')
-    else:
+    if action_spec is None:
       step_player_fn = lambda player: self._step_player(player=player)
+    elif isinstance(action_spec, Mapping):
+      step_player_fn = lambda player: self._step_player(
+          player=player, action_spec=action_spec[player.name]
+      )
+    elif isinstance(action_spec, agent_lib.ActionSpec):
+      step_player_fn = lambda player: self._step_player(
+          player=player, action_spec=action_spec
+      )
+    else:
+      raise TypeError('Invalid action_spec parameter type')
 
     if self._randomise_initiative:
       random.shuffle(players)

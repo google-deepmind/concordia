@@ -34,13 +34,15 @@ def _get_class_name(object_: object) -> str:
 
 
 def build_agent(
+    *,
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
     update_time_interval: datetime.timedelta,
     additional_components: Mapping[
-        entity_component.ComponentName, str
+        entity_component.ComponentName,
+        entity_component.ContextComponent,
     ] = types.MappingProxyType({}),
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.

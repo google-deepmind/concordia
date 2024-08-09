@@ -33,6 +33,7 @@ def _get_class_name(object_: object) -> str:
 
 
 def build_agent(
+    *,
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
