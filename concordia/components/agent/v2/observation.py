@@ -101,15 +101,15 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
 
   def __init__(
       self,
+      *,
       model: language_model.LanguageModel,
       clock_now: Callable[[], datetime.datetime],
       timeframe_delta_from: datetime.timedelta,
       timeframe_delta_until: datetime.timedelta,
       memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME),
-      components: Mapping[str, action_spec_ignored.ActionSpecIgnored] = (
-          types.MappingProxyType({})
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
+      component_labels: Mapping[str, str] = types.MappingProxyType({}),
       prompt: str | None = None,
       display_timeframe: bool = True,
       pre_act_key: str = DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY,
@@ -127,7 +127,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
         segment to summarise.
       memory_component_name: Name of the memory component from which to retrieve
         observations to summarize.
-      components: Components to summarise along with the observations.
+      component_labels: Mapping from component name to the label to give it.
       prompt: Language prompt for summarising memories and components.
       display_timeframe: Whether to display the time interval as text.
       pre_act_key: Prefix to add to the output of the component when called
@@ -140,7 +140,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     self._timeframe_delta_from = timeframe_delta_from
     self._timeframe_delta_until = timeframe_delta_until
     self._memory_component_name = memory_component_name
-    self._components = dict(components)
+    self._component_labels = dict(component_labels)
 
     self._prompt = prompt or (
         'Summarize the observations above into one or two sentences.'
@@ -153,8 +153,8 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     agent_name = self.get_entity().name
     context = '\n'.join([
         f"{agent_name}'s"
-        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._components.items()
+        f' {label}:\n{self.get_named_component_pre_act_value(key)}'
+        for key, label in self._component_labels.items()
     ])
 
     segment_start = self._clock_now() - self._timeframe_delta_from
@@ -206,4 +206,3 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     })
 
     return result
-
