@@ -41,6 +41,8 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
       queries: Sequence[str],
       question: str,
       pre_act_key: str,
+      add_to_memory: bool = False,
+      memory_tag: str = '',
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
@@ -60,6 +62,8 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
         - query: the query used to retrieve the memories
       pre_act_key: Prefix to add to the output of the component when called in
         `pre_act`.
+      add_to_memory: Whether to add the answer to the memory.
+      memory_tag: The tag to use when adding the answer to the memory.
       memory_component_name: The name of the memory component from which to
         retrieve related memories.
       clock_now: Function that returns the current time. If None, the current
@@ -77,6 +81,8 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
     self._model = model
     self._clock_now = clock_now
     self._memory_component_name = memory_component_name
+    self._add_to_memory = add_to_memory
+    self._memory_tag = memory_tag
 
     self._queries = queries
     self._summarization_question = summarization_question
@@ -134,13 +140,27 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
     else:
       output = results_str
 
-    self._logging_channel({'Key': self.get_pre_act_key(), 'Value': output})
+    if self._add_to_memory:
+      memory = self.get_entity().get_component(
+          self._memory_component_name, type_=memory_component.MemoryComponent
+      )
+      memory.add(f'{self._memory_tag} {output}', metadata={})
+
+    all_queries = ', '.join(self._queries)
+    log = {
+        'Key': self.get_pre_act_key(),
+        'Queries': f'{all_queries}',
+        'State': output,
+    }
+
+    self._logging_channel(log)
 
     return output
 
 
 class QuestionOfQueryAssociatedMemoriesWithoutPreAct(
-    action_spec_ignored.ActionSpecIgnored):
+    action_spec_ignored.ActionSpecIgnored
+):
   """A QuestionOfQueryAssociatedMemories component that does not output its state to pre_act."""
 
   def __init__(self, *args, **kwargs):
