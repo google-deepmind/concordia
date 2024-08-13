@@ -23,7 +23,7 @@ from concordia.agents import basic_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
-from concordia.components import agent as sim_components
+from concordia.components.agent import to_be_deprecated as sim_components
 from concordia.document import interactive_document
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation as conversation_scene

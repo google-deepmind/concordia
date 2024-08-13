@@ -18,7 +18,7 @@ import concurrent
 import datetime
 from typing import Callable
 from concordia.associative_memory import associative_memory
-from concordia.components.agent import characteristic
+from concordia.components.agent.to_be_deprecated import characteristic
 from concordia.language_model import language_model
 from concordia.typing import component
 import termcolor

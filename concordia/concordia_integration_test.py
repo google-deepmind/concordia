@@ -23,8 +23,8 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
-from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
+from concordia.components.agent import to_be_deprecated as agent_components
 from concordia.environment import game_master
 from concordia.metrics import common_sense_morality
 from concordia.metrics import goal_achievement
