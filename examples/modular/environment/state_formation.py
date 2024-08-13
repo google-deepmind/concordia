@@ -27,8 +27,8 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
-from concordia.components.agent import v2 as agent_components
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from concordia.factory.agent import basic_entity_agent__main_role
@@ -629,8 +629,9 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories,
-                             player_config=player_config)
+        future = pool.submit(
+            self._make_player_memories, player_config=player_config
+        )
         main_player_memory_futures.append(future)
       for player_config, future in zip(
           main_player_configs, main_player_memory_futures
@@ -641,8 +642,9 @@ class Simulation(Runnable):
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories,
-                               player_config=player_config)
+          future = pool.submit(
+              self._make_player_memories, player_config=player_config
+          )
           supporting_player_memory_futures.append(future)
         for player_config, future in zip(
             supporting_player_configs, supporting_player_memory_futures
@@ -792,7 +794,8 @@ class Simulation(Runnable):
     )
 
   def _make_player_memories(
-      self, player_config: formative_memories.AgentConfig):
+      self, player_config: formative_memories.AgentConfig
+  ):
     """Make memories for a player."""
     mem = self._formative_memory_factory.make_memories(player_config)
     # Inject player-specific memories declared in the agent config.

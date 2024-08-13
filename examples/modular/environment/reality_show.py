@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A Concordia Environment Configuration.
-"""
+"""A Concordia Environment Configuration."""
 
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
@@ -27,8 +26,8 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
-from concordia.components.agent import v2 as agent_components
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from concordia.factory.agent import basic_entity_agent__main_role
@@ -53,7 +52,7 @@ START_TIME = datetime.datetime(hour=18, year=2000, month=10, day=2)
 
 DECISION_SCENE_TYPE = 'minigame'
 
-GENERAL_BACKGROUND = '''
+GENERAL_BACKGROUND = """
 This is a reality TV show. In each minigame, the contestants perform a
 mental/social/reasoning challenge (never a physical challenge). Each minigame
 corresponds to a specific game theoretic structure. All minigames are iterated
@@ -62,9 +61,9 @@ rounds in advance. Each round is always structured with two phases. First,
 players have a chance to communicate to one another. Second, players must select
 an action (all games are simultaneous move). The players will be told the set of
 legal game actions during each action phase.\n
-'''
+"""
 
-GM_BACKGROUND_KNOWLEDGE = GENERAL_BACKGROUND + '''
+GM_BACKGROUND_KNOWLEDGE = GENERAL_BACKGROUND + """
 We focus on minigames that are social dilemmas, collective action problems, or
 bargaining problems.
 
@@ -76,7 +75,7 @@ rewards per player.
 actions.
 4) specific information to tell all players about the setting at the start.
 5) the true number of rounds the minigame will run (unknown to the players).
-'''
+"""
 SCENARIO_PREMISE = []
 
 CANDIDATE_SHOW_TITLES = [
@@ -96,43 +95,68 @@ CANDIDATE_SHOW_TITLES = [
     'Dilemma Deathmatch',
 ]
 CANDIDATE_SHOW_DESCRIPTIONS = [
-    ('A multi-episode event where participants engage in a marathon of '
-     'minigames, with their motivations tested at every turn.'),
-    ('A reality show that pushes contestants to their limits with a series '
-     'of increasingly challenging minigames, each designed to explore the '
-     'depths of human motivation.'),
-    ('A high-stakes game show where contestants navigate a series of '
-     'minigames, each with its own unique twist on motivation and '
-     'decision-making.'),
-    ('Participants face off in a variety of challenges designed to test their '
-     'ability to make choices under pressure, with ever-changing incentives '
-     'and consequences.'),
-    ('A fast-paced competition where players must quickly adapt to a diverse '
-     'range of minigames, each with its own set of motivational factors.'),
-    ('A high-energy competition where contestants must master a wide range '
-     'of minigames, each with its own unique motivational twist.'),
-    ('Contestants race through a gauntlet of minigames, each presenting a '
-     'unique moral or ethical dilemma that tests their decision-making skills '
-     'under pressure.'),
-    ('A reality show where players must navigate a series of complex '
-     'minigames, each with its own set of conflicting objectives and moral '
-     'quandaries.'),
-    ('Players are transported to alternate realities, each with its own unique '
-     'set of minigames and moral dilemmas to overcome.'),
-    ('Contestants are locked inside a high-tech arena, where they must conquer '
-     'a series of mentally and physically challenging minigames, each with its '
-     'own ethical twist.'),
-    ('A reality show where players must navigate a maze of interconnected '
-     'minigames, with each decision leading them down a different path filled '
-     'with moral dilemmas.'),
-    ('Players descend into a mysterious underground labyrinth, where they must '
-     'solve a series of puzzle-based minigames, each with its own moral '
-     'dilemma.'),
+    (
+        'A multi-episode event where participants engage in a marathon of '
+        'minigames, with their motivations tested at every turn.'
+    ),
+    (
+        'A reality show that pushes contestants to their limits with a series '
+        'of increasingly challenging minigames, each designed to explore the '
+        'depths of human motivation.'
+    ),
+    (
+        'A high-stakes game show where contestants navigate a series of '
+        'minigames, each with its own unique twist on motivation and '
+        'decision-making.'
+    ),
+    (
+        'Participants face off in a variety of challenges designed to test'
+        ' their ability to make choices under pressure, with ever-changing'
+        ' incentives and consequences.'
+    ),
+    (
+        'A fast-paced competition where players must quickly adapt to a diverse'
+        ' range of minigames, each with its own set of motivational factors.'
+    ),
+    (
+        'A high-energy competition where contestants must master a wide range '
+        'of minigames, each with its own unique motivational twist.'
+    ),
+    (
+        'Contestants race through a gauntlet of minigames, each presenting a'
+        ' unique moral or ethical dilemma that tests their decision-making'
+        ' skills under pressure.'
+    ),
+    (
+        'A reality show where players must navigate a series of complex '
+        'minigames, each with its own set of conflicting objectives and moral '
+        'quandaries.'
+    ),
+    (
+        'Players are transported to alternate realities, each with its own'
+        ' unique set of minigames and moral dilemmas to overcome.'
+    ),
+    (
+        'Contestants are locked inside a high-tech arena, where they must'
+        ' conquer a series of mentally and physically challenging minigames,'
+        ' each with its own ethical twist.'
+    ),
+    (
+        'A reality show where players must navigate a maze of interconnected'
+        ' minigames, with each decision leading them down a different path'
+        ' filled with moral dilemmas.'
+    ),
+    (
+        'Players descend into a mysterious underground labyrinth, where they'
+        ' must solve a series of puzzle-based minigames, each with its own'
+        ' moral dilemma.'
+    ),
 ]
 
 MINIGAME_INTRO_PREMISE = (
-    'The show\'s host arrived to explain the next minigame. They '
-    'said the following:\n')
+    "The show's host arrived to explain the next minigame. They "
+    'said the following:\n'
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -146,69 +170,76 @@ class MiniGameSpec:
     schelling_diagram: A representation of the game mapping joint actions to
       rewards for each player. Schelling diagrams are described in the following
       paper: Schelling, T.C., 1973. Hockey helmets, concealed weapons, and
-      daylight saving: A study of binary choices with externalities. Journal of
-      Conflict resolution, 17(3), pp.381-428.
+        daylight saving: A study of binary choices with externalities. Journal
+        of Conflict resolution, 17(3), pp.381-428.
     map_external_actions_to_schelling_diagram: Map cooperation and defection
       actions to the names they take in the game's cover story. These strings
       must match the options given in the action spec.
     action_spec: The action specification.
   """
+
   name: str
   public_premise: str
   schelling_diagram: SchellingDiagram
   map_external_actions_to_schelling_diagram: Mapping[str, str]
   action_spec: agent_lib.ActionSpec
 
+
 MINIGAMES = [
     MiniGameSpec(
         name='Carpooling',
-        public_premise=MINIGAME_INTRO_PREMISE + (
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
             'The next minigame is called Carpooling. Three coworkers can '
             'carpool, cutting commute costs for all, or drive individually. '
-            'The commute happens daily, creating repeated decisions.'),
+            'The commute happens daily, creating repeated decisions.'
+        ),
         schelling_diagram=SchellingDiagram(
             # A fear+greed-type (Prisoners' Dilemma-like) dilemma
             cooperation=lambda num_cooperators: num_cooperators - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 2.0
+            defection=lambda num_cooperators: num_cooperators + 2.0,
         ),
         map_external_actions_to_schelling_diagram=dict(
             cooperation='try to carpool with others',
-            defection='drive individually'
+            defection='drive individually',
         ),
         action_spec=agent_lib.choice_action_spec(
-            call_to_action=(
-                'Which action would {name} choose in the minigame?'),
+            call_to_action='Which action would {name} choose in the minigame?',
             options=('try to carpool with others', 'drive individually'),
             tag='minigame_action',
         ),
     ),
     MiniGameSpec(
         name='Home Appliance Sharing',
-        public_premise=MINIGAME_INTRO_PREMISE + (
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
             'Three neighbors share a tool/appliance infrequently. Each can '
             'maintain it for shared use, or let others handle '
             'upkeep and risk it being unavailable. Repeated use '
-            'creates dilemmas each time the tool/appliance is needed.'),
+            'creates dilemmas each time the tool/appliance is needed.'
+        ),
         schelling_diagram=SchellingDiagram(
             # A greed-type (Chicken-like) dilemma
             cooperation=lambda num_cooperators: 4.0 * num_cooperators,
-            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0
+            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0,
         ),
         map_external_actions_to_schelling_diagram=dict(
             cooperation='maintain the appliance',
-            defection='let others handle upkeep of the appliance'
+            defection='let others handle upkeep of the appliance',
         ),
         action_spec=agent_lib.choice_action_spec(
-            call_to_action=(
-                'Which action would {name} choose in the minigame?'),
-            options=('maintain the appliance',
-                     'let others handle upkeep of the appliance'),
+            call_to_action='Which action would {name} choose in the minigame?',
+            options=(
+                'maintain the appliance',
+                'let others handle upkeep of the appliance',
+            ),
             tag='minigame_action',
         ),
     ),
     MiniGameSpec(
         name='Boat Race',
-        public_premise=MINIGAME_INTRO_PREMISE + (
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
             'Three teammates are on a row boat racing team together. Each has '
             'the option to give the race their all and really row '
             'vigorously, but this option is very fatiguing and only '
@@ -216,21 +247,20 @@ MINIGAMES = [
             'teammate has the option of rowing less vigorously, this gets '
             'them to their goal more slowly, but is less fatiguing and does '
             'not require coordination with the others. The race is repeated '
-            'many times, going back and forth across the lake.'),
+            'many times, going back and forth across the lake.'
+        ),
         schelling_diagram=SchellingDiagram(
             # A fear-type (Stag Hunt-like) dilemma
             cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 4.0
+            defection=lambda num_cooperators: num_cooperators + 4.0,
         ),
         map_external_actions_to_schelling_diagram=dict(
             cooperation='row vigorously',
             defection='row less vigorously',
         ),
         action_spec=agent_lib.choice_action_spec(
-            call_to_action=(
-                'Which action would {name} choose in the minigame?'),
-            options=('row vigorously',
-                     'row less vigorously'),
+            call_to_action='Which action would {name} choose in the minigame?',
+            options=('row vigorously', 'row less vigorously'),
             tag='minigame_action',
         ),
     ),
@@ -249,14 +279,17 @@ def get_random_show_with_description() -> tuple[str, str]:
 
 
 def get_shared_memories_and_context(
-    model: language_model.LanguageModel) -> tuple[Sequence[str], str, str]:
+    model: language_model.LanguageModel,
+) -> tuple[Sequence[str], str, str]:
   """Return the shared memories and context for all agents and game master."""
   show_title_and_description, show_title = get_random_show_with_description()
 
   shared_memories = [
-      ('Alice, Bob, and Charlie are contestants on a reality show: '
-       f'{show_title}. There are no other contestants besides Alice, Bob, '
-       'and Charlie.'),
+      (
+          'Alice, Bob, and Charlie are contestants on a reality show: '
+          f'{show_title}. There are no other contestants besides Alice, Bob, '
+          'and Charlie.'
+      ),
       show_title_and_description,
       GENERAL_BACKGROUND,
   ]
@@ -274,12 +307,15 @@ def get_shared_memories_and_context(
 
 
 def configure_players(
-    show_title: str) -> tuple[list[formative_memories.AgentConfig],
-                              list[formative_memories.AgentConfig]]:
+    show_title: str,
+) -> tuple[
+    list[formative_memories.AgentConfig], list[formative_memories.AgentConfig]
+]:
   """Configure the players.
 
   Args:
     show_title: the name of the reality show.
+
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
@@ -290,30 +326,37 @@ def configure_players(
           gender='female',
           date_of_birth=datetime.datetime(year=1962, month=4, day=28),
           goal='make as much money as possible',
-          context=('Alice signed up to be a contestant on a reality TV show, '
-                   'and hopes to win it since she needs the prize '
-                   'money.'),
-          traits=('Alice\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Alice signed up to be a contestant on a reality TV show, '
+              'and hopes to win it since she needs the prize '
+              'money.'
+          ),
+          traits=(
+              "Alice's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   f'Alice is a contestant on {show_title}.',
               ],
               'main_character': True,
               'initial_endowment': {'money': 0.0},
-          }
+          },
       ),
-
       formative_memories.AgentConfig(
           name='Bob',
           gender='male',
           goal='make as much money as possible',
           date_of_birth=datetime.datetime(year=1940, month=9, day=13),
-          context=('Bob signed up to be a contestant on a reality TV show, '
-                   'and hopes to win it since he needs the prize '
-                   'money.'),
-          traits=('Bob\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Bob signed up to be a contestant on a reality TV show, '
+              'and hopes to win it since he needs the prize '
+              'money.'
+          ),
+          traits=(
+              "Bob's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   f'Bob is a contestant on {show_title}.'
@@ -327,11 +370,15 @@ def configure_players(
           gender='male',
           date_of_birth=datetime.datetime(year=1978, month=2, day=11),
           goal='make as much money as possible',
-          context=('Charlie signed up to be a contestant on a reality TV show, '
-                   'and hopes to win it since he needs the prize '
-                   'money.'),
-          traits=('Charlie\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Charlie signed up to be a contestant on a reality TV show, '
+              'and hopes to win it since he needs the prize '
+              'money.'
+          ),
+          traits=(
+              "Charlie's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   f'Charlie is a contestant on {show_title}.',
@@ -371,6 +418,7 @@ def add_minigame_scene_spec(
     player_configs: the player configs to use.
     scene_type_name: the name of the scene type.
     verbose: whether to print verbose output or not.
+
   Returns:
     minigame_scene_type: the minigame scene type.
   """
@@ -434,9 +482,11 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
-) -> tuple[Sequence[scene_lib.SceneSpec],
-           game_master.GameMaster | None,
-           SchellingPayoffs,]:
+) -> tuple[
+    Sequence[scene_lib.SceneSpec],
+    game_master.GameMaster | None,
+    SchellingPayoffs,
+]:
   """Configure the scene storyboard structure.
 
   Args:
@@ -446,6 +496,7 @@ def configure_scenes(
     clock: the clock to use.
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
+
   Returns:
     scenes: a sequence of scene specifications
     decision_env: a game master to handle choice scenes
@@ -516,7 +567,7 @@ def configure_scenes(
 def outcome_summary_fn(
     # `binary_joint_action` should be type Mapping[str, bool] (ie bool not int).
     unused_binary_joint_action: Mapping[str, int],
-    rewards: Mapping[str, float]
+    rewards: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
   result = {
@@ -562,8 +613,8 @@ class Simulation(Runnable):
     self._measurements = measurements
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME,
-        step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP])
+        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+    )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
@@ -574,7 +625,8 @@ class Simulation(Runnable):
         clock_now=self._clock.now,
     )
     shared_memories, shared_context, show_title = (
-        get_shared_memories_and_context(model))
+        get_shared_memories_and_context(model)
+    )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
@@ -582,7 +634,8 @@ class Simulation(Runnable):
     )
 
     main_player_configs, supporting_player_configs = configure_players(
-        show_title=show_title)
+        show_title=show_title
+    )
     random.shuffle(main_player_configs)
 
     num_main_players = len(main_player_configs)
@@ -593,22 +646,22 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories,
-                             config=player_config)
+        future = pool.submit(self._make_player_memories, config=player_config)
         main_player_memory_futures.append(future)
-      for player_config, future in zip(main_player_configs,
-                                       main_player_memory_futures):
+      for player_config, future in zip(
+          main_player_configs, main_player_memory_futures
+      ):
         self._all_memories[player_config.name] = future.result()
 
     if num_supporting_players > 0:
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories,
-                               config=player_config)
+          future = pool.submit(self._make_player_memories, config=player_config)
           supporting_player_memory_futures.append(future)
-        for player_config, future in zip(supporting_player_configs,
-                                         supporting_player_memory_futures):
+        for player_config, future in zip(
+            supporting_player_configs, supporting_player_memory_futures
+        ):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
@@ -635,7 +688,9 @@ class Simulation(Runnable):
       conversation_style = agent_components.constant.Constant(
           pre_act_key='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
-              player_config.name))
+              player_config.name
+          ),
+      )
       player = basic_entity_agent__supporting_role.build_agent(
           config=player_config,
           model=self._model,
@@ -643,7 +698,8 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
           additional_components={
-              'Guiding principle of good conversation': conversation_style},
+              'Guiding principle of good conversation': conversation_style
+          },
       )
       supporting_players.append(player)
       print(self._all_memories[player_config.name].get_data_frame()['text'])

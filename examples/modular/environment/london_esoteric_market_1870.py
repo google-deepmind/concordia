@@ -26,8 +26,8 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
-from concordia.components.agent import v2 as agent_components
 from concordia.contrib.components import game_master as gm_contrib
 from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
@@ -61,48 +61,55 @@ NUM_MAIN_PLAYER_WORLD_ELEMENTS = 2
 NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS = 15
 NUM_LAUDANUM_ADVERTISEMENTS = 2
 
-SCENARIO_PREMISE = [('The year is 1870. The place is a bustling marketplace '
-                     'near the docks in London.')]
+SCENARIO_PREMISE = [(
+    'The year is 1870. The place is a bustling marketplace '
+    'near the docks in London.'
+)]
 
 # The following paragraphs describing the conditions of the supporting
 # characters at the start of the simulation were sampled from Claude 3.
 SUPPORTING_PLAYER_LOCATIONS = [
-    ('Amidst the vibrant and chaotic tapestry of the London docks, where '
-     'sights, sounds, and smells intermingle in a dizzying ballet, stands '
-     'Professor Aldous Pendleton. The weathered wooden boards beneath his feet '
-     'creak as he shifts his weight, his eyes scanning the bustling '
-     'marketplace with a mixture of desperation and anticipation. The air '
-     'around him is thick with the briny scent of the Thames, exotic spices, '
-     'and the acrid smoke of coal-fired steamships, but Aldous pays little '
-     'heed to the sensory onslaught. His focus is singular: to find a customer '
-     'for his most prized possession. As the towering ships line the harbor, '
-     'their masts reaching towards the overcast sky, Aldous remains a solitary '
-     'figure, a man haunted by his demons and driven by a fierce urgency to '
-     'sell the artifact that had once been the center of his academic world. '
-     'The docks, a hub of activity where the wealth of the British Empire '
-     'flows in and out on the tides of commerce, now serve as the stage for '
-     'Aldous\'s personal drama, a place where his fate hangs in the balance as '
-     'he seeks a buyer amidst the ceaseless dance of survival and ambition.'),
-    ('In the midst of the lively and tumultuous mosaic of the London docks, '
-     'where sights, sounds, and smells collide in a mesmerizing dance, '
-     'Molly "Poppy" Jennings stands, her slight frame barely noticeable amidst '
-     'the towering figures of the dock workers and merchants. The worn '
-     'wooden planks underfoot groan beneath her restless feet as she paces '
-     'back and forth, her wide eyes darting across the teeming marketplace, '
-     'a cocktail of anxious energy and hopeful anticipation coursing through '
-     'her veins. The air surrounding Poppy is heavy with the salty tang of '
-     'the Thames, the heady perfume of foreign spices, and the bitter fumes '
-     'of coal-powered steamers, but her senses are overwhelmed by a '
-     'singular purpose. Clutched tightly to her chest is a rare and '
-     'precious book. As the imposing ships stand sentinel '
-     'along the harbor\'s edge, their masts stretching up to pierce the '
-     'gloomy heavens, Poppy appears as a lone figure, a young woman '
-     'tormented by her inner turmoil and consumed by the desperate need '
-     'to part with her treasured book. The docks, a nexus of commerce '
-     'where the riches of the British Empire ebb and flow on the currents '
-     'of trade, now form the backdrop for Poppy\'s intimate struggle, an '
-     'arena where her destiny teeters on a knife\'s edge as she searches '
-     'for a purchaser among the relentless waltz of survival and aspiration.')
+    (
+        'Amidst the vibrant and chaotic tapestry of the London docks, where'
+        ' sights, sounds, and smells intermingle in a dizzying ballet, stands'
+        ' Professor Aldous Pendleton. The weathered wooden boards beneath his'
+        ' feet creak as he shifts his weight, his eyes scanning the bustling'
+        ' marketplace with a mixture of desperation and anticipation. The air'
+        ' around him is thick with the briny scent of the Thames, exotic'
+        ' spices, and the acrid smoke of coal-fired steamships, but Aldous pays'
+        ' little heed to the sensory onslaught. His focus is singular: to find'
+        ' a customer for his most prized possession. As the towering ships line'
+        ' the harbor, their masts reaching towards the overcast sky, Aldous'
+        ' remains a solitary figure, a man haunted by his demons and driven by'
+        ' a fierce urgency to sell the artifact that had once been the center'
+        ' of his academic world. The docks, a hub of activity where the wealth'
+        ' of the British Empire flows in and out on the tides of commerce, now'
+        " serve as the stage for Aldous's personal drama, a place where his"
+        ' fate hangs in the balance as he seeks a buyer amidst the ceaseless'
+        ' dance of survival and ambition.'
+    ),
+    (
+        'In the midst of the lively and tumultuous mosaic of the London docks,'
+        ' where sights, sounds, and smells collide in a mesmerizing dance,'
+        ' Molly "Poppy" Jennings stands, her slight frame barely noticeable'
+        ' amidst the towering figures of the dock workers and merchants. The'
+        ' worn wooden planks underfoot groan beneath her restless feet as she'
+        ' paces back and forth, her wide eyes darting across the teeming'
+        ' marketplace, a cocktail of anxious energy and hopeful anticipation'
+        ' coursing through her veins. The air surrounding Poppy is heavy with'
+        ' the salty tang of the Thames, the heady perfume of foreign spices,'
+        ' and the bitter fumes of coal-powered steamers, but her senses are'
+        ' overwhelmed by a singular purpose. Clutched tightly to her chest is a'
+        ' rare and precious book. As the imposing ships stand sentinel along'
+        " the harbor's edge, their masts stretching up to pierce the gloomy"
+        ' heavens, Poppy appears as a lone figure, a young woman tormented by'
+        ' her inner turmoil and consumed by the desperate need to part with her'
+        ' treasured book. The docks, a nexus of commerce where the riches of'
+        ' the British Empire ebb and flow on the currents of trade, now form'
+        " the backdrop for Poppy's intimate struggle, an arena where her"
+        " destiny teeters on a knife's edge as she searches for a purchaser"
+        ' among the relentless waltz of survival and aspiration.'
+    ),
 ]
 
 
@@ -118,19 +125,23 @@ def get_world_elements(size: int) -> list[str]:
 
 def get_laudanum_advertisements(size: int) -> list[str]:
   return random.sample(
-      laudanum_and_mysticism_in_victorian_london.LAUDANUM_ADVERTISEMENTS, size)
+      laudanum_and_mysticism_in_victorian_london.LAUDANUM_ADVERTISEMENTS, size
+  )
 
 
 def get_shared_memories_and_context(
-    model: language_model.LanguageModel) -> tuple[Sequence[str], str]:
+    model: language_model.LanguageModel,
+) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
   shared_memories = get_world_elements(NUM_BACKGROUND_WORLD_ELEMENTS)
   selected_laudanum_advertisements = get_laudanum_advertisements(
-      NUM_LAUDANUM_ADVERTISEMENTS)
+      NUM_LAUDANUM_ADVERTISEMENTS
+  )
 
-  today = 'Today\'s newspaper contains the following advertisement: '
+  today = "Today's newspaper contains the following advertisement: "
   laudanum_today = [
-      f'{today}{advert}' for advert in selected_laudanum_advertisements]
+      f'{today}{advert}' for advert in selected_laudanum_advertisements
+  ]
   shared_memories += laudanum_today
 
   # The shared context will be used for the NPC context. It reflects general
@@ -147,23 +158,31 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-def configure_players() -> tuple[list[formative_memories.AgentConfig],
-                                 list[formative_memories.AgentConfig]]:
+def configure_players() -> (
+    tuple[
+        list[formative_memories.AgentConfig],
+        list[formative_memories.AgentConfig],
+    ]
+):
   """Configure the players.
 
   Args:
+
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
   joined_main_player_knowledge = [
       ' '.join(get_world_elements(NUM_MAIN_PLAYER_WORLD_ELEMENTS))
-      for _ in range(NUM_MAIN_PLAYERS)]
+      for _ in range(NUM_MAIN_PLAYERS)
+  ]
   supporting_player_knowledge = [
       get_world_elements(NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS)
-      for _ in range(NUM_SUPPORTING_PLAYERS)]
+      for _ in range(NUM_SUPPORTING_PLAYERS)
+  ]
   joined_supporting_player_knowledge = [
-      ' '.join(knowledge) for knowledge in supporting_player_knowledge]
+      ' '.join(knowledge) for knowledge in supporting_player_knowledge
+  ]
   # These names were generated by Claude 3, prompted to produce names that
   # sound like they could belong to people mixed up in alchemy and opium in
   # London in the year 1870.
@@ -173,49 +192,65 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           name='Doctor Cornelius Ashmole',
           gender='male',
           date_of_birth=datetime.datetime(year=1820, month=4, day=28),
-          goal=('Collect rare books about alchemy, specifically the '
-                'tabula smaragdina and secreta secretorum'),
-          context=('Born in London, Cornelius aims to heal the sick, become '
-                   'famous, and collect rare books about alchemy. He is also '
-                   'aware of the following: '
-                   f'{joined_main_player_knowledge[0]}.'),
-          traits=('Doctor Cornelius Ashmole\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          goal=(
+              'Collect rare books about alchemy, specifically the '
+              'tabula smaragdina and secreta secretorum'
+          ),
+          context=(
+              'Born in London, Cornelius aims to heal the sick, become '
+              'famous, and collect rare books about alchemy. He is also '
+              'aware of the following: '
+              f'{joined_main_player_knowledge[0]}.'
+          ),
+          traits=(
+              "Doctor Cornelius Ashmole's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   'Cornelius is wealthy and a member of the upper class.',
                   'Cornelius came to market today to buy alchemical texts.',
               ],
               'main_character': True,
-              'initial_endowment': {'coin': 5.0,
-                                    'laudanum bottle': 2.0,
-                                    'tabula smaragdina': 0.0,
-                                    'secreta secretorum': 0.0},
-          }
+              'initial_endowment': {
+                  'coin': 5.0,
+                  'laudanum bottle': 2.0,
+                  'tabula smaragdina': 0.0,
+                  'secreta secretorum': 0.0,
+              },
+          },
       ),
       formative_memories.AgentConfig(
           name='Madame Esmeralda Dee',
           gender='female',
-          goal=('Collect rare books about alchemy, specifically the '
-                'tabula smaragdina and secreta secretorum'),
+          goal=(
+              'Collect rare books about alchemy, specifically the '
+              'tabula smaragdina and secreta secretorum'
+          ),
           date_of_birth=datetime.datetime(year=1824, month=9, day=13),
-          context=('Born in London, Esmeralda aims to heal the sick, become '
-                   'famous, and collect rare books about alchemy. She is also '
-                   'aware of the following: '
-                   f'{joined_main_player_knowledge[1]}.'),
-          traits=('Madame Esmeralda Dee\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Born in London, Esmeralda aims to heal the sick, become '
+              'famous, and collect rare books about alchemy. She is also '
+              'aware of the following: '
+              f'{joined_main_player_knowledge[1]}.'
+          ),
+          traits=(
+              "Madame Esmeralda Dee's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
                   'Esmeralda is wealthy and a member of the upper class.',
                   'Esmeralda came to market today to buy alchemical texts.',
               ],
               'main_character': True,
-              'initial_endowment': {'coin': 5.0,
-                                    'laudanum bottle': 2.0,
-                                    'tabula smaragdina': 0.0,
-                                    'secreta secretorum': 0.0},
-          }
+              'initial_endowment': {
+                  'coin': 5.0,
+                  'laudanum bottle': 2.0,
+                  'tabula smaragdina': 0.0,
+                  'secreta secretorum': 0.0,
+              },
+          },
       ),
       # Supporting characters
       formative_memories.AgentConfig(
@@ -223,43 +258,66 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           gender='male',
           date_of_birth=datetime.datetime(year=1815, month=2, day=11),
           goal='accumulate as much money and fame as possible',
-          context=('Born in London, Aldous has fallen on hard times of late '
-                   'due to his morphinomania. As a result, he must sell some '
-                   'of his most prized possessions, perhaps even his copy of '
-                   'the tabula smaragdina. He is also aware of the following '
-                   f'information: {joined_supporting_player_knowledge[0]}'),
-          traits=('Professor Aldous Pendleton\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Born in London, Aldous has fallen on hard times of late '
+              'due to his morphinomania. As a result, he must sell some '
+              'of his most prized possessions, perhaps even his copy of '
+              'the tabula smaragdina. He is also aware of the following '
+              f'information: {joined_supporting_player_knowledge[0]}'
+          ),
+          traits=(
+              "Professor Aldous Pendleton's personality is like "
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
-                  ('Aldous has fallen on hard times of late due to his '
-                   'morphinomania. As a result, he must sell '
-                   'some of his most prized possessions. He '
-                   'came to market today to do just that.'),
-                  ('Aldous knows that Molly "Poppy" Jennings owns a genuine '
-                   'copy of the secreta secretorum'),
-                  ('Aldous Pendleton owns a genuine copy of the tabula '
-                   'smaragdina, it is his most prized possession.'),
-                  ('The tabula smaragdina is a cryptic text attributed to '
-                   'Hermes Trismegistus, is said to hold the key to unlocking '
-                   'the greatest alchemical secrets. However, deciphering its '
-                   'enigmatic symbols can drive the unworthy mad, their minds '
-                   'succumbing to the chaos hidden within its pages.'),
-                  ('The tabula smaragdina is also called the codex of the '
-                   'emerald tablet.'),
-                  ('The secreta secretorum is a compendium of letters from '
-                   'Aristotle to his student Alexander the Great'),
-                  ('Aldous is willing to sell the tabula smaragdina for three '
-                   'coins or one laudanum bottle.'),
-                  ('Aldous is very agreeable. He will agree to almost any '
-                   'proposal.'),
-                  *supporting_player_knowledge[0]
+                  (
+                      'Aldous has fallen on hard times of late due to his '
+                      'morphinomania. As a result, he must sell '
+                      'some of his most prized possessions. He '
+                      'came to market today to do just that.'
+                  ),
+                  (
+                      'Aldous knows that Molly "Poppy" Jennings owns a genuine '
+                      'copy of the secreta secretorum'
+                  ),
+                  (
+                      'Aldous Pendleton owns a genuine copy of the tabula '
+                      'smaragdina, it is his most prized possession.'
+                  ),
+                  (
+                      'The tabula smaragdina is a cryptic text attributed to'
+                      ' Hermes Trismegistus, is said to hold the key to'
+                      ' unlocking the greatest alchemical secrets. However,'
+                      ' deciphering its enigmatic symbols can drive the'
+                      ' unworthy mad, their minds succumbing to the chaos'
+                      ' hidden within its pages.'
+                  ),
+                  (
+                      'The tabula smaragdina is also called the codex of the '
+                      'emerald tablet.'
+                  ),
+                  (
+                      'The secreta secretorum is a compendium of letters from '
+                      'Aristotle to his student Alexander the Great'
+                  ),
+                  (
+                      'Aldous is willing to sell the tabula smaragdina for'
+                      ' three coins or one laudanum bottle.'
+                  ),
+                  (
+                      'Aldous is very agreeable. He will agree to almost any '
+                      'proposal.'
+                  ),
+                  *supporting_player_knowledge[0],
               ],
               'main_character': False,
-              'initial_endowment': {'coin': 0.0,
-                                    'laudanum bottle': 0.0,
-                                    'tabula smaragdina': 1.0,
-                                    'secreta secretorum': 0.0},
+              'initial_endowment': {
+                  'coin': 0.0,
+                  'laudanum bottle': 0.0,
+                  'tabula smaragdina': 1.0,
+                  'secreta secretorum': 0.0,
+              },
           },
       ),
       formative_memories.AgentConfig(
@@ -267,34 +325,48 @@ def configure_players() -> tuple[list[formative_memories.AgentConfig],
           gender='female',
           date_of_birth=datetime.datetime(year=1845, month=5, day=5),
           goal='accumulate as much money and fame as possible',
-          context=('Born in London, Molly has fallen on hard times of late '
-                   'due to her morphinomania. As a result, she must sell some '
-                   'of her most prized possessions, perhaps even her copy of '
-                   'the secreta secretorum. She is also aware of the following '
-                   f'information: {joined_supporting_player_knowledge[1]} '
-                   'The circumstances in which the secreta secretorum came '
-                   'into Molly\'s possession are a secret she guards closely.'),
-          traits=('Molly "Poppy" Jennings\'s personality is like ' +
-                  player_traits_and_styles.get_trait(flowery=True)),
+          context=(
+              'Born in London, Molly has fallen on hard times of late '
+              'due to her morphinomania. As a result, she must sell some '
+              'of her most prized possessions, perhaps even her copy of '
+              'the secreta secretorum. She is also aware of the following '
+              f'information: {joined_supporting_player_knowledge[1]} '
+              'The circumstances in which the secreta secretorum came '
+              "into Molly's possession are a secret she guards closely."
+          ),
+          traits=(
+              'Molly "Poppy" Jennings\'s personality is like '
+              + player_traits_and_styles.get_trait(flowery=True)
+          ),
           extras={
               'player_specific_memories': [
-                  ('Molly has fallen on hard times of late due to her '
-                   'morphinomania. As a result, she must sell '
-                   'some of her most prized possessions. She '
-                   'came to market today to do just that.'),
-                  ('Molly knows that Professor Aldous Pendleton owns a genuine '
-                   'copy of the tabula smaragdina'),
-                  ('Molly "Poppy" Jennings owns a genuine copy of the '
-                   'secreta secretorum, it is her most prized possession.'),
-                  ('Molly is willing to sell the secreta secretorum for three '
-                   'coins or one laudanum bottle.'),
-                  *supporting_player_knowledge[1]
+                  (
+                      'Molly has fallen on hard times of late due to her '
+                      'morphinomania. As a result, she must sell '
+                      'some of her most prized possessions. She '
+                      'came to market today to do just that.'
+                  ),
+                  (
+                      'Molly knows that Professor Aldous Pendleton owns a'
+                      ' genuine copy of the tabula smaragdina'
+                  ),
+                  (
+                      'Molly "Poppy" Jennings owns a genuine copy of the '
+                      'secreta secretorum, it is her most prized possession.'
+                  ),
+                  (
+                      'Molly is willing to sell the secreta secretorum for'
+                      ' three coins or one laudanum bottle.'
+                  ),
+                  *supporting_player_knowledge[1],
               ],
               'main_character': False,
-              'initial_endowment': {'coin': 0.0,
-                                    'laudanum bottle': 0.0,
-                                    'tabula smaragdina': 0.0,
-                                    'secreta secretorum': 1.0},
+              'initial_endowment': {
+                  'coin': 0.0,
+                  'laudanum bottle': 0.0,
+                  'tabula smaragdina': 0.0,
+                  'secreta secretorum': 1.0,
+              },
           },
       ),
   ]
@@ -318,6 +390,7 @@ def configure_scenes(
   Args:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
+
   Returns:
     scenes: a sequence of scene specifications
   """
@@ -330,7 +403,7 @@ def configure_scenes(
       'tang of the Thames, and the acrid smoke billowing from the nearby '
       'factories. The bustling marketplace by the London docks in 1870 is a '
       'cacophony of sounds —- the shouts of hawkers peddling their wares, the '
-      'cries of gulls circling overhead, and the creaking of ships\' rigging '
+      "cries of gulls circling overhead, and the creaking of ships' rigging "
       'as they sway in the breeze. Amidst the chaos, one can find all '
       'manner of goods, from the mundane to the mystical: barrels of salted '
       'fish, crates of fragrant teas, and hidden beneath the stalls, the '
@@ -347,7 +420,7 @@ def configure_scenes(
       'stalls, muffling the distant sounds of the city and the lapping of the '
       'Thames against the shore. In the flickering light of the gas lamps, the '
       'shadows seem to dance and twist, taking on a life of their own. It '
-      'is at this hour that the seekers of opium\'s secrets emerge from '
+      "is at this hour that the seekers of opium's secrets emerge from "
       'the darkness, their hushed whispers and furtive glances betraying their '
       'illicit purpose. They move like ghosts through the market, their '
       'footsteps echoing on the cobblestones as they navigate the '
@@ -364,14 +437,16 @@ def configure_scenes(
       'day': scene_lib.SceneTypeSpec(
           name='day',
           premise={
-              cfg.name: [day_market_intro.format(
-                  player_name=cfg.name)] for cfg in player_configs}
+              cfg.name: [day_market_intro.format(player_name=cfg.name)]
+              for cfg in player_configs
+          },
       ),
       'night': scene_lib.SceneTypeSpec(
           name='night',
           premise={
-              cfg.name: [night_market_intro.format(
-                  player_name=cfg.name)] for cfg in player_configs}
+              cfg.name: [night_market_intro.format(player_name=cfg.name)]
+              for cfg in player_configs
+          },
       ),
   }
 
@@ -413,24 +488,33 @@ def get_inventories_component(
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
 ) -> tuple[component.Component, gm_components.inventory_based_score.Score]:
   """Get the inventory tracking component for the game master."""
-  alchemy_texts = ('tabula smaragdina', 'secreta secretorum',)
+  alchemy_texts = (
+      'tabula smaragdina',
+      'secreta secretorum',
+  )
   money_config = ItemTypeConfig(name='coin')
   laudanum_config = ItemTypeConfig(
-      name='laudanum bottle', minimum=0, maximum=np.inf)
+      name='laudanum bottle', minimum=0, maximum=np.inf
+  )
   tabula_smaragdina_config = ItemTypeConfig(
-      name=alchemy_texts[0], minimum=0, maximum=1, force_integer=True)
+      name=alchemy_texts[0], minimum=0, maximum=1, force_integer=True
+  )
   secreta_secretorum_config = ItemTypeConfig(
-      name=alchemy_texts[1], minimum=0, maximum=1, force_integer=True)
+      name=alchemy_texts[1], minimum=0, maximum=1, force_integer=True
+  )
   player_initial_endowments = {
       config.name: config.extras['initial_endowment']
-      for config in player_configs}
+      for config in player_configs
+  }
   inventories = gm_contrib.restricted_inventory.RestrictedInventory(
       model=model,
       memory=memory,
-      item_type_configs=[money_config,
-                         laudanum_config,
-                         tabula_smaragdina_config,
-                         secreta_secretorum_config],
+      item_type_configs=[
+          money_config,
+          laudanum_config,
+          tabula_smaragdina_config,
+          secreta_secretorum_config,
+      ],
       players=players,
       player_initial_endowments=player_initial_endowments,
       clock_now=clock_now,
@@ -488,8 +572,8 @@ class Simulation(Runnable):
     self._measurements = measurements
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME,
-        step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP])
+        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+    )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
@@ -520,22 +604,22 @@ class Simulation(Runnable):
     main_player_memory_futures = []
     with concurrency.executor(max_workers=num_main_players) as pool:
       for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories,
-                             config=player_config)
+        future = pool.submit(self._make_player_memories, config=player_config)
         main_player_memory_futures.append(future)
-      for player_config, future in zip(main_player_configs,
-                                       main_player_memory_futures):
+      for player_config, future in zip(
+          main_player_configs, main_player_memory_futures
+      ):
         self._all_memories[player_config.name] = future.result()
 
     if num_supporting_players > 0:
       supporting_player_memory_futures = []
       with concurrency.executor(max_workers=num_supporting_players) as pool:
         for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories,
-                               config=player_config)
+          future = pool.submit(self._make_player_memories, config=player_config)
           supporting_player_memory_futures.append(future)
-        for player_config, future in zip(supporting_player_configs,
-                                         supporting_player_memory_futures):
+        for player_config, future in zip(
+            supporting_player_configs, supporting_player_memory_futures
+        ):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
@@ -562,7 +646,9 @@ class Simulation(Runnable):
       conversation_style = agent_components.constant.Constant(
           pre_act_key='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
-              player_config.name))
+              player_config.name
+          ),
+      )
       player = basic_entity_agent__supporting_role.build_agent(
           config=player_config,
           model=self._model,
@@ -570,7 +656,8 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
           additional_components={
-              'Guiding principle of good conversation': conversation_style},
+              'Guiding principle of good conversation': conversation_style
+          },
       )
       supporting_players.append(player)
 
@@ -579,35 +666,46 @@ class Simulation(Runnable):
     game_master_memory = associative_memory.AssociativeMemory(
         sentence_embedder=self._embedder,
         importance=importance_model_gm.importance,
-        clock=self._clock.now)
+        clock=self._clock.now,
+    )
 
     magic_is_not_real = generic_components.constant.ConstantComponent(
         state='Magic is not real. Superatural events are impossible.',
-        name='Important Fact')
+        name='Important Fact',
+    )
     only_named_characters_sell_str = (
-        'The only people in London with alchemical texts to sell are ' +
-        ' and '.join(supporting_player_names) + '. There are no other ' +
-        'venders of alchemical texts.')
+        'The only people in London with alchemical texts to sell are '
+        + ' and '.join(supporting_player_names)
+        + '. There are no other '
+        + 'venders of alchemical texts.'
+    )
     only_named_characters_sell = generic_components.constant.ConstantComponent(
-        state=only_named_characters_sell_str,
-        name='Fact')
+        state=only_named_characters_sell_str, name='Fact'
+    )
     categories_and_aliases = generic_components.constant.ConstantComponent(
-        state=('The tabula smaragdina and the secreta secretorum are both '
-               'alchemical texts. The tabula smaragdina is also called the '
-               'codex of the emerald tablet.'),
-        name='More facts')
+        state=(
+            'The tabula smaragdina and the secreta secretorum are both '
+            'alchemical texts. The tabula smaragdina is also called the '
+            'codex of the emerald tablet.'
+        ),
+        name='More facts',
+    )
     easy_to_find = generic_components.constant.ConstantComponent(
-        state=(' and '.join(supporting_player_names) + ' are easy to find '
-               'in the marketplace by the docks. Anyone looking for them '
-               'will find them there.'),
-        name='Another fact')
+        state=(
+            ' and '.join(supporting_player_names)
+            + ' are easy to find '
+            'in the marketplace by the docks. Anyone looking for them '
+            'will find them there.'
+        ),
+        name='Another fact',
+    )
     inventories, self._score = get_inventories_component(
         model=model,
         memory=game_master_memory,
         players=self._all_players,
         main_players=main_players,
         player_configs=main_player_configs + supporting_player_configs,
-        clock_now=self._clock.now
+        clock_now=self._clock.now,
     )
     additional_gm_components = [
         magic_is_not_real,

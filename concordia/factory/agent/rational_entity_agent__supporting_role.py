@@ -22,7 +22,7 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
-from concordia.components.agent import v2 as agent_components
+from concordia.components import agent as agent_components
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import entity_component

@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 import datetime
 import types
 
-from concordia.components.agent.v2 import action_spec_ignored
+from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity_component

@@ -18,8 +18,8 @@ import datetime
 import types
 from typing import Callable, Mapping
 
-from concordia.components.agent.v2 import action_spec_ignored
-from concordia.components.agent.v2 import memory_component
+from concordia.components.agent import action_spec_ignored
+from concordia.components.agent import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory

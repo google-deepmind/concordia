@@ -30,8 +30,8 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
-from concordia.components.agent import v2 as agent_components
 from concordia.contrib.components import game_master as gm_contrib
 from concordia.document import interactive_document
 from concordia.environment import game_master
@@ -115,9 +115,11 @@ WORLD_BUILDING_ELEMENTS = [
 ]
 
 _TriggeredFunctionPreEventFnArgsT = (
-    gm_components.triggered_function.PreEventFnArgsT)
+    gm_components.triggered_function.PreEventFnArgsT
+)
 _TriggeredInventoryEffectPreEventFnArgsT = (
-    gm_components.triggered_inventory_effect.PreEventFnArgsT)
+    gm_components.triggered_inventory_effect.PreEventFnArgsT
+)
 
 
 def _get_wage_from_game_master_memory(
@@ -304,7 +306,7 @@ def configure_players(
           + ' '.join(organizer_params['salient_beliefs'])
       ),
       traits=(
-          f"{environment_config.organizer}\'s personality is impatient and "
+          f"{environment_config.organizer}'s personality is impatient and "
           'ambitious, but also fundamentally kind.'
       ),
       extras={

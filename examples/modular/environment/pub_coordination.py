@@ -26,8 +26,8 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
-from concordia.components.agent import v2 as agent_components
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import modern_london_social_context
