@@ -33,6 +33,7 @@ from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
+from examples.modular.environment.modules import pub_coordination_london as pubs_lib
 from concordia.factory.agent import basic_entity_agent__main_role
 from concordia.factory.agent import basic_entity_agent__supporting_role
 from concordia.factory.environment import basic_game_master
@@ -74,57 +75,15 @@ USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
 SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
-PUB_QUALITY = {'The Princess of Wales': 1.0, 'The Crooked Billet': 1.0}
 NUM_GAMES = 3
+NUM_PUBS = 2
 
-PUBS = ['The Princess of Wales', 'The Crooked Billet']
+PUB_PREFERENCES = pubs_lib.PUB_PREFERENCES
+PUBS = random.sample(sorted(PUB_PREFERENCES), NUM_PUBS)
 
-PUB_PREFERENCES = {
-    'The Princess of Wales': [
-        (
-            'The Princess of Wales boasts an extensive collection of rare'
-            ' whiskies, perfect for the discerning connoisseur.'
-        ),
-        (
-            'The pub hosts a weekly poetry night, attracting a vibrant and'
-            ' creative crowd.'
-        ),
-        (
-            'The Princess of Wales is known for its luxurious, plush seating'
-            ' and elegant decor, providing a haven of comfort.'
-        ),
-        (
-            "The pub's chef crafts innovative dishes with locally sourced"
-            ' ingredients, offering a culinary adventure with each visit.'
-        ),
-        (
-            'The Princess of Wales boasts a secret, hidden room, perfect for'
-            ' those seeking clandestine meetings and whispered conversations.'
-        ),
-    ],
-    'The Crooked Billet': [
-        (
-            'The Crooked Billet hosts lively folk music sessions, filling the'
-            ' air with energetic melodies and foot-stomping rhythms.'
-        ),
-        (
-            "The pub's friendly and welcoming atmosphere makes everyone feel"
-            ' like a regular, fostering a sense of community.'
-        ),
-        (
-            "The Crooked Billet's rustic charm and weathered wooden beams exude"
-            ' a sense of history and tradition.'
-        ),
-        (
-            "The pub's hearty, home-cooked meals are the perfect comfort food"
-            " after a long day's journey."
-        ),
-        (
-            'The Crooked Billet has a hidden tunnel leading to a nearby forest,'
-            ' offering a quick escape route for those in need.'
-        ),
-    ],
-}
+# Change this to a function of the pub, if you want to have different quality
+# for different pubs.
+PUB_QUALITY = {pub: 1.0 for pub in PUBS}
 
 euro_cup_countries = [
     'Albania',
@@ -216,7 +175,7 @@ def configure_players() -> tuple[
   player_configs = []
   for i in range(NUM_MAIN_PLAYERS):
     name = names[i]
-    fav_pub = PUBS[i % 2]
+    fav_pub = PUBS[i % NUM_PUBS]
 
     social_class = random.choice(social_classes)
     reasons = random.choice(PUB_PREFERENCES[fav_pub])
@@ -290,11 +249,9 @@ def add_choice_scene_spec(
   Returns:
     choice_scene_type: the choice scene type.
   """
-  defection_option = 'The Princess of Wales'
-  cooperation_option = 'The Crooked Billet'
   action_spec = agent_lib.choice_action_spec(
       call_to_action='Which pub would {name} go to watch the game?',
-      options=(defection_option, cooperation_option),
+      options=PUBS[:NUM_PUBS],
       tag='choice',
   )
   player_multipliers = {
@@ -374,9 +331,9 @@ def configure_scenes(
   for i in range(NUM_GAMES):
     closed_pub = None
     if random.random() < 0.5:
-      closed_pub = random.choice(PUBS)
+      closed_pub = random.choice(PUBS[:NUM_PUBS])
 
-    playing_tonight = random.sample(euro_cup_countries, 2)
+    playing_tonight = random.sample(pubs_lib.EURO_CUP_COUNTRIES, 2)
     coordination_prompt = (
         f'Tonight is the night of the game between {playing_tonight[0]} and'
         f' {playing_tonight[1]}. Friends are going to watch the game at a pub,'
