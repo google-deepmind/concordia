@@ -63,11 +63,6 @@ TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 NUM_MAIN_PLAYERS = 5
 NUM_SUPPORTING_PLAYERS = 2
 
-NUM_BACKGROUND_WORLD_ELEMENTS = 7
-NUM_MAIN_PLAYER_WORLD_ELEMENTS = 2
-NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS = 5
-NUM_LAUDANUM_ADVERTISEMENTS = 2
-
 SCENARIO_PREMISE = [
     f'The year is {YEAR}. This week is the European football cup.'
 ]
@@ -84,64 +79,6 @@ PUBS = random.sample(sorted(PUB_PREFERENCES), NUM_PUBS)
 # Change this to a function of the pub, if you want to have different quality
 # for different pubs.
 PUB_QUALITY = {pub: 1.0 for pub in PUBS}
-
-euro_cup_countries = [
-    'Albania',
-    'Andorra',
-    'Armenia',
-    'Austria',
-    'Azerbaijan',
-    'Belarus',
-    'Belgium',
-    'Bosnia and Herzegovina',
-    'Bulgaria',
-    'Croatia',
-    'Cyprus',
-    'Czech Republic',
-    'Denmark',
-    'England',
-    'Estonia',
-    'Faroe Islands',
-    'Finland',
-    'France',
-    'Georgia',
-    'Germany',
-    'Gibraltar',
-    'Greece',
-    'Hungary',
-    'Iceland',
-    'Ireland',
-    'Israel',
-    'Italy',
-    'Kazakhstan',
-    'Kosovo',
-    'Latvia',
-    'Liechtenstein',
-    'Lithuania',
-    'Luxembourg',
-    'Malta',
-    'Moldova',
-    'Monaco',
-    'Montenegro',
-    'Netherlands',
-    'North Macedonia',
-    'Norway',
-    'Poland',
-    'Portugal',
-    'Romania',
-    'Russia',
-    'San Marino',
-    'Scotland',
-    'Serbia',
-    'Slovakia',
-    'Slovenia',
-    'Spain',
-    'Sweden',
-    'Switzerland',
-    'Turkey',
-    'Ukraine',
-    'Wales',
-]
 
 
 def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
@@ -201,7 +138,8 @@ def configure_players() -> tuple[
             'player_specific_memories': [
                 f'{name} is a member of the {social_class} class.',
                 (
-                    f'{name} supports {random.choice(euro_cup_countries)} in'
+                    f'{name} supports'
+                    f' {random.choice(pubs_lib.EURO_CUP_COUNTRIES)} in'
                     ' football.'
                 ),
             ],
