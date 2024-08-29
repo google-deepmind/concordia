@@ -15,6 +15,7 @@
 """A component for computing and delivering payoffs in a coordination game."""
 
 from collections.abc import Callable, Mapping, Sequence
+import copy
 import datetime
 
 from concordia.agents import basic_agent
@@ -48,6 +49,7 @@ class CoordinationPayoffs(component.Component):
           [Mapping[str, str], Mapping[str, float]], Mapping[str, str]
       ],
       clock_now: Callable[[], datetime.datetime],
+      relational_matrix: Mapping[str, Mapping[str, float]] | None = None,
       name: str = 'scoring function',
       verbose: bool = False,
   ):
@@ -62,9 +64,14 @@ class CoordinationPayoffs(component.Component):
         after the event, i.e. when to check the joint action and compute results
       players: sequence of agents (a superset of the active players)
       acting_player_names: sequence of names of players who act each stage
-      outcome_summarization_fn: function of joint actions and rewards
-        which returns an outcome description message for each player
+      outcome_summarization_fn: function of joint actions and rewards which
+        returns an outcome description message for each player
       clock_now: Function to call to get current time.
+      relational_matrix: a matrix of relationships between players. The entry
+        [i][j] specifies the value for player i of making the same choice as
+        player j. Matrix is not assumed to be symmetric or having a particular
+        value on the diagonal. If `None`, all players are assumed to have value
+        of 1, including self relationships (diagonal).
       name: name of this component e.g. Possessions, Account, Property, etc
       verbose: whether to print the full update chain of thought or not
     """
@@ -85,6 +92,25 @@ class CoordinationPayoffs(component.Component):
     self._state = ''
     self._partial_states = {player.name: '' for player in self._players}
     self._player_scores = {player.name: 0 for player in self._players}
+
+    if relational_matrix is None:
+      self._relational_matrix = {
+          name: {name_b: 1.0 for name_b in self._acting_player_names}
+          for name in self._acting_player_names
+      }
+    else:
+      if len(relational_matrix) != len(self._acting_player_names):
+        raise ValueError(
+            'Relational matrix must have the same length as the number of'
+            ' acting players.'
+        )
+      for _, row in relational_matrix.items():
+        if len(row) != len(self._acting_player_names):
+          raise ValueError(
+              'Relational matrix rows must have the same length as the number'
+              ' of acting players.'
+          )
+      self._relational_matrix = copy.deepcopy(relational_matrix)
 
     self._resolution_scene = resolution_scene
     self._current_scene = current_scene.CurrentScene(
@@ -150,11 +176,20 @@ class CoordinationPayoffs(component.Component):
     num_players = len(self._players)
     for player in self._players:
       player_action = joint_action[player.name]
-      same_choice = self._count_string_occurrences(player_action, joint_action)
+      same_choice_by_relation = 0
+      for other_player in self._players:
+        if player_action == joint_action[other_player.name]:
+          same_choice_by_relation += self._relational_matrix[player.name][
+              other_player.name
+          ]
+
       player_preference = self._player_multipliers[player.name][player_action]
       option_multiplier = self._option_multipliers[player_action]
       rewards[player.name] = (
-          same_choice * player_preference * option_multiplier / num_players
+          same_choice_by_relation
+          * player_preference
+          * option_multiplier
+          / num_players
       )
 
     return rewards
