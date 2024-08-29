@@ -62,7 +62,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     super().__init__(pre_act_key)
     self._model = model
     self._memory_component_name = memory_component_name
-    self._state = ''
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._logging_channel = logging_channel
