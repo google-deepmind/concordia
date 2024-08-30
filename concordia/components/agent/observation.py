@@ -108,7 +108,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
-      component_labels: Mapping[str, str] = types.MappingProxyType({}),
+      components: Mapping[str, str] = types.MappingProxyType({}),
       prompt: str | None = None,
       display_timeframe: bool = True,
       pre_act_key: str = DEFAULT_OBSERVATION_SUMMARY_PRE_ACT_KEY,
@@ -126,7 +126,9 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
         segment to summarise.
       memory_component_name: Name of the memory component from which to retrieve
         observations to summarize.
-      component_labels: Mapping from component name to the label to give it.
+      components: The components to condition the summary on. This is a mapping
+        of component name to its label in the context for the
+        summarization prompt.
       prompt: Language prompt for summarising memories and components.
       display_timeframe: Whether to display the time interval as text.
       pre_act_key: Prefix to add to the output of the component when called
@@ -139,7 +141,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     self._timeframe_delta_from = timeframe_delta_from
     self._timeframe_delta_until = timeframe_delta_until
     self._memory_component_name = memory_component_name
-    self._component_labels = dict(component_labels)
+    self._components = dict(components)
 
     self._prompt = prompt or (
         'Summarize the observations above into one or two sentences.'
@@ -153,7 +155,7 @@ class ObservationSummary(action_spec_ignored.ActionSpecIgnored):
     context = '\n'.join([
         f"{agent_name}'s"
         f' {label}:\n{self.get_named_component_pre_act_value(key)}'
-        for key, label in self._component_labels.items()
+        for key, label in self._components.items()
     ])
 
     segment_start = self._clock_now() - self._timeframe_delta_from
