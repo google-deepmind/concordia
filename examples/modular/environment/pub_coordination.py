@@ -36,7 +36,7 @@ from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.modules import pub_coordination_london as pubs_lib
 from examples.modular.environment.modules import pub_coordination_relationships
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_entity_agent__supporting_role
+from concordia.factory.agent import basic_puppet_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -61,8 +61,8 @@ DECISION_SCENE_TYPE = 'choice'
 
 TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 
-NUM_MAIN_PLAYERS = 5
-NUM_SUPPORTING_PLAYERS = 2
+NUM_MAIN_PLAYERS = 4
+NUM_SUPPORTING_PLAYERS = 1
 
 SCENARIO_PREMISE = [
     f'The year is {YEAR}. This week is the European football cup.'
@@ -96,6 +96,67 @@ def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
   return shared_memories, shared_context
 
 
+def configure_player(
+    name: str, favorite_pub: str, is_main: bool, all_player_names_str: str
+) -> formative_memories.AgentConfig:
+  """Configure a player.
+
+  Args:
+    name: the name of the player
+    favorite_pub: the favorite pub of the player
+    is_main: whether the player is a main character or not
+    all_player_names_str: the names of all the players in one string
+
+  Returns:
+    config: the player config
+  """
+  social_classes = ['working', 'middle', 'upper']
+
+  social_class = random.choice(social_classes)
+  reasons = random.choice(PUB_PREFERENCES[favorite_pub])
+
+  extras = {
+      'player_specific_memories': [
+          f'{name} is a member of the {social_class} class.',
+          (
+              f'{name} supports'
+              f' {random.choice(pubs_lib.EURO_CUP_COUNTRIES)} in'
+              ' football.'
+          ),
+      ],
+      'main_character': is_main,
+      'preference': {pub: 1.0 if pub == favorite_pub else 0.8 for pub in PUBS},
+  }
+
+  if not is_main:
+    extras['fixed_response_by_call_to_action'] = {
+        f'Which pub would {name} go to watch the game?': favorite_pub
+    }
+    extras['favourite_pub'] = favorite_pub
+
+  config = formative_memories.AgentConfig(
+      name=name,
+      gender=random.choice(['male', 'female']),
+      date_of_birth=datetime.datetime(year=1980, month=4, day=28),
+      formative_ages=[16, 20],
+      goal=(
+          f'Watch the game in the same pub as {all_player_names_str}.'
+          f' {name} would prefer {favorite_pub}'
+      ),
+      context=(
+          f"{all_player_names_str}' are best friends.Born in London, {name} has"
+          f' a favorite pub which is {favorite_pub}. They are also aware of the'
+          f' following:{reasons}'
+      ),
+      traits=(
+          f"{name}'s personality is like "
+          + player_traits_and_styles.get_trait(flowery=True)
+      ),
+      extras=extras,
+  )
+  return config
+
+
 def configure_players() -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
@@ -108,47 +169,23 @@ def configure_players() -> tuple[
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  social_classes = ['working', 'middle', 'upper']
-  names = random.sample(FIRST_NAMES, NUM_MAIN_PLAYERS)
+  names = random.sample(FIRST_NAMES, NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS)
   all_players = ', '.join(names)
   player_configs = []
 
   for i in range(NUM_MAIN_PLAYERS):
     name = names[i]
-    fav_pub = PUBS[i % NUM_PUBS]
+    favorite_pub = PUBS[i % NUM_PUBS]
+    config = configure_player(
+        name, favorite_pub, is_main=True, all_player_names_str=all_players
+    )
+    player_configs.append(config)
 
-    social_class = random.choice(social_classes)
-    reasons = random.choice(PUB_PREFERENCES[fav_pub])
-    config = formative_memories.AgentConfig(
-        name=name,
-        gender=random.choice(['male', 'female']),
-        date_of_birth=datetime.datetime(year=1980, month=4, day=28),
-        formative_ages=[16, 20],
-        goal=(
-            f'Watch the game in the same pub as {all_players}. {name} would'
-            f' prefer {fav_pub}'
-        ),
-        context=(
-            f"{all_players}' are best friends."
-            f'Born in London, {name} has a favorite pub which is {fav_pub}.'
-            f' They are also aware of the following:{reasons}'
-        ),
-        traits=(
-            f"{name}'s personality is like "
-            + player_traits_and_styles.get_trait(flowery=True)
-        ),
-        extras={
-            'player_specific_memories': [
-                f'{name} is a member of the {social_class} class.',
-                (
-                    f'{name} supports'
-                    f' {random.choice(pubs_lib.EURO_CUP_COUNTRIES)} in'
-                    ' football.'
-                ),
-            ],
-            'main_character': True,
-            'preference': {pub: 1.0 if pub == fav_pub else 0.8 for pub in PUBS},
-        },
+  for i in range(NUM_SUPPORTING_PLAYERS):
+    name = names[NUM_MAIN_PLAYERS + i]
+    favorite_pub = PUBS[0]
+    config = configure_player(
+        name, favorite_pub, is_main=False, all_player_names_str=all_players
     )
     player_configs.append(config)
 
@@ -403,7 +440,7 @@ def configure_scenes(
         players=players,
         clock=clock,
         option_multiplier=option_multiplier,
-        player_configs=main_player_configs,
+        player_configs=player_configs,
         scene_type_name=DECISION_SCENE_TYPE,
     )
     coordination_payoffs.append(this_coordination_payoff)
@@ -412,7 +449,7 @@ def configure_scenes(
         scene_lib.SceneSpec(
             scene_type=scene_specs['social'],
             start_time=START_TIME + i * TIME_INCREMENT_BETWEEN_SCENES,
-            participant_configs=main_player_configs,
+            participant_configs=player_configs,
             num_rounds=1,
         ),
         scene_lib.SceneSpec(
@@ -420,7 +457,7 @@ def configure_scenes(
             start_time=START_TIME
             + i * TIME_INCREMENT_BETWEEN_SCENES
             + datetime.timedelta(hours=8),
-            participant_configs=main_player_configs,
+            participant_configs=player_configs,
             num_rounds=1,
         ),
     ]
@@ -595,15 +632,27 @@ class Simulation(Runnable):
               player_config.name
           ),
       )
-      player = basic_entity_agent__supporting_role.build_agent(
+      favorite_pub = player_config.extras['favourite_pub']
+      explicit_preference = agent_components.constant.Constant(
+          pre_act_key='explicit preference',
+          state=(
+              f'{player_config.name} will only go to their preferred pub'
+              f' {favorite_pub} and nowhere else. They are very vocal about it.'
+          ),
+      )
+      player = basic_puppet_agent__supporting_role.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
           additional_components={
-              'Guiding principle of good conversation': conversation_style
+              'Guiding principle of good conversation': conversation_style,
+              'Explicit preference': explicit_preference,
           },
+          fixed_response_by_call_to_action=player_config.extras[
+              'fixed_response_by_call_to_action'
+          ],
       )
       supporting_players.append(player)
 
