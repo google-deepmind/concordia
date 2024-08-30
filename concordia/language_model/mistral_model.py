@@ -93,17 +93,27 @@ class MistralLanguageModel(language_model.LanguageModel):
       # continue till max_tokens.
       terminators = ('\n\n',)
 
-    response = self._client.fim.complete(
-        model=self._choice_model_name,
-        prompt=prompt,
-        suffix=suffix,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        stop=terminators,
-        random_seed=seed,
-    )
-
-    result = response.choices[0].message.content
+    result = ''
+    for attempts in range(_MAX_CHAT_ATTEMPTS):
+      if attempts > 0:
+        print('Sleeping for 10 seconds... ' +
+              f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
+        time.sleep(10)
+      try:
+        response = self._client.fim.complete(
+            model=self._choice_model_name,
+            prompt=prompt,
+            suffix=suffix,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stop=terminators,
+            random_seed=seed,
+        )
+      except mistralai.models.sdkerror.SDKError:
+        continue
+      else:
+        result = response.choices[0].message.content
+        break
 
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -151,11 +161,9 @@ class MistralLanguageModel(language_model.LanguageModel):
     ]
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
-        print('Sleeping for 10 seconds...')
+        print('Sleeping for 10 seconds... ' +
+              f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
         time.sleep(10)
-        # Increase temperature after the first failed attempt.
-        temperature = sampling.dynamically_adjust_temperature(
-            attempts, _MAX_CHAT_ATTEMPTS)
       try:
         response = self._client.chat.complete(
             model=self._text_model_name,
@@ -164,7 +172,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             max_tokens=max_tokens,
             random_seed=seed,
         )
-      except ValueError:
+      except mistralai.models.sdkerror.SDKError:
         continue
       else:
         return response.choices[0].message.content
