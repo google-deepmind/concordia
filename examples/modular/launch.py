@@ -36,7 +36,7 @@ This script will download the embedder from huggingface and cache it locally.
 To debug without spending money on API calls, pass the the option:
   --disable_language_model
 It replaces the language model with a null model that always returns an empty
-string when asked for a free response and alwats selects the first option when
+string when asked for a free response and always selects the first option when
 asked for a multiple choice.
 """
 
@@ -46,38 +46,9 @@ import importlib
 import pathlib
 import sys
 
-from concordia.language_model import amazon_bedrock_model
-from concordia.language_model import google_aistudio_model
-from concordia.language_model import gpt_model
-from concordia.language_model import langchain_ollama_model
-from concordia.language_model import mistral_model
-from concordia.language_model import no_language_model
-from concordia.language_model import ollama_model
-from concordia.language_model import pytorch_gemma_model
+from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import sentence_transformers
-
-
-def language_model_setup(args):
-  """Get the wrapped language model."""
-  if args.disable_language_model:
-    return no_language_model.NoLanguageModel()
-  elif args.api_type == 'amazon_bedrock':
-    return amazon_bedrock_model.AmazonBedrockLanguageModel(args.model_name)
-  elif args.api_type == 'google_aistudio_model':
-    return google_aistudio_model.GoogleAIStudioLanguageModel(args.model_name)
-  elif args.api_type == 'langchain_ollama':
-    return langchain_ollama_model.LangchainOllamaLanguageModel(args.model_name)
-  elif args.api_type == 'mistral':
-    return mistral_model.MistralLanguageModel(args.model_name)
-  elif args.api_type == 'ollama':
-    return ollama_model.OllamaLanguageModel(args.model_name)
-  elif args.api_type == 'openai':
-    return gpt_model.GptLanguageModel(args.model_name)
-  elif args.api_type == 'pytorch_gemma':
-    return pytorch_gemma_model.PyTorchGemmaLanguageModel(args.model_name)
-  else:
-    raise ValueError(f'Unrecognized api type: {args.api_type}')
 
 
 # Setup for command line arguments
@@ -124,7 +95,7 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{command_line_args.environment_name}')
 
 # Language Model setup
-model = language_model_setup(command_line_args)
+model = utils.language_model_setup(command_line_args)
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
     f'sentence-transformers/{command_line_args.embedder_name}')

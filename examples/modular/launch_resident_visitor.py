@@ -37,7 +37,7 @@ This script will download the embedder from huggingface and cache it locally.
 To debug without spending money on API calls, pass the the option:
   --disable_language_model
 It replaces the language model with a null model that always returns an empty
-string when asked for a free response and alwats selects the first option when
+string when asked for a free response and always selects the first option when
 asked for a multiple choice.
 """
 
@@ -47,8 +47,8 @@ import importlib
 import pathlib
 import sys
 
+from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
-from examples.modular import launch
 import sentence_transformers
 
 
@@ -102,7 +102,7 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 
 # Language Model setup
-model = launch.language_model_setup(args)
+model = utils.language_model_setup(args)
 
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
