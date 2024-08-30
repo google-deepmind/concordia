@@ -239,10 +239,10 @@ class Conversation(component.Component):
     return nonplayer_characters
 
   def _generate_convo_summary(self, convo: Sequence[str]):
+    convo_list = list(convo)
     summary = self._model.sample_text(
         '\n'.join(
-            *convo,
-            'Summarize the conversation above in one sentence.',
+            convo_list + ['Summarize the conversation above in one sentence.'],
         ),
         max_tokens=2000,
         terminators=(),
