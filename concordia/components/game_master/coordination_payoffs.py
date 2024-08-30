@@ -173,7 +173,6 @@ class CoordinationPayoffs(component.Component):
   ) -> Mapping[str, float]:
 
     rewards = {}
-    num_players = len(self._players)
     for player in self._players:
       player_action = joint_action[player.name]
       same_choice_by_relation = 0
@@ -182,16 +181,17 @@ class CoordinationPayoffs(component.Component):
           same_choice_by_relation += self._relational_matrix[player.name][
               other_player.name
           ]
-
       player_preference = self._player_multipliers[player.name][player_action]
       option_multiplier = self._option_multipliers[player_action]
+      max_reward_possible = sum(
+          max(0, r) for r in self._relational_matrix[player.name].values()
+      )
       rewards[player.name] = (
           same_choice_by_relation
           * player_preference
           * option_multiplier
-          / num_players
+          / max_reward_possible
       )
-
     return rewards
 
   def _set_outcome_messages(
