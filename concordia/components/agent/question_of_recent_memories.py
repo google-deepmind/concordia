@@ -14,7 +14,7 @@
 
 """Agent component for self perception."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 import datetime
 import types
 
@@ -48,6 +48,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
+      terminators: Collection[str] = ('\n',),
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -66,6 +67,8 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
         retrieve recent memories.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
+      terminators: strings that must not be present in the model's response. If
+        emitted by the model the response will be truncated before them.
       clock_now: time callback to use.
       num_memories_to_retrieve: The number of recent memories to retrieve.
       logging_channel: channel to use for debug logging.
@@ -77,6 +80,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._question = question
+    self._terminators = terminators
     self._answer_prefix = answer_prefix
     self._add_to_memory = add_to_memory
     self._memory_tag = memory_tag
@@ -115,6 +119,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
         question,
         answer_prefix=self._answer_prefix.format(agent_name=agent_name),
         max_tokens=1000,
+        terminators=self._terminators,
     )
     result = self._answer_prefix.format(agent_name=agent_name) + result
 
@@ -194,6 +199,7 @@ class AvailableOptionsPerception(QuestionOfRecentMemories):
             'Given the statements above, what actions are available to '
             '{agent_name} right now?'
         ),
+        terminators=('\n\n',),
         answer_prefix='',
         add_to_memory=False,
         **kwargs,
