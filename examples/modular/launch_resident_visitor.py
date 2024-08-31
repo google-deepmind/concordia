@@ -26,9 +26,11 @@ python examples/modular/launch_resident_visitor.py \
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
 ENVIRONMENT_NAME indicates a file under examples/modular/environment,
-API_TYPE is either 'openai' or 'mistral',
-MODEL_NAME is a model listed at https://platform.openai.com/docs/models or
-https://docs.mistral.ai/getting-started/models/,
+API_TYPE is one of the options named in concordia/language_model/utils.py,
+e.g. 'google_aistudio_model', 'openai', 'mistral', 'ollama', 'amazon_bedrock'.
+MODEL_NAME is a specific model under the chosen API_TYPE. See the corresponding
+wrapper in concordia/language_model/ for the link to the website where the
+model names are listed for each type of API.
 and EMBEDDER_NAME specifies a sentence transformers embedding model listed at
 https://huggingface.co/sentence-transformers.
 
