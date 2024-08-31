@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-r"""Launch a pair of agents, one in resident mode, the other visitor mode.
+r"""Launch resident & visitor agents filling N-1 slots and 1 slot respectively.
 
 Usage:
 cd {concordia_root}/
-python examples/modular/launch.py \
+python examples/modular/launch_resident_visitor.py \
   --agent_resident=RESIDENT_AGENT_NAME \
   --agent_visitor=VISITOR_AGENT_NAME \
   --environment=ENVIRONMENT_NAME \
