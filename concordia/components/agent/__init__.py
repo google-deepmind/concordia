@@ -24,6 +24,7 @@ from concordia.components.agent import legacy_act_component
 from concordia.components.agent import memory_component
 from concordia.components.agent import no_op_context_processor
 from concordia.components.agent import observation
+from concordia.components.agent import person_representation
 from concordia.components.agent import plan
 from concordia.components.agent import puppet_act_component
 from concordia.components.agent import question_of_query_associated_memories
