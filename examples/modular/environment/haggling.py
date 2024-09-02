@@ -26,6 +26,7 @@ from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.contrib.components.game_master import bargain_payoffs as bargain_payoffs_lib
 from concordia.document import interactive_document
@@ -35,6 +36,7 @@ from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_puppet_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_lib
@@ -47,11 +49,8 @@ Runnable = Callable[[], str]
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 
-NUM_MAIN_PLAYERS = 2
-
-NUM_BACKGROUND_WORLD_ELEMENTS = 7
-NUM_MAIN_PLAYER_WORLD_ELEMENTS = 2
-NUM_LAUDANUM_ADVERTISEMENTS = 2
+NUM_MAIN_PLAYERS = 1
+NUM_SUPPORTING_PLAYERS = 3
 
 SCENARIO_PREMISE = (
     'In the realm of Ouroboros, there is a quiet village of'
@@ -148,13 +147,58 @@ def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
   return shared_memories, shared_context
 
 
-def configure_players() -> list[formative_memories.AgentConfig]:
+def configure_player(name: str, gender: str, is_main: bool):
+  """Configure a player.
+
+  Args:
+    name: the name of the player
+    gender: the gender of the player
+    is_main: whether the player is a main character or not
+
+  Returns:
+    config: the config for the player
+  """
+  extras = {
+      'player_specific_memories': [f'{name} alway drives a hard bargain.'],
+      'main_character': is_main,
+  }
+  if not is_main:
+    extras['fixed_response_by_call_to_action'] = {
+        f'Would {name} accept the offer?:': 'accept',
+        f'What price would {name} propose?:': '3 coin',
+    }
+
+  return formative_memories.AgentConfig(
+      name=name,
+      gender=gender,
+      date_of_birth=datetime.datetime(
+          year=YEAR - random.randint(25, 54),
+          month=random.randint(1, 12),
+          day=random.randint(1, 30),
+      ),
+      context=(
+          f'{name} is a travelling merchant. Her business is buying and'
+          ' selling fruit.'
+      ),
+      traits=(
+          f"{name}'s personality is like "
+          + player_traits_and_styles.get_trait(flowery=True)
+      ),
+      extras=extras,
+  )
+
+
+def configure_players() -> tuple[
+    list[formative_memories.AgentConfig],
+    list[formative_memories.AgentConfig],
+]:
   """Configure the players.
 
   Args:
 
   Returns:
     main_player_configs: configs for the main characters
+    supporting_player_configs: configs for the supporting characters
   """
 
   names = {'male': player_names.MALE_NAMES, 'female': player_names.FEMALE_NAMES}
@@ -164,38 +208,25 @@ def configure_players() -> list[formative_memories.AgentConfig]:
 
     gender = random.choice(['male', 'female'])
     name = names[gender][i]
+    config = configure_player(name, gender, is_main=True)
+    player_configs.append(config)
 
-    player_configs.append(
-        formative_memories.AgentConfig(
-            name=name,
-            gender=gender,
-            date_of_birth=datetime.datetime(
-                year=YEAR - random.randint(25, 54),
-                month=random.randint(1, 12),
-                day=random.randint(1, 30),
-            ),
-            context=(
-                f'{name} is a travelling merchant. Her business is buying and'
-                ' selling fruit.'
-            ),
-            traits=(
-                f"{name}'s personality is like "
-                + player_traits_and_styles.get_trait(flowery=True)
-            ),
-            extras={
-                'player_specific_memories': [
-                    f'{name} alway drives a hard bargain.'
-                ],
-                'main_character': True,
-            },
-        )
-    )
+  for i in range(NUM_SUPPORTING_PLAYERS):
+
+    gender = random.choice(['male', 'female'])
+    name = names[gender][i + NUM_MAIN_PLAYERS]
+    config = configure_player(name, gender, is_main=False)
+
+    player_configs.append(config)
 
   main_player_configs = [
       player for player in player_configs if player.extras['main_character']
   ]
+  supporting_player_configs = [
+      player for player in player_configs if not player.extras['main_character']
+  ]
 
-  return main_player_configs
+  return main_player_configs, supporting_player_configs
 
 
 def add_choice_scene_spec(
@@ -299,6 +330,7 @@ def configure_scenes(
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
+    supporting_player_configs: Sequence[formative_memories.AgentConfig],
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
     list[game_master.GameMaster] | list[None],
@@ -312,6 +344,7 @@ def configure_scenes(
     players: the players to use.
     clock: the clock to use.
     main_player_configs: configs for the main characters
+    supporting_player_configs: configs for the supporting characters
 
   Returns:
     scenes: a sequence of scene specifications
@@ -320,17 +353,26 @@ def configure_scenes(
   coordination_payoffs = []
   game_masters = []
   scenes = []
+
+  player_configs = list(main_player_configs) + list(supporting_player_configs)
+
   for i in range(NUM_GAMES):
 
     buyer_base_reward = random.randint(3, 6)
     seller_base_reward = random.randint(1, 3)
 
     this_game_players = random.sample(players, 2)
-    this_game_configs = [
-        cfg
-        for cfg in main_player_configs
-        if cfg.name in [this_game_players[0].name, this_game_players[1].name]
-    ]
+
+    # It is important that this_game_configs has exactly the same order as
+    # this_game_players. Otherwise, the turn order between buyer and seller
+    # might be flipped and offer will be accepted or rejected before it is
+    # proposed.
+    this_game_configs = []
+    for player in this_game_players:
+      this_game_configs.append(
+          [cfg for cfg in player_configs if cfg.name == player.name][0]
+      )
+
     scene_opening = random.choice(VISUAL_SCENE_OPENINGS)
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
@@ -365,6 +407,7 @@ def configure_scenes(
         buyer_base_reward=buyer_base_reward,
         seller_base_reward=seller_base_reward,
     )
+
     coordination_payoffs.append(this_coordination_payoff)
     game_masters.append(choice_scene_spec.override_game_master)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
@@ -483,10 +526,11 @@ class Simulation(Runnable):
         current_date=SETUP_TIME,
     )
 
-    main_player_configs = configure_players()
+    main_player_configs, supporting_player_configs = configure_players()
     random.shuffle(main_player_configs)
 
     num_main_players = len(main_player_configs)
+    num_supporting_players = len(supporting_player_configs)
 
     self._all_memories = {}
 
@@ -499,6 +543,19 @@ class Simulation(Runnable):
           main_player_configs, main_player_memory_futures
       ):
         self._all_memories[player_config.name] = future.result()
+
+    if num_supporting_players > 0:
+      supporting_player_memory_futures = []
+      with concurrency.executor(max_workers=num_supporting_players) as pool:
+        for player_config in supporting_player_configs:
+          future = pool.submit(self._make_player_memories, config=player_config)
+          supporting_player_memory_futures.append(future)
+        for player_config, future in zip(
+            supporting_player_configs,
+            supporting_player_memory_futures,
+            strict=True,
+        ):
+          self._all_memories[player_config.name] = future.result()
 
     main_players = []
     for idx, player_config in enumerate(main_player_configs):
@@ -519,7 +576,38 @@ class Simulation(Runnable):
 
       main_players.append(player)
 
-    self._all_players = main_players
+    supporting_players = []
+    for player_config in supporting_player_configs:
+      conversation_style = agent_components.constant.Constant(
+          pre_act_key='guiding principle of good conversation',
+          state=player_traits_and_styles.get_conversation_style(
+              player_config.name
+          ),
+      )
+      explicit_preference = agent_components.constant.Constant(
+          pre_act_key='explicit preference',
+          state=(
+              f'{player_config.name} will accept any offer! They are very vocal'
+              ' about it.'
+          ),
+      )
+      player = basic_puppet_agent__supporting_role.build_agent(
+          config=player_config,
+          model=self._model,
+          memory=self._all_memories[player_config.name],
+          clock=self._clock,
+          update_time_interval=MAJOR_TIME_STEP,
+          additional_components={
+              'Guiding principle of good conversation': conversation_style,
+              'Explicit preference': explicit_preference,
+          },
+          fixed_response_by_call_to_action=player_config.extras[
+              'fixed_response_by_call_to_action'
+          ],
+      )
+      supporting_players.append(player)
+
+    self._all_players = main_players + supporting_players
 
     game_master_memory = associative_memory.AssociativeMemory(
         sentence_embedder=self._embedder,
@@ -546,6 +634,7 @@ class Simulation(Runnable):
         players=self._all_players,
         clock=self._clock,
         main_player_configs=main_player_configs,
+        supporting_player_configs=supporting_player_configs,
     )
 
     self._secondary_environments = choice_gms
