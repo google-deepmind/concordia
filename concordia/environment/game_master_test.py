@@ -16,7 +16,7 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
@@ -95,7 +95,7 @@ class GameMasterTest(parameterized.TestCase):
     clock = game_clock.FixedIntervalClock()
     alice_call_tracker = CallTrackingComponent()
 
-    alice = basic_agent.BasicAgent(
+    alice = deprecated_agent.BasicAgent(
         model,
         'Alice',
         clock,
@@ -105,7 +105,7 @@ class GameMasterTest(parameterized.TestCase):
 
     bob_call_tracker = CallTrackingComponent()
 
-    bob = basic_agent.BasicAgent(
+    bob = deprecated_agent.BasicAgent(
         model,
         'Bob',
         clock,

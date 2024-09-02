@@ -16,7 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.components.game_master import inventory as inventory_gm_component
 from concordia.typing import component
@@ -29,7 +29,7 @@ class Score(component.Component):
   def __init__(
       self,
       inventory: inventory_gm_component.Inventory,
-      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       targets: Mapping[str, Sequence[str]],
       name: str = '   \n',
       verbose: bool = False,

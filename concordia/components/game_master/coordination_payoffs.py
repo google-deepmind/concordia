@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping, Sequence
 import copy
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.components.game_master import current_scene
@@ -43,7 +43,7 @@ class CoordinationPayoffs(component.Component):
       option_multipliers: Mapping[str, float],
       player_multipliers: Mapping[str, Mapping[str, float]],
       resolution_scene: str,
-      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       acting_player_names: Sequence[str],
       outcome_summarization_fn: Callable[
           [Mapping[str, str], Mapping[str, float]], Mapping[str, str]

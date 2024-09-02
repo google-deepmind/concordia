@@ -19,7 +19,7 @@ from collections.abc import Callable, Sequence
 import concurrent.futures
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -37,7 +37,7 @@ class DirectEffect(component.Component):
 
   def __init__(
       self,
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent],
       clock_now: Callable[[], datetime.datetime],
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,

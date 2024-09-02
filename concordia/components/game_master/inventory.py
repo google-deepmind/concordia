@@ -19,7 +19,7 @@ import concurrent
 import dataclasses
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -59,7 +59,7 @@ class Inventory(component.Component):
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       item_type_configs: Sequence[ItemTypeConfig],
-      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
       financial: bool = False,

@@ -18,7 +18,7 @@
 from collections.abc import Callable, Sequence
 import random
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_types
@@ -319,10 +319,12 @@ class AccountForAgencyOfOthers:
   """Prevents players from taking voluntary actions they do not agree to take.
   """
 
-  def __init__(self,
-               model: language_model.LanguageModel,
-               players: Sequence[basic_agent.BasicAgent],
-               verbose: bool = False):
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      players: Sequence[deprecated_agent.BasicAgent],
+      verbose: bool = False,
+  ):
     self._model = model
     self._players = players
     self._player_names = [player.name for player in players]

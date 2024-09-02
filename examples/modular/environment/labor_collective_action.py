@@ -23,7 +23,7 @@ import sys
 import types
 
 from concordia import components as generic_components
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
@@ -337,7 +337,7 @@ def configure_players(
 def configure_scenes(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+    players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
@@ -515,8 +515,8 @@ def configure_scenes(
 def get_inventories_component(
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
-    players: Sequence[basic_agent.BasicAgent],
-    main_players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent],
+    main_players: Sequence[deprecated_agent.BasicAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
 ) -> tuple[

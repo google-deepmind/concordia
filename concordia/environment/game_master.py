@@ -21,7 +21,7 @@ import random
 from typing import Any
 
 from concordia import components as generic_components
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -84,17 +84,13 @@ class GameMaster(simulacrum_game_master.GameMaster):
       memory: associative_memory.AssociativeMemory,
       clock: game_clock.GameClock,
       players: Sequence[
-          basic_agent.BasicAgent
+          deprecated_agent.BasicAgent
           | entity_agent_with_logging.EntityAgentWithLogging
       ],
       name: str = 'Game Master',
-      update_thought_chain: (
-          Sequence[
-              Callable[
-                  [interactive_document.InteractiveDocument, str, str], str
-              ]
-          ]
-      ) = DEFAULT_THOUGHTS,
+      update_thought_chain: Sequence[
+          Callable[[interactive_document.InteractiveDocument, str, str], str]
+      ] = DEFAULT_THOUGHTS,
       components: Sequence[component.Component] = (),
       action_spec: agent_lib.ActionSpec | Mapping[str, agent_lib.ActionSpec] = (
           agent_lib.DEFAULT_ACTION_SPEC
@@ -321,7 +317,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
   def _step_player(
       self,
-      player: basic_agent.BasicAgent,
+      player: deprecated_agent.BasicAgent,
       action_spec: agent_lib.ActionSpec | None = None,
   ):
     self.update_components()
@@ -340,7 +336,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def step(
       self,
       *,
-      active_players: Sequence[basic_agent.BasicAgent] | None = None,
+      active_players: Sequence[deprecated_agent.BasicAgent] | None = None,
       action_spec: (
           agent_lib.ActionSpec | Mapping[str, agent_lib.ActionSpec] | None
       ) = None,

@@ -19,7 +19,7 @@ import datetime
 import random
 
 from concordia import components as generic_components
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
@@ -89,7 +89,7 @@ class Conversation(component.Component):
 
   def __init__(
       self,
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent],
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       clock: game_clock.MultiIntervalClock,
@@ -164,7 +164,7 @@ class Conversation(component.Component):
 
   def _make_npc(
       self, name: str, scene_clock: clock_lib.GameClock
-  ) -> basic_agent.BasicAgent:
+  ) -> deprecated_agent.BasicAgent:
     context = (
         f'{name} is a non-player character (an NPC).\n'
         f'Their knowledge includes:\n{self._shared_context}'
@@ -172,7 +172,7 @@ class Conversation(component.Component):
 
     mem = self._burner_memory_factory.make_blank_memory()
 
-    npc = basic_agent.BasicAgent(
+    npc = deprecated_agent.BasicAgent(
         model=self._model,
         agent_name=name,
         clock=scene_clock,
@@ -185,7 +185,7 @@ class Conversation(component.Component):
             ),
             generic_components.constant.ConstantComponent(
                 name='usual manner of speaking',
-                state=random.choice(CONVERSATIONALIST_STYLES)
+                state=random.choice(CONVERSATIONALIST_STYLES),
             ),
             sim_components.observation.Observation(
                 agent_name=name,
@@ -203,7 +203,7 @@ class Conversation(component.Component):
       prompt: interactive_document.InteractiveDocument,
       scene_clock: clock_lib.GameClock,
       player_names_in_conversation: list[str],
-  ) -> list[basic_agent.BasicAgent]:
+  ) -> list[deprecated_agent.BasicAgent]:
     nonplayer_characters = []
     player_names_in_conversation_str = ', '.join(player_names_in_conversation)
     npcs_exist = prompt.yes_no_question(
@@ -252,7 +252,7 @@ class Conversation(component.Component):
   def _who_talked(
       self,
       player_names_in_conversation: list[str],
-      nonplayers_in_conversation: list[basic_agent.BasicAgent],
+      nonplayers_in_conversation: list[deprecated_agent.BasicAgent],
   ):
     if len(player_names_in_conversation) == 1:
       self_talker = player_names_in_conversation[0]

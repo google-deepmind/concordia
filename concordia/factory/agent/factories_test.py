@@ -19,7 +19,7 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
@@ -86,8 +86,9 @@ class AgentFactoriesTest(parameterized.TestCase):
         update_time_interval=datetime.timedelta(hours=1))
 
     self.assertEqual(agent.name, AGENT_NAME)
-    self.assertIsInstance(agent,
-                          basic_agent.BasicAgent | entity_agent.EntityAgent)
+    self.assertIsInstance(
+        agent, deprecated_agent.BasicAgent | entity_agent.EntityAgent
+    )
 
     agent.observe('foo')
     agent.observe('bar')

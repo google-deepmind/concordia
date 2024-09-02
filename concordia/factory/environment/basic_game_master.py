@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 import operator
 
 from concordia import components as generic_components
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
@@ -42,7 +42,7 @@ def build_game_master(
     embedder: Callable[[str], np.ndarray],
     importance_model: importance_function.ImportanceModel,
     clock: game_clock.MultiIntervalClock,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent],
     shared_memories: Sequence[str],
     shared_context: str,
     blank_memory_factory: blank_memories.MemoryFactory,
@@ -188,7 +188,7 @@ def build_decision_scene_game_master(
     model: language_model.LanguageModel,
     memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent],
     decision_action_spec: agent_lib.ActionSpec,
     payoffs: gm_components.schelling_diagram_payoffs.SchellingPayoffs,
     verbose: bool = False,
@@ -275,7 +275,7 @@ def create_html_log(
 
 def run_simulation(
     model: language_model.LanguageModel,
-    players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+    players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
     primary_environment: game_master.GameMaster,
     clock: game_clock.MultiIntervalClock,
     scenes: Sequence[scene_lib.SceneSpec],

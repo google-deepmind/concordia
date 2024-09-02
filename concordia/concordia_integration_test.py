@@ -18,7 +18,7 @@ import datetime
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia import components
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import importance_function
@@ -45,7 +45,7 @@ def _make_agent(
     player_names: Sequence[str],
     agent_instructions: str,
     mem_factory: blank_memories.MemoryFactory,
-) -> basic_agent.BasicAgent:
+) -> deprecated_agent.BasicAgent:
   """Creates two agents with same instructions."""
   mem = mem_factory.make_blank_memory()
 
@@ -142,7 +142,7 @@ def _make_agent(
       component_name='summary of observations',
   )
 
-  agent = basic_agent.BasicAgent(
+  agent = deprecated_agent.BasicAgent(
       model,
       name,
       clock,
@@ -176,7 +176,7 @@ def _make_agent(
 def _make_environment(
     model: mock_model.MockModel,
     clock: game_clock.MultiIntervalClock,
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent],
     importance_model_gm: importance_function.ImportanceModel,
 ) -> game_master.GameMaster:
   """Creates a game master environment."""

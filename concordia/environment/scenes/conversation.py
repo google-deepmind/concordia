@@ -21,7 +21,7 @@ conversation at each step through the ConversationTracker component.
 
 from collections.abc import Sequence
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
@@ -40,7 +40,7 @@ class ConversationTracker(component.Component):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      players: Sequence[basic_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent],
       premise: str = '',
       check_for_termination: bool = True,
       key_question: str | None = None,
@@ -129,7 +129,7 @@ class ConversationTracker(component.Component):
 
 
 def make_conversation_game_master(
-    players: Sequence[basic_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent],
     clock: game_clock.MultiIntervalClock,
     model: language_model.LanguageModel,
     memory_factory: blank_memories.MemoryFactory,

@@ -19,14 +19,13 @@ from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.components.game_master import current_scene
 from concordia.language_model import language_model
 from concordia.typing import component
 import numpy as np
-
 import termcolor
 
 
@@ -64,11 +63,11 @@ class SchellingPayoffs(component.Component):
       resolution_scene: str,
       cooperator_reward_fn: SchellingFunction,
       defector_reward_fn: SchellingFunction,
-      players: Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       acting_player_names: Sequence[str],
-      outcome_summarization_fn: Callable[[Mapping[str, int],
-                                          Mapping[str, float]],
-                                         Mapping[str, str]],
+      outcome_summarization_fn: Callable[
+          [Mapping[str, int], Mapping[str, float]], Mapping[str, str]
+      ],
       clock_now: Callable[[], datetime.datetime],
       name: str = 'scoring function',
       verbose: bool = False,

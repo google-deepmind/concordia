@@ -16,7 +16,7 @@
 
 import textwrap
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
@@ -44,7 +44,7 @@ _PHONE_ACTION_SPEC = agent.free_action_spec(
 
 
 def build(
-    player: basic_agent.BasicAgent,
+    player: deprecated_agent.BasicAgent,
     phone: apps.Phone,
     clock: game_clock.MultiIntervalClock,
     model: language_model.LanguageModel,
@@ -82,7 +82,7 @@ class _PhoneComponent(component.Component):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      player: basic_agent.BasicAgent,
+      player: deprecated_agent.BasicAgent,
       phone: apps.Phone,
       log_color: str = 'red',
       verbose: bool = False,

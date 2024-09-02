@@ -18,14 +18,14 @@ from collections.abc import Callable, Sequence
 import dataclasses
 import datetime
 
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.components.game_master import current_scene
 from concordia.typing import component
 
 MemoryT = associative_memory.AssociativeMemory
-PlayersT = Sequence[basic_agent.BasicAgent | entity_agent.EntityAgent]
+PlayersT = Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent]
 
 
 @dataclasses.dataclass

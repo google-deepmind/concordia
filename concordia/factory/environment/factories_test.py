@@ -19,7 +19,7 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import basic_agent
+from concordia.agents import deprecated_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
@@ -63,7 +63,7 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
         importance=importance_model_gm.importance,
         clock_now=clock.now,
     )
-    player_a = basic_agent.BasicAgent(
+    player_a = deprecated_agent.BasicAgent(
         model=model,
         agent_name='Rakshit',
         clock=clock,
