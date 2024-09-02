@@ -215,7 +215,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def update_from_player(self, player_name: str, action_attempt: str):
     prompt = interactive_document.InteractiveDocument(self._model)
 
-    concurrency.map_parallel(
+    concurrency.run_parallel(
         lambda construct: construct.update_before_event(
             f'{player_name}: {action_attempt}'
         ),
@@ -274,7 +274,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       return externality.update_after_event(event_statement)
 
     if self._concurrent_externalities:
-      concurrency.map_parallel(get_externality, self._components.values())
+      concurrency.run_parallel(get_externality, self._components.values())
     else:
       for externality in self._components.values():
         externality.update_after_event(event_statement)
@@ -378,7 +378,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       random.shuffle(players)
 
     if self._concurrent_action:
-      concurrency.map_parallel(step_player_fn, players)
+      concurrency.run_parallel(step_player_fn, players)
     else:
       for player in players:
         step_player_fn(player)

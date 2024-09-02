@@ -14,7 +14,7 @@
 
 """Better error handling for ThreadPoolExecutors."""
 
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Iterator, Sequence
 from concurrent import futures
 import contextlib
 from typing import Any, Callable, TypeVar
@@ -51,28 +51,26 @@ def executor(**kwargs) -> Iterator[futures.ThreadPoolExecutor]:
     thread_executor.shutdown()
 
 
-def map_parallel(
+def run_parallel(
     fn: Callable[..., _T],
-    *iterables: Collection[Any],
+    *args: Collection[Any],
     timeout: float | None = None,
-) -> Iterator[_T]:
+) -> Sequence[_T]:
   """Maps a function to a sequence of values in parallel.
-
-  Convenience wrapper for ThreadPoolExecutor.map.
 
   Args:
     fn: function to execute
-    *iterables: arguments to pass to function.
+    *args: arguments to pass to function.
     timeout: the maximum number of seconds to wait.
 
   Returns:
-    An iterator equivalent to: map(func, *iterables) but the calls may be
-    evaluated out-of-order.
+    [fn(*arg) for arg in args]
+    However, the calls will be executed concurrently.
 
   Raises:
-    TimeoutError: If the entire result iterator could not be generated before
-        the given timeout.
+    TimeoutError: If all the results are not generated before the timeout.
     Exception: If fn(*args) raises for any values.
   """
-  with executor(max_workers=len(iterables)) as executor_:
-    return executor_.map(fn, *iterables, timeout=timeout)
+  with executor(max_workers=len(args)) as executor_:
+    results = executor_.map(fn, *args, timeout=timeout)
+    return list(results)  # Consume iterator to surface any errors.

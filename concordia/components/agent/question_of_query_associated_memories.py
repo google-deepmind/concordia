@@ -125,7 +125,7 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
-    results = concurrency.map_parallel(self._query_memory, self._queries)
+    results = concurrency.run_parallel(self._query_memory, self._queries)
     results_str = '\n'.join(
         [f'{query}: {result}' for query, result in zip(self._queries, results)]
     )

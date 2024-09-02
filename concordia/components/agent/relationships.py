@@ -93,7 +93,7 @@ class Relationships(action_spec_ignored.ActionSpecIgnored):
     return result
 
   def _make_pre_act_value(self) -> str:
-    results = concurrency.map_parallel(
+    results = concurrency.run_parallel(
         self._query_memory, self._related_agents_names
     )
     output = '\n'.join([
