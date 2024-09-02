@@ -35,7 +35,7 @@ https://huggingface.co/sentence-transformers.
 
 This script will download the embedder from huggingface and cache it locally.
 
-To debug without spending money on API calls, pass the the option:
+To debug without spending money on API calls, pass the option:
   --disable_language_model
 It replaces the language model with a null model that always returns an empty
 string when asked for a free response and always selects the first option when
@@ -55,10 +55,9 @@ import sentence_transformers
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
-parser.add_argument('--agent',
-                    action='store',
-                    default='basic_entity_agent__main_role',
-                    dest='agent_name')
+parser.add_argument(
+    '--agent', action='store', default='basic_agent', dest='agent_name'
+)
 parser.add_argument('--environment',
                     action='store',
                     default='reality_show',

@@ -27,7 +27,7 @@ from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
 from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
-from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -124,7 +124,7 @@ class Simulation(Runnable):
       setup_time: datetime.datetime,
       scenes: Sequence[scene_lib.SceneSpec],
       player_configs: list[formative_memories.AgentConfig],
-      agent_module: types.ModuleType = basic_entity_agent__main_role,
+      agent_module: types.ModuleType = basic_agent,
       premise: str | None = None,
       fast_gm: bool = False,
   ):

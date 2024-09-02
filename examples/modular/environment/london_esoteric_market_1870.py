@@ -33,7 +33,7 @@ from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
-from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import component
@@ -543,7 +543,7 @@ class Simulation(Runnable):
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_entity_agent__main_role,
+      agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.

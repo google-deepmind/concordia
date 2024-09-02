@@ -38,7 +38,7 @@ from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.environment.supporting_agent_factory import rational_agent as rational_agent_supporting
-from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -557,7 +557,7 @@ class Simulation(Runnable):
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_entity_agent__main_role,
+      agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.

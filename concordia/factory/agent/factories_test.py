@@ -24,8 +24,8 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
-from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import rational_entity_agent__main_role
+from concordia.factory.agent import basic_agent
+from concordia.factory.agent import rational_agent
 from concordia.factory.agent import synthetic_user
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
@@ -42,8 +42,8 @@ SPEECH_ACTION_SPEC = agent_lib.DEFAULT_SPEECH_ACTION_SPEC
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
-    'basic_entity_agent__main_role': basic_entity_agent__main_role,
-    'rational_entity_agent__main_role': rational_entity_agent__main_role,
+    'basic_agent': basic_agent,
+    'rational_agent': rational_agent,
     'synthetic_user': synthetic_user,
 }
 
@@ -56,15 +56,19 @@ def _embedder(text: str):
 class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='basic_entity_agent__main_role',
-           agent_name='basic_entity_agent__main_role',
-           main_role=True),
-      dict(testcase_name='rational_entity_agent__main_role',
-           agent_name='rational_entity_agent__main_role',
-           main_role=True),
-      dict(testcase_name='synthetic_user',
-           agent_name='synthetic_user',
-           main_role=True),
+      dict(
+          testcase_name='basic_agent', agent_name='basic_agent', main_role=True
+      ),
+      dict(
+          testcase_name='rational_agent',
+          agent_name='rational_agent',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='synthetic_user',
+          agent_name='synthetic_user',
+          main_role=True,
+      ),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):
     agent_factory = AGENT_FACTORIES[agent_name]

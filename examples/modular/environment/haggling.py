@@ -36,7 +36,7 @@ from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
-from concordia.factory.agent import basic_entity_agent__main_role
+from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_lib
@@ -159,7 +159,7 @@ def configure_player(name: str, gender: str, is_main: bool):
     config: the config for the player
   """
   extras = {
-      'player_specific_memories': [f'{name} alway drives a hard bargain.'],
+      'player_specific_memories': [f'{name} always drives a hard bargain.'],
       'main_character': is_main,
   }
   if not is_main:
@@ -478,7 +478,7 @@ class Simulation(Runnable):
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_entity_agent__main_role,
+      agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
   ):
     """Initialize the simulation object.
