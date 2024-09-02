@@ -75,11 +75,12 @@ installation as follows:
 
 ## Bring your own LLM
 
-To work, Concordia requires a access to an LLM API. Any LLM API that
-supports sampling text would work. We tested Concordia using a model with 340B
-parameters. The user must also provide a text embedder for the associative
-memory. Any fixed-dimensional embedding would work. Ideally it would be one that
-works well for sentence similarity or semantic search.
+Concordia requires a access to an LLM API. Any LLM API that supports sampling
+text should work. The quality of the results you get depends on which LLM you
+select. Some are better at role-playing than others. You must also provide a
+text embedder for the associative memory. Any fixed-dimensional embedding works
+for this. Ideally it would be one that works well for sentence similarity or
+semantic search.
 
 ## Example usage
 
@@ -94,8 +95,7 @@ answering three key questions:
 2. What kind of person am I?
 3. What does a person such as I do in a situation such as this?
 
-The agents used in this example implement exactly these components, and nothing
-else.
+The agents used in the following example implement exactly these questions:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google-deepmind/concordia/blob/main/examples/three_key_questions.ipynb)
 
