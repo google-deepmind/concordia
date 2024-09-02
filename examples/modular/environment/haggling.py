@@ -35,8 +35,8 @@ from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
+from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_puppet_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_lib
@@ -165,7 +165,7 @@ def configure_player(name: str, gender: str, is_main: bool):
   if not is_main:
     extras['fixed_response_by_call_to_action'] = {
         f'Would {name} accept the offer?:': 'accept',
-        f'What price would {name} propose?:': '3 coin',
+        f'What price would {name} propose?:': '3 coins',
     }
 
   return formative_memories.AgentConfig(
@@ -591,7 +591,7 @@ class Simulation(Runnable):
               ' about it.'
           ),
       )
-      player = basic_puppet_agent__supporting_role.build_agent(
+      player = basic_puppet_agent.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],

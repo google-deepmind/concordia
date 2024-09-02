@@ -36,9 +36,9 @@ from concordia.contrib.components import game_master as gm_contrib
 from concordia.document import interactive_document
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
+from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.modular.environment.supporting_agent_factory import rational_agent as rational_agent_supporting
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_entity_agent__supporting_role
-from concordia.factory.agent import rational_entity_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -684,13 +684,11 @@ class Simulation(Runnable):
           },
       )
       if player_config.name == environment_config.antagonist:
-        player = rational_entity_agent__supporting_role.build_agent(
+        player = rational_agent_supporting.build_agent(
             **supporting_player_kwargs
         )
       else:
-        player = basic_entity_agent__supporting_role.build_agent(
-            **supporting_player_kwargs
-        )
+        player = basic_agent_supporting.build_agent(**supporting_player_kwargs)
       supporting_players.append(player)
 
       if player_config.name == environment_config.antagonist:

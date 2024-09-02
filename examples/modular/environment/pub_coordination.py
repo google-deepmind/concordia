@@ -35,8 +35,8 @@ from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.modules import pub_coordination_london as pubs_lib
 from examples.modular.environment.modules import pub_coordination_relationships
+from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_puppet_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -640,7 +640,7 @@ class Simulation(Runnable):
               f' {favorite_pub} and nowhere else. They are very vocal about it.'
           ),
       )
-      player = basic_puppet_agent__supporting_role.build_agent(
+      player = basic_puppet_agent.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],

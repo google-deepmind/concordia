@@ -30,8 +30,8 @@ from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
+from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_entity_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -691,7 +691,7 @@ class Simulation(Runnable):
               player_config.name
           ),
       )
-      player = basic_entity_agent__supporting_role.build_agent(
+      player = basic_agent_supporting.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],

@@ -32,8 +32,8 @@ from concordia.contrib.components import game_master as gm_contrib
 from examples.modular.environment.modules import alchemy
 from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
 from examples.modular.environment.modules import player_traits_and_styles
+from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from concordia.factory.agent import basic_entity_agent__main_role
-from concordia.factory.agent import basic_entity_agent__supporting_role
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
 from concordia.typing import component
@@ -649,7 +649,7 @@ class Simulation(Runnable):
               player_config.name
           ),
       )
-      player = basic_entity_agent__supporting_role.build_agent(
+      player = basic_agent_supporting.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
