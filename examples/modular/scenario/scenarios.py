@@ -37,6 +37,8 @@ Runnable = Callable[[], tuple[logging_lib.SimulationOutcome, str]]
 
 IMPORT_ENV_BASE_DIR = 'environment'
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
+IMPORT_SUPPORT_AGENT_DIR = (
+    'examples.modular.environment.supporting_agent_factory')
 
 
 @dataclasses.dataclass(frozen=True)
@@ -133,7 +135,7 @@ def build_simulation(
     resident_agent_module = background_agent_module
 
   supporting_agent_module = importlib.import_module(
-      f'{IMPORT_AGENT_BASE_DIR}.{substrate_config.supporting_agent_module}'
+      f'{IMPORT_SUPPORT_AGENT_DIR}.{substrate_config.supporting_agent_module}'
   )
   runnable_simulation = simulation.Simulation(
       model=model,

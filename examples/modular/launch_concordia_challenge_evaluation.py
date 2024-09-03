@@ -73,7 +73,6 @@ import pathlib
 import sys
 
 from concordia.language_model import utils
-from concordia.typing import logging as logging_lib
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
@@ -83,6 +82,7 @@ sys.path.append(f'{concordia_root_dir}')
 # pylint: disable=g-import-not-at-top, g-bad-import-order
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import files as file_utils
+from examples.modular.utils import logging_types as logging_lib
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(

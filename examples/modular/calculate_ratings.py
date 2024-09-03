@@ -35,8 +35,6 @@ import datetime
 import pathlib
 import sys
 
-from concordia.typing import logging as logging_lib
-
 import numpy as np
 
 concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
@@ -46,6 +44,7 @@ from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.scoring import elo
 from examples.modular.scoring import utils as scoring_utils
 from examples.modular.utils import files as file_utils
+from examples.modular.utils import logging_types as logging_lib
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(
