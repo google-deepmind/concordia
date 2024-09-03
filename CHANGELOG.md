@@ -4,6 +4,126 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.7.0] - 2024-09-3
+
+### Changed
+
+- rename the agent factories for clarity
+- rename old basic_agent into deprecated_agent, as we are moving towards only using the entity_agent
+- Moving supporting agents code to a more appropriate location
+- Make terminators configurable for question of recent memories and set different default terminators for AvailableOptionsPerception (only for this one). This is needed because it often returns a list.
+- Normalize rewards by the sum of positive relationships rather than number of players.
+- Move LLM selection function used in python launch scripts to a utils file.
+- Harmonize parameter name on ObservationSummary with other components.
+- Remove variable that is no longer used in all_similar_memories component
+- move agent components from component/agent/v2 folder to component/agent. Should also fix the problem introduced by moving old components to to_be_deprecated.
+- Moving old agent components into a to_be_deprecated folder. Next CL will move components/agents/v2 into components/agents
+- Update mistral wrapper to use latest version of mistral and fix langchain_ollama_model class name.
+- Generalise somatic state and identity into an abstracted QuestionByQuery component
+- Abstracting question based components into a parent class.
+- Port two more legacy reflection components to the v2 entity component system.
+- Port the legacy scheduled_hint component to the v2 entity component system
+- Parameterize `open_question` to allow the user to change the labels `Question` and `Answer`.
+- Improve mistral model wrapper with better error handling. Also added optional functionality to allow the use of different models for choice and text.
+- Observation summary component in agent factories now summarizes a time interval that includes the latest timestep.
+- adjust html making code to work best with new logging in agents
+- Improve importance model.
+- Prevent entity agents from continuing to talk beyond the end of a direct quote.
+- GM components now specify they work with either basic or entity agents.
+- Add check whether game master wants to terminate in the runner.
+- Rename `typing.component_v2` to `typing.entity_component`.
+- Port basic_agent__supporting_role and somatic_state to use the entity system.
+- Improve prompt formatting in basic_entity_agent__main_role
+- Make it possible for game master to take a dictionary of action_spec, with a unique action_spec for each player.
+- Add default error logging to all measurement channels of component logging.
+- Rename temporary_entity_agent__main_role to basic_entity_agent__main_role since it is now feature complete. It is the entity version of basic_agent__main_role.
+- improve prompts and logs for the entity agent and its components.
+- Update options perception component to the entity component system.
+- Add `ComponentName` typing annotation, instead of `str`, and improve docsctrings.
+- update action spec, which now uses {name} instead of {agent_name}
+- Refactor logging out of components as an intermediate step to cleaning up `get_last_log` uses.
+- Rename get_pre_act_context to get_pre_act_value. The context is of the form 'f{label}: {value}'
+- Rename EntityComponent to ContextComponent.
+- Add missing @overrides and disable pytype error
+- Raise RuntimeError on incorrect get/set of entity
+- Use OutputType enum in ActionSpec
+- Protect access to the MemoryComponent methods to avoid misuse leading to inconsistent state.
+- Remove overrides requirement from memory lib.
+- Improve docstring and error checking of `ActionSpecIgnored`.
+- Remove set_pre_act_context from public API of `action_spec_ignored` component.
+- Use component_order in entity agent to order components in act context.
+- Implement `get_last_log` in `EntityAgent`.
+- Improve typing and return value of `get_last_log` in `EntityComponent`.
+- Improve API for components `set_entity` and `get_entity` so it returns a `ComponentEntity` that has `get_phase` and `get_component`.
+- update all similar memories component and add it to the temporary entity agent.
+- Remove `Phase` as parameter for context processor components. If the phase is needed, it can be accessed via its containing `Entity`.
+- Rename ComponentsContext to ComponentContextMapping.
+- Modernize game master concurrency error handling
+- Rename `tests` dir to `testing` and move integration test to root.
+- Move all contrib code to /contrib folder
+- Remove wrong parameter `max_characters` in call to `sample_text` in `scene_generator`.
+- Make the secondary game masters be optional when using the `run_simulation` utility.
+- Fix environment configs to fit new entity concept and add factories test.
+- Move parts of GenerativeAgent into a new GameObject API.
+- Improve GM prompt to reduce frequency of GM equivocation
+
+### Added
+
+- Add concept of substrate and scenario, how to configure them, and scripts to evaluate agents submitted for the contest and calculate their Elo ratings.
+- Add person_representation component and paranoid agent which uses it.
+- Adding supporting players to pub_coordination and puppet agents.
+- Add support for relational matrices in CoordinationPayoffs. This allows us to model relationships between players, such as friendship or rivalry.
+- Adding the ability to save to memory the output of query component, same as question of recent memories component.
+- Create v2 metrics and update the `riverbend_elections` colab example to use entity_agents and v2 components, including the newly updated metric components.
+- Add ollama to requirements
+- Add support for more language models.
+- v2 version of relationships component
+- A new method to the InteractiveDocument class open_question_diversified, which takes a question as input and returns a random answer from a set of 10 possible answers. This method can be used to increase the diversity of the answers that the agent provides.
+- Add validation method to ActionSpec
+- Add ActionSpec argument validation and convenience functions.
+- Add factory for a rational supporting character.
+- Add two useful game master components for creating custom environments.
+- Remove old style agent factories.
+- Adding haggling environment, where agent bargain for fruit.
+- Add a log that combines the main GM log and all the scene logs into one, sorted by date.
+- add a synthetic user factory
+- add rational entity agent main role
+- add a pub coordination simulation - add ability to pass thought chains and maximum conversation length to game master factory
+- add a class for computing and delivering payoffs in a coordination game.
+- Added Amazon Bedrock language model support
+- Add a MemoryResult dataclass to represent the result of a memory bank retrieval.
+- Add a memory component that is safe and consistent to use outside of the `UPDATE` phase.
+- Adapt more legacy functionality to the new entity agent factory
+- Add report_function component, remove clock from all_similar_memories (v2), also add the temporary_entity_agent factory to the factories test, and remove all references to the `overrides` library.
+- Add missing superclass `overrides.EnforceOverrides`
+- Add `overrides` library to `setup.py`
+- Add a wrapper for AssociativeMemory for compatibility with the new memory banks.
+- Add a new typing for memory banks.
+- Add a component class that allows access to its `pre_act` context during the `PRE_ACT` phase.
+- Create a working agent factory using the new entity agent.
+- Add a new type of agent using the new component types.
+- Add ContextProcessorComponent, a privileged component that processes context from regular components for any of its phases.
+- Add a simple act component that behaves like the legacy basic_agent does (concatenating context from components).
+- Create a new style of components to be used with a new type of agent.
+- Add a simple agent that is backed by an LLM in a shallow way.
+- Add restricted inventory contrib component, use it in london esoteric market
+
+### Fixed
+
+- Change map_parallel to return a Sequence instead of an Iterator
+- Fixing a bug - add person_representation to __init__.py
+- Improve error handling in the mistral model wrapper.
+- Fix conversations.
+- Fix pytype error and use default rng when seed is None.
+- fix typing in game_master factory run_simulation.
+- Fix bug in game master factory that was causing it to rebuild the memory on every call to build_game_master, ignoring the optionally provided memory.
+- Fix logging of plan and person by situation components.
+- Fix typing error and improve docstrings of components that use other components.
+- Fix typo in DEFAULT_CALL_TO_SPEECH, this was breaking the conversation component
+- Fix a bug in the entity agent where the action_spec was being passed to the post-act function instead of the action attempt.
+- fix wrong use of `@overrides.overrides` to `@overrides.override`.
+- Fix typing.entity.OutputType to be an Enum instead of a StrEnum.
+
 ## [1.6.0] - 2024-06-11
 
 ### Changed
