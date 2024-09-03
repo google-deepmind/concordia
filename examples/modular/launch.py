@@ -111,7 +111,7 @@ runnable_simulation = simulation.Simulation(
     agent_module=agent_module,
 )
 # Run the simulation
-results_log = runnable_simulation()
+_, results_log = runnable_simulation()
 
 # Write the results log as an HTML file in the current working directory.
 filename = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '.html'

@@ -1,6 +1,7 @@
 absl-py
 docstring-parser
 gdm-concordia
+immutabledict
 IPython
 matplotlib
 ml_collections

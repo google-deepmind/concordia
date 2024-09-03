@@ -31,6 +31,8 @@ from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.modular.scenario import scenarios as scenarios_lib
+from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
@@ -39,9 +41,9 @@ from concordia.typing import agent as agent_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
+import immutabledict
 import numpy as np
 
-Runnable = Callable[[], str]
 SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
@@ -576,7 +578,7 @@ def outcome_summary_fn(
   return result
 
 
-class Simulation(Runnable):
+class Simulation(scenarios_lib.Runnable):
   """Define the simulation API object for the launch script to interact with."""
 
   def __init__(
@@ -586,6 +588,8 @@ class Simulation(Runnable):
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
+      supporting_agent_module: types.ModuleType | None = None,
+      time_and_place_module: str | None = None,
   ):
     """Initialize the simulation object.
 
@@ -598,12 +602,26 @@ class Simulation(Runnable):
       agent_module: the agent module to use for all main characters.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
+      supporting_agent_module: agent module to use for all supporting players.
+        A supporting player is a non-player character with a persistent memory
+        that plays a specific role in defining the task environment. Their role
+        is not incidental but rather is critcal to making the task what it is.
+        Supporting players are not necessarily interchangeable with focal or
+        background players.
+      time_and_place_module: optionally, specify a module containing settings
+        that create a sense of setting in a specific time and place. If not
+        specified, a random module will be chosen from the default options.
     """
+    # Support for these parameters will be added in a future addition coming
+    # very imminently.
+    del supporting_agent_module
+    del time_and_place_module
+
     if resident_visitor_modules is None:
-      self._two_focal_populations = False
+      self._resident_visitor_mode = False
       self._agent_module = agent_module
     else:
-      self._two_focal_populations = True
+      self._resident_visitor_mode = True
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
@@ -665,6 +683,8 @@ class Simulation(Runnable):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
+    self._resident_names = []
+    self._visitor_names = []
     for idx, player_config in enumerate(main_player_configs):
       kwargs = dict(
           config=player_config,
@@ -673,13 +693,16 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
       )
-      if self._two_focal_populations:
+      if self._resident_visitor_mode:
         if idx == 0:
           player = self._visitor_agent_module.build_agent(**kwargs)
+          self._visitor_names.append(player.name)
         else:
           player = self._resident_agent_module.build_agent(**kwargs)
+          self._resident_names.append(player.name)
       else:
         player = self._agent_module.build_agent(**kwargs)
+        self._resident_names.append(player.name)
 
       main_players.append(player)
 
@@ -783,7 +806,7 @@ class Simulation(Runnable):
       for extra_memory in extra_memories:
         self._game_master_memory.add(extra_memory)
 
-  def __call__(self) -> str:
+  def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
     Returns:
@@ -798,9 +821,23 @@ class Simulation(Runnable):
         scenes=self._scenes,
     )
 
-    print('Overall scores per player:')
     player_scores = self._schelling_payoffs.get_scores()
-    if self._two_focal_populations:
+    simulation_outcome = logging_lib.SimulationOutcome(
+        resident_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._resident_names}
+        ),
+        visitor_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._visitor_names}
+        ),
+        metadata=immutabledict.immutabledict({
+            'wallclock_time': datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S'
+            ),
+            'environment': __file__,
+        }),
+    )
+    print('Overall scores per player:')
+    if self._resident_visitor_mode:
       idx = 0
       for player_name, score in player_scores.items():
         if idx == 0:
@@ -813,4 +850,4 @@ class Simulation(Runnable):
       for player_name, score in player_scores.items():
         print(f'{player_name}: {score}')
 
-    return html_results_log
+    return simulation_outcome, html_results_log

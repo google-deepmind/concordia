@@ -16,11 +16,9 @@
 
 from collections.abc import Callable, Sequence
 import datetime
-import importlib
-import pathlib
 import random
-import sys
 import types
+from typing import Any
 
 from concordia import components as generic_components
 from concordia.agents import deprecated_agent
@@ -38,6 +36,9 @@ from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.environment.supporting_agent_factory import rational_agent as rational_agent_supporting
+from examples.modular.environment.utils import helper_functions
+from examples.modular.scenario import scenarios as scenarios_lib
+from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
@@ -46,42 +47,15 @@ from concordia.typing import agent as agent_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
+import immutabledict
 import numpy as np
 
 
-ENVIRONMENT_MODULES = (
+DEFAULT_TIME_AND_PLACE_MODULES = (
     'garment_factory_labor',
     'wild_west_railroad_construction_labor',
 )
-env_module_name = random.choice(ENVIRONMENT_MODULES)
-
-# Load the environment config with importlib
-concordia_root_dir = pathlib.Path(
-    __file__
-).parent.parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
-environment_params = importlib.import_module(
-    f'examples.modular.environment.modules.{env_module_name}'
-)
-
-Runnable = Callable[[], str]
-LaborStrike = gm_contrib.industrial_action.LaborStrike
-ItemTypeConfig = gm_components.inventory.ItemTypeConfig
-WorldConfig = environment_params.WorldConfig
-
-MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
-MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-
-START_TIME = datetime.datetime(
-    year=environment_params.YEAR,
-    month=environment_params.MONTH,
-    day=environment_params.DAY,
-)
-
-environment_config = environment_params.sample_parameters()
-
 NUM_MAIN_PLAYERS = 4
-
 DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 LOW_DAILY_PAY = 1.25
 WAGE_INCREASE_FACTOR = 2.0
@@ -92,27 +66,19 @@ BOSS_OPTIONS = {
     'hold firm': 'Leave wages unchanged',
 }
 PRESSURE_THRESHOLD = 0.5
-
-SCENARIO_PREMISE = [(
-    'A group of workers consider their options after Boss '
-    f'{environment_config.antagonist} cut their pay '
-    f'from {ORIGINAL_DAILY_PAY} coin to {LOW_DAILY_PAY} coin.'
-)]
-
 DISCUSSION_SCENE_TYPE = 'evening'
 DECISION_SCENE_TYPE = 'morning'
 BOSS_DECISION_SCENE_TYPE = 'boss_morning'
-
 BOSS_MORNING_INTRO = (
     'It is morning, {player_name} must decide whether to cave to pressure '
     'and raise wages or hold firm and deny the workers their demands.'
 )
-
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
+MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
+MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
-WORLD_BUILDING_ELEMENTS = [
-    *environment_config.world_elements,
-]
+LaborStrike = gm_contrib.industrial_action.LaborStrike
+ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 _TriggeredFunctionPreEventFnArgsT = (
     gm_components.triggered_function.PreEventFnArgsT
@@ -138,16 +104,17 @@ def _get_wage_from_game_master_memory(
 
 def get_shared_memories_and_context(
     model: language_model.LanguageModel,
+    sampled_settings: Any,
 ) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
-  shared_memories = environment_config.world_elements
+  shared_memories = sampled_settings.world_elements
 
   # The shared context will be used for the NPC context. It reflects general
   # knowledge and is possessed by all characters.
   shared_context = model.sample_text(
       'Summarize the following passage in a concise and insightful fashion.\n'
-      + f'The year is {environment_config.year}. '
-      + f'The location is {environment_config.location}.\n'
+      + f'The year is {sampled_settings.year}. '
+      + f'The location is {sampled_settings.location}.\n'
       + '\nContext:\n'
       + '\n'.join(shared_memories)
       + '\n'
@@ -158,6 +125,7 @@ def get_shared_memories_and_context(
 
 def configure_players(
     model: language_model.LanguageModel,
+    sampled_settings: Any,
 ) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
@@ -168,6 +136,8 @@ def configure_players(
 
   Args:
     model: the language model to use
+    sampled_settings: the environment configuration containing the time and
+      place details.
 
   Returns:
     main_player_configs: configs for the main characters
@@ -176,14 +146,14 @@ def configure_players(
     organizer_config: config of the labor organizer character
   """
   num_main_players = NUM_MAIN_PLAYERS
-  if NUM_MAIN_PLAYERS > len(environment_config.people):
-    num_main_players = len(environment_config.people)
-  main_player_names = environment_config.people[:num_main_players]
+  if NUM_MAIN_PLAYERS > len(sampled_settings.people):
+    num_main_players = len(sampled_settings.people)
+  main_player_names = sampled_settings.people[:num_main_players]
 
-  joined_world_elements = '\n'.join(environment_config.world_elements)
+  joined_world_elements = '\n'.join(sampled_settings.world_elements)
   player_configs = []
 
-  def get_agent_config(player_name: str, environment_cfg: WorldConfig):
+  def get_agent_config(player_name: str, environment_cfg: Any):
     birth_year = environment_cfg.year - (30 + random.randint(-8, 8))
     birth_month = random.randint(1, 12)
     birth_day = random.randint(1, 28)
@@ -238,37 +208,35 @@ def configure_players(
       future = pool.submit(
           get_agent_config,
           player_name=player_name,
-          environment_cfg=environment_config,
+          environment_cfg=sampled_settings,
       )
       main_player_config_futures.append(future)
     for future in main_player_config_futures:
       player_configs.append(future.result())
 
   # Add supporting players: (1) the antagonist, and (2) the labor organizer.
-  antagonist_params = environment_config.person_data[
-      environment_config.antagonist
-  ]
+  antagonist_params = sampled_settings.person_data[sampled_settings.antagonist]
   antagonist_config = formative_memories.AgentConfig(
-      name=environment_config.antagonist,
-      gender=environment_config.person_data[environment_config.antagonist].get(
+      name=sampled_settings.antagonist,
+      gender=sampled_settings.person_data[sampled_settings.antagonist].get(
           'gender', None
       ),
       date_of_birth=datetime.datetime(
-          year=environment_config.year - (30 + random.randint(10, 30)),
+          year=sampled_settings.year - (30 + random.randint(10, 30)),
           month=random.randint(1, 12),
           day=random.randint(1, 28),
       ),
       goal=(
-          f'{environment_config.antagonist} wants to make as much money '
+          f'{sampled_settings.antagonist} wants to make as much money '
           'as possible and does not care who gets hurt along the way.'
       ),
       context=(
-          ' '.join(environment_config.world_elements)
+          ' '.join(sampled_settings.world_elements)
           + ' '
           + ' '.join(antagonist_params['salient_beliefs'])
       ),
       traits=(
-          f"{environment_config.antagonist}'s personality is "
+          f"{sampled_settings.antagonist}'s personality is "
           'supremely rational and ruthless.'
       ),
       extras={
@@ -280,33 +248,31 @@ def configure_players(
       },
   )
   player_configs.append(antagonist_config)
-  organizer_params = environment_config.person_data[
-      environment_config.organizer
-  ]
+  organizer_params = sampled_settings.person_data[sampled_settings.organizer]
   organizer_config = formative_memories.AgentConfig(
-      name=environment_config.organizer,
-      gender=environment_config.person_data[environment_config.organizer].get(
+      name=sampled_settings.organizer,
+      gender=sampled_settings.person_data[sampled_settings.organizer].get(
           'gender', None
       ),
       date_of_birth=datetime.datetime(
-          year=environment_config.year - (30 + random.randint(2, 10)),
+          year=sampled_settings.year - (30 + random.randint(2, 10)),
           month=random.randint(1, 12),
           day=random.randint(1, 28),
       ),
       goal=(
-          f'{environment_config.organizer} wants to prevent the '
+          f'{sampled_settings.organizer} wants to prevent the '
           'boss from instituting their latest policy '
           'announcement which said they plan to reduce wages from '
           f'{ORIGINAL_DAILY_PAY} to {LOW_DAILY_PAY} coins per day, and to '
           'become famous in the labor movement as a result.'
       ),
       context=(
-          ' '.join(environment_config.world_elements)
+          ' '.join(sampled_settings.world_elements)
           + ' '
           + ' '.join(organizer_params['salient_beliefs'])
       ),
       traits=(
-          f"{environment_config.organizer}'s personality is impatient and "
+          f"{sampled_settings.organizer}'s personality is impatient and "
           'ambitious, but also fundamentally kind.'
       ),
       extras={
@@ -342,6 +308,8 @@ def configure_scenes(
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     antagonist_config: formative_memories.AgentConfig,
+    time_and_place_params: types.ModuleType,
+    start_time: datetime.datetime,
     verbose: bool = False,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
@@ -358,6 +326,8 @@ def configure_scenes(
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     antagonist_config: config of the antagonist character
+    time_and_place_params: the module containing the time and place parameters
+    start_time: the start time/date in the game world for the first scene
     verbose: whether or not to print debug logging (off by default)
 
   Returns:
@@ -399,7 +369,7 @@ def configure_scenes(
           name=DISCUSSION_SCENE_TYPE,
           premise={
               cfg.name: [
-                  environment_params.WORKER_EVENING_INTRO.format(
+                  time_and_place_params.WORKER_EVENING_INTRO.format(
                       player_name=cfg.name
                   )
               ]
@@ -410,7 +380,7 @@ def configure_scenes(
           name=DECISION_SCENE_TYPE,
           premise={
               cfg.name: [
-                  environment_params.WORKER_MORNING_INTRO.format(
+                  time_and_place_params.WORKER_MORNING_INTRO.format(
                       player_name=cfg.name
                   )
               ]
@@ -427,7 +397,7 @@ def configure_scenes(
           name=BOSS_DECISION_SCENE_TYPE,
           premise={
               cfg.name: [
-                  environment_params.BOSS_MORNING_INTRO.format(
+                  time_and_place_params.BOSS_MORNING_INTRO.format(
                       player_name=cfg.name
                   )
               ]
@@ -448,7 +418,7 @@ def configure_scenes(
       scene_lib.SceneSpec(
           # Dinner in the saloon
           scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=20),
+          start_time=start_time + datetime.timedelta(hours=20),
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
@@ -456,21 +426,21 @@ def configure_scenes(
       scene_lib.SceneSpec(
           # Construction workers start the day first
           scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=9) + day,
+          start_time=start_time + datetime.timedelta(hours=9) + day,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           # The boss starts their day a bit later
           scene_type=scene_specs[BOSS_DECISION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=10) + day,
+          start_time=start_time + datetime.timedelta(hours=10) + day,
           participant_configs=(antagonist_config,),
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           # Dinner in the saloon
           scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=20) + day,
+          start_time=start_time + datetime.timedelta(hours=20) + day,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
@@ -478,21 +448,21 @@ def configure_scenes(
       scene_lib.SceneSpec(
           # Construction workers start the day first
           scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=9) + 2 * day,
+          start_time=start_time + datetime.timedelta(hours=9) + 2 * day,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           # The boss starts their day a bit later
           scene_type=scene_specs[BOSS_DECISION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=10) + 2 * day,
+          start_time=start_time + datetime.timedelta(hours=10) + 2 * day,
           participant_configs=(antagonist_config,),
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           # Dinner in the saloon
           scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=20) + 2 * day,
+          start_time=start_time + datetime.timedelta(hours=20) + 2 * day,
           participant_configs=player_configs,
           num_rounds=1,
       ),
@@ -500,7 +470,7 @@ def configure_scenes(
       scene_lib.SceneSpec(
           # Construction workers start the day first
           scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=START_TIME + datetime.timedelta(hours=9) + 3 * day,
+          start_time=start_time + datetime.timedelta(hours=9) + 3 * day,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
@@ -549,7 +519,7 @@ def get_inventories_component(
   return inventories, score
 
 
-class Simulation(Runnable):
+class Simulation(scenarios_lib.Runnable):
   """Define the simulation API object for the launch script to interact with."""
 
   def __init__(
@@ -559,6 +529,8 @@ class Simulation(Runnable):
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
+      supporting_agent_module: types.ModuleType = rational_agent_supporting,
+      time_and_place_module: str | None = None,
   ):
     """Initialize the simulation object.
 
@@ -569,22 +541,50 @@ class Simulation(Runnable):
       agent_module: the agent module to use for all main characters.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
+      supporting_agent_module: agent module to use for all supporting players.
+        A supporting player is a non-player character with a persistent memory
+        that plays a specific role in defining the task environment. Their role
+        is not incidental but rather is critcal to making the task what it is.
+        Supporting players are not necessarily interchangeable with focal or
+        background players.
+      time_and_place_module: optionally, specify a module containing settings
+        that create a sense of setting in a specific time and place. If not
+        specified, a random module will be chosen from the default options.
     """
     if resident_visitor_modules is None:
-      self._two_focal_populations = False
+      self._resident_visitor_mode = False
       self._agent_module = agent_module
     else:
-      self._two_focal_populations = True
+      self._resident_visitor_mode = True
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
+    self._supporting_agent_module = supporting_agent_module
 
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
 
+    self._time_and_place_module = time_and_place_module
+    time_and_place_params, sampled_settings = (
+        helper_functions.load_time_and_place_module(
+            time_and_place_module=time_and_place_module,
+            default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES)
+    )
+
+    start_time = datetime.datetime(
+        year=time_and_place_params.YEAR,
+        month=time_and_place_params.MONTH,
+        day=time_and_place_params.DAY,
+    )
+    scenario_premise = [(
+        'A group of workers consider their options after Boss '
+        f'{sampled_settings.antagonist} cut their pay '
+        f'from {ORIGINAL_DAILY_PAY} coin to {LOW_DAILY_PAY} coin.'
+    )]
+
     # The setup clock time is arbitrary.
-    setup_clock_time = START_TIME - datetime.timedelta(days=1)
+    setup_clock_time = start_time - datetime.timedelta(days=1)
 
     self._clock = game_clock.MultiIntervalClock(
         start=setup_clock_time, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
@@ -602,7 +602,9 @@ class Simulation(Runnable):
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
-    shared_memories, shared_context = get_shared_memories_and_context(model)
+    shared_memories, shared_context = get_shared_memories_and_context(
+        model=model, sampled_settings=sampled_settings
+    )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
@@ -611,7 +613,7 @@ class Simulation(Runnable):
     )
 
     main_player_configs, supporting_player_configs, antagonist_config, _ = (
-        configure_players(model)
+        configure_players(model=model, sampled_settings=sampled_settings)
     )
     random.shuffle(main_player_configs)
 
@@ -644,6 +646,8 @@ class Simulation(Runnable):
           self._all_memories[player_config.name] = future.result()
 
     main_players = []
+    self._resident_names = []
+    self._visitor_names = []
     for idx, player_config in enumerate(main_player_configs):
       kwargs = dict(
           config=player_config,
@@ -652,13 +656,16 @@ class Simulation(Runnable):
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
       )
-      if self._two_focal_populations:
+      if self._resident_visitor_mode:
         if idx == 0:
           player = self._visitor_agent_module.build_agent(**kwargs)
+          self._visitor_names.append(player.name)
         else:
           player = self._resident_agent_module.build_agent(**kwargs)
+          self._resident_names.append(player.name)
       else:
         player = self._agent_module.build_agent(**kwargs)
+        self._resident_names.append(player.name)
 
       main_players.append(player)
 
@@ -683,17 +690,26 @@ class Simulation(Runnable):
               'Guiding principle of good conversation': conversation_style
           },
       )
-      if player_config.name == environment_config.antagonist:
-        player = rational_agent_supporting.build_agent(
+      if player_config.name == sampled_settings.antagonist:
+        # The antagonist can be configured externally by passing in a
+        # supporting player module.
+        player = self._supporting_agent_module.build_agent(
             **supporting_player_kwargs
         )
       else:
-        player = basic_agent_supporting.build_agent(**supporting_player_kwargs)
+        # The labor organizer character is not currently configurable. It is
+        # always set to use the same supporting agent factory for now. This is
+        # probably fine since the labor organizer character is not really the
+        # focus of investigation here. The character's purpose is just to nudge
+        # the focal players to discuss the labor strike.
+        player = basic_agent_supporting.build_agent(
+            **supporting_player_kwargs
+        )
       supporting_players.append(player)
 
-      if player_config.name == environment_config.antagonist:
+      if player_config.name == sampled_settings.antagonist:
         antagonist_player = player
-      elif player_config.name == environment_config.organizer:
+      elif player_config.name == sampled_settings.organizer:
         organizer_player = player
 
     self._all_players = main_players + supporting_players
@@ -717,8 +733,8 @@ class Simulation(Runnable):
 
     setting = generic_components.constant.ConstantComponent(
         state=(
-            f'The year is {environment_config.year} and '
-            f'the location is {environment_config.location}.'
+            f'The year is {sampled_settings.year} and '
+            f'the location is {sampled_settings.location}.'
         ),
         name='Setting',
     )
@@ -728,7 +744,7 @@ class Simulation(Runnable):
     )
     no_frivolous_talk = generic_components.constant.ConstantComponent(
         state=(
-            f'{environment_config.antagonist} does not engage in frivolous '
+            f'{sampled_settings.antagonist} does not engage in frivolous '
             'conversation with workers. They are not worth the time.'
         ),
         name='Another fact',
@@ -801,14 +817,14 @@ class Simulation(Runnable):
       memory = args.memory
       wage = _get_wage_from_game_master_memory(memory)
       if current_scene_type == BOSS_DECISION_SCENE_TYPE:
-        if player_name == environment_config.antagonist:
+        if player_name == sampled_settings.antagonist:
           # The antagonist is the boss and has the power to set wages.
           if player_choice == BOSS_OPTIONS['cave to pressure']:
             # The boss caves to pressure and raises wages.
             wage = wage * WAGE_INCREASE_FACTOR
             for player in players:
               player.observe(
-                  f'Boss {environment_config.antagonist} caves '
+                  f'Boss {sampled_settings.antagonist} caves '
                   f'to pressure and raises wages to {wage} '
                   'coin per day!'
               )
@@ -816,7 +832,7 @@ class Simulation(Runnable):
             # The boss holds firm and leaves wages unchanged.
             for player in players:
               player.observe(
-                  f'Boss {environment_config.antagonist} holds '
+                  f'Boss {sampled_settings.antagonist} holds '
                   f'firm and leaves wages unchanged at {wage} coin '
                   'per day.'
               )
@@ -851,11 +867,11 @@ class Simulation(Runnable):
             cap_nonplayer_characters_in_conversation=0,
             memory=game_master_memory,
             supporting_players_at_fixed_locations=(
-                environment_config.supporting_player_locations
+                sampled_settings.supporting_player_locations
             ),
             additional_components=additional_gm_components,
             npc_context=(
-                f'{environment_config.antagonist} is visiting the '
+                f'{sampled_settings.antagonist} is visiting the '
                 'work camp today.'
             ),
         )
@@ -868,6 +884,8 @@ class Simulation(Runnable):
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         antagonist_config=antagonist_config,
+        time_and_place_params=time_and_place_params,
+        start_time=start_time,
     )
     self._primary_environment.add_component(industrial_action)
     decision_env.add_component(paid_labor)
@@ -881,7 +899,7 @@ class Simulation(Runnable):
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         shared_memories=shared_memories,
-        scenario_premise=SCENARIO_PREMISE,
+        scenario_premise=scenario_premise,
     )
 
   def _make_player_memories(self, config: formative_memories.AgentConfig):
@@ -929,7 +947,7 @@ class Simulation(Runnable):
       for extra_memory in extra_memories:
         self._game_master_memory.add(extra_memory)
 
-  def __call__(self) -> str:
+  def __call__(self) -> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
     Returns:
@@ -944,9 +962,24 @@ class Simulation(Runnable):
         scenes=self._scenes,
     )
 
-    print('Overall scores per player:')
     player_scores = self._score.get_scores()
-    if self._two_focal_populations:
+    simulation_outcome = logging_lib.SimulationOutcome(
+        resident_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._resident_names}
+        ),
+        visitor_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._visitor_names}
+        ),
+        metadata=immutabledict.immutabledict({
+            'wallclock_time': datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S'
+            ),
+            'environment': __file__,
+            'time_and_place_module': self._time_and_place_module,
+        }),
+    )
+    print('Overall scores per player:')
+    if self._resident_visitor_mode:
       idx = 0
       for player_name, score in player_scores.items():
         if idx == 0:
@@ -959,4 +992,4 @@ class Simulation(Runnable):
       for player_name, score in player_scores.items():
         print(f'{player_name}: {score}')
 
-    return html_results_log
+    return simulation_outcome, html_results_log

@@ -53,7 +53,6 @@ from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import sentence_transformers
 
-
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
 parser.add_argument(
@@ -122,7 +121,7 @@ runnable_simulation = simulation.Simulation(
     resident_visitor_modules=(resident_agent_module, visitor_agent_module),
 )
 # Run the simulation
-results_log = runnable_simulation()
+_, results_log = runnable_simulation()
 
 # Write the results log as an HTML file in the current working directory.
 filename = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + '.html'

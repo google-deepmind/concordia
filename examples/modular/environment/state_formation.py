@@ -32,6 +32,8 @@ from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.modular.scenario import scenarios as scenarios_lib
+from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
@@ -39,6 +41,7 @@ from concordia.typing import agent as agent_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
+import immutabledict
 import numpy as np
 
 ENVIRONMENT_MODULES = ('pre_state_villages',)
@@ -57,8 +60,6 @@ config = environment_module.get_world_config()
 BASIC_SETTING = environment_module.BASIC_SETTING.format(
     village_a_name=config.village_a_name, village_b_name=config.village_b_name
 )
-
-Runnable = Callable[[], str]
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=20)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
@@ -573,7 +574,7 @@ def outcome_summary_fn(
   return result
 
 
-class Simulation(Runnable):
+class Simulation(scenarios_lib.Runnable):
   """Define the simulation API object for the launch script to interact with."""
 
   def __init__(
@@ -582,6 +583,9 @@ class Simulation(Runnable):
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
+      resident_visitor_modules: Sequence[types.ModuleType] | None = None,
+      supporting_agent_module: types.ModuleType | None = None,
+      time_and_place_module: str | None = None,
   ):
     """Initialize the simulation object.
 
@@ -590,7 +594,23 @@ class Simulation(Runnable):
       embedder: the sentence transformer to use.
       measurements: the measurements object to use.
       agent_module: the agent module to use for all main characters.
+      resident_visitor_modules: optionally, use different modules for majority
+        and minority parts of the focal population.
+      supporting_agent_module: agent module to use for all supporting players.
+        A supporting player is a non-player character with a persistent memory
+        that plays a specific role in defining the task environment. Their role
+        is not incidental but rather is critcal to making the task what it is.
+        Supporting players are not necessarily interchangeable with focal or
+        background players.
+      time_and_place_module: optionally, specify a module containing settings
+        that create a sense of setting in a specific time and place. If not
+        specified, a random module will be chosen from the default options.
     """
+    # Support for these parameters will be added in a future addition coming
+    # very imminently.
+    del resident_visitor_modules
+    del supporting_agent_module
+    del time_and_place_module
 
     self._agent_module = agent_module
     self._model = model
@@ -890,12 +910,24 @@ class Simulation(Runnable):
       player.observe(teleport)
       self._game_master_memory.add(teleport)
 
-  def __call__(self) -> str:
+  def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
+    # TMP -- ADD THIS ONCE THIS ENVIRONMENT SUPPORTS RESIDENT/VISITOR MODE
+    simulation_outcome = logging_lib.SimulationOutcome(
+        resident_scores=immutabledict.immutabledict({}),
+        visitor_scores=immutabledict.immutabledict({}),
+        metadata=immutabledict.immutabledict({
+            'wallclock_time': datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S'
+            ),
+            'environment': __file__,
+        }),
+    )
+    # END TMP
     html_results_log = basic_game_master.run_simulation(
         model=self._model,
         players=self._all_players,
@@ -904,4 +936,4 @@ class Simulation(Runnable):
         clock=self._clock,
         scenes=self._scenes,
     )
-    return html_results_log
+    return simulation_outcome, html_results_log
