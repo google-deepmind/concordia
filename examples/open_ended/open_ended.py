@@ -25,7 +25,6 @@ from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import game_master as gm_components
-from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
@@ -62,7 +61,6 @@ SCENARIO_PREMISE = [
 ]
 
 FIRST_NAMES = player_names.FIRST_NAMES
-SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
 NUM_GAMES = 1
 
 

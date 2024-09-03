@@ -14,6 +14,18 @@
 
 """A set of pub names and reasons to like them."""
 
+from collections.abc import Mapping, Sequence
+import dataclasses
+import random
+from typing import Union
+
+
+YEAR = 2015
+MONTH = 5
+DAY = 14
+
+NUM_PUBS = 2
+
 PUB_PREFERENCES = {
     "The Princess of Wales": [
         (
@@ -123,6 +135,48 @@ PUB_PREFERENCES = {
     ],
 }
 
+SOCIAL_CONTEXT = [
+    (
+        "The sun peeks through the morning"
+        " mist as a {players} gather near the entrance of Hackney"
+        " Marshes. They stretch and laugh, their colorful running attire"
+        " contrasting with the green expanse. A few dog walkers pass by, their"
+        " furry companions excitedly sniffing the air. "
+        "{player_name} just arrived."
+    ),
+    (
+        "The aroma of freshly brewed coffee and"
+        " artisan pastries fills the air. {players} sit at a long wooden table"
+        " under a striped awning, their laughter mingling with the chatter of"
+        " the bustling market. A street musician strums a guitar nearby, adding"
+        " a bohemian touch to the scene. "
+        "{player_name} just arrived."
+    ),
+    (
+        "Sunlight dances on the water as"
+        " {players} cycle along the towpath of Regent's Canal. They"
+        " pause to admire the colorful houseboats and wave at fellow cyclists."
+        " The gentle sound of water lapping against the canal banks creates a"
+        " peaceful atmosphere. "
+        "{player_name} just arrived."
+    ),
+    (
+        "Vibrant murals and graffiti adorn the brick walls of Shoreditch."
+        " {players} wander through the streets, their eyes wide with wonder as"
+        " they discover hidden gems of urban art. The smell of street food"
+        " wafts from nearby vendors, tempting them to take a break."
+        " {player_name} just arrived."
+    ),
+    (
+        "A checkered blanket is spread out on the"
+        " lush green lawn of Victoria Park. {players} lounge in the sunshine,"
+        " sharing snacks and stories. The laughter of children playing nearby"
+        " adds a joyful backdrop to the scene. "
+        "{player_name} just arrived."
+    ),
+]
+
+
 EURO_CUP_COUNTRIES = [
     "Albania",
     "Andorra",
@@ -180,3 +234,94 @@ EURO_CUP_COUNTRIES = [
     "Ukraine",
     "Wales",
 ]
+
+FEMALE_NAMES = [
+    "Olivia Smith",
+    "Amelia Jones",
+    "Isla Taylor",
+    "Ava Brown",
+    "Emily Wilson",
+    "Isabella Johnson",
+    "Mia Williams",
+    "Jessica Davies",
+    "Poppy Evans",
+    "Lily Walker",
+    "Sophie Martin",
+    "Grace Thompson",
+    "Ruby White",
+    "Ella Roberts",
+    "Evie Green",
+    "Florence Hall",
+    "Millie Wood",
+    "Molly Clark",
+    "Alice Lewis",
+    "Phoebe Young",
+]
+
+MALE_NAMES = [
+    "Noah Smith",
+    "William Jones",
+    "Jack Taylor",
+    "Logan Brown",
+    "Thomas Wilson",
+    "Oscar Johnson",
+    "Lucas Williams",
+    "Harry Davies",
+    "Ethan Evans",
+    "Jacob Walker",
+    "Matthew Thompson",
+    "Alexander White",
+    "Benjamin Roberts",
+    "Henry Green",
+    "Daniel Hall",
+    "Michael Wood",
+    "Joshua Clark",
+    "Elijah Lewis",
+    "Jackson Young",
+]
+
+
+@dataclasses.dataclass
+class WorldConfig:
+  """The configuration of the simulated world."""
+
+  year: int
+  location: str
+  event: str
+  social_context: Sequence[str]
+  game_countries: Sequence[str]
+  venues: Sequence[str]
+  venue_preferences: dict[str, Sequence[str]]
+  people: Sequence[str] = ()
+  person_data: dict[str, dict[str, Union[str, Sequence[str]]]] = (
+      dataclasses.field(default_factory=dict)
+  )
+  formative_memory_prompts: Mapping[str, Sequence[str]] | None = None
+
+
+def sample_parameters():
+  """Samples a set of parameters for the world configuration."""
+  pubs = random.sample(list(PUB_PREFERENCES.keys()), NUM_PUBS)
+  pub_preferences = {k: PUB_PREFERENCES[k] for k in pubs}
+
+  config = WorldConfig(
+      year=YEAR,
+      location="London",
+      event="European football cup",
+      game_countries=EURO_CUP_COUNTRIES,
+      venues=pubs,
+      venue_preferences=pub_preferences,
+      social_context=SOCIAL_CONTEXT,
+  )
+
+  all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
+
+  random.shuffle(all_names)
+  config.people = all_names
+
+  for _, name in enumerate(MALE_NAMES):
+    config.person_data[name] = {"gender": "male"}
+  for _, name in enumerate(FEMALE_NAMES):
+    config.person_data[name] = {"gender": "female"}
+
+  return config

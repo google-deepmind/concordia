@@ -32,7 +32,6 @@ from concordia.contrib.components.game_master import bargain_payoffs as bargain_
 from concordia.document import interactive_document
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation
-from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
@@ -95,7 +94,6 @@ VISUAL_SCENE_OPENINGS = [
 
 
 FIRST_NAMES = player_names.FIRST_NAMES
-SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
 NUM_GAMES = 4
 YEAR = 1895
 

@@ -19,6 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 import datetime
 import random
 import types
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -30,12 +31,11 @@ from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation
-from examples.modular.environment.modules import modern_london_social_context
 from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
-from examples.modular.environment.modules import pub_coordination_london as pubs_lib
 from examples.modular.environment.modules import pub_coordination_relationships
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
+from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
@@ -49,14 +49,13 @@ from concordia.utils import measurements as measurements_lib
 import immutabledict
 import numpy as np
 
+
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
+DEFAULT_TIME_AND_PLACE_MODULES = ('pub_coordination_london',)
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-YEAR = 2024
-SETUP_TIME = datetime.datetime(hour=20, year=YEAR, month=10, day=1)
-START_TIME = datetime.datetime(hour=12, year=YEAR, month=10, day=2)
 
 DECISION_SCENE_TYPE = 'choice'
 
@@ -66,48 +65,45 @@ TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 NUM_MAIN_PLAYERS = 4
 NUM_SUPPORTING_PLAYERS = 1
 
-SCENARIO_PREMISE = [
-    f'The year is {YEAR}. This week is the European football cup.'
-]
 USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
-SOCIAL_CONTEXT = modern_london_social_context.SOCIAL_CONTEXT
 NUM_GAMES = 3
-NUM_PUBS = 2
 USE_RELATIONAL_MATRIX = True
 
-PUB_PREFERENCES = pubs_lib.PUB_PREFERENCES
-PUBS = random.sample(sorted(PUB_PREFERENCES), NUM_PUBS)
 
-# Change this to a function of the pub, if you want to have different quality
-# for different pubs.
-PUB_QUALITY = {pub: 1.0 for pub in PUBS}
-
-
-def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
+def get_shared_memories_and_context(
+    sampled_settings: Any,
+) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
   shared_memories = [
       'The European football cup is on.',
       'Games are best watched in pubs with a lot of friends.',
   ]
   shared_context = (
-      f'The year is {YEAR}. The place is London, Hackney. The European football'
-      ' cup is on.\n'
+      f'The year is {sampled_settings.year}. The place is'
+      f' {sampled_settings.location}. {sampled_settings.event} is on.\n'
   )
   return shared_memories, shared_context
 
 
 def configure_player(
-    name: str, favorite_pub: str, is_main: bool, all_player_names_str: str
+    name: str,
+    gender: str,
+    favorite_pub: str,
+    is_main: bool,
+    all_player_names_str: str,
+    pub_preferences: dict[str, Sequence[str]],
 ) -> formative_memories.AgentConfig:
   """Configure a player.
 
   Args:
     name: the name of the player
+    gender: the gender of the player
     favorite_pub: the favorite pub of the player
     is_main: whether the player is a main character or not
     all_player_names_str: the names of all the players in one string
+    pub_preferences: the preferences of all the pubs
 
   Returns:
     config: the player config
@@ -115,19 +111,14 @@ def configure_player(
   social_classes = ['working', 'middle', 'upper']
 
   social_class = random.choice(social_classes)
-  reasons = random.choice(PUB_PREFERENCES[favorite_pub])
-
+  reasons = random.choice(pub_preferences[favorite_pub])
+  pubs = list(pub_preferences.keys())
   extras = {
       'player_specific_memories': [
           f'{name} is a member of the {social_class} class.',
-          (
-              f'{name} supports'
-              f' {random.choice(pubs_lib.EURO_CUP_COUNTRIES)} in'
-              ' football.'
-          ),
       ],
       'main_character': is_main,
-      'preference': {pub: 1.0 if pub == favorite_pub else 0.8 for pub in PUBS},
+      'preference': {pub: 1.0 if pub == favorite_pub else 0.8 for pub in pubs},
   }
 
   if not is_main:
@@ -138,7 +129,7 @@ def configure_player(
 
   config = formative_memories.AgentConfig(
       name=name,
-      gender=random.choice(['male', 'female']),
+      gender=gender,
       date_of_birth=datetime.datetime(year=1980, month=4, day=28),
       formative_ages=[16, 20],
       goal=(
@@ -159,35 +150,50 @@ def configure_player(
   return config
 
 
-def configure_players() -> tuple[
+def configure_players(sampled_settings: Any) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
 ]:
   """Configure the players.
 
   Args:
+    sampled_settings: the sampled settings for the world configuration
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  names = random.sample(FIRST_NAMES, NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS)
+  names = sampled_settings.people
   all_players = ', '.join(names)
   player_configs = []
 
+  num_pubs = len(sampled_settings.venues)
+
   for i in range(NUM_MAIN_PLAYERS):
     name = names[i]
-    favorite_pub = PUBS[i % NUM_PUBS]
+    favorite_pub = sampled_settings.venues[i % num_pubs]
+    gender = sampled_settings.person_data[name]['gender']
     config = configure_player(
-        name, favorite_pub, is_main=True, all_player_names_str=all_players
+        name,
+        gender,
+        favorite_pub,
+        is_main=True,
+        all_player_names_str=all_players,
+        pub_preferences=sampled_settings.venue_preferences,
     )
     player_configs.append(config)
 
   for i in range(NUM_SUPPORTING_PLAYERS):
     name = names[NUM_MAIN_PLAYERS + i]
-    favorite_pub = PUBS[0]
+    gender = sampled_settings.person_data[name]['gender']
+    favorite_pub = sampled_settings.venues[0]
     config = configure_player(
-        name, favorite_pub, is_main=False, all_player_names_str=all_players
+        name,
+        gender,
+        favorite_pub,
+        is_main=False,
+        all_player_names_str=all_players,
+        pub_preferences=sampled_settings.venue_preferences,
     )
     player_configs.append(config)
 
@@ -282,6 +288,7 @@ def add_choice_scene_spec(
     player_configs: Sequence[formative_memories.AgentConfig],
     option_multiplier: Mapping[str, float],
     scene_type_name: str,
+    pubs: Sequence[str],
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, CoordinationPayoffs]:
   """Add a minigame scene spec.
@@ -294,6 +301,7 @@ def add_choice_scene_spec(
     player_configs: the player configs to use.
     option_multiplier: the option multipliers to use.
     scene_type_name: the name of the scene type.
+    pubs: the pubs to use.
     verbose: whether to print verbose output or not.
 
   Returns:
@@ -301,7 +309,7 @@ def add_choice_scene_spec(
   """
   action_spec = agent_lib.choice_action_spec(
       call_to_action='Which pub would {name} go to watch the game?',
-      options=PUBS[:NUM_PUBS],
+      options=pubs,
       tag='choice',
   )
   player_multipliers = {
@@ -373,6 +381,9 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
+    start_time: datetime.datetime,
+    pub_closed_probability: float,
+    sampled_settings: Any,
 ) -> tuple[Sequence[scene_lib.SceneSpec], Callable[[], Mapping[str, float]]]:
   """Configure the scene storyboard structure.
 
@@ -383,6 +394,9 @@ def configure_scenes(
     clock: the clock to use.
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
+    start_time: the start time/date in the game world for the first scene
+    pub_closed_probability: the probability that a pub is closed
+    sampled_settings: the sampled settings for the world configuration
 
   Returns:
     scenes: a sequence of scene specifications
@@ -392,19 +406,20 @@ def configure_scenes(
 
   coordination_payoffs = []
   scenes = []
+  pubs = sampled_settings.venues
 
   for i in range(NUM_GAMES):
     closed_pub = None
-    if random.random() < 0.5:
-      closed_pub = random.choice(PUBS[:NUM_PUBS])
+    if random.random() < pub_closed_probability:
+      closed_pub = random.choice(sampled_settings.venues)
 
-    playing_tonight = random.sample(pubs_lib.EURO_CUP_COUNTRIES, 2)
+    playing_tonight = random.sample(sampled_settings.game_countries, 2)
     coordination_prompt = (
         f'Tonight is the night of the game between {playing_tonight[0]} and'
         f' {playing_tonight[1]}. Friends are going to watch the game at a pub,'
         ' but they are not sure which pub to go to.'
     )
-    scene = random.choice(SOCIAL_CONTEXT)
+    scene = random.choice(sampled_settings.social_context)
 
     per_player_premise = {
         cfg.name: [
@@ -432,7 +447,7 @@ def configure_scenes(
         ),
     }
 
-    option_multiplier = PUB_QUALITY.copy()
+    option_multiplier = {pub: 1.0 for pub in pubs}
     if closed_pub:
       option_multiplier[closed_pub] = 0.0
 
@@ -444,19 +459,20 @@ def configure_scenes(
         option_multiplier=option_multiplier,
         player_configs=player_configs,
         scene_type_name=DECISION_SCENE_TYPE,
+        pubs=pubs,
     )
     coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
     scenes = scenes + [
         scene_lib.SceneSpec(
             scene_type=scene_specs['social'],
-            start_time=START_TIME + i * TIME_INCREMENT_BETWEEN_SCENES,
+            start_time=start_time + i * TIME_INCREMENT_BETWEEN_SCENES,
             participant_configs=player_configs,
             num_rounds=1,
         ),
         scene_lib.SceneSpec(
             scene_type=scene_specs[DECISION_SCENE_TYPE],
-            start_time=START_TIME
+            start_time=start_time
             + i * TIME_INCREMENT_BETWEEN_SCENES
             + datetime.timedelta(hours=8),
             participant_configs=player_configs,
@@ -534,6 +550,7 @@ class Simulation(scenarios_lib.Runnable):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      pub_closed_probability: float = 0.0,
   ):
     """Initialize the simulation object.
 
@@ -546,8 +563,8 @@ class Simulation(scenarios_lib.Runnable):
       agent_module: the agent module to use for all main characters.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
-      supporting_agent_module: agent module to use for all supporting players.
-        A supporting player is a non-player character with a persistent memory
+      supporting_agent_module: agent module to use for all supporting players. A
+        supporting player is a non-player character with a persistent memory
         that plays a specific role in defining the task environment. Their role
         is not incidental but rather is critcal to making the task what it is.
         Supporting players are not necessarily interchangeable with focal or
@@ -555,11 +572,11 @@ class Simulation(scenarios_lib.Runnable):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      pub_closed_probability: the probability that a pub is closed. Zero by
+        default.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
-    del supporting_agent_module
-    del time_and_place_module
 
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -569,13 +586,33 @@ class Simulation(scenarios_lib.Runnable):
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
+    self._supporting_agent_module = supporting_agent_module
 
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
 
+    time_and_place_params, sampled_settings = (
+        helper_functions.load_time_and_place_module(
+            time_and_place_module=time_and_place_module,
+            default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+        )
+    )
+
+    start_time = datetime.datetime(
+        year=time_and_place_params.YEAR,
+        month=time_and_place_params.MONTH,
+        day=time_and_place_params.DAY,
+    )
+
+    setup_clock_time = start_time - datetime.timedelta(days=1)
+    scenario_premise = [
+        f'The year is {time_and_place_params.YEAR}. This week is the'
+        f' {sampled_settings.event}.'
+    ]
+
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+        start=setup_clock_time, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
@@ -586,15 +623,19 @@ class Simulation(scenarios_lib.Runnable):
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
-    shared_memories, shared_context = get_shared_memories_and_context()
+    shared_memories, shared_context = get_shared_memories_and_context(
+        sampled_settings
+    )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
         blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
-        current_date=SETUP_TIME,
+        current_date=setup_clock_time,
     )
 
-    main_player_configs, supporting_player_configs = configure_players()
+    main_player_configs, supporting_player_configs = configure_players(
+        sampled_settings
+    )
     random.shuffle(main_player_configs)
 
     num_main_players = len(main_player_configs)
@@ -724,16 +765,19 @@ class Simulation(scenarios_lib.Runnable):
         clock=self._clock,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
+        sampled_settings=sampled_settings,
+        start_time=start_time,
+        pub_closed_probability=pub_closed_probability,
     )
 
     self._secondary_environments = []
 
     self._init_premise_memories(
-        setup_time=SETUP_TIME,
+        setup_time=setup_clock_time,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         shared_memories=shared_memories,
-        scenario_premise=SCENARIO_PREMISE,
+        scenario_premise=scenario_premise,
     )
 
   def _make_player_memories(self, config: formative_memories.AgentConfig):
@@ -781,7 +825,7 @@ class Simulation(scenarios_lib.Runnable):
       for extra_memory in extra_memories:
         self._game_master_memory.add(extra_memory)
 
-  def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
+  def __call__(self) -> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
     Returns:
