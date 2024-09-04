@@ -91,7 +91,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '--agent',
     action='store',
-    default='rational_entity_agent__main_role',
+    default='rational_agent',
     dest='agent_name',
 )
 parser.add_argument(
