@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""An Agent Factory."""
+"""A Generic Agent Factory."""
 
+from collections.abc import Mapping
 import datetime
+import types
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -23,6 +25,7 @@ from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
 
 
@@ -37,6 +40,10 @@ def build_agent(
     memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
     update_time_interval: datetime.timedelta,
+    additional_components: Mapping[
+        entity_component.ComponentName,
+        entity_component.ContextComponent,
+    ] = types.MappingProxyType({}),
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -46,14 +53,15 @@ def build_agent(
     memory: The agent's memory object.
     clock: The clock to use.
     update_time_interval: Agent calls update every time this interval passes.
+    additional_components: Additional components to add to the agent.
 
   Returns:
     An agent.
   """
   del update_time_interval
-  if not config.extras.get('main_character', False):
-    raise ValueError('This function is meant for a main character '
-                     'but it was called on a supporting character.')
+  if config.extras.get('main_character', False):
+    raise ValueError('This function is meant for a supporting character '
+                     'but it was called on a main character.')
 
   agent_name = config.name
 
@@ -230,11 +238,13 @@ def build_agent(
       options_perception,
       best_option_perception,
   )
+
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
   components_of_agent[
       agent_components.memory_component.DEFAULT_MEMORY_COMPONENT_NAME] = (
           agent_components.memory_component.MemoryComponent(raw_memory))
+  components_of_agent.update(additional_components)
 
   component_order = list(components_of_agent.keys())
   if overarching_goal is not None:

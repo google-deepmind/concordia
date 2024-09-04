@@ -70,6 +70,12 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='labor_collective_action',
         supporting_agent_module='rational_agent',
     ),
+    labor_collective_action__paranoid_boss=SubstrateConfig(
+        description=(
+            'labor organization collective action with a paranoid boss'),
+        environment='labor_collective_action',
+        supporting_agent_module='paranoid_agent',
+    ),
     pub_coordination=SubstrateConfig(
         description=(
             'pub attendance coordination with supporting agent being stubborn'
@@ -125,6 +131,39 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'convention following',
             'leadership',
             'persuasion',
+        ),
+    ),
+    labor_collective_action__paranoid_boss_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a labor '
+            'organization collective action scenario with a boss '
+            'who is paranoid and a visitor agent who is basic'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS[
+            'labor_collective_action__paranoid_boss'
+        ],
+        background_agent_module='basic_agent',
+        time_and_place_module='wild_west_railroad_construction_labor',
+        focal_is_resident=True,
+        tags=('discouraging antisocial behavior', 'role playing',),
+    ),
+    labor_collective_action__paranoid_boss_1=ScenarioConfig(
+        description=(
+            'visitor focal agent in a labor organization collective '
+            'action scenario with a boss who is paranoid '
+            'and a resident population of basic agents'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS[
+            'labor_collective_action__paranoid_boss'
+        ],
+        background_agent_module='basic_agent',
+        time_and_place_module='wild_west_railroad_construction_labor',
+        focal_is_resident=False,
+        tags=(
+            'convention following',
+            'leadership',
+            'persuasion',
+            'role playing',
         ),
     ),
     pub_coordination_0=ScenarioConfig(

@@ -26,6 +26,7 @@ from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from examples.modular.environment.supporting_agent_factory import basic_agent
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
+from examples.modular.environment.supporting_agent_factory import paranoid_agent
 from examples.modular.environment.supporting_agent_factory import rational_agent
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
@@ -44,6 +45,7 @@ AGENT_NAME = 'Rakshit'
 AGENT_FACTORIES = {
     'basic_agent': basic_agent,
     'basic_puppet_agent': basic_puppet_agent,
+    'paranoid_agent': paranoid_agent,
     'rational_agent': rational_agent,
 }
 
@@ -64,6 +66,11 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(
           testcase_name='basic_puppet_agent',
           agent_name='basic_puppet_agent',
+          main_role=False,
+      ),
+      dict(
+          testcase_name='paranoid_agent',
+          agent_name='paranoid_agent',
           main_role=False,
       ),
       dict(
