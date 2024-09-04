@@ -600,6 +600,7 @@ class Simulation(scenarios_lib.Runnable):
     self._embedder = embedder
     self._measurements = measurements
 
+    self._time_and_place_module = time_and_place_module
     time_and_place_params, sampled_settings = (
         helper_functions.load_time_and_place_module(
             time_and_place_module=time_and_place_module,
@@ -862,6 +863,7 @@ class Simulation(scenarios_lib.Runnable):
                 '%Y-%m-%d %H:%M:%S'
             ),
             'environment': __file__,
+            'time_and_place_module': self._time_and_place_module,
         }),
     )
     print('Overall scores per player:')
