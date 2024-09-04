@@ -38,7 +38,8 @@ Runnable = Callable[[], tuple[logging_lib.SimulationOutcome, str]]
 IMPORT_ENV_BASE_DIR = 'environment'
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
 IMPORT_SUPPORT_AGENT_DIR = (
-    'examples.modular.environment.supporting_agent_factory')
+    'examples.modular.environment.supporting_agent_factory'
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -68,6 +69,26 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         description='labor organization collective action with a rational boss',
         environment='labor_collective_action',
         supporting_agent_module='rational_agent',
+    ),
+    pub_coordination=SubstrateConfig(
+        description=(
+            'pub attendance coordination with supporting agent being stubborn'
+            ' and always choosing their preference.'
+        ),
+        environment='pub_coordination',
+        supporting_agent_module='basic_puppet_agent',
+    ),
+    pub_coordination_closures=SubstrateConfig(
+        description=(
+            'pub attendance coordination with one pub sometimes being closed'
+        ),
+        environment='pub_coordination_closures',
+        supporting_agent_module='basic_puppet_agent',
+    ),
+    pub_coordination_friendships=SubstrateConfig(
+        description='pub attendance coordination with friendship network',
+        environment='pub_coordination_friendships',
+        supporting_agent_module='basic_puppet_agent',
     ),
 )
 
@@ -105,6 +126,78 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'leadership',
             'persuasion',
         ),
+    ),
+    pub_coordination_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a pub coordination scenario'
+            ' with a supporting agent who is stubborn and a'
+            ' rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=True,
+        tags=('coordination', 'persuasion'),
+    ),
+    pub_coordination_1=ScenarioConfig(
+        description=(
+            'visitor focal agent in a pub coordination '
+            'scenario with a supporting agent who is a stubborn '
+            'and a visitor who is rational'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=False,
+        tags=('coordination', 'persuasion'),
+    ),
+    pub_coordination_closures_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a pub coordination with'
+            ' pub closures and with a supporting agent who is stubborn and a'
+            ' rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=True,
+        tags=('coordination', 'persuasion', 'private information'),
+    ),
+    pub_coordination_closures_1=ScenarioConfig(
+        description=(
+            'visitor focal agent in a pub coordination scenario with closures'
+            'and with a supporting agent who is stubborn and a'
+            ' rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=False,
+        tags=('coordination', 'persuasion', 'private information'),
+    ),
+    pub_coordination_friendships_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a pub coordination scenario'
+            ' with friendships with a supporting agent who is stubborn and a'
+            ' rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_friendships'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=True,
+        tags=('coordination', 'persuasion', 'social networks'),
+    ),
+    pub_coordination_friendships_1=ScenarioConfig(
+        description=(
+            'visitor focal agent in a pub coordination with friendships'
+            'scenario with a supporting agent who is stubborn '
+            'and a rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_friendships'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=False,
+        tags=('coordination', 'persuasion', 'social networks'),
     ),
 )
 

@@ -69,7 +69,6 @@ USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
 NUM_GAMES = 3
-USE_RELATIONAL_MATRIX = True
 
 
 def get_shared_memories_and_context(
@@ -289,6 +288,7 @@ def add_choice_scene_spec(
     option_multiplier: Mapping[str, float],
     scene_type_name: str,
     pubs: Sequence[str],
+    use_relational_matrix: bool = False,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, CoordinationPayoffs]:
   """Add a minigame scene spec.
@@ -302,6 +302,7 @@ def add_choice_scene_spec(
     option_multiplier: the option multipliers to use.
     scene_type_name: the name of the scene type.
     pubs: the pubs to use.
+    use_relational_matrix: whether to use relational matrix or not.
     verbose: whether to print verbose output or not.
 
   Returns:
@@ -317,7 +318,7 @@ def add_choice_scene_spec(
   }
 
   names = [cfg.name for cfg in player_configs]
-  if USE_RELATIONAL_MATRIX:
+  if use_relational_matrix:
     relational_matrix = sample_symmetric_relationship_matrix(names)
   else:
     relational_matrix = None
@@ -351,7 +352,7 @@ def add_choice_scene_spec(
       verbose=verbose,
   )
 
-  if USE_RELATIONAL_MATRIX:
+  if use_relational_matrix:
     friendship_statements = generate_relationship_statements(
         names, relational_matrix
     )
@@ -384,6 +385,7 @@ def configure_scenes(
     start_time: datetime.datetime,
     pub_closed_probability: float,
     sampled_settings: Any,
+    use_relational_matrix: bool = False,
 ) -> tuple[Sequence[scene_lib.SceneSpec], Callable[[], Mapping[str, float]]]:
   """Configure the scene storyboard structure.
 
@@ -397,6 +399,7 @@ def configure_scenes(
     start_time: the start time/date in the game world for the first scene
     pub_closed_probability: the probability that a pub is closed
     sampled_settings: the sampled settings for the world configuration
+    use_relational_matrix: whether to use relational matrix or not
 
   Returns:
     scenes: a sequence of scene specifications
@@ -460,6 +463,7 @@ def configure_scenes(
         player_configs=player_configs,
         scene_type_name=DECISION_SCENE_TYPE,
         pubs=pubs,
+        use_relational_matrix=use_relational_matrix,
     )
     coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
@@ -551,6 +555,7 @@ class Simulation(scenarios_lib.Runnable):
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
       pub_closed_probability: float = 0.0,
+      use_relational_matrix: bool = False,
   ):
     """Initialize the simulation object.
 
@@ -574,6 +579,7 @@ class Simulation(scenarios_lib.Runnable):
         specified, a random module will be chosen from the default options.
       pub_closed_probability: the probability that a pub is closed. Zero by
         default.
+      use_relational_matrix: whether to use relational matrix or not.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -586,7 +592,9 @@ class Simulation(scenarios_lib.Runnable):
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
-    self._supporting_agent_module = supporting_agent_module
+    self._build_supporting_agent = basic_puppet_agent.build_agent
+    if supporting_agent_module is not None:
+      self._build_supporting_agent = supporting_agent_module.build_agent
 
     self._model = model
     self._embedder = embedder
@@ -704,7 +712,7 @@ class Simulation(scenarios_lib.Runnable):
               f' {favorite_pub} and nowhere else. They are very vocal about it.'
           ),
       )
-      player = basic_puppet_agent.build_agent(
+      player = self._build_supporting_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
@@ -768,6 +776,7 @@ class Simulation(scenarios_lib.Runnable):
         sampled_settings=sampled_settings,
         start_time=start_time,
         pub_closed_probability=pub_closed_probability,
+        use_relational_matrix=use_relational_matrix,
     )
 
     self._secondary_environments = []
