@@ -24,10 +24,9 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
-from concordia.factory.agent import basic_agent
-from concordia.factory.agent import paranoid_agent
-from concordia.factory.agent import rational_agent
-from concordia.factory.agent import synthetic_user
+from examples.modular.environment.supporting_agent_factory import basic_agent
+from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
+from examples.modular.environment.supporting_agent_factory import rational_agent
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
 import numpy as np
@@ -44,9 +43,8 @@ AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic_agent': basic_agent,
+    'basic_puppet_agent': basic_puppet_agent,
     'rational_agent': rational_agent,
-    'synthetic_user': synthetic_user,
-    'paranoid_agent': paranoid_agent,
 }
 
 
@@ -61,22 +59,17 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(
           testcase_name='basic_agent',
           agent_name='basic_agent',
-          main_role=True
+          main_role=False
+      ),
+      dict(
+          testcase_name='basic_puppet_agent',
+          agent_name='basic_puppet_agent',
+          main_role=False,
       ),
       dict(
           testcase_name='rational_agent',
           agent_name='rational_agent',
-          main_role=True,
-      ),
-      dict(
-          testcase_name='synthetic_user',
-          agent_name='synthetic_user',
-          main_role=True,
-      ),
-      dict(
-          testcase_name='paranoid_agent',
-          agent_name='paranoid_agent',
-          main_role=True,
+          main_role=False,
       ),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):

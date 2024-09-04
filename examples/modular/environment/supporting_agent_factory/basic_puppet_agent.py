@@ -40,7 +40,8 @@ def build_agent(
     memory: associative_memory.AssociativeMemory,
     clock: game_clock.MultiIntervalClock,
     update_time_interval: datetime.timedelta,
-    fixed_response_by_call_to_action: Mapping[str, str],
+    fixed_response_by_call_to_action: Mapping[
+        str, str] = types.MappingProxyType({}),
     additional_components: Mapping[
         entity_component.ComponentName,
         entity_component.ContextComponent,
