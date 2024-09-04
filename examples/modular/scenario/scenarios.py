@@ -17,29 +17,22 @@
 from collections.abc import Callable, Collection, Mapping
 import dataclasses
 import importlib
-import pathlib
-import sys
 import types
 
+from examples.modular import environment as environment_lib
+from examples.modular.environment import supporting_agent_factory
 from examples.modular.utils import logging_types as logging_lib
+from concordia.factory import agent as agent_lib
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 import immutabledict
 import numpy as np
 
-concordia_root_dir = pathlib.Path(
-    __file__
-).parent.parent.parent.parent.parent.resolve()
-print('concordia root dir: ', concordia_root_dir)
-sys.path.append(f'{concordia_root_dir}')
-
 Runnable = Callable[[], tuple[logging_lib.SimulationOutcome, str]]
 
-IMPORT_ENV_BASE_DIR = 'environment'
-IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
-IMPORT_SUPPORT_AGENT_DIR = (
-    'examples.modular.environment.supporting_agent_factory'
-)
+DEFAULT_IMPORT_ENV_BASE_MODULE = environment_lib.__name__
+DEFAULT_IMPORT_AGENT_BASE_MODULE = agent_lib.__name__
+DEFAULT_IMPORT_SUPPORT_AGENT_MODULE = supporting_agent_factory.__name__
 
 
 @dataclasses.dataclass(frozen=True)
@@ -71,8 +64,7 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         supporting_agent_module='rational_agent',
     ),
     labor_collective_action__paranoid_boss=SubstrateConfig(
-        description=(
-            'labor organization collective action with a paranoid boss'),
+        description='labor organization collective action with a paranoid boss',
         environment='labor_collective_action',
         supporting_agent_module='paranoid_agent',
     ),
@@ -145,7 +137,10 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         background_agent_module='basic_agent',
         time_and_place_module='wild_west_railroad_construction_labor',
         focal_is_resident=True,
-        tags=('discouraging antisocial behavior', 'role playing',),
+        tags=(
+            'discouraging antisocial behavior',
+            'role playing',
+        ),
     ),
     labor_collective_action__paranoid_boss_1=ScenarioConfig(
         description=(
@@ -247,17 +242,18 @@ def build_simulation(
     focal_agent_module: types.ModuleType,
     embedder: Callable[[str], np.ndarray],
     measurements: measurements_lib.Measurements,
+    agent_base_module: str = DEFAULT_IMPORT_AGENT_BASE_MODULE,
+    support_agent_base_module: str = DEFAULT_IMPORT_SUPPORT_AGENT_MODULE,
+    env_base_module: str = DEFAULT_IMPORT_ENV_BASE_MODULE,
 ) -> Runnable:
   """Builds a simulation from a scenario configuration."""
   substrate_config = scenario_config.substrate_config
   # Load the environment config with importlib
-  root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-  sys.path.append(f'{root_dir}')
   simulation = importlib.import_module(
-      f'{IMPORT_ENV_BASE_DIR}.{substrate_config.environment}'
+      f'{env_base_module}.{substrate_config.environment}'
   )
   background_agent_module = importlib.import_module(
-      f'{IMPORT_AGENT_BASE_DIR}.{scenario_config.background_agent_module}'
+      f'{agent_base_module}.{scenario_config.background_agent_module}'
   )
   if scenario_config.focal_is_resident:
     resident_agent_module = focal_agent_module
@@ -267,7 +263,7 @@ def build_simulation(
     resident_agent_module = background_agent_module
 
   supporting_agent_module = importlib.import_module(
-      f'{IMPORT_SUPPORT_AGENT_DIR}.{substrate_config.supporting_agent_module}'
+      f'{support_agent_base_module}.{substrate_config.supporting_agent_module}'
   )
   runnable_simulation = simulation.Simulation(
       model=model,
