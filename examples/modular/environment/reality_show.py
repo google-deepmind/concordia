@@ -19,6 +19,7 @@ import dataclasses
 import datetime
 import random
 import types
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -28,9 +29,11 @@ from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
+from concordia.document import interactive_document
 from concordia.environment import game_master
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
@@ -44,13 +47,18 @@ from concordia.utils import measurements as measurements_lib
 import immutabledict
 import numpy as np
 
+
 SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
+DEFAULT_TIME_AND_PLACE_MODULES = (
+    'early_2000s_american_reality_show__chicken',
+    'early_2000s_american_reality_show__prisoners_dilemma',
+    'early_2000s_american_reality_show__stag_hunt',
+)
+
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-SETUP_TIME = datetime.datetime(hour=20, year=2000, month=10, day=1)
-START_TIME = datetime.datetime(hour=18, year=2000, month=10, day=2)
 
 DECISION_SCENE_TYPE = 'minigame'
 
@@ -187,8 +195,8 @@ class MiniGameSpec:
   action_spec: agent_lib.ActionSpec
 
 
-MINIGAMES = [
-    MiniGameSpec(
+MINIGAMES = {
+    'Carpooling': MiniGameSpec(
         name='Carpooling',
         public_premise=MINIGAME_INTRO_PREMISE
         + (
@@ -211,7 +219,7 @@ MINIGAMES = [
             tag='minigame_action',
         ),
     ),
-    MiniGameSpec(
+    'Home Appliance Sharing': MiniGameSpec(
         name='Home Appliance Sharing',
         public_premise=MINIGAME_INTRO_PREMISE
         + (
@@ -238,7 +246,7 @@ MINIGAMES = [
             tag='minigame_action',
         ),
     ),
-    MiniGameSpec(
+    'Boat Race': MiniGameSpec(
         name='Boat Race',
         public_premise=MINIGAME_INTRO_PREMISE
         + (
@@ -266,11 +274,7 @@ MINIGAMES = [
             tag='minigame_action',
         ),
     ),
-]
-
-
-def get_random_minigame() -> MiniGameSpec:
-  return np.random.choice(MINIGAMES)
+}
 
 
 def get_random_show_with_description() -> tuple[str, str]:
@@ -309,87 +313,149 @@ def get_shared_memories_and_context(
 
 
 def configure_players(
+    model: language_model.LanguageModel,
     show_title: str,
+    sampled_settings: Any,
 ) -> tuple[
     list[formative_memories.AgentConfig], list[formative_memories.AgentConfig]
 ]:
   """Configure the players.
 
   Args:
+    model: the language model to use
     show_title: the name of the reality show.
+    sampled_settings: the environment configuration containing the time and
+      place details.
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  player_configs = [
-      formative_memories.AgentConfig(
-          name='Alice',
-          gender='female',
-          date_of_birth=datetime.datetime(year=1962, month=4, day=28),
-          goal='make as much money as possible',
-          context=(
-              'Alice signed up to be a contestant on a reality TV show, '
-              'and hopes to win it since she needs the prize '
-              'money.'
-          ),
-          traits=(
-              "Alice's personality is like "
-              + player_traits_and_styles.get_trait(flowery=True)
-          ),
-          extras={
-              'player_specific_memories': [
-                  f'Alice is a contestant on {show_title}.',
-              ],
-              'main_character': True,
-              'initial_endowment': {'money': 0.0},
-          },
-      ),
-      formative_memories.AgentConfig(
-          name='Bob',
-          gender='male',
-          goal='make as much money as possible',
-          date_of_birth=datetime.datetime(year=1940, month=9, day=13),
-          context=(
-              'Bob signed up to be a contestant on a reality TV show, '
-              'and hopes to win it since he needs the prize '
-              'money.'
-          ),
-          traits=(
-              "Bob's personality is like "
-              + player_traits_and_styles.get_trait(flowery=True)
-          ),
-          extras={
-              'player_specific_memories': [
-                  f'Bob is a contestant on {show_title}.'
-              ],
-              'main_character': True,
-              'initial_endowment': {'money': 0.0},
-          },
-      ),
-      formative_memories.AgentConfig(
-          name='Charlie',
-          gender='male',
-          date_of_birth=datetime.datetime(year=1978, month=2, day=11),
-          goal='make as much money as possible',
-          context=(
-              'Charlie signed up to be a contestant on a reality TV show, '
-              'and hopes to win it since he needs the prize '
-              'money.'
-          ),
-          traits=(
-              "Charlie's personality is like "
-              + player_traits_and_styles.get_trait(flowery=True)
-          ),
-          extras={
-              'player_specific_memories': [
-                  f'Charlie is a contestant on {show_title}.',
-              ],
-              'main_character': True,
-              'initial_endowment': {'money': 0.0},
-          },
-      ),
-  ]
+  player_configs = []
+
+  def get_agent_config(player_name: str, sampled_settings: Any):
+    birth_year = sampled_settings.year - (25 + random.randint(-3, 3))
+    birth_month = random.randint(1, 12)
+    birth_day = random.randint(1, 28)
+    traits_str = sampled_settings.contestants[player_name]['traits']
+    catchphrase = sampled_settings.contestants[player_name]['catchphrase']
+    subject_pronoun = sampled_settings.contestants[player_name][
+        'subject_pronoun'
+    ]
+    object_pronoun = sampled_settings.contestants[player_name][
+        'subject_pronoun'
+    ]
+    prompt = interactive_document.InteractiveDocument(model)
+    prompt.statement(
+        'The following exercise is preparatory work for a role playing '
+        'session. The purpose of the exercise is to fill in the backstory '
+        f'for a character named {player_name}.'
+    )
+    prompt.statement(f'The year is {sampled_settings.year}.\n')
+    prompt.statement(f'{player_name} was born in the year {birth_year}.\n')
+    prompt.statement(
+        f'{player_name} is a contestant on a reality show called '
+        f'{show_title}.\n'
+    )
+    prompt.statement(f'{player_name} is {traits_str}')
+    prompt.statement(f"{player_name}'s catchphrase is: {catchphrase}")
+    prompt.statement(
+        'The following is the transcript of a '
+        'confessional-style introductory interview '
+        "conversation between the show's host and "
+        f'{player_name}.'
+    )
+    interview = []
+    for interview_question in sampled_settings.contestants[player_name][
+        'interview_questions'
+    ]:
+      answer = prompt.open_question(question=interview_question, max_tokens=500)
+      combined = f'Host -- "{interview_question}"\n{player_name} -- "{answer}"'
+      interview.append(combined)
+    hometown_question = 'Where are you from?'
+    hometown = prompt.open_question(question=hometown_question, max_tokens=100)
+    interview.append(
+        f'Host -- "{hometown_question}"\n{player_name} -- "{hometown}"'
+    )
+    interview_str = '\n'.join(interview)
+    public_face_prefix = (
+        f'What casual acquaintances remember about {player_name} is that '
+    )
+    public_face = prompt.open_question(
+        question=(
+            f'What do most acquaintances know about {player_name}? How '
+            f'does {subject_pronoun} present {object_pronoun}self to others? '
+            f'Does {subject_pronoun} have any personality quirks, salient '
+            'mannerisms, accents, or patterns of speech which casual '
+            f'acquaintances may be aware of? Is {subject_pronoun} especially '
+            'likely to bring up certain favorite conversation topics? '
+            f'Is {subject_pronoun} known for having '
+            'unusual beliefs or for uncommon fashion choices? Does '
+            f'{subject_pronoun} often talk about memorable life experiences, '
+            'past occupations, or hopes for the future which others would be '
+            'likely to remember them for? Overall, how '
+            f'would casual acquaintances describe {object_pronoun} if pressed?'
+        ),
+        answer_prefix=public_face_prefix,
+        max_tokens=500,
+    )
+    print(interview_str)
+    return formative_memories.AgentConfig(
+        name=player_name,
+        gender=sampled_settings.contestants[player_name]['gender'],
+        date_of_birth=datetime.datetime(
+            year=birth_year, month=birth_month, day=birth_day
+        ),
+        goal='make as much money as possible by winning the reality show',
+        context=(
+            f'{player_name} is a contestant on a reality TV show, '
+            f'and hopes to win it since {subject_pronoun} needs the prize '
+            f'money. {subject_pronoun} gave the following confessional-style '
+            f'interview at the start of the show:\n{interview_str}\n'
+            f'What casual acquaintances remember about {player_name} is that '
+            f'{public_face}'
+        ),
+        traits=f'{player_name} is {traits_str}',
+        extras={
+            'player_specific_memories': [
+                f'{player_name} is a contestant on {show_title}.',
+                (
+                    f'{player_name} gave the following confessional-style '
+                    f'interview at the start of the show:\n{interview_str}'
+                ),
+                (
+                    f'Some memorable things about {player_name} are that '
+                    f'{public_face}'
+                ),
+            ],
+            'main_character': True,
+            'initial_endowment': {'money': 0.0},
+            'public_face': public_face,
+        },
+    )
+
+  # Embellish main player backstory prompts in parallel.
+  main_player_config_futures = []
+  with concurrency.executor(max_workers=sampled_settings.num_players) as pool:
+    for player_name in list(sampled_settings.contestants.keys()):
+      future = pool.submit(
+          get_agent_config,
+          player_name=player_name,
+          sampled_settings=sampled_settings,
+      )
+      main_player_config_futures.append(future)
+    for future in main_player_config_futures:
+      player_configs.append(future.result())
+
+  public_faces = {
+      config.name: config.extras['public_face'] for config in player_configs
+  }
+  for config in player_configs:
+    for name, public_face in public_faces.items():
+      if config.name != name:
+        config.extras['player_specific_memories'].append(
+            f'What {config.name} remembers about {name} is that ' + public_face
+        )
 
   main_player_configs = [
       player for player in player_configs if player.extras['main_character']
@@ -408,6 +474,7 @@ def add_minigame_scene_spec(
     clock: game_clock.MultiIntervalClock,
     player_configs: Sequence[formative_memories.AgentConfig],
     scene_type_name: str,
+    sampled_settings: Any,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, SchellingPayoffs]:
   """Add a minigame scene spec.
@@ -419,13 +486,15 @@ def add_minigame_scene_spec(
     clock: the clock to use.
     player_configs: the player configs to use.
     scene_type_name: the name of the scene type.
+    sampled_settings: the environment configuration containing the time and
+      place details.
     verbose: whether to print verbose output or not.
 
   Returns:
     minigame_scene_type: the minigame scene type.
   """
   # Pick a minigame at random.
-  selected_minigame = get_random_minigame()
+  selected_minigame = MINIGAMES[sampled_settings.minigame]
   cooperation_option = (
       selected_minigame.map_external_actions_to_schelling_diagram['cooperation']
   )
@@ -484,6 +553,8 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
+    start_time: datetime.datetime,
+    sampled_settings: Any,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
     game_master.GameMaster | None,
@@ -498,13 +569,15 @@ def configure_scenes(
     clock: the clock to use.
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
+    start_time: the start time/date in the game world for the first scene
+    sampled_settings: the environment configuration containing the time and
+      place details
 
   Returns:
     scenes: a sequence of scene specifications
     decision_env: a game master to handle choice scenes
     schelling_payoffs: a component to compute rewards of collective action
   """
-
   player_configs = list(main_player_configs) + list(supporting_player_configs)
 
   conversation_phase_premise = (
@@ -531,32 +604,33 @@ def configure_scenes(
       clock=clock,
       player_configs=player_configs,
       scene_type_name=DECISION_SCENE_TYPE,
+      sampled_settings=sampled_settings,
   )
 
   scenes = [
       scene_lib.SceneSpec(
           scene_type=scene_specs['conversation'],
-          start_time=START_TIME + 0 * datetime.timedelta(hours=2),
+          start_time=start_time + 0 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=START_TIME + 1 * datetime.timedelta(hours=2),
+          start_time=start_time + 1 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
-          num_rounds=3,
+          num_rounds=sampled_settings.num_minigame_reps_per_scene,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_specs['conversation'],
-          start_time=START_TIME + 2 * datetime.timedelta(hours=2),
+          start_time=start_time + 2 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=START_TIME + 3 * datetime.timedelta(hours=2),
+          start_time=start_time + 3 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
-          num_rounds=2,
+          num_rounds=sampled_settings.num_minigame_reps_per_scene,
       ),
   ]
   return (
@@ -573,7 +647,8 @@ def outcome_summary_fn(
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
   result = {
-      name: f'{name} got a score of {score}' for name, score in rewards.items()
+      name: f'[important] {name} got a score of {score}.'
+      for name, score in rewards.items()
   }
   return result
 
@@ -612,10 +687,8 @@ class Simulation(scenarios_lib.Runnable):
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
     """
-    # Support for these parameters will be added in a future addition coming
-    # very imminently.
+    # No need for supprting agents in this environment.
     del supporting_agent_module
-    del time_and_place_module
 
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -630,8 +703,20 @@ class Simulation(scenarios_lib.Runnable):
     self._embedder = embedder
     self._measurements = measurements
 
+    self._time_and_place_module = time_and_place_module
+    _, sampled_settings = helper_functions.load_time_and_place_module(
+        time_and_place_module=time_and_place_module,
+        default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+    )
+
+    start_time = datetime.datetime(
+        year=sampled_settings.year,
+        month=sampled_settings.month,
+        day=sampled_settings.day,
+    )
+    setup_time = start_time - datetime.timedelta(days=1)
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+        start=setup_time, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
@@ -652,17 +737,19 @@ class Simulation(scenarios_lib.Runnable):
     )
 
     main_player_configs, supporting_player_configs = configure_players(
-        show_title=show_title
+        model=model,
+        show_title=show_title,
+        sampled_settings=sampled_settings,
     )
     random.shuffle(main_player_configs)
 
-    num_main_players = len(main_player_configs)
+    num_players = len(main_player_configs)
     num_supporting_players = len(supporting_player_configs)
 
     self._all_memories = {}
 
     main_player_memory_futures = []
-    with concurrency.executor(max_workers=num_main_players) as pool:
+    with concurrency.executor(max_workers=num_players) as pool:
       for player_config in main_player_configs:
         future = pool.submit(self._make_player_memories, config=player_config)
         main_player_memory_futures.append(future)
@@ -739,6 +826,7 @@ class Simulation(scenarios_lib.Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
+            max_conversation_length=2,
         )
     )
     self._scenes, decision_env, schelling_payoffs = configure_scenes(
@@ -748,13 +836,15 @@ class Simulation(scenarios_lib.Runnable):
         clock=self._clock,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
+        start_time=start_time,
+        sampled_settings=sampled_settings,
     )
     self._schelling_payoffs = schelling_payoffs
 
     self._secondary_environments = [decision_env]
 
     self._init_premise_memories(
-        setup_time=SETUP_TIME,
+        setup_time=setup_time,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         shared_memories=shared_memories,
