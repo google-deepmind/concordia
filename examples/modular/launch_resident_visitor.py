@@ -16,7 +16,7 @@ r"""Launch resident & visitor agents filling N-1 slots and 1 slot respectively.
 
 Usage:
 cd {concordia_root}/
-python examples/modular/launch_resident_visitor.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_resident_visitor.py \
   --agent_resident=RESIDENT_AGENT_NAME \
   --agent_visitor=VISITOR_AGENT_NAME \
   --environment=ENVIRONMENT_NAME \
@@ -46,8 +46,6 @@ asked for a multiple choice.
 import argparse
 import datetime
 import importlib
-import pathlib
-import sys
 
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
@@ -100,9 +98,7 @@ resident_agent_module = importlib.import_module(
 visitor_agent_module = importlib.import_module(
     f'{IMPORT_AGENT_BASE_DIR}.{args.visitor_agent_name}')
 # Load the environment config with importlib
-concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
-IMPORT_ENV_BASE_DIR = 'environment'
+IMPORT_ENV_BASE_DIR = 'examples.modular.environment'
 simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 

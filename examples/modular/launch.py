@@ -16,7 +16,7 @@ r"""Launch a simulation, replicating colab workflows in a regular python script.
 
 Usage:
 cd {concordia_root}/
-python examples/modular/launch.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch.py \
   --agent=AGENT_NAME \
   --environment=ENVIRONMENT_NAME \
   --api_type=API_TYPE \
@@ -45,8 +45,6 @@ asked for a multiple choice.
 import argparse
 import datetime
 import importlib
-import pathlib
-import sys
 
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
@@ -93,9 +91,7 @@ IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
 agent_module = importlib.import_module(
     f'{IMPORT_AGENT_BASE_DIR}.{command_line_args.agent_name}')
 # Load the environment config with importlib
-concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
-IMPORT_ENV_BASE_DIR = 'environment'
+IMPORT_ENV_BASE_DIR = 'examples.modular.environment'
 simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{command_line_args.environment_name}')
 

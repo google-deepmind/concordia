@@ -15,6 +15,10 @@
         "ms-python.vscode-pylance",
         "ms-toolsai.jupyter"
       ]
+    },
+    "remoteEnv": {
+      "PYTHONPATH": "${containerEnv:PYTHONPATH}:${containerWorkspaceFolder}",
+      "PYTHONSAFEPATH": "1"
     }
   }
 }

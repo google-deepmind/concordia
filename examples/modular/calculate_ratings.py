@@ -16,7 +16,7 @@ r"""Compute Elo ratings for a set of agents in the Concordia Challenge.
 
 Usage:
 cd {concordia_root}/
-python examples/modular/calculate_ratings.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/calculate_ratings.py \
   --model=MODEL_NAME \
   --embedder=EMBEDDER_NAME \
   --agents AGENT_0 AGENT_1 AGENT_2 ...
@@ -32,14 +32,10 @@ evaluation for all the agents AGENT_0, AGENT_1, ...
 
 import argparse
 import datetime
-import pathlib
-import sys
 
 import numpy as np
 
-concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
-# pylint: disable=g-import-not-at-top, g-bad-import-order
+# pylint: disable=g-bad-import-order
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.scoring import elo
 from examples.modular.scoring import utils as scoring_utils

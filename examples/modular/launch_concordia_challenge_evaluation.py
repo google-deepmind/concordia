@@ -16,7 +16,7 @@ r"""Evaluate the submitted agent on all scenarios.
 
 Usage:
 cd {concordia_root}/
-python examples/modular/launch_concordia_challenge_evaluation.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_concordia_challenge_evaluation.py \
   --agent=AGENT_NAME \
   --api_type=API_TYPE \
   --model=MODEL_NAME \
@@ -69,17 +69,13 @@ the same model and embedder.
 import argparse
 import datetime
 import importlib
-import pathlib
-import sys
 
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
 
-concordia_root_dir = pathlib.Path(__file__).parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
-# pylint: disable=g-import-not-at-top, g-bad-import-order
+# pylint: disable=g-bad-import-order
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import files as file_utils
 from examples.modular.utils import logging_types as logging_lib
@@ -155,7 +151,7 @@ if not exclude_from_elo_calculation:
       file_path=agents_list_path, unpack_singleton_rows=True)
 
   if args.agent_name in agents_list:
-    raise ValueError('f{args.agent_name} was already evaluated.')
+    raise RuntimeError(f'{args.agent_name} was already evaluated.')
   else:
     file_handle = open(agents_list_path, 'a', encoding='utf-8')
     file_handle.write(f'{args.agent_name}\n')
