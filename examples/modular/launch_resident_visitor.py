@@ -55,15 +55,13 @@ import sentence_transformers
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
-parser.add_argument(
-    '--agent_resident',
-    action='store',
-    default='basic_agent',
-    dest='resident_agent_name',
-)
+parser.add_argument('--agent_resident',
+                    action='store',
+                    default='basic_agent',
+                    dest='resident_agent_name')
 parser.add_argument('--agent_visitor',
                     action='store',
-                    default='rational_agent__main_role',
+                    default='rational_agent',
                     dest='visitor_agent_name')
 parser.add_argument('--environment',
                     action='store',
