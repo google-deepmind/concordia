@@ -154,9 +154,27 @@ def configure_players(
   player_configs = []
 
   def get_agent_config(player_name: str, environment_cfg: Any):
+    if environment_cfg.person_data[player_name]['gender'] == 'male':
+      subject_pronoun = 'he'
+      object_pronoun = 'him'
+    elif environment_cfg.person_data[player_name]['gender'] == 'female':
+      subject_pronoun = 'she'
+      object_pronoun = 'her'
+    else:
+      subject_pronoun = 'they'
+      object_pronoun = 'their'
+
     birth_year = environment_cfg.year - (30 + random.randint(-8, 8))
     birth_month = random.randint(1, 12)
     birth_day = random.randint(1, 28)
+    goal_str = (
+        f'{player_name} hopes to be able to provide for their '
+        'family and live a full life.'
+    )
+    traits_str = (
+        f"{player_name}'s personality is like "
+        + player_traits_and_styles.get_trait(flowery=True)
+    )
     prompt = interactive_document.InteractiveDocument(model)
     prompt.statement(
         'The following exercise is preparatory work for a role playing '
@@ -167,29 +185,47 @@ def configure_players(
     prompt.statement(f'The location is {environment_cfg.location}.\n')
     prompt.statement(f'{player_name} was born in the year {birth_year}.\n')
     prompt.statement(f'Past events:\n{joined_world_elements}\n')
+    prompt.statement(goal_str)
+    prompt.statement(traits_str)
     player_backstory_answers = []
     for question in environment_cfg.formative_memory_prompts[player_name]:
       answer = prompt.open_question(question=question, max_tokens=500)
       player_backstory_answers.append(answer)
+    public_face_prefix = (
+        f'What casual acquaintances remember about {player_name} is that '
+    )
+    public_face = prompt.open_question(
+        question=(
+            f'What do most acquaintances know about {player_name}? How '
+            f'does {subject_pronoun} present {object_pronoun}self to others? '
+            f'Does {subject_pronoun} have any personality quirks, salient '
+            'mannerisms, accents, or patterns of speech which casual '
+            f'acquaintances may be aware of? Is {subject_pronoun} especially '
+            'likely to bring up certain favorite conversation topics? '
+            f'Is {subject_pronoun} known for having '
+            'unusual beliefs or for uncommon fashion choices? Does '
+            f'{subject_pronoun} often talk about memorable life experiences, '
+            'past occupations, or hopes for the future which others would be '
+            'likely to remember them for? Overall, how '
+            f'would casual acquaintances describe {object_pronoun} if pressed?'
+        ),
+        answer_prefix=public_face_prefix,
+        max_tokens=500,
+    )
+    player_backstory_answers.append(public_face_prefix + public_face)
     return formative_memories.AgentConfig(
         name=player_name,
         gender=environment_cfg.person_data[player_name].get('gender', None),
         date_of_birth=datetime.datetime(
             year=birth_year, month=birth_month, day=birth_day
         ),
-        goal=(
-            f'{player_name} hopes to be able to provide for their '
-            'family, and live a full life.'
-        ),
+        goal=goal_str,
         context=(
             ' '.join(environment_cfg.world_elements)
             + ' '
             + ' '.join(player_backstory_answers)
         ),
-        traits=(
-            f"{player_name}'s personality is like "
-            + player_traits_and_styles.get_trait(flowery=True)
-        ),
+        traits=traits_str,
         extras={
             'player_specific_memories': player_backstory_answers + list(
                 environment_cfg.person_data[player_name]['salient_beliefs']
@@ -198,6 +234,7 @@ def configure_players(
             'initial_endowment': {
                 'coin': 5.0,
             },
+            'public_face': public_face,
         },
     )
 
@@ -213,6 +250,28 @@ def configure_players(
       main_player_config_futures.append(future)
     for future in main_player_config_futures:
       player_configs.append(future.result())
+
+  public_faces = {
+      config.name: config.extras['public_face'] for config in player_configs
+  }
+  for config in player_configs:
+    for name, public_face in public_faces.items():
+      if config.name != name:
+        config.extras['player_specific_memories'].append(
+            f'What {config.name} remembers about {name} is that ' + public_face
+        )
+  antagonist_knowledge_of_others = []
+  for name, public_face in public_faces.items():
+    antagonist_knowledge_of_others.append(
+        f'What {sampled_settings.antagonist} remembers about {name} is that '
+        + public_face
+    )
+  organizer_knowledge_of_others = []
+  for name, public_face in public_faces.items():
+    organizer_knowledge_of_others.append(
+        f'What {sampled_settings.antagonist} remembers about {name} is that '
+        + public_face
+    )
 
   # Add supporting players: (1) the antagonist, and (2) the labor organizer.
   antagonist_params = sampled_settings.person_data[sampled_settings.antagonist]
@@ -240,7 +299,10 @@ def configure_players(
           'supremely rational and ruthless.'
       ),
       extras={
-          'player_specific_memories': antagonist_params['salient_beliefs'],
+          'player_specific_memories': (
+              antagonist_params['salient_beliefs']
+              + antagonist_knowledge_of_others
+          ),
           'main_character': False,
           'initial_endowment': {
               'coin': 100.0,
@@ -276,7 +338,10 @@ def configure_players(
           'ambitious, but also fundamentally kind.'
       ),
       extras={
-          'player_specific_memories': organizer_params['salient_beliefs'],
+          'player_specific_memories': (
+              organizer_params['salient_beliefs']
+              + organizer_knowledge_of_others
+          ),
           'main_character': False,
           'initial_endowment': {
               'coin': 7.0,
