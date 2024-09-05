@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Temporary placeholder for tests."""
-
-# We need at least one test in examples/ for pytest to pass, so this is it.
-# TODO: b/315274742 - Once other examples tests exist this file can be deleted.
+"""Tests that "import examples" will work."""
 
 from absl.testing import absltest
 
