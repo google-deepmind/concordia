@@ -31,6 +31,7 @@ _MAX_CHAT_ATTEMPTS = 20
 # At least one Mistral model supports completion mode.
 COMPLETION_MODELS = (
     'codestral-latest',
+    'codestral-2405',
 )
 
 
@@ -64,7 +65,7 @@ class MistralLanguageModel(language_model.LanguageModel):
     self._text_model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._client = mistralai.Mistral(api_key=api_key)
+    self._client = mistralai.Mistral(api_key=self._api_key)
 
     self._choice_model_name = self._text_model_name
     if use_codestral_for_choices:
@@ -109,7 +110,8 @@ class MistralLanguageModel(language_model.LanguageModel):
             stop=terminators,
             random_seed=seed,
         )
-      except mistralai.models.sdkerror.SDKError:
+      except mistralai.models.sdkerror.SDKError as err:
+        print(f'  Exception: {err}')
         continue
       else:
         result = response.choices[0].message.content
@@ -172,7 +174,8 @@ class MistralLanguageModel(language_model.LanguageModel):
             max_tokens=max_tokens,
             random_seed=seed,
         )
-      except mistralai.models.sdkerror.SDKError:
+      except mistralai.models.sdkerror.SDKError as err:
+        print(f'  Exception: {err}')
         continue
       else:
         return response.choices[0].message.content
