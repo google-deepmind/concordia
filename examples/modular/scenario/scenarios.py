@@ -88,6 +88,16 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination_friendships',
         supporting_agent_module='basic_puppet_agent',
     ),
+    haggling=SubstrateConfig(
+        description='haggling over a price',
+        environment='haggling',
+        supporting_agent_module='basic_puppet_agent',
+    ),
+    haggling_gullible=SubstrateConfig(
+        description='haggling over a price',
+        environment='haggling_gullible',
+        supporting_agent_module='basic_puppet_agent',
+    ),
 )
 
 SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
@@ -232,6 +242,39 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         time_and_place_module='pub_coordination_london',
         focal_is_resident=False,
         tags=('coordination', 'persuasion', 'social networks'),
+    ),
+    haggling_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a haggling scenario with no'
+            ' supporting agents and rational residents'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['haggling'],
+        background_agent_module='rational_agent',
+        time_and_place_module='fruitville_haggling',
+        focal_is_resident=True,
+        tags=('negotiation',),
+    ),
+    haggling_1=ScenarioConfig(
+        description=(
+            'visitor focal agent in a haggling scenario with no supporting'
+            ' agents and a rational visitor agent'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['haggling'],
+        background_agent_module='rational_agent',
+        time_and_place_module='fruitville_haggling',
+        focal_is_resident=False,
+        tags=('negotiation',),
+    ),
+    haggling_gullible=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a haggling scenario'
+            ' supporting agents who will accept any offer'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['haggling_gullible'],
+        background_agent_module='rational_agent',
+        time_and_place_module='fruitville_haggling',
+        focal_is_resident=True,
+        tags=('negotiation',),
     ),
 )
 

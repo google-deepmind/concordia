@@ -573,14 +573,15 @@ class Simulation(scenarios_lib.Runnable):
     )
     setup_clock_time = start_time - datetime.timedelta(days=1)
 
-    if resident_visitor_modules is None:
-      self._resident_visitor_mode = False
-      self._agent_module = agent_module
-    else:
+    if resident_visitor_modules:
       self._resident_visitor_mode = True
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
+    else:
+      self._resident_visitor_mode = False
+      self._agent_module = agent_module
+
     self._build_supporting_agent = basic_puppet_agent.build_agent
     if supporting_agent_module is not None:
       self._build_supporting_agent = supporting_agent_module.build_agent
