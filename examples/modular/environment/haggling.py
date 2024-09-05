@@ -54,11 +54,9 @@ ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 DEFAULT_TIME_AND_PLACE_MODULES = ('fruitville_haggling',)
 
-NUM_MAIN_PLAYERS = 2
-NUM_SUPPORTING_PLAYERS = 1
+NUM_MAIN_PLAYERS = 3
 
-
-NUM_GAMES = 4
+NUM_GAMES = 2
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
@@ -80,6 +78,8 @@ class WorldConfig:
     scene_visuals: A collection of visual descriptions of the scene.
     people: A collection of people in the scenario.
     person_data: A mapping from person name to person data.
+    num_supporting_players: The number of supporting players in the scenario.
+    only_match_with_support: Whether to only match with supporting players.
   """
 
   year: int
@@ -90,6 +90,8 @@ class WorldConfig:
   person_data: dict[str, dict[str, Union[str, Sequence[str]]]] = (
       dataclasses.field(default_factory=dict)
   )
+  num_supporting_players: int = 0
+  only_match_with_support: bool = False
 
 
 def bargain_statements(
@@ -159,7 +161,7 @@ def configure_player(name: str, gender: str, year: int, is_main: bool):
       date_of_birth=datetime.datetime(
           year=year - random.randint(25, 54),
           month=random.randint(1, 12),
-          day=random.randint(1, 30),
+          day=random.randint(1, 28),
       ),
       context=(
           f'{name} is a travelling merchant. Her business is buying and'
@@ -199,7 +201,7 @@ def configure_players(
     config = configure_player(name, gender, sampled_settings.year, is_main=True)
     player_configs.append(config)
 
-  for i in range(NUM_SUPPORTING_PLAYERS):
+  for i in range(sampled_settings.num_supporting_players):
     name = names[i + NUM_MAIN_PLAYERS]
     gender = sampled_settings.person_data[name]['gender']
 
@@ -314,6 +316,41 @@ def add_choice_scene_spec(
   return choice_scene_type, bargain_payoffs
 
 
+def _create_all_pairs(players):
+  """Creates a list of all possible unique pairs from a list of players.
+
+  Args:
+    players: A list of player names.
+
+  Returns:
+    A list of tuples representing unique pairs of players.
+  """
+
+  pairs = []
+  for i in range(len(players)):
+    for j in range(i + 1, len(players)):  # Start from i+1 to avoid repetitions
+      pairs.append((players[i], players[j]))
+  return pairs
+
+
+def _create_main_vs_support_pairs(main_players, supporting_players):
+  """Creates game pairs where each main player plays each supporting player.
+
+  Args:
+    main_players: A list of main players.
+    supporting_players: A list of supporting players.
+
+  Returns:
+    A list of tuples representing game pairs, where each tuple contains two
+    player names.
+  """
+  pairs = []
+  for main_player in main_players:
+    for supporting_player in supporting_players:
+      pairs.append((main_player, supporting_player))
+  return pairs
+
+
 def configure_scenes(
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
@@ -349,13 +386,26 @@ def configure_scenes(
   scenes = []
 
   player_configs = list(main_player_configs) + list(supporting_player_configs)
+  main_player_names = set([player.name for player in main_player_configs])
 
-  for i in range(NUM_GAMES):
+  main_players = [
+      player for player in players if player.name in main_player_names
+  ]
+  supporting_players = [
+      player for player in players if player.name not in main_player_names
+  ]
+
+  if sampled_settings.only_match_with_support:
+    pairs = _create_main_vs_support_pairs(main_players, supporting_players)
+  else:
+    pairs = _create_all_pairs(players)
+
+  for i in range(NUM_GAMES * len(pairs)):
 
     buyer_base_reward = random.randint(3, 6)
     seller_base_reward = random.randint(1, 3)
 
-    this_game_players = random.sample(players, 2)
+    this_game_players = pairs[i % len(pairs)]
 
     # It is important that this_game_configs has exactly the same order as
     # this_game_players. Otherwise, the turn order between buyer and seller
@@ -476,6 +526,8 @@ class Simulation(scenarios_lib.Runnable):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      num_supporting_player: int = 0,
+      only_match_with_support: bool = False,
   ):
     """Initialize the simulation object.
 
@@ -497,6 +549,9 @@ class Simulation(scenarios_lib.Runnable):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      num_supporting_player: the number of supporting players.
+      only_match_with_support: whether to only match main players with
+        supporting players.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -508,6 +563,8 @@ class Simulation(scenarios_lib.Runnable):
             default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
         )
     )
+    sampled_settings.num_supporting_players = num_supporting_player
+    sampled_settings.only_match_with_support = only_match_with_support
 
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
