@@ -16,13 +16,4 @@ runs:
 
     - name: Convert notebooks
       shell: bash
-      run: |
-        find "examples" -type f -iname '*.ipynb' -exec sh -c '
-          for file do
-            sed "/^\s*\"%%/d" "$file" > "${file%.ipynb}_modified.ipynb"
-          done
-        ' sh {} + && \
-        jupyter nbconvert --to=python --output-dir=notebooks \
-            --RegexRemovePreprocessor.patterns='(!|%)pip' \
-            $(find examples -type f -iname '*_modified.ipynb')
-        ls notebooks/*.py
+      run: ./bin/convert_notebooks.sh notebooks
