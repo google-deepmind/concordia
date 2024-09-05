@@ -97,7 +97,7 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{command_line_args.environment_name}')
 
 # Language Model setup
-model = utils.language_model_setup(command_line_args)
+model = utils.language_model_setup(**vars(command_line_args))
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
     f'sentence-transformers/{command_line_args.embedder_name}')

@@ -18,29 +18,50 @@ from concordia.language_model import amazon_bedrock_model
 from concordia.language_model import google_aistudio_model
 from concordia.language_model import gpt_model
 from concordia.language_model import langchain_ollama_model
+from concordia.language_model import language_model
 from concordia.language_model import mistral_model
 from concordia.language_model import no_language_model
 from concordia.language_model import ollama_model
 from concordia.language_model import pytorch_gemma_model
 
 
-def language_model_setup(args):
-  """Get the wrapped language model."""
-  if args.disable_language_model:
+def language_model_setup(
+    *,
+    api_type: str,
+    model_name: str,
+    api_key: str | None = None,
+    disable_language_model: bool = False,
+) -> language_model.LanguageModel:
+  """Get the wrapped language model.
+
+  Args:
+    api_type: The type of API to use.
+    model_name: The name of the specific model to use.
+    api_key: Optional, the API key to use. If None, will use the environment
+      variable for the specified API type.
+    disable_language_model: Optional, if True then disable the language model.
+      This uses a model that returns an empty string whenever asked for a free
+      text response and a randome option when asked for a choice.
+
+  Returns:
+    The wrapped language model.
+  """
+  if disable_language_model:
     return no_language_model.NoLanguageModel()
-  elif args.api_type == 'amazon_bedrock':
-    return amazon_bedrock_model.AmazonBedrockLanguageModel(args.model_name)
-  elif args.api_type == 'google_aistudio_model':
-    return google_aistudio_model.GoogleAIStudioLanguageModel(args.model_name)
-  elif args.api_type == 'langchain_ollama':
-    return langchain_ollama_model.LangchainOllamaLanguageModel(args.model_name)
-  elif args.api_type == 'mistral':
-    return mistral_model.MistralLanguageModel(args.model_name)
-  elif args.api_type == 'ollama':
-    return ollama_model.OllamaLanguageModel(args.model_name)
-  elif args.api_type == 'openai':
-    return gpt_model.GptLanguageModel(args.model_name)
-  elif args.api_type == 'pytorch_gemma':
-    return pytorch_gemma_model.PyTorchGemmaLanguageModel(args.model_name)
+  elif api_type == 'amazon_bedrock':
+    return amazon_bedrock_model.AmazonBedrockLanguageModel(model_name)
+  elif api_type == 'google_aistudio_model':
+    return google_aistudio_model.GoogleAIStudioLanguageModel(
+        model_name=model_name, api_key=api_key)
+  elif api_type == 'langchain_ollama':
+    return langchain_ollama_model.LangchainOllamaLanguageModel(model_name)
+  elif api_type == 'mistral':
+    return mistral_model.MistralLanguageModel(model_name, api_key=api_key)
+  elif api_type == 'ollama':
+    return ollama_model.OllamaLanguageModel(model_name)
+  elif api_type == 'openai':
+    return gpt_model.GptLanguageModel(model_name, api_key=api_key)
+  elif api_type == 'pytorch_gemma':
+    return pytorch_gemma_model.PyTorchGemmaLanguageModel(model_name)
   else:
-    raise ValueError(f'Unrecognized api type: {args.api_type}')
+    raise ValueError(f'Unrecognized api type: {api_type}')

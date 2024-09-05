@@ -103,7 +103,7 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 
 # Language Model setup
-model = utils.language_model_setup(args)
+model = utils.language_model_setup(**vars(args))
 
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(

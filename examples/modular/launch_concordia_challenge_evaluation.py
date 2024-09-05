@@ -172,7 +172,7 @@ evaluation_results = {}
 for scenario_name, scenario_config in scenarios_lib.SCENARIO_CONFIGS.items():
   print(f'Running scenario: {scenario_name}')
   # Language Model setup
-  model = utils.language_model_setup(args)
+  model = utils.language_model_setup(**vars(args))
   # Setup sentence encoder
   embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 
