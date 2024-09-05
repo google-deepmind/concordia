@@ -17,9 +17,7 @@
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 import importlib
-import pathlib
 import random
-import sys
 import types
 
 from concordia import components as generic_components
@@ -30,6 +28,7 @@ from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
+from examples.modular.environment import modules as environment_modules
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.scenario import scenarios as scenarios_lib
@@ -48,12 +47,8 @@ ENVIRONMENT_MODULES = ('pre_state_villages',)
 env_module_name = random.choice(ENVIRONMENT_MODULES)
 
 # Load the environment config with importlib
-concordia_root_dir = pathlib.Path(
-    __file__
-).parent.parent.parent.parent.resolve()
-sys.path.append(f'{concordia_root_dir}')
 environment_module = importlib.import_module(
-    f'examples.modular.environment.modules.{env_module_name}'
+    f'{environment_modules.__name__}.{env_module_name}'
 )
 config = environment_module.get_world_config()
 

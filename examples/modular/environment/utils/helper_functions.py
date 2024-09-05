@@ -17,9 +17,7 @@
 
 from collections.abc import Sequence
 import importlib
-import pathlib
 import random
-import sys
 import types
 from typing import Any
 
@@ -50,13 +48,8 @@ def load_time_and_place_module(
   if time_and_place_module is None:
     time_and_place_module = random.choice(default_time_and_place_modules)
   # Load the environment config with importlib
-  concordia_root_dir = pathlib.Path(
-      __file__
-  ).parent.parent.parent.parent.resolve()
-  sys.path.append(f'{concordia_root_dir}')
   time_and_place_params = importlib.import_module(
       f'{modules.__name__}.{time_and_place_module}'
   )
   sampled_settings = time_and_place_params.sample_parameters()
   return time_and_place_params, sampled_settings
-
