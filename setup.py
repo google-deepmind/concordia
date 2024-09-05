@@ -71,7 +71,6 @@ setuptools.setup(
         'boto3',
         'google-cloud-aiplatform',
         'google-generativeai',
-        'immutabledict',
         'ipython',
         'langchain',
         'matplotlib',
