@@ -657,7 +657,7 @@ class Simulation(scenarios_lib.Runnable):
       )
       if self._resident_visitor_mode:
         if idx == 0:
-          player = self._build_supporting_agent(**kwargs)
+          player = self._visitor_agent_module.build_agent(**kwargs)
           self._visitor_names.append(player.name)
         else:
           player = self._resident_agent_module.build_agent(**kwargs)
