@@ -6,5 +6,5 @@ IPython
 matplotlib
 ml_collections
 numpy
-sentence_transformers
+sentence-transformers
 termcolor
