@@ -2,7 +2,7 @@
 {
   "name": "Concordia",
   "image": "mcr.microsoft.com/devcontainers/python:0-3.11",
-  "postCreateCommand": "pip install --editable .[dev]",
+  "postCreateCommand": ".devcontainer/setup.sh",
   "customizations": {
     "vscode": {
       "extensions": [
