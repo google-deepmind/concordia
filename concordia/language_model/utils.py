@@ -49,6 +49,11 @@ def language_model_setup(
   if disable_language_model:
     return no_language_model.NoLanguageModel()
   elif api_type == 'amazon_bedrock':
+    if api_key is not None:
+      raise ValueError(
+          'Explicitly passing the API key is not supported for Amazon Bedrock '
+          'models. Please use an environment variable instead.'
+      )
     return amazon_bedrock_model.AmazonBedrockLanguageModel(model_name)
   elif api_type == 'google_aistudio_model':
     return google_aistudio_model.GoogleAIStudioLanguageModel(

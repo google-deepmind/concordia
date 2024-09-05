@@ -113,6 +113,10 @@ parser.add_argument(
     default=2,
     dest='num_repetitions_per_scenario',
 )
+parser.add_argument('--api_key',
+                    action='store',
+                    default=None,
+                    dest='api_key')
 parser.add_argument(
     '--disable_language_model',
     action='store_true',
@@ -172,7 +176,12 @@ evaluation_results = {}
 for scenario_name, scenario_config in scenarios_lib.SCENARIO_CONFIGS.items():
   print(f'Running scenario: {scenario_name}')
   # Language Model setup
-  model = utils.language_model_setup(**vars(args))
+  model = utils.language_model_setup(
+      api_type=args.api_type,
+      model_name=args.model_name,
+      api_key=args.api_key,
+      disable_language_model=args.disable_language_model,
+  )
   # Setup sentence encoder
   embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 

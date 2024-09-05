@@ -79,6 +79,10 @@ parser.add_argument('--embedder',
                     action='store',
                     default='all-mpnet-base-v2',
                     dest='embedder_name')
+parser.add_argument('--api_key',
+                    action='store',
+                    default=None,
+                    dest='api_key')
 parser.add_argument('--disable_language_model',
                     action='store_true',
                     help=('replace the language model with a null model. This '
@@ -103,7 +107,12 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 
 # Language Model setup
-model = utils.language_model_setup(**vars(args))
+model = utils.language_model_setup(
+    api_type=args.api_type,
+    model_name=args.model_name,
+    api_key=args.api_key,
+    disable_language_model=args.disable_language_model,
+)
 
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(

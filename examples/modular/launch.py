@@ -52,7 +52,6 @@ from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import sentence_transformers
 
-
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
 parser.add_argument('--agent',
@@ -75,6 +74,10 @@ parser.add_argument('--embedder',
                     action='store',
                     default='all-mpnet-base-v2',
                     dest='embedder_name')
+parser.add_argument('--api_key',
+                    action='store',
+                    default=None,
+                    dest='api_key')
 parser.add_argument('--disable_language_model',
                     action='store_true',
                     help=('replace the language model with a null model. This '
@@ -97,7 +100,12 @@ simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{command_line_args.environment_name}')
 
 # Language Model setup
-model = utils.language_model_setup(**vars(command_line_args))
+model = utils.language_model_setup(
+    api_type=command_line_args.api_type,
+    model_name=command_line_args.model_name,
+    api_key=command_line_args.api_key,
+    disable_language_model=command_line_args.disable_language_model,
+)
 # Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
     f'sentence-transformers/{command_line_args.embedder_name}')
