@@ -15,10 +15,12 @@
 """A Concordia Environment Configuration."""
 
 import collections
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
+import dataclasses
 import datetime
 import random
 import types
+from typing import Union
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -32,9 +34,9 @@ from concordia.contrib.components.game_master import bargain_payoffs as bargain_
 from concordia.document import interactive_document
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation
-from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
+from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
@@ -47,65 +49,47 @@ from concordia.utils import measurements as measurements_lib
 import immutabledict
 import numpy as np
 
+
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
+DEFAULT_TIME_AND_PLACE_MODULES = ('fruitville_haggling',)
 
-NUM_MAIN_PLAYERS = 1
-NUM_SUPPORTING_PLAYERS = 3
-
-SCENARIO_PREMISE = (
-    'In the realm of Ouroboros, there is a quiet village of'
-    ' Fruitville, which is famous for its fruit market. Traders from'
-    ' all over the realm come to Fruitville to buy and sell produce.'
-)
-
-VISUAL_SCENE_OPENINGS = [
-    (
-        'The first rays of dawn painted the sky above Fruitville in hues of'
-        ' orange and gold, casting a warm glow over the bustling market. Stalls'
-        ' overflowed with vibrant fruits, their aromas mingling in the crisp'
-        ' morning air.'
-    ),
-    (
-        'As the sun peeked over the horizon, the market of Fruitville stirred'
-        ' to life. Merchants, their voices a cheerful symphony, arranged their'
-        ' wares: glistening berries, plump melons, and exotic fruits from'
-        ' distant lands.'
-    ),
-    (
-        'Dewdrops clung to the colorful fruits displayed in the market of'
-        ' Fruitville, reflecting the soft morning light. The air buzzed with'
-        " anticipation as traders and customers alike gathered for the day's"
-        ' trade.'
-    ),
-    (
-        'The cobblestone streets of Fruitville echoed with the clatter of'
-        ' hooves and the rumble of carts as the market awoke. Underneath'
-        ' colorful awnings, merchants proudly presented their bountiful'
-        ' harvests, their voices a chorus of greetings and bartering.'
-    ),
-    (
-        'In the heart of Fruitville, the market square transformed into a'
-        ' kaleidoscope of colors as the sun rose. Fruits of every imaginable'
-        ' shape and size adorned the stalls, a feast for the eyes and a promise'
-        ' of delightful flavors.'
-    ),
-]
+NUM_MAIN_PLAYERS = 2
+NUM_SUPPORTING_PLAYERS = 1
 
 
-FIRST_NAMES = player_names.FIRST_NAMES
 NUM_GAMES = 4
-YEAR = 1895
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-SETUP_TIME = datetime.datetime(hour=20, year=YEAR, month=10, day=1)
-START_TIME = datetime.datetime(hour=12, year=YEAR, month=10, day=2)
 
 DECISION_SCENE_TYPE = 'choice'
 
 
 TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(days=1)
+
+
+@dataclasses.dataclass(kw_only=True)
+class WorldConfig:
+  """The configuration of the simulated world.
+
+  Attributes:
+    year: The year in which the scenario takes place.
+    location: The location in which the scenario takes place.
+    premise: The premise of the scenario.
+    scene_visuals: A collection of visual descriptions of the scene.
+    people: A collection of people in the scenario.
+    person_data: A mapping from person name to person data.
+  """
+
+  year: int
+  location: str
+  premise: str
+  scene_visuals: Collection[str]
+  people: Sequence[str] = ()
+  person_data: dict[str, dict[str, Union[str, Sequence[str]]]] = (
+      dataclasses.field(default_factory=dict)
+  )
 
 
 def bargain_statements(
@@ -134,7 +118,7 @@ def bargain_statements(
   return premise
 
 
-def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
+def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
   shared_memories = [
       'Fruits are sold by weight.',
@@ -143,16 +127,17 @@ def get_shared_memories_and_context() -> tuple[Sequence[str], str]:
           ' is really cheap and 5 coins is really expensive.'
       ),
   ]
-  shared_context = SCENARIO_PREMISE
+  shared_context = premise
   return shared_memories, shared_context
 
 
-def configure_player(name: str, gender: str, is_main: bool):
+def configure_player(name: str, gender: str, year: int, is_main: bool):
   """Configure a player.
 
   Args:
     name: the name of the player
     gender: the gender of the player
+    year: the year of the simulation to sample the age of the players
     is_main: whether the player is a main character or not
 
   Returns:
@@ -172,7 +157,7 @@ def configure_player(name: str, gender: str, is_main: bool):
       name=name,
       gender=gender,
       date_of_birth=datetime.datetime(
-          year=YEAR - random.randint(25, 54),
+          year=year - random.randint(25, 54),
           month=random.randint(1, 12),
           day=random.randint(1, 30),
       ),
@@ -188,34 +173,39 @@ def configure_player(name: str, gender: str, is_main: bool):
   )
 
 
-def configure_players() -> tuple[
+def configure_players(
+    sampled_settings: WorldConfig,
+) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
 ]:
   """Configure the players.
 
   Args:
+    sampled_settings: the sampled settings for the world configuration
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
 
-  names = {'male': player_names.MALE_NAMES, 'female': player_names.FEMALE_NAMES}
+  names = sampled_settings.people
 
   player_configs = []
   for i in range(NUM_MAIN_PLAYERS):
+    name = names[i]
+    gender = sampled_settings.person_data[name]['gender']
 
-    gender = random.choice(['male', 'female'])
-    name = names[gender][i]
-    config = configure_player(name, gender, is_main=True)
+    config = configure_player(name, gender, sampled_settings.year, is_main=True)
     player_configs.append(config)
 
   for i in range(NUM_SUPPORTING_PLAYERS):
+    name = names[i + NUM_MAIN_PLAYERS]
+    gender = sampled_settings.person_data[name]['gender']
 
-    gender = random.choice(['male', 'female'])
-    name = names[gender][i + NUM_MAIN_PLAYERS]
-    config = configure_player(name, gender, is_main=False)
+    config = configure_player(
+        name, gender, sampled_settings.year, is_main=False
+    )
 
     player_configs.append(config)
 
@@ -331,6 +321,8 @@ def configure_scenes(
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
+    start_time: datetime.datetime,
+    sampled_settings: WorldConfig,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
     list[game_master.GameMaster] | list[None],
@@ -345,6 +337,8 @@ def configure_scenes(
     clock: the clock to use.
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
+    start_time: the start time of the simulation
+    sampled_settings: the sampled settings for the world configuration
 
   Returns:
     scenes: a sequence of scene specifications
@@ -373,7 +367,7 @@ def configure_scenes(
           [cfg for cfg in player_configs if cfg.name == player.name][0]
       )
 
-    scene_opening = random.choice(VISUAL_SCENE_OPENINGS)
+    scene_opening = random.choice(list(sampled_settings.scene_visuals))
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
             name='day',
@@ -414,13 +408,13 @@ def configure_scenes(
     scenes = scenes + [
         scene_lib.SceneSpec(
             scene_type=scene_specs['social'],
-            start_time=START_TIME + i * TIME_INCREMENT_BETWEEN_SCENES,
+            start_time=start_time + i * TIME_INCREMENT_BETWEEN_SCENES,
             participant_configs=this_game_configs,
             num_rounds=2,
         ),
         scene_lib.SceneSpec(
             scene_type=scene_specs[DECISION_SCENE_TYPE],
-            start_time=START_TIME
+            start_time=start_time
             + i * TIME_INCREMENT_BETWEEN_SCENES
             + datetime.timedelta(minutes=10),
             participant_configs=this_game_configs,
@@ -494,8 +488,8 @@ class Simulation(scenarios_lib.Runnable):
       agent_module: the agent module to use for all main characters.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
-      supporting_agent_module: agent module to use for all supporting players.
-        A supporting player is a non-player character with a persistent memory
+      supporting_agent_module: agent module to use for all supporting players. A
+        supporting player is a non-player character with a persistent memory
         that plays a specific role in defining the task environment. Their role
         is not incidental but rather is critcal to making the task what it is.
         Supporting players are not necessarily interchangeable with focal or
@@ -506,8 +500,21 @@ class Simulation(scenarios_lib.Runnable):
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
-    del supporting_agent_module
-    del time_and_place_module
+
+    self._time_and_place_module = time_and_place_module
+    time_and_place_params, sampled_settings = (
+        helper_functions.load_time_and_place_module(
+            time_and_place_module=time_and_place_module,
+            default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+        )
+    )
+
+    start_time = datetime.datetime(
+        year=time_and_place_params.YEAR,
+        month=time_and_place_params.MONTH,
+        day=time_and_place_params.DAY,
+    )
+    setup_clock_time = start_time - datetime.timedelta(days=1)
 
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -517,13 +524,16 @@ class Simulation(scenarios_lib.Runnable):
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
+    self._build_supporting_agent = basic_puppet_agent.build_agent
+    if supporting_agent_module is not None:
+      self._build_supporting_agent = supporting_agent_module.build_agent
 
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+        start=start_time, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
     importance_model = importance_function.AgentImportanceModel(self._model)
@@ -534,15 +544,19 @@ class Simulation(scenarios_lib.Runnable):
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
-    shared_memories, _ = get_shared_memories_and_context()
+    shared_memories, _ = get_shared_memories_and_context(
+        sampled_settings.premise
+    )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
         blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
-        current_date=SETUP_TIME,
+        current_date=start_time,
     )
 
-    main_player_configs, supporting_player_configs = configure_players()
+    main_player_configs, supporting_player_configs = configure_players(
+        sampled_settings
+    )
     random.shuffle(main_player_configs)
 
     num_main_players = len(main_player_configs)
@@ -586,7 +600,7 @@ class Simulation(scenarios_lib.Runnable):
       )
       if self._resident_visitor_mode:
         if idx == 0:
-          player = self._visitor_agent_module.build_agent(**kwargs)
+          player = self._build_supporting_agent(**kwargs)
           self._visitor_names.append(player.name)
         else:
           player = self._resident_agent_module.build_agent(**kwargs)
@@ -612,7 +626,7 @@ class Simulation(scenarios_lib.Runnable):
               ' about it.'
           ),
       )
-      player = basic_puppet_agent.build_agent(
+      player = self._build_supporting_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
@@ -656,15 +670,17 @@ class Simulation(scenarios_lib.Runnable):
         clock=self._clock,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
+        start_time=start_time,
+        sampled_settings=sampled_settings,
     )
 
     self._secondary_environments = choice_gms
 
     self._init_premise_memories(
-        setup_time=SETUP_TIME,
+        setup_time=setup_clock_time,
         main_player_configs=main_player_configs,
         shared_memories=shared_memories,
-        scenario_premise=[SCENARIO_PREMISE],
+        scenario_premise=[sampled_settings.premise],
     )
 
   def _make_player_memories(self, config: formative_memories.AgentConfig):
@@ -710,7 +726,7 @@ class Simulation(scenarios_lib.Runnable):
       for extra_memory in extra_memories:
         self._game_master_memory.add(extra_memory)
 
-  def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
+  def __call__(self) -> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
     Returns:
