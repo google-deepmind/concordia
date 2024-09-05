@@ -14,11 +14,8 @@
 
 """A set of pub names and reasons to like them."""
 
-from collections.abc import Mapping, Sequence
-import dataclasses
 import random
-from typing import Union
-
+from examples.modular.environment import pub_coordination
 
 YEAR = 2015
 MONTH = 5
@@ -281,30 +278,12 @@ MALE_NAMES = [
 ]
 
 
-@dataclasses.dataclass
-class WorldConfig:
-  """The configuration of the simulated world."""
-
-  year: int
-  location: str
-  event: str
-  social_context: Sequence[str]
-  game_countries: Sequence[str]
-  venues: Sequence[str]
-  venue_preferences: dict[str, Sequence[str]]
-  people: Sequence[str] = ()
-  person_data: dict[str, dict[str, Union[str, Sequence[str]]]] = (
-      dataclasses.field(default_factory=dict)
-  )
-  formative_memory_prompts: Mapping[str, Sequence[str]] | None = None
-
-
 def sample_parameters():
   """Samples a set of parameters for the world configuration."""
   pubs = random.sample(list(PUB_PREFERENCES.keys()), NUM_PUBS)
   pub_preferences = {k: PUB_PREFERENCES[k] for k in pubs}
 
-  config = WorldConfig(
+  config = pub_coordination.WorldConfig(
       year=YEAR,
       location="London",
       event="European football cup",

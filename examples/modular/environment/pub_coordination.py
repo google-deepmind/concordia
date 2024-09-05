@@ -16,10 +16,11 @@
 
 import collections
 from collections.abc import Callable, Mapping, Sequence
+import dataclasses
 import datetime
 import random
 import types
-from typing import Any
+from typing import Any, Union
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -69,6 +70,24 @@ USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
 NUM_GAMES = 3
+
+
+@dataclasses.dataclass
+class WorldConfig:
+  """The configuration of the simulated world."""
+
+  year: int
+  location: str
+  event: str
+  social_context: Sequence[str]
+  game_countries: Sequence[str]
+  venues: Sequence[str]
+  venue_preferences: dict[str, Sequence[str]]
+  people: Sequence[str] = ()
+  person_data: dict[str, dict[str, Union[str, Sequence[str]]]] = (
+      dataclasses.field(default_factory=dict)
+  )
+  formative_memory_prompts: Mapping[str, Sequence[str]] | None = None
 
 
 def get_shared_memories_and_context(
