@@ -71,6 +71,7 @@ import datetime
 import importlib
 
 from concordia.language_model import utils
+from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
@@ -163,30 +164,39 @@ agent_module = importlib.import_module(
     f'{IMPORT_AGENT_BASE_DIR}.{args.agent_name}'
 )
 
+# Language Model setup
+model = utils.language_model_setup(
+    api_type=args.api_type,
+    model_name=args.model_name,
+    api_key=args.api_key,
+    disable_language_model=args.disable_language_model,
+)
+
+# Setup sentence encoder
 st_model = sentence_transformers.SentenceTransformer(
     f'sentence-transformers/{args.embedder_name}'
 )
+embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 
-evaluation_results = {}
-# Note: we could parallelize this loop.
-for scenario_name, scenario_config in scenarios_lib.SCENARIO_CONFIGS.items():
-  print(f'Running scenario: {scenario_name}')
-  # Language Model setup
-  model = utils.language_model_setup(
-      api_type=args.api_type,
-      model_name=args.model_name,
-      api_key=args.api_key,
-      disable_language_model=args.disable_language_model,
-  )
-  # Setup sentence encoder
-  embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 
+def _evaluate_all_repetitions_on_one_scenario(
+    scenario_name: str,
+    scenario_config: scenarios_lib.ScenarioConfig,
+) -> logging_lib.ScenarioResult:
+  """Evaluates the agent on one scenario, averaging over repetitions.
+
+  Args:
+    scenario_name: name of the scenario
+    scenario_config: config for the scenario
+  Returns:
+    ScenarioResult object with the results of the evaluation.
+  """
   # Run several simulations per scenario
   simulation_outcomes = []
   focal_per_capita_scores_to_average = []
   background_per_capita_scores_to_average = []
   ungrouped_per_capita_scores_to_average = []
-  for repetition_idx in range(args.num_repetitions_per_scenario):
+  for _ in range(args.num_repetitions_per_scenario):
     measurements = measurements_lib.Measurements()
     runnable_simulation = scenarios_lib.build_simulation(
         scenario_config=scenario_config,
@@ -222,12 +232,11 @@ for scenario_name, scenario_config in scenarios_lib.SCENARIO_CONFIGS.items():
         + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         + '.html'
     )
-    file_handle = open(html_filename, 'a', encoding='utf-8')
-    file_handle.write(text_results_log)
-    file_handle.close()
+    with open(html_filename, 'a', encoding='utf-8') as f:
+      f.write(text_results_log)
   # Average scores over repetitions and save results for all repetitions in a
   # json-serializable format.
-  evaluation_results[scenario_name] = logging_lib.ScenarioResult(
+  return logging_lib.ScenarioResult(
       scenario=scenario_name,
       focal_agent=args.agent_name,
       background_agent=scenario_config.background_agent_module,
@@ -247,6 +256,14 @@ for scenario_name, scenario_config in scenarios_lib.SCENARIO_CONFIGS.items():
       exclude_from_elo_calculation=args.exclude_from_elo_calculation,
   )
 
+results = concurrency.run_parallel(
+    fn=_evaluate_all_repetitions_on_one_scenario,
+    *scenarios_lib.SCENARIO_CONFIGS.items(),
+)
+evaluation_results = dict(
+    zip(scenarios_lib.SCENARIO_CONFIGS, results, strict=True)
+)
+
 # Save evaluation results for all scenarios with this agent to one json file.
 json_filename = (
     f'{args.agent_name}__{args.model_name}__{args.embedder_name}.json'
@@ -254,8 +271,8 @@ json_filename = (
 idx = 0
 with open(json_filename, 'a', encoding='utf-8') as file_handle:
   file_handle.write('[\n')
-  for scenario_name, scenario_result in evaluation_results.items():
-    json_str = evaluation_results[scenario_name].to_json()
+  for scenario_name_, scenario_result in evaluation_results.items():
+    json_str = evaluation_results[scenario_name_].to_json()
     if idx < len(scenarios_lib.SCENARIO_CONFIGS) - 1:
       json_str += ',\n'
     file_handle.write(json_str)
