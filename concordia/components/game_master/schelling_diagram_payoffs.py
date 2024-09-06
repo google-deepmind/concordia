@@ -66,9 +66,14 @@ class SchellingPayoffs(component.Component):
       players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       acting_player_names: Sequence[str],
       outcome_summarization_fn: Callable[
-          [Mapping[str, int], Mapping[str, float]], Mapping[str, str]
+          [Mapping[str, int],
+           Mapping[str, str],
+           Mapping[str, float],
+           Mapping[str, float]],
+          Mapping[str, str],
       ],
       clock_now: Callable[[], datetime.datetime],
+      active_players_observe_joint_action_and_outcome: bool = False,
       name: str = 'scoring function',
       verbose: bool = False,
   ):
@@ -89,6 +94,10 @@ class SchellingPayoffs(component.Component):
       outcome_summarization_fn: function of binarized joint actions and
         rewards which returns an outcome description message for each player
       clock_now: Function to call to get current time.
+      active_players_observe_joint_action_and_outcome: False by default, if set
+        to True, then active players observe the full joint action and outcome,
+        otherwise they observe only their own actions and rewards description.
+        Inactive players always observe the full joint action and outcome.
       name: name of this component e.g. Possessions, Account, Property, etc
       verbose: whether to print the full update chain of thought or not
     """
@@ -102,6 +111,9 @@ class SchellingPayoffs(component.Component):
     self._outcome_summarization_fn = outcome_summarization_fn
     self._clock_now = clock_now
     self._name = name
+    self._active_players_observe_joint_action_and_outcome = (
+        active_players_observe_joint_action_and_outcome
+    )
     self._verbose = verbose
 
     self._history = []
@@ -182,8 +194,9 @@ class SchellingPayoffs(component.Component):
 
   def _set_outcome_messages(
       self,
-      binary_joint_action: Mapping[str, int],
       rewards: Mapping[str, float],
+      binary_joint_action: Mapping[str, bool],
+      joint_action: Mapping[str, str],
   ) -> None:
     # Only the game master sees the actual reward values.
     game_master_private_state = '\n'.join(
@@ -191,11 +204,12 @@ class SchellingPayoffs(component.Component):
          for player in self._players])
     # Players see a text-based summarization of the events, which may or may not
     # include the actual reward values.
-    partial_states = self._outcome_summarization_fn(binary_joint_action,
-                                                    rewards)
+    partial_states = self._outcome_summarization_fn(
+        binary_joint_action, joint_action, rewards, self._player_scores
+    )
     common_view_of_player_obs = '\n'.join(
-        [f'{name} observed: {observation}' for name, observation
-         in partial_states.items()])
+        [f'{observation}' for observation in partial_states.values()]
+    )
 
     # State is only observed by the game master since players get
     # their observations from `partial_states`.
@@ -203,13 +217,18 @@ class SchellingPayoffs(component.Component):
 
     # The game master gets a memory of the state.
     self._memory.add(self._state)
-    # Active players observe their own partial state description and inactive
-    # players get the common description.
+    # By default, active players observe only their own partial state
+    # description, but if `active_players_observe_joint_action_and_outcome` is
+    # True then they observe the full joint action and outcome. Inactive players
+    # always observe the full joint action/outcome.
     for player in self._players:
       if player.name in self._acting_player_names:
-        player.observe(partial_states[player.name])
+        if self._active_players_observe_joint_action_and_outcome:
+          self._partial_states[player.name] = common_view_of_player_obs
+        else:
+          self._partial_states[player.name] = partial_states[player.name]
       else:
-        player.observe(common_view_of_player_obs)
+        self._partial_states[player.name] = common_view_of_player_obs
 
   def update_before_event(self, player_action_attempt: str) -> None:
     # `player_action_attempt` is formatted as "name: attempt".
@@ -224,6 +243,7 @@ class SchellingPayoffs(component.Component):
     current_scene_type = self._current_scene.state()
     payoffs_for_log = ''
     joint_action_for_log = ''
+    self._partial_states = {player.name: '' for player in self._players}
     finished = False
     if current_scene_type == self._resolution_scene:
       # Check if all players have acted so far in the current stage game.
@@ -238,7 +258,7 @@ class SchellingPayoffs(component.Component):
           self._player_scores[name] += rewards[name]
 
         # Use the outcome summarization function to get the state.
-        self._set_outcome_messages(binary_joint_action, rewards)
+        self._set_outcome_messages(rewards, binary_joint_action, joint_action)
         self._memory.extend([self.state(),])
 
         joint_action_for_log = str(self._partial_joint_action)

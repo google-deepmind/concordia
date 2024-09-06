@@ -515,14 +515,20 @@ def configure_scenes(
 
 
 def outcome_summary_fn(
-    binary_joint_action: Mapping[str, int], unused_rewards: Mapping[str, float]
+    binary_joint_action: Mapping[str, int],
+    unused_joint_action: Mapping[str, str],
+    unused_rewards: Mapping[str, float],
+    unused_cumulative_rewards: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Summarize outcome of decision scene (used by Schelling payoffs component).
 
   Args:
     binary_joint_action: map each player name to whether they cooperated or
       defected (0 indicates defection and 1 indicates cooperation).
+    unused_joint_action: map each player name to the action they took.
     unused_rewards: map each player name to the reward they received
+    unused_cumulative_rewards: map each player name to the cumulative reward
+      they received over the episode so far.
 
   Returns:
     result: dict mapping player name to outcome summary

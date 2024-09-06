@@ -397,7 +397,9 @@ def configure_scenes(
 
   Returns:
     scenes: a sequence of scene specifications
-    schelling_payoffs: a component to compute rewards of collective action
+    decision_env: the game master object for the decision scenes
+    industrial_action: the labor strike game master component used in the
+      decision scenes
   """
   main_player_configs_list = list(main_player_configs)
   player_configs = main_player_configs_list + list(supporting_player_configs)

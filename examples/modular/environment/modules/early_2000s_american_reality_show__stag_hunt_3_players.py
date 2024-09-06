@@ -21,5 +21,6 @@ from examples.modular.environment.modules import early_2000s_american_reality_sh
 def sample_parameters():
   """Sample parameters of the setting and the backstory for each player."""
   return parent_module.sample_parameters(
-      minigame='Home Appliance Sharing',
+      minigame_name='stag_hunt',
+      num_players=3,
   )

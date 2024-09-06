@@ -787,9 +787,10 @@ def configure_scenes(
 
 
 def outcome_summary_fn(
-    # `binary_joint_action` should be type Mapping[str, bool] (ie bool not int).
     unused_binary_joint_action: Mapping[str, int],
+    unused_joint_action: Mapping[str, str],
     rewards: Mapping[str, float],
+    unused_cumulative_rewards: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
   marking = ''

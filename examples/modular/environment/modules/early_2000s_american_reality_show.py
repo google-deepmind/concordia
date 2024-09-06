@@ -14,22 +14,112 @@
 
 """A setting where the players are contestants on a reality TV show."""
 
-from collections.abc import Mapping
-import dataclasses
 import random
-from typing import Any
+
+from concordia.components import game_master as gm_components
+from examples.modular.environment import reality_show
+from concordia.typing import agent as agent_lib
+
+
+SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 
 # According to Google Search, the early 2000s were the peak of reality TV.
 YEAR = 2003
 MONTH = 7
 DAY = 9
 
-POSSIBLE_NUM_PLAYERS = (3, 4)
+DEFAULT_POSSIBLE_NUM_PLAYERS = (3, 4)
 
-DEFAULT_MINIGAME = 'Carpooling'
-NUM_MINIGAME_REPS_PER_SCENE = 3
+DEFAULT_MINIGAME = 'prisoners_dilemma'
+NUM_MINIGAME_REPS_PER_SCENE = (2, 3)
 
 NUM_INTERVIEW_QUESTIONS = 3
+
+MINIGAME_INTRO_PREMISE = (
+    "The show's host arrived to explain the next minigame. They "
+    'said the following:\n'
+)
+
+MINIGAMES = {
+    'prisoners_dilemma': reality_show.MiniGameSpec(
+        name='Carpooling',
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
+            'The next minigame is called Carpooling. Three coworkers can '
+            'carpool, cutting commute costs for all, or drive individually. '
+            'The commute happens daily, creating repeated decisions.'
+        ),
+        schelling_diagram=SchellingDiagram(
+            # A fear+greed-type (Prisoners' Dilemma-like) dilemma
+            cooperation=lambda num_cooperators: num_cooperators - 1.0,
+            defection=lambda num_cooperators: num_cooperators + 2.0,
+        ),
+        map_external_actions_to_schelling_diagram=dict(
+            cooperation='try to carpool with others',
+            defection='drive individually',
+        ),
+        action_spec=agent_lib.choice_action_spec(
+            call_to_action='Which action would {name} choose in the minigame?',
+            options=('try to carpool with others', 'drive individually'),
+            tag='minigame_action',
+        ),
+    ),
+    'chicken': reality_show.MiniGameSpec(
+        name='Home Appliance Sharing',
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
+            'Three neighbors share a tool/appliance infrequently. Each can '
+            'maintain it for shared use, or let others handle '
+            'upkeep and risk it being unavailable. Repeated use '
+            'creates dilemmas each time the tool/appliance is needed.'
+        ),
+        schelling_diagram=SchellingDiagram(
+            # A greed-type (Chicken-like) dilemma
+            cooperation=lambda num_cooperators: 4.0 * num_cooperators,
+            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0,
+        ),
+        map_external_actions_to_schelling_diagram=dict(
+            cooperation='maintain the appliance',
+            defection='let others handle upkeep of the appliance',
+        ),
+        action_spec=agent_lib.choice_action_spec(
+            call_to_action='Which action would {name} choose in the minigame?',
+            options=(
+                'maintain the appliance',
+                'let others handle upkeep of the appliance',
+            ),
+            tag='minigame_action',
+        ),
+    ),
+    'stag_hunt': reality_show.MiniGameSpec(
+        name='Boat Race',
+        public_premise=MINIGAME_INTRO_PREMISE
+        + (
+            'Three teammates are on a row boat racing team together. Each has '
+            'the option to give the race their all and really row '
+            'vigorously, but this option is very fatiguing and only '
+            'effective when all choose it simultaneously. Alternatively, each '
+            'teammate has the option of rowing less vigorously, this gets '
+            'them to their goal more slowly, but is less fatiguing and does '
+            'not require coordination with the others. The race is repeated '
+            'many times, going back and forth across the lake.'
+        ),
+        schelling_diagram=SchellingDiagram(
+            # A fear-type (Stag Hunt-like) dilemma
+            cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
+            defection=lambda num_cooperators: num_cooperators + 4.0,
+        ),
+        map_external_actions_to_schelling_diagram=dict(
+            cooperation='row vigorously',
+            defection='row less vigorously',
+        ),
+        action_spec=agent_lib.choice_action_spec(
+            call_to_action='Which action would {name} choose in the minigame?',
+            options=('row vigorously', 'row less vigorously'),
+            tag='minigame_action',
+        ),
+    ),
+}
 
 # These are all stereotypical reality show contestants. They are not meant to
 # be inclusive or diverse. They are meant to represent the time period and
@@ -634,24 +724,14 @@ HIMSELF_OR_HERSELF = {
 }
 
 
-@dataclasses.dataclass
-class WorldConfig:
-  """The configuration of the simulated world."""
-
-  minigame: str
-  year: int
-  month: int
-  day: int
-  num_players: int
-  contestants: Mapping[str, Mapping[str, Any]]
-  num_minigame_reps_per_scene: int
-
-
-def sample_parameters(minigame: str = DEFAULT_MINIGAME):
+def sample_parameters(
+    minigame_name: str = DEFAULT_MINIGAME, num_players: int | None = None
+) -> reality_show.WorldConfig:
   """Sample parameters of the setting and the backstory for each player."""
   shuffled_male_names = list(random.sample(MALE_NAMES, len(MALE_NAMES)))
   shuffled_female_names = list(random.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
-  num_players = random.choice(POSSIBLE_NUM_PLAYERS)
+  if num_players is None:
+    num_players = random.choice(DEFAULT_POSSIBLE_NUM_PLAYERS)
   contestants = {}
   for _ in range(num_players):
     gender = random.choice(GENDERS)
@@ -675,8 +755,9 @@ def sample_parameters(minigame: str = DEFAULT_MINIGAME):
         'subject_pronoun': HE_OR_SHE[gender],
         'object_pronoun': HIM_OR_HER[gender],
     }
-  return WorldConfig(
-      minigame=minigame,
+  return reality_show.WorldConfig(
+      minigame_name=minigame_name,
+      minigame=MINIGAMES[minigame_name],
       year=YEAR,
       month=MONTH,
       day=DAY,

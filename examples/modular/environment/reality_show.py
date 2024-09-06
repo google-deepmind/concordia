@@ -52,15 +52,19 @@ SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
 DEFAULT_TIME_AND_PLACE_MODULES = (
-    'early_2000s_american_reality_show__chicken',
-    'early_2000s_american_reality_show__prisoners_dilemma',
-    'early_2000s_american_reality_show__stag_hunt',
+    'early_2000s_american_reality_show__chicken_3_players',
+    'early_2000s_american_reality_show__chicken_4_players',
+    'early_2000s_american_reality_show__prisoners_dilemma_3_players',
+    'early_2000s_american_reality_show__prisoners_dilemma_4_players',
+    'early_2000s_american_reality_show__stag_hunt_3_players',
+    'early_2000s_american_reality_show__stag_hunt_4_players',
 )
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
 DECISION_SCENE_TYPE = 'minigame'
+DEBRIEF_SCENE_TYPE = 'debrief'
 
 GENERAL_BACKGROUND = """
 This is a reality TV show. In each minigame, the contestants perform a
@@ -163,11 +167,6 @@ CANDIDATE_SHOW_DESCRIPTIONS = [
     ),
 ]
 
-MINIGAME_INTRO_PREMISE = (
-    "The show's host arrived to explain the next minigame. They "
-    'said the following:\n'
-)
-
 
 @dataclasses.dataclass(frozen=True)
 class MiniGameSpec:
@@ -195,86 +194,18 @@ class MiniGameSpec:
   action_spec: agent_lib.ActionSpec
 
 
-MINIGAMES = {
-    'Carpooling': MiniGameSpec(
-        name='Carpooling',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'The next minigame is called Carpooling. Three coworkers can '
-            'carpool, cutting commute costs for all, or drive individually. '
-            'The commute happens daily, creating repeated decisions.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A fear+greed-type (Prisoners' Dilemma-like) dilemma
-            cooperation=lambda num_cooperators: num_cooperators - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 2.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='try to carpool with others',
-            defection='drive individually',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=('try to carpool with others', 'drive individually'),
-            tag='minigame_action',
-        ),
-    ),
-    'Home Appliance Sharing': MiniGameSpec(
-        name='Home Appliance Sharing',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'Three neighbors share a tool/appliance infrequently. Each can '
-            'maintain it for shared use, or let others handle '
-            'upkeep and risk it being unavailable. Repeated use '
-            'creates dilemmas each time the tool/appliance is needed.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A greed-type (Chicken-like) dilemma
-            cooperation=lambda num_cooperators: 4.0 * num_cooperators,
-            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='maintain the appliance',
-            defection='let others handle upkeep of the appliance',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=(
-                'maintain the appliance',
-                'let others handle upkeep of the appliance',
-            ),
-            tag='minigame_action',
-        ),
-    ),
-    'Boat Race': MiniGameSpec(
-        name='Boat Race',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'Three teammates are on a row boat racing team together. Each has '
-            'the option to give the race their all and really row '
-            'vigorously, but this option is very fatiguing and only '
-            'effective when all choose it simultaneously. Alternatively, each '
-            'teammate has the option of rowing less vigorously, this gets '
-            'them to their goal more slowly, but is less fatiguing and does '
-            'not require coordination with the others. The race is repeated '
-            'many times, going back and forth across the lake.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A fear-type (Stag Hunt-like) dilemma
-            cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 4.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='row vigorously',
-            defection='row less vigorously',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=('row vigorously', 'row less vigorously'),
-            tag='minigame_action',
-        ),
-    ),
-}
+@dataclasses.dataclass
+class WorldConfig:
+  """The configuration of the simulated world."""
+
+  minigame_name: str
+  minigame: MiniGameSpec
+  year: int
+  month: int
+  day: int
+  num_players: int
+  contestants: Mapping[str, Mapping[str, Any]]
+  num_minigame_reps_per_scene: tuple[int, ...]
 
 
 def get_random_show_with_description() -> tuple[str, str]:
@@ -284,17 +215,28 @@ def get_random_show_with_description() -> tuple[str, str]:
   return f'"{title}" is a reality TV show described as: "{description}"', title
 
 
+def _get_all_contestant_names_string(contestant_names: Sequence[str]):
+  r"""Returns names [a,b,c] in the string format: \'a, b, and c\'."""
+  all_contestants_string = ', '.join([name for name in contestant_names[:-1]])
+  all_contestants_string = (
+      f'{all_contestants_string}, and {contestant_names[-1]}'
+  )
+  return all_contestants_string
+
+
 def get_shared_memories_and_context(
     model: language_model.LanguageModel,
+    contestant_names: Sequence[str],
 ) -> tuple[Sequence[str], str, str]:
   """Return the shared memories and context for all agents and game master."""
   show_title_and_description, show_title = get_random_show_with_description()
+  all_contestants_string = _get_all_contestant_names_string(contestant_names)
 
   shared_memories = [
       (
-          'Alice, Bob, and Charlie are contestants on a reality show: '
-          f'{show_title}. There are no other contestants besides Alice, Bob, '
-          'and Charlie.'
+          f'{all_contestants_string} are contestants on a reality show: '
+          f'{show_title}. There are no other contestants besides '
+          f'{all_contestants_string}.'
       ),
       show_title_and_description,
       GENERAL_BACKGROUND,
@@ -352,9 +294,13 @@ def configure_players(
         f'for a character named {player_name}.'
     )
     prompt.statement(f'The year is {sampled_settings.year}.\n')
-    prompt.statement(f'{player_name} was born in the year {birth_year}.\n')
+    age = sampled_settings.year - birth_year
     prompt.statement(
-        f'{player_name} is a contestant on a reality show called '
+        f'{player_name} was born in the year {birth_year} so '
+        f'{subject_pronoun} is currently {age} years old.\n'
+    )
+    prompt.statement(
+        f'{player_name} is currently a contestant on a reality show called '
         f'{show_title}.\n'
     )
     prompt.statement(f'{player_name} is {traits_str}')
@@ -493,12 +439,11 @@ def add_minigame_scene_spec(
   Returns:
     minigame_scene_type: the minigame scene type.
   """
-  # Pick a minigame at random.
-  selected_minigame = MINIGAMES[sampled_settings.minigame]
+  selected_minigame = sampled_settings.minigame
   cooperation_option = (
       selected_minigame.map_external_actions_to_schelling_diagram['cooperation']
   )
-
+  contestant_names = [player_config.name for player_config in player_configs]
   schelling_payoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs(
       model=model,
       memory=game_master_memory,
@@ -510,6 +455,7 @@ def add_minigame_scene_spec(
       acting_player_names=[cfg.name for cfg in player_configs],
       outcome_summarization_fn=outcome_summary_fn,
       clock_now=clock.now,
+      active_players_observe_joint_action_and_outcome=True,
       name='scoring function',
       verbose=verbose,
   )
@@ -531,15 +477,9 @@ def add_minigame_scene_spec(
   minigame_scene_type = scene_lib.SceneTypeSpec(
       name=scene_type_name,
       premise={
-          'Alice': [selected_minigame.public_premise],
-          'Bob': [selected_minigame.public_premise],
-          'Charlie': [selected_minigame.public_premise],
+          name: [selected_minigame.public_premise] for name in contestant_names
       },
-      conclusion={
-          'Alice': [public_conclusion],
-          'Bob': [public_conclusion],
-          'Charlie': [public_conclusion],
-      },
+      conclusion={name: [public_conclusion] for name in contestant_names},
       action_spec=selected_minigame.action_spec,
       override_game_master=decision_env,
   )
@@ -580,20 +520,28 @@ def configure_scenes(
   """
   player_configs = list(main_player_configs) + list(supporting_player_configs)
 
+  contestant_names = [
+      player_config.name for player_config in main_player_configs
+  ]
+  all_contestants_string = _get_all_contestant_names_string(contestant_names)
+
   conversation_phase_premise = (
-      'Alice, Bob, and Charlie are in the break room. Here '
+      f'{all_contestants_string} are in the break room. Here '
       'they can chat with one another in small groups or all '
       'together at once. Everyone may choose for themself '
       'how they want to spend this free time.'
+  )
+  debrief_phase_premise = (
+      'Host: -- "We have reached the end of the show! I would like to take a '
+      'moment to thank you all for participating. I hope this was as much fun '
+      'for you as it was for me!"'
   )
 
   scene_specs = {
       'conversation': scene_lib.SceneTypeSpec(
           name='conversation',
           premise={
-              'Alice': [conversation_phase_premise],
-              'Bob': [conversation_phase_premise],
-              'Charlie': [conversation_phase_premise],
+              name: [conversation_phase_premise] for name in contestant_names
           },
       ),
   }
@@ -602,9 +550,20 @@ def configure_scenes(
       game_master_memory=game_master_memory,
       players=players,
       clock=clock,
-      player_configs=player_configs,
+      player_configs=main_player_configs,
       scene_type_name=DECISION_SCENE_TYPE,
       sampled_settings=sampled_settings,
+  )
+  decision_env = scene_specs[DECISION_SCENE_TYPE].override_game_master
+  scene_specs[DEBRIEF_SCENE_TYPE] = scene_lib.SceneTypeSpec(
+      name=DEBRIEF_SCENE_TYPE,
+      premise={name: [debrief_phase_premise] for name in contestant_names},
+      action_spec=agent_lib.choice_action_spec(
+          call_to_action='Host: -- "{name}, did you enjoy being on the show?"',
+          options=('yes', 'no'),
+          tag='debrief_action',
+      ),
+      override_game_master=decision_env,
   )
 
   scenes = [
@@ -618,7 +577,7 @@ def configure_scenes(
           scene_type=scene_specs[DECISION_SCENE_TYPE],
           start_time=start_time + 1 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
-          num_rounds=sampled_settings.num_minigame_reps_per_scene,
+          num_rounds=sampled_settings.num_minigame_reps_per_scene[0],
       ),
       scene_lib.SceneSpec(
           scene_type=scene_specs['conversation'],
@@ -630,7 +589,16 @@ def configure_scenes(
           scene_type=scene_specs[DECISION_SCENE_TYPE],
           start_time=start_time + 3 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
-          num_rounds=sampled_settings.num_minigame_reps_per_scene,
+          num_rounds=sampled_settings.num_minigame_reps_per_scene[1],
+      ),
+      # The purpose of the debrief scene is to make it so the players receive
+      # the observation containing their scores, as it is delivered on the
+      # penultimate timestep.
+      scene_lib.SceneSpec(
+          scene_type=scene_specs[DEBRIEF_SCENE_TYPE],
+          start_time=start_time + 4 * datetime.timedelta(hours=2),
+          participant_configs=player_configs,
+          num_rounds=1,
       ),
   ]
   return (
@@ -640,16 +608,40 @@ def configure_scenes(
   )
 
 
+def _get_comparative(score_a: float, score_b: float):
+  """Return a word to describe whether `score_a` is above or below `score_b`."""
+  if score_a > score_b:
+    return 'above'
+  elif score_a == score_b:
+    return 'equal to'
+  elif score_a < score_b:
+    return 'below'
+
+
 def outcome_summary_fn(
-    # `binary_joint_action` should be type Mapping[str, bool] (ie bool not int).
     unused_binary_joint_action: Mapping[str, int],
+    joint_action: Mapping[str, str],
     rewards: Mapping[str, float],
+    cumulative_rewards: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Summarize the outcome of a decision scene."""
-  result = {
-      name: f'[important] {name} got a score of {score}.'
-      for name, score in rewards.items()
-  }
+  result = {}
+  mean_score = np.mean(list(rewards.values()))
+  mean_cumulative_score = np.mean(list(cumulative_rewards.values()))
+  for name, score in rewards.items():
+    choice = joint_action[name]
+    cumulative_score = cumulative_rewards[name]
+    reward_comparative = _get_comparative(score, mean_score)
+    cumulative_comparative = _get_comparative(
+        cumulative_score, mean_cumulative_score
+    )
+    result[name] = (
+        f'[minigame round outcome] {name} chose "{choice}" and got a score of '
+        f'{score:.3g}, which was {reward_comparative} the average score of '
+        f'{mean_score:.3g}. Cumulatively, {name} currently has a total score '
+        f'of {cumulative_score:.3g}, which is {cumulative_comparative} the '
+        f'average cumulative score of {mean_cumulative_score:.3g}.'
+    )
   return result
 
 
@@ -708,6 +700,7 @@ class Simulation(scenarios_lib.Runnable):
         time_and_place_module=time_and_place_module,
         default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
     )
+    contestant_names = list(sampled_settings.contestants.keys())
 
     start_time = datetime.datetime(
         year=sampled_settings.year,
@@ -728,7 +721,7 @@ class Simulation(scenarios_lib.Runnable):
         clock_now=self._clock.now,
     )
     shared_memories, shared_context, show_title = (
-        get_shared_memories_and_context(model)
+        get_shared_memories_and_context(model, contestant_names)
     )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,

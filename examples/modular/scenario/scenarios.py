@@ -98,6 +98,12 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='haggling_gullible',
         supporting_agent_module='basic_puppet_agent',
     ),
+    reality_show=SubstrateConfig(
+        description=('players are contestants on a reality show featuring '
+                     'social dilemma games alternating with conversation'),
+        environment='reality_show',
+        supporting_agent_module=None,
+    ),
 )
 
 SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
@@ -145,7 +151,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'labor_collective_action__paranoid_boss'
         ],
         background_agent_module='basic_agent',
-        time_and_place_module='wild_west_railroad_construction_labor',
+        time_and_place_module='garment_factory_labor',
         focal_is_resident=True,
         tags=(
             'discouraging antisocial behavior',
@@ -265,7 +271,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=False,
         tags=('negotiation',),
     ),
-    haggling_gullible=ScenarioConfig(
+    haggling_gullible_0=ScenarioConfig(
         description=(
             'resident population of focal agents in a haggling scenario'
             ' supporting agents who will accept any offer'
@@ -275,6 +281,102 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         time_and_place_module='fruitville_haggling',
         focal_is_resident=True,
         tags=('negotiation',),
+    ),
+    reality_show_circa_2003_chicken_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents are contestants on a '
+            'reality show circa 2003 along with strangers who are rational.'
+            ' The minigame played on the show is multiplayer chicken.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='rational_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__chicken_3_players'),
+        focal_is_resident=True,
+        tags=(
+            'discouraging antisocial behavior',
+        ),
+    ),
+    reality_show_circa_2003_chicken_1=ScenarioConfig(
+        description=(
+            'visitor focal agents are contestants on a reality show circa '
+            '2003, joining a resident group of strangers who are paranoid.'
+            ' The minigame played on the show is multiplayer chicken.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='paranoid_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__chicken_4_players'),
+        focal_is_resident=False,
+        tags=(
+            'discouraging antisocial behavior',
+            'convention following',
+            'persuasion',
+        ),
+    ),
+    reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents are contestants on a '
+            'reality show circa 2003 along with strangers who are rational.'
+            ' The minigame played on the show is multiplayer prisoners dilemma.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='rational_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__prisoners_dilemma_4_players'),
+        focal_is_resident=True,
+        tags=(
+            'discouraging antisocial behavior',
+        ),
+    ),
+    reality_show_circa_2003_prisoners_dilemma_1=ScenarioConfig(
+        description=(
+            'resident population of focal agents are contestants on a '
+            'reality show circa 2003 along with strangers who are paranoid.'
+            ' The minigame played on the show is multiplayer prisoners dilemma.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='paranoid_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__prisoners_dilemma_3_players'),
+        focal_is_resident=True,
+        tags=(
+            'discouraging antisocial behavior',
+        ),
+    ),
+    reality_show_circa_2003_stag_hunt_0=ScenarioConfig(
+        description=(
+            'visitor focal agents are contestants on a reality show circa '
+            '2003, joining a resident group of strangers who are basic.'
+            ' The minigame played on the show is multiplayer stag hunt.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='basic_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__stag_hunt_4_players'),
+        focal_is_resident=False,
+        tags=(
+            'discouraging antisocial behavior',
+            'convention following',
+            'persuasion',
+        ),
+    ),
+    reality_show_circa_2003_stag_hunt_1=ScenarioConfig(
+        description=(
+            'visitor focal agents are contestants on a reality show circa '
+            '2003, joining a resident group of strangers who are paranoid.'
+            ' The minigame played on the show is multiplayer stag hunt.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='paranoid_agent',
+        time_and_place_module=(
+            'early_2000s_american_reality_show__stag_hunt_4_players'),
+        focal_is_resident=False,
+        tags=(
+            'discouraging antisocial behavior',
+            'convention following',
+            'persuasion',
+        ),
     ),
 )
 
