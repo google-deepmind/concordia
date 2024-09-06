@@ -35,24 +35,25 @@ function collect_notebooks() {
 }
 
 
-function remove_cell_magic() {
+function disable_ipython_magic() {
+  local start_of_line='^\s*\"\s*'
+  local match="\(${start_of_line}\)\([%!]\)"
+  local replacement='\1pass  # \2'
   for file in "${TEMP_DIR}"/*; do
-    echo "Removing cell magic from ${file}"
-    sed -i "/^\s*\"%%/d" "${file}"
+    echo "Disabling ipython magic in ${file}"
+    sed -i "s/${match}/${replacement}/g" "${file}"
   done
 }
 
 
 function convert_notebooks() {
-  jupyter nbconvert --to=python --output-dir="${OUTPUT_DIR}" \
-      --RegexRemovePreprocessor.patterns='(%|!)pip' \
-      "${TEMP_DIR}"/*
+  jupyter nbconvert --to=python --output-dir="${OUTPUT_DIR}" "${TEMP_DIR}"/*
 }
 
 
 function main() {
   collect_notebooks \
-  && remove_cell_magic \
+  && disable_ipython_magic \
   && convert_notebooks \
   && ls "${OUTPUT_DIR}"
 }
