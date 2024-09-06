@@ -8,8 +8,8 @@ on:
       - '.github/actions/install-examples/action.yml'
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/test-examples.yml'
-      - 'examples/**'
       - 'concordia/**'
+      - 'examples/**'
       - 'pyproject.toml'
       - 'setup.py'
   pull_request:
@@ -19,8 +19,8 @@ on:
       - '.github/actions/install-examples.yml'
       - '.github/actions/install-concordia.yml'
       - '.github/workflows/test-examples.yml'
-      - 'examples/**'
       - 'concordia/**'
+      - 'examples/**'
       - 'pyproject.toml'
       - 'setup.py'
   workflow_dispatch:

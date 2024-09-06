@@ -8,8 +8,9 @@ on:
       - '.github/actions/install-examples/action.yml'
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pytype-examples.yml'
-      - 'examples/**'
+      - 'bin/convert_notebooks.sh'
       - 'concordia/**'
+      - 'examples/**'
       - 'pyproject.toml'
       - 'setup.py'
   pull_request:
@@ -19,8 +20,9 @@ on:
       - '.github/actions/install-examples/action.yml'
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pytype-examples.yml'
-      - 'examples/**'
+      - 'bin/convert_notebooks.sh'
       - 'concordia/**'
+      - 'examples/**'
       - 'pyproject.toml'
       - 'setup.py'
   workflow_dispatch:

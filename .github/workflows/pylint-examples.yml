@@ -9,8 +9,9 @@ on:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pylint-examples.yml'
       - '.pylintrc'
-      - 'examples/**'
+      - 'bin/convert_notebooks.sh'
       - 'concordia/**'
+      - 'examples/**'
       - 'setup.py'
   pull_request:
     branches:
@@ -20,8 +21,9 @@ on:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/pylint-examples.yml'
       - '.pylintrc'
-      - 'examples/**'
+      - 'bin/convert_notebooks.sh'
       - 'concordia/**'
+      - 'examples/**'
       - 'setup.py'
   workflow_dispatch:
 
@@ -35,7 +37,7 @@ jobs:
   pylint:
     name: Lint examples
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout Concordia
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
