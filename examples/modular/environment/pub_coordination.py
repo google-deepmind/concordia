@@ -112,6 +112,7 @@ def configure_player(
     is_main: bool,
     all_player_names_str: str,
     pub_preferences: dict[str, Sequence[str]],
+    year: int,
 ) -> formative_memories.AgentConfig:
   """Configure a player.
 
@@ -122,7 +123,7 @@ def configure_player(
     is_main: whether the player is a main character or not
     all_player_names_str: the names of all the players in one string
     pub_preferences: the preferences of all the pubs
-
+    year: the year of the simulation to sample the age of the players
   Returns:
     config: the player config
   """
@@ -148,7 +149,11 @@ def configure_player(
   config = formative_memories.AgentConfig(
       name=name,
       gender=gender,
-      date_of_birth=datetime.datetime(year=1980, month=4, day=28),
+      date_of_birth=datetime.datetime(
+          year=year - random.randint(25, 54),
+          month=random.randint(1, 12),
+          day=random.randint(1, 28),
+      ),
       formative_ages=[16, 20],
       goal=(
           f'Watch the game in the same pub as {all_player_names_str}.'
@@ -198,6 +203,7 @@ def configure_players(sampled_settings: Any) -> tuple[
         is_main=True,
         all_player_names_str=all_players,
         pub_preferences=sampled_settings.venue_preferences,
+        year=sampled_settings.year,
     )
     player_configs.append(config)
 
@@ -212,6 +218,7 @@ def configure_players(sampled_settings: Any) -> tuple[
         is_main=False,
         all_player_names_str=all_players,
         pub_preferences=sampled_settings.venue_preferences,
+        year=sampled_settings.year,
     )
     player_configs.append(config)
 
