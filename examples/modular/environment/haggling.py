@@ -80,6 +80,8 @@ class WorldConfig:
     person_data: A mapping from person name to person data.
     num_supporting_players: The number of supporting players in the scenario.
     only_match_with_support: Whether to only match with supporting players.
+    buyer_base_reward_min: The minimum base reward for the buyer.
+    seller_base_reward_max: The maximum base reward for the seller.
   """
 
   year: int
@@ -92,6 +94,8 @@ class WorldConfig:
   )
   num_supporting_players: int = 0
   only_match_with_support: bool = False
+  buyer_base_reward_min: int = 5
+  seller_base_reward_max: int = 2
 
 
 def bargain_statements(
@@ -402,8 +406,12 @@ def configure_scenes(
 
   for i in range(NUM_GAMES * len(pairs)):
 
-    buyer_base_reward = random.randint(3, 6)
-    seller_base_reward = random.randint(1, 3)
+    buyer_base_reward = random.randint(
+        sampled_settings.buyer_base_reward_min, 6
+    )
+    seller_base_reward = random.randint(
+        1, sampled_settings.seller_base_reward_max
+    )
 
     this_game_players = pairs[i % len(pairs)]
 
