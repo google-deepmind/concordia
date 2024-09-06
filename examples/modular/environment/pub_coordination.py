@@ -95,7 +95,7 @@ def get_shared_memories_and_context(
 ) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
   shared_memories = [
-      'The European football cup is on.',
+      f'{sampled_settings.event} is on.',
       'Games are best watched in pubs with a lot of friends.',
   ]
   shared_context = (
@@ -160,7 +160,7 @@ def configure_player(
           f' {name} would prefer {favorite_pub}'
       ),
       context=(
-          f"{all_player_names_str}' are best friends.Born in London, {name} has"
+          f"{all_player_names_str}' are best friends. {name} has"
           f' a favorite pub which is {favorite_pub}. They are also aware of the'
           f' following:{reasons}'
       ),
@@ -186,7 +186,7 @@ def configure_players(sampled_settings: Any) -> tuple[
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  names = sampled_settings.people
+  names = sampled_settings.people[:NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS]
   all_players = ', '.join(names)
   player_configs = []
 

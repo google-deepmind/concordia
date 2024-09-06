@@ -135,7 +135,7 @@ PUB_PREFERENCES = {
 SOCIAL_CONTEXT = [
     (
         "The sun peeks through the morning"
-        " mist as a {players} gather near the entrance of Hackney"
+        " mist as {players} gather near the entrance of Hackney"
         " Marshes. They stretch and laugh, their colorful running attire"
         " contrasting with the green expanse. A few dog walkers pass by, their"
         " furry companions excitedly sniffing the air. "
