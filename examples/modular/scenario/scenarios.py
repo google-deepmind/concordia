@@ -407,9 +407,12 @@ def build_simulation(
     visitor_agent_module = focal_agent_module
     resident_agent_module = background_agent_module
 
-  supporting_agent_module = importlib.import_module(
-      f'{support_agent_base_module}.{substrate_config.supporting_agent_module}'
-  )
+  if substrate_config.supporting_agent_module is not None:
+    supporting_agent_module = importlib.import_module(
+        f'{support_agent_base_module}.'
+        f'{substrate_config.supporting_agent_module}')
+  else:
+    supporting_agent_module = None
   runnable_simulation = simulation.Simulation(
       model=model,
       embedder=embedder,
