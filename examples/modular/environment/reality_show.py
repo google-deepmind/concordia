@@ -819,7 +819,7 @@ class Simulation(scenarios_lib.Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
-            max_conversation_length=2,
+            max_conversation_length=1,
         )
     )
     self._scenes, decision_env, schelling_payoffs = configure_scenes(

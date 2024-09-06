@@ -931,6 +931,7 @@ class Simulation(scenarios_lib.Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
+            max_conversation_length=1,
             cap_nonplayer_characters_in_conversation=0,
             memory=game_master_memory,
             supporting_players_at_fixed_locations=(
