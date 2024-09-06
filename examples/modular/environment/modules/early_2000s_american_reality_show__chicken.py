@@ -15,7 +15,7 @@
 """Settings for an early 2000s american reality show for the prisoners_dilemma.
 """
 
-import concordia.examples.modular.environment.modules.early_2000s_american_reality_show as parent_module
+from examples.modular.environment.modules import early_2000s_american_reality_show as parent_module
 
 
 def sample_parameters():
