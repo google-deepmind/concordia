@@ -67,6 +67,7 @@ the same model and embedder.
 """
 
 import argparse
+from concurrent import futures
 import datetime
 import importlib
 
@@ -256,13 +257,24 @@ def _evaluate_all_repetitions_on_one_scenario(
       exclude_from_elo_calculation=args.exclude_from_elo_calculation,
   )
 
-results = concurrency.run_parallel(
-    fn=_evaluate_all_repetitions_on_one_scenario,
-    *scenarios_lib.SCENARIO_CONFIGS.items(),
-)
-evaluation_results = dict(
-    zip(scenarios_lib.SCENARIO_CONFIGS, results, strict=True)
-)
+num_scenarios = len(scenarios_lib.SCENARIO_CONFIGS)
+running = {}
+with concurrency.executor(max_workers=num_scenarios) as pool:
+  for (
+      scenario_name_,
+      scenario_config_,
+  ) in scenarios_lib.SCENARIO_CONFIGS.items():
+    print(f'Running scenario: {scenario_name_}')
+    future = pool.submit(
+        _evaluate_all_repetitions_on_one_scenario,
+        scenario_name=scenario_name_,
+        scenario_config=scenario_config_,
+    )
+    running[future] = scenario_name_
+  evaluation_results = {}
+  for future in futures.as_completed(running):
+    scenario_name_ = running[future]
+    evaluation_results[scenario_name_] = future.result()
 
 # Save evaluation results for all scenarios with this agent to one json file.
 json_filename = (
