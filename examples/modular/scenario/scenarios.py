@@ -123,41 +123,6 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=True,
         tags=('discouraging antisocial behavior',),
     ),
-    labor_collective_action__rational_boss_1=ScenarioConfig(
-        description=(
-            'visitor focal agent in a labor organization collective '
-            'action scenario with a boss who is rational '
-            'and a resident population of rational agents'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS[
-            'labor_collective_action__rational_boss'
-        ],
-        background_agent_module='rational_agent',
-        time_and_place_module='wild_west_railroad_construction_labor',
-        focal_is_resident=False,
-        tags=(
-            'convention following',
-            'leadership',
-            'persuasion',
-        ),
-    ),
-    labor_collective_action__paranoid_boss_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents in a labor '
-            'organization collective action scenario with a boss '
-            'who is paranoid and a visitor agent who is basic'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS[
-            'labor_collective_action__paranoid_boss'
-        ],
-        background_agent_module='basic_agent',
-        time_and_place_module='garment_factory_labor',
-        focal_is_resident=True,
-        tags=(
-            'discouraging antisocial behavior',
-            'role playing',
-        ),
-    ),
     labor_collective_action__paranoid_boss_1=ScenarioConfig(
         description=(
             'visitor focal agent in a labor organization collective '
@@ -189,42 +154,6 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=True,
         tags=('coordination', 'persuasion'),
     ),
-    pub_coordination_1=ScenarioConfig(
-        description=(
-            'visitor focal agent in a pub coordination '
-            'scenario with a supporting agent who is a stubborn '
-            'and a visitor who is rational'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
-        background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=False,
-        tags=('coordination', 'persuasion'),
-    ),
-    pub_coordination_closures_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents in a pub coordination with'
-            ' pub closures and with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
-        background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=True,
-        tags=('coordination', 'persuasion', 'private information'),
-    ),
-    pub_coordination_closures_1=ScenarioConfig(
-        description=(
-            'visitor focal agent in a pub coordination scenario with closures'
-            'and with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
-        background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=False,
-        tags=('coordination', 'persuasion', 'private information'),
-    ),
     pub_coordination_friendships_0=ScenarioConfig(
         description=(
             'resident population of focal agents in a pub coordination scenario'
@@ -235,18 +164,6 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         background_agent_module='rational_agent',
         time_and_place_module='pub_coordination_london',
         focal_is_resident=True,
-        tags=('coordination', 'persuasion', 'social networks'),
-    ),
-    pub_coordination_friendships_1=ScenarioConfig(
-        description=(
-            'visitor focal agent in a pub coordination with friendships'
-            'scenario with a supporting agent who is stubborn '
-            'and a rational visitor agent'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_friendships'],
-        background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=False,
         tags=('coordination', 'persuasion', 'social networks'),
     ),
     haggling_0=ScenarioConfig(
@@ -271,93 +188,21 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=False,
         tags=('negotiation',),
     ),
-    haggling_gullible_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents in a haggling scenario'
-            ' supporting agents who will accept any offer'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['haggling_gullible'],
-        background_agent_module='rational_agent',
-        time_and_place_module='fruitville_haggling',
-        focal_is_resident=True,
-        tags=('negotiation',),
-    ),
-    reality_show_circa_2003_chicken_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents are contestants on a '
-            'reality show circa 2003 along with strangers who are rational.'
-            ' The minigame played on the show is multiplayer chicken.'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
-        background_agent_module='rational_agent',
-        time_and_place_module=(
-            'early_2000s_american_reality_show__chicken_3_players'),
-        focal_is_resident=True,
-        tags=(
-            'discouraging antisocial behavior',
-        ),
-    ),
-    reality_show_circa_2003_chicken_1=ScenarioConfig(
-        description=(
-            'visitor focal agents are contestants on a reality show circa '
-            '2003, joining a resident group of strangers who are paranoid.'
-            ' The minigame played on the show is multiplayer chicken.'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
-        background_agent_module='paranoid_agent',
-        time_and_place_module=(
-            'early_2000s_american_reality_show__chicken_4_players'),
-        focal_is_resident=False,
-        tags=(
-            'discouraging antisocial behavior',
-            'convention following',
-            'persuasion',
-        ),
-    ),
     reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(
         description=(
             'resident population of focal agents are contestants on a '
-            'reality show circa 2003 along with strangers who are rational.'
-            ' The minigame played on the show is multiplayer prisoners dilemma.'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
-        background_agent_module='rational_agent',
-        time_and_place_module=(
-            'early_2000s_american_reality_show__prisoners_dilemma_4_players'),
-        focal_is_resident=True,
-        tags=(
-            'discouraging antisocial behavior',
-        ),
-    ),
-    reality_show_circa_2003_prisoners_dilemma_1=ScenarioConfig(
-        description=(
-            'resident population of focal agents are contestants on a '
-            'reality show circa 2003 along with strangers who are paranoid.'
-            ' The minigame played on the show is multiplayer prisoners dilemma.'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
-        background_agent_module='paranoid_agent',
-        time_and_place_module=(
-            'early_2000s_american_reality_show__prisoners_dilemma_3_players'),
-        focal_is_resident=True,
-        tags=(
-            'discouraging antisocial behavior',
-        ),
-    ),
-    reality_show_circa_2003_stag_hunt_0=ScenarioConfig(
-        description=(
-            'visitor focal agents are contestants on a reality show circa '
-            '2003, joining a resident group of strangers who are basic.'
-            ' The minigame played on the show is multiplayer stag hunt.'
+            'reality show circa 2003 along with strangers who are basic.'
+            ' The minigame played on the show is multiplayer prisoners '
+            'dilemma.'
         ),
         substrate_config=SUBSTRATE_CONFIGS['reality_show'],
         background_agent_module='basic_agent',
         time_and_place_module=(
-            'early_2000s_american_reality_show__stag_hunt_4_players'),
-        focal_is_resident=False,
+            'early_2000s_american_reality_show__prisoners_dilemma_3_players'
+        ),
+        focal_is_resident=True,
         tags=(
             'discouraging antisocial behavior',
-            'convention following',
             'persuasion',
         ),
     ),
