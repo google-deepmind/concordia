@@ -124,6 +124,7 @@ def configure_player(
     all_player_names_str: the names of all the players in one string
     pub_preferences: the preferences of all the pubs
     year: the year of the simulation to sample the age of the players
+
   Returns:
     config: the player config
   """
@@ -186,7 +187,7 @@ def configure_players(sampled_settings: Any) -> tuple[
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  names = sampled_settings.people[:NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS]
+  names = sampled_settings.people[: NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS]
   all_players = ', '.join(names)
   player_configs = []
 
@@ -367,7 +368,7 @@ def add_choice_scene_spec(
       model=model,
       memory=game_master_memory,
       clock=clock,
-      name=f'{scene_type_name} decision environment',
+      name=f'{scene_type_name} coordination GM',
       players=players,
       components=[coordination_payoffs],
       action_spec=action_spec,
@@ -412,7 +413,11 @@ def configure_scenes(
     pub_closed_probability: float,
     sampled_settings: Any,
     use_relational_matrix: bool = False,
-) -> tuple[Sequence[scene_lib.SceneSpec], Callable[[], Mapping[str, float]]]:
+) -> tuple[
+    Sequence[scene_lib.SceneSpec],
+    Callable[[], Mapping[str, float]],
+    list[game_master.GameMaster] | list[None],
+]:
   """Configure the scene storyboard structure.
 
   Args:
@@ -436,6 +441,8 @@ def configure_scenes(
   coordination_payoffs = []
   scenes = []
   pubs = sampled_settings.venues
+
+  secondary_environments = []
 
   for i in range(NUM_GAMES):
     closed_pub = None
@@ -493,6 +500,7 @@ def configure_scenes(
     )
     coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
+    secondary_environments.append(choice_scene_spec.override_game_master)
     scenes = scenes + [
         scene_lib.SceneSpec(
             scene_type=scene_specs['social'],
@@ -518,7 +526,7 @@ def configure_scenes(
         result[name] += score
     return result
 
-  return (scenes, return_payoffs_sum)
+  return (scenes, return_payoffs_sum, secondary_environments)
 
 
 def outcome_summary_fn(
@@ -793,20 +801,22 @@ class Simulation(scenarios_lib.Runnable):
               thought_chain=[thought_chains_lib.identity],
           )
       )
-    self._scenes, self._coordination_payoffs = configure_scenes(
-        model=self._model,
-        game_master_memory=game_master_memory,
-        players=self._all_players,
-        clock=self._clock,
-        main_player_configs=main_player_configs,
-        supporting_player_configs=supporting_player_configs,
-        sampled_settings=sampled_settings,
-        start_time=start_time,
-        pub_closed_probability=pub_closed_probability,
-        use_relational_matrix=use_relational_matrix,
+    self._scenes, self._coordination_payoffs, secondary_environments = (
+        configure_scenes(
+            model=self._model,
+            game_master_memory=game_master_memory,
+            players=self._all_players,
+            clock=self._clock,
+            main_player_configs=main_player_configs,
+            supporting_player_configs=supporting_player_configs,
+            sampled_settings=sampled_settings,
+            start_time=start_time,
+            pub_closed_probability=pub_closed_probability,
+            use_relational_matrix=use_relational_matrix,
+        )
     )
 
-    self._secondary_environments = []
+    self._secondary_environments = secondary_environments
 
     self._init_premise_memories(
         setup_time=setup_clock_time,
