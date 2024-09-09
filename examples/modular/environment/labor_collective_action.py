@@ -526,13 +526,7 @@ def configure_scenes(
           participant_configs=(antagonist_config,),
           num_rounds=1,
       ),
-      scene_lib.SceneSpec(
-          # Dinner in the saloon
-          scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
-          start_time=start_time + datetime.timedelta(hours=20) + 2 * day,
-          participant_configs=player_configs,
-          num_rounds=1,
-      ),
+      # No dinner on day 2.
       # Day 3
       scene_lib.SceneSpec(
           # Construction workers start the day first
