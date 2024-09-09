@@ -83,6 +83,7 @@ setuptools.setup(
         'reactivex',
         'retry',
         'termcolor',
+        'together',
         'transformers',
         'typing-extensions',
     ),
