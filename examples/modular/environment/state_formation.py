@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import datetime
+import functools
 import importlib
 import random
 import types
@@ -642,35 +643,13 @@ class Simulation(scenarios_lib.Runnable):
         configure_players()
     )
 
-    num_main_players = len(main_player_configs)
-    num_supporting_players = len(supporting_player_configs)
-
-    self._all_memories = {}
-
-    main_player_memory_futures = []
-    with concurrency.executor(max_workers=num_main_players) as pool:
-      for player_config in main_player_configs:
-        future = pool.submit(
-            self._make_player_memories, player_config=player_config
+    tasks = {
+        config.name: functools.partial(
+            self._make_player_memories, config=config
         )
-        main_player_memory_futures.append(future)
-      for player_config, future in zip(
-          main_player_configs, main_player_memory_futures
-      ):
-        self._all_memories[player_config.name] = future.result()
-
-    if num_supporting_players > 0:
-      supporting_player_memory_futures = []
-      with concurrency.executor(max_workers=num_supporting_players) as pool:
-        for player_config in supporting_player_configs:
-          future = pool.submit(
-              self._make_player_memories, player_config=player_config
-          )
-          supporting_player_memory_futures.append(future)
-        for player_config, future in zip(
-            supporting_player_configs, supporting_player_memory_futures
-        ):
-          self._all_memories[player_config.name] = future.result()
+        for config in main_player_configs + supporting_player_configs
+    }
+    self._all_memories = concurrency.run_tasks(tasks)
 
     main_players = []
     for player_config in main_player_configs:

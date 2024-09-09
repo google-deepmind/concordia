@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Sequence
 import datetime
+import functools
 import random
 import types
 from typing import Any
@@ -151,7 +152,6 @@ def configure_players(
   main_player_names = sampled_settings.people[:num_main_players]
 
   joined_world_elements = '\n'.join(sampled_settings.world_elements)
-  player_configs = []
 
   def get_agent_config(player_name: str, environment_cfg: Any):
     if environment_cfg.person_data[player_name]['gender'] == 'male':
@@ -239,17 +239,10 @@ def configure_players(
     )
 
   # Embellish main player backstory prompts in parallel.
-  main_player_config_futures = []
-  with concurrency.executor(max_workers=num_main_players) as pool:
-    for player_name in main_player_names:
-      future = pool.submit(
-          get_agent_config,
-          player_name=player_name,
-          environment_cfg=sampled_settings,
-      )
-      main_player_config_futures.append(future)
-    for future in main_player_config_futures:
-      player_configs.append(future.result())
+  player_configs = concurrency.map_parallel(
+      functools.partial(get_agent_config, environment_cfg=sampled_settings),
+      main_player_names,
+  )
 
   public_faces = {
       config.name: config.extras['public_face'] for config in player_configs
@@ -309,7 +302,7 @@ def configure_players(
           },
       },
   )
-  player_configs.append(antagonist_config)
+  player_configs = [*player_configs, antagonist_config]
   organizer_params = sampled_settings.person_data[sampled_settings.organizer]
   organizer_config = formative_memories.AgentConfig(
       name=sampled_settings.organizer,
@@ -678,33 +671,13 @@ class Simulation(scenarios_lib.Runnable):
     )
     random.shuffle(main_player_configs)
 
-    supporting_player_names = [cfg.name for cfg in supporting_player_configs]
-
-    num_main_players = len(main_player_configs)
-    num_supporting_players = len(supporting_player_names)
-
-    self._all_memories = {}
-
-    main_player_memory_futures = []
-    with concurrency.executor(max_workers=num_main_players) as pool:
-      for player_config in main_player_configs:
-        future = pool.submit(self._make_player_memories, config=player_config)
-        main_player_memory_futures.append(future)
-      for player_config, future in zip(
-          main_player_configs, main_player_memory_futures
-      ):
-        self._all_memories[player_config.name] = future.result()
-
-    if num_supporting_players > 0:
-      supporting_player_memory_futures = []
-      with concurrency.executor(max_workers=num_supporting_players) as pool:
-        for player_config in supporting_player_configs:
-          future = pool.submit(self._make_player_memories, config=player_config)
-          supporting_player_memory_futures.append(future)
-        for player_config, future in zip(
-            supporting_player_configs, supporting_player_memory_futures
-        ):
-          self._all_memories[player_config.name] = future.result()
+    tasks = {
+        config.name: functools.partial(
+            self._make_player_memories, config=config
+        )
+        for config in main_player_configs + supporting_player_configs
+    }
+    self._all_memories = concurrency.run_tasks(tasks)
 
     main_players = []
     self._resident_names = []

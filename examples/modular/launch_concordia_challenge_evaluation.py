@@ -67,8 +67,8 @@ the same model and embedder.
 """
 
 import argparse
-from concurrent import futures
 import datetime
+import functools
 import importlib
 
 from concordia.language_model import utils
@@ -187,6 +187,7 @@ def _evaluate_all_repetitions_on_one_scenario(
   Returns:
     ScenarioResult object with the results of the evaluation.
   """
+  print(f'Running scenario: {scenario_name}')
   # Run several simulations per scenario
   simulation_outcomes = []
   focal_per_capita_scores_to_average = []
@@ -252,24 +253,15 @@ def _evaluate_all_repetitions_on_one_scenario(
       exclude_from_elo_calculation=args.exclude_from_elo_calculation,
   )
 
-num_scenarios = len(scenarios_lib.SCENARIO_CONFIGS)
-running = {}
-with concurrency.executor(max_workers=num_scenarios) as pool:
-  for (
-      scenario_name_,
-      scenario_config_,
-  ) in scenarios_lib.SCENARIO_CONFIGS.items():
-    print(f'Running scenario: {scenario_name_}')
-    future = pool.submit(
+tasks = {
+    name: functools.partial(
         _evaluate_all_repetitions_on_one_scenario,
-        scenario_name=scenario_name_,
-        scenario_config=scenario_config_,
+        scenario_name=name,
+        scenario_config=config,
     )
-    running[future] = scenario_name_
-  evaluation_results = {}
-  for future in futures.as_completed(running):
-    scenario_name_ = running[future]
-    evaluation_results[scenario_name_] = future.result()
+    for (name, config) in scenarios_lib.SCENARIO_CONFIGS.items()
+}
+evaluation_results = concurrency.run_tasks(tasks)
 
 # Save evaluation results for all scenarios with this agent to one json file.
 json_filename = (

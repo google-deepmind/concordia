@@ -115,16 +115,11 @@ class EntityAgent(entity_component.EntityWithComponents):
       A ComponentsContext, that is, a mapping of component name to the result of
       the method call.
     """
-    context_futures = {}
-    with concurrency.executor() as pool:
-      for name, component in self._context_components.items():
-        context_futures[name] = pool.submit(
-            getattr(component, method_name), *args
-        )
-
-    return {
-        name: future.result() for name, future in context_futures.items()
+    tasks = {
+        name: functools.partial(getattr(component, method_name), *args)
+        for name, component in self._context_components.items()
     }
+    return concurrency.run_tasks(tasks)
 
   @override
   def act(

@@ -26,7 +26,7 @@ _T = TypeVar('_T')
 
 
 @contextlib.contextmanager
-def executor(**kwargs) -> Iterator[futures.ThreadPoolExecutor]:
+def _executor(**kwargs) -> Iterator[futures.ThreadPoolExecutor]:
   """Context manager for a concurrent.futures.ThreadPoolExecutor.
 
   On normal __exit__ this context manager will behave like
@@ -87,7 +87,7 @@ def _as_completed(
   """
   if max_workers is None:
     max_workers = len(tasks)
-  with executor(max_workers=max_workers) as executor_:
+  with _executor(max_workers=max_workers) as executor_:
     key_by_future = {
         executor_.submit(_run_task, key, task): key
         for key, task in tasks.items()

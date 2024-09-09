@@ -42,7 +42,7 @@ class ConcurrencyTest(absltest.TestCase):
   def test_executor_fails_fast(self):
     start_time = time.time()
     try:
-      with concurrency.executor() as executor:
+      with concurrency._executor() as executor:
         executor.submit(wait_for, 5)
         raise ExpectedError()
     except ExpectedError:
