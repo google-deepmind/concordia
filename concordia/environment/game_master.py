@@ -17,6 +17,7 @@
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import datetime
+import functools
 import random
 from typing import Any
 
@@ -211,7 +212,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def update_from_player(self, player_name: str, action_attempt: str):
     prompt = interactive_document.InteractiveDocument(self._model)
 
-    concurrency.run_parallel(
+    concurrency.map_parallel(
         lambda construct: construct.update_before_event(
             f'{player_name}: {action_attempt}'
         ),
@@ -270,7 +271,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       return externality.update_after_event(event_statement)
 
     if self._concurrent_externalities:
-      concurrency.run_parallel(get_externality, self._components.values())
+      concurrency.map_parallel(get_externality, self._components.values())
     else:
       for externality in self._components.values():
         externality.update_after_event(event_statement)
@@ -303,17 +304,14 @@ class GameMaster(simulacrum_game_master.GameMaster):
     return
 
   def update_components(self) -> None:
-    futures = []
-    with concurrency.executor() as pool:
-      for comp in self._components.values():
-        future = pool.submit(
+    concurrency.run_tasks({
+        f'{component.name}.update': functools.partial(
             helper_functions.apply_recursively,
-            parent_component=comp,
-            function_name='update'
+            parent_component=component,
+            function_name='update',
         )
-        futures.append(future)
-    for future in futures:
-      future.result()
+        for component in self._components.values()
+    })
 
   def _step_player(
       self,
@@ -374,7 +372,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
       random.shuffle(players)
 
     if self._concurrent_action:
-      concurrency.run_parallel(step_player_fn, players)
+      concurrency.map_parallel(step_player_fn, players)
     else:
       for player in players:
         step_player_fn(player)

@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Sequence
 import datetime
+import functools
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory_component
@@ -125,9 +126,12 @@ class QuestionOfQueryAssociatedMemories(action_spec_ignored.ActionSpecIgnored):
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
-    results = concurrency.run_parallel(self._query_memory, self._queries)
+    results = concurrency.run_tasks({
+        query: functools.partial(self._query_memory, query)
+        for query in self._queries
+    })
     results_str = '\n'.join(
-        [f'{query}: {result}' for query, result in zip(self._queries, results)]
+        [f'{query}: {result}' for query, result in results.items()]
     )
     if self._summarization_question is not None:
       prompt = self._summarization_question.format(

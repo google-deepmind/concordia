@@ -16,6 +16,7 @@
 
 from collections.abc import Iterable, Sequence
 import datetime
+import functools
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -120,26 +121,23 @@ def apply_recursively(
     concurrent_child_calls: whether to call the function on child components
       concurrently.
   """
-
   if concurrent_child_calls:
-    futures = []
-    with concurrency.executor(
-        max_workers=len(parent_component.get_components())) as executor:
-      for child_component in parent_component.get_components():
-        future = executor.submit(
+    concurrency.run_tasks({
+        f'{child_component.name}.{function_name}': functools.partial(
             apply_recursively,
-            child_component,
-            function_name,
+            parent_component=child_component,
+            function_name=function_name,
             function_arg=function_arg,
             concurrent_child_calls=concurrent_child_calls,
         )
-        futures.append(future)
-    for future in futures:
-      future.result()
+        for child_component in parent_component.get_components()
+    })
   else:
     for child_component in parent_component.get_components():
       apply_recursively(
-          child_component, function_name, function_arg=function_arg
+          parent_component=child_component,
+          function_name=function_name,
+          function_arg=function_arg,
       )
 
   if function_arg is None:

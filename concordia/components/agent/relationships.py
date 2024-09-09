@@ -15,6 +15,7 @@
 """Agent relationships with others component."""
 
 from collections.abc import Sequence
+import functools
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory_component
@@ -93,12 +94,13 @@ class Relationships(action_spec_ignored.ActionSpecIgnored):
     return result
 
   def _make_pre_act_value(self) -> str:
-    results = concurrency.run_parallel(
-        self._query_memory, self._related_agents_names
-    )
+    results = concurrency.run_tasks({
+        query: functools.partial(self._query_memory, query)
+        for query in self._related_agents_names
+    })
     output = '\n'.join([
         f'{query}: {result}'
-        for query, result in zip(self._related_agents_names, results)
+        for query, result in results.items()
     ])
 
     self._logging_channel({'Key': self.get_pre_act_key(), 'Value': output})
