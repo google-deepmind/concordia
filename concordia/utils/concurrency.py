@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Better error handling for ThreadPoolExecutors."""
+"""Concurrency helpers."""
 
 from collections.abc import Collection, Iterator, Sequence
 from concurrent import futures
@@ -55,22 +55,29 @@ def run_parallel(
     fn: Callable[..., _T],
     *args: Collection[Any],
     timeout: float | None = None,
+    max_workers: int | None = None,
 ) -> Sequence[_T]:
-  """Maps a function to a sequence of values in parallel.
+  """Runs `map(*args)` in parallel.
+
+  IMPORTANT: Passed callables must be threadsafe.
 
   Args:
-    fn: function to execute
+    fn: function to execute (MUST BE THREADSAFE)
     *args: arguments to pass to function.
     timeout: the maximum number of seconds to wait.
+    max_workers: them maximum number of parallel jobs. If None, will use as many
+      workers as there are arguments.
 
   Returns:
-    [fn(*arg) for arg in args]
+    [fn(arg0, arg1, ...) for arg0, arg1, ...  in zip(*args)]
     However, the calls will be executed concurrently.
 
   Raises:
     TimeoutError: If all the results are not generated before the timeout.
     Exception: If fn(*args) raises for any values.
   """
-  with executor(max_workers=len(args)) as executor_:
+  if max_workers is None:
+    max_workers = min(len(arg) for arg in args)
+  with executor(max_workers=max_workers) as executor_:
     results = executor_.map(fn, *args, timeout=timeout)
     return list(results)  # Consume iterator to surface any errors.
