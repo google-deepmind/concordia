@@ -147,17 +147,12 @@ if args.disable_language_model:
 
 # Append name of agent to list of agents that already ran and throw error if it
 # is already present.
+agents_list_path = f'agents__{args.model_name}__{args.embedder_name}.txt'
 if not exclude_from_elo_calculation:
-  agents_list_path = f'agents__{args.model_name}__{args.embedder_name}.txt'
   agents_list = file_utils.read_csv(
       file_path=agents_list_path, unpack_singleton_rows=True)
-
   if args.agent_name in agents_list:
     raise RuntimeError(f'{args.agent_name} was already evaluated.')
-  else:
-    file_handle = open(agents_list_path, 'a', encoding='utf-8')
-    file_handle.write(f'{args.agent_name}\n')
-    file_handle.close()
 
 # Load the agent config with importlib
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
@@ -290,3 +285,8 @@ with open(json_filename, 'a', encoding='utf-8') as file_handle:
     file_handle.write(json_str)
     idx += 1
   file_handle.write('\n]')
+
+if not exclude_from_elo_calculation:
+  file_handle = open(agents_list_path, 'a', encoding='utf-8')
+  file_handle.write(f'{args.agent_name}\n')
+  file_handle.close()
