@@ -34,6 +34,8 @@ COMPLETION_MODELS = (
     'codestral-2405',
 )
 
+_NUM_SILENT_ATTEMPTS = 3
+
 
 class MistralLanguageModel(language_model.LanguageModel):
   """Language Model wrapper that uses Mistral models."""
@@ -97,8 +99,9 @@ class MistralLanguageModel(language_model.LanguageModel):
     result = ''
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
-        print('Sleeping for 10 seconds... ' +
-              f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print('Sleeping for 10 seconds... ' +
+                f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
         time.sleep(10)
       try:
         response = self._client.fim.complete(
@@ -163,8 +166,9 @@ class MistralLanguageModel(language_model.LanguageModel):
     ]
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
-        print('Sleeping for 10 seconds... ' +
-              f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print('Sleeping for 10 seconds... ' +
+                f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
         time.sleep(10)
       try:
         response = self._client.chat.complete(
