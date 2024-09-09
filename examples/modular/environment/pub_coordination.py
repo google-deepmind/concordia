@@ -308,8 +308,10 @@ def generate_relationship_statements(names, m):
 
 
 def add_choice_scene_spec(
+    *,
     model: language_model.LanguageModel,
     game_master_memory: associative_memory.AssociativeMemory,
+    scene_name: str,
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     player_configs: Sequence[formative_memories.AgentConfig],
@@ -324,6 +326,7 @@ def add_choice_scene_spec(
   Args:
     model: the language model to use.
     game_master_memory: the game master memory to use.
+    scene_name: the name of the scene
     players: the players to use.
     clock: the clock to use.
     player_configs: the player configs to use.
@@ -369,7 +372,7 @@ def add_choice_scene_spec(
       model=model,
       memory=game_master_memory,
       clock=clock,
-      name=f'{scene_type_name} coordination GM',
+      name=scene_name,
       players=players,
       components=[coordination_payoffs],
       action_spec=action_spec,
@@ -491,6 +494,7 @@ def configure_scenes(
     choice_scene_spec, this_coordination_payoff = add_choice_scene_spec(
         model=model,
         game_master_memory=game_master_memory,
+        scene_name=f'Which pub? decision scene {i}',
         players=players,
         clock=clock,
         option_multiplier=option_multiplier,
