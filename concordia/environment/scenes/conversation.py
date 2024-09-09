@@ -44,6 +44,7 @@ class ConversationTracker(component.Component):
       premise: str = '',
       check_for_termination: bool = True,
       key_question: str | None = None,
+      max_steps: int | None = None,
       verbose: bool = False,
       log_colour: str = 'red',
   ):
@@ -58,6 +59,7 @@ class ConversationTracker(component.Component):
         conversation
       key_question: End the scene once the game master knows the answer to this
         question.
+      max_steps: Maximum number of conversation steps. If none, no limit
       verbose: whether or not to print intermediate reasoning steps
       log_colour: colour for logging
     """
@@ -67,6 +69,8 @@ class ConversationTracker(component.Component):
     self._players = players
     self._check_for_termination = check_for_termination
     self._key_question = key_question
+    self._max_steps = max_steps
+    self._current_steps = 0
 
     self._verbose = verbose
 
@@ -77,6 +81,10 @@ class ConversationTracker(component.Component):
     return self._state
 
   def terminate_episode(self) -> bool:
+    if self._max_steps is not None and self._current_steps >= self._max_steps:
+      return True
+    self._current_steps = self._current_steps + 1
+
     if not self._check_for_termination:
       return False
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -85,8 +93,10 @@ class ConversationTracker(component.Component):
     chain_of_thought.statement(f'Conversation:\n{self._state}\n')
 
     key_question_answered = chain_of_thought.multiple_choice_question(
-        question=('Has the answer to the key question been revealed '
-                  'by the conversation so far?'),
+        question=(
+            'Has the answer to the key question been revealed '
+            'by the conversation so far?'
+        ),
         answers=['No', 'Yes'],
     )
     did_conclude = False
@@ -94,15 +104,17 @@ class ConversationTracker(component.Component):
       did_conclude = True
     else:
       will_not_answer = chain_of_thought.multiple_choice_question(
-          question=('Considerations on whether or not to end the scene now:\n '
-                    'Is it clear now that the conversation is unlikely to '
-                    'reveal the answer to the key question? If so '
-                    'then the scene should end. However, if answering the '
-                    'question is still possible by continuing the conversation '
-                    'then it is best to do so. However, if ending the '
-                    'scene now would not make sense narratively then do not '
-                    'end it. Given these considerations, should the scene '
-                    'end now?'),
+          question=(
+              'Considerations on whether or not to end the scene now:\n '
+              'Is it clear now that the conversation is unlikely to '
+              'reveal the answer to the key question? If so '
+              'then the scene should end. However, if answering the '
+              'question is still possible by continuing the conversation '
+              'then it is best to do so. However, if ending the '
+              'scene now would not make sense narratively then do not '
+              'end it. Given these considerations, should the scene '
+              'end now?'
+          ),
           answers=['No', 'Yes'],
       )
       if will_not_answer:
@@ -140,6 +152,7 @@ def make_conversation_game_master(
     premise: str = '',
     review_participants: bool = True,
     key_question: str | None = None,
+    max_steps: int | None = 3,
     verbose: bool = False,
 ):
   """Creates a game master that runs a conversation between players.
@@ -161,6 +174,7 @@ def make_conversation_game_master(
       declaring who its participants are.
     key_question: optionally, end the scene once the game master knows the
       answer to this question.
+    max_steps: Maximum number of conversation steps. If none, no limit
     verbose: whether or not to print
 
   Returns:
@@ -196,6 +210,7 @@ def make_conversation_game_master(
       log_colour='red',
       check_for_termination=check_for_termination,
       key_question=key_question,
+      max_steps=max_steps,
   )
 
   for player in players:

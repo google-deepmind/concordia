@@ -417,6 +417,7 @@ class Conversation(component.Component):
             review_participants=self._review_participants,
             key_question=key_question,
             verbose=self._verbose,
+            max_steps=self._max_conversation_length + 1,
         )
         with self._clock.higher_gear():
           scene_output = convo_scene.run_episode(
