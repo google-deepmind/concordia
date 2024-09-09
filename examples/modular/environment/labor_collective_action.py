@@ -55,7 +55,7 @@ DEFAULT_TIME_AND_PLACE_MODULES = (
     'garment_factory_labor',
     'wild_west_railroad_construction_labor',
 )
-NUM_MAIN_PLAYERS = 4
+NUM_MAIN_PLAYERS = 3
 DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 LOW_DAILY_PAY = 1.25
 WAGE_INCREASE_FACTOR = 2.0
