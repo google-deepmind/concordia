@@ -169,10 +169,13 @@ model = utils.language_model_setup(
 )
 
 # Setup sentence encoder
-st_model = sentence_transformers.SentenceTransformer(
-    f'sentence-transformers/{args.embedder_name}'
-)
-embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+if not args.disable_language_model:
+  st_model = sentence_transformers.SentenceTransformer(
+      f'sentence-transformers/{args.embedder_name}'
+  )
+  embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+else:
+  embedder = lambda x: np.ones(5)
 
 
 def _evaluate_all_repetitions_on_one_scenario(

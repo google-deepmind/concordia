@@ -49,7 +49,9 @@ import importlib
 
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
+import numpy as np
 import sentence_transformers
+
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
@@ -111,9 +113,13 @@ model = utils.language_model_setup(
 )
 
 # Setup sentence encoder
-st_model = sentence_transformers.SentenceTransformer(
-    f'sentence-transformers/{args.embedder_name}')
-embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+if not args.disable_language_model:
+  st_model = sentence_transformers.SentenceTransformer(
+      f'sentence-transformers/{args.embedder_name}'
+  )
+  embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+else:
+  embedder = lambda x: np.ones(5)
 
 # Initialize the simulation
 measurements = measurements_lib.Measurements()

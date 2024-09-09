@@ -48,6 +48,7 @@ import importlib
 
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
+import numpy as np
 import sentence_transformers
 
 # Setup for command line arguments
@@ -103,9 +104,13 @@ model = utils.language_model_setup(
     disable_language_model=command_line_args.disable_language_model,
 )
 # Setup sentence encoder
-st_model = sentence_transformers.SentenceTransformer(
-    f'sentence-transformers/{command_line_args.embedder_name}')
-embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+if not command_line_args.disable_language_model:
+  st_model = sentence_transformers.SentenceTransformer(
+      f'sentence-transformers/{command_line_args.embedder_name}'
+  )
+  embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+else:
+  embedder = lambda x: np.ones(5)
 
 # Initialize the simulation
 measurements = measurements_lib.Measurements()
