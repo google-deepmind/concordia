@@ -23,6 +23,7 @@ from concordia.language_model import mistral_model
 from concordia.language_model import no_language_model
 from concordia.language_model import ollama_model
 from concordia.language_model import pytorch_gemma_model
+from concordia.language_model import together_ai
 
 
 def language_model_setup(
@@ -57,7 +58,8 @@ def language_model_setup(
     return amazon_bedrock_model.AmazonBedrockLanguageModel(model_name)
   elif api_type == 'google_aistudio_model':
     return google_aistudio_model.GoogleAIStudioLanguageModel(
-        model_name=model_name, api_key=api_key)
+        model_name=model_name, api_key=api_key
+    )
   elif api_type == 'langchain_ollama':
     return langchain_ollama_model.LangchainOllamaLanguageModel(model_name)
   elif api_type == 'mistral':
@@ -68,5 +70,7 @@ def language_model_setup(
     return gpt_model.GptLanguageModel(model_name, api_key=api_key)
   elif api_type == 'pytorch_gemma':
     return pytorch_gemma_model.PyTorchGemmaLanguageModel(model_name)
+  elif api_type == 'together_ai':
+    return together_ai.Gemma2(model_name, api_key=api_key)
   else:
     raise ValueError(f'Unrecognized api type: {api_type}')
