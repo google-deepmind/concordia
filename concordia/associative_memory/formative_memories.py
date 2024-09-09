@@ -215,9 +215,10 @@ class FormativeMemoryFactory:
 
     if len(episodes) != len(formative_ages_list):
       logger.warning(
-          f'Number of generated formative episodes ({len(episodes)}) does ' +
-          'not match number of formative ages ' +
-          f'({len(formative_ages_list)}).')
+          'Warning: Number of generated formative episodes ' +
+          f'({len(episodes)}) does not match number of formative ages ' +
+          f'({len(formative_ages_list)}). This is just a warning and '
+          'probably not problematic.')
 
     for episode_age, episode in zip(agent_config.formative_ages, episodes):
       memory.add(
