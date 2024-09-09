@@ -434,7 +434,7 @@ def configure_scenes(
                 this_game_players[0].name: [(
                     f'{scene_opening} {this_game_players[0].name} is trying to'
                     f' buy some fruit from {this_game_players[1].name}. They'
-                    f' are negotiating a price. {this_game_players[1].name} can'
+                    f' are negotiating a price. {this_game_players[0].name} can'
                     f' sell the fruit for {buyer_base_reward} coins back in her'
                     ' home town.'
                 )],
