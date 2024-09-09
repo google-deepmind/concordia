@@ -122,17 +122,20 @@ def apply_recursively(
   """
 
   if concurrent_child_calls:
+    futures = []
     with concurrency.executor(
         max_workers=len(parent_component.get_components())) as executor:
       for child_component in parent_component.get_components():
-        executor.submit(
+        future = executor.submit(
             apply_recursively,
             child_component,
             function_name,
             function_arg=function_arg,
             concurrent_child_calls=concurrent_child_calls,
-            executor=executor,
         )
+        futures.append(future)
+    for future in futures:
+      future.result()
   else:
     for child_component in parent_component.get_components():
       apply_recursively(

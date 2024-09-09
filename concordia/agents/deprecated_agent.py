@@ -161,8 +161,12 @@ class BasicAgent(
       )
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-      for comp in self._components.values():
-        executor.submit(_get_recursive_update_func(comp))
+      futures = [
+          executor.submit(_get_recursive_update_func(comp))
+          for comp in self._components.values()
+      ]
+    for future in futures:
+      future.result()
 
   def observe(self, observation: str):
     if observation:

@@ -97,8 +97,9 @@ class SimIdentity(component.Component):
     self._last_update = self._clock_now()
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-      for c in self._identity_components:
-        executor.submit(c.update)
+      futures = [executor.submit(c.update) for c in self._identity_components]
+    for future in futures:
+      future.result()
 
     self._state = '\n'.join(
         [f'{c.name()}: {c.state()}' for c in self._identity_components]

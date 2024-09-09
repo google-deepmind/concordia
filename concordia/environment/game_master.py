@@ -303,17 +303,17 @@ class GameMaster(simulacrum_game_master.GameMaster):
     return
 
   def update_components(self) -> None:
-    # MULTI THREAD!
-    def _get_recursive_update_func(
-        comp: component.Component,
-    ) -> Callable[[], None]:
-      return lambda: helper_functions.apply_recursively(
-          comp, function_name='update'
-      )
-
+    futures = []
     with concurrency.executor() as pool:
       for comp in self._components.values():
-        pool.submit(_get_recursive_update_func(comp))
+        future = pool.submit(
+            helper_functions.apply_recursively,
+            parent_component=comp,
+            function_name='update'
+        )
+        futures.append(future)
+    for future in futures:
+      future.result()
 
   def _step_player(
       self,

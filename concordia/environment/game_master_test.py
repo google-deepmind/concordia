@@ -129,38 +129,41 @@ class GameMasterTest(parameterized.TestCase):
     )
     env.run_episode(1)
 
-    expected = [
-        'update',
-        'partial_state Alice',
-        'update_before_event',
-        'state',
-        'update_after_event',
-        'update',
-        'partial_state Bob',
-        'update_before_event',
-        'state',
-        'update_after_event',
-        'terminate_episode',
-    ]
-    self.assertEqual(gm_call_tracker.calls_sequence, expected)
+    with self.subTest('gamesmaster'):
+      expected = [
+          'update',
+          'partial_state Alice',
+          'update_before_event',
+          'state',
+          'update_after_event',
+          'update',
+          'partial_state Bob',
+          'update_before_event',
+          'state',
+          'update_after_event',
+          'terminate_episode',
+      ]
+      self.assertEqual(gm_call_tracker.calls_sequence, expected)
 
-    alice_expected_calls = [
-        'update',
-        'observe',
-        'state',
-        'state',
-        'update_after_event',
-    ]
-    self.assertEqual(alice_call_tracker.calls_sequence, alice_expected_calls)
+    with self.subTest('alice'):
+      alice_expected_calls = [
+          'update',
+          'observe',
+          'state',
+          'state',
+          'update_after_event',
+      ]
+      self.assertEqual(alice_call_tracker.calls_sequence, alice_expected_calls)
 
-    bob_expected_calls = [
-        'update',
-        'observe',
-        'state',
-        'state',
-        'update_after_event',
-    ]
-    self.assertEqual(bob_call_tracker.calls_sequence, bob_expected_calls)
+    with self.subTest('bob'):
+      bob_expected_calls = [
+          'update',
+          'observe',
+          'state',
+          'state',
+          'update_after_event',
+      ]
+      self.assertEqual(bob_call_tracker.calls_sequence, bob_expected_calls)
 
 
 if __name__ == '__main__':
