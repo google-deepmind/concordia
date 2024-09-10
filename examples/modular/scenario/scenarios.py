@@ -99,8 +99,10 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         supporting_agent_module='basic_puppet_agent',
     ),
     reality_show=SubstrateConfig(
-        description=('players are contestants on a reality show featuring '
-                     'social dilemma games alternating with conversation'),
+        description=(
+            'players are contestants on a reality show featuring '
+            'social dilemma games alternating with conversation'
+        ),
         environment='reality_show',
         supporting_agent_module=None,
     ),
@@ -141,6 +143,17 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'persuasion',
             'role playing',
         ),
+    ),
+    pub_coordination_mini=ScenarioConfig(
+        description=(
+            'a mini scenario with one focal and one rational visitor and no'
+            ' supporting agents. Intended for fast testing.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
+        background_agent_module='rational_agent',
+        time_and_place_module='pub_coordination_london',
+        focal_is_resident=True,
+        tags=('coordination', 'persuasion'),
     ),
     pub_coordination_0=ScenarioConfig(
         description=(
@@ -215,7 +228,8 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         substrate_config=SUBSTRATE_CONFIGS['reality_show'],
         background_agent_module='paranoid_agent',
         time_and_place_module=(
-            'early_2000s_american_reality_show__stag_hunt_4_players'),
+            'early_2000s_american_reality_show__stag_hunt_4_players'
+        ),
         focal_is_resident=False,
         tags=(
             'discouraging antisocial behavior',
@@ -255,7 +269,8 @@ def build_simulation(
   if substrate_config.supporting_agent_module is not None:
     supporting_agent_module = importlib.import_module(
         f'{support_agent_base_module}.'
-        f'{substrate_config.supporting_agent_module}')
+        f'{substrate_config.supporting_agent_module}'
+    )
   else:
     supporting_agent_module = None
   runnable_simulation = simulation.Simulation(

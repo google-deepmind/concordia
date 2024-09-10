@@ -64,13 +64,9 @@ DECISION_SCENE_TYPE = 'choice'
 
 TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 
-NUM_MAIN_PLAYERS = 4
-NUM_SUPPORTING_PLAYERS = 1
-
 USE_CONVERSATION_GM = True
 
 FIRST_NAMES = player_names.FIRST_NAMES
-NUM_GAMES = 3
 
 
 @dataclasses.dataclass
@@ -89,6 +85,9 @@ class WorldConfig:
       dataclasses.field(default_factory=dict)
   )
   formative_memory_prompts: Mapping[str, Sequence[str]] | None = None
+  num_main_players: int = 4
+  num_supporting_players: int = 1
+  num_games: int = 3
 
 
 def get_shared_memories_and_context(
@@ -188,13 +187,16 @@ def configure_players(sampled_settings: Any) -> tuple[
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
-  names = sampled_settings.people[: NUM_MAIN_PLAYERS + NUM_SUPPORTING_PLAYERS]
+  names = sampled_settings.people[
+      : sampled_settings.num_main_players
+      + sampled_settings.num_supporting_players
+  ]
   all_players = ', '.join(names)
   player_configs = []
 
   num_pubs = len(sampled_settings.venues)
 
-  for i in range(NUM_MAIN_PLAYERS):
+  for i in range(sampled_settings.num_main_players):
     name = names[i]
     favorite_pub = sampled_settings.venues[i % num_pubs]
     gender = sampled_settings.person_data[name]['gender']
@@ -209,8 +211,8 @@ def configure_players(sampled_settings: Any) -> tuple[
     )
     player_configs.append(config)
 
-  for i in range(NUM_SUPPORTING_PLAYERS):
-    name = names[NUM_MAIN_PLAYERS + i]
+  for i in range(sampled_settings.num_supporting_players):
+    name = names[sampled_settings.num_main_players + i]
     gender = sampled_settings.person_data[name]['gender']
     favorite_pub = sampled_settings.venues[0]
     config = configure_player(
@@ -448,7 +450,7 @@ def configure_scenes(
 
   secondary_environments = []
 
-  for i in range(NUM_GAMES):
+  for i in range(sampled_settings.num_games):
     closed_pub = None
     if random.random() < pub_closed_probability:
       closed_pub = random.choice(sampled_settings.venues)
@@ -595,6 +597,9 @@ class Simulation(scenarios_lib.Runnable):
       time_and_place_module: str | None = None,
       pub_closed_probability: float = 0.0,
       use_relational_matrix: bool = False,
+      num_games: int = 3,
+      num_main_players: int = 4,
+      num_supporting_players: int = 1,
   ):
     """Initialize the simulation object.
 
@@ -619,6 +624,9 @@ class Simulation(scenarios_lib.Runnable):
       pub_closed_probability: the probability that a pub is closed. Zero by
         default.
       use_relational_matrix: whether to use relational matrix or not.
+      num_games: the number of games to play.
+      num_main_players: the number of main players.
+      num_supporting_players: the number of supporting players.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -646,6 +654,10 @@ class Simulation(scenarios_lib.Runnable):
             default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
         )
     )
+
+    sampled_settings.num_main_players = num_main_players
+    sampled_settings.num_supporting_players = num_supporting_players
+    sampled_settings.num_games = num_games
 
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
