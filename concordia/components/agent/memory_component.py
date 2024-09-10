@@ -74,7 +74,8 @@ class MemoryComponent(entity_component.ContextComponent):
       A list of memory results.
     """
     self._check_phase()
-    return self._memory.retrieve(query, scoring_fn, limit)
+    with self._lock:
+      return self._memory.retrieve(query, scoring_fn, limit)
 
   def add(
       self,
