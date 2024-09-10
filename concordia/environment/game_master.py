@@ -100,7 +100,6 @@ class GameMaster:
       players_act_simultaneously: bool = True,
       verbose: bool = False,
       concurrent_externalities: bool = True,
-      concurrent_action: bool = False,
       use_default_instructions: bool = True,
       log_color: str = 'red',
   ):
@@ -125,8 +124,6 @@ class GameMaster:
         false then advance time after each player acts.
       verbose: whether to print debugging information or not.
       concurrent_externalities: if true, runs externalities in separate threads
-      concurrent_action: if true, runs player actions and events in separate
-        threads
       use_default_instructions: set to False if you want to skip the standard
         instructions used for the game master, e.g. do this if you plan to pass
         custom instructions as a constant component instead.
@@ -144,7 +141,6 @@ class GameMaster:
       self._action_spec = {player.name: action_spec for player in players}
     else:
       self._action_spec = dict(action_spec)
-    self._concurrent_action = concurrent_action
 
     components = list(components)
     if use_default_instructions:
@@ -367,13 +363,10 @@ class GameMaster:
     if self._randomise_initiative:
       random.shuffle(players)
 
-    if self._concurrent_action:
-      concurrency.map_parallel(step_player_fn, players)
-    else:
-      for player in players:
-        step_player_fn(player)
-        if not self._players_act_simultaneously:
-          self._clock.advance()
+    for player in players:
+      step_player_fn(player)
+      if not self._players_act_simultaneously:
+        self._clock.advance()
     if self._players_act_simultaneously:
       self._clock.advance()
 
