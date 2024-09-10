@@ -76,6 +76,15 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination',
         supporting_agent_module='basic_puppet_agent',
     ),
+    pub_coordination_mini=SubstrateConfig(
+        description=(
+            'pub attendance coordination with supporting agent being stubborn'
+            ' and always choosing their preference.'
+        ),
+        environment='pub_coordination_mini',
+        supporting_agent_module='basic_puppet_agent',
+    ),
+
     pub_coordination_closures=SubstrateConfig(
         description=(
             'pub attendance coordination with one pub sometimes being closed'
@@ -149,7 +158,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'a mini scenario with one focal and one rational visitor and no'
             ' supporting agents. Intended for fast testing.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_mini'],
         background_agent_module='rational_agent',
         time_and_place_module='pub_coordination_london',
         focal_is_resident=True,
