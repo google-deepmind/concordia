@@ -178,7 +178,7 @@ class Gemma2(language_model.LanguageModel):
           {'role': 'user', 'content': prompt + response},
       ]
 
-      result = ''
+      result = None
       for attempts in range(_MAX_ATTEMPTS):
         if attempts > 0:
           if attempts >= _NUM_SILENT_ATTEMPTS:
@@ -201,7 +201,10 @@ class Gemma2(language_model.LanguageModel):
         else:
           break
 
-      lp = sum(result.choices[0].logprobs.token_logprobs)
+      if result:
+        lp = sum(result.choices[0].logprobs.token_logprobs)
+      else:
+        raise ValueError('Failed to get logprobs.')
 
       return lp
 
