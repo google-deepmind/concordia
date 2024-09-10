@@ -15,6 +15,8 @@
 """A component that ignores the action spec in the `pre_act` method."""
 
 import abc
+import threading
+from typing import Final
 
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -36,7 +38,8 @@ class ActionSpecIgnored(
   def __init__(self, pre_act_key: str):
     super().__init__()
     self._pre_act_value: str | None = None
-    self._pre_act_key = pre_act_key
+    self._pre_act_key: Final[str] = pre_act_key
+    self._lock: threading.Lock = threading.Lock()
 
   @abc.abstractmethod
   def _make_pre_act_value(self) -> str:
@@ -62,13 +65,13 @@ class ActionSpecIgnored(
           "`POST_ACT` phase. The entity is currently in the "
           f"{self.get_entity().get_phase()} phase.")
 
-    if self._pre_act_value is None:
-      self._pre_act_value = self._make_pre_act_value()
-    return self._pre_act_value
+    with self._lock:
+      if self._pre_act_value is None:
+        self._pre_act_value = self._make_pre_act_value()
+      return self._pre_act_value
 
-  def get_pre_act_key(self) -> str | None:
-    """Returns the key used as a prefix in the string returned by `pre_act`.
-    """
+  def get_pre_act_key(self) -> str:
+    """Returns the key used as a prefix in the string returned by `pre_act`."""
     return self._pre_act_key
 
   def pre_act(
@@ -79,7 +82,8 @@ class ActionSpecIgnored(
     return f"{self.get_pre_act_key()}: {self.get_pre_act_value()}"
 
   def update(self) -> None:
-    self._pre_act_value = None
+    with self._lock:
+      self._pre_act_value = None
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
