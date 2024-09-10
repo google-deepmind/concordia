@@ -365,12 +365,14 @@ class AccountForAgencyOfOthers:
       inactive_players_who_acted = inactive_players_who_acted_str.split(',')
       random.shuffle(inactive_players_who_acted)
       for player in inactive_players_who_acted:
-        if player.rstrip(' ') in self._player_names:
+        player_ = player.strip(' ')
+        if player_ in self._player_names:
           tmp_chain_of_thought_per_player = tmp_chain_of_thought.copy()
           what_did_they_do = tmp_chain_of_thought_per_player.open_question(
-              f'In one sentence, what did {player} do?',
-              answer_prefix=f'{player} ')
-          what_did_they_do = f'{player} {what_did_they_do}'
+              f'In one sentence, what did {player_} do?',
+              answer_prefix=f'{player_} ',
+          )
+          what_did_they_do = f'{player_} {what_did_they_do}'
           call_to_action = ('Is the following possible action something that ' +
                             '{name} would do in this situation?\n' +
                             f'Possible action: {what_did_they_do}\n')
@@ -379,7 +381,7 @@ class AccountForAgencyOfOthers:
               options=['Yes', 'No'],
               tag='action',
           )
-          would_they_do_it = self._player_by_name[player].act(action_spec)
+          would_they_do_it = self._player_by_name[player_].act(action_spec)
           action_spec.validate(would_they_do_it)
           if self._verbose:
             print(termcolor.colored(
@@ -387,18 +389,20 @@ class AccountForAgencyOfOthers:
             print(termcolor.colored(f'Would they do it? {would_they_do_it}',
                                     'yellow'))
           if would_they_do_it == 'No':
-            players_who_would_not.append(player)
+            players_who_would_not.append(player_)
             no_chain_of_thought = interactive_document.InteractiveDocument(
                 model=self._model)
             no_chain_of_thought.statement(
                 f'Event that did not occur: {candidate_event}')
             no_chain_of_thought.statement(
-                'A reason the above event did not occur is the fact ' +
-                f'that {player} would not have acted that way.')
+                'A reason the above event did not occur is the fact '
+                + f'that {player_} would not have acted that way.'
+            )
             outcome = no_chain_of_thought.open_question(
-                'Given the above, what happened instead? The answer should ' +
-                f'be what would have happened but for {player}. Answer in ' +
-                'the form of a simple statement of cause and effect.')
+                'Given the above, what happened instead? The answer should '
+                + f'be what would have happened but for {player_}. Answer in '
+                + 'the form of a simple statement of cause and effect.'
+            )
             possible_outcomes.append(outcome)
             if self._verbose:
               print(termcolor.colored(
