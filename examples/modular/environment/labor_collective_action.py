@@ -40,6 +40,7 @@ from examples.modular.environment.supporting_agent_factory import rational_agent
 from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
+from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
@@ -583,7 +584,8 @@ class Simulation(scenarios_lib.Runnable):
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
-      supporting_agent_module: types.ModuleType = rational_agent_supporting,
+      supporting_agent_module: (bots_lib.SupportingAgentFactory |
+                                types.ModuleType) = rational_agent_supporting,
       time_and_place_module: str | None = None,
   ):
     """Initialize the simulation object.

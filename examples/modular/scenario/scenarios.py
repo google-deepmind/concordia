@@ -21,12 +21,15 @@ import types
 
 from examples.modular import environment as environment_lib
 from examples.modular.environment import supporting_agent_factory
+from examples.modular.scenario import supporting_agents as bots
 from examples.modular.utils import logging_types as logging_lib
+from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.factory import agent as agent_lib
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 import immutabledict
 import numpy as np
+
 
 Runnable = Callable[[], tuple[logging_lib.SimulationOutcome, str]]
 
@@ -41,7 +44,7 @@ class SubstrateConfig:
 
   description: str
   environment: str
-  supporting_agent_module: str | None
+  supporting_agent_module: str | bots.SupportingAgentConfig | None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -67,6 +70,14 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         description='labor organization collective action with a paranoid boss',
         environment='labor_collective_action',
         supporting_agent_module='paranoid_agent',
+    ),
+    labor_collective_action__fixed_rule_boss=SubstrateConfig(
+        description=(
+            'labor organization collective action with a boss who applies '
+            'a fixed decision-making rule'),
+        environment='labor_collective_action',
+        supporting_agent_module=bots.SUPPORTING_AGENT_CONFIGS[
+            'labor_collective_action__fixed_rule_boss'],
     ),
     pub_coordination=SubstrateConfig(
         description=(
@@ -119,6 +130,18 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
 
 SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     # keep-sorted start numeric=yes block=yes
+    labor_collective_action__fixed_rule_boss_0=ScenarioConfig(
+        description=(
+            'test'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS[
+            'labor_collective_action__fixed_rule_boss'
+        ],
+        background_agent_module='rational_agent',
+        time_and_place_module='wild_west_railroad_construction_labor',
+        focal_is_resident=True,
+        tags=('debug',),
+    ),
     labor_collective_action__rational_boss_0=ScenarioConfig(
         description=(
             'resident population of focal agents in a labor '
@@ -275,13 +298,21 @@ def build_simulation(
     visitor_agent_module = focal_agent_module
     resident_agent_module = background_agent_module
 
-  if substrate_config.supporting_agent_module is not None:
+  if substrate_config.supporting_agent_module is None:
+    supporting_agent_module = None
+  elif isinstance(substrate_config.supporting_agent_module,
+                  bots.SupportingAgentConfig):
+    supporting_agent_module = bots_lib.SupportingAgentFactory(
+        module=importlib.import_module(
+            f'{support_agent_base_module}.'
+            f'{substrate_config.supporting_agent_module.module_name}'),
+        overrides=substrate_config.supporting_agent_module.overrides
+    )
+  else:
     supporting_agent_module = importlib.import_module(
         f'{support_agent_base_module}.'
         f'{substrate_config.supporting_agent_module}'
     )
-  else:
-    supporting_agent_module = None
   runnable_simulation = simulation.Simulation(
       model=model,
       embedder=embedder,
