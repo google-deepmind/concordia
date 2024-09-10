@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping
 import functools
+import threading
 import types
 from typing import cast
 
@@ -64,7 +65,9 @@ class EntityAgent(entity_component.EntityWithComponents):
     """
     super().__init__()
     self._agent_name = agent_name
-    self._phase = entity_component.Phase.INIT
+    self._control_lock = threading.Lock()
+    self._phase_lock = threading.Lock()
+    self._phase = entity_component.Phase.READY
 
     self._act_component = act_component
     self._act_component.set_entity(self)
@@ -86,7 +89,13 @@ class EntityAgent(entity_component.EntityWithComponents):
 
   @override
   def get_phase(self) -> entity_component.Phase:
-    return self._phase
+    with self._phase_lock:
+      return self._phase
+
+  def _set_phase(self, phase: entity_component.Phase) -> None:
+    with self._phase_lock:
+      self._phase.check_successor(phase)
+      self._phase = phase
 
   @override
   def get_component(
@@ -125,31 +134,37 @@ class EntityAgent(entity_component.EntityWithComponents):
   def act(
       self, action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC
   ) -> str:
-    self._phase = entity_component.Phase.PRE_ACT
-    contexts = self._parallel_call_('pre_act', action_spec)
-    self._context_processor.pre_act(types.MappingProxyType(contexts))
-    action_attempt = self._act_component.get_action_attempt(
-        contexts, action_spec
-    )
+    with self._control_lock:
+      self._set_phase(entity_component.Phase.PRE_ACT)
+      contexts = self._parallel_call_('pre_act', action_spec)
+      self._context_processor.pre_act(types.MappingProxyType(contexts))
+      action_attempt = self._act_component.get_action_attempt(
+          contexts, action_spec
+      )
 
-    self._phase = entity_component.Phase.POST_ACT
-    contexts = self._parallel_call_('post_act', action_attempt)
-    self._context_processor.post_act(contexts)
+      self._set_phase(entity_component.Phase.POST_ACT)
+      contexts = self._parallel_call_('post_act', action_attempt)
+      self._context_processor.post_act(contexts)
 
-    self._phase = entity_component.Phase.UPDATE
-    self._parallel_call_('update')
+      self._set_phase(entity_component.Phase.UPDATE)
+      self._parallel_call_('update')
 
-    return action_attempt
+      self._set_phase(entity_component.Phase.READY)
+
+      return action_attempt
 
   @override
   def observe(self, observation: str) -> None:
-    self._phase = entity_component.Phase.PRE_OBSERVE
-    contexts = self._parallel_call_('pre_observe', observation)
-    self._context_processor.pre_observe(contexts)
+    with self._control_lock:
+      self._set_phase(entity_component.Phase.PRE_OBSERVE)
+      contexts = self._parallel_call_('pre_observe', observation)
+      self._context_processor.pre_observe(contexts)
 
-    self._phase = entity_component.Phase.POST_OBSERVE
-    contexts = self._parallel_call_('post_observe')
-    self._context_processor.post_observe(contexts)
+      self._set_phase(entity_component.Phase.POST_OBSERVE)
+      contexts = self._parallel_call_('post_observe')
+      self._context_processor.post_observe(contexts)
 
-    self._phase = entity_component.Phase.UPDATE
-    self._parallel_call_('update')
+      self._set_phase(entity_component.Phase.UPDATE)
+      self._parallel_call_('update')
+
+      self._set_phase(entity_component.Phase.READY)

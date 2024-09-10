@@ -15,8 +15,9 @@
 """Base classes for Entity components."""
 
 import abc
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 import enum
+import functools
 from typing import TypeVar
 
 from concordia.typing import entity as entity_lib
@@ -31,9 +32,8 @@ class Phase(enum.Enum):
   """Phases of a component entity lifecycle.
 
   Attributes:
-    INIT: The agent has just been created. No action has been requested nor
-      observation has been received. This can be followed by a call to `pre_act`
-      or `pre_observe`.
+    READY: The agent is ready to `observe` or `act`. This will be followed by
+      `PRE_ACT` or `PRE_OBSERVE`.
     PRE_ACT: The agent has received a request to act. Components are being
       requested for their action context. This will be followed by `POST_ACT`.
     POST_ACT: The agent has just submitted an action attempt. Components are
@@ -44,15 +44,41 @@ class Phase(enum.Enum):
     POST_OBSERVE: The agent has just observed. Components are given a chance to
       provide context after processing the observation. This will be followed by
       `UPDATE`.
-    UPDATE: The agent is about to update its internal state. This will be
-      followed by `PRE_ACT` or `PRE_OBSERVE`.
+    UPDATE: The agent is updating its internal state. This will be followed by
+      `READY`.
   """
-  INIT = enum.auto()
+  READY = enum.auto()
   PRE_ACT = enum.auto()
   POST_ACT = enum.auto()
   PRE_OBSERVE = enum.auto()
   POST_OBSERVE = enum.auto()
   UPDATE = enum.auto()
+
+  @functools.cached_property
+  def successors(self) -> Collection["Phase"]:
+    """Returns the phases which may follow the current phase."""
+    match self:
+      case Phase.READY:
+        return (Phase.PRE_ACT, Phase.PRE_OBSERVE)
+      case Phase.PRE_ACT:
+        return (Phase.POST_ACT,)
+      case Phase.POST_ACT:
+        return (Phase.UPDATE,)
+      case Phase.PRE_OBSERVE:
+        return (Phase.POST_OBSERVE,)
+      case Phase.POST_OBSERVE:
+        return (Phase.UPDATE,)
+      case Phase.UPDATE:
+        return (Phase.READY,)
+      case _:
+        raise NotImplementedError()
+
+  def check_successor(self, successor: "Phase") -> None:
+    """Raises ValueError if successor is not a valid next phase."""
+    if successor not in self.successors:
+      raise ValueError(
+          f"The transition from {self} to {successor} is invalid."
+      )
 
 
 class BaseComponent:
