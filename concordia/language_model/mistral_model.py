@@ -114,7 +114,8 @@ class MistralLanguageModel(language_model.LanguageModel):
             random_seed=seed,
         )
       except mistralai.models.sdkerror.SDKError as err:
-        print(f'  Exception: {err}')
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print(f'  Exception: {err}')
         continue
       else:
         result = response.choices[0].message.content
@@ -179,7 +180,8 @@ class MistralLanguageModel(language_model.LanguageModel):
             random_seed=seed,
         )
       except mistralai.models.sdkerror.SDKError as err:
-        print(f'  Exception: {err}')
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print(f'  Exception: {err}')
         continue
       else:
         return response.choices[0].message.content
