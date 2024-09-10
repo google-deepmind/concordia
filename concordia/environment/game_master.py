@@ -31,7 +31,6 @@ from concordia.thought_chains import thought_chains
 from concordia.typing import agent as agent_lib
 from concordia.typing import clock as game_clock
 from concordia.typing import component
-from concordia.typing import game_master as simulacrum_game_master
 from concordia.utils import concurrency
 from concordia.utils import helper_functions
 import termcolor
@@ -75,7 +74,7 @@ class LogEntry:
   summary: str
 
 
-class GameMaster(simulacrum_game_master.GameMaster):
+class GameMaster:
   """A generic game master."""
 
   def __init__(
@@ -196,9 +195,6 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def get_memory(self) -> associative_memory.AssociativeMemory:
     return self._memory
 
-  def get_data_frame(self):
-    return self._memory.get_data_frame()
-
   def _print(self, entry, color=None):
     print(termcolor.colored(entry, color or self._log_color))
 
@@ -209,7 +205,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
   def get_player_names(self):
     return list(self._players_by_name.keys())
 
-  def update_from_player(self, player_name: str, action_attempt: str):
+  def _update_from_player(self, player_name: str, action_attempt: str):
     prompt = interactive_document.InteractiveDocument(self._model)
 
     concurrency.map_parallel(
@@ -292,7 +288,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     return event_statement
 
-  def view_for_player(self, player_name):
+  def _view_for_player(self, player_name):
     """Send observations to a player."""
     for comp in self._components.values():
       state_of_component = comp.partial_state(player_name)
@@ -303,7 +299,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
 
     return
 
-  def update_components(self) -> None:
+  def _update_components(self) -> None:
     concurrency.run_tasks({
         f'{component.name}.update': functools.partial(
             helper_functions.apply_recursively,
@@ -318,8 +314,8 @@ class GameMaster(simulacrum_game_master.GameMaster):
       player: deprecated_agent.BasicAgent,
       action_spec: agent_lib.ActionSpec | None = None,
   ):
-    self.update_components()
-    self.view_for_player(player_name=player.name)
+    self._update_components()
+    self._view_for_player(player_name=player.name)
 
     if action_spec is None:
       action_spec_this_time = self._action_spec[player.name]
@@ -329,7 +325,7 @@ class GameMaster(simulacrum_game_master.GameMaster):
     action = player.act(action_spec_this_time)
     action_spec_this_time.validate(action)
 
-    self.update_from_player(action_attempt=action, player_name=player.name)
+    self._update_from_player(action_attempt=action, player_name=player.name)
 
   def step(
       self,
