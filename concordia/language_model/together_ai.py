@@ -29,7 +29,8 @@ from typing_extensions import override
 
 _MAX_ATTEMPTS = 20
 _NUM_SILENT_ATTEMPTS = 3
-_MAX_PROMPT_LENGTH = 7500
+_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED = 2
+_DEFAULT_MAX_TOKENS = 5000
 
 
 class Gemma2(language_model.LanguageModel):
@@ -99,21 +100,17 @@ class Gemma2(language_model.LanguageModel):
 
     # gemma2 does not support `tokens` + `max_new_tokens` > 8193.
     # gemma2 interprets our `max_tokens`` as their `max_new_tokens`.
-    if len(prompt) > _MAX_PROMPT_LENGTH:
-      print(f'Warning: Truncating prompt of {len(prompt)} tokens to '
-            f'{_MAX_PROMPT_LENGTH} tokens.')
-      prompt = prompt[-_MAX_PROMPT_LENGTH:]
-    max_tokens = min(max_tokens, _MAX_PROMPT_LENGTH - len(prompt))
+    max_tokens = min(max_tokens, _DEFAULT_MAX_TOKENS)
 
     result = ''
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
-              'Sleeping for 10 seconds... '
+              f'Sleeping for {_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED} seconds... '
               + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
           )
-        time.sleep(10)
+        time.sleep(_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED)
       try:
         response = self._client.chat.completions.create(
             model=self._model_name,
@@ -183,10 +180,10 @@ class Gemma2(language_model.LanguageModel):
         if attempts > 0:
           if attempts >= _NUM_SILENT_ATTEMPTS:
             print(
-                'Sleeping for 10 seconds... '
+                f'Sleeping for {_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED} seconds.. '
                 + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
             )
-          time.sleep(10)
+          time.sleep(_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED)
         try:
           result = self._client.chat.completions.create(
               model=self._model_name,

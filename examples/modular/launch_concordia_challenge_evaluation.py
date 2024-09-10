@@ -259,7 +259,7 @@ evaluation_results = concurrency.run_tasks(tasks)
 # Save evaluation results for all scenarios with this agent to one json file.
 json_filename = (
     f'{args.agent_name}__{args.model_name}__{args.embedder_name}.json'
-)
+).replace('/', '_')
 idx = 0
 with open(json_filename, 'a', encoding='utf-8') as file_handle:
   file_handle.write('[\n')
