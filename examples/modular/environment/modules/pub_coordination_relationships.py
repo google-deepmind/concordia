@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A set of relatiohsip statements for pub coordination."""
+"""A set of relationship statements for pub coordination."""
 
 
 POSITIVE_RELATIONSHIP_STATEMENTS = [
