@@ -78,8 +78,12 @@ class Gemma2(language_model.LanguageModel):
             'role': 'system',
             'content': (
                 'You always continue sentences provided '
-                + 'by the user and you never repeat what '
-                + 'the user already said.'
+                'by the user and you never repeat what '
+                'the user has already said. All responses must end with a '
+                'period. Try not to use lists, but if you must, then '
+                'always delimit list items using either '
+                r"semicolons or single newline characters ('\n'), never "
+                r"delimit list items with double carriage returns ('\n\n')."
             ),
         },
         {

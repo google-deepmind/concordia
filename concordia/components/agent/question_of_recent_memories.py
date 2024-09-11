@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Agent component for self perception."""
+"""Agent component for asking questions about the agent's recent memories."""
 
 from collections.abc import Callable, Collection, Mapping
 import datetime
