@@ -212,9 +212,11 @@ def build_decision_scene_game_master(
 
 
 def create_html_log(
+    *,
     model: language_model.LanguageModel,
     primary_environment: game_master.GameMaster,
     secondary_environments: Sequence[game_master.GameMaster],
+    summarize_entire_episode: bool = True,
 ) -> str:
   """Create an HTML log of the simulation.
 
@@ -222,6 +224,9 @@ def create_html_log(
     model: The language model to use.
     primary_environment: The main game master.
     secondary_environments: Sequence of secondary game masters.
+    summarize_entire_episode: Optionally, summarize the entire episode. This may
+      load a lot of tokens into a language model all at once and in some cases
+      exceed the model's context window and cause it to crash.
 
   Returns:
     An HTML string log of the simulation.
@@ -230,14 +235,17 @@ def create_html_log(
       k=10000, add_time=True
   )
 
-  detailed_story = '\n'.join(primary_gm_memories)
-  episode_summary = model.sample_text(
-      f'Sequence of events:\n{detailed_story}'
-      + '\nNarratively summarize the above temporally ordered '
-      + 'sequence of events. Write it as a news report. Summary:\n',
-      max_tokens=3500,
-      terminators=(),
-  )
+  if summarize_entire_episode:
+    detailed_story = '\n'.join(primary_gm_memories)
+    episode_summary = model.sample_text(
+        f'Sequence of events:\n{detailed_story}'
+        + '\nNarratively summarize the above temporally ordered '
+        + 'sequence of events. Write it as a news report. Summary:\n',
+        max_tokens=3500,
+        terminators=(),
+    )
+  else:
+    episode_summary = ''
 
   history_sources = [primary_environment] + list(secondary_environments)
 
@@ -274,12 +282,14 @@ def create_html_log(
 
 
 def run_simulation(
+    *,
     model: language_model.LanguageModel,
     players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
     primary_environment: game_master.GameMaster,
     clock: game_clock.MultiIntervalClock,
     scenes: Sequence[scene_lib.SceneSpec],
     secondary_environments: Sequence[game_master.GameMaster] = tuple(),
+    summarize_entire_episode_in_log: bool = True,
 ) -> str:
   """Run a simulation.
 
@@ -290,6 +300,8 @@ def run_simulation(
     clock: The clock of the run.
     scenes: Sequence of scenes to simulate.
     secondary_environments: Sequence of secondary game masters for scenes.
+    summarize_entire_episode_in_log: Optionally, include summaries of the full
+      episode in the log.
 
   Returns:
     an HTML string log of the simulation.
@@ -305,5 +317,6 @@ def run_simulation(
       model=model,
       primary_environment=primary_environment,
       secondary_environments=secondary_environments,
+      summarize_entire_episode=summarize_entire_episode_in_log,
   )
   return result_html_log

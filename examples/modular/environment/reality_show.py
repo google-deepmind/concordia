@@ -877,6 +877,7 @@ class Simulation(scenarios_lib.Runnable):
         secondary_environments=self._secondary_environments,
         clock=self._clock,
         scenes=self._scenes,
+        summarize_entire_episode_in_log=False,
     )
 
     player_scores = self._schelling_payoffs.get_scores()

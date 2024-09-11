@@ -915,5 +915,6 @@ class Simulation(scenarios_lib.Runnable):
         secondary_environments=self._secondary_environments,
         clock=self._clock,
         scenes=self._scenes,
+        summarize_entire_episode_in_log=False,
     )
     return simulation_outcome, html_results_log
