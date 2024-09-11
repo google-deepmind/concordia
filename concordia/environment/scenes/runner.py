@@ -116,8 +116,10 @@ def run_scenes(
     # Run the scene
     for _ in range(scene.num_rounds):
       this_scene_game_master_memory.add(f'[scene type] {scene.scene_type.name}')
-      this_scene_environment.step(active_players=participants,
-                                  action_spec=scene.scene_type.action_spec)
+      this_scene_environment.step(
+          active_players=participants,
+          action_spec_override=scene.scene_type.action_spec,
+      )
       if this_scene_environment.terminate_episode():
         break
 
