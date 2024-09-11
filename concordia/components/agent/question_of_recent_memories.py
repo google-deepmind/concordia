@@ -108,8 +108,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
       prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     component_states = '\n'.join([
-        f"{agent_name}'s"
-        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
+        f' {prefix}: {self.get_named_component_pre_act_value(key)}'
         for key, prefix in self._components.items()
     ])
     prompt.statement(component_states)
