@@ -107,7 +107,7 @@ parser.add_argument(
     '--num_repetitions_per_scenario',
     action='store',
     type=int,
-    default=2,
+    default=1,
     dest='num_repetitions_per_scenario',
 )
 parser.add_argument('--api_key',
@@ -224,9 +224,10 @@ def _evaluate_all_repetitions_on_one_scenario(
     )
     with open(html_filename, 'a', encoding='utf-8') as f:
       f.write(text_results_log)
+
   # Average scores over repetitions and save results for all repetitions in a
   # json-serializable format.
-  return logging_lib.ScenarioResult(
+  scenario_result_ = logging_lib.ScenarioResult(
       scenario=scenario_name,
       focal_agent=args.agent_name,
       background_agent=scenario_config.background_agent_module,
@@ -245,6 +246,14 @@ def _evaluate_all_repetitions_on_one_scenario(
       disable_language_model=args.disable_language_model,
       exclude_from_elo_calculation=args.exclude_from_elo_calculation,
   )
+  scenario_json_filename = (
+      f'{args.agent_name}__{args.model_name}__'
+      f'{args.embedder_name}__only_{scenario_name}.json'
+  ).replace('/', '_')
+  json_str_ = scenario_result_.to_json()
+  with open(scenario_json_filename, 'a', encoding='utf-8') as f:
+    f.write(json_str_)
+  return scenario_result_
 
 tasks = {
     name: functools.partial(
