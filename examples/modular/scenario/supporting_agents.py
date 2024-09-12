@@ -18,7 +18,6 @@ from collections.abc import Mapping
 import dataclasses
 from typing import Any
 
-from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 import immutabledict
 
 
@@ -35,7 +34,7 @@ class SupportingAgentConfig:
   overrides: Mapping[str, Any] | None = None
 
 
-SUPPORTING_AGENT_CONFIGS: Mapping[str, bots_lib.SupportingAgentFactory] = (
+SUPPORTING_AGENT_CONFIGS: Mapping[str, SupportingAgentConfig] = (
     immutabledict.immutabledict(
         # keep-sorted start numeric=yes block=yes
         labor_collective_action__fixed_rule_boss=SupportingAgentConfig(
