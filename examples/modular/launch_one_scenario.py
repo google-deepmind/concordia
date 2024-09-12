@@ -16,15 +16,17 @@ r"""Evaluate the submitted agent on all scenarios.
 
 Usage:
 cd {concordia_root}/
-PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_concordia_challenge_evaluation.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_one_scenario.py \
   --agent=AGENT_NAME \
+  --scenario=SCENARIO_NAME \
   --api_type=API_TYPE \
   --model=MODEL_NAME \
   --embedder=EMBEDDER_NAME \
   --num_repetitions_per_scenario=NUM_REPETITIONS_PER_SCENARIO
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
-ENVIRONMENT_NAME indicates a file under examples/modular/environment,
+SCENARIO_NAME indicates a key in the SCENARIO_CONFIGS dictionary in
+concordia/examples/modular/scenario/scenarios.py,
 API_TYPE is one of the options named in concordia/language_model/utils.py,
 e.g. 'google_aistudio_model', 'openai', 'mistral', 'ollama', 'amazon_bedrock'.
 MODEL_NAME is a specific model under the chosen API_TYPE. See the corresponding
@@ -68,12 +70,9 @@ the same model and embedder.
 
 import argparse
 import datetime
-import functools
 import importlib
-import os
 
 from concordia.language_model import utils
-from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
@@ -91,6 +90,12 @@ parser.add_argument(
     action='store',
     default='rational_agent',
     dest='agent_name',
+)
+parser.add_argument(
+    '--scenario',
+    action='store',
+    default='labor_collective_action__fixed_rule_boss_0',
+    dest='scenario_name',
 )
 parser.add_argument(
     '--api_type', action='store', default='mistral', dest='api_type'
@@ -168,122 +173,78 @@ if not args.disable_language_model:
 else:
   embedder = lambda x: np.ones(5)
 
-# Create evaluation results directory
-start_time = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-results_dir = f'evaluation__{start_time}'
-os.makedirs(results_dir, exist_ok=True)
-
-
-def _evaluate_all_repetitions_on_one_scenario(
-    scenario_name: str,
-    scenario_config: scenarios_lib.ScenarioConfig,
-) -> logging_lib.ScenarioResult:
-  """Evaluates the agent on one scenario, averaging over repetitions.
-
-  Args:
-    scenario_name: name of the scenario
-    scenario_config: config for the scenario
-  Returns:
-    ScenarioResult object with the results of the evaluation.
-  """
-  print(f'Running scenario: {scenario_name}')
-  # Run several simulations per scenario
-  simulation_outcomes = []
-  focal_per_capita_scores_to_average = []
-  background_per_capita_scores_to_average = []
-  ungrouped_per_capita_scores_to_average = []
-  for _ in range(args.num_repetitions_per_scenario):
-    measurements = measurements_lib.Measurements()
-    runnable_simulation = scenarios_lib.build_simulation(
-        scenario_config=scenario_config,
-        model=model,
-        focal_agent_module=agent_module,
-        embedder=embedder,
-        measurements=measurements,
-    )
-    # Run the simulation
-    outcome, text_results_log = runnable_simulation()
-    simulation_outcomes.append(outcome)
-    if scenario_config.focal_is_resident:
-      focal_scores = list(outcome.resident_scores.values())
-      background_scores = list(outcome.visitor_scores.values())
-    else:
-      focal_scores = list(outcome.visitor_scores.values())
-      background_scores = list(outcome.resident_scores.values())
-    # Ungrouped scores do not differentiate between focal and background.
-    ungrouped_scores = focal_scores + background_scores
-    # Calculate per capita scores.
-    print('\nScores:')
-    focal_per_capita_score = np.mean(focal_scores)
-    focal_per_capita_scores_to_average.append(focal_per_capita_score)
-    print(f'  Focal per capita score: {focal_per_capita_score}')
-    background_per_capita_score = np.mean(background_scores)
-    background_per_capita_scores_to_average.append(background_per_capita_score)
-    print(f'  Background per capita score: {background_per_capita_score}')
-    ungrouped_per_capita_score = np.mean(ungrouped_scores)
-    ungrouped_per_capita_scores_to_average.append(ungrouped_per_capita_score)
-    print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
-    # Write the full text log as an HTML file in the current working directory.
-    html_filename = (
-        f'{results_dir}/{scenario_name}_'
-        + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        + '.html'
-    )
-    with open(html_filename, 'a', encoding='utf-8') as f:
-      f.write(text_results_log)
-
-  # Average scores over repetitions and save results for all repetitions in a
-  # json-serializable format.
-  scenario_result_ = logging_lib.ScenarioResult(
-      scenario=scenario_name,
-      focal_agent=args.agent_name,
-      background_agent=scenario_config.background_agent_module,
-      focal_per_capita_score=np.mean(focal_per_capita_scores_to_average),
-      background_per_capita_score=np.mean(
-          background_per_capita_scores_to_average
-      ),
-      ungrouped_per_capita_score=np.mean(
-          ungrouped_per_capita_scores_to_average
-      ),
-      simulation_outcomes=tuple(simulation_outcomes),
-      focal_is_resident=scenario_config.focal_is_resident,
-      api_type=args.api_type,
-      model=args.model_name,
-      embedder=args.embedder_name,
-      disable_language_model=args.disable_language_model,
-      exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+print(f'Running scenario: {args.scenario_name}')
+scenario_config = scenarios_lib.SCENARIO_CONFIGS[args.scenario_name]
+# Run several simulations per scenario
+simulation_outcomes = []
+focal_per_capita_scores_to_average = []
+background_per_capita_scores_to_average = []
+ungrouped_per_capita_scores_to_average = []
+for _ in range(args.num_repetitions_per_scenario):
+  measurements = measurements_lib.Measurements()
+  runnable_simulation = scenarios_lib.build_simulation(
+      scenario_config=scenario_config,
+      model=model,
+      focal_agent_module=agent_module,
+      embedder=embedder,
+      measurements=measurements,
   )
-  scenario_json_filename = (
-      f'{args.agent_name}__{args.model_name}__'
-      f'{args.embedder_name}__only_{scenario_name}.json'
-  ).replace('/', '_')
-  scenario_json_filename = os.path.join(results_dir, scenario_json_filename)
-  json_str_ = scenario_result_.to_json()
-  with open(scenario_json_filename, 'a', encoding='utf-8') as f:
-    f.write(json_str_)
-  return scenario_result_
+  # Run the simulation
+  outcome, text_results_log = runnable_simulation()
+  simulation_outcomes.append(outcome)
+  if scenario_config.focal_is_resident:
+    focal_scores = list(outcome.resident_scores.values())
+    background_scores = list(outcome.visitor_scores.values())
+  else:
+    focal_scores = list(outcome.visitor_scores.values())
+    background_scores = list(outcome.resident_scores.values())
+  # Ungrouped scores do not differentiate between focal and background.
+  ungrouped_scores = focal_scores + background_scores
+  # Calculate per capita scores.
+  print('\nScores:')
+  focal_per_capita_score = np.mean(focal_scores)
+  focal_per_capita_scores_to_average.append(focal_per_capita_score)
+  print(f'  Focal per capita score: {focal_per_capita_score}')
+  background_per_capita_score = np.mean(background_scores)
+  background_per_capita_scores_to_average.append(background_per_capita_score)
+  print(f'  Background per capita score: {background_per_capita_score}')
+  ungrouped_per_capita_score = np.mean(ungrouped_scores)
+  ungrouped_per_capita_scores_to_average.append(ungrouped_per_capita_score)
+  print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
+  # Write the full text log as an HTML file in the current working directory.
+  html_filename = (
+      f'{args.scenario_name}_'
+      + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+      + '.html'
+  )
+  with open(html_filename, 'a', encoding='utf-8') as f:
+    f.write(text_results_log)
 
-tasks = {
-    name: functools.partial(
-        _evaluate_all_repetitions_on_one_scenario,
-        scenario_name=name,
-        scenario_config=config,
-    )
-    for (name, config) in scenarios_lib.SCENARIO_CONFIGS.items()
-}
-evaluation_results = concurrency.run_tasks(tasks)
-
-# Save evaluation results for all scenarios with this agent to one json file.
-json_filename = (
-    f'{args.agent_name}__{args.model_name}__{args.embedder_name}.json'
+# Average scores over repetitions and save results for all repetitions in a
+# json-serializable format.
+scenario_result = logging_lib.ScenarioResult(
+    scenario=args.scenario_name,
+    focal_agent=args.agent_name,
+    background_agent=scenario_config.background_agent_module,
+    focal_per_capita_score=np.mean(focal_per_capita_scores_to_average),
+    background_per_capita_score=np.mean(
+        background_per_capita_scores_to_average
+    ),
+    ungrouped_per_capita_score=np.mean(
+        ungrouped_per_capita_scores_to_average
+    ),
+    simulation_outcomes=tuple(simulation_outcomes),
+    focal_is_resident=scenario_config.focal_is_resident,
+    api_type=args.api_type,
+    model=args.model_name,
+    embedder=args.embedder_name,
+    disable_language_model=args.disable_language_model,
+    exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+)
+scenario_json_filename = (
+    f'{args.agent_name}__{args.model_name}__'
+    f'{args.embedder_name}__only_{args.scenario_name}.json'
 ).replace('/', '_')
-idx = 0
-with open(json_filename, 'a', encoding='utf-8') as file_handle:
-  file_handle.write('[\n')
-  for scenario_name_, scenario_result in evaluation_results.items():
-    json_str = evaluation_results[scenario_name_].to_json()
-    if idx < len(scenarios_lib.SCENARIO_CONFIGS) - 1:
-      json_str += ',\n'
-    file_handle.write(json_str)
-    idx += 1
-  file_handle.write('\n]')
+json_str_ = scenario_result.to_json()
+with open(scenario_json_filename, 'a', encoding='utf-8') as f:
+  f.write(json_str_)
