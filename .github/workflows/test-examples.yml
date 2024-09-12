@@ -8,6 +8,7 @@ on:
       - '.github/actions/install-examples/action.yml'
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/test-examples.yml'
+      - '.pylintrc'
       - 'concordia/**'
       - 'examples/**'
       - 'pyproject.toml'
@@ -19,6 +20,7 @@ on:
       - '.github/actions/install-examples.yml'
       - '.github/actions/install-concordia.yml'
       - '.github/workflows/test-examples.yml'
+      - '.pylintrc'
       - 'concordia/**'
       - 'examples/**'
       - 'pyproject.toml'
@@ -32,7 +34,7 @@ concurrency:
 permissions: read-all
 
 jobs:
-  pytest:
+  test-examples:
     name: Test examples
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -45,3 +47,18 @@ jobs:
 
       - name: Test examples
         run: pytest examples
+
+      - name: Lint examples
+        run: pylint --errors-only examples
+
+      - name: Typecheck examples
+        run: pytype examples
+
+      - name: Convert notebooks
+        run: ./bin/convert_notebooks.sh notebooks
+
+      - name: Lint notebooks
+        run: pylint --errors-only notebooks
+
+      - name: Typecheck notebooks
+        run: pytype --pythonpath=. notebooks

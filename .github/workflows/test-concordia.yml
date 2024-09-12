@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/test-concordia.yml'
+      - '.pylintrc'
       - 'concordia/**'
       - 'pyproject.toml'
       - 'setup.py'
@@ -16,6 +17,7 @@ on:
     paths:
       - '.github/actions/install-concordia/action.yml'
       - '.github/workflows/test-concordia.yml'
+      - '.pylintrc'
       - 'concordia/**'
       - 'pyproject.toml'
       - 'setup.py'
@@ -28,7 +30,7 @@ concurrency:
 permissions: read-all
 
 jobs:
-  pytest:
+  test-concordia:
     name: Test Concordia
     runs-on: ${{ matrix.os }}
     env:
@@ -45,9 +47,17 @@ jobs:
     steps:
       - name: Checkout Concordia
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
       - name: Install Concordia
         uses: ./.github/actions/install-concordia
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Test Concordia
         run: pytest concordia
+
+      - name: Lint Concordia
+        run: pylint --errors-only concordia
+
+      - name: Typecheck Concordia
+        run: pytype concordia
