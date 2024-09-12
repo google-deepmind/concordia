@@ -36,16 +36,38 @@ runs:
       with:
         path: venv
         key: install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('setup.py') }}
-        restore-keys: |
-          install-concordia-${{ steps.os-info.outputs.name }}-${{ steps.os-info.outputs.version }}-py${{ steps.setup-python.outputs.python-version }}-
+
+    - name: Create venv
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m venv venv
+
+    - name: Activate venv
+      shell: bash
+      run: |
+        echo "${PWD}/venv/bin" >> $GITHUB_PATH
 
     - name: Install Concordia
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        python -m venv venv
-        source venv/bin/activate
         pip install --editable .[dev]
+
+    - name: Show installation
+      shell: bash
+      run: |
+        which python
+        python --version
+        which pip
+        pip --version
+        which pylint
+        pylint --version
+        which pytest
+        pytest --version
+        which pytype
+        pytype --version
+        pip list
 
     - name: Save Concordia installation
       if: steps.restore.outputs.cache-hit != 'true'
@@ -53,15 +75,3 @@ runs:
       with:
         path: venv
         key: ${{ steps.restore.outputs.cache-primary-key }}
-
-    - name: Activate virtual environment
-      shell: bash
-      run: |
-        echo "${PWD}/venv/bin" >> $GITHUB_PATH
-
-    - name: Show installation
-      shell: bash
-      run: |
-        which python
-        which pip
-        pip list
