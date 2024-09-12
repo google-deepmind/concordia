@@ -13,7 +13,3 @@ runs:
     - name: Show installed dependencies
       shell: bash
       run: pip list
-
-    - name: Convert notebooks
-      shell: bash
-      run: ./bin/convert_notebooks.sh notebooks

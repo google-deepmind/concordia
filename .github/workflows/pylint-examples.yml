@@ -48,5 +48,8 @@ jobs:
       - name: Run PyLint on examples
         run: pylint --errors-only examples
 
+      - name: Convert notebooks
+        run: ./bin/convert_notebooks.sh notebooks
+
       - name: Run PyLint on notebooks
         run: pylint --errors-only notebooks
