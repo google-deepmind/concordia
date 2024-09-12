@@ -19,7 +19,7 @@ from collections.abc import Collection, Sequence
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
-from langchain import llms
+from langchain.llms import ollama
 
 from typing_extensions import override
 
@@ -64,7 +64,7 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
     self._terminators = []
     if 'llama3' in self._model_name:
       self._terminators.extend(['<|eot_id|>'])
-    self._client = llms.Ollama(model=model_name, stop=self._terminators)
+    self._client = ollama.Ollama(model=model_name, stop=self._terminators)
 
     self._measurements = measurements
     self._channel = channel
