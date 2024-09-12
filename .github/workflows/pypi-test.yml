@@ -57,7 +57,8 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest-xdist setuptools
+          pip install --upgrade setuptools
+          pip install pytest-xdist
 
       - name: Install from PyPI
         run: |
@@ -66,4 +67,5 @@ jobs:
           pip list
 
       - name: Test installation
-        run: pytest --pyargs concordia
+        run: |
+          pytest -n auto --pyargs concordia

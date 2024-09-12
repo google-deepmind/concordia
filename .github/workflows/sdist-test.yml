@@ -4,13 +4,22 @@ name: sdist-test
 
 on:
   workflow_dispatch:
+    inputs:
+      runs-on:
+        description: 'OS to run on.'
+        type: string
+        default: 'ubuntu-latest'
+      python-version:
+        description: 'Python version to use.'
+        type: string
+        default: '3.11'
 
 permissions: read-all
 
 jobs:
   sdist-test:
     name: Test sdist
-    runs-on: ubuntu-latest
+    runs-on:  ${{ inputs.runs-on }}
     timeout-minutes: 90
 
     steps:
@@ -23,16 +32,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
         with:
-          python-version: '3.11'
+          python-version: ${{ inputs.python-version }}
 
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest-xdist setuptools
+          pip install --upgrade setuptools
+          pip install pytest-xdist
 
       - name: Install source distribution
         run: |
           pip install dist/*.tar.gz
+          pip list
 
       - name: Test source distribution
         run: |

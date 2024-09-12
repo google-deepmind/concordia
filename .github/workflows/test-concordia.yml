@@ -32,26 +32,13 @@ permissions: read-all
 jobs:
   test-concordia:
     name: Test Concordia
-    runs-on: ${{ matrix.os }}
-    env:
-      SYSTEM_VERSION_COMPAT: 0  # See https://github.com/actions/setup-python/issues/279.
-    timeout-minutes: 120
-    strategy:
-      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
-      matrix:
-        os:
-          - macos-12
-          - ubuntu-20.04
-        python-version:
-          - '3.11'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Concordia
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
       - name: Install Concordia
         uses: ./.github/actions/install-concordia
-        with:
-          python-version: ${{ matrix.python-version }}
 
       - name: Test Concordia
         run: pytest concordia
