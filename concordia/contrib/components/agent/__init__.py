@@ -14,5 +14,5 @@
 
 """Library of components contributed by users."""
 
-from concordia.contrib.components.agent.v2 import affect_reflection
-from concordia.contrib.components.agent.v2 import dialectical_reflection
+from concordia.contrib.components.agent import affect_reflection
+from concordia.contrib.components.agent import dialectical_reflection
