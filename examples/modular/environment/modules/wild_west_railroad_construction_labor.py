@@ -26,6 +26,14 @@ YEAR = 1868
 MONTH = 10
 DAY = 2
 
+NUM_MAIN_PLAYERS = 3
+
+LOW_DAILY_PAY = 1.25
+WAGE_INCREASE_FACTOR = 2.0
+ORIGINAL_DAILY_PAY = 2.75
+DAILY_EXPENSES = -0.75
+PRESSURE_THRESHOLD = 0.5
+
 DEFAULT_NUM_FLAVOR_PROMPTS = 3
 DEFAULT_NUM_BACKGROUND_BAD_CONDITIONS = 10
 DEFAULT_NUM_SALIENT_POOR_WORK_CONDITIONS = 3
@@ -37,6 +45,10 @@ NUM_ORGANIZER_RUMORS = 3
 WORKER_EVENING_INTRO = (
     '{player_name} just arrived at the saloon after a hard day of work.'
 )
+OVERHEARD_ORGANIZER_INTRO = (
+    '{{player_name}} overheard at the saloon: '
+    '{organizer_name} -- "{talking_point}"'
+)
 WORKER_MORNING_INTRO = (
     'It is morning, {player_name} must decide how to spend the day.'
 )
@@ -44,6 +56,11 @@ BOSS_MORNING_INTRO = (
     'It is morning, {player_name} must decide whether to cave to pressure '
     'and raise wages or hold firm and deny the workers their demands.'
 )
+BOSS_CALL_TO_ACTION = 'What does {name} decide?'
+BOSS_OPTIONS = {
+    'cave to pressure': 'Raise wages',
+    'hold firm': 'Leave wages unchanged',
+}
 
 # The following elements were sampled using a combination of Claude 3.5 and
 # Gemini Advanced.
@@ -972,6 +989,21 @@ PROTAGONIST_BACKSTORY_CRITICAL_PROMPTS = (
     ),
 )
 
+OVERHEARD_ORGANIZER_TALKING_POINTS = (
+    ('...from sea to shining sea, we\'ve built this nation\'s backbone. '
+     'Now we\'ll break our backs no more!'),
+    ('...our blood and sweat mix with the gravel beneath these rails. '
+     'It\'s time the company pays its due!'),
+    ('...they say we\'re replaceable, but let\'s see them drive a spike '
+     'or blast through mountain. Without us, the rails don\'t run!'),
+    ('...and that\'s why we should stop working till the boss '
+     'raises our wages! Let\'s show them we won\'t be taken advantage of!'),
+    ('...enough is enough! We won\'t be silenced, we won\'t be ignored. '
+     'It\'s time to walk out!'),
+    ('...we\'ve laid track from dawn to dusk, but our pockets are still '
+     'empty. It\'s time to halt these iron horses!'),
+)
+
 GENDERS = ('male', 'female')
 
 HE_OR_SHE = {
@@ -1014,6 +1046,9 @@ class WorldConfig:
   antagonist: str | None = None
   organizer: str | None = None
   supporting_player_locations: Sequence[str] = ()
+  overheard_strike_talk: Sequence[str] = ()
+  num_additional_days: int = 2
+  num_additional_dinners: int = 0
 
   def append_person(
       self, person: str, gender: str, salient_beliefs: Sequence[str]
@@ -1133,6 +1168,19 @@ def sample_parameters(
   else:
     sampled_organizer_name = shuffled_female_names.pop()
   config.organizer = sampled_organizer_name
+
+  shuffled_talking_points = list(
+      random.sample(
+          OVERHEARD_ORGANIZER_TALKING_POINTS,
+          len(OVERHEARD_ORGANIZER_TALKING_POINTS),
+      )
+  )
+  config.overheard_strike_talk = [
+      OVERHEARD_ORGANIZER_INTRO.format(
+          organizer_name=config.organizer, talking_point=talking_point
+      )
+      for talking_point in shuffled_talking_points
+  ]
 
   world_elements = list(
       random.sample(WORLD_BUILDING_ELEMENTS, NUM_WORLD_BUILDING_ELEMENTS)

@@ -57,17 +57,8 @@ DEFAULT_TIME_AND_PLACE_MODULES = (
     'garment_factory_labor',
     'wild_west_railroad_construction_labor',
 )
-NUM_MAIN_PLAYERS = 3
+
 DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
-LOW_DAILY_PAY = 1.25
-WAGE_INCREASE_FACTOR = 2.0
-ORIGINAL_DAILY_PAY = 2.75
-DAILY_EXPENSES = -0.75
-BOSS_OPTIONS = {
-    'cave to pressure': 'Raise wages',
-    'hold firm': 'Leave wages unchanged',
-}
-PRESSURE_THRESHOLD = 0.5
 DISCUSSION_SCENE_TYPE = 'evening'
 DECISION_SCENE_TYPE = 'morning'
 BOSS_DECISION_SCENE_TYPE = 'boss_morning'
@@ -92,8 +83,10 @@ _TriggeredInventoryEffectPreEventFnArgsT = (
 
 def _get_wage_from_game_master_memory(
     memory: associative_memory.AssociativeMemory,
+    initial_wage: float,
 ):
-  wage = LOW_DAILY_PAY
+  """Retrieve the latest wage from the game master memory."""
+  wage = initial_wage
   retrieved = memory.retrieve_by_regex(
       regex=r'\[set wage\].*',
       sort_by_time=True,
@@ -128,6 +121,7 @@ def get_shared_memories_and_context(
 def configure_players(
     model: language_model.LanguageModel,
     sampled_settings: Any,
+    time_and_place_params: types.ModuleType,
 ) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
@@ -140,6 +134,7 @@ def configure_players(
     model: the language model to use
     sampled_settings: the environment configuration containing the time and
       place details.
+    time_and_place_params: the module containing the time and place parameters
 
   Returns:
     main_player_configs: configs for the main characters
@@ -147,8 +142,8 @@ def configure_players(
     antagonist_config: config of the antagonist character
     organizer_config: config of the labor organizer character
   """
-  num_main_players = NUM_MAIN_PLAYERS
-  if NUM_MAIN_PLAYERS > len(sampled_settings.people):
+  num_main_players = time_and_place_params.NUM_MAIN_PLAYERS
+  if time_and_place_params.NUM_MAIN_PLAYERS > len(sampled_settings.people):
     num_main_players = len(sampled_settings.people)
   main_player_names = sampled_settings.people[:num_main_players]
 
@@ -319,7 +314,8 @@ def configure_players(
           f'{sampled_settings.organizer} wants to prevent the '
           'boss from instituting their latest policy '
           'announcement which said they plan to reduce wages from '
-          f'{ORIGINAL_DAILY_PAY} to {LOW_DAILY_PAY} coins per day, and to '
+          f'{time_and_place_params.ORIGINAL_DAILY_PAY} to '
+          f'{time_and_place_params.LOW_DAILY_PAY} coins per day, and to '
           'become famous in the labor movement as a result.'
       ),
       context=(
@@ -338,7 +334,7 @@ def configure_players(
           ),
           'main_character': False,
           'initial_endowment': {
-              'coin': 7.0,
+              'coin': 1.0,
           },
       },
   )
@@ -368,6 +364,7 @@ def configure_scenes(
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     antagonist_config: formative_memories.AgentConfig,
     time_and_place_params: types.ModuleType,
+    sampled_settings: Any,
     start_time: datetime.datetime,
     verbose: bool = False,
 ) -> tuple[
@@ -386,6 +383,8 @@ def configure_scenes(
     supporting_player_configs: configs for the supporting characters
     antagonist_config: config of the antagonist character
     time_and_place_params: the module containing the time and place parameters
+    sampled_settings: the environment configuration containing the time and
+      place details.
     start_time: the start time/date in the game world for the first scene
     verbose: whether or not to print debug logging (off by default)
 
@@ -408,7 +407,7 @@ def configure_scenes(
       acting_player_names=[cfg.name for cfg in main_player_configs],
       players_to_inform=[antagonist_config.name],
       clock_now=clock.now,
-      pressure_threshold=PRESSURE_THRESHOLD,
+      pressure_threshold=time_and_place_params.PRESSURE_THRESHOLD,
       name='pressure from industrial action',
       verbose=verbose,
   )
@@ -425,18 +424,34 @@ def configure_scenes(
       concurrent_externalities=False,
       verbose=verbose,
   )
+
+  def _get_discussion_scene_type(
+      idx: int) -> tuple[str, scene_lib.SceneTypeSpec]:
+    scene_type_name = f'{DISCUSSION_SCENE_TYPE}_{idx}'
+    scene_type_spec = scene_lib.SceneTypeSpec(
+        name=scene_type_name,
+        premise={
+            cfg.name: [
+                time_and_place_params.WORKER_EVENING_INTRO.format(
+                    player_name=cfg.name
+                ),
+                sampled_settings.overheard_strike_talk[idx].format(
+                    player_name=cfg.name
+                ),
+            ]
+            for cfg in player_configs
+        },
+    )
+    return (scene_type_name, scene_type_spec)
+
+  discussion_scene_types = []
+  discussion_scene_specs = []
+  for i in range(len(sampled_settings.overheard_strike_talk)):
+    discussion_scene_type, discussion_scene_spec = _get_discussion_scene_type(i)
+    discussion_scene_types.append(discussion_scene_type)
+    discussion_scene_specs.append(discussion_scene_spec)
+
   scene_specs = {
-      DISCUSSION_SCENE_TYPE: scene_lib.SceneTypeSpec(
-          name=DISCUSSION_SCENE_TYPE,
-          premise={
-              cfg.name: [
-                  time_and_place_params.WORKER_EVENING_INTRO.format(
-                      player_name=cfg.name
-                  )
-              ]
-              for cfg in player_configs
-          },
-      ),
       DECISION_SCENE_TYPE: scene_lib.SceneTypeSpec(
           name=DECISION_SCENE_TYPE,
           premise={
@@ -465,20 +480,23 @@ def configure_scenes(
               for cfg in player_configs
           },
           action_spec=agent_lib.choice_action_spec(
-              call_to_action='What does {name} decide?',
-              options=tuple(BOSS_OPTIONS.values()),
+              call_to_action=time_and_place_params.BOSS_CALL_TO_ACTION,
+              options=tuple(time_and_place_params.BOSS_OPTIONS.values()),
               tag='boss_action',
           ),
           override_game_master=decision_env,
       ),
   }
+  scene_specs.update({discussion_scene_type: discussion_scene_spec
+                      for discussion_scene_type, discussion_scene_spec
+                      in zip(discussion_scene_types, discussion_scene_specs)})
 
   day = datetime.timedelta(days=1)
   scenes = [
       # Day 0
       scene_lib.SceneSpec(
           # Dinner in the saloon
-          scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
+          scene_type=scene_specs[discussion_scene_types[0]],
           start_time=start_time + datetime.timedelta(hours=20),
           participant_configs=main_player_configs,
           num_rounds=1,
@@ -500,36 +518,70 @@ def configure_scenes(
       ),
       scene_lib.SceneSpec(
           # Dinner in the saloon
-          scene_type=scene_specs[DISCUSSION_SCENE_TYPE],
+          scene_type=scene_specs[discussion_scene_types[1]],
           start_time=start_time + datetime.timedelta(hours=20) + day,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
-      # Day 2
-      scene_lib.SceneSpec(
-          # Construction workers start the day first
-          scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=start_time + datetime.timedelta(hours=9) + 2 * day,
-          participant_configs=main_player_configs,
-          num_rounds=1,
-      ),
-      scene_lib.SceneSpec(
-          # The boss starts their day a bit later
-          scene_type=scene_specs[BOSS_DECISION_SCENE_TYPE],
-          start_time=start_time + datetime.timedelta(hours=10) + 2 * day,
-          participant_configs=(antagonist_config,),
-          num_rounds=1,
-      ),
-      # No dinner on day 2.
-      # Day 3
-      scene_lib.SceneSpec(
-          # Construction workers start the day first
-          scene_type=scene_specs[DECISION_SCENE_TYPE],
-          start_time=start_time + datetime.timedelta(hours=9) + 3 * day,
-          participant_configs=main_player_configs,
-          num_rounds=1,
-      ),
   ]
+
+  def _add_day(
+      scenes: list[scene_lib.SceneSpec],
+      idx: int,
+      work_hour: float = 9,
+      boss_hour: float = 10,
+      include_dinner: bool = True,
+      dinner_hour: float = 20,
+      final_day: bool = False,
+  ) -> None:
+    additional_scenes = [
+        scene_lib.SceneSpec(
+            # Workers start the day first
+            scene_type=scene_specs[DECISION_SCENE_TYPE],
+            start_time=(
+                start_time + datetime.timedelta(hours=work_hour) + idx * day),
+            participant_configs=main_player_configs,
+            num_rounds=1,
+        ),
+    ]
+    if not final_day:
+      additional_scenes.append(
+          scene_lib.SceneSpec(
+              # The boss starts their day a bit later
+              scene_type=scene_specs[BOSS_DECISION_SCENE_TYPE],
+              start_time=(
+                  start_time + datetime.timedelta(hours=boss_hour) + idx * day
+              ),
+              participant_configs=(antagonist_config,),
+              num_rounds=1,
+          )
+      )
+      if include_dinner:
+        additional_scenes.append(
+            scene_lib.SceneSpec(
+                # Dinner in the saloon
+                scene_type=scene_specs[discussion_scene_types[idx]],
+                start_time=(
+                    start_time + datetime.timedelta(
+                        hours=dinner_hour) + idx * day),
+                participant_configs=main_player_configs,
+                num_rounds=1,
+            )
+        )
+
+    scenes.extend(additional_scenes)
+
+  num_days = 2 + sampled_settings.num_additional_days
+  for i in range(2, num_days):
+    if i == num_days - 1:
+      # No need for boss or dinner scenes on the final day.
+      _add_day(scenes, idx=i, final_day=True)
+    else:
+      if i < 2 + sampled_settings.num_additional_dinners:
+        _add_day(scenes, idx=i, include_dinner=True)
+      else:
+        _add_day(scenes, idx=i, include_dinner=False)
+
   return (
       scenes,
       decision_env,
@@ -562,6 +614,7 @@ def get_inventories_component(
       player_initial_endowments=player_initial_endowments,
       clock_now=clock_now,
       financial=True,
+      never_increase=True,
       name='possessions',
       verbose=True,
   )
@@ -569,6 +622,7 @@ def get_inventories_component(
       inventory=inventories,
       players=main_players,  # Only main players get a score.
       targets={player.name: ('coin',) for player in main_players},
+      name='score',
       verbose=True,
   )
   return inventories, score
@@ -636,7 +690,8 @@ class Simulation(scenarios_lib.Runnable):
     scenario_premise = [(
         'A group of workers consider their options after Boss '
         f'{sampled_settings.antagonist} cut their pay '
-        f'from {ORIGINAL_DAILY_PAY} coin to {LOW_DAILY_PAY} coin.'
+        f'from {time_and_place_params.ORIGINAL_DAILY_PAY} coin to '
+        f'{time_and_place_params.LOW_DAILY_PAY} coin.'
     )]
 
     # The setup clock time is arbitrary.
@@ -669,7 +724,9 @@ class Simulation(scenarios_lib.Runnable):
     )
 
     main_player_configs, supporting_player_configs, antagonist_config, _ = (
-        configure_players(model=model, sampled_settings=sampled_settings)
+        configure_players(model=model,
+                          sampled_settings=sampled_settings,
+                          time_and_place_params=time_and_place_params)
     )
     random.shuffle(main_player_configs)
 
@@ -805,13 +862,14 @@ class Simulation(scenarios_lib.Runnable):
       memory = args.memory
       player = args.player
       # Determine wage by searching memory for the latest wage setting event.
-      wage = _get_wage_from_game_master_memory(memory)
+      wage = _get_wage_from_game_master_memory(
+          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY)
       # Modify inventory based on player choice, scene type, and wage.
       player_inventory = inventory_component.get_player_inventory(player_name)
       antagonist_inventory = inventory_component.get_player_inventory(
           antagonist_player.name if antagonist_player is not None else ''
       )
-      if current_scene_type == DECISION_SCENE_TYPE:
+      if DECISION_SCENE_TYPE in current_scene_type:
         if player_choice == DAILY_OPTIONS['defection']:
           # Players only get paid if they go to work i.e. defecting against
           # the strike.
@@ -823,11 +881,12 @@ class Simulation(scenarios_lib.Runnable):
                 f'{antagonist_player.name} paid {player_name} {wage} coin for '
                 "their day's work."
             )
-      elif current_scene_type == DISCUSSION_SCENE_TYPE:
+      elif DISCUSSION_SCENE_TYPE in current_scene_type:
         # Apply daily expenses.
-        player_inventory['coin'] += DAILY_EXPENSES
+        player_inventory['coin'] += time_and_place_params.DAILY_EXPENSES
         player.observe(
-            f'{player_name} spent {DAILY_EXPENSES} coin on daily expenses.'
+            (f'{player_name} spent {time_and_place_params.DAILY_EXPENSES} coin '
+             'on daily expenses.')
         )
         if player_inventory['coin'] <= 0:
           player.observe(
@@ -842,43 +901,50 @@ class Simulation(scenarios_lib.Runnable):
             memory=game_master_memory,
             players=main_players,
             clock_now=self._clock.now,
+            name='paid labor',
         )
     )
 
-    def set_wage_function(args: _TriggeredFunctionPreEventFnArgsT):
+    def set_wage_function(args: _TriggeredFunctionPreEventFnArgsT) -> str:
       player_name = args.player_name
       player_choice = args.player_choice
       current_scene_type = args.current_scene_type
       players = args.players
       memory = args.memory
-      wage = _get_wage_from_game_master_memory(memory)
+      wage = _get_wage_from_game_master_memory(
+          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY)
+      log = f'old wage: {wage}'
       if current_scene_type == BOSS_DECISION_SCENE_TYPE:
         if player_name == sampled_settings.antagonist:
           # The antagonist is the boss and has the power to set wages.
-          if player_choice == BOSS_OPTIONS['cave to pressure']:
+          if player_choice == time_and_place_params.BOSS_OPTIONS[
+              'cave to pressure']:
             # The boss caves to pressure and raises wages.
-            wage = wage * WAGE_INCREASE_FACTOR
+            wage = wage * time_and_place_params.WAGE_INCREASE_FACTOR
+            result_str = (f'Boss {sampled_settings.antagonist} caves '
+                          f'to pressure and raises wages to {wage} '
+                          'coin per day!')
             for player in players:
-              player.observe(
-                  f'Boss {sampled_settings.antagonist} caves '
-                  f'to pressure and raises wages to {wage} '
-                  'coin per day!'
-              )
+              player.observe(result_str)
           else:
             # The boss holds firm and leaves wages unchanged.
+            result_str = (f'Boss {sampled_settings.antagonist} holds '
+                          f'firm and leaves wages unchanged at {wage} coin '
+                          'per day.')
             for player in players:
-              player.observe(
-                  f'Boss {sampled_settings.antagonist} holds '
-                  f'firm and leaves wages unchanged at {wage} coin '
-                  'per day.'
-              )
+              player.observe(result_str)
+          memory.add(result_str)
           memory.add(f'[set wage] {wage}')
+
+      log += f' --> new wage: {wage}'
+      return log
 
     wage_setting = gm_components.triggered_function.TriggeredFunction(
         memory=game_master_memory,
         players=self._all_players,
         clock_now=self._clock.now,
         pre_event_fn=set_wage_function,
+        name='wage setting',
     )
 
     additional_gm_components = [
@@ -888,6 +954,7 @@ class Simulation(scenarios_lib.Runnable):
         inventories,
         paid_labor,
         wage_setting,
+        self._score,
     ]
 
     self._primary_environment, self._game_master_memory = (
@@ -900,17 +967,13 @@ class Simulation(scenarios_lib.Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
-            max_conversation_length=1,
+            max_conversation_length=3,
             cap_nonplayer_characters_in_conversation=0,
             memory=game_master_memory,
             supporting_players_at_fixed_locations=(
                 sampled_settings.supporting_player_locations
             ),
             additional_components=additional_gm_components,
-            npc_context=(
-                f'{sampled_settings.antagonist} is visiting the '
-                'work camp today.'
-            ),
         )
     )
     self._scenes, decision_env, industrial_action = configure_scenes(
@@ -922,11 +985,13 @@ class Simulation(scenarios_lib.Runnable):
         supporting_player_configs=supporting_player_configs,
         antagonist_config=antagonist_config,
         time_and_place_params=time_and_place_params,
+        sampled_settings=sampled_settings,
         start_time=start_time,
     )
     self._primary_environment.add_component(industrial_action)
     decision_env.add_component(paid_labor)
     decision_env.add_component(wage_setting)
+    decision_env.add_component(self._score)
     self._industrial_action = industrial_action
 
     self._secondary_environments = [decision_env]

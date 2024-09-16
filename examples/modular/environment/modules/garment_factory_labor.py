@@ -26,6 +26,14 @@ YEAR = 1911
 MONTH = 4
 DAY = 25
 
+NUM_MAIN_PLAYERS = 3
+
+LOW_DAILY_PAY = 1.25
+WAGE_INCREASE_FACTOR = 2.0
+ORIGINAL_DAILY_PAY = 2.75
+DAILY_EXPENSES = -0.75
+PRESSURE_THRESHOLD = 0.5
+
 DEFAULT_NUM_FLAVOR_PROMPTS = 3
 DEFAULT_NUM_BACKGROUND_BAD_CONDITIONS = 10
 DEFAULT_NUM_SALIENT_POOR_WORK_CONDITIONS = 3
@@ -38,6 +46,10 @@ WORKER_EVENING_INTRO = (
     '{player_name} has finished another hard day of work, and now joins the '
     'other workers at their discussion and dinner group.'
 )
+OVERHEARD_ORGANIZER_INTRO = (
+    '{{player_name}} overheard during dinner: '
+    '{organizer_name} -- "{talking_point}"'
+)
 WORKER_MORNING_INTRO = (
     'It is morning, {player_name} must decide how to spend the day.'
 )
@@ -45,6 +57,11 @@ BOSS_MORNING_INTRO = (
     'It is morning, {player_name} must decide whether to cave to pressure '
     'and raise wages or hold firm and deny the workers their demands.'
 )
+BOSS_CALL_TO_ACTION = 'What does {name} decide?'
+BOSS_OPTIONS = {
+    'cave to pressure': 'Raise wages',
+    'hold firm': 'Leave wages unchanged',
+}
 
 # The following elements were sampled from Claude 3.5.
 WORLD_BUILDING_ELEMENTS = (
@@ -812,6 +829,21 @@ PROTAGONIST_BACKSTORY_CRITICAL_PROMPTS = (
     ),
 )
 
+OVERHEARD_ORGANIZER_TALKING_POINTS = (
+    ('...from the shop floor to the streets, we rise as one! The workers '
+     'united will never be defeated!!'),
+    ('...enough is enough! We won\'t be silenced, we won\'t be ignored. '
+     'It\'s time to walk out!'),
+    ('...from the cutting room to the sewing floor, not one machine will '
+     'run until justice is served!'),
+    ('...they treat us like machines, but we are human! Strike to reclaim '
+     'our dignity!'),
+    ('...and that\'s why we all should go on strike till the boss '
+     'raises our wages!'),
+    ('...our labor is our power. Let\'s withhold it until our '
+     'voices are heard!'),
+)
+
 GENDERS = ('male', 'female')
 
 HE_OR_SHE = {
@@ -854,6 +886,9 @@ class WorldConfig:
   antagonist: str | None = None
   organizer: str | None = None
   supporting_player_locations: Sequence[str] = ()
+  overheard_strike_talk: Sequence[str] = ()
+  num_additional_days: int = 3
+  num_additional_dinners: int = 1
 
   def append_person(
       self, person: str, gender: str, salient_beliefs: Sequence[str]
@@ -955,6 +990,19 @@ def sample_parameters(
   else:
     sampled_organizer_name = shuffled_female_names.pop()
   config.organizer = sampled_organizer_name
+
+  shuffled_talking_points = list(
+      random.sample(
+          OVERHEARD_ORGANIZER_TALKING_POINTS,
+          len(OVERHEARD_ORGANIZER_TALKING_POINTS),
+      )
+  )
+  config.overheard_strike_talk = [
+      OVERHEARD_ORGANIZER_INTRO.format(
+          organizer_name=config.organizer, talking_point=talking_point
+      )
+      for talking_point in shuffled_talking_points
+  ]
 
   world_elements = list(
       random.sample(WORLD_BUILDING_ELEMENTS, NUM_WORLD_BUILDING_ELEMENTS)
