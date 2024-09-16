@@ -890,6 +890,9 @@ class Simulation(scenarios_lib.Runnable):
       player.observe(teleport)
       self._game_master_memory.add(teleport)
 
+  def get_all_player_memories(self):
+    return self._all_memories
+
   def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 

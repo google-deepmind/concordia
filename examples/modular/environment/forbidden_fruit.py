@@ -1038,6 +1038,9 @@ class Simulation(scenarios_lib.Runnable):
     print('failed to resist the forbidden fruit - ', failed)
     return len(failed)
 
+  def get_all_player_memories(self):
+    return self._all_memories
+
   def __call__(self)-> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 

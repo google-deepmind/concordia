@@ -773,6 +773,9 @@ class Simulation(scenarios_lib.Runnable):
       for extra_memory in extra_memories:
         self._game_master_memory.add(extra_memory)
 
+  def get_all_player_memories(self):
+    return self._all_memories
+
   def __call__(self) -> tuple[logging_lib.SimulationOutcome, str]:
     """Run the simulation.
 
