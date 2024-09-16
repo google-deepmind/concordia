@@ -103,6 +103,8 @@ class TriggeredInventoryEffect(component.Component):
         verbose=self._verbose,
     )
 
+    self._latest_update_log = None
+
   def name(self) -> str:
     """Returns the name of this component."""
     return self._name
@@ -128,3 +130,13 @@ class TriggeredInventoryEffect(component.Component):
             memory=self._memory,
             player=player)
     )
+    self._latest_update_log = {
+        'date': self._clock_now(),
+        'Summary': self.name(),
+        'Current scene type': current_scene_type,
+        'current active player': player_name,
+    }
+
+  def get_last_log(self):
+    if self._latest_update_log is not None:
+      return self._latest_update_log

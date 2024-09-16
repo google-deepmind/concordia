@@ -72,8 +72,8 @@ class TriggeredFunction(component.Component):
       memory: MemoryT,
       players: PlayersT,
       clock_now: Callable[[], datetime.datetime],
-      pre_event_fn: Callable[[PreEventFnArgsT], None] | None = None,
-      post_event_fn: Callable[[PostEventFnArgsT], None] | None = None,
+      pre_event_fn: Callable[[PreEventFnArgsT], str] | None = None,
+      post_event_fn: Callable[[PostEventFnArgsT], str] | None = None,
       name: str = '    \n',
       verbose: bool = False,
   ):
@@ -84,7 +84,7 @@ class TriggeredFunction(component.Component):
       players: sequence of players who have an inventory and will observe it.
       clock_now: Function to call to get current time.
       pre_event_fn: function to call with the action attempt before
-        computing the event.
+        computing the event. It returns a string to log.
       post_event_fn: function to call with the event statement.
       name: the name of this component e.g. Possessions, Account, Property, etc
       verbose: whether to print the full update chain of thought or not
@@ -106,6 +106,8 @@ class TriggeredFunction(component.Component):
         verbose=self._verbose,
     )
 
+    self._latest_update_log = None
+
   def name(self) -> str:
     """Returns the name of this component."""
     return self._name
@@ -123,21 +125,31 @@ class TriggeredFunction(component.Component):
     if player_name not in [player.name for player in self._players]:
       return
     current_scene_type = self._current_scene.state()
-    self._pre_event_fn(
+    pre_event_log = self._pre_event_fn(
         PreEventFnArgsT(player_name=player_name,
                         player_choice=choice,
                         current_scene_type=current_scene_type,
                         players=self._players,
                         memory=self._memory)
     )
+    self._latest_update_log = {
+        'date': self._clock_now(),
+        'Summary': self.name(),
+        'Current scene type': current_scene_type,
+        'Log': pre_event_log,
+    }
 
   def update_after_event(self, event_statement: str) -> None:
     if self._post_event_fn is None:
       return
     current_scene_type = self._current_scene.state()
-    self._post_event_fn(
+    _ = self._post_event_fn(
         PostEventFnArgsT(event_statement=event_statement,
                          current_scene_type=current_scene_type,
                          players=self._players,
                          memory=self._memory)
     )
+
+  def get_last_log(self):
+    if self._latest_update_log is not None:
+      return self._latest_update_log
