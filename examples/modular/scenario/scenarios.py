@@ -132,7 +132,11 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     # keep-sorted start numeric=yes block=yes
     labor_collective_action__fixed_rule_boss_0=ScenarioConfig(
         description=(
-            'test'
+            'resident population of focal agents in a labor '
+            'organization collective action scenario with a boss '
+            'who applies a fixed rule in which they only raise wages if most '
+            'of their workers have joined the strike. There is also a visitor '
+            'agent who is rational'
         ),
         substrate_config=SUBSTRATE_CONFIGS[
             'labor_collective_action__fixed_rule_boss'
@@ -140,7 +144,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         background_agent_module='rational_agent',
         time_and_place_module='wild_west_railroad_construction_labor',
         focal_is_resident=True,
-        tags=('debug',),
+        tags=('discouraging antisocial behavior',),
     ),
     labor_collective_action__rational_boss_0=ScenarioConfig(
         description=(

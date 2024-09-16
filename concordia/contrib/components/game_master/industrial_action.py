@@ -33,7 +33,7 @@ CollectiveActionProductionFunction = Callable[[int], float]
 PlayersT = Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent]
 
 
-def _get_pressure_str(pressure: float, pressure_threshold: float) -> str:
+def get_pressure_str(pressure: float, pressure_threshold: float) -> str:
   """Convert a numerical amount of pressure to a string description."""
   low_level_of_pressure = pressure_threshold / 10.0
   if pressure <= low_level_of_pressure:
@@ -184,7 +184,6 @@ class LaborStrike(component.Component):
       event_statement: str,
   ) -> None:
     current_scene_type = self._current_scene.state()
-    payoffs_for_log = ''
     joint_action_for_log = ''
     finished = False
     if current_scene_type == self._resolution_scene:
@@ -194,7 +193,7 @@ class LaborStrike(component.Component):
         # Map the joint action to an amount of pressure produced.
         binary_joint_action = self._binarize_joint_action(joint_action)
         pressure = self._get_pressure_from_joint_action(binary_joint_action)
-        pressure_str = _get_pressure_str(pressure, self._pressure_threshold)
+        pressure_str = get_pressure_str(pressure, self._pressure_threshold)
         for player_name in self._players_to_inform:
           self._partial_states[player_name] = pressure_str
           self._map_names_to_players[player_name].observe(pressure_str)
@@ -214,7 +213,6 @@ class LaborStrike(component.Component):
         'Stage index': self._stage_idx,
         'How many players acted so far this stage': (
             f'{num_players_already_acted}/{total_num_players_to_act}'),
-        'Schelling diagram payoffs': payoffs_for_log,
         'Joint action': joint_action_for_log,
     }
     self._history.append(update_log)

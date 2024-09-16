@@ -23,6 +23,7 @@ from concordia.components.agent import memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import logging
 
@@ -118,3 +119,32 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     })
 
     return result
+
+
+class AllSimilarMemoriesWithoutPreAct(
+    action_spec_ignored.ActionSpecIgnored
+):
+  """An AllSimilarMemories component that does not output its state to pre_act.
+  """
+
+  def __init__(self, *args, **kwargs):
+    self._component = AllSimilarMemories(*args, **kwargs)
+
+  def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
+    self._component.set_entity(entity)
+
+  def _make_pre_act_value(self) -> str:
+    return ''
+
+  def get_pre_act_value(self) -> str:
+    return self._component.get_pre_act_value()
+
+  def pre_act(
+      self,
+      unused_action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    del unused_action_spec
+    return ''
+
+  def update(self) -> None:
+    self._component.update()

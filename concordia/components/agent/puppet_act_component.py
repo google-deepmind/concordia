@@ -47,6 +47,7 @@ class PuppetActComponent(entity_component.ActingComponent):
       clock: game_clock.GameClock,
       fixed_responses: Mapping[str, str],
       component_order: Sequence[str] | None = None,
+      search_in_prompt: bool = False,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -66,6 +67,8 @@ class PuppetActComponent(entity_component.ActingComponent):
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
+      search_in_prompt: Optionally, search for the target string in the entire
+        prompt (i.e. the context), not just the call to action. Off by default.
       pre_act_key: Prefix to add to the context of the component.
       logging_channel: The channel to use for debug logging.
 
@@ -75,6 +78,7 @@ class PuppetActComponent(entity_component.ActingComponent):
     """
     self._model = model
     self._clock = clock
+    self._search_in_prompt = search_in_prompt
     if component_order is None:
       self._component_order = None
     else:
@@ -103,6 +107,16 @@ class PuppetActComponent(entity_component.ActingComponent):
       )
       return '\n'.join(contexts[name] for name in order if contexts[name])
 
+  def _format_call_to_action(self, call_to_action: str) -> str:
+    """Fill agent name {name} and time interval {timedelta} in call to action.
+    """
+    return call_to_action.format(
+        name=self.get_entity().name,
+        timedelta=helper_functions.timedelta_to_readable_str(
+            self._clock.get_step_size()
+        ),
+    )
+
   @override
   def get_action_attempt(
       self,
@@ -113,19 +127,28 @@ class PuppetActComponent(entity_component.ActingComponent):
     context = self._context_for_action(contexts)
     prompt.statement(context + '\n')
 
-    call_to_action = action_spec.call_to_action.format(
-        name=self.get_entity().name,
-        timedelta=helper_functions.timedelta_to_readable_str(
-            self._clock.get_step_size()
-        ),
-    )
+    call_to_action = self._format_call_to_action(action_spec.call_to_action)
 
-    if call_to_action in self._fixed_responses:
+    formatted_fixed_responses = {
+        self._format_call_to_action(call): response
+        for call, response in self._fixed_responses.items()
+    }
+
+    if call_to_action in formatted_fixed_responses:
       print(
-          f'Using fixed response for {call_to_action}:'
-          f' {self._fixed_responses[call_to_action]}'
+          f'Using fixed response:  "{call_to_action}" |->'
+          f' "{formatted_fixed_responses[call_to_action]}"'
       )
-      output = self._fixed_responses[call_to_action]
+      output = formatted_fixed_responses[call_to_action]
+      if action_spec.output_type == entity_lib.OutputType.FREE:
+        _ = prompt.open_question(question=call_to_action,
+                                 forced_response=output,
+                                 question_label='Exercise',)
+        self._log(output, prompt)
+      else:
+        _ = prompt.open_question(question=call_to_action,
+                                 forced_response=output,)
+        self._log(output, prompt)
       if (
           action_spec.output_type == entity_lib.OutputType.CHOICE
           and output not in action_spec.options
@@ -139,7 +162,40 @@ class PuppetActComponent(entity_component.ActingComponent):
         except ValueError:
           return '0.0'
 
-      return self._fixed_responses[call_to_action]
+      return formatted_fixed_responses[call_to_action]
+
+    if self._search_in_prompt:
+      context_str = prompt.view().text()
+      for target in formatted_fixed_responses:
+        if target in context_str:
+          print(
+              f'Using fixed response:  "{target}" |->'
+              f' "{formatted_fixed_responses[target]}"'
+          )
+          output = formatted_fixed_responses[target]
+          if action_spec.output_type == entity_lib.OutputType.FREE:
+            _ = prompt.open_question(question=target,
+                                     forced_response=output,
+                                     question_label='Exercise',)
+            self._log(output, prompt)
+          else:
+            _ = prompt.open_question(question=target,
+                                     forced_response=output,)
+            self._log(output, prompt)
+          if (
+              action_spec.output_type == entity_lib.OutputType.CHOICE
+              and output not in action_spec.options
+          ):
+            raise ValueError(
+                f'Fixed response {output} not in options: {action_spec.options}'
+            )
+          elif action_spec.output_type == entity_lib.OutputType.FLOAT:
+            try:
+              return str(float(output))
+            except ValueError:
+              return '0.0'
+
+          return formatted_fixed_responses[target]
 
     if action_spec.output_type == entity_lib.OutputType.FREE:
       output = self.get_entity().name + ' '

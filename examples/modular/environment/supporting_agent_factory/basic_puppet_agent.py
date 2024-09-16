@@ -46,6 +46,7 @@ def build_agent(
         entity_component.ComponentName,
         entity_component.ContextComponent,
     ] = types.MappingProxyType({}),
+    search_in_prompt: bool = False,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -58,6 +59,8 @@ def build_agent(
     fixed_response_by_call_to_action: A mapping from call to action to fixed
       response.
     additional_components: Additional components to add to the agent.
+    search_in_prompt: Optionally, search for the target string in the entire
+        prompt (i.e. the context), not just the call to action. Off by default.
 
   Returns:
     An agent.
@@ -105,16 +108,20 @@ def build_agent(
       logging_channel=measurements.get_channel('ObservationSummary').on_next,
   )
   relevant_memories_label = '\nRecalled memories and observations'
-  relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
-      model=model,
-      components={
-          _get_class_name(observation_summary): observation_summary_label,
-          _get_class_name(somatic_state): somatic_state_label,
-          _get_class_name(time_display): 'The current date/time is',
-      },
-      num_memories_to_retrieve=10,
-      pre_act_key=relevant_memories_label,
-      logging_channel=measurements.get_channel('AllSimilarMemories').on_next,
+  relevant_memories = (
+      agent_components.all_similar_memories.AllSimilarMemoriesWithoutPreAct(
+          model=model,
+          components={
+              _get_class_name(observation_summary): observation_summary_label,
+              _get_class_name(somatic_state): somatic_state_label,
+              _get_class_name(time_display): 'The current date/time is',
+          },
+          num_memories_to_retrieve=10,
+          pre_act_key=relevant_memories_label,
+          logging_channel=measurements.get_channel(
+              'AllSimilarMemoriesWithoutPreAct'
+          ).on_next,
+      )
   )
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
@@ -164,13 +171,13 @@ def build_agent(
       time_display,
       observation,
       observation_summary,
-      relevant_memories,
       self_perception,
       situation_perception,
       person_by_situation,
 
       # Components that do not provide pre_act context.
       somatic_state,
+      relevant_memories,
   )
 
   components_of_agent = {_get_class_name(component): component
@@ -185,6 +192,7 @@ def build_agent(
       clock=clock,
       logging_channel=measurements.get_channel('ActComponent').on_next,
       fixed_responses=fixed_response_by_call_to_action,
+      search_in_prompt=search_in_prompt,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
