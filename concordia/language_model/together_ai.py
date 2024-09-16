@@ -154,6 +154,7 @@ class Gemma2(language_model.LanguageModel):
   ) -> tuple[int, str, dict[str, float]]:
 
     def _sample_choice(response: str) -> float:
+      augmented_prompt = prompt + response
       messages = [
           {
               'role': 'system',
@@ -176,7 +177,7 @@ class Gemma2(language_model.LanguageModel):
               ),
           },
           {'role': 'assistant', 'content': 'sleeping.'},
-          {'role': 'user', 'content': prompt + response},
+          {'role': 'user', 'content': augmented_prompt},
       ]
 
       result = None
@@ -198,6 +199,7 @@ class Gemma2(language_model.LanguageModel):
         except together.error.RateLimitError as err:
           if attempts >= _NUM_SILENT_ATTEMPTS:
             print(f'  Exception: {err}')
+            print(f'  Exception prompt: {augmented_prompt}')
           continue
         else:
           break
@@ -205,7 +207,8 @@ class Gemma2(language_model.LanguageModel):
       if result:
         lp = sum(result.choices[0].logprobs.token_logprobs)
       else:
-        raise ValueError('Failed to get logprobs.')
+        raise ValueError(
+            f'Failed to get logprobs.\nException prompt: {augmented_prompt}')
 
       return lp
 
