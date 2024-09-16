@@ -53,6 +53,7 @@ SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
 DEFAULT_TIME_AND_PLACE_MODULES = (
+    'circa_2015_british_reality_show',
     'early_2000s_american_reality_show__chicken_3_players',
     'early_2000s_american_reality_show__chicken_4_players',
     'early_2000s_american_reality_show__prisoners_dilemma_3_players',
@@ -585,8 +586,7 @@ def configure_scenes(
           num_rounds=sampled_settings.num_minigame_reps_per_scene[1],
       ),
       # The purpose of the debrief scene is to make it so the players receive
-      # the observation containing their scores, as it is delivered on the
-      # penultimate timestep.
+      # the observation containing their scores after the last minigame.
       scene_lib.SceneSpec(
           scene_type=scene_specs[DEBRIEF_SCENE_TYPE],
           start_time=start_time + 4 * datetime.timedelta(hours=2),
@@ -794,7 +794,7 @@ class Simulation(scenarios_lib.Runnable):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
-            max_conversation_length=1,
+            max_conversation_length=2,
         )
     )
     self._scenes, decision_env, schelling_payoffs = configure_scenes(
