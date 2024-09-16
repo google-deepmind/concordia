@@ -44,7 +44,7 @@ class Component(metaclass=abc.ABCMeta):
       state of the component or None. If none is returned, then the component
       will be omitted while forming the context of action.
     """
-    pass
+    return None
 
   def partial_state(
       self,
@@ -59,7 +59,6 @@ class Component(metaclass=abc.ABCMeta):
       specified player's view of the component's current state or None. If none
       is returned, then the component will not be sent to the player.
     """
-
     del player_name
     return None
 
@@ -69,16 +68,11 @@ class Component(metaclass=abc.ABCMeta):
   ) -> None:
     """Observe data."""
     del observation
-    return None
 
   def update(
       self,
   ) -> None:
-    """Updates the component from memory.
-
-    Returns:
-      The updated state of the component.
-    """
+    """Updates the component from memory."""
     pass
 
   def update_before_event(
@@ -89,12 +83,8 @@ class Component(metaclass=abc.ABCMeta):
 
     Args:
       cause_statement: The cause statement to update the component before event.
-
-    Returns:
-      New state of the component or None.
     """
     del cause_statement
-    return None
 
   def update_after_event(
       self,
@@ -104,12 +94,8 @@ class Component(metaclass=abc.ABCMeta):
 
     Args:
       event_statement: The event statement to update the component from.
-
-    Returns:
-      The summary of the update or None.
     """
     del event_statement
-    return None
 
   def terminate_episode(self) -> bool:
     return False
@@ -120,8 +106,6 @@ class Component(metaclass=abc.ABCMeta):
     """Returns a dictionary with latest log of activity."""
     return None
 
-  def get_components(
-      self,
-  ) -> Sequence['Component']:
-    """Returns a list of components or an empty list."""
+  def get_components(self) -> Sequence['Component']:
+    """Returns a list of subcomponents or an empty list."""
     return []
