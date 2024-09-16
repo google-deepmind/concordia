@@ -30,6 +30,18 @@ import numpy as np
 import termcolor
 
 
+_DEFAULT_CHAIN_OF_THOUGHT_PREFIX = (
+    'This is a social science experiment. It is structured as a '
+    'tabletop roleplaying game. You are the game master and storyteller. '
+    'Your job is to make sure the game runs smoothly and accurately tracks '
+    'the state of the world, subject to the laws of logic and physics. Next, '
+    'you will be asked a series of questions to help you reason through '
+    'whether a specific event should be deemed as having caused a change in '
+    'the number or amount of items possessed or owned by specific individuals. '
+    'Never mention that it is a game. Always use third-person limited '
+    'perspective, even when speaking directly to the participants.'
+)
+
 _DEFAULT_QUANTITY = 0
 
 
@@ -62,7 +74,9 @@ class Inventory(component.Component):
       players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
+      chain_of_thought_prefix: str = _DEFAULT_CHAIN_OF_THOUGHT_PREFIX,
       financial: bool = False,
+      never_increase: bool = False,
       name: str = 'Inventory',
       verbose: bool = False,
   ):
@@ -76,9 +90,15 @@ class Inventory(component.Component):
       player_initial_endowments: dict mapping player name to a dictionary with
         item types as keys and initial endownments as values.
       clock_now: Function to call to get current time.
+      chain_of_thought_prefix: include this string in context before all
+        reasoning steps for handling the inventory.
       financial: If set to True then include special questions to handle the
         fact that agents typically say "Alice bought (or sold) X" which is
         a different way of speaking than "Alice exchanged X for Y".
+      never_increase: If set to True then this component never increases the
+        amount of any item. Events where an item would have been gained lead to
+        no change in the inventory and the game master instead invents a reason
+        for why the item was not gained.
       name: the name of this component e.g. Possessions, Account, Property, etc
       verbose: whether to print the full update chain of thought or not
     """
@@ -86,8 +106,10 @@ class Inventory(component.Component):
     self._memory = memory
     self._players = players
     self._player_initial_endowments = player_initial_endowments
+    self._chain_of_thought_prefix = chain_of_thought_prefix
     self._financial = financial
     self._clock_now = clock_now
+    self._never_increase = never_increase
     self._name = name
     self._verbose = verbose
 
@@ -96,6 +118,7 @@ class Inventory(component.Component):
         config.name: config for config in item_type_configs
     }
     self._player_names = list(player_initial_endowments.keys())
+    self._names_to_players = {player.name: player for player in self._players}
 
     self._inventories = {}
     for player_name, endowment in player_initial_endowments.items():
@@ -141,6 +164,13 @@ class Inventory(component.Component):
         self._inventories[player_name]
     )
 
+  def _send_message_to_player_and_game_master(
+      self, player_name: str, message: str) -> None:
+    """Send `message` to player `player_name`."""
+    player = self._names_to_players[player_name]
+    player.observe(message)
+    self._memory.add(message)
+
   def state(self) -> str:
     return self._state
 
@@ -166,6 +196,7 @@ class Inventory(component.Component):
       event_statement: str,
   ) -> None:
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
+    chain_of_thought.statement(self._chain_of_thought_prefix)
     chain_of_thought.statement(f'List of individuals: {self._player_names}')
     chain_of_thought.statement(f'List of item types: {self._item_types}')
     chain_of_thought.statement(f'Event: {event_statement}')
@@ -246,32 +277,72 @@ class Inventory(component.Component):
                   )
                   continue
 
-              old_total = self._inventories[formatted_player][item_type]
-              self._inventories[formatted_player][item_type] += amount
-              maximum = self._item_types_dict[item_type].maximum
-              minimum = self._item_types_dict[item_type].minimum
-              self._inventories[formatted_player][item_type] = np.min(
-                  [self._inventories[formatted_player][item_type], maximum]
-              )
-              self._inventories[formatted_player][item_type] = np.max(
-                  [self._inventories[formatted_player][item_type], minimum]
-              )
-              # Get amount actually gained/lost once bounds accounted for.
-              amount = (
-                  self._inventories[formatted_player][item_type] - old_total)
-              effect = ''
-              if amount > 0:
-                effect = f'{prefix} gained {amount} {item_type}'
-              if amount < 0:
-                absolute_amount = np.abs(amount)
-                effect = f'{prefix} lost {absolute_amount} {item_type}'
-              if effect:
-                if self._is_count_noun[item_type] and np.abs(amount) > 1:
-                  # Add 's' to the end of the noun if it is a count noun.
-                  effect = effect + 's'
-                inventory_effects.append(effect)
+              if amount < 0 or not self._never_increase:
+                old_total = self._inventories[formatted_player][item_type]
+                self._inventories[formatted_player][item_type] += amount
+                maximum = self._item_types_dict[item_type].maximum
+                minimum = self._item_types_dict[item_type].minimum
+                self._inventories[formatted_player][item_type] = np.min(
+                    [self._inventories[formatted_player][item_type], maximum]
+                )
+                self._inventories[formatted_player][item_type] = np.max(
+                    [self._inventories[formatted_player][item_type], minimum]
+                )
+                # Get amount actually gained/lost once bounds accounted for.
+                amount = (
+                    self._inventories[formatted_player][item_type] - old_total
+                )
+                effect = ''
+                if amount > 0:
+                  effect = f'{prefix} gained {amount} {item_type}'
+                if amount < 0:
+                  absolute_amount = np.abs(amount)
+                  effect = f'{prefix} lost {absolute_amount} {item_type}'
+                if effect:
+                  if self._is_count_noun[item_type] and np.abs(amount) > 1:
+                    # Add 's' to the end of the noun if it is a count noun.
+                    effect = effect + 's'
+                  inventory_effects.append(effect)
+                  self._send_message_to_player_and_game_master(
+                      player_name=formatted_player, message=effect
+                  )
+                  if self._verbose:
+                    print(termcolor.colored(effect, 'yellow'))
+              else:
+                chain_of_thought.statement(
+                    f'So {formatted_player} would have gained '
+                    f'{amount} {item_type}.'
+                )
+                chain_of_thought.statement(
+                    'However, the rules indicate that the amount of'
+                    f' {item_type} cannot change. Therefore, it will not'
+                    ' change. The job of the game master is to invent a reason'
+                    f' why the events that appeared to increase {item_type} did'
+                    ' not actually happen or did not cause the amount to'
+                    ' change after all.'
+                )
+                reason_for_no_change_clause = chain_of_thought.open_question(
+                    question=(
+                        f'What is the reason that the amount of {item_type} '
+                        'did not change despite the event suggesting that it '
+                        'would have? Be specific and consistent with the '
+                        'text above.'
+                    ),
+                    answer_prefix=(
+                        f'The reason {formatted_player} did not gain any '
+                        f'{item_type} is '
+                    ),
+                )
+                reason_for_no_change = (
+                    f'However, {formatted_player} did not gain any '
+                    f'{item_type} because {reason_for_no_change_clause}'
+                )
+                self._send_message_to_player_and_game_master(
+                    player_name=formatted_player, message=reason_for_no_change
+                )
+                inventory_effects.append(reason_for_no_change)
                 if self._verbose:
-                  print(termcolor.colored(effect, 'yellow'))
+                  print(termcolor.colored(reason_for_no_change, 'yellow'))
 
     # Update the string representation of all inventories.
     self.update()
