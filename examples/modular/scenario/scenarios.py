@@ -299,7 +299,7 @@ def build_simulation(
     agent_base_module: str = DEFAULT_IMPORT_AGENT_BASE_MODULE,
     support_agent_base_module: str = DEFAULT_IMPORT_SUPPORT_AGENT_MODULE,
     env_base_module: str = DEFAULT_IMPORT_ENV_BASE_MODULE,
-) -> Runnable:
+) -> RunnableSimulationWithMemories:
   """Builds a simulation from a scenario configuration."""
   substrate_config = scenario_config.substrate_config
   # Load the environment config with importlib
