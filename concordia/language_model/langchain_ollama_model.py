@@ -19,7 +19,7 @@ from collections.abc import Collection, Sequence
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
-from langchain.llms import ollama
+from langchain_community.llms import ollama
 
 from typing_extensions import override
 

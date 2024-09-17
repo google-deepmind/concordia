@@ -72,7 +72,7 @@ setuptools.setup(
         'google-cloud-aiplatform',
         'google-generativeai',
         'ipython',
-        'langchain',
+        'langchain-community',
         'matplotlib',
         'mistralai',
         'numpy',
