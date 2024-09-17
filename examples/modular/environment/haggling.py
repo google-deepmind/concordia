@@ -55,10 +55,6 @@ ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
 DEFAULT_TIME_AND_PLACE_MODULES = ('fruitville_haggling',)
 
-NUM_MAIN_PLAYERS = 3
-
-NUM_GAMES = 2
-
 MAJOR_TIME_STEP = datetime.timedelta(minutes=5)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
@@ -83,6 +79,8 @@ class WorldConfig:
     only_match_with_support: Whether to only match with supporting players.
     buyer_base_reward_min: The minimum base reward for the buyer.
     seller_base_reward_max: The maximum base reward for the seller.
+    num_games: The number of games to play.
+    num_main_players: The number of main players in the scenario.
   """
 
   year: int
@@ -97,6 +95,8 @@ class WorldConfig:
   only_match_with_support: bool = False
   buyer_base_reward_min: int = 5
   seller_base_reward_max: int = 2
+  num_games: int = 2
+  num_main_players: int = 3
 
 
 def bargain_statements(
@@ -199,7 +199,7 @@ def configure_players(
   names = sampled_settings.people
 
   player_configs = []
-  for i in range(NUM_MAIN_PLAYERS):
+  for i in range(sampled_settings.num_main_players):
     name = names[i]
     gender = sampled_settings.person_data[name]['gender']
 
@@ -207,7 +207,7 @@ def configure_players(
     player_configs.append(config)
 
   for i in range(sampled_settings.num_supporting_players):
-    name = names[i + NUM_MAIN_PLAYERS]
+    name = names[i + sampled_settings.num_main_players]
     gender = sampled_settings.person_data[name]['gender']
 
     config = configure_player(
@@ -405,7 +405,7 @@ def configure_scenes(
   else:
     pairs = _create_all_pairs(players)
 
-  for i in range(NUM_GAMES * len(pairs)):
+  for i in range(sampled_settings.num_games * len(pairs)):
 
     buyer_base_reward = random.randint(
         sampled_settings.buyer_base_reward_min, 6
@@ -537,6 +537,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: str | None = None,
       num_supporting_player: int = 0,
       only_match_with_support: bool = False,
+      num_games: int = 2,
+      num_main_players: int = 3,
   ):
     """Initialize the simulation object.
 
@@ -561,6 +563,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       num_supporting_player: the number of supporting players.
       only_match_with_support: whether to only match main players with
         supporting players.
+      num_games: the number of games to play.
+      num_main_players: the number of main players.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -574,6 +578,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
     sampled_settings.num_supporting_players = num_supporting_player
     sampled_settings.only_match_with_support = only_match_with_support
+    sampled_settings.num_main_players = num_main_players
+    sampled_settings.num_games = num_games
 
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
