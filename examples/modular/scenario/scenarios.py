@@ -14,11 +14,13 @@
 
 """Define specific scenarios for the Concordia Challenge."""
 
+import abc
 from collections.abc import Callable, Collection, Mapping
 import dataclasses
 import importlib
 import types
 
+from concordia.associative_memory import associative_memory
 from examples.modular import environment as environment_lib
 from examples.modular.environment import supporting_agent_factory
 from examples.modular.scenario import supporting_agents as bots
@@ -32,6 +34,17 @@ import numpy as np
 
 
 Runnable = Callable[[], tuple[logging_lib.SimulationOutcome, str]]
+
+
+class RunnableSimulationWithMemories(Runnable):
+  """Define the simulation API object for the launch script to interact with."""
+
+  @abc.abstractmethod
+  def get_all_player_memories(
+      self,
+  ) -> Mapping[str, associative_memory.AssociativeMemory]:
+    raise NotImplementedError
+
 
 DEFAULT_IMPORT_ENV_BASE_MODULE = environment_lib.__name__
 DEFAULT_IMPORT_AGENT_BASE_MODULE = agent_lib.__name__
@@ -74,10 +87,12 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
     labor_collective_action__fixed_rule_boss=SubstrateConfig(
         description=(
             'labor organization collective action with a boss who applies '
-            'a fixed decision-making rule'),
+            'a fixed decision-making rule'
+        ),
         environment='labor_collective_action',
         supporting_agent_module=bots.SUPPORTING_AGENT_CONFIGS[
-            'labor_collective_action__fixed_rule_boss'],
+            'labor_collective_action__fixed_rule_boss'
+        ],
     ),
     pub_coordination=SubstrateConfig(
         description=(
@@ -95,7 +110,6 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination_mini',
         supporting_agent_module='basic_puppet_agent',
     ),
-
     pub_coordination_closures=SubstrateConfig(
         description=(
             'pub attendance coordination with one pub sometimes being closed'
@@ -304,13 +318,15 @@ def build_simulation(
 
   if substrate_config.supporting_agent_module is None:
     supporting_agent_module = None
-  elif isinstance(substrate_config.supporting_agent_module,
-                  bots.SupportingAgentConfig):
+  elif isinstance(
+      substrate_config.supporting_agent_module, bots.SupportingAgentConfig
+  ):
     supporting_agent_module = bots_lib.SupportingAgentFactory(
         module=importlib.import_module(
             f'{support_agent_base_module}.'
-            f'{substrate_config.supporting_agent_module.module_name}'),
-        overrides=substrate_config.supporting_agent_module.overrides
+            f'{substrate_config.supporting_agent_module.module_name}'
+        ),
+        overrides=substrate_config.supporting_agent_module.overrides,
     )
   else:
     supporting_agent_module = importlib.import_module(

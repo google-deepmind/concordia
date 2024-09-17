@@ -628,7 +628,7 @@ def get_inventories_component(
   return inventories, score
 
 
-class Simulation(scenarios_lib.Runnable):
+class Simulation(scenarios_lib.RunnableSimulationWithMemories):
   """Define the simulation API object for the launch script to interact with."""
 
   def __init__(

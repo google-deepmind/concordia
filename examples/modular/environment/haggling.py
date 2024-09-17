@@ -523,7 +523,7 @@ def outcome_summary_fn(
   return results
 
 
-class Simulation(scenarios_lib.Runnable):
+class Simulation(scenarios_lib.RunnableSimulationWithMemories):
   """Define the simulation API object for the launch script to interact with."""
 
   def __init__(
