@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.0] - 2024-09-17
+
+### Changed
+
+- Replace deprecated reference to langchain.llms with langchain_community.llms
+- Improve logging in game master trigger components.
+- Correct docstrings in base component type.
+- Improve info printed on error in the together_ai model wrapper.
+- Rename contrib agent components: contrib.components.agent.v2 -> contrib.components.agent.
+- deprecate older contrib agent components
+- Reformat reporting of subcomponents in all components derived from question of recent memory. We previously prefixed all subcomponents with "{name}'s\n" since typical names were things like "hunger" or "self identity". But it no longer makes sense given the way usage has evolved. Now we typically use subcomponents with keys like "Question: Is Bob hungry?\nAnswer: ". So the prefix should change.
+- Make it optional to include full episode summaries in HTML logs and turn it off for the contest environments. The default preserves the old behavior.
+- Improve Gemma2 wrapper: avoid lists, especially "\n\n" delimited lists.
+- Improve clarity of GameMaster and fix type annotations
+- Fix a few more issues in together.ai wrapper and improve filename handling in eval script.
+- remove unused `concurrent_action` functionality
+- Delete outdated base class and hide private methods
+- Improve error handling, mid-sentence cutoffs, and max_tokens limit in Gemma2 model wrapper.
+- Make formative memories warning less scary to participants.
+- Print less warnings from mistral wrapper when they do not indicate a real problem
+- add together_ai to utils
+- Use concurrency helpers and hide executor implementation
+- Add a maximum number of steps to the conversation scene. Default is 3
+- Improve reality_show action/reward observations, parameterize more of its settings, and add scenarios.
+- remove unused dependency
+- Print recoverable exceptions in mistral model wrapper.
+
+### Added
+
+- Bots now support more complex fixed rule policies.
+- Add an option to prevent the inventory component from ever increasing amounts of items in inventories (off by default, preserving the old behavior). This change also adds default context for the inventory reasoning chain of thought.
+- Add an agent with a very simple prompting strategy, just observe and recall relevant memories. Nothing else.
+- Add paranoid supporting agent and a substrate that uses it.
+- Add test for supporting agent factories and add paranoid agent to the main role factories test. Also give basic_puppet_agent a default fixed_response (no fixed responses) for testing with no parameters.
+- Add Together AI language model to Concordia. This can serve Gemma 2 9B
+- Add additional concurrency helpers `run_tasks` and `run_tasks_in_background`
+- allow colab users to pass an api key explicitly.
+
+### Fixed
+
+- Avoid pylint error by using direct import
+- Fix pytype error
+- Add lock to prevent duplicated _make_pre_act_value calls
+- Hold lock on memory read to prevent reading during a write.
+- Fix a bug which can arise when a model does not precisely follow the requested format in AccountForAgencyOfOthers.
+- Add locking and check phase transitions
+- The previous change didn't fully suppress harmless mistral exceptions, this one fixes it.
+- Ensure run_parallel uses >1 worker
+- Fix silent failures by checking futures after completion
+- Fix language model setup util
+
 ## [1.7.0] - 2024-09-3
 
 ### Changed
