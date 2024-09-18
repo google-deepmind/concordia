@@ -51,4 +51,4 @@ class NoLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
-    return 0, 'yes', {}
+    return 0, responses[0], {}
