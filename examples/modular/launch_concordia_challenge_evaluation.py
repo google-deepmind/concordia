@@ -72,6 +72,7 @@ import functools
 import importlib
 import os
 
+from concordia.language_model import call_limit_wrapper
 from concordia.language_model import utils
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
@@ -200,6 +201,7 @@ def _evaluate_all_repetitions_on_one_scenario(
         focal_agent_module=agent_module,
         embedder=embedder,
         measurements=measurements,
+        override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
     )
     # Run the simulation
     outcome, text_results_log = runnable_simulation()

@@ -47,6 +47,7 @@ import argparse
 import datetime
 import importlib
 
+from concordia.language_model import call_limit_wrapper
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import numpy as np
@@ -128,6 +129,7 @@ runnable_simulation = simulation.Simulation(
     embedder=embedder,
     measurements=measurements,
     resident_visitor_modules=(resident_agent_module, visitor_agent_module),
+    override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
 )
 # Run the simulation
 _, results_log = runnable_simulation()

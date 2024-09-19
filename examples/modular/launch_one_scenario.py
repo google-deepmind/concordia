@@ -72,6 +72,7 @@ import argparse
 import datetime
 import importlib
 
+from concordia.language_model import call_limit_wrapper
 from concordia.language_model import utils
 from concordia.utils import measurements as measurements_lib
 import numpy as np
@@ -116,10 +117,7 @@ parser.add_argument(
     default=1,
     dest='num_repetitions_per_scenario',
 )
-parser.add_argument('--api_key',
-                    action='store',
-                    default=None,
-                    dest='api_key')
+parser.add_argument('--api_key', action='store', default=None, dest='api_key')
 parser.add_argument(
     '--disable_language_model',
     action='store_true',
@@ -188,6 +186,7 @@ for _ in range(args.num_repetitions_per_scenario):
       focal_agent_module=agent_module,
       embedder=embedder,
       measurements=measurements,
+      override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
   )
   # Run the simulation
   outcome, text_results_log = runnable_simulation()
@@ -230,9 +229,7 @@ scenario_result = logging_lib.ScenarioResult(
     background_per_capita_score=np.mean(
         background_per_capita_scores_to_average
     ),
-    ungrouped_per_capita_score=np.mean(
-        ungrouped_per_capita_scores_to_average
-    ),
+    ungrouped_per_capita_score=np.mean(ungrouped_per_capita_scores_to_average),
     simulation_outcomes=tuple(simulation_outcomes),
     focal_is_resident=scenario_config.focal_is_resident,
     api_type=args.api_type,
