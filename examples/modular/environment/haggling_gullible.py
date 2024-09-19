@@ -37,6 +37,7 @@ class Simulation(haggling.Simulation):
       resident_visitor_modules: Sequence[types.ModuleType] = (),
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      **kwargs,
   ):
     """Initialize the simulation object.
 
@@ -58,6 +59,7 @@ class Simulation(haggling.Simulation):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      **kwargs: additional arguments to pass to the superclass constructor.
     """
 
     super().__init__(
@@ -70,4 +72,5 @@ class Simulation(haggling.Simulation):
         time_and_place_module=time_and_place_module,
         num_supporting_player=1,
         only_match_with_support=True,
+        **kwargs,
     )

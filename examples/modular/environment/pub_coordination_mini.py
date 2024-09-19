@@ -36,6 +36,7 @@ class Simulation(pub_coordination.Simulation):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      **kwargs,
   ):
     """Initialize the simulation object.
 
@@ -57,6 +58,7 @@ class Simulation(pub_coordination.Simulation):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      **kwargs: additional arguments to pass to the superclass.
     """
 
     super().__init__(
@@ -71,4 +73,5 @@ class Simulation(pub_coordination.Simulation):
         num_games=1,
         num_main_players=2,
         num_supporting_players=0,
+        **kwargs,
     )

@@ -585,6 +585,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
+      override_agent_model: language_model.LanguageModel | None = None,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
@@ -596,10 +597,12 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       embedder: the sentence transformer to use.
       measurements: the measurements object to use.
       agent_module: the agent module to use for all main characters.
+      override_agent_model: optionally, override the model for all agents. The
+        model will be copied for every agent.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
-      supporting_agent_module: agent module to use for all supporting players.
-        A supporting player is a non-player character with a persistent memory
+      supporting_agent_module: agent module to use for all supporting players. A
+        supporting player is a non-player character with a persistent memory
         that plays a specific role in defining the task environment. Their role
         is not incidental but rather is critcal to making the task what it is.
         Supporting players are not necessarily interchangeable with focal or
@@ -613,6 +616,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     del resident_visitor_modules
     del supporting_agent_module
     del time_and_place_module
+    del override_agent_model
 
     self._agent_module = agent_module
     self._model = model
@@ -645,7 +649,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     tasks = {
         config.name: functools.partial(
-            self._make_player_memories, config=config
+            self._make_player_memories, player_config=config
         )
         for config in main_player_configs + supporting_player_configs
     }

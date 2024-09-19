@@ -17,8 +17,6 @@
 from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
-from absl import logging
-
 from concordia.language_model import language_model
 from typing_extensions import override
 
@@ -59,9 +57,12 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> str:
     if self._calls >= self._max_calls:
-      logging.log_first_n(
-          logging.ERROR, 'Call limit reached', n=self._max_calls
+      print(
+          f'\n\n***** WARNING *****\nCall limit of {self._max_calls} reached.'
+          ' All further sample_text calls will be replaced with empty strings'
+          ' sample_choice calls with the first response\n\n'
       )
+
       return ''
 
     self._calls += 1
@@ -83,8 +84,10 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
     if self._calls >= self._max_calls:
-      logging.log_first_n(
-          logging.ERROR, 'Call limit reached', n=self._max_calls
+      print(
+          f'\n\n***** WARNING *****\nCall limit of {self._max_calls} reached.'
+          ' All further sample_text calls will be replaced with empty strings'
+          ' sample_choice calls with the first response\n\n'
       )
       return 0, responses[0], {}
 

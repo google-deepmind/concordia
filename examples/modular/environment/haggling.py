@@ -16,6 +16,7 @@
 
 import collections
 from collections.abc import Callable, Collection, Mapping, Sequence
+import copy
 import dataclasses
 import datetime
 import functools
@@ -532,6 +533,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent,
+      override_agent_model: language_model.LanguageModel | None = None,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
@@ -549,6 +551,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       embedder: the sentence transformer to use.
       measurements: the measurements object to use.
       agent_module: the agent module to use for all main characters.
+      override_agent_model: optionally, override the model for all agents. The
+        model will be copied for every agent.
       resident_visitor_modules: optionally, use different modules for majority
         and minority parts of the focal population.
       supporting_agent_module: agent module to use for all supporting players. A
@@ -596,6 +600,11 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     else:
       self._resident_visitor_mode = False
       self._agent_module = agent_module
+
+    self._agent_model = model
+
+    if override_agent_model:
+      self._agent_model = override_agent_model
 
     self._build_supporting_agent = basic_puppet_agent.build_agent
     if supporting_agent_module is not None:
@@ -646,7 +655,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     for idx, player_config in enumerate(main_player_configs):
       kwargs = dict(
           config=player_config,
-          model=self._model,
+          model=copy.copy(self._agent_model),
           memory=self._all_memories[player_config.name],
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
