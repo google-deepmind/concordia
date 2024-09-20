@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.1] - 2024-09-20
+
+### Added
+
+- A wrapper that allows to limit the number of calls made by an LLM before it turns into a noop model
+
+### Fixed
+
+- Make Inventory component thread safe.
+
+
 ## [1.8.0] - 2024-09-17
 
 ### Changed
