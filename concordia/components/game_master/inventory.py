@@ -14,10 +14,12 @@
 
 """A component to represent each agent's inventory or possessions."""
 
-from collections.abc import Callable, Sequence
-import concurrent
+from collections.abc import Callable, Mapping, Sequence
+import copy
 import dataclasses
 import datetime
+import functools
+import threading
 
 from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
@@ -25,6 +27,7 @@ from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
+from concordia.utils import concurrency
 from concordia.utils import helper_functions
 import numpy as np
 import termcolor
@@ -44,6 +47,8 @@ _DEFAULT_CHAIN_OF_THOUGHT_PREFIX = (
 
 _DEFAULT_QUANTITY = 0
 
+InventoryType = Mapping[str, dict[str, float]]
+
 
 @dataclasses.dataclass(frozen=True)
 class ItemTypeConfig:
@@ -53,6 +58,13 @@ class ItemTypeConfig:
   minimum: float = -np.inf
   maximum: float = np.inf
   force_integer: bool = False
+
+  def check_valid(self, amount: float) -> None:
+    """Checks if amount is valid for this item type."""
+    if amount < self.minimum or amount > self.maximum:
+      raise ValueError('Amount out of bounds')
+    if self.force_integer and amount != int(amount):
+      raise ValueError('Amount not right type')
 
 
 def _many_or_much_fn(is_count_noun: bool) -> str:
@@ -93,8 +105,8 @@ class Inventory(component.Component):
       chain_of_thought_prefix: include this string in context before all
         reasoning steps for handling the inventory.
       financial: If set to True then include special questions to handle the
-        fact that agents typically say "Alice bought (or sold) X" which is
-        a different way of speaking than "Alice exchanged X for Y".
+        fact that agents typically say "Alice bought (or sold) X" which is a
+        different way of speaking than "Alice exchanged X for Y".
       never_increase: If set to True then this component never increases the
         amount of any item. Events where an item would have been gained lead to
         no change in the inventory and the game master instead invents a reason
@@ -127,23 +139,20 @@ class Inventory(component.Component):
           for item_type in self._item_types
       }
 
-    self._history = []
+    self._latest_update_log = None
     self._state = ''
     self._partial_states = {name: '' for name in self._player_names}
 
     # Determine if each item type is a count noun or a mass noun.
     self._is_count_noun = {}
+    self._lock = threading.Lock()
 
-    def check_if_count_noun(item_type):
-      self._is_count_noun[item_type] = helper_functions.is_count_noun(
-          item_type, self._model
-      )
-      return
-
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=len(self._item_types)
-    ) as executor:
-      executor.map(check_if_count_noun, self._item_types)
+    self._is_count_noun = concurrency.run_tasks({
+        item_type: functools.partial(
+            helper_functions.is_count_noun, item_type, self._model
+        )
+        for item_type in self._item_types
+    })
 
     # Set the initial state's string representation.
     self.update()
@@ -153,11 +162,8 @@ class Inventory(component.Component):
     return self._name
 
   def get_last_log(self):
-    if self._history:
-      return self._history[-1].copy()
-
-  def get_history(self):
-    return self._history.copy()
+    if self._latest_update_log is not None:
+      return self._latest_update_log
 
   def _get_player_inventory_str(self, player_name: str) -> str:
     return f"{player_name}'s {self._name}: " + str(
@@ -165,7 +171,8 @@ class Inventory(component.Component):
     )
 
   def _send_message_to_player_and_game_master(
-      self, player_name: str, message: str) -> None:
+      self, player_name: str, message: str
+  ) -> None:
     """Send `message` to player `player_name`."""
     player = self._names_to_players[player_name]
     player.observe(message)
@@ -175,174 +182,186 @@ class Inventory(component.Component):
     return self._state
 
   def update(self) -> None:
-    self._state = '\n'.join(
-        [self._get_player_inventory_str(name) for name in self._player_names]
-    )
-    self._partial_states = {
-        name: self._get_player_inventory_str(name)
-        for name in self._player_names
-    }
-    # Explicitly pass partial states to agents here in `update` instead of
-    # relying on the game master to call partial state on all players. This is
-    # because we frequently have supporting characters who participate in
-    # conversations but do not take active turns with the top-level game master
-    # themselves. This method of passing the partial state information ensures
-    # that theses players still get to observe their inventory.
-    for player in self._players:
-      player.observe(self._partial_states[player.name])
+    with self._lock:
+      self._state = '\n'.join(
+          [self._get_player_inventory_str(name) for name in self._player_names]
+      )
+      self._partial_states = {
+          name: self._get_player_inventory_str(name)
+          for name in self._player_names
+      }
+      # Explicitly pass partial states to agents here in `update` instead of
+      # relying on the game master to call partial state on all players. This is
+      # because we frequently have supporting characters who participate in
+      # conversations but do not take active turns with the top-level game
+      # master themselves. This method of passing the partial state information
+      # ensures that theses players still get to observe their inventory.
+      for player in self._players:
+        player.observe(self._partial_states[player.name])
 
   def update_after_event(
       self,
       event_statement: str,
   ) -> None:
-    chain_of_thought = interactive_document.InteractiveDocument(self._model)
-    chain_of_thought.statement(self._chain_of_thought_prefix)
-    chain_of_thought.statement(f'List of individuals: {self._player_names}')
-    chain_of_thought.statement(f'List of item types: {self._item_types}')
-    chain_of_thought.statement(f'Event: {event_statement}')
+    with self._lock:
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(self._chain_of_thought_prefix)
+      chain_of_thought.statement(f'List of individuals: {self._player_names}')
+      chain_of_thought.statement(f'List of item types: {self._item_types}')
+      chain_of_thought.statement(f'Event: {event_statement}')
 
-    inventory_effects = []
+      inventory_effects = []
 
-    proceed = chain_of_thought.yes_no_question(
-        question=(
-            'In the above transcript, did any of the listed individuals '
-            + 'gain or lose any items on the list of item types?  Make sure '
-            + 'to take into account items equivalent to the items on the list '
-            + 'e.g. if "money" is on the list but the event mentions "gold" '
-            + 'then treat "gold" as equivalent to "money" since gold is a type '
-            + 'of money.'
-        )
-    )
-    if proceed:
-      if self._financial:
-        _ = chain_of_thought.open_question(
-            question=(
-                'If the event mentions any financial transaction (buying or '
-                'selling), what price(s) were involved? If no price(s) were '
-                'mentioned then pick logical values for them. If there was no '
-                'transaction then respond with "NA".'
-            )
-        )
-      for item_type in self._item_types:
-        this_item_changed = chain_of_thought.yes_no_question(
-            question=f'Did any listed individual gain or lose {item_type}?',
-        )
-        if this_item_changed:
-          players_who_changed_str = chain_of_thought.open_question(
+      proceed = chain_of_thought.yes_no_question(
+          question=(
+              'In the above transcript, did any of the listed individuals '
+              'gain or lose any items on the list of item types?  Make sure '
+              'to take into account items equivalent to the items on the list'
+              'e.g. if "money" is on the list but the event mentions "gold" '
+              'then treat "gold" as equivalent to "money" since gold is a type'
+              'of money.'
+          )
+      )
+      if proceed:
+        new_inventories = dict(self._inventories)
+        if self._financial:
+          _ = chain_of_thought.open_question(
               question=(
-                  f'Which individuals gained or lost {item_type}?\n'
-                  + 'Respond with a comma-separated list, for example: \n'
-                  + 'Jacob,Alfred,Patricia. Note that transactions between '
-                  + 'named individuals must be balanced. If someone gained '
-                  + 'something then someone else must have lost it.'
+                  'If the event mentions any financial transaction (buying or'
+                  ' selling), what price(s) were involved? If no price(s) were'
+                  ' mentioned then pick logical values for them. If there was'
+                  ' no transaction then respond with "NA".'
               )
           )
-          players_whose_inventory_changed = players_who_changed_str.split(',')
-          for player in players_whose_inventory_changed:
-            formatted_player = player.lstrip(' ').rstrip(' ')
-            if formatted_player in self._player_names:
-              prefix = f"[effect on {formatted_player}'s {self._name}]"
-              many_or_much = _many_or_much_fn(self._is_count_noun[item_type])
-              amount = chain_of_thought.open_question(
-                  question=(
-                      f'How {many_or_much} '
-                      + f'{item_type} did {player} gain '
-                      + f'as a result of the event? If they lost {item_type} '
-                      + 'then respond with a negative number. Be precise. If '
-                      + 'the original event was imprecise then pick a specific '
-                      + 'value that is consistent with all the text above. '
-                      + 'Respond in the format: "number|explanation".'
-                  )
-              )
-              try:
-                if '|' in amount:
-                  amount = amount.split('|')[0]
-                amount = float(amount)
-              except ValueError:
-                # Assume worst case, if player gained item, they gain 1 unit. If
-                # player lost item, they lose all units they have.
-                increased = chain_of_thought.yes_no_question(
-                    question=(f'Did the amount of {item_type} possessed '
-                              f'by {player} increase?'))
-                if increased:
-                  amount = 1.0
-                else:
-                  amount = -self._inventories[player][item_type]
-
-              if self._item_types_dict[item_type].force_integer:
-                if not float(amount).is_integer():
-                  inventory_effects.append(
-                      f'{prefix} no effect since amount of {item_type} must '
-                      + f'be a whole number but {amount} is not.'
-                  )
-                  continue
-
-              if amount < 0 or not self._never_increase:
-                old_total = self._inventories[formatted_player][item_type]
-                self._inventories[formatted_player][item_type] += amount
-                maximum = self._item_types_dict[item_type].maximum
-                minimum = self._item_types_dict[item_type].minimum
-                self._inventories[formatted_player][item_type] = np.min(
-                    [self._inventories[formatted_player][item_type], maximum]
+        for item_type in self._item_types:
+          this_item_changed = chain_of_thought.yes_no_question(
+              question=f'Did any listed individual gain or lose {item_type}?',
+          )
+          if this_item_changed:
+            players_who_changed_str = chain_of_thought.open_question(
+                question=(
+                    f'Which individuals gained or lost {item_type}?\n'
+                    + 'Respond with a comma-separated list, for example: \n'
+                    + 'Jacob,Alfred,Patricia. Note that transactions between '
+                    + 'named individuals must be balanced. If someone gained '
+                    + 'something then someone else must have lost it.'
                 )
-                self._inventories[formatted_player][item_type] = np.max(
-                    [self._inventories[formatted_player][item_type], minimum]
+            )
+            players_whose_inventory_changed = players_who_changed_str.split(',')
+            for player in players_whose_inventory_changed:
+              formatted_player = player.lstrip(' ').rstrip(' ')
+              if formatted_player in self._player_names:
+                new_inventories[formatted_player] = dict(
+                    new_inventories[formatted_player]
                 )
-                # Get amount actually gained/lost once bounds accounted for.
-                amount = (
-                    self._inventories[formatted_player][item_type] - old_total
-                )
-                effect = ''
-                if amount > 0:
-                  effect = f'{prefix} gained {amount} {item_type}'
-                if amount < 0:
-                  absolute_amount = np.abs(amount)
-                  effect = f'{prefix} lost {absolute_amount} {item_type}'
-                if effect:
-                  if self._is_count_noun[item_type] and np.abs(amount) > 1:
-                    # Add 's' to the end of the noun if it is a count noun.
-                    effect = effect + 's'
-                  inventory_effects.append(effect)
-                  self._send_message_to_player_and_game_master(
-                      player_name=formatted_player, message=effect
-                  )
-                  if self._verbose:
-                    print(termcolor.colored(effect, 'yellow'))
-              else:
-                chain_of_thought.statement(
-                    f'So {formatted_player} would have gained '
-                    f'{amount} {item_type}.'
-                )
-                chain_of_thought.statement(
-                    'However, the rules indicate that the amount of'
-                    f' {item_type} cannot change. Therefore, it will not'
-                    ' change. The job of the game master is to invent a reason'
-                    f' why the events that appeared to increase {item_type} did'
-                    ' not actually happen or did not cause the amount to'
-                    ' change after all.'
-                )
-                reason_for_no_change_clause = chain_of_thought.open_question(
+                prefix = f"[effect on {formatted_player}'s {self._name}]"
+                many_or_much = _many_or_much_fn(self._is_count_noun[item_type])
+                amount = chain_of_thought.open_question(
                     question=(
-                        f'What is the reason that the amount of {item_type} '
-                        'did not change despite the event suggesting that it '
-                        'would have? Be specific and consistent with the '
-                        'text above.'
-                    ),
-                    answer_prefix=(
-                        f'The reason {formatted_player} did not gain any '
-                        f'{item_type} is '
-                    ),
+                        f'How {many_or_much} '
+                        + f'{item_type} did {player} gain '
+                        + f'as a result of the event? If they lost {item_type} '
+                        + 'then respond with a negative number. Be precise. If '
+                        + 'the original event was imprecise then pick a'
+                        ' specific '
+                        + 'value that is consistent with all the text above. '
+                        + 'Respond in the format: "number|explanation".'
+                    )
                 )
-                reason_for_no_change = (
-                    f'However, {formatted_player} did not gain any '
-                    f'{item_type} because {reason_for_no_change_clause}'
-                )
-                self._send_message_to_player_and_game_master(
-                    player_name=formatted_player, message=reason_for_no_change
-                )
-                inventory_effects.append(reason_for_no_change)
-                if self._verbose:
-                  print(termcolor.colored(reason_for_no_change, 'yellow'))
+                try:
+                  if '|' in amount:
+                    amount = amount.split('|')[0]
+                  amount = float(amount)
+                except ValueError:
+                  # Assume worst case, if player gained item, they gain 1 unit.
+                  # If player lost item, they lose all units they have.
+                  increased = chain_of_thought.yes_no_question(
+                      question=(
+                          f'Did the amount of {item_type} possessed '
+                          f'by {player} increase?'
+                      )
+                  )
+                  if increased:
+                    amount = 1.0
+                  else:
+                    amount = -new_inventories[player][item_type]
+
+                if self._item_types_dict[item_type].force_integer:
+                  if not float(amount).is_integer():
+                    inventory_effects.append(
+                        f'{prefix} no effect since amount of {item_type} must '
+                        + f'be a whole number but {amount} is not.'
+                    )
+                    continue
+
+                if amount < 0 or not self._never_increase:
+                  maximum = self._item_types_dict[item_type].maximum
+                  minimum = self._item_types_dict[item_type].minimum
+
+                  old_total = new_inventories[formatted_player][item_type]
+                  new_inventories[formatted_player][item_type] += amount
+                  new_inventories[formatted_player][item_type] = np.min(
+                      [new_inventories[formatted_player][item_type], maximum]
+                  )
+                  new_inventories[formatted_player][item_type] = np.max(
+                      [new_inventories[formatted_player][item_type], minimum]
+                  )
+                  # Get amount actually gained/lost once bounds accounted for.
+                  amount = (
+                      new_inventories[formatted_player][item_type] - old_total
+                  )
+                  effect = ''
+                  if amount > 0:
+                    effect = f'{prefix} gained {amount} {item_type}'
+                  if amount < 0:
+                    absolute_amount = np.abs(amount)
+                    effect = f'{prefix} lost {absolute_amount} {item_type}'
+                  if effect:
+                    if self._is_count_noun[item_type] and np.abs(amount) > 1:
+                      # Add 's' to the end of the noun if it is a count noun.
+                      effect = effect + 's'
+                    inventory_effects.append(effect)
+                    self._send_message_to_player_and_game_master(
+                        player_name=formatted_player, message=effect
+                    )
+                    if self._verbose:
+                      print(termcolor.colored(effect, 'yellow'))
+                else:
+                  chain_of_thought.statement(
+                      f'So {formatted_player} would have gained '
+                      f'{amount} {item_type}.'
+                  )
+                  chain_of_thought.statement(
+                      'However, the rules indicate that the amount of'
+                      f' {item_type} cannot change. Therefore, it will not'
+                      ' change. The job of the game master is to invent a'
+                      ' reason why the events that appeared to increase'
+                      f' {item_type} did not actually happen or did not cause'
+                      ' the amount to change after all.'
+                  )
+                  reason_for_no_change_clause = chain_of_thought.open_question(
+                      question=(
+                          f'What is the reason that the amount of {item_type} '
+                          'did not change despite the event suggesting that it '
+                          'would have? Be specific and consistent with the '
+                          'text above.'
+                      ),
+                      answer_prefix=(
+                          f'The reason {formatted_player} did not gain any '
+                          f'{item_type} is '
+                      ),
+                  )
+                  reason_for_no_change = (
+                      f'However, {formatted_player} did not gain any '
+                      f'{item_type} because {reason_for_no_change_clause}'
+                  )
+                  self._send_message_to_player_and_game_master(
+                      player_name=formatted_player, message=reason_for_no_change
+                  )
+                  inventory_effects.append(reason_for_no_change)
+                  if self._verbose:
+                    print(termcolor.colored(reason_for_no_change, 'yellow'))
+        self._inventories = new_inventories
 
     # Update the string representation of all inventories.
     self.update()
@@ -351,7 +370,7 @@ class Inventory(component.Component):
       print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
       print(termcolor.colored(self.state(), 'yellow'))
 
-    update_log = {
+    self._latest_update_log = {
         'date': self._clock_now(),
         'Summary': str(self._inventories),
         'Inventories': self.state(),
@@ -361,8 +380,28 @@ class Inventory(component.Component):
         },
     }
     self._memory.extend(inventory_effects)
-    self._history.append(update_log)
 
-  def get_player_inventory(self, player_name: str) -> dict[str, float | int]:
+  def get_player_inventory(self, player_name: str) -> Mapping[str, float | int]:
     """Return the inventory of player `player_name`."""
-    return self._inventories[player_name]
+    with self._lock:
+      return copy.deepcopy(self._inventories[player_name])
+
+  def apply(self, fn: Callable[[InventoryType], InventoryType]) -> None:
+    """Apply `function` to `args` and update the inventory accordingly."""
+    with self._lock:
+      old_inventories = copy.deepcopy(self._inventories)
+      new_inventories = fn(old_inventories)
+      if set(new_inventories.keys()) != set(old_inventories.keys()):
+        raise RuntimeError(
+            'New inventory keys do not match old inventory keys.'
+        )
+      for item_type, config in self._item_types_dict.items():
+        for key in new_inventories:
+          missing = set(self._item_types_dict) - set(new_inventories[key])
+          if missing:
+            raise RuntimeError(f'{key} inventory missing {missing} types.')
+          invalid = set(new_inventories[key]) - set(self._item_types_dict)
+          if invalid:
+            raise RuntimeError(f'{key} inventory has invalid {invalid} types.')
+          config.check_valid(new_inventories[key][item_type])
+      self._inventories = copy.deepcopy(new_inventories)

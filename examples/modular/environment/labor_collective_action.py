@@ -854,7 +854,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         name='Another fact',
     )
 
-    inventories, self._score = get_inventories_component(
+    inventory_component, self._score = get_inventories_component(
         model=model,
         memory=game_master_memory,
         players=self._all_players,
@@ -865,21 +865,19 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     def inventory_effect_function(
         args: _TriggeredInventoryEffectPreEventFnArgsT,
-    ):
+        inventories: gm_components.inventory.InventoryType,
+    ) -> gm_components.inventory.InventoryType:
       player_name = args.player_name
       player_choice = args.player_choice
       current_scene_type = args.current_scene_type
-      inventory_component = args.inventory_component
       memory = args.memory
       player = args.player
       # Determine wage by searching memory for the latest wage setting event.
       wage = _get_wage_from_game_master_memory(
           memory, initial_wage=time_and_place_params.LOW_DAILY_PAY)
       # Modify inventory based on player choice, scene type, and wage.
-      player_inventory = inventory_component.get_player_inventory(player_name)
-      antagonist_inventory = inventory_component.get_player_inventory(
-          antagonist_player.name if antagonist_player is not None else ''
-      )
+      player_inventory = dict(inventories[player_name])
+      antagonist_inventory = dict(inventories[antagonist_player.name])
       if DECISION_SCENE_TYPE in current_scene_type:
         if player_choice == DAILY_OPTIONS['defection']:
           # Players only get paid if they go to work i.e. defecting against
@@ -904,11 +902,17 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
               f'{player_name} has run out of money and cannot afford daily '
               'necessities. Debts are piling up. The situation is dire.'
           )
+      inventories = dict(inventories)
+      inventories.update({
+          player_name: player_inventory,
+          antagonist_player.name: antagonist_inventory,
+      })
+      return inventories
 
     paid_labor = (
         gm_components.triggered_inventory_effect.TriggeredInventoryEffect(
             function=inventory_effect_function,
-            inventory=inventories,
+            inventory=inventory_component,
             memory=game_master_memory,
             players=main_players,
             clock_now=self._clock.now,
@@ -962,7 +966,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         setting,
         magic_is_not_real,
         no_frivolous_talk,
-        inventories,
+        inventory_component,
         paid_labor,
         wage_setting,
         self._score,

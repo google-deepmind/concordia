@@ -17,6 +17,7 @@
 from collections.abc import Callable, Sequence
 import dataclasses
 import datetime
+import functools
 
 from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
@@ -28,7 +29,6 @@ from concordia.typing import component
 MemoryT = associative_memory.AssociativeMemory
 PlayerT = deprecated_agent.BasicAgent | entity_agent.EntityAgent
 PlayersT = Sequence[PlayerT]
-InventoryT = inventory_gm_component.Inventory
 
 
 @dataclasses.dataclass
@@ -39,8 +39,6 @@ class PreEventFnArgsT:
     player_name: The name of the player.
     player_choice: The choice of the player on the current timestep.
     current_scene_type: The type of the current scene.
-    inventory_component: The inventory component where amounts of items are
-      stored.
     memory: The game master's associative memory.
     player: Player object for the acting player.
   """
@@ -48,7 +46,6 @@ class PreEventFnArgsT:
   player_name: str
   player_choice: str
   current_scene_type: str
-  inventory_component: InventoryT
   memory: MemoryT
   player: PlayerT
 
@@ -66,7 +63,9 @@ class TriggeredInventoryEffect(component.Component):
 
   def __init__(
       self,
-      function: Callable[[PreEventFnArgsT], None],
+      function: Callable[[PreEventFnArgsT,
+                          inventory_gm_component.InventoryType],
+                         inventory_gm_component.InventoryType],
       inventory: inventory_gm_component.Inventory,
       memory: associative_memory.AssociativeMemory,
       players: PlayersT,
@@ -121,15 +120,17 @@ class TriggeredInventoryEffect(component.Component):
       return
     current_scene_type = self._current_scene.state()
     player = _get_player_by_name(player_name, self._players)
-    self._function(
+    update = functools.partial(
+        self._function,
         PreEventFnArgsT(
             player_name=player_name,
             player_choice=choice,
             current_scene_type=current_scene_type,
-            inventory_component=self._inventory,
             memory=self._memory,
-            player=player)
+            player=player,
+        )
     )
+    self._inventory.apply(update)
     self._latest_update_log = {
         'date': self._clock_now(),
         'Summary': self.name(),
