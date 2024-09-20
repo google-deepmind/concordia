@@ -175,7 +175,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=True,
         tags=('discouraging antisocial behavior',),
     ),
-    labor_collective_action__paranoid_boss_1=ScenarioConfig(
+    labor_collective_action__paranoid_boss_0=ScenarioConfig(
         description=(
             'visitor focal agent in a labor organization collective '
             'action scenario with a boss who is paranoid '
@@ -269,7 +269,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'persuasion',
         ),
     ),
-    reality_show_circa_2003_stag_hunt_1=ScenarioConfig(
+    reality_show_circa_2003_stag_hunt_0=ScenarioConfig(
         description=(
             'visitor focal agents are contestants on a reality show circa '
             '2003, joining a resident group of strangers who are paranoid.'
