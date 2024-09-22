@@ -32,6 +32,7 @@ def language_model_setup(
     model_name: str,
     api_key: str | None = None,
     disable_language_model: bool = False,
+    device: str = 'cpu'
 ) -> language_model.LanguageModel:
   """Get the wrapped language model.
 
@@ -43,6 +44,7 @@ def language_model_setup(
     disable_language_model: Optional, if True then disable the language model.
       This uses a model that returns an empty string whenever asked for a free
       text response and a randome option when asked for a choice.
+    device: Specifies whether to use cpu or cuda for model processing.
 
   Returns:
     The wrapped language model.
@@ -69,7 +71,7 @@ def language_model_setup(
   elif api_type == 'openai':
     return gpt_model.GptLanguageModel(model_name, api_key=api_key)
   elif api_type == 'pytorch_gemma':
-    return pytorch_gemma_model.PyTorchGemmaLanguageModel(model_name)
+    return pytorch_gemma_model.PyTorchGemmaLanguageModel(model_name, device=device)
   elif api_type == 'together_ai':
     return together_ai.Gemma2(model_name, api_key=api_key)
   else:
