@@ -445,6 +445,16 @@ def configure_scenes(
           [cfg for cfg in player_configs if cfg.name == player.name][0]
       )
 
+    buyer_price_list = '; '.join([
+        f'{item} for {buyer_base_reward_per_item[item]} coins'
+        for item in sampled_settings.items_for_sale
+    ])
+
+    seller_price_list = '; '.join([
+        f'{item} for {seller_base_reward_per_item[item]} coins'
+        for item in sampled_settings.items_for_sale
+    ])
+
     scene_opening = random.choice(list(sampled_settings.scene_visuals))
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
@@ -454,15 +464,15 @@ def configure_scenes(
                     f'{scene_opening} {this_game_players[0].name} is trying to'
                     f' buy some fruit from {this_game_players[1].name}. They'
                     f' are negotiating a price. {this_game_players[0].name} can'
-                    f' sell the fruit for {buyer_base_reward_per_item} coins'
-                    ' back in her home town.'
+                    ' sell the fruit back in her home town for the following'
+                    f' prices: {buyer_price_list}.'
                 )],
                 this_game_players[1].name: [(
                     f'{scene_opening} {this_game_players[1].name} is  trying to'
                     ' sell some fruit. He is negotiating a price with'
                     f' {this_game_players[0].name}. It costs'
-                    f' {this_game_players[1].name} {seller_base_reward_per_item} coin'
-                    ' to buy the fruit from the farm.'
+                    f' {this_game_players[1].name} the following price to buy'
+                    f' the fruit from the farm: {seller_price_list}.'
                 )],
             },
         ),
