@@ -85,6 +85,8 @@ def _as_completed(
   Raises:
     TimeoutError: If all the results are not generated before the timeout.
   """
+  if not tasks:
+    return
   if max_workers is None:
     max_workers = len(tasks)
   with _executor(max_workers=max_workers) as executor_:

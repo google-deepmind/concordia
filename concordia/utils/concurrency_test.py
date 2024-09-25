@@ -101,8 +101,12 @@ class ConcurrencyTest(absltest.TestCase):
     with self.subTest('errors'):
       self.assertEqual(
           {key: type(error) for key, error in errors.items()},
-          {'error': ExpectedError, 'wait': TimeoutError}
+          {'error': ExpectedError, 'wait': TimeoutError},
       )
+
+  def test_run_tasks_empty(self):
+    results = concurrency.run_tasks({})
+    self.assertEmpty(results)
 
   def test_map_parallel(self):
     results = concurrency.map_parallel(
