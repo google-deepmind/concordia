@@ -171,7 +171,7 @@ else:
 
 # Create evaluation results directory
 start_time = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-results_dir = f'evaluation__{start_time}'
+results_dir = f'evaluations/evaluation__{args.agent_name}__{start_time}'
 os.makedirs(results_dir, exist_ok=True)
 
 
