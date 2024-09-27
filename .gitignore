@@ -1,6 +1,9 @@
 # MacOS metadata. 
 .DS_Store
 
+# Pycharm metadata.
+.idea
+
 # Byte-compiled Python code.
 *.py[cod]
 __pycache__/
