@@ -17,6 +17,7 @@
 from collections.abc import Callable, Mapping, Sequence
 import copy
 import datetime
+from typing import Protocol
 
 from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
@@ -26,6 +27,35 @@ from concordia.language_model import language_model
 from concordia.typing import component
 import numpy as np
 import termcolor
+
+
+class OutcomeSummarizationFn(Protocol):
+  """Protocol for outcome summarization function."""
+
+  def __call__(
+      self,
+      joint_action: Mapping[str, str],
+      rewards: Mapping[str, float],
+      relational_matrix: Mapping[str, Mapping[str, float]],
+      player_multipliers: Mapping[str, Mapping[str, float]],
+  ) -> Mapping[str, str]:
+    """Function of joint actions, rewards, relational matrix and player multipliers which returns an outcome description message for each player.
+
+    Args:
+      joint_action: A mapping from player name to their chosen action.
+      rewards: A mapping from player name to their reward.
+      relational_matrix: A matrix of relationships between players. The entry
+        [i][j] specifies the value for player i of making the same choice as
+        player j. Matrix is not assumed to be symmetric or having a particular
+        value on the diagonal. If `None`, all players are assumed to have value
+        of 1, including self relationships (diagonal).
+      player_multipliers: A mapping from player name to a mapping from action to
+        their multiplier.
+
+    Returns:
+      A mapping from player name to their outcome description message.
+    """
+    ...
 
 
 class CoordinationPayoffs(component.Component):
@@ -45,9 +75,7 @@ class CoordinationPayoffs(component.Component):
       resolution_scene: str,
       players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       acting_player_names: Sequence[str],
-      outcome_summarization_fn: Callable[
-          [Mapping[str, str], Mapping[str, float]], Mapping[str, str]
-      ],
+      outcome_summarization_fn: OutcomeSummarizationFn,
       clock_now: Callable[[], datetime.datetime],
       relational_matrix: Mapping[str, Mapping[str, float]] | None = None,
       name: str = 'scoring function',
@@ -64,8 +92,9 @@ class CoordinationPayoffs(component.Component):
         after the event, i.e. when to check the joint action and compute results
       players: sequence of agents (a superset of the active players)
       acting_player_names: sequence of names of players who act each stage
-      outcome_summarization_fn: function of joint actions and rewards which
-        returns an outcome description message for each player
+      outcome_summarization_fn: Function of joint actions, rewards, relational
+        matrix and player multipliers which returns an outcome description
+        message for each player
       clock_now: Function to call to get current time.
       relational_matrix: a matrix of relationships between players. The entry
         [i][j] specifies the value for player i of making the same choice as
@@ -206,7 +235,12 @@ class CoordinationPayoffs(component.Component):
     ])
     # Players see a text-based summarization of the events, which may or may not
     # include the actual reward values.
-    partial_states = self._outcome_summarization_fn(joint_action, rewards)
+    partial_states = self._outcome_summarization_fn(
+        joint_action=joint_action,
+        rewards=rewards,
+        relational_matrix=self._relational_matrix,
+        player_multipliers=self._player_multipliers,
+    )
     common_view_of_player_obs = '\n'.join([
         f'{name} observed: {observation}'
         for name, observation in partial_states.items()
