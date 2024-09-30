@@ -155,8 +155,9 @@ def configure_player(
       ),
       formative_ages=[16, 20],
       goal=(
-          f'Watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer {favorite_pub}'
+          f'Have a good time. To have a good time, {name} would like to'
+          f' watch the game in the same pub as {all_player_names_str}.'
+          f' {name} would prefer everyone went to {favorite_pub}.'
       ),
       context=(
           f"{all_player_names_str}' are best friends. {name} has"
@@ -169,9 +170,9 @@ def configure_player(
       ),
       extras=extras,
       specific_memories=(
-          f'[goal] {name} goals is to watch the game in the same pub as'
-          f' {all_player_names_str}. {name} would prefer everyone went to'
-          f' {favorite_pub}'
+          f'[goal] {name} goals is to have a good time. {name} would like to'
+          f' watch the game in the same pub as {all_player_names_str}.'
+          f' {name} would prefer everyone went to {favorite_pub}.'
       ),
   )
   return config
@@ -603,10 +604,7 @@ def outcome_summary_fn(
     elif score > 0.5:
       enjoyment = f'Overall, {player} had an ok time watching the game.'
     elif score < 1e-8:
-      enjoyment = (
-          f'Overall, {player} had the worst time ever, since the pub was'
-          ' closed.'
-      )
+      enjoyment = f'Overall, {player} had the worst time ever.'
     else:
       enjoyment = f'Overall, {player} had a bad time watching the game.'
 
