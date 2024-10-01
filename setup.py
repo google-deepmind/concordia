@@ -78,7 +78,7 @@ setuptools.setup(
         'numpy',
         'ollama',
         'openai>=1.3.0',
-        'pandas<=2.0.3',
+        'pandas<=2.2.3',
         'python-dateutil',
         'reactivex',
         'retry',
