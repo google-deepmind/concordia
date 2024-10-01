@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.2] - 2024-10-01
+
+### Changed
+
+- Improves logging of strings with newlines
+
+### Fixed
+
+- Insure concurrent execution of zero tasks returns immediately.
+- Multi-item haggling environment, where players pick not only the price, but also the item to trade.
+
+
 ## [1.8.1] - 2024-09-20
 
 ### Added
