@@ -248,7 +248,9 @@ def _evaluate_all_repetitions_on_one_scenario(
       )
   )
   if exceptions_per_repetition:
-    raise ExceptionGroup('Raised errors', exceptions_per_repetition.values())
+    raise ExceptionGroup(
+        'Raised errors', list(exceptions_per_repetition.values())
+    )
 
   for repetition_idx, outcome in outputs_per_repetition.items():
     if scenario_config.focal_is_resident:
