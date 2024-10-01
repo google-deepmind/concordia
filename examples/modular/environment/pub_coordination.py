@@ -218,7 +218,7 @@ def configure_players(sampled_settings: Any) -> tuple[
   for i in range(sampled_settings.num_supporting_players):
     name = names[sampled_settings.num_main_players + i]
     gender = sampled_settings.person_data[name]['gender']
-    favorite_pub = random.choice(sampled_settings.venues)
+    favorite_pub = sampled_settings.venues[1]
     config = configure_player(
         name,
         gender,
@@ -543,6 +543,7 @@ def outcome_summary_fn(
     rewards: Mapping[str, float],
     relational_matrix: Mapping[str, Mapping[str, float]],
     player_multipliers: Mapping[str, Mapping[str, float]],
+    option_multipliers: Mapping[str, float],
 ) -> Mapping[str, str]:
   """Function of joint actions, rewards, relational matrix and player multipliers which returns an outcome description message for each player.
 
@@ -556,6 +557,7 @@ def outcome_summary_fn(
       1, including self relationships (diagonal).
     player_multipliers: A mapping from player name to a mapping from action to
       their multiplier.
+    option_multipliers: A mapping from option (pub) to their multiplier.
 
   Returns:
     A mapping from player name to their outcome description message.
@@ -598,6 +600,9 @@ def outcome_summary_fn(
     player_action = joint_action[player]
     same_choice_by_relation = 0
     score = rewards[player]
+    was_pub_closed = player_action in option_multipliers and (
+        option_multipliers[player_action] == 0.0
+    )
 
     if score > 0.9:
       enjoyment = f'Overall, {player} had a great time watching the game!'
@@ -634,7 +639,9 @@ def outcome_summary_fn(
           f"None of {player}'s friends showed up, it couldn't have been worse!"
       )
 
-    if player_multipliers[player][choice_by_player[player]] > 0.99:
+    if was_pub_closed:
+      choice_of_pub = f'{player} went to a closed pub.'
+    elif player_multipliers[player][choice_by_player[player]] > 0.99:
       choice_of_pub = f'{player} watched the game at their favourite pub.'
     else:
       choice_of_pub = (
