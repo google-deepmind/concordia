@@ -234,7 +234,7 @@ def _evaluate_all_repetitions_on_one_scenario(
   ungrouped_per_capita_scores_to_average = []
 
   tasks_this_scenario = {
-      i: functools.partial(
+      str(i): functools.partial(
           _evaluate_one_repetition,
           scenario_name=scenario_name,
           scenario_config=scenario_config,
