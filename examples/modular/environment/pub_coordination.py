@@ -34,7 +34,6 @@ from concordia.components import agent as agent_components
 from concordia.components import game_master as gm_components
 from concordia.environment import game_master
 from concordia.environment.scenes import conversation
-from examples.modular.environment.modules import player_names
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.modules import pub_coordination_relationships
 from examples.modular.environment.supporting_agent_factory import basic_puppet_agent
@@ -53,6 +52,7 @@ import immutabledict
 import numpy as np
 
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
+CoordinationPayoffs = gm_components.coordination_payoffs.CoordinationPayoffs
 
 DEFAULT_TIME_AND_PLACE_MODULES = ('pub_coordination_london',)
 
@@ -65,8 +65,6 @@ DECISION_SCENE_TYPE = 'choice'
 TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 
 USE_CONVERSATION_GM = True
-
-FIRST_NAMES = player_names.FIRST_NAMES
 
 
 @dataclasses.dataclass
@@ -157,8 +155,9 @@ def configure_player(
       ),
       formative_ages=[16, 20],
       goal=(
-          f'Watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer {favorite_pub}'
+          f'Have a good time. To have a good time, {name} would like to'
+          f' watch the game in the same pub as {all_player_names_str}.'
+          f' {name} would prefer everyone went to {favorite_pub}.'
       ),
       context=(
           f"{all_player_names_str}' are best friends. {name} has"
@@ -170,6 +169,11 @@ def configure_player(
           + player_traits_and_styles.get_trait(flowery=True)
       ),
       extras=extras,
+      specific_memories=(
+          f'[goal] {name} goals is to have a good time. {name} would like to'
+          f' watch the game in the same pub as {all_player_names_str}.'
+          f' {name} would prefer everyone went to {favorite_pub}.'
+      ),
   )
   return config
 
@@ -214,7 +218,7 @@ def configure_players(sampled_settings: Any) -> tuple[
   for i in range(sampled_settings.num_supporting_players):
     name = names[sampled_settings.num_main_players + i]
     gender = sampled_settings.person_data[name]['gender']
-    favorite_pub = sampled_settings.venues[0]
+    favorite_pub = random.choice(sampled_settings.venues)
     config = configure_player(
         name,
         gender,
@@ -234,9 +238,6 @@ def configure_players(sampled_settings: Any) -> tuple[
   ]
 
   return main_player_configs, supporting_player_configs
-
-
-CoordinationPayoffs = gm_components.coordination_payoffs.CoordinationPayoffs
 
 
 def sample_symmetric_relationship_matrix(names: Sequence[str]):
@@ -540,14 +541,47 @@ def outcome_summary_fn(
     # `binary_joint_action` should be type Mapping[str, bool] (ie bool not int).
     joint_action: Mapping[str, str],
     rewards: Mapping[str, float],
+    relational_matrix: Mapping[str, Mapping[str, float]],
+    player_multipliers: Mapping[str, Mapping[str, float]],
 ) -> Mapping[str, str]:
-  """Summarize the outcome of a decision scene."""
+  """Function of joint actions, rewards, relational matrix and player multipliers which returns an outcome description message for each player.
+
+  Args:
+    joint_action: A mapping from player name to their chosen action.
+    rewards: A mapping from player name to their reward.
+    relational_matrix: A matrix of relationships between players. The entry
+      [i][j] specifies the value for player i of making the same choice as
+      player j. Matrix is not assumed to be symmetric or having a particular
+      value on the diagonal. If `None`, all players are assumed to have value of
+      1, including self relationships (diagonal).
+    player_multipliers: A mapping from player name to a mapping from action to
+      their multiplier.
+
+  Returns:
+    A mapping from player name to their outcome description message.
+  """
+
+  player_names = list(joint_action.keys())
+
+  if len(relational_matrix) != len(player_names):
+    raise ValueError(
+        'Relationship matrix must have the same length as the number of'
+        ' acting players.'
+    )
+  for _, row in relational_matrix.items():
+    if len(row) != len(player_names):
+      raise ValueError(
+          'Relationship matrix rows must have the same length as the number'
+          ' of acting players.'
+      )
 
   players_by_choice = {}
+  choice_by_player = {}
   for name, choice in joint_action.items():
     if choice not in players_by_choice:
       players_by_choice[choice] = []
     players_by_choice[choice].append(name)
+    choice_by_player[name] = choice
 
   summary_of_attendance = ''
 
@@ -559,25 +593,56 @@ def outcome_summary_fn(
       )
 
   results = {}
-  for name, score in rewards.items():
+
+  for player in player_names:
+    player_action = joint_action[player]
+    same_choice_by_relation = 0
+    score = rewards[player]
+
     if score > 0.9:
-      outcome_str = 'had a great time watching the game!'
+      enjoyment = f'Overall, {player} had a great time watching the game!'
     elif score > 0.5:
-      outcome_str = (
-          'had an ok time watching the game, but it could have been better if'
-          ' more friends showed up'
+      enjoyment = f'Overall, {player} had an ok time watching the game.'
+    elif score < 1e-8:
+      enjoyment = f'Overall, {player} had the worst time ever.'
+    else:
+      enjoyment = f'Overall, {player} had a bad time watching the game.'
+
+    for other_player in player_names:
+      if player_action == joint_action[other_player] and player != other_player:
+        same_choice_by_relation += relational_matrix[player][other_player]
+    max_reward_possible = (
+        sum(max(0, r) for r in relational_matrix[player].values())
+        - relational_matrix[player][player]
+    )
+    if same_choice_by_relation == max_reward_possible:
+      friends_attendance = (
+          f"All of {player}'s friends went to the same"
+          " pub! It couldn't have been better."
       )
-    elif score == 0.0:
-      outcome_str = (
-          'turned up at a pub, which was closed. Had to go home with'
-          ' disappointment.'
+    elif same_choice_by_relation > 0.5 * max_reward_possible:
+      friends_attendance = (
+          'It could have been better if more friends showed up.'
+      )
+    elif same_choice_by_relation > 0.0:
+      friends_attendance = (
+          f'{player} would have'
+          ' been a lot happier if more of their friends had shown up.'
       )
     else:
-      outcome_str = (
-          'had a bad time watching the game, since barely any of their friends'
-          ' showed up'
+      friends_attendance = (
+          f"None of {player}'s friends showed up, it couldn't have been worse!"
       )
-    results[name] = f'{summary_of_attendance}. {name} {outcome_str}'
+
+    if player_multipliers[player][choice_by_player[player]] > 0.99:
+      choice_of_pub = f'{player} watched the game at their favourite pub.'
+    else:
+      choice_of_pub = (
+          f'{player} watched the game at the pub that is not their favourite.'
+      )
+    results[player] = (
+        f'{summary_of_attendance} {choice_of_pub} {friends_attendance} {enjoyment}'
+    )
 
   print(summary_of_attendance)
   return results
@@ -671,6 +736,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         year=time_and_place_params.YEAR,
         month=time_and_place_params.MONTH,
         day=time_and_place_params.DAY,
+        hour=10,
+        minute=0,
+        second=0,
     )
 
     setup_clock_time = start_time - datetime.timedelta(days=1)

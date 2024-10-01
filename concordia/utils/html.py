@@ -117,7 +117,7 @@ class PythonObjectToHTMLConverter:
   def _convert_python_object(self, python_object):
     """Converts a python object to HTML."""
     if isinstance(python_object, str):
-      self.html_writer.write(html.escape(python_object))
+      self.html_writer.write(html.escape(python_object).replace("\n", "<br />"))
 
     elif isinstance(python_object, list):
       for item in python_object:

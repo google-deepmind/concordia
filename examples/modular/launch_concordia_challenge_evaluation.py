@@ -171,8 +171,45 @@ else:
 
 # Create evaluation results directory
 start_time = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-results_dir = f'evaluation__{start_time}'
+results_dir = f'evaluations/evaluation__{args.agent_name}__{start_time}'
 os.makedirs(results_dir, exist_ok=True)
+
+
+def _evaluate_one_repetition(
+    scenario_name: str,
+    scenario_config: scenarios_lib.ScenarioConfig,
+    repetition_idx: int,
+) -> logging_lib.SimulationOutcome:
+  """Evaluates the agent on one scenario, one repetition.
+
+  Args:
+    scenario_name: name of the scenario
+    scenario_config: config for the scenario
+    repetition_idx: index of the repetition
+
+  Returns:
+    SimulationOutcome object with the results of the evaluation.
+  """
+  measurements = measurements_lib.Measurements()
+  runnable_simulation = scenarios_lib.build_simulation(
+      scenario_config=scenario_config,
+      model=model,
+      focal_agent_module=agent_module,
+      embedder=embedder,
+      measurements=measurements,
+      override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
+  )
+  # Run the simulation
+  outcome, text_results_log = runnable_simulation()
+  # Write the full text log as an HTML file in the current working directory.
+  html_filename = (
+      f'{results_dir}/{scenario_name}__{repetition_idx}__'
+      + datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+      + '.html'
+  )
+  with open(html_filename, 'a', encoding='utf-8') as f:
+    f.write(text_results_log)
+  return outcome
 
 
 def _evaluate_all_repetitions_on_one_scenario(
@@ -186,6 +223,8 @@ def _evaluate_all_repetitions_on_one_scenario(
     scenario_config: config for the scenario
   Returns:
     ScenarioResult object with the results of the evaluation.
+  Raises:
+    ExceptionGroup: if any of the repetitions raised an exception.
   """
   print(f'Running scenario: {scenario_name}')
   # Run several simulations per scenario
@@ -193,19 +232,24 @@ def _evaluate_all_repetitions_on_one_scenario(
   focal_per_capita_scores_to_average = []
   background_per_capita_scores_to_average = []
   ungrouped_per_capita_scores_to_average = []
-  for _ in range(args.num_repetitions_per_scenario):
-    measurements = measurements_lib.Measurements()
-    runnable_simulation = scenarios_lib.build_simulation(
-        scenario_config=scenario_config,
-        model=model,
-        focal_agent_module=agent_module,
-        embedder=embedder,
-        measurements=measurements,
-        override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
-    )
-    # Run the simulation
-    outcome, text_results_log = runnable_simulation()
-    simulation_outcomes.append(outcome)
+
+  tasks_this_scenario = {
+      i: functools.partial(
+          _evaluate_one_repetition,
+          scenario_name=scenario_name,
+          scenario_config=scenario_config,
+      )
+      for i in range(args.num_repetitions_per_scenario)
+  }
+  outputs_per_repetition, exceptions_per_repetition = (
+      concurrency.run_tasks_in_background(
+          tasks_this_scenario,
+      )
+  )
+  if exceptions_per_repetition:
+    raise ExceptionGroup('Raised errors', exceptions_per_repetition.values())
+
+  for repetition_idx, outcome in outputs_per_repetition.items():
     if scenario_config.focal_is_resident:
       focal_scores = list(outcome.resident_scores.values())
       background_scores = list(outcome.visitor_scores.values())
@@ -215,7 +259,7 @@ def _evaluate_all_repetitions_on_one_scenario(
     # Ungrouped scores do not differentiate between focal and background.
     ungrouped_scores = focal_scores + background_scores
     # Calculate per capita scores.
-    print('\nScores:')
+    print(f'\nScores for repetition {repetition_idx}:')
     focal_per_capita_score = np.mean(focal_scores)
     focal_per_capita_scores_to_average.append(focal_per_capita_score)
     print(f'  Focal per capita score: {focal_per_capita_score}')
@@ -225,14 +269,6 @@ def _evaluate_all_repetitions_on_one_scenario(
     ungrouped_per_capita_score = np.mean(ungrouped_scores)
     ungrouped_per_capita_scores_to_average.append(ungrouped_per_capita_score)
     print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
-    # Write the full text log as an HTML file in the current working directory.
-    html_filename = (
-        f'{results_dir}/{scenario_name}_'
-        + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        + '.html'
-    )
-    with open(html_filename, 'a', encoding='utf-8') as f:
-      f.write(text_results_log)
 
   # Average scores over repetitions and save results for all repetitions in a
   # json-serializable format.
