@@ -238,6 +238,7 @@ def _evaluate_all_repetitions_on_one_scenario(
           _evaluate_one_repetition,
           scenario_name=scenario_name,
           scenario_config=scenario_config,
+          repetition_idx=i,
       )
       for i in range(args.num_repetitions_per_scenario)
   }
