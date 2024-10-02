@@ -35,6 +35,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
       *,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      device: str = 'cpu'
   ) -> None:
     """Initializes the instance.
 
@@ -43,14 +44,16 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
           see transformers.AutoModelForCausalLM at huggingface.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
+        device: Specifies whether to use cpu or cuda for model processing.
     """
     self._model_name = model_name
     self._tokenizer_name = model_name
+    self._device = device
 
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
     self._model = transformers.GemmaForCausalLM.from_pretrained(
-        self._model_name)
+        self._model_name).to(self._device)
     self._tokenizer = transformers.AutoTokenizer.from_pretrained(
         self._tokenizer_name)
 
@@ -80,14 +83,14 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     inputs = self._tokenizer(prompt_with_system_message, return_tensors='pt')
 
     generated_tokens = self._model.generate(
-        inputs.input_ids,
+        inputs.input_ids.to(self._device),
         max_new_tokens=max_tokens,
         return_dict_in_generate=True,
         output_scores=True,
     )
 
     response = self._tokenizer.decode(
-        np.int64(generated_tokens.sequences[0]),
+        np.int64(generated_tokens.sequences[0].cpu()),
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False,
     )
@@ -116,13 +119,13 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
 
     inputs = self._tokenizer(prompt, return_tensors='pt')
     generated_tokens = self._model.generate(
-        inputs.input_ids,
+        inputs.input_ids.to(self._device),
         max_new_tokens=1,
         return_dict_in_generate=True,
         output_scores=True,
     )
     sample = self._tokenizer.batch_decode(
-        [np.argmax(generated_tokens.scores[0][0])],
+        [np.argmax(generated_tokens.scores[0][0].cpu())],
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False)[0]
     answer = sampling.extract_choice_response(sample)
