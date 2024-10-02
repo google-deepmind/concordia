@@ -124,6 +124,7 @@ class Gemma2(language_model.LanguageModel):
             timeout=timeout,
             stop=terminators,
             seed=seed,
+            stream=False,
         )
       except together.error.RateLimitError as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
@@ -195,6 +196,7 @@ class Gemma2(language_model.LanguageModel):
               messages=messages,
               seed=seed,
               logprobs=1,
+              stream=False,
           )
         except together.error.RateLimitError as err:
           if attempts >= _NUM_SILENT_ATTEMPTS:
