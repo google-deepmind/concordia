@@ -195,10 +195,11 @@ MALE_NAMES = [
 ]
 
 
-def sample_parameters():
+def sample_parameters(seed: int | None = None):
   """Samples a set of parameters for the world configuration."""
   pubs = random.sample(list(PUB_PREFERENCES.keys()), NUM_PUBS)
   pub_preferences = {k: PUB_PREFERENCES[k] for k in pubs}
+  seed = seed or random.getrandbits(63)
 
   config = pub_coordination.WorldConfig(
       year=YEAR,
@@ -208,11 +209,14 @@ def sample_parameters():
       venues=pubs,
       venue_preferences=pub_preferences,
       social_context=SOCIAL_CONTEXT,
+      random_seed=seed,
   )
+
+  rng = random.Random(config.random_seed)
 
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
 
-  random.shuffle(all_names)
+  rng.shuffle(all_names)
   config.people = all_names
 
   for _, name in enumerate(MALE_NAMES):
