@@ -107,8 +107,9 @@ VISUAL_SCENE_OPENINGS = [
 ]
 
 
-def sample_parameters():
+def sample_parameters(seed: int | None = None):
   """Samples a set of parameters for the world configuration."""
+  seed = seed or random.getrandbits(63)
 
   config = haggling.WorldConfig(
       year=YEAR,
@@ -117,11 +118,13 @@ def sample_parameters():
       scene_visuals=VISUAL_SCENE_OPENINGS,
       buyer_base_reward_min=2,
       seller_base_reward_max=5,
+      random_seed=seed,
   )
+  rng = random.Random(config.random_seed)
 
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
 
-  random.shuffle(all_names)
+  rng.shuffle(all_names)
   config.people = all_names
 
   for _, name in enumerate(MALE_NAMES):

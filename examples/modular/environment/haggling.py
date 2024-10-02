@@ -82,6 +82,7 @@ class WorldConfig:
     seller_base_reward_max: The maximum base reward for the seller.
     num_games: The number of games to play.
     num_main_players: The number of main players in the scenario.
+    random_seed: The random seed for the random number generator.
   """
 
   year: int
@@ -98,6 +99,7 @@ class WorldConfig:
   seller_base_reward_max: int = 2
   num_games: int = 2
   num_main_players: int = 3
+  random_seed: int = 42
 
 
 def bargain_statements(
@@ -139,7 +141,9 @@ def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
   return shared_memories, shared_context
 
 
-def configure_player(name: str, gender: str, year: int, is_main: bool):
+def configure_player(
+    name: str, gender: str, year: int, is_main: bool, rng: random.Random
+):
   """Configure a player.
 
   Args:
@@ -147,6 +151,7 @@ def configure_player(name: str, gender: str, year: int, is_main: bool):
     gender: the gender of the player
     year: the year of the simulation to sample the age of the players
     is_main: whether the player is a main character or not
+    rng: the random number generator to use
 
   Returns:
     config: the config for the player
@@ -165,9 +170,9 @@ def configure_player(name: str, gender: str, year: int, is_main: bool):
       name=name,
       gender=gender,
       date_of_birth=datetime.datetime(
-          year=year - random.randint(25, 54),
-          month=random.randint(1, 12),
-          day=random.randint(1, 28),
+          year=year - rng.randint(25, 54),
+          month=rng.randint(1, 12),
+          day=rng.randint(1, 28),
       ),
       context=(
           f'{name} is a travelling merchant. Her business is buying and'
@@ -183,6 +188,7 @@ def configure_player(name: str, gender: str, year: int, is_main: bool):
 
 def configure_players(
     sampled_settings: WorldConfig,
+    rng: random.Random,
 ) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
@@ -191,6 +197,7 @@ def configure_players(
 
   Args:
     sampled_settings: the sampled settings for the world configuration
+    rng: the random number generator to use
 
   Returns:
     main_player_configs: configs for the main characters
@@ -204,7 +211,9 @@ def configure_players(
     name = names[i]
     gender = sampled_settings.person_data[name]['gender']
 
-    config = configure_player(name, gender, sampled_settings.year, is_main=True)
+    config = configure_player(
+        name, gender, sampled_settings.year, is_main=True, rng=rng
+    )
     player_configs.append(config)
 
   for i in range(sampled_settings.num_supporting_players):
@@ -212,7 +221,11 @@ def configure_players(
     gender = sampled_settings.person_data[name]['gender']
 
     config = configure_player(
-        name, gender, sampled_settings.year, is_main=False
+        name,
+        gender,
+        sampled_settings.year,
+        is_main=False,
+        rng=rng,
     )
 
     player_configs.append(config)
@@ -365,6 +378,7 @@ def configure_scenes(
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     start_time: datetime.datetime,
+    rng: random.Random,
     sampled_settings: WorldConfig,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
@@ -381,6 +395,7 @@ def configure_scenes(
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     start_time: the start time of the simulation
+    rng: the random number generator to use
     sampled_settings: the sampled settings for the world configuration
 
   Returns:
@@ -408,12 +423,8 @@ def configure_scenes(
 
   for i in range(sampled_settings.num_games * len(pairs)):
 
-    buyer_base_reward = random.randint(
-        sampled_settings.buyer_base_reward_min, 6
-    )
-    seller_base_reward = random.randint(
-        1, sampled_settings.seller_base_reward_max
-    )
+    buyer_base_reward = rng.randint(sampled_settings.buyer_base_reward_min, 6)
+    seller_base_reward = rng.randint(1, sampled_settings.seller_base_reward_max)
 
     this_game_players = pairs[i % len(pairs)]
 
@@ -427,7 +438,7 @@ def configure_scenes(
           [cfg for cfg in player_configs if cfg.name == player.name][0]
       )
 
-    scene_opening = random.choice(list(sampled_settings.scene_visuals))
+    scene_opening = rng.choice(list(sampled_settings.scene_visuals))
     scene_specs = {
         'social': scene_lib.SceneTypeSpec(
             name='day',
@@ -585,6 +596,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     sampled_settings.num_main_players = num_main_players
     sampled_settings.num_games = num_games
 
+    self._rng = random.Random(sampled_settings.random_seed)
+
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
         month=time_and_place_params.MONTH,
@@ -637,9 +650,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     main_player_configs, supporting_player_configs = configure_players(
-        sampled_settings
+        sampled_settings, rng=self._rng
     )
-    random.shuffle(main_player_configs)
+    self._rng.shuffle(main_player_configs)
 
     tasks = {
         config.name: functools.partial(
@@ -733,6 +746,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         start_time=start_time,
+        rng=self._rng,
         sampled_settings=sampled_settings,
     )
 

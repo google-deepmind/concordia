@@ -127,6 +127,11 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='haggling',
         supporting_agent_module='basic_puppet_agent',
     ),
+    haggling_multi_item=SubstrateConfig(
+        description='haggling over a price with multiple items',
+        environment='haggling_multi_item',
+        supporting_agent_module='basic_puppet_agent',
+    ),
     haggling_gullible=SubstrateConfig(
         description='haggling over a price',
         environment='haggling_gullible',
@@ -250,6 +255,17 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         time_and_place_module='fruitville_haggling',
         focal_is_resident=False,
         tags=('negotiation',),
+    ),
+    haggling_multi_item_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents in a haggling scenario with no'
+            ' supporting agents and rational residents'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['haggling_multi_item'],
+        background_agent_module='rational_agent',
+        time_and_place_module='fruitville_haggling_multi_fruit',
+        focal_is_resident=True,
+        tags=('negotiation', 'hidden information'),
     ),
     reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(
         description=(
