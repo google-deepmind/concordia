@@ -234,10 +234,11 @@ def _evaluate_all_repetitions_on_one_scenario(
   ungrouped_per_capita_scores_to_average = []
 
   tasks_this_scenario = {
-      i: functools.partial(
+      str(i): functools.partial(
           _evaluate_one_repetition,
           scenario_name=scenario_name,
           scenario_config=scenario_config,
+          repetition_idx=i,
       )
       for i in range(args.num_repetitions_per_scenario)
   }
@@ -247,7 +248,9 @@ def _evaluate_all_repetitions_on_one_scenario(
       )
   )
   if exceptions_per_repetition:
-    raise ExceptionGroup('Raised errors', exceptions_per_repetition.values())
+    raise ExceptionGroup(
+        'Raised errors', list(exceptions_per_repetition.values())
+    )
 
   for repetition_idx, outcome in outputs_per_repetition.items():
     if scenario_config.focal_is_resident:

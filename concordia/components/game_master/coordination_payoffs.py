@@ -38,6 +38,7 @@ class OutcomeSummarizationFn(Protocol):
       rewards: Mapping[str, float],
       relational_matrix: Mapping[str, Mapping[str, float]],
       player_multipliers: Mapping[str, Mapping[str, float]],
+      option_multipliers: Mapping[str, float],
   ) -> Mapping[str, str]:
     """Function of joint actions, rewards, relational matrix and player multipliers which returns an outcome description message for each player.
 
@@ -51,6 +52,7 @@ class OutcomeSummarizationFn(Protocol):
         of 1, including self relationships (diagonal).
       player_multipliers: A mapping from player name to a mapping from action to
         their multiplier.
+      option_multipliers: A mapping from option to their multiplier.
 
     Returns:
       A mapping from player name to their outcome description message.
@@ -127,6 +129,8 @@ class CoordinationPayoffs(component.Component):
           name: {name_b: 1.0 for name_b in self._acting_player_names}
           for name in self._acting_player_names
       }
+      for name in self._acting_player_names:
+        self._relational_matrix[name][name] = 0.0
     else:
       if len(relational_matrix) != len(self._acting_player_names):
         raise ValueError(
@@ -240,6 +244,7 @@ class CoordinationPayoffs(component.Component):
         rewards=rewards,
         relational_matrix=self._relational_matrix,
         player_multipliers=self._player_multipliers,
+        option_multipliers=self._option_multipliers,
     )
     common_view_of_player_obs = '\n'.join([
         f'{name} observed: {observation}'
