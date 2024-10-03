@@ -725,30 +725,34 @@ HIMSELF_OR_HERSELF = {
 
 
 def sample_parameters(
-    minigame_name: str = DEFAULT_MINIGAME, num_players: int | None = None
+    minigame_name: str = DEFAULT_MINIGAME,
+    num_players: int | None = None,
+    seed: int | None = None,
 ) -> reality_show.WorldConfig:
   """Sample parameters of the setting and the backstory for each player."""
-  shuffled_male_names = list(random.sample(MALE_NAMES, len(MALE_NAMES)))
-  shuffled_female_names = list(random.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
+  seed = seed or random.getrandbits(63)
+  rng = random.Random(seed)
+  shuffled_male_names = list(rng.sample(MALE_NAMES, len(MALE_NAMES)))
+  shuffled_female_names = list(rng.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
   if num_players is None:
-    num_players = random.choice(DEFAULT_POSSIBLE_NUM_PLAYERS)
+    num_players = rng.choice(DEFAULT_POSSIBLE_NUM_PLAYERS)
   contestants = {}
   for _ in range(num_players):
-    gender = random.choice(GENDERS)
+    gender = rng.choice(GENDERS)
     if gender == 'male':
       player_name = shuffled_male_names.pop()
-      stereotype = random.choice(EARLY_2000_MALE_TYPE_CASTS)
+      stereotype = rng.choice(EARLY_2000_MALE_TYPE_CASTS)
     else:
       player_name = shuffled_female_names.pop()
-      stereotype = random.choice(EARLY_2000_FEMALE_TYPE_CASTS)
-    interview_questions = random.sample(
+      stereotype = rng.choice(EARLY_2000_FEMALE_TYPE_CASTS)
+    interview_questions = rng.sample(
         EARLY_2000_STEREOTYPED_CHARACTERS[stereotype]['interview_questions'],
         NUM_INTERVIEW_QUESTIONS,
     )
     contestants[player_name] = {
         'gender': gender,
         'traits': EARLY_2000_STEREOTYPED_CHARACTERS[stereotype]['traits'],
-        'catchphrase': random.choice(
+        'catchphrase': rng.choice(
             EARLY_2000_STEREOTYPED_CHARACTERS[stereotype]['catchphrases']
         ),
         'interview_questions': interview_questions,
@@ -764,4 +768,5 @@ def sample_parameters(
       num_players=num_players,
       contestants=contestants,
       num_minigame_reps_per_scene=NUM_MINIGAME_REPS_PER_SCENE,
+      seed=seed,
   )

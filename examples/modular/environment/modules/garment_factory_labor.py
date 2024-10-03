@@ -926,6 +926,7 @@ def _details_generator(
     antagonist_gender: str,
     organizer_name: str,
     organizer_gender: str,
+    rng: random.Random,
 ) -> dict[str, str | None]:
   """Fill in details of the characters and their world."""
   generated = {str(key): '' for key in extract_braces(element_string)}
@@ -942,9 +943,9 @@ def _details_generator(
       continue
     else:
       if key == 'neighborhood_name':
-        generated[key] = random.choice(FACTORY_NEIGHBORHOOD_NAMES)
+        generated[key] = rng.choice(FACTORY_NEIGHBORHOOD_NAMES)
       if key == 'street_name':
-        generated[key] = random.choice(STREET_NAMES)
+        generated[key] = rng.choice(STREET_NAMES)
       if key == 'factory_name':
         generated[key] = factory_name
       if key == 'antagonist_name':
@@ -959,10 +960,13 @@ def _details_generator(
 
 def sample_parameters(
     num_flavor_prompts_per_player: int = DEFAULT_NUM_FLAVOR_PROMPTS,
+    seed: int | None = None,
 ):
   """Sample parameters of the setting and the backstory for each player."""
+  seed = seed or random.getrandbits(63)
+  rng = random.Random(seed)
   poor_work_conditions = tuple(
-      random.sample(
+      rng.sample(
           BAD_GARMENT_WORK_CONDITIONS, DEFAULT_NUM_BACKGROUND_BAD_CONDITIONS
       )
   )
@@ -972,19 +976,19 @@ def sample_parameters(
       background_poor_work_conditions=poor_work_conditions,
   )
 
-  shuffled_male_names = list(random.sample(MALE_NAMES, len(MALE_NAMES)))
-  shuffled_female_names = list(random.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
+  shuffled_male_names = list(rng.sample(MALE_NAMES, len(MALE_NAMES)))
+  shuffled_female_names = list(rng.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
 
-  sampled_railroad_name = random.choice(FACTORY_NAMES)
+  sampled_railroad_name = rng.choice(FACTORY_NAMES)
 
-  sampled_antagonist_gender = random.choice(GENDERS)
+  sampled_antagonist_gender = rng.choice(GENDERS)
   if sampled_antagonist_gender == 'male':
     sampled_antagonist_name = shuffled_male_names.pop()
   else:
     sampled_antagonist_name = shuffled_female_names.pop()
   config.antagonist = sampled_antagonist_name
 
-  sampled_organizer_gender = random.choice(GENDERS)
+  sampled_organizer_gender = rng.choice(GENDERS)
   if sampled_organizer_gender == 'male':
     sampled_organizer_name = shuffled_male_names.pop()
   else:
@@ -992,7 +996,7 @@ def sample_parameters(
   config.organizer = sampled_organizer_name
 
   shuffled_talking_points = list(
-      random.sample(
+      rng.sample(
           OVERHEARD_ORGANIZER_TALKING_POINTS,
           len(OVERHEARD_ORGANIZER_TALKING_POINTS),
       )
@@ -1005,16 +1009,16 @@ def sample_parameters(
   ]
 
   world_elements = list(
-      random.sample(WORLD_BUILDING_ELEMENTS, NUM_WORLD_BUILDING_ELEMENTS)
+      rng.sample(WORLD_BUILDING_ELEMENTS, NUM_WORLD_BUILDING_ELEMENTS)
   )
   railroad_worker_elements = list(
-      random.sample(GARMENT_WORKER_BIOS, NUM_GARMENT_WORKER_ELEMENTS)
+      rng.sample(GARMENT_WORKER_BIOS, NUM_GARMENT_WORKER_ELEMENTS)
   )
   antagonist_elements = list(
-      random.sample(ANTAGONIST_ELEMENTS, NUM_ANTAGONIST_ELEMENTS)
+      rng.sample(ANTAGONIST_ELEMENTS, NUM_ANTAGONIST_ELEMENTS)
   )
   organizer_rumors = list(
-      random.sample(LABOR_ORGANIZER_RUMORS, NUM_ORGANIZER_RUMORS)
+      rng.sample(LABOR_ORGANIZER_RUMORS, NUM_ORGANIZER_RUMORS)
   )
 
   formatted_world_elements = []
@@ -1029,20 +1033,20 @@ def sample_parameters(
     gender = None
     if 'worker_name' in extract_braces(element_string):
       # Instantiate a new character.
-      gender = random.choice(GENDERS)
+      gender = rng.choice(GENDERS)
       if gender == 'male':
         person_name = shuffled_male_names.pop()
       else:
         person_name = shuffled_female_names.pop()
       salient_poor_conditions = tuple(
-          random.sample(
+          rng.sample(
               poor_work_conditions, DEFAULT_NUM_SALIENT_POOR_WORK_CONDITIONS
           )
       )
       config.append_person(person_name, gender, salient_poor_conditions)
       formative_memory_prompts[person_name] = []
       protagonist_backstory_elements = list(
-          random.sample(
+          rng.sample(
               PROTAGONIST_BACKSTORY_FLAVOR_PROMPTS,
               num_flavor_prompts_per_player,
           )
@@ -1058,6 +1062,7 @@ def sample_parameters(
             antagonist_gender=sampled_antagonist_gender,
             organizer_name=sampled_organizer_name,
             organizer_gender=sampled_organizer_gender,
+            rng=rng,
         )
         protagonist_generated['worker_name'] = person_name
         _add_pronouns(protagonist_generated, gender=gender)
@@ -1074,6 +1079,7 @@ def sample_parameters(
         antagonist_gender=sampled_antagonist_gender,
         organizer_name=sampled_organizer_name,
         organizer_gender=sampled_organizer_gender,
+        rng=rng,
     )
     formatted_world_elements.append(element_string.format(**generated))
 
@@ -1088,6 +1094,7 @@ def sample_parameters(
         antagonist_gender=sampled_antagonist_gender,
         organizer_name=sampled_organizer_name,
         organizer_gender=sampled_organizer_gender,
+        rng=rng,
     )
     antagonist_own_memories.append(element_string.format(**generated))
   organizer_own_memories = []
@@ -1101,6 +1108,7 @@ def sample_parameters(
         antagonist_gender=sampled_antagonist_gender,
         organizer_name=sampled_organizer_name,
         organizer_gender=sampled_organizer_gender,
+        rng=rng,
     )
     organizer_own_memories.append(element_string.format(**generated))
 
@@ -1128,13 +1136,13 @@ def sample_parameters(
 
   if not config.people:
     # Handle unlikely case where no protagonists were generated.
-    gender = random.choice(GENDERS)
+    gender = rng.choice(GENDERS)
     if gender == 'male':
       person_name = shuffled_male_names.pop()
     else:
       person_name = shuffled_female_names.pop()
     salient_poor_conditions = tuple(
-        random.sample(
+        rng.sample(
             poor_work_conditions, DEFAULT_NUM_SALIENT_POOR_WORK_CONDITIONS
         )
     )

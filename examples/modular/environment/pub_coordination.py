@@ -688,6 +688,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       num_games: int = 3,
       num_main_players: int = 4,
       num_supporting_players: int = 1,
+      seed: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -717,6 +718,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       num_games: the number of games to play.
       num_main_players: the number of main players.
       num_supporting_players: the number of supporting players.
+      seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -747,6 +749,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         helper_functions.load_time_and_place_module(
             time_and_place_module=time_and_place_module,
             default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+            seed=seed,
         )
     )
     self._rng = random.Random(sampled_settings.random_seed)

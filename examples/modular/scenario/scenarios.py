@@ -316,6 +316,7 @@ def build_simulation(
     agent_base_module: str = DEFAULT_IMPORT_AGENT_BASE_MODULE,
     support_agent_base_module: str = DEFAULT_IMPORT_SUPPORT_AGENT_MODULE,
     env_base_module: str = DEFAULT_IMPORT_ENV_BASE_MODULE,
+    seed: int | None = None,
 ) -> RunnableSimulationWithMemories:
   """Builds a simulation from a scenario configuration."""
   substrate_config = scenario_config.substrate_config
@@ -358,5 +359,6 @@ def build_simulation(
       resident_visitor_modules=(resident_agent_module, visitor_agent_module),
       supporting_agent_module=supporting_agent_module,
       time_and_place_module=scenario_config.time_and_place_module,
+      seed=seed,
   )
   return runnable_simulation

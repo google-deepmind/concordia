@@ -123,6 +123,7 @@ def configure_players(
     model: language_model.LanguageModel,
     sampled_settings: Any,
     time_and_place_params: types.ModuleType,
+    rng: random.Random,
 ) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
@@ -136,6 +137,7 @@ def configure_players(
     sampled_settings: the environment configuration containing the time and
       place details.
     time_and_place_params: the module containing the time and place parameters
+    rng: the random number generator to use.
 
   Returns:
     main_player_configs: configs for the main characters
@@ -161,9 +163,9 @@ def configure_players(
       subject_pronoun = 'they'
       object_pronoun = 'their'
 
-    birth_year = environment_cfg.year - (30 + random.randint(-8, 8))
-    birth_month = random.randint(1, 12)
-    birth_day = random.randint(1, 28)
+    birth_year = environment_cfg.year - (30 + rng.randint(-8, 8))
+    birth_month = rng.randint(1, 12)
+    birth_day = rng.randint(1, 28)
     goal_str = (
         f'{player_name} hopes to be able to provide for their '
         'family and live a full life.'
@@ -172,7 +174,9 @@ def configure_players(
         f"{player_name}'s personality is like "
         + player_traits_and_styles.get_trait(flowery=True)
     )
-    prompt = interactive_document.InteractiveDocument(model)
+    prompt = interactive_document.InteractiveDocument(
+        model, rng=np.random.default_rng(sampled_settings.seed)
+    )
     prompt.statement(
         'The following exercise is preparatory work for a role playing '
         'session. The purpose of the exercise is to fill in the backstory '
@@ -271,9 +275,9 @@ def configure_players(
           'gender', None
       ),
       date_of_birth=datetime.datetime(
-          year=sampled_settings.year - (30 + random.randint(10, 30)),
-          month=random.randint(1, 12),
-          day=random.randint(1, 28),
+          year=sampled_settings.year - (30 + rng.randint(10, 30)),
+          month=rng.randint(1, 12),
+          day=rng.randint(1, 28),
       ),
       goal=(
           f'{sampled_settings.antagonist} wants to make as much money '
@@ -307,9 +311,9 @@ def configure_players(
           'gender', None
       ),
       date_of_birth=datetime.datetime(
-          year=sampled_settings.year - (30 + random.randint(2, 10)),
-          month=random.randint(1, 12),
-          day=random.randint(1, 28),
+          year=sampled_settings.year - (30 + rng.randint(2, 10)),
+          month=rng.randint(1, 12),
+          day=rng.randint(1, 28),
       ),
       goal=(
           f'{sampled_settings.organizer} wants to prevent the '
@@ -424,6 +428,7 @@ def configure_scenes(
       player_observes_event=False,
       concurrent_externalities=False,
       verbose=verbose,
+      seed=sampled_settings.seed,
   )
 
   def _get_discussion_scene_type(
@@ -644,6 +649,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           bots_lib.SupportingAgentFactory | types.ModuleType
       ) = rational_agent_supporting,
       time_and_place_module: str | None = None,
+      seed: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -665,6 +671,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+        seed: the random seed to use.
     """
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -674,7 +681,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       self._resident_agent_module, self._visitor_agent_module = (
           resident_visitor_modules
       )
-
     self._agent_model = model
 
     if override_agent_model:
@@ -690,9 +696,12 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     time_and_place_params, sampled_settings = (
         helper_functions.load_time_and_place_module(
             time_and_place_module=time_and_place_module,
-            default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES)
+            default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+            seed=seed,
+        )
     )
 
+    self._rng = random.Random(sampled_settings.seed)
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
         month=time_and_place_params.MONTH,
@@ -735,11 +744,14 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     main_player_configs, supporting_player_configs, antagonist_config, _ = (
-        configure_players(model=model,
-                          sampled_settings=sampled_settings,
-                          time_and_place_params=time_and_place_params)
+        configure_players(
+            model=model,
+            sampled_settings=sampled_settings,
+            time_and_place_params=time_and_place_params,
+            rng=self._rng,
+        )
     )
-    random.shuffle(main_player_configs)
+    self._rng.shuffle(main_player_configs)
 
     tasks = {
         config.name: functools.partial(
@@ -989,6 +1001,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
                 sampled_settings.supporting_player_locations
             ),
             additional_components=additional_gm_components,
+            seed=seed,
         )
     )
     self._scenes, decision_env, industrial_action = configure_scenes(

@@ -31,8 +31,8 @@ from concordia.typing import clock as game_clock
 from concordia.typing import component
 from concordia.utils import concurrency
 from concordia.utils import helper_functions
+import numpy as np
 import termcolor
-
 
 DEFAULT_THOUGHTS = (
     thought_chains.attempt_to_result,
@@ -97,6 +97,7 @@ class GameMaster:
       concurrent_externalities: bool = True,
       use_default_instructions: bool = True,
       log_color: str = 'red',
+      seed: int | None = None,
   ):
     """Game master constructor.
 
@@ -123,6 +124,7 @@ class GameMaster:
         instructions used for the game master, e.g. do this if you plan to pass
         custom instructions as a constant component instead.
       log_color: color in which to print logs
+      seed: random seed for the game master
     """
     self._name = name
     self._model = model
@@ -132,6 +134,9 @@ class GameMaster:
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
+    self._seed = seed or random.getrandbits(63)
+    self._rng = random.Random(seed)
+
     if isinstance(action_spec, agent_lib.ActionSpec):
       self._action_spec = {player.name: action_spec for player in players}
     else:
@@ -201,7 +206,9 @@ class GameMaster:
     })
 
     # Produce the event that has happened as the result of the action attempt
-    prompt = interactive_document.InteractiveDocument(self._model)
+    prompt = interactive_document.InteractiveDocument(
+        self._model, rng=np.random.default_rng(self._seed)
+    )
     for comp in self._components.values():
       state_of_component = comp.state()
       if state_of_component:
@@ -324,7 +331,7 @@ class GameMaster:
     else:
       players = list(self._players_by_name.values())
     if self._randomise_initiative:
-      random.shuffle(players)
+      self._rng.shuffle(players)
 
     if action_spec_override is None:
       action_spec = self._action_spec

@@ -59,6 +59,7 @@ def build_game_master(
     npc_context: str = '',
     max_conversation_length: int = 10,
     verbose: bool = False,
+    seed: int | None = None,
 ) -> tuple[game_master.GameMaster, associative_memory.AssociativeMemory]:
   """Build a game master (i.e., an environment).
 
@@ -84,6 +85,7 @@ def build_game_master(
     npc_context: extra context provided only to non-player characters
     max_conversation_length: The maximum number of turns in a conversation.
     verbose: whether or not to print verbose debug information
+    seed: random seed for the chain of thought document
 
   Returns:
     A tuple consisting of a game master and its memory.
@@ -178,6 +180,7 @@ def build_game_master(
       ],
       randomise_initiative=True,
       player_observes_event=False,
+      seed=seed,
       verbose=verbose,
   )
 
@@ -192,6 +195,7 @@ def build_decision_scene_game_master(
     decision_action_spec: agent_lib.ActionSpec,
     payoffs: gm_components.schelling_diagram_payoffs.SchellingPayoffs,
     verbose: bool = False,
+    seed: int | None = None,
 ) -> game_master.GameMaster:
   """Build a decision game master for decision scenes."""
   decision_env = game_master.GameMaster(
@@ -207,6 +211,7 @@ def build_decision_scene_game_master(
       player_observes_event=False,
       concurrent_externalities=False,
       verbose=verbose,
+      seed=seed,
   )
   return decision_env
 

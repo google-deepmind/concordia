@@ -20,6 +20,7 @@ conversation at each step through the ConversationTracker component.
 """
 
 from collections.abc import Sequence
+import random
 
 from concordia.agents import deprecated_agent
 from concordia.associative_memory import blank_memories
@@ -31,6 +32,7 @@ from concordia.thought_chains import thought_chains
 from concordia.typing import agent as simulacrum_agent
 from concordia.typing import component
 from concordia.typing import entity
+import numpy as np
 import termcolor
 
 
@@ -47,6 +49,7 @@ class ConversationTracker(component.Component):
       max_steps: int | None = None,
       verbose: bool = False,
       log_colour: str = 'red',
+      seed: int | None = None,
   ):
     """This component accumulates history of a conversation scene in its state.
 
@@ -62,6 +65,7 @@ class ConversationTracker(component.Component):
       max_steps: Maximum number of conversation steps. If none, no limit
       verbose: whether or not to print intermediate reasoning steps
       log_colour: colour for logging
+      seed: random seed for the chain of thought document
     """
     self._model = model
     self._state = premise
@@ -71,7 +75,7 @@ class ConversationTracker(component.Component):
     self._key_question = key_question
     self._max_steps = max_steps
     self._current_steps = 0
-
+    self._seed = seed or random.getrandbits(63)
     self._verbose = verbose
 
   def name(self) -> str:
@@ -87,7 +91,9 @@ class ConversationTracker(component.Component):
 
     if not self._check_for_termination:
       return False
-    chain_of_thought = interactive_document.InteractiveDocument(self._model)
+    chain_of_thought = interactive_document.InteractiveDocument(
+        self._model, rng=np.random.default_rng(self._seed)
+    )
     chain_of_thought.statement('\n')
     chain_of_thought.statement(f'Key question: {self._key_question}')
     chain_of_thought.statement(f'Conversation:\n{self._state}\n')
@@ -154,6 +160,7 @@ def make_conversation_game_master(
     key_question: str | None = None,
     max_steps: int | None = 3,
     verbose: bool = False,
+    seed: int | None = None,
 ):
   """Creates a game master that runs a conversation between players.
 
@@ -176,6 +183,7 @@ def make_conversation_game_master(
       answer to this question.
     max_steps: Maximum number of conversation steps. If none, no limit
     verbose: whether or not to print
+    seed: random seed for the game master
 
   Returns:
     a game master
@@ -211,6 +219,7 @@ def make_conversation_game_master(
       check_for_termination=check_for_termination,
       key_question=key_question,
       max_steps=max_steps,
+      seed=seed,
   )
 
   for player in players:
@@ -230,5 +239,6 @@ def make_conversation_game_master(
       player_observes_event=False,
       concurrent_externalities=False,
       verbose=True,
+      seed=seed,
   )
   return game_master
