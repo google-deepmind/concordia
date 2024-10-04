@@ -422,11 +422,14 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-def configure_players() -> tuple[
+def configure_players(rng: random.Random) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
 ]:
   """Configure the players.
+
+  Args:
+    rng: the random number generator to use.
 
   Returns:
     main_player_configs: configs for the main characters
@@ -520,7 +523,7 @@ def configure_players() -> tuple[
               'player_specific_memories': [
                   f'There is nothing dangerous about the fruit of the {TREE}.',
                   f'It is good when people eat the fruit of the {TREE}.',
-                  *list(random.sample(SERPENT_MEMORIES, 5)),
+                  *list(rng.sample(SERPENT_MEMORIES, 5)),
               ],
               'main_character': False,
           },
@@ -633,6 +636,7 @@ def configure_scenes(
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     main_player_configs: Sequence[formative_memories.AgentConfig],
+    rng: random.Random,
 ) -> tuple[
     Sequence[Mapping[str, Sequence[scene_lib.SceneSpec]]],
     game_master.GameMaster | None,
@@ -646,11 +650,12 @@ def configure_scenes(
     players: the players to use.
     clock: the clock to use.
     main_player_configs: configs for the main characters
+    rng: the random number generator to use.
 
   Returns:
     scenes: a sequence of scene specifications
   """
-  happy_scene_premise = random.choice(HAPPY_SCENE_PREMISES)
+  happy_scene_premise = rng.choice(HAPPY_SCENE_PREMISES)
   scene_specs = {
       'happy': scene_lib.SceneTypeSpec(
           name='happy',
@@ -816,6 +821,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      seed: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -839,11 +845,14 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+        seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
     del supporting_agent_module
     del time_and_place_module
+
+    self._rng = random.Random(seed)
 
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -882,7 +891,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
     )
 
-    main_player_configs, supporting_player_configs = configure_players()
+    main_player_configs, supporting_player_configs = configure_players(
+        self._rng
+    )
     random.shuffle(main_player_configs)
 
     tasks = {
@@ -978,6 +989,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         players=self._all_players,
         clock=self._clock,
         main_player_configs=main_player_configs,
+        rng=self._rng,
     )
     self._schelling_payoffs = schelling_payoffs
 

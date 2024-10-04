@@ -139,12 +139,15 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-def configure_players() -> tuple[
+def configure_players(rng: random.Random) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
     dict[str, formative_memories.AgentConfig],
 ]:
   """Configure the players.
+
+  Args:
+    rng: the random number generator to use.
 
   Returns:
     main_player_configs: configs for the main characters
@@ -257,8 +260,8 @@ def configure_players() -> tuple[
   ]
 
   for idx in range(len(config.supporting_characters.a)):
-    birth_month = random.randint(1, 12)
-    birth_day = random.randint(1, 28)
+    birth_month = rng.randint(1, 12)
+    birth_day = rng.randint(1, 28)
     gender = config.supporting_characters.a[idx][1]
     him_or_her = 'her'
     his_or_her = 'her'
@@ -301,8 +304,8 @@ def configure_players() -> tuple[
     player_configs.append(supporting_player_config)
 
   for idx in range(len(config.supporting_characters.b)):
-    birth_month = random.randint(1, 12)
-    birth_day = random.randint(1, 28)
+    birth_month = rng.randint(1, 12)
+    birth_day = rng.randint(1, 28)
     gender = config.supporting_characters.b[idx][1]
     him_or_her = 'her'
     his_or_her = 'her'
@@ -589,6 +592,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      seed: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -610,6 +614,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      seed: optionally, specify a seed for the random number generator.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
@@ -622,6 +627,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
+    self._rng = random.Random(seed)
 
     self._clock = game_clock.MultiIntervalClock(
         start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
@@ -644,7 +650,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     main_player_configs, supporting_player_configs, player_configs_dict = (
-        configure_players()
+        configure_players(self._rng)
     )
 
     tasks = {
@@ -721,10 +727,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     supporting_player_names_village_a_str = _get_conjunction_of_names_string(
-        [name for name, gender in config.supporting_characters.a], and_or='or'
+        [name for name, _ in config.supporting_characters.a], and_or='or'
     )
     supporting_player_names_village_b_str = _get_conjunction_of_names_string(
-        [name for name, gender in config.supporting_characters.b], and_or='or'
+        [name for name, _ in config.supporting_characters.b], and_or='or'
     )
     stakeholders_easy_to_find = generic_components.constant.ConstantComponent(
         state=(

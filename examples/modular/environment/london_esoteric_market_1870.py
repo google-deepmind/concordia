@@ -123,23 +123,24 @@ WORLD_BUILDING_ELEMENTS = [
 ]
 
 
-def get_world_elements(size: int) -> list[str]:
-  return random.sample(WORLD_BUILDING_ELEMENTS, size)
+def get_world_elements(size: int, rng: random.Random) -> list[str]:
+  return rng.sample(WORLD_BUILDING_ELEMENTS, size)
 
 
-def get_laudanum_advertisements(size: int) -> list[str]:
-  return random.sample(
+def get_laudanum_advertisements(size: int, rng: random.Random) -> list[str]:
+  return rng.sample(
       laudanum_and_mysticism_in_victorian_london.LAUDANUM_ADVERTISEMENTS, size
   )
 
 
 def get_shared_memories_and_context(
     model: language_model.LanguageModel,
+    rng: random.Random,
 ) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
-  shared_memories = get_world_elements(NUM_BACKGROUND_WORLD_ELEMENTS)
+  shared_memories = get_world_elements(NUM_BACKGROUND_WORLD_ELEMENTS, rng)
   selected_laudanum_advertisements = get_laudanum_advertisements(
-      NUM_LAUDANUM_ADVERTISEMENTS
+      NUM_LAUDANUM_ADVERTISEMENTS, rng
   )
 
   today = "Today's newspaper contains the following advertisement: "
@@ -162,24 +163,25 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-def configure_players() -> tuple[
+def configure_players(rng: random.Random) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
 ]:
   """Configure the players.
 
   Args:
+    rng: the random number generator to use.
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
   """
   joined_main_player_knowledge = [
-      ' '.join(get_world_elements(NUM_MAIN_PLAYER_WORLD_ELEMENTS))
+      ' '.join(get_world_elements(NUM_MAIN_PLAYER_WORLD_ELEMENTS, rng))
       for _ in range(NUM_MAIN_PLAYERS)
   ]
   supporting_player_knowledge = [
-      get_world_elements(NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS)
+      get_world_elements(NUM_SUPPORTING_PLAYER_WORLD_ELEMENTS, rng)
       for _ in range(NUM_SUPPORTING_PLAYERS)
   ]
   joined_supporting_player_knowledge = [
@@ -550,6 +552,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
+      seed: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -573,11 +576,14 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
+      seed: optionally, specify a seed for the random number generator.
     """
     # Support for these parameters will be added in a future addition coming
     # very imminently.
     del supporting_agent_module
     del time_and_place_module
+
+    self._rng = random.Random(seed)
 
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -609,7 +615,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
-    shared_memories, shared_context = get_shared_memories_and_context(model)
+    shared_memories, shared_context = get_shared_memories_and_context(
+        model, self._rng
+    )
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
@@ -617,8 +625,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         current_date=SETUP_TIME,
     )
 
-    main_player_configs, supporting_player_configs = configure_players()
-    random.shuffle(main_player_configs)
+    main_player_configs, supporting_player_configs = configure_players(
+        self._rng
+    )
+    self._rng.shuffle(main_player_configs)
 
     supporting_player_names = [cfg.name for cfg in supporting_player_configs]
 
