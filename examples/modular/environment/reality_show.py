@@ -54,13 +54,14 @@ SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
 SchellingPayoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs
 
 DEFAULT_TIME_AND_PLACE_MODULES = (
-    'circa_2015_british_reality_show',
-    'early_2000s_american_reality_show__chicken_3_players',
-    'early_2000s_american_reality_show__chicken_4_players',
-    'early_2000s_american_reality_show__prisoners_dilemma_3_players',
-    'early_2000s_american_reality_show__prisoners_dilemma_4_players',
-    'early_2000s_american_reality_show__stag_hunt_3_players',
-    'early_2000s_american_reality_show__stag_hunt_4_players',
+    'circa_2015_british_reality_show__chicken_3_players',
+    'circa_2015_british_reality_show__prisoners_dilemma_3_players',
+    'circa_2003_american_reality_show__chicken_3_players',
+    'circa_2003_american_reality_show__chicken_4_players',
+    'circa_2003_american_reality_show__prisoners_dilemma_3_players',
+    'circa_2003_american_reality_show__prisoners_dilemma_4_players',
+    'circa_2003_american_reality_show__stag_hunt_3_players',
+    'circa_2003_american_reality_show__stag_hunt_4_players',
 )
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
