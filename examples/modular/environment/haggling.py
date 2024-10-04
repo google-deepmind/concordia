@@ -739,6 +739,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         premise='',
         review_participants=False,
         verbose=True,
+        max_steps=3,
     )
 
     self._scenes, choice_gms, self._coordination_payoffs = configure_scenes(

@@ -884,6 +884,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           premise='',
           review_participants=False,
           verbose=True,
+          max_steps=3,
       )
     else:
       self._primary_environment, self._game_master_memory = (
@@ -899,6 +900,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
               cap_nonplayer_characters_in_conversation=0,
               memory=game_master_memory,
               thought_chain=[thought_chains_lib.identity],
+              max_conversation_length=3,
           )
       )
     self._scenes, self._coordination_payoffs, secondary_environments = (
