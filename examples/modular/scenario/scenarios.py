@@ -277,7 +277,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         substrate_config=SUBSTRATE_CONFIGS['reality_show'],
         background_agent_module='basic_agent',
         time_and_place_module=(
-            'early_2000s_american_reality_show__prisoners_dilemma_3_players'
+            'circa_2003_american_reality_show__prisoners_dilemma_3_players'
         ),
         focal_is_resident=True,
         tags=(
@@ -294,7 +294,7 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         substrate_config=SUBSTRATE_CONFIGS['reality_show'],
         background_agent_module='paranoid_agent',
         time_and_place_module=(
-            'early_2000s_american_reality_show__stag_hunt_4_players'
+            'circa_2003_american_reality_show__stag_hunt_4_players'
         ),
         focal_is_resident=False,
         tags=(

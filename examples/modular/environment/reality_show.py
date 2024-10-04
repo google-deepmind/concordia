@@ -207,8 +207,10 @@ class WorldConfig:
   month: int
   day: int
   num_players: int
+  num_additional_minigame_scenes: int
   contestants: Mapping[str, Mapping[str, Any]]
   num_minigame_reps_per_scene: tuple[int, ...]
+  num_minigame_reps_per_extra_scene: tuple[int, ...]
   seed: int
 
 
@@ -590,15 +592,37 @@ def configure_scenes(
           participant_configs=player_configs,
           num_rounds=sampled_settings.num_minigame_reps_per_scene[1],
       ),
+  ]
+
+  for i in range(sampled_settings.num_additional_minigame_scenes):
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_specs['conversation'],
+            start_time=start_time + len(scenes) * datetime.timedelta(hours=2),
+            participant_configs=player_configs,
+            num_rounds=1,
+        )
+    )
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_specs[DECISION_SCENE_TYPE],
+            start_time=start_time + len(scenes) * datetime.timedelta(hours=2),
+            participant_configs=player_configs,
+            num_rounds=sampled_settings.num_minigame_reps_per_extra_scene[i],
+        )
+    )
+
+  scenes.append(
       # The purpose of the debrief scene is to make it so the players receive
       # the observation containing their scores after the last minigame.
       scene_lib.SceneSpec(
           scene_type=scene_specs[DEBRIEF_SCENE_TYPE],
-          start_time=start_time + 4 * datetime.timedelta(hours=2),
+          start_time=start_time + len(scenes) * datetime.timedelta(hours=2),
           participant_configs=player_configs,
           num_rounds=1,
-      ),
-  ]
+      )
+  )
+
   return (
       scenes,
       scene_specs[DECISION_SCENE_TYPE].override_game_master,

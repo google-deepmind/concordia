@@ -19,6 +19,7 @@ import random
 from concordia.components import game_master as gm_components
 from examples.modular.environment import reality_show
 from concordia.typing import agent as agent_lib
+import numpy as np
 
 
 SchellingDiagram = gm_components.schelling_diagram_payoffs.SchellingDiagram
@@ -39,6 +40,8 @@ MINIGAME_INTRO_PREMISE = (
     "The show's host arrived to explain the next minigame. They "
     'said the following:\n'
 )
+
+MAX_EXTRA_MINIGAMES = 3
 
 MINIGAMES = {
     'prisoners_dilemma': reality_show.MiniGameSpec(
@@ -759,6 +762,12 @@ def sample_parameters(
         'subject_pronoun': HE_OR_SHE[gender],
         'object_pronoun': HIM_OR_HER[gender],
     }
+  num_additional_minigame_scenes = rng.randint(0, MAX_EXTRA_MINIGAMES + 1)
+  min_reps_per_extra_scene = np.min(NUM_MINIGAME_REPS_PER_SCENE)
+  max_reps_per_extra_scene = np.max(NUM_MINIGAME_REPS_PER_SCENE)
+  num_minigame_reps_per_extra_scene = tuple(
+      [rng.randint(min_reps_per_extra_scene, max_reps_per_extra_scene + 1)
+       for _ in range(num_additional_minigame_scenes)])
   return reality_show.WorldConfig(
       minigame_name=minigame_name,
       minigame=MINIGAMES[minigame_name],
@@ -766,7 +775,9 @@ def sample_parameters(
       month=MONTH,
       day=DAY,
       num_players=num_players,
+      num_additional_minigame_scenes=num_additional_minigame_scenes,
       contestants=contestants,
       num_minigame_reps_per_scene=NUM_MINIGAME_REPS_PER_SCENE,
+      num_minigame_reps_per_extra_scene=num_minigame_reps_per_extra_scene,
       seed=seed,
   )
