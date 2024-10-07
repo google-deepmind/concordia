@@ -873,6 +873,7 @@ class WorldConfig:
 
   year: int
   location: str
+  seed: int
   background_poor_work_conditions: Sequence[str]
   world_elements: Sequence[str] = ()
   people: Sequence[str] = ()
@@ -974,6 +975,7 @@ def sample_parameters(
       year=YEAR,
       location='New York City',
       background_poor_work_conditions=poor_work_conditions,
+      seed=seed,
   )
 
   shuffled_male_names = list(rng.sample(MALE_NAMES, len(MALE_NAMES)))
