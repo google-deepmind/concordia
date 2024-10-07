@@ -66,6 +66,8 @@ TIME_INCREMENT_BETWEEN_SCENES = datetime.timedelta(hours=24)
 
 USE_CONVERSATION_GM = True
 
+_CALL_TO_ACTION = 'To which pub would {name} go to watch the game?'
+
 
 @dataclasses.dataclass
 class WorldConfig:
@@ -144,7 +146,7 @@ def configure_player(
 
   if not is_main:
     extras['fixed_response_by_call_to_action'] = {
-        f'Which pub would {name} go to watch the game?': favorite_pub
+        _CALL_TO_ACTION.format(name=name): favorite_pub
     }
     extras['favourite_pub'] = favorite_pub
 
@@ -355,7 +357,7 @@ def add_choice_scene_spec(
     choice_scene_type: the choice scene type.
   """
   action_spec = agent_lib.choice_action_spec(
-      call_to_action='Which pub would {name} go to watch the game?',
+      call_to_action=_CALL_TO_ACTION,
       options=pubs,
       tag='choice',
   )
