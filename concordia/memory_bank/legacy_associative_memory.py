@@ -40,6 +40,19 @@ class RetrieveAssociative(memory_lib.MemoryScorer):
 
 
 @dataclasses.dataclass(frozen=True)
+class RetrieveAssociativeWithoutRecencyOrImportance(memory_lib.MemoryScorer):
+  """A memory scorer that uses associative retrieval."""
+
+  use_recency: bool = False
+  use_importance: bool = False
+  add_time: bool = True
+  sort_by_time: bool = True
+
+  def __call__(self, query: str, text: str, **metadata: Any) -> float:
+    return 0.0
+
+
+@dataclasses.dataclass(frozen=True)
 class RetrieveRegex(memory_lib.MemoryScorer):
   """A memory scorer that uses regex matching."""
 
@@ -110,6 +123,15 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
           add_time=scoring_fn.add_time,
           sort_by_time=scoring_fn.sort_by_time,
       ))
+    elif isinstance(scoring_fn, RetrieveAssociativeWithoutRecencyOrImportance):
+      return self._texts_with_constant_score(self._memory.retrieve_associative(
+          query=query,
+          k=limit,
+          use_recency=scoring_fn.use_recency,
+          use_importance=scoring_fn.use_importance,
+          add_time=scoring_fn.add_time,
+          sort_by_time=scoring_fn.sort_by_time,
+      ))
     elif isinstance(scoring_fn, RetrieveRegex):
       del limit
       return self._texts_with_constant_score(self._memory.retrieve_by_regex(
@@ -140,5 +162,6 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
     else:
       raise ValueError(
           'Unknown scoring function. Only instances of RetrieveAssociative, '
+          'RetrieveAssociativeWithoutRecencyOrImportance, '
           'RetrieveRegex, RetrieveTimeInterval, RetrieveRecent, and '
           'RetrieveRecentWithImportance are supported.')

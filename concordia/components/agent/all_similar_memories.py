@@ -28,7 +28,8 @@ from concordia.typing import entity_component
 from concordia.typing import logging
 
 
-_ASSOCIATIVE_RETRIEVAL = legacy_associative_memory.RetrieveAssociative()
+_ASSOCIATIVE_RETRIEVAL = (
+    legacy_associative_memory.RetrieveAssociativeWithoutRecencyOrImportance())
 
 
 class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
