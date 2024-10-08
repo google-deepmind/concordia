@@ -71,8 +71,8 @@ def build_agent(
   observation_summary = components.observation.ObservationSummary(
       model=model,
       clock_now=clock.now,
-      timeframe_delta_from=datetime.timedelta(hours=4),
-      timeframe_delta_until=datetime.timedelta(hours=1),
+      timeframe_delta_from=datetime.timedelta(hours=24),
+      timeframe_delta_until=datetime.timedelta(hours=0),
       pre_act_key=observation_summary_label,
       logging_channel=measurements.get_channel('ObservationSummary').on_next,
   )

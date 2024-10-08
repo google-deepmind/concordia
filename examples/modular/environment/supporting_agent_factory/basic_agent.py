@@ -94,7 +94,7 @@ def build_agent(
   observation_summary = agent_components.observation.ObservationSummary(
       model=model,
       clock_now=clock.now,
-      timeframe_delta_from=datetime.timedelta(hours=4),
+      timeframe_delta_from=datetime.timedelta(hours=24),
       timeframe_delta_until=datetime.timedelta(hours=0),
       components={_get_class_name(somatic_state): somatic_state_label},
       pre_act_key=observation_summary_label,
