@@ -14,12 +14,15 @@
 
 """Language Model that uses Together AI api.
 
-Recommended model name is 'google/gemma-2-9b-it'
+Recommended model names are:
+  'google/gemma-2-9b-it'
+  'google/gemma-2-27b-it'
 """
 
 from collections.abc import Collection, Sequence
 import concurrent.futures
 import os
+import random
 import time
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
@@ -30,6 +33,7 @@ from typing_extensions import override
 _MAX_ATTEMPTS = 20
 _NUM_SILENT_ATTEMPTS = 3
 _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED = 2
+_JITTER_SECONDS = 0.25
 _DEFAULT_MAX_TOKENS = 5000
 
 
@@ -109,12 +113,14 @@ class Gemma2(language_model.LanguageModel):
     result = ''
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
+        seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
+                            random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
-              f'Sleeping for {_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED} seconds... '
+              f'Sleeping for {seconds_to_sleep} seconds... '
               + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
           )
-        time.sleep(_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED)
+        time.sleep(seconds_to_sleep)
       try:
         response = self._client.chat.completions.create(
             model=self._model_name,
@@ -184,12 +190,14 @@ class Gemma2(language_model.LanguageModel):
       result = None
       for attempts in range(_MAX_ATTEMPTS):
         if attempts > 0:
+          seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
+                              random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
           if attempts >= _NUM_SILENT_ATTEMPTS:
             print(
-                f'Sleeping for {_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED} seconds.. '
+                f'Sleeping for {seconds_to_sleep} seconds.. '
                 + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
             )
-          time.sleep(_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED)
+          time.sleep(seconds_to_sleep)
         try:
           result = self._client.chat.completions.create(
               model=self._model_name,
