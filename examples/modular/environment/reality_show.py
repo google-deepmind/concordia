@@ -747,7 +747,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         start=setup_time, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
-    importance_model = importance_function.AgentImportanceModel(self._model)
+    importance_model = importance_function.ConstantImportanceModel()
     importance_model_gm = importance_function.ConstantImportanceModel()
     self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
