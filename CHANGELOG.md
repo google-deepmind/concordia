@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.3] - 2024-10-08
+
+### Changed
+
+- Jitter sleep times in together ai wrapper. This may improve speed.
+- Change AllSimilarMemories component so that it no longer weights retrieval by recency or importance. This will make it function more like its name suggests it should. Note that many agents use this component so their behavior may change as a result of this change.
+- make default observations summary time frame be 24h
+- Add seed parameter to all simulations, propagating it into sample_parameters
+
+### Fixed
+
+- Fix together AI api
+
+
 ## [1.8.2] - 2024-10-01
 
 ### Changed
