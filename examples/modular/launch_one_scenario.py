@@ -141,6 +141,13 @@ parser.add_argument(
     default=False,
     dest='exclude_from_elo_calculation',
 )
+parser.add_argument(
+    '--seed',
+    action='store',
+    type=int,
+    default=1,
+    dest='seed',
+)
 # Parse command line arguments
 args = parser.parse_args()
 
@@ -178,7 +185,7 @@ simulation_outcomes = []
 focal_per_capita_scores_to_average = []
 background_per_capita_scores_to_average = []
 ungrouped_per_capita_scores_to_average = []
-for _ in range(args.num_repetitions_per_scenario):
+for repetition_idx in range(args.num_repetitions_per_scenario):
   measurements = measurements_lib.Measurements()
   runnable_simulation = scenarios_lib.build_simulation(
       scenario_config=scenario_config,
@@ -187,6 +194,7 @@ for _ in range(args.num_repetitions_per_scenario):
       embedder=embedder,
       measurements=measurements,
       override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
+      seed=args.seed + repetition_idx,
   )
   # Run the simulation
   outcome, text_results_log = runnable_simulation()
@@ -212,7 +220,7 @@ for _ in range(args.num_repetitions_per_scenario):
   print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
   # Write the full text log as an HTML file in the current working directory.
   html_filename = (
-      f'{args.scenario_name}_'
+      f'{args.scenario_name}__{repetition_idx}__'
       + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
       + '.html'
   )

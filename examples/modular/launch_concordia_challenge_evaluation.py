@@ -139,6 +139,13 @@ parser.add_argument(
     default=False,
     dest='exclude_from_elo_calculation',
 )
+parser.add_argument(
+    '--seed',
+    action='store',
+    type=int,
+    default=1,
+    dest='seed',
+)
 # Parse command line arguments
 args = parser.parse_args()
 
@@ -198,6 +205,7 @@ def _evaluate_one_repetition(
       embedder=embedder,
       measurements=measurements,
       override_agent_model=call_limit_wrapper.CallLimitLanguageModel(model),
+      seed=args.seed + repetition_idx,
   )
   # Run the simulation
   outcome, text_results_log = runnable_simulation()
