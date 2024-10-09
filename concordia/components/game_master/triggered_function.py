@@ -121,7 +121,10 @@ class TriggeredFunction(component.Component):
   def update_before_event(self, player_action_attempt: str) -> None:
     if self._pre_event_fn is None:
       return
-    player_name, choice = player_action_attempt.split(': ')
+    # we assume that the player action attempt is in the format
+    # 'player_name: player_choice'. All other occurences of ':' will be treated
+    # as a part of the player choice.
+    player_name, choice = player_action_attempt.split(': ', 1)
     if player_name not in [player.name for player in self._players]:
       return
     current_scene_type = self._current_scene.state()

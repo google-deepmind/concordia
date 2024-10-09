@@ -50,7 +50,7 @@ class PreEventFnArgsT:
   player: PlayerT
 
 
-def _get_player_by_name(player_name: str, players: PlayersT)  -> PlayerT | None:
+def _get_player_by_name(player_name: str, players: PlayersT) -> PlayerT | None:
   """Get a player object by name. Assumes no duplicate names."""
   for player in players:
     if player.name == player_name:
@@ -63,9 +63,10 @@ class TriggeredInventoryEffect(component.Component):
 
   def __init__(
       self,
-      function: Callable[[PreEventFnArgsT,
-                          inventory_gm_component.InventoryType],
-                         inventory_gm_component.InventoryType],
+      function: Callable[
+          [PreEventFnArgsT, inventory_gm_component.InventoryType],
+          inventory_gm_component.InventoryType,
+      ],
       inventory: inventory_gm_component.Inventory,
       memory: associative_memory.AssociativeMemory,
       players: PlayersT,
@@ -76,8 +77,8 @@ class TriggeredInventoryEffect(component.Component):
     """Initialize a component to track how events change inventories.
 
     Args:
-      function: user-provided function that can modify the inventory based on
-        an action attempt.
+      function: user-provided function that can modify the inventory based on an
+        action attempt.
       inventory: the inventory component to use to get the inventory of players.
       memory: an associative memory
       players: sequence of players who can trigger an inventory event.
@@ -115,7 +116,11 @@ class TriggeredInventoryEffect(component.Component):
     self._current_scene.update()
 
   def update_before_event(self, player_action_attempt: str) -> None:
-    player_name, choice = player_action_attempt.split(': ')
+
+    # we assume that the player action attempt is in the format
+    # 'player_name: player_choice'. All other occurences of ':' will be treated
+    # as a part of the player choice.
+    player_name, choice = player_action_attempt.split(': ', 1)
     if player_name not in [player.name for player in self._players]:
       return
     current_scene_type = self._current_scene.state()
@@ -128,7 +133,7 @@ class TriggeredInventoryEffect(component.Component):
             current_scene_type=current_scene_type,
             memory=self._memory,
             player=player,
-        )
+        ),
     )
     self._inventory.apply(update)
     self._latest_update_log = {
