@@ -76,4 +76,4 @@ def language_model_setup(
   else:
     raise ValueError(f'Unrecognized api type: {api_type}')
 
-  return cls(**kwargs)
+  return cls(**kwargs)  # pytype: disable=wrong-keyword-args
