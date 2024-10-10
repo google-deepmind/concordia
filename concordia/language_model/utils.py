@@ -31,48 +31,49 @@ def language_model_setup(
     api_type: str,
     model_name: str,
     api_key: str | None = None,
+    device: str | None = None,
     disable_language_model: bool = False,
-    device: str = 'cpu'
 ) -> language_model.LanguageModel:
   """Get the wrapped language model.
 
   Args:
     api_type: The type of API to use.
     model_name: The name of the specific model to use.
-    api_key: Optional, the API key to use. If None, will use the environment
-      variable for the specified API type.
-    disable_language_model: Optional, if True then disable the language model.
+    api_key: The API key to use (if supported).
+    device: The device to use for model processing (if supported).
+    disable_language_model: If True then disable the language model.
       This uses a model that returns an empty string whenever asked for a free
       text response and a randome option when asked for a choice.
-    device: Specifies whether to use cpu or cuda for model processing.
 
   Returns:
     The wrapped language model.
   """
   if disable_language_model:
     return no_language_model.NoLanguageModel()
-  elif api_type == 'amazon_bedrock':
-    if api_key is not None:
-      raise ValueError(
-          'Explicitly passing the API key is not supported for Amazon Bedrock '
-          'models. Please use an environment variable instead.'
-      )
-    return amazon_bedrock_model.AmazonBedrockLanguageModel(model_name)
+
+  kwargs = {'model_name': model_name}
+  if api_key is not None:
+    kwargs['api_key'] = api_key
+  if device is not None:
+    kwargs['device'] = device
+
+  if api_type == 'amazon_bedrock':
+    cls = amazon_bedrock_model.AmazonBedrockLanguageModel
   elif api_type == 'google_aistudio_model':
-    return google_aistudio_model.GoogleAIStudioLanguageModel(
-        model_name=model_name, api_key=api_key
-    )
+    cls = google_aistudio_model.GoogleAIStudioLanguageModel
   elif api_type == 'langchain_ollama':
-    return langchain_ollama_model.LangchainOllamaLanguageModel(model_name)
+    cls = langchain_ollama_model.LangchainOllamaLanguageModel
   elif api_type == 'mistral':
-    return mistral_model.MistralLanguageModel(model_name, api_key=api_key)
+    cls = mistral_model.MistralLanguageModel
   elif api_type == 'ollama':
-    return ollama_model.OllamaLanguageModel(model_name)
+    cls = ollama_model.OllamaLanguageModel
   elif api_type == 'openai':
-    return gpt_model.GptLanguageModel(model_name, api_key=api_key)
+    cls = gpt_model.GptLanguageModel
   elif api_type == 'pytorch_gemma':
-    return pytorch_gemma_model.PyTorchGemmaLanguageModel(model_name, device=device)
+    cls = pytorch_gemma_model.PyTorchGemmaLanguageModel
   elif api_type == 'together_ai':
-    return together_ai.Gemma2(model_name, api_key=api_key)
+    cls = together_ai.Gemma2
   else:
     raise ValueError(f'Unrecognized api type: {api_type}')
+
+  return cls(**kwargs)

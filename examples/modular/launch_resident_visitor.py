@@ -84,6 +84,10 @@ parser.add_argument('--api_key',
                     action='store',
                     default=None,
                     dest='api_key')
+parser.add_argument('--device',
+                    action='store',
+                    default=None,
+                    dest='device')
 parser.add_argument('--disable_language_model',
                     action='store_true',
                     help=('replace the language model with a null model. This '
@@ -110,6 +114,7 @@ model = utils.language_model_setup(
     api_type=args.api_type,
     model_name=args.model_name,
     api_key=args.api_key,
+    device=args.device,
     disable_language_model=args.disable_language_model,
 )
 

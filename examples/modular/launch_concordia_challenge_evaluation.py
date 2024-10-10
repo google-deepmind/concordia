@@ -97,6 +97,12 @@ parser.add_argument(
     '--api_type', action='store', default='mistral', dest='api_type'
 )
 parser.add_argument(
+    '--device',
+    action='store',
+    default=None,
+    dest='device',
+)
+parser.add_argument(
     '--model', action='store', default='codestral-latest', dest='model_name'
 )
 parser.add_argument(
@@ -164,6 +170,7 @@ model = utils.language_model_setup(
     api_type=args.api_type,
     model_name=args.model_name,
     api_key=args.api_key,
+    device=args.device,
     disable_language_model=args.disable_language_model,
 )
 

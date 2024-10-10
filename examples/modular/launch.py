@@ -78,6 +78,10 @@ parser.add_argument('--api_key',
                     action='store',
                     default=None,
                     dest='api_key')
+parser.add_argument('--device',
+                    action='store',
+                    default=None,
+                    dest='device')
 parser.add_argument('--disable_language_model',
                     action='store_true',
                     help=('replace the language model with a null model. This '
@@ -102,6 +106,7 @@ model = utils.language_model_setup(
     api_type=command_line_args.api_type,
     model_name=command_line_args.model_name,
     api_key=command_line_args.api_key,
+    device=command_line_args.device,
     disable_language_model=command_line_args.disable_language_model,
 )
 # Setup sentence encoder
