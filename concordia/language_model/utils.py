@@ -16,6 +16,7 @@
 
 from concordia.language_model import amazon_bedrock_model
 from concordia.language_model import google_aistudio_model
+from concordia.language_model import google_cloud_custom_model
 from concordia.language_model import gpt_model
 from concordia.language_model import langchain_ollama_model
 from concordia.language_model import language_model
@@ -61,6 +62,8 @@ def language_model_setup(
     cls = amazon_bedrock_model.AmazonBedrockLanguageModel
   elif api_type == 'google_aistudio_model':
     cls = google_aistudio_model.GoogleAIStudioLanguageModel
+  elif api_type == 'google_cloud_custom_model':
+    cls = google_cloud_custom_model.VertexAI
   elif api_type == 'langchain_ollama':
     cls = langchain_ollama_model.LangchainOllamaLanguageModel
   elif api_type == 'mistral':
