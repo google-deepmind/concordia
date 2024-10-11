@@ -24,17 +24,64 @@ import concurrent.futures
 import os
 import random
 import time
+
+from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 import together
 from typing_extensions import override
 
+
 _MAX_ATTEMPTS = 20
 _NUM_SILENT_ATTEMPTS = 3
 _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED = 2
 _JITTER_SECONDS = 0.25
-_DEFAULT_MAX_TOKENS = 5000
+_DEFAULT_NUM_RESPONSE_TOKENS = 5000
+
+_GUESS_CHARS_PER_TOKEN = 4
+# Max tokens is really 8193, but we leave substantial margin since estimates
+# of the number of tokens are imprecise and also calculated before adding the
+# system messages.
+_MAX_ALLOWED_TOKENS = 7000
+# Use `_NUM_INITIAL_TOKENS` from the start of the prompt if possible when
+# trimming to fit the whole sequence into `_MAX_ALLOWED_TOKENS`.
+_NUM_INITIAL_TOKENS = 500
+
+
+def _ensure_prompt_not_too_long(
+    prompt: str,
+    num_response_tokens: int,
+    guess_chars_per_token: int = _GUESS_CHARS_PER_TOKEN) -> str:
+  r"""Ensures the prompt is not too long for Together AI\'s Gemma-2 models."""
+  num_initial_chars = _NUM_INITIAL_TOKENS * guess_chars_per_token
+  max_prompt_tokens = _MAX_ALLOWED_TOKENS - num_response_tokens
+  if max_prompt_tokens <= 0:
+    raise ValueError(
+        f'Cannot reserve {num_response_tokens} of {_MAX_ALLOWED_TOKENS} tokens.'
+    )
+  max_prompt_chars = max_prompt_tokens * guess_chars_per_token
+  if len(prompt) <= max_prompt_chars:
+    return prompt
+
+  # Keep the first _NUM_INITIAL_TOKENS tokens and then skip to the last tokens
+  # and take as many as we can from the end.
+  if max_prompt_chars > num_initial_chars:
+    num_final_chars = max_prompt_chars - num_initial_chars
+    new_prompt = prompt[:num_initial_chars] + prompt[-num_final_chars:]
+    logging.info('Prompt too long, trimmed it down, while keeping start and '
+                 'end, resulting in %d characters', len(new_prompt))
+    logging.debug('Trimmed prompt: %s', new_prompt)
+    return new_prompt
+
+  # This happens if len(prompt) > max_prompt_chars <= num_initial_chars.
+  new_prompt = prompt[-max_prompt_chars:]
+  logging.info(
+      'Prompt too long, truncated it to last %d characters.',
+      max_prompt_chars
+  )
+  logging.debug('Truncated prompt: %s', new_prompt)
+  return new_prompt
 
 
 class Gemma2(language_model.LanguageModel):
@@ -77,6 +124,8 @@ class Gemma2(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
+    original_prompt = prompt
+    prompt = _ensure_prompt_not_too_long(prompt, max_tokens)
     messages = [
         {
             'role': 'system',
@@ -108,7 +157,7 @@ class Gemma2(language_model.LanguageModel):
 
     # gemma2 does not support `tokens` + `max_new_tokens` > 8193.
     # gemma2 interprets our `max_tokens`` as their `max_new_tokens`.
-    max_tokens = min(max_tokens, _DEFAULT_MAX_TOKENS)
+    max_tokens = min(max_tokens, _DEFAULT_NUM_RESPONSE_TOKENS)
 
     result = ''
     for attempts in range(_MAX_ATTEMPTS):
@@ -132,9 +181,19 @@ class Gemma2(language_model.LanguageModel):
             seed=seed,
             stream=False,
         )
-      except together.error.RateLimitError as err:
+      except (together.error.RateLimitError,
+              together.error.APIError,
+              together.error.ServiceUnavailableError) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
+          print(f'  Text exception prompt: {prompt}')
+        if isinstance(err, together.error.APIError):
+          # If hit the error that arises from a prompt that is too long then
+          # re-run the trimming function with a more pessimistic guess of the
+          # the number of characters per token.
+          prompt = _ensure_prompt_not_too_long(original_prompt,
+                                               max_tokens,
+                                               guess_chars_per_token=1)
         continue
       else:
         result = response.choices[0].message.content
@@ -162,6 +221,8 @@ class Gemma2(language_model.LanguageModel):
 
     def _sample_choice(response: str) -> float:
       augmented_prompt = prompt + response
+      original_augmented_prompt = augmented_prompt
+      augmented_prompt = _ensure_prompt_not_too_long(augmented_prompt, 1)
       messages = [
           {
               'role': 'system',
@@ -202,14 +263,23 @@ class Gemma2(language_model.LanguageModel):
           result = self._client.chat.completions.create(
               model=self._model_name,
               messages=messages,
+              max_tokens=1,
               seed=seed,
               logprobs=1,
               stream=False,
           )
-        except together.error.RateLimitError as err:
+        except (together.error.RateLimitError,
+                together.error.APIError,
+                together.error.ServiceUnavailableError) as err:
           if attempts >= _NUM_SILENT_ATTEMPTS:
             print(f'  Exception: {err}')
-            print(f'  Exception prompt: {augmented_prompt}')
+            print(f'  Choice exception prompt: {augmented_prompt}')
+          if isinstance(err, together.error.APIError):
+            # If hit the error that arises from a prompt that is too long then
+            # re-run the trimming function with a more pessimistic guess of the
+            # the number of characters per token.
+            augmented_prompt = _ensure_prompt_not_too_long(
+                original_augmented_prompt, 1, guess_chars_per_token=1)
           continue
         else:
           break
