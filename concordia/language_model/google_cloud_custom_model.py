@@ -93,7 +93,7 @@ class VertexAI(language_model.LanguageModel):
 
     max_tokens = min(max_tokens, _DEFAULT_MAX_TOKENS)
 
-    result = None
+    result = ""
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
         seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
