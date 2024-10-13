@@ -126,10 +126,7 @@ class MistralLanguageModel(language_model.LanguageModel):
           self._channel,
           {'raw_text_length': len(result)},
       )
-    # Remove the occasional sentence fragment from the end of the result.
-    last_stop = result.rfind('.')
-    if last_stop >= 0:
-      result = result[:last_stop + 1]
+
     return result
 
   def _chat_text(
