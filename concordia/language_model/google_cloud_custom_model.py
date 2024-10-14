@@ -108,7 +108,7 @@ class VertexAI(language_model.LanguageModel):
 
       try:
         response = (
-            aiplatform.Client()
+            aiplatform.PredictionServiceClient()
             .predict(
                 [{"content": prompt}],
                 parameters={
