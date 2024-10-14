@@ -15,6 +15,7 @@
 """Descriptive elements for pre-state villages to use with state_formation."""
 
 from collections.abc import Sequence
+import datetime
 import random
 from ml_collections import config_dict
 
@@ -25,6 +26,23 @@ BASIC_SETTING = (
     'both fishing and agriculture. The local farmers living outside '
     'the villages share cultural and economic ties with the villagers.'
 )
+
+FREE_TIME_ACTIVITY = 'free time'
+WARRIOR_TRAINING_ACTIVITY = 'training as a warrior'
+FARMING_ACTIVITY = 'farming'
+
+_SETUP_TIME = datetime.datetime(hour=20, year=1750, month=1, day=1)
+_START_TIME = datetime.datetime(hour=18, year=1750, month=1, day=2)
+_HILL_TIME = datetime.datetime(hour=18, year=1750, month=1, day=3)
+_RETURN_HOME_TIME = datetime.datetime(hour=20, year=1750, month=1, day=4)
+_DECISION_TIME = datetime.datetime(hour=20, year=1750, month=5, day=6)
+_DEBRIEF_TIME = datetime.datetime(hour=20, year=1750, month=12, day=31)
+
+_DEFENSE_THRESHOLD = 0.3
+_STARVATION_THRESHOLD = 0.4
+
+_MIN_YEARS = 3
+_MAX_YEARS = 5
 
 _NUM_SUPPORTING_CHARACTERS_PER_VILLAGE = 2
 _NUM_RITUAL_DESCRIPTIONS = 4
@@ -1336,6 +1354,141 @@ BARBARIAN_RUMORS = [
     ),
 ]
 
+_HOME_SCENE_PREMISE = (
+    'Elder {name} is home in {village}. It is one day before '
+    'they are to depart their village to travel to the hill of accord to '
+    'meet the representative of the other village. It has been '
+    'suggested that an alliance for the mutual defense of both '
+    'villages against the growing threat of barbarian sea raiders would '
+    'be beneficial. The purpose of the upcoming meeting is to negotiate '
+    'the terms of the agreement to underpin such an alliance. To be '
+    'successful, the agreement must incentivize people from both '
+    'villages to spend time and resources training as warriors, '
+    'and to be ready to fight wherever the raiders come ashore. When '
+    'individuals spend their time training as warriors they are less '
+    'able to spend time on other activities like farming or fishing, so '
+    'it is necessary to secure enough resources to compensate them for '
+    'the time they spend training. An effective alliance agreement will '
+    'have to be concerned with how these resources are to be obtained '
+    'and distributed. Influential people in {village} will surely have '
+    'a lot of thoughts on this matter, best to consult them first in '
+    'order to represent their interests effectively in the negotiation.'
+)
+
+_FAILED_TO_REPEL_BARBARIAN_RAID_EVENT_DESCRIPTIONS = (
+    ('The barbarian invasion could not be stopped. Untrained and ill-prepared '
+     'for the ferocity of the assault, the defenders were swiftly overcome. '
+     'Barbarians overrun the region, taking whatever they please. After a '
+     'season of terror they finally leave, but not because they were driven '
+     'out, but rather because precious little worth plundering remained. '
+     'The wanton cruelty of the barbarians caused '
+     'much suffering throughout the region.'),
+    ('Despite the villagers\' desperate attempts at resistance, their lack of '
+     'training and discipline proved their undoing. The barbarian raiders, '
+     'skilled in the arts of war, easily swept aside their meager defenses. '
+     'Farms were razed, crops destroyed, and countless innocents were '
+     'taken as slaves. The devastating incursion left scars both physical '
+     'and emotional on the populace.'),
+    ('The defensive lines, manned by brave but inexperienced souls, '
+     'crumbled under the relentless assault of the battle-hardened '
+     'barbarians. Like locusts, they swept through the countryside, '
+     'pillaging and burning everything in their path. The need for proper '
+     'training and preparation was made tragically clear.'),
+    ('The defenders fought with spirit, but their lack of martial skill '
+     'proved their downfall. The barbarians, fierce and unrelenting, '
+     'overwhelmed their amateurish defenses, leaving a trail of woe and '
+     'despair in their wake.'),
+)
+
+_SUCCEEDED_TO_REPEL_BARBARIAN_RAID_EVENT_DESCRIPTIONS = (
+    'The barbarian raid was successully repulsed.',
+    ('Through cunning strategy and fierce determination, the defenders '
+     'managed to drive back the barbarian invaders. The would-be raiders '
+     'fled in disarray, leaving behind their plunder and wounded. The bards '
+     'will sing of this victory for years to come.'),
+    ('The barbarians\' attack was met with a strong response. '
+     'Caught off-guard by the well-prepared defenses, the raiders suffered '
+     'heavy losses and were forced to retreat. This triumph will be '
+     'celebrated for years to come, a testament to the region\'s resilience.'),
+    ('Like a storm breaking against a mighty cliff, the barbarian assault '
+     'crashed against the unwavering valor of the defenders. Their axes '
+     'gleamed bright, their shields held firm, and their hearts burned with '
+     'the fire of courage, driving back the foul tide of darkness.'),
+    ('Though the enemy came in vast numbers, their savagery was met with '
+     'unflinching courage. The defenders stood their ground, their spirits '
+     'bolstered by the love of their homeland, and in the end, it was the '
+     'barbarians who broke and fled, leaving victory to the righteous.')
+)
+
+_FAILED_TO_GROW_ENOUGH_FOOD_EVENT_DESCRIPTIONS = (
+    ('The crops failed due lack of time spent on farm work, and the villagers '
+     'face a harsh winter of scarcity.'),
+    ('Neglecting the fields for other pursuits, the villagers found '
+     'themselves with a meager harvest come autumn. Hunger gnaws at their '
+     'bellies, and the spectre of famine looms over the land.'),
+    ('The soil, unnourished and untended, yielded a paltry bounty. '
+     'With insufficient grain to see them through the winter, the villagers '
+     'are thus forced to endure hardship and privation.'),
+    ('Alas, the granaries remained woefully bare as winter\'s icy grip '
+     'tightened. The villagers, having spent their time on matters other than '
+     'cultivation, now face the bitter consequences of their neglect.'),
+    ('The land, weary from insufficient toil, offered little sustenance. '
+     'Empty larders and gaunt faces bear witness to the villagers\' folly in '
+     'forsaking their agricultural duties.')
+)
+
+_SUCCEEDED_TO_GROW_ENOUGH_FOOD_EVENT_DESCRIPTIONS = (
+    ('The villagers managed to grow enough food to sustain themselves.'),
+    ('The fields, diligently tended throughout the seasons, yielded a '
+     'bountiful harvest. The villagers rejoiced, their granaries overflowing '
+     'with the fruits of their labor.'),
+    ('Through tireless effort and unwavering dedication, the villagers coaxed '
+     'forth an abundance from the earth. Their larders are full, and their '
+     'hearts filled with gratitude for the land\'s generous bounty.'),
+    ('The sun shone warmly upon the fertile fields, and the rains fell gently '
+     'upon the burgeoning crops. The villagers, ever mindful of their '
+     'agricultural duties, reaped a harvest that would sustain them through '
+     'even the harshest winter.'),
+    ('With calloused hands and joyful hearts, the villagers gathered the '
+     'rich harvest, a testament to their unwavering commitment to the land. '
+     'Their stores were full, ensuring a season of plenty and prosperity.')
+)
+
+_NO_TREATY_IN_EFFECT_DESCRIPTIONS = (
+    ('Each village tends its own fields, their fates entwined with the '
+     'whims of nature, for no pact of shared harvest exists between them.'),
+    ('The villages, though neighbors, remain separate in their '
+     'agricultural endeavors, each bearing the full burden of their own '
+     'harvests, be they bountiful or meager.'),
+    ('No treaty of shared sustenance exists between the villages, '
+     'leaving each to rely solely on the fruits of their own labor, '
+     'for good or ill.'),
+    ('Though they dwell in proximity, the villages have forged no '
+     'agreement to pool their agricultural bounty, leaving each '
+     'vulnerable to the uncertainties of the seasons.'),
+    ('Each village cultivates its own lands, independent and '
+     'self-reliant, with no pact to share the abundance or '
+     'hardship that the earth may yield.')
+)
+
+_TREATY_IN_EFFECT_DESCRIPTIONS = (
+    ('A pact of shared harvests binds the two villages, ensuring that none '
+     'want for sustenance if their own fields falter.'),
+    ('The spirit of unity flourishes as the villages honor their '
+     'agreement to pool their agricultural bounty, safeguarding '
+     'each other against the uncertainties of nature and the threat of '
+     'plunder.'),
+    ('A wise accord, forged in a time of hardship, sees the villages '
+     'share the fruits of their labor, ensuring that all are nourished '
+     'and sustained.'),
+    ('The bond between the villages is strengthened by the treaty of '
+     'shared abundance, a testament to their commitment to mutual '
+     'prosperity.'),
+    ('With trust and cooperation as their guiding principles, the '
+     'villages uphold their pact, sharing the bounty of their '
+     'fields and ensuring that all within their borders are fed.'),
+)
+
 MYTHICAL_HEROES = (
     'Jory',
     'Kerensa',
@@ -1585,6 +1738,7 @@ GENDERS = ('male', 'female')
 
 
 def _sample_village_elements(
+    rng: random.Random,
     key: str,
     collective_unconscious: Sequence[str],
     shared_epic_poem: Sequence[str],
@@ -1596,13 +1750,13 @@ def _sample_village_elements(
               "are located about a day's journey away from one another."
           ),
       ),
-      'ritual_descriptions': random.sample(
+      'ritual_descriptions': rng.sample(
           VILLAGES[key]['ritual_descriptions'], _NUM_RITUAL_DESCRIPTIONS
       ),
-      'perceptions_of_other_village': random.sample(
+      'perceptions_of_other_village': rng.sample(
           VILLAGES[key]['perception_of_other'], _NUM_PERCEPTIONS
       ),
-      'spiritual_leader_sayings': random.sample(
+      'spiritual_leader_sayings': rng.sample(
           VILLAGES[key]['spiritual_leader_sayings'], _NUM_LEADER_SAYINGS
       ),
       'collective_unconscious': collective_unconscious,
@@ -1611,9 +1765,11 @@ def _sample_village_elements(
 
 
 def _sample_name_and_gender(
-    shuffled_male_names: list[str], shuffled_female_names: list[str]
+    rng: random.Random,
+    shuffled_male_names: list[str],
+    shuffled_female_names: list[str],
 ) -> tuple[str, str]:
-  sampled_gender = random.choice(GENDERS)
+  sampled_gender = rng.choice(GENDERS)
   if sampled_gender == 'male':
     sampled_name = shuffled_male_names.pop()
   else:
@@ -1621,54 +1777,59 @@ def _sample_name_and_gender(
   return sampled_name, sampled_gender
 
 
-def get_world_config():
+def sample_parameters(
+    seed: int | None = None,
+):
   """Returns a config dict for the simulation."""
+  seed = seed or random.getrandbits(63)
+  rng = random.Random(seed)
   shuffled_village_names = list(
-      random.sample(VILLAGE_NAMES, len(VILLAGE_NAMES))
+      rng.sample(VILLAGE_NAMES, len(VILLAGE_NAMES))
   )
-  shuffled_male_names = list(random.sample(MALE_NAMES, len(MALE_NAMES)))
-  shuffled_female_names = list(random.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
+  shuffled_male_names = list(rng.sample(MALE_NAMES, len(MALE_NAMES)))
+  shuffled_female_names = list(rng.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
 
   representative_a, representative_a_gender = _sample_name_and_gender(
-      shuffled_male_names, shuffled_female_names
+      rng, shuffled_male_names, shuffled_female_names
   )
   representative_b, representative_b_gender = _sample_name_and_gender(
-      shuffled_male_names, shuffled_female_names
+      rng, shuffled_male_names, shuffled_female_names
   )
 
-  shared_epic_poem_key = random.choice(list(SHARED_EPIC_POEMS.keys()))
+  shared_epic_poem_key = rng.choice(list(SHARED_EPIC_POEMS.keys()))
 
   choices = dict(
       village_a=shuffled_village_names.pop(),
       village_b=shuffled_village_names.pop(),
       representative_a=representative_a,
       representative_b=representative_b,
-      mythical_hero=random.choice(MYTHICAL_HEROES),
-      mythical_evil=random.choice(MYTHICAL_EVIL_NAMES),
-      mythical_tree=random.choice(MYTHICAL_TREE_NAMES),
-      mythical_title=random.choice(MYTHICAL_TITLES),
-      moon_goddess=random.choice(MOON_GODDESS_NAMES),
-      sun_god=random.choice(SUN_GOD_NAMES),
-      mythical_secondary_character_a=random.choice(
+      mythical_hero=rng.choice(MYTHICAL_HEROES),
+      mythical_evil=rng.choice(MYTHICAL_EVIL_NAMES),
+      mythical_tree=rng.choice(MYTHICAL_TREE_NAMES),
+      mythical_title=rng.choice(MYTHICAL_TITLES),
+      moon_goddess=rng.choice(MOON_GODDESS_NAMES),
+      sun_god=rng.choice(SUN_GOD_NAMES),
+      mythical_secondary_character_a=rng.choice(
           MYTHICAL_SECONDARY_CHARACTER_A_NAMES
       ),
-      mythical_secondary_character_b=random.choice(
+      mythical_secondary_character_b=rng.choice(
           MYTHICAL_SECONDARY_CHARACTER_B_NAMES
       ),
-      media_type=random.choice(MEDIA_TYPES),
-      spiritual_journey=random.choice(SPIRITUAL_JOURNEY_TAKER_NAMES),
+      media_type=rng.choice(MEDIA_TYPES),
+      spiritual_journey=rng.choice(SPIRITUAL_JOURNEY_TAKER_NAMES),
   )
 
-  collective_unconscious = random.sample(
+  collective_unconscious = rng.sample(
       COLLECTIVE_UNCONSCIOUS_ELEMENTS, _NUM_COLLECTIVE_UNCONSCIOUS_ELEMENTS
   )
-  shared_epic_poem = random.sample(
+  shared_epic_poem = rng.sample(
       SHARED_EPIC_POEMS[shared_epic_poem_key], _NUM_SHARED_EPIC_POEM_ELEMENTS
   )
 
   villages = {}
   for key in ('a', 'b'):
     villages[key] = _sample_village_elements(
+        rng=rng,
         key=key,
         collective_unconscious=collective_unconscious,
         shared_epic_poem=shared_epic_poem,
@@ -1690,8 +1851,20 @@ def get_world_config():
 
   config = config_dict.ConfigDict()
 
+  config.times = config_dict.ConfigDict()
+  config.times.setup = _SETUP_TIME
+  config.times.start = _START_TIME
+  config.times.hill = _HILL_TIME
+  config.times.return_home = _RETURN_HOME_TIME
+  config.times.decision = _DECISION_TIME
+  config.times.debrief = _DEBRIEF_TIME
+
   config.village_a_name = choices['village_a']
   config.village_b_name = choices['village_b']
+
+  config.basic_setting = BASIC_SETTING.format(
+      village_a_name=config.village_a_name, village_b_name=config.village_b_name
+  )
 
   config.villages = config_dict.FrozenConfigDict(results)
 
@@ -1699,16 +1872,58 @@ def get_world_config():
 
   config.supporting_characters = config_dict.ConfigDict()
   config.supporting_characters.a = tuple((
-      _sample_name_and_gender(shuffled_male_names, shuffled_female_names)
+      _sample_name_and_gender(rng, shuffled_male_names, shuffled_female_names)
       for _ in range(_NUM_SUPPORTING_CHARACTERS_PER_VILLAGE)
   ))
   config.supporting_characters.b = tuple((
-      _sample_name_and_gender(shuffled_male_names, shuffled_female_names)
+      _sample_name_and_gender(rng, shuffled_male_names, shuffled_female_names)
       for _ in range(_NUM_SUPPORTING_CHARACTERS_PER_VILLAGE)
   ))
 
   config.barbarian_raid_info = list(
-      random.sample(BARBARIAN_RUMORS, _NUM_BARBARIAN_RUMORS)
+      rng.sample(BARBARIAN_RUMORS, _NUM_BARBARIAN_RUMORS)
   ) + [' The barbarian raids have become more frequent of late.']
+
+  config.activities = (
+      FREE_TIME_ACTIVITY,
+      FARMING_ACTIVITY,
+      WARRIOR_TRAINING_ACTIVITY,
+  )
+  config.free_time_activity = FREE_TIME_ACTIVITY
+  config.farming_activity = FARMING_ACTIVITY
+  config.warrior_training_activity = WARRIOR_TRAINING_ACTIVITY
+
+  config.num_years = rng.randint(_MIN_YEARS, _MAX_YEARS)
+
+  config.home_scene_premise = _HOME_SCENE_PREMISE
+
+  config.defense_threshold = _DEFENSE_THRESHOLD
+  config.starvation_threshold = _STARVATION_THRESHOLD
+
+  config.sample_event_of_failing_to_repel_barbarians = lambda: rng.choice(
+      _FAILED_TO_REPEL_BARBARIAN_RAID_EVENT_DESCRIPTIONS)
+  config.sample_event_of_success_repelling_barbarians = lambda: rng.choice(
+      _SUCCEEDED_TO_REPEL_BARBARIAN_RAID_EVENT_DESCRIPTIONS)
+  config.sample_event_of_failing_to_grow_food = lambda: rng.choice(
+      _FAILED_TO_GROW_ENOUGH_FOOD_EVENT_DESCRIPTIONS)
+  config.sample_event_of_success_growing_food = lambda: rng.choice(
+      _SUCCEEDED_TO_GROW_ENOUGH_FOOD_EVENT_DESCRIPTIONS)
+  config.sample_event_no_treaty_in_effect = lambda: rng.choice(
+      _NO_TREATY_IN_EFFECT_DESCRIPTIONS)
+  config.sample_event_treaty_in_effect = lambda: rng.choice(
+      _TREATY_IN_EFFECT_DESCRIPTIONS)
+
+  config.villager_how_things_are_constant = (
+      'Everyone in {name}\'s family has always been a '
+      'farmer. As long as anyone can remember, they have farmed their '
+      'ancestral lands near {village_name}.'
+  )
+  config.negotiation_phase_extra_premise = (
+      'Agriculture is critical to both villages. But, the more time spent '
+      'training for war, the less time can be devoted to farming. Therefore '
+      'the threat of starvation motivates poor attention to defense. If only '
+      'the risk of starvation could be mitigated, then more time could be '
+      'devoted to training for war and other pursuits, to the benefit of all.'
+  )
 
   return config

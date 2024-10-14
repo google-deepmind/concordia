@@ -17,96 +17,50 @@
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 import functools
-import importlib
+import math
 import random
 import types
 
 from concordia import components as generic_components
+from concordia.agents import entity_agent
+from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
-from concordia.components import game_master as gm_components
+from concordia.contrib.components.game_master import daily_activities
+from concordia.document import interactive_document
 from concordia.environment import game_master
-from examples.modular.environment import modules as environment_modules
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
 from concordia.factory.agent import basic_agent
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import language_model
-from concordia.typing import agent as agent_lib
+from concordia.thought_chains import thought_chains as thought_chains_lib
+from concordia.typing import entity as entity_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import immutabledict
+from ml_collections import config_dict
 import numpy as np
 
-ENVIRONMENT_MODULES = ('pre_state_villages',)
-env_module_name = random.choice(ENVIRONMENT_MODULES)
 
-# Load the environment config with importlib
-environment_module = importlib.import_module(
-    f'{environment_modules.__name__}.{env_module_name}'
+DEFAULT_TIME_AND_PLACE_MODULES = (
+    'pre_state_villages',
 )
-config = environment_module.get_world_config()
 
-BASIC_SETTING = environment_module.BASIC_SETTING.format(
-    village_a_name=config.village_a_name, village_b_name=config.village_b_name
-)
+ActivityConfig = daily_activities.ActivityConfig
 
 MAJOR_TIME_STEP = datetime.timedelta(minutes=20)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
-SETUP_TIME = datetime.datetime(hour=20, year=1750, month=10, day=1)
-START_TIME = datetime.datetime(hour=18, year=1750, month=10, day=2)
-HILL_TIME = datetime.datetime(hour=18, year=1750, month=10, day=3)
-RETURN_HOME_SCENE_TIME = datetime.datetime(hour=20, year=1750, month=10, day=4)
-DECISION_TIME = datetime.datetime(hour=20, year=1750, month=12, day=6)
-
-SUPPORTING_PLAYER_NAMES_VILLAGE_A = [
-    player[0] for player in config.supporting_characters.a
-]
-SUPPORTING_PLAYER_NAMES_VILLAGE_B = [
-    player[0] for player in config.supporting_characters.b
-]
-
 RESOLUTION_SCENE_TYPE = 'decision'
-SCENARIO_PREMISE = [
-    (
-        f'{config.main_characters.a.name} and {config.main_characters.b.name} '
-        'meet periodically at the hill of accord to discuss current events and '
-        'conduct diplomacy on behalf of the villages they represent.'
-    ),
-]
-REPRESENTATIVE_BY_VILLAGE = {
-    config.village_a_name: config.main_characters.a.name,
-    config.village_b_name: config.main_characters.b.name,
-}
-SUPPORTING_PLAYER_LOCATIONS = []
-SUPPORTING_PLAYER_LOCATIONS.extend([
-    (
-        f'{player_data[0]} waits for {config.main_characters.a.name} in the '
-        f'center of {config.village_a_name}.'
-    )
-    for player_data in config.supporting_characters.a
-])
-SUPPORTING_PLAYER_LOCATIONS.extend([
-    (
-        f'{player_data[0]} waits for {config.main_characters.b.name} in the '
-        f'center of {config.village_b_name}.'
-    )
-    for player_data in config.supporting_characters.b
-])
-DECISION_ACTION_SPEC = agent_lib.choice_action_spec(
-    call_to_action=(
-        'Would {name} follow through with their obligation under the agreement?'
-    ),
-    options=('no', 'yes'),
-    tag='decision',
-)
+DEBRIEF_SCENE_TYPE = 'debrief'
 
 
 def _get_conjunction_of_names_string(
@@ -124,6 +78,7 @@ def _get_conjunction_of_names_string(
 
 def get_shared_memories_and_context(
     model: language_model.LanguageModel,
+    config: config_dict.ConfigDict,
 ) -> tuple[Sequence[str], str]:
   """Return the shared memories and context for all agents and game master."""
   shared_memories = config.barbarian_raid_info
@@ -139,7 +94,10 @@ def get_shared_memories_and_context(
   return shared_memories, shared_context
 
 
-def configure_players(rng: random.Random) -> tuple[
+def configure_players(
+    rng: random.Random,
+    config: config_dict.ConfigDict,
+) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
     dict[str, formative_memories.AgentConfig],
@@ -148,19 +106,26 @@ def configure_players(rng: random.Random) -> tuple[
 
   Args:
     rng: the random number generator to use.
+    config: the time and place configuration to use.
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     player_configs_dict: dict mapping player name to corresponding config
   """
+  supporting_player_names_village_a = [
+      player[0] for player in config.supporting_characters.a
+  ]
+  supporting_player_names_village_b = [
+      player[0] for player in config.supporting_characters.b
+  ]
   and_stakeholders_village_a = _get_conjunction_of_names_string(
-      SUPPORTING_PLAYER_NAMES_VILLAGE_A, and_or='and'
+      supporting_player_names_village_a, and_or='and'
   )
   and_stakeholders_village_b = _get_conjunction_of_names_string(
-      SUPPORTING_PLAYER_NAMES_VILLAGE_B, and_or='and'
+      supporting_player_names_village_b, and_or='and'
   )
-  if len(SUPPORTING_PLAYER_NAMES_VILLAGE_A) > 1:
+  if len(supporting_player_names_village_a) > 1:
     is_or_are = 'are'
   else:
     is_or_are = 'is'
@@ -170,8 +135,9 @@ def configure_players(rng: random.Random) -> tuple[
       f'agreement to be made with {config.village_b_name}. '
       f'{and_stakeholders_village_a} {is_or_are} '
       "generally pretty reasonable. It's a good idea for "
-      f'{config.main_characters.a} to try to represent '
-      'their interests in the negotiation at the hill of accord.'
+      f'{config.main_characters.a.name} to try to represent '
+      'their interests in the negotiation at the hill of accord. There are no '
+      'other influential individuals in the village.'
   )
   elder_village_b_stakeholder_knowledge = (
       f'{and_stakeholders_village_b} are respected and influential in '
@@ -179,8 +145,9 @@ def configure_players(rng: random.Random) -> tuple[
       f'agreement to be made with {config.village_a_name}. '
       f'{and_stakeholders_village_b} {is_or_are} '
       "generally pretty reasonable. It's a good idea for "
-      f'{config.main_characters.b} to try to represent '
-      'their interests in the negotiation at the hill of accord.'
+      f'{config.main_characters.b.name} to try to represent '
+      'their interests in the negotiation at the hill of accord. There are no '
+      'other influential individuals in the village.'
   )
 
   player_configs = [
@@ -194,7 +161,7 @@ def configure_players(rng: random.Random) -> tuple[
               f'{config.village_a_name}, especially when '
               + f'it is also best for {config.main_characters.a.name}.'
           ),
-          context=' '.join(config.villages.a) + ' ' + BASIC_SETTING,
+          context=' '.join(config.villages.a) + ' ' + config.basic_setting,
           traits=(
               f'Personality: {player_traits_and_styles.get_trait()} and '
               f'{player_traits_and_styles.get_trait()}'
@@ -226,11 +193,11 @@ def configure_players(rng: random.Random) -> tuple[
           gender=config.main_characters.b.gender,
           date_of_birth=datetime.datetime(year=1700, month=2, day=12),
           goal=(
-              f'({config.main_characters.b.name} wants to do what is best '
+              f'{config.main_characters.b.name} wants to do what is best '
               f'for {config.village_b_name}, especially '
               + f'when it is also best for {config.main_characters.b.name}.'
           ),
-          context=' '.join(config.villages.b) + ' ' + BASIC_SETTING,
+          context=' '.join(config.villages.b) + ' ' + config.basic_setting,
           traits=(
               f'Personality: {player_traits_and_styles.get_trait()} and '
               f'{player_traits_and_styles.get_trait()}'
@@ -278,7 +245,7 @@ def configure_players(rng: random.Random) -> tuple[
             f'{config.supporting_characters.a[0][0]} wants to secure '
             f'prosperity for {him_or_her}self and {his_or_her} family.'
         ),
-        context=' '.join(config.villages.a) + ' ' + BASIC_SETTING,
+        context=' '.join(config.villages.a) + ' ' + config.basic_setting,
         traits=(
             f'Personality: {player_traits_and_styles.get_trait()} and '
             f'{player_traits_and_styles.get_trait()}'
@@ -299,6 +266,11 @@ def configure_players(rng: random.Random) -> tuple[
             ],
             'home_village': config.village_a_name,
             'main_character': False,
+            'prior_year_activity_distribution': {
+                config.farming_activity: 0.5,
+                config.free_time_activity: 0.5,
+                config.warrior_training_activity: 0.0,
+            },
         },
     )
     player_configs.append(supporting_player_config)
@@ -322,7 +294,7 @@ def configure_players(rng: random.Random) -> tuple[
             f'{config.supporting_characters.a[0][0]} wants to secure '
             f'prosperity for {him_or_her}self and {his_or_her} family.'
         ),
-        context=' '.join(config.villages.b) + ' ' + BASIC_SETTING,
+        context=' '.join(config.villages.b) + ' ' + config.basic_setting,
         traits=(
             f'Personality: {player_traits_and_styles.get_trait()} and '
             f'{player_traits_and_styles.get_trait()}'
@@ -343,6 +315,11 @@ def configure_players(rng: random.Random) -> tuple[
             ],
             'home_village': config.village_b_name,
             'main_character': False,
+            'prior_year_activity_distribution': {
+                config.farming_activity: 0.5,
+                config.free_time_activity: 0.3,
+                config.warrior_training_activity: 0.2,
+            },
         },
     )
     player_configs.append(supporting_player_config)
@@ -360,22 +337,28 @@ def configure_players(rng: random.Random) -> tuple[
 
 
 def configure_scenes(
+    config: config_dict.ConfigDict,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     player_configs_dict: dict[str, formative_memories.AgentConfig],
-    decision_env: game_master.GameMaster,
+    no_conversation_game_master: game_master.GameMaster,
 ) -> Sequence[scene_lib.SceneSpec]:
   """Configure the scene storyboard structure.
 
   Args:
+    config: the time and place configuration to use
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     player_configs_dict: dict mapping player name to corresponding config
-    decision_env: the decision environment to use
+    no_conversation_game_master: secondary game master that does not include
+      conversations
 
   Returns:
     scenes: the scenes to use
   """
+  main_player_configs = list(main_player_configs)
+  supporting_player_configs = list(supporting_player_configs)
+
   year_increment = datetime.timedelta(days=365)
 
   main_player_names = [config.name for config in main_player_configs]
@@ -433,6 +416,7 @@ def configure_scenes(
             player_name=name,
             village_name=player_configs_dict[name].extras['home_village'],
         ),
+        config.negotiation_phase_extra_premise,
         (
             "There is no time to waste on small talk. It's important to get"
             ' down to business immediately by proposing specific provisions for'
@@ -449,134 +433,334 @@ def configure_scenes(
       name='negotiation',
       premise=negotiation_phase_premises,
   )
+  activities_str = (', '.join(config.activities[:-1]) +
+                    f', and {config.activities[-1]}')
   scene_types[RESOLUTION_SCENE_TYPE] = scene_lib.SceneTypeSpec(
       name=RESOLUTION_SCENE_TYPE,
       premise={},
-      action_spec=DECISION_ACTION_SPEC,
-      override_game_master=decision_env,
+      action_spec=entity_lib.free_action_spec(
+          call_to_action=('How does {name} intend to spend the rest of the '
+                          'year? What daily activities will they devote '
+                          'their time to? Why? Respond by giving the '
+                          'average proportion of their time that they '
+                          'intend to spend on each of the '
+                          f'following activities: {activities_str}. Note that '
+                          'proportions of time should sum to 1. Sleep counts '
+                          f'as {config.free_time_activity}.'),
+          tag='announcement',
+      ),
+      override_game_master=no_conversation_game_master,
+  )
+  scene_types[DEBRIEF_SCENE_TYPE] = scene_lib.SceneTypeSpec(
+      name=DEBRIEF_SCENE_TYPE,
+      premise={},
+      action_spec=entity_lib.free_action_spec(
+          call_to_action=('How does {name} feel about how this year went? '
+                          'What went well? What did not go well? What does '
+                          '{name} feel could be improved for next year?'),
+          tag='reflection',
+      ),
+      override_game_master=no_conversation_game_master,
   )
 
   scenes = [
       # Year 1
       scene_lib.SceneSpec(
           scene_type=scene_types['home'],
-          start_time=START_TIME,
+          start_time=config.times.start,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types['negotiation'],
-          start_time=HILL_TIME,
+          start_time=config.times.hill,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types['home'],
-          start_time=RETURN_HOME_SCENE_TIME,
+          start_time=config.times.return_home,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types[RESOLUTION_SCENE_TYPE],
-          start_time=DECISION_TIME,
+          start_time=config.times.decision,
           participant_configs=supporting_player_configs,
+          num_rounds=1,
+      ),
+      scene_lib.SceneSpec(
+          scene_type=scene_types[DEBRIEF_SCENE_TYPE],
+          start_time=config.times.debrief,
+          participant_configs=main_player_configs + supporting_player_configs,
           num_rounds=1,
       ),
       # Year 2
       scene_lib.SceneSpec(
           scene_type=scene_types['home'],
-          start_time=START_TIME + year_increment,
+          start_time=config.times.start + year_increment,
           participant_configs=main_player_configs,
-          num_rounds=2,
+          num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types['negotiation'],
-          start_time=HILL_TIME + year_increment,
+          start_time=config.times.hill + year_increment,
           participant_configs=main_player_configs,
-          num_rounds=2,
+          num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types['home'],
-          start_time=RETURN_HOME_SCENE_TIME + year_increment,
+          start_time=config.times.return_home + year_increment,
           participant_configs=main_player_configs,
-          num_rounds=2,
+          num_rounds=1,
       ),
       scene_lib.SceneSpec(
           scene_type=scene_types[RESOLUTION_SCENE_TYPE],
-          start_time=DECISION_TIME + year_increment,
+          start_time=config.times.decision + year_increment,
           participant_configs=supporting_player_configs,
           num_rounds=1,
       ),
-      # Year 3
       scene_lib.SceneSpec(
-          scene_type=scene_types['home'],
-          start_time=START_TIME + (2 * year_increment),
-          participant_configs=main_player_configs,
+          scene_type=scene_types[DEBRIEF_SCENE_TYPE],
+          start_time=config.times.debrief + year_increment,
+          participant_configs=[],
           num_rounds=1,
       ),
   ]
+
+  for i in range(2, config.num_years):
+    year = i * year_increment
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_types['home'],
+            start_time=config.times.start + year,
+            participant_configs=main_player_configs,
+            num_rounds=1,
+        )
+    )
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_types['negotiation'],
+            start_time=config.times.hill + year,
+            participant_configs=main_player_configs,
+            num_rounds=1,
+        )
+    )
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_types['home'],
+            start_time=config.times.return_home + year,
+            participant_configs=main_player_configs,
+            num_rounds=1,
+        )
+    )
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_types[RESOLUTION_SCENE_TYPE],
+            start_time=config.times.decision + year,
+            participant_configs=supporting_player_configs,
+            num_rounds=1,
+        )
+    )
+    scenes.append(
+        scene_lib.SceneSpec(
+            scene_type=scene_types[DEBRIEF_SCENE_TYPE],
+            start_time=config.times.debrief + year,
+            participant_configs=[],
+            num_rounds=1,
+        )
+    )
+
   return scenes
 
 
-def outcome_summary_fn(
-    binary_joint_action: Mapping[str, int],
-    unused_joint_action: Mapping[str, str],
-    unused_rewards: Mapping[str, float],
-    unused_cumulative_rewards: Mapping[str, float],
-) -> Mapping[str, str]:
-  """Summarize outcome of decision scene (used by Schelling payoffs component).
+# The following two functions are used to calculate the production functions
+# of villagers used to calculate the amount of product produced by their
+# activities e.g. farming, training as a warrior, or free time.
+# The specific parameters of these functions were chosen so that
+# _sigmoid_like_fn maps 0.0 to 0.0 and 1.0 to 1.0, and it grows supralinearly
+# around 0.5, i,e. sigmoidlike_fn(0.5) = 0.73.
+def _sigmoid(x):
+  return (1 / (1 + math.exp(-(x / 0.3))))
 
-  Args:
-    binary_joint_action: map each player name to whether they cooperated or
-      defected (0 indicates defection and 1 indicates cooperation).
-    unused_joint_action: map each player name to the action they took.
-    unused_rewards: map each player name to the reward they received
-    unused_cumulative_rewards: map each player name to the cumulative reward
-      they received over the episode so far.
 
-  Returns:
-    result: dict mapping player name to outcome summary
-  """
-  result = {name: '' for name in binary_joint_action}
-  num_cooperators = np.sum(list(binary_joint_action.values()))
-  success = num_cooperators > 2
-  common_part = ''
-  if success:
-    common_part += 'The barbarian invasion was successfully repulsed. '
-  else:
-    common_part += (
-        'The barbarian invasion was not stopped. Barbarians '
-        + 'overrun the region, taking whatever they please. After a season of '
-        + 'terror they finally leave the region, not because they were driven '
-        + 'out, but because precious little worth plundering remained. '
+def _sigmoidlike_fn(x):
+  return (_sigmoid(x) - 0.5) / (_sigmoid(1.0) - 0.5)
+
+
+def get_daily_activities_component(
+    model: language_model.LanguageModel,
+    config: config_dict.ConfigDict,
+    memory: associative_memory.AssociativeMemory,
+    players: Sequence[entity_agent.EntityAgent],
+    supporting_players: Sequence[entity_agent.EntityAgent],
+    player_configs: Sequence[formative_memories.AgentConfig],
+    clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
+    basic_setting: str = '',
+) -> tuple[
+    daily_activities.DailyActivities,
+    daily_activities.Payoffs,
+]:
+  """Get the daily activities tracking component for the game master."""
+
+  village_by_representative = {
+      config.main_characters.a.name: config.village_a_name,
+      config.main_characters.b.name: config.village_b_name,
+  }
+
+  supporting_player_names = [player.name for player in supporting_players]
+
+  activity_configs = tuple(
+      [ActivityConfig(name=activity) for activity in config.activities])
+  player_initial_activity_distribution = {
+      config.name: config.extras['prior_year_activity_distribution']
+      for config in player_configs if config.name in supporting_player_names
+  }
+  activities_component = daily_activities.DailyActivities(
+      model=model,
+      memory=memory,
+      activity_configs=activity_configs,
+      resolution_scene=RESOLUTION_SCENE_TYPE,
+      players=players,
+      player_initial_activity_distribution=player_initial_activity_distribution,
+      clock_now=clock_now,
+      num_to_retrieve=1,
+      basic_setting=basic_setting,
+      name='Daily activities\n',
+      verbose=False,
+  )
+
+  village_a_denizens = [name for name, _ in config.supporting_characters.a]
+  village_b_denizens = [name for name, _ in config.supporting_characters.b]
+
+  def _get_overall_activity_product_per_village(
+      activity_proportions: Mapping[str, Mapping[str, float]],
+      activity_name: str,
+  ) -> Mapping[str, float]:
+    activity_of_village_a = 0.0
+    activity_of_village_b = 0.0
+    for player_name, activities in activity_proportions.items():
+      if player_name in village_a_denizens:
+        activity_of_village_a += _sigmoidlike_fn(activities[activity_name])
+      if player_name in village_b_denizens:
+        activity_of_village_b += _sigmoidlike_fn(activities[activity_name])
+    overall_proportion_activity_of_village_a = (
+        activity_of_village_a / len(village_a_denizens))
+    overall_proportion_activity_of_village_b = (
+        activity_of_village_b / len(village_b_denizens))
+    return {config.village_a_name: overall_proportion_activity_of_village_a,
+            config.village_b_name: overall_proportion_activity_of_village_b}
+
+  def _are_agricultural_resources_pooled(
+      game_master_memory: associative_memory.AssociativeMemory,
+      timepoint: str) -> bool:
+    """Check if villagers have agreed to pool agricultural resources."""
+    retrieved = game_master_memory.retrieve_by_regex(
+        regex=r'\[' + timepoint + r'\].*',
+        sort_by_time=True,
     )
-  for player_name, action in binary_joint_action.items():
-    result[player_name] += common_part
-    # action == 1 indicates cooperation while action == 0 indicates defection
-    if success and action == 1:
-      result[player_name] += (
-          f'{player_name} did their duty and helped '
-          + 'achieve this great victory.'
+    result = False
+    if retrieved:
+      retrieved_str = '\n'.join(retrieved)
+      villager_names_str = ', '.join(supporting_player_names)
+      chain_of_thought = interactive_document.InteractiveDocument(model)
+      chain_of_thought.statement(f'Record of events:\n{retrieved_str}')
+      result = chain_of_thought.yes_no_question(
+          question=('Is there evidence in the above record of events that '
+                    'a majority of villagers support pooling '
+                    'agricultural products between villages such that a '
+                    'village with less food can be resupplied by a village '
+                    'with more food? Only consider the following villagers: '
+                    f'{villager_names_str}. If there is no evidence of a '
+                    'particular villager\'s opinion, then assume that villager '
+                    'is against sharing agricultural resources.')
       )
-    elif success and action == 0:
-      result[player_name] += (
-          f'{player_name} chose not to do their duty, '
-          + 'but victory was obtained nonetheless.'
-      )
-    elif not success and action == 1:
-      result[player_name] += (
-          f'{player_name} did their duty. However, too '
-          + 'few others joined. The wanton cruelty of the '
-          + 'barbarians caused much suffering throughout '
-          + 'the region.'
-      )
-    elif not success and action == 0:
-      result[player_name] += (
-          f'{player_name} did not do their duty. '
-          + 'The wanton cruelty of the barbarians caused '
-          + 'much suffering throughout the region.'
-      )
-  return result
+    return result
+
+  def player_score_fn(
+      current_scene_type: str,
+      activity_proportions: Mapping[str, Mapping[str, float]],
+      player_name: str,
+      game_master_memory: associative_memory.AssociativeMemory,
+      timepoint: str,
+  ) -> tuple[float, Sequence[str]]:
+    """Get the individual part of the score."""
+    score = 0.0
+    events = []
+    if current_scene_type != DEBRIEF_SCENE_TYPE:
+      return score, events
+
+    # Shared part of the score (common defense) is calculated first.
+    defense_per_village = _get_overall_activity_product_per_village(
+        activity_proportions, config.warrior_training_activity)
+    # Overall defense is the mean defense over villages because barbarians
+    # may attack randomly near any village equiprobably.
+    raw_overall_defense = np.mean(list(defense_per_village.values()))
+    if raw_overall_defense < config.defense_threshold:
+      defense = 0.0
+      events.append(config.sample_event_of_failing_to_repel_barbarians())
+    else:
+      defense = 1.0
+      events.append(config.sample_event_of_success_repelling_barbarians())
+
+    # Individual part of the score (farming and free time) is calculated next.
+    if player_name in village_by_representative:
+      this_village = village_by_representative[player_name]
+    else:
+      if player_name in  [name for name, _ in config.supporting_characters.a]:
+        this_village = config.village_a_name
+      elif player_name in [name for name, _ in config.supporting_characters.b]:
+        this_village = config.village_b_name
+      else:
+        raise ValueError(f'Player {player_name} not found in any '
+                         f'village: {village_by_representative} -- '
+                         f'{config.supporting_characters.a} -- '
+                         f'{config.supporting_characters.b}')
+
+    farming_per_village = _get_overall_activity_product_per_village(
+        activity_proportions, config.farming_activity)
+    if _are_agricultural_resources_pooled(game_master_memory,
+                                          timepoint):
+      # If villagers have agreed to resupply whichever village has less food
+      # then all villages receive the max of their agricultural production, so
+      # starvation is unlikely unless all villages starve together.
+      raw_agriculture = np.max(list(farming_per_village.values()))
+      events.append(config.sample_event_treaty_in_effect())
+    else:
+      # If villagers did not agree to pool agricultural resources then each
+      # village is on its own and villages that do not farm enough starve.
+      raw_agriculture = farming_per_village[this_village]
+      events.append(config.sample_event_no_treaty_in_effect())
+
+    if raw_agriculture < config.starvation_threshold:
+      agriculture = 0.0
+      events.append(config.sample_event_of_failing_to_grow_food())
+    else:
+      agriculture = 1.0
+      events.append(config.sample_event_of_success_growing_food())
+
+    # Villager free time contributes positively to the overall score.
+    free_time_per_village = _get_overall_activity_product_per_village(
+        activity_proportions, config.free_time_activity)
+    free_time = free_time_per_village[this_village]
+
+    # The overall score is the product of the activity scores. Note that two of
+    # them are constrained to be binary (defense and agriculture) so the only
+    # effect they can have is to gate the free time score.
+    score = defense * agriculture * free_time
+
+    return score, events
+
+  payoffs = daily_activities.Payoffs(
+      memory=memory,
+      daily_activities=activities_component,
+      players=players,
+      player_score_fn=player_score_fn,
+      get_timepoint_fn=lambda: str(clock_now().year),
+      clock_now=clock_now,
+      name='Payoffs',
+  )
+  return activities_component, payoffs
 
 
 class Simulation(scenarios_lib.RunnableSimulationWithMemories):
@@ -590,7 +774,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       agent_module: types.ModuleType = basic_agent,
       override_agent_model: language_model.LanguageModel | None = None,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
-      supporting_agent_module: types.ModuleType | None = None,
+      supporting_agent_module: types.ModuleType = basic_agent_supporting,
       time_and_place_module: str | None = None,
       seed: int | None = None,
   ):
@@ -616,24 +800,37 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         specified, a random module will be chosen from the default options.
       seed: optionally, specify a seed for the random number generator.
     """
-    # Support for these parameters will be added in a future addition coming
-    # very imminently.
-    del resident_visitor_modules
-    del supporting_agent_module
-    del time_and_place_module
-    del override_agent_model
+    if resident_visitor_modules is None:
+      self._resident_visitor_mode = False
+      self._agent_module = agent_module
+    else:
+      self._resident_visitor_mode = True
+      self._resident_agent_module, self._visitor_agent_module = (
+          resident_visitor_modules
+      )
+    self._agent_model = model
+    if override_agent_model:
+      self._agent_model = override_agent_model
 
-    self._agent_module = agent_module
+    self._supporting_agent_module = supporting_agent_module
+
     self._model = model
     self._embedder = embedder
     self._measurements = measurements
+
+    self._time_and_place_module = time_and_place_module
+    _, config = helper_functions.load_time_and_place_module(
+        time_and_place_module=time_and_place_module,
+        default_time_and_place_modules=DEFAULT_TIME_AND_PLACE_MODULES,
+        seed=seed,
+    )
     self._rng = random.Random(seed)
 
     self._clock = game_clock.MultiIntervalClock(
-        start=SETUP_TIME, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
+        start=config.times.setup, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
-    importance_model = importance_function.ConstantImportanceModel()
+    importance_model = importance_function.AgentImportanceModel(self._model)
     importance_model_gm = importance_function.ConstantImportanceModel()
     self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
@@ -641,16 +838,20 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         importance=importance_model.importance,
         clock_now=self._clock.now,
     )
-    shared_memories, shared_context = get_shared_memories_and_context(model)
+    shared_memories, shared_context = get_shared_memories_and_context(
+        model=model, config=config)
     self._formative_memory_factory = formative_memories.FormativeMemoryFactory(
         model=self._model,
         shared_memories=shared_memories,
         blank_memory_factory_call=self._blank_memory_factory.make_blank_memory,
-        current_date=SETUP_TIME,
+        current_date=config.times.setup,
     )
 
     main_player_configs, supporting_player_configs, player_configs_dict = (
-        configure_players(self._rng)
+        configure_players(
+            rng=self._rng,
+            config=config,
+        )
     )
 
     tasks = {
@@ -662,41 +863,59 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     self._all_memories = concurrency.run_tasks(tasks)
 
     main_players = []
-    for player_config in main_player_configs:
-      player = self._agent_module.build_agent(
-          config=player_config,
-          model=self._model,
-          memory=self._all_memories[player_config.name],
-          clock=self._clock,
-          update_time_interval=MAJOR_TIME_STEP,
-      )
+    self._resident_names = []
+    self._visitor_names = []
+    for idx, player_config in enumerate(main_player_configs):
+      kwargs = {
+          'config': player_config,
+          'model': self._model,
+          'memory': self._all_memories[player_config.name],
+          'clock': self._clock,
+          'update_time_interval': MAJOR_TIME_STEP,
+      }
+      if self._resident_visitor_mode:
+        if idx == 0:
+          player = self._visitor_agent_module.build_agent(**kwargs)
+          self._visitor_names.append(player.name)
+        else:
+          player = self._resident_agent_module.build_agent(**kwargs)
+          self._resident_names.append(player.name)
+      else:
+        player = self._agent_module.build_agent(**kwargs)
+        self._resident_names.append(player.name)
+
       main_players.append(player)
 
     supporter_extra_components = {}
     for player_config in supporting_player_configs:
       village_name = player_config.extras['home_village']
-      representative = REPRESENTATIVE_BY_VILLAGE[village_name]
-      supporting_character_plan = agent_components.constant.Constant(
-          pre_act_key='plan',
-          state=(
-              f"{player_config.name}'s plan is to find {representative} to "
-              'discuss weighty matters.'
+      which_village = agent_components.constant.Constant(
+          pre_act_key='\nHome village',
+          state=(f'{player_config.name} lives in {village_name} and never '
+                 'travels elsewhere.'),
+      )
+      ancestral_job = agent_components.constant.Constant(
+          pre_act_key='\nHow things are',
+          state=config.villager_how_things_are_constant.format(
+              name=player_config.name,
+              village_name=village_name,
           ),
       )
       conversation_style = agent_components.constant.Constant(
-          pre_act_key='guiding principle of good conversation',
+          pre_act_key='\nGuiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
               player_config.name
           ),
       )
       supporter_extra_components[player_config.name] = {
-          'Plan': supporting_character_plan,
+          'Home village': which_village,
+          'How things are': ancestral_job,
           'Guiding principle of good conversation': conversation_style,
       }
 
     supporting_players = []
     for player_config in supporting_player_configs:
-      player = basic_agent_supporting.build_agent(
+      player = self._supporting_agent_module.build_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
@@ -708,13 +927,29 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._all_players = main_players + supporting_players
 
+    game_master_memory = associative_memory.AssociativeMemory(
+        sentence_embedder=self._embedder,
+        importance=importance_model_gm.importance,
+        clock=self._clock.now,
+    )
+    daily_activities_component, self._score = get_daily_activities_component(
+        model=model,
+        config=config,
+        memory=game_master_memory,
+        players=self._all_players,
+        supporting_players=supporting_players,
+        player_configs=main_player_configs + supporting_player_configs,
+        clock_now=self._clock.now,
+        basic_setting=config.basic_setting,
+    )
+
     setting = generic_components.constant.ConstantComponent(
-        state=BASIC_SETTING,
-        name='Setting',
+        state=config.basic_setting,
+        name='\nSetting',
     )
     magic_is_not_real = generic_components.constant.ConstantComponent(
         state='Magic is not real. Superatural events are impossible.',
-        name='Important fact',
+        name='\nImportant fact',
     )
     barbarians_never_nice = generic_components.constant.ConstantComponent(
         state=(
@@ -723,7 +958,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             'the villagers. They cannot be reasoned with. They will '
             'always attempt to invade and plunder the villages.'
         ),
-        name='Critical premise',
+        name='\nCritical premise',
     )
 
     supporting_player_names_village_a_str = _get_conjunction_of_names_string(
@@ -743,6 +978,23 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             'village center. They are influential and respected stakeholders '
             f'in {config.village_b_name} society.'
         ),
+        name='\nFact 1'
+    )
+
+    no_unofficial_communication = generic_components.constant.ConstantComponent(
+        state=(
+            f'Direct conversation between villagers of {config.village_a_name} '
+            f'and {config.village_b_name} is not possible. The only possible '
+            'way to communicate is through the diplomatic meeting at the hill '
+            'of accord. Therefore, the two elder representatives who meet at '
+            'the hill of accord constitute the only channel of communication '
+            'between villages. The two elder representatives can '
+            'speak directly to each other, but they can only do so while they '
+            'are physically at the hill of accord. Villagers cannot '
+            'participate in conversations at the hill of accord since it is '
+            'far away. And villagers never travel away from their home village.'
+        ),
+        name='\nFact 2',
     )
 
     additional_gm_components = [
@@ -750,7 +1002,26 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         magic_is_not_real,
         barbarians_never_nice,
         stakeholders_easy_to_find,
+        no_unofficial_communication,
+        daily_activities_component,
+        self._score,
     ]
+
+    supporting_player_locations = []
+    supporting_player_locations.extend([
+        (
+            f'{player_data[0]} waits for {config.main_characters.a.name} in '
+            f'the center of {config.village_a_name}.'
+        )
+        for player_data in config.supporting_characters.a
+    ])
+    supporting_player_locations.extend([
+        (
+            f'{player_data[0]} waits for {config.main_characters.b.name} in '
+            f'the center of {config.village_b_name}.'
+        )
+        for player_data in config.supporting_characters.b
+    ])
 
     self._primary_environment, self._game_master_memory = (
         basic_game_master.build_game_master(
@@ -762,45 +1033,52 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             shared_memories=shared_memories,
             shared_context=shared_context,
             blank_memory_factory=self._blank_memory_factory,
-            supporting_players_at_fixed_locations=SUPPORTING_PLAYER_LOCATIONS,
+            max_conversation_length=2,
+            cap_nonplayer_characters_in_conversation=0,
+            memory=game_master_memory,
+            supporting_players_at_fixed_locations=supporting_player_locations,
             additional_components=additional_gm_components,
+            seed=seed,
         )
     )
-    payoffs = gm_components.schelling_diagram_payoffs.SchellingPayoffs(
-        model=self._model,
-        memory=self._game_master_memory,
-        cooperative_option='yes',
-        resolution_scene=RESOLUTION_SCENE_TYPE,
-        cooperator_reward_fn=lambda x: x,
-        defector_reward_fn=lambda x: x + 1.0,
-        players=self._all_players,
-        acting_player_names=[cfg.name for cfg in supporting_player_configs],
-        outcome_summarization_fn=outcome_summary_fn,
-        clock_now=self._clock.now,
-        name='scoring function',
-    )
-    decision_env = basic_game_master.build_decision_scene_game_master(
-        model=self._model,
+
+    self._no_conversation_game_master = game_master.GameMaster(
+        model=model,
         memory=self._game_master_memory,
         clock=self._clock,
+        name='Decision Environment',
         players=self._all_players,
-        decision_action_spec=DECISION_ACTION_SPEC,
-        payoffs=payoffs,
+        components=additional_gm_components,
+        update_thought_chain=[thought_chains_lib.identity],
+        randomise_initiative=True,
+        player_observes_event=True,
+        concurrent_externalities=False,
+        seed=seed,
     )
+
     self._scenes = configure_scenes(
+        config=config,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         player_configs_dict=player_configs_dict,
-        decision_env=decision_env,
+        no_conversation_game_master=self._no_conversation_game_master,
     )
-    self._secondary_environments = [decision_env]
+    self._secondary_environments = [self._no_conversation_game_master]
 
     self._init_premise_memories(
-        setup_time=SETUP_TIME,
+        config=config,
+        setup_time=config.times.setup,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
         shared_memories=(),
-        scenario_premise=SCENARIO_PREMISE,
+        scenario_premise=[
+            (
+                f'{config.main_characters.a.name} and '
+                f'{config.main_characters.b.name} meet periodically at the '
+                'hill of accord to discuss current events and '
+                'conduct diplomacy on behalf of the villages they represent.'
+            ),
+        ],
     )
 
   def _make_player_memories(
@@ -815,6 +1093,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
   def _init_premise_memories(
       self,
+      config: config_dict.ConfigDict,
       setup_time: datetime.datetime,
       main_player_configs: list[formative_memories.AgentConfig],
       supporting_player_configs: list[formative_memories.AgentConfig],
@@ -824,6 +1103,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     """Initialize player memories.
 
     Args:
+      config: the specific time and place configuration for this simulation
       setup_time: the time to set the clock to before initializing memories
       main_player_configs: configs for the main characters
       supporting_player_configs: configs for the supporting characters
@@ -866,26 +1146,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     # Generate memory of each elder being at home in their home village.
     for idx, player in enumerate(main_players):
       village = player_configs[idx].extras['home_village']
-      scene_premise = (
-          f'Elder {player.name} is home in {village}. It is one day before '
-          'they are to depart their village to travel to the hill of accord to '
-          'meet the representative of the other village. It has been '
-          'suggested that an alliance for the mutual defense of both '
-          'villages against the growing threat of barbarian sea raiders would '
-          'be beneficial. The purpose of the upcoming meeting is to negotiate '
-          'the terms of the agreement to underpin such an alliance. To be '
-          'successful, the agreement must incentivize people from both '
-          'villages to spend time and resources training as warriors, '
-          'and to be ready to fight wherever the raiders come ashore. When '
-          'individuals spend their time training as warriors they are less '
-          'able to spend time on other activities like farming or fishing, so '
-          'it is necessary to secure enough resources to compensate them for '
-          'the time they spend training. An effective alliance agreement will '
-          'have to be concerned with how these resources are to be obtained '
-          f'and distributed. Influential people in {village} will surely have '
-          'a lot of thoughts on this matter, best to consult them first in '
-          'order to represent their interests effectively in the negotiation.'
-      )
+      scene_premise = config.home_scene_premise.format(
+          name=player.name, village=village)
 
       # Add memory to both player and GM.
       player.observe(scene_premise)
@@ -909,18 +1171,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
-    # TMP -- ADD THIS ONCE THIS ENVIRONMENT SUPPORTS RESIDENT/VISITOR MODE
-    simulation_outcome = logging_lib.SimulationOutcome(
-        resident_scores=immutabledict.immutabledict({}),
-        visitor_scores=immutabledict.immutabledict({}),
-        metadata=immutabledict.immutabledict({
-            'wallclock_time': datetime.datetime.now().strftime(
-                '%Y-%m-%d %H:%M:%S'
-            ),
-            'environment': __file__,
-        }),
-    )
-    # END TMP
     html_results_log = basic_game_master.run_simulation(
         model=self._model,
         players=self._all_players,
@@ -930,4 +1180,35 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         scenes=self._scenes,
         summarize_entire_episode_in_log=False,
     )
+
+    player_scores = self._score.get_scores()
+    simulation_outcome = logging_lib.SimulationOutcome(
+        resident_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._resident_names}
+        ),
+        visitor_scores=immutabledict.immutabledict(
+            {name: player_scores[name] for name in self._visitor_names}
+        ),
+        metadata=immutabledict.immutabledict({
+            'wallclock_time': datetime.datetime.now().strftime(
+                '%Y-%m-%d %H:%M:%S'
+            ),
+            'environment': __file__,
+            'time_and_place_module': self._time_and_place_module,
+        }),
+    )
+    print('Overall scores per player:')
+    if self._resident_visitor_mode:
+      idx = 0
+      for player_name, score in player_scores.items():
+        if idx == 0:
+          print('Visitor')
+        else:
+          print('Resident')
+        print(f'  {player_name}: {score}')
+        idx += 1
+    else:
+      for player_name, score in player_scores.items():
+        print(f'{player_name}: {score}')
+
     return simulation_outcome, html_results_log
