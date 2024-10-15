@@ -25,6 +25,8 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.factory.agent import basic_agent
+from concordia.factory.agent import basic_agent_without_plan
+from concordia.factory.agent import observe_recall_prompt_agent
 from concordia.factory.agent import paranoid_agent
 from concordia.factory.agent import rational_agent
 from concordia.factory.agent import synthetic_user
@@ -44,15 +46,17 @@ AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic_agent': basic_agent,
+    'basic_agent_without_plan': basic_agent_without_plan,
+    'observe_recall_prompt_agent': observe_recall_prompt_agent,
+    'paranoid_agent': paranoid_agent,
     'rational_agent': rational_agent,
     'synthetic_user': synthetic_user,
-    'paranoid_agent': paranoid_agent,
 }
 
 
 def _embedder(text: str):
   del text
-  return np.random.rand(16)
+  return np.random.rand(3)
 
 
 class AgentFactoriesTest(parameterized.TestCase):
@@ -64,6 +68,21 @@ class AgentFactoriesTest(parameterized.TestCase):
           main_role=True
       ),
       dict(
+          testcase_name='basic_agent_without_plan',
+          agent_name='basic_agent_without_plan',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='observe_recall_prompt_agent',
+          agent_name='observe_recall_prompt_agent',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='paranoid_agent',
+          agent_name='paranoid_agent',
+          main_role=True,
+      ),
+      dict(
           testcase_name='rational_agent',
           agent_name='rational_agent',
           main_role=True,
@@ -71,11 +90,6 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(
           testcase_name='synthetic_user',
           agent_name='synthetic_user',
-          main_role=True,
-      ),
-      dict(
-          testcase_name='paranoid_agent',
-          agent_name='paranoid_agent',
           main_role=True,
       ),
   )

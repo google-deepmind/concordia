@@ -145,6 +145,17 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='reality_show',
         supporting_agent_module=None,
     ),
+    state_formation=SubstrateConfig(
+        description=(
+            'players are elders in two pre-state agrarian villages which are '
+            'being threatened by a common enemy and have the option of '
+            'working together; the elders must negotiate an agreement with '
+            'the other village and then sell their deal to influential '
+            'stakeholders back home'
+        ),
+        environment='state_formation',
+        supporting_agent_module='basic_agent',
+    ),
 )
 
 SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
@@ -301,6 +312,21 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'discouraging antisocial behavior',
             'convention following',
             'persuasion',
+        ),
+    ),
+    state_formation_0=ScenarioConfig(
+        description=(
+            'player must negotiate a treaty to enable division of labor in '
+            'common defense and agriculture and sell it to village stakeholders'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['state_formation'],
+        background_agent_module='basic_agent_without_plan',
+        time_and_place_module='pre_state_villages',
+        focal_is_resident=True,
+        tags=(
+            'negotiation',
+            'persuasion',
+            'division of labor',
         ),
     ),
 )
