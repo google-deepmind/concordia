@@ -16,6 +16,7 @@
 
 from typing import Sequence
 
+from absl import logging
 from concordia.typing import component
 from concordia.utils import helper_functions
 
@@ -26,6 +27,10 @@ class Sequential(component.Component):
   def __init__(self, name: str, components: Sequence[component.Component]):
     self._components = components
     self._name = name
+    logging.warn(
+        'The Sequential component is deprecated. Please use Entity Components '
+        'and specifically `action_spec_ignored` to achieve the same effect '
+        'as the old Sequential component.')
 
   def update(self) -> None:
     for comp in self._components:
