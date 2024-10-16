@@ -182,6 +182,7 @@ def configure_player(
           f"{name}'s personality is like "
           + player_traits_and_styles.get_trait(flowery=True)
       ),
+      goal=f'{name} wants to make as much money as possible.',
       extras=extras,
   )
 
