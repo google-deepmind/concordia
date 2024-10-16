@@ -1913,10 +1913,20 @@ def sample_parameters(
   config.sample_event_treaty_in_effect = lambda: rng.choice(
       _TREATY_IN_EFFECT_DESCRIPTIONS)
 
-  config.villager_how_things_are_constant = (
+  config.villager_how_things_are_constant = config_dict.ConfigDict()
+  config.villager_how_things_are_constant.village_a = (
       'Everyone in {name}\'s family has always been a '
       'farmer. As long as anyone can remember, they have farmed their '
-      'ancestral lands near {village_name}.'
+      'ancestral lands near {village_name}. {name} hates the idea of spending '
+      'time on any activity other than farming or leisure.'
+  )
+  config.villager_how_things_are_constant.village_b = (
+      '{name}\'s family values strength and believes in the importance of '
+      'training for war. They have always felt that they would like to train '
+      'more but the village\'s lack of food security has always made it hard. '
+      'If one spends too much time training then they compromise farming and '
+      'risk starvation. But if freedom from the threat of famine could be '
+      'achieved then {name} would gladly spend more time training for war.'
   )
   config.negotiation_phase_extra_premise = (
       'Agriculture is critical to both villages. But, the more time spent '

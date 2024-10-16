@@ -894,9 +894,17 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           state=(f'{player_config.name} lives in {village_name} and never '
                  'travels elsewhere.'),
       )
-      ancestral_job = agent_components.constant.Constant(
+      if village_name == config.village_a_name:
+        how_things_are_string = (
+            config.villager_how_things_are_constant.village_a)
+      elif village_name == config.village_b_name:
+        how_things_are_string = (
+            config.villager_how_things_are_constant.village_b)
+      else:
+        raise ValueError(f'Unknown village name: {village_name}')
+      how_things_are = agent_components.constant.Constant(
           pre_act_key='\nHow things are',
-          state=config.villager_how_things_are_constant.format(
+          state=how_things_are_string.format(
               name=player_config.name,
               village_name=village_name,
           ),
@@ -909,7 +917,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       )
       supporter_extra_components[player_config.name] = {
           'Home village': which_village,
-          'How things are': ancestral_job,
+          'How things are': how_things_are,
           'Guiding principle of good conversation': conversation_style,
       }
 
