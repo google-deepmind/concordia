@@ -171,14 +171,6 @@ class DailyActivities(component.Component):
         self._activities[player_name]
     )
 
-  def _send_message_to_player_and_game_master(
-      self, player_name: str, message: str
-  ) -> None:
-    """Send `message` to player `player_name`."""
-    player = self._names_to_players[player_name]
-    player.observe(message)
-    self._memory.add(message)
-
   def state(self) -> str:
     return self._state
 
@@ -196,15 +188,6 @@ class DailyActivities(component.Component):
           name: self._get_player_daily_activities_str(name)
           for name in self._player_names
       }
-      # Explicitly pass partial states to agents here in `update` instead of
-      # relying on the game master to call partial state on all players. This is
-      # because we frequently have supporting characters who participate in
-      # conversations but do not take active turns with the top-level game
-      # master themselves. This method of passing the partial state information
-      # ensures that theses players still get to observe their activities.
-      for player_name in self._player_names:
-        self._names_to_players[player_name].observe(
-            self._partial_states[player_name])
 
   def update_before_event(self, player_action_attempt: str) -> None:
     # we assume that the player action attempt is in the format
@@ -383,14 +366,6 @@ class Payoffs(component.Component):
   def name(self) -> str:
     """Returns the name of this component."""
     return self._name
-
-  def _send_message_to_player_and_game_master(
-      self, player_name: str, message: str
-  ) -> None:
-    """Send `message` to player `player_name`."""
-    player = self._names_to_players[player_name]
-    player.observe(message)
-    self._memory.add(message)
 
   def state(self) -> str:
     return '\n'.join({player_name: partial_state for player_name, partial_state
