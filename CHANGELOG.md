@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.3] - 2024-10-19
+
+### Changed
+
+- Allow conversation game master to be configured with memory and additional components
+- Prevent daily_activities component from adding irrelevant info to memory and improve some of the time_and_place setting prompts.
+- Add deprecation warning to the Sequential component
+- together and mistral language model wrappers to no longer delete after last ".".
+- Improve together.ai language model wrapper.
+- disable pytype on a kwargs unpack
+- Forward device and api_key only when explicitly specified.
+
+### Added
+
+- Add support for custom cloud models (google cloud custom models)
+- added instructions in the comment for finding relevant endpoint info. Defaulting location to "us-central1".
+- Add agreement tracker contrib component.
+- Add state_formation environment
+- Add basic_agent_without_plan and use it in a scenario for state_formation.
+
+### Fixed
+
+- Fixes a bug in inventory and schelling payoffs components, which previously crashed if player_action_attempt had ': ' in its text.
+
+
 ## [1.8.3] - 2024-10-08
 
 ### Changed
