@@ -217,7 +217,7 @@ class Gemma2(language_model.LanguageModel):
   ) -> tuple[int, str, dict[str, float]]:
 
     def _sample_choice(response: str) -> float:
-      augmented_prompt = prompt + response
+      augmented_prompt = prompt
       original_augmented_prompt = augmented_prompt
       augmented_prompt = _ensure_prompt_not_too_long(augmented_prompt, 1)
       messages = [
@@ -282,7 +282,14 @@ class Gemma2(language_model.LanguageModel):
           break
 
       if result:
-        lp = sum(result.choices[0].logprobs.token_logprobs)
+        token_logprob_pairs = [
+          (token, logprob)
+          for token, logprob in zip(result.choices[0].logprobs.tokens, result.choices[0].logprobs.token_logprobs)
+        ]
+        response_logprob = [
+            logprob for token, logprob in token_logprob_pairs if token.startswith(response)
+        ]
+        lp = response_logprob[0] if len(response_logprob) > 0 else float('-inf')
       else:
         raise ValueError(
             f'Failed to get logprobs.\nException prompt: {augmented_prompt}')
