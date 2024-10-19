@@ -232,7 +232,12 @@ class SchellingPayoffs(component.Component):
 
   def update_before_event(self, player_action_attempt: str) -> None:
     # `player_action_attempt` is formatted as "name: attempt".
-    player_name, choice_str = player_action_attempt.split(': ')
+    # we assume that the player action attempt is in the format
+    # 'player_name: player_choice'. All other occurences of ':' will be treated
+    # as a part of the player choice.
+    player_name, choice_str = player_action_attempt.split(': ', 1)
+    if player_name not in self._acting_player_names:
+      return
     self._partial_joint_action[player_name] = choice_str
     self._state = ''
 

@@ -29,9 +29,11 @@ from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
+from concordia.contrib.components.game_master import agreement_tracker
 from concordia.contrib.components.game_master import daily_activities
 from concordia.document import interactive_document
 from concordia.environment import game_master
+from concordia.environment.scenes import conversation
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.environment.utils import helper_functions
@@ -61,6 +63,8 @@ MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
 RESOLUTION_SCENE_TYPE = 'decision'
 DEBRIEF_SCENE_TYPE = 'debrief'
+NEGOTIATION_SCENE_TYPE = 'negotiation'
+POST_NEGOTIATION_SCENE_TYPE = 'post_negotiation'
 
 
 def _get_conjunction_of_names_string(
@@ -136,8 +140,8 @@ def configure_players(
       f'{and_stakeholders_village_a} {is_or_are} '
       "generally pretty reasonable. It's a good idea for "
       f'{config.main_characters.a.name} to try to represent '
-      'their interests in the negotiation at the hill of accord. There are no '
-      'other influential individuals in the village.'
+      'their interests and concerns in the negotiation. There are no '
+      f'other influential individuals in {config.village_a_name}.'
   )
   elder_village_b_stakeholder_knowledge = (
       f'{and_stakeholders_village_b} are respected and influential in '
@@ -146,8 +150,8 @@ def configure_players(
       f'{and_stakeholders_village_b} {is_or_are} '
       "generally pretty reasonable. It's a good idea for "
       f'{config.main_characters.b.name} to try to represent '
-      'their interests in the negotiation at the hill of accord. There are no '
-      'other influential individuals in the village.'
+      'their interests and concerns in the negotiation. There are no '
+      f'other influential individuals in {config.village_b_name}.'
   )
 
   player_configs = [
@@ -157,9 +161,8 @@ def configure_players(
           gender=config.main_characters.a.gender,
           date_of_birth=datetime.datetime(year=1700, month=9, day=13),
           goal=(
-              f'{config.main_characters.a.name} wants to do what is best for '
-              f'{config.village_a_name}, especially when '
-              + f'it is also best for {config.main_characters.a.name}.'
+              f'{config.main_characters.a.name} wants to be a good leader and '
+              f'do what is best for {config.village_a_name}.'
           ),
           context=' '.join(config.villages.a) + ' ' + config.basic_setting,
           traits=(
@@ -175,13 +178,14 @@ def configure_players(
                   (
                       f'{config.main_characters.a.name} represents'
                       f' {config.village_a_name} at the diplomatic meeting at'
-                      ' the hill of accord.'
+                      f' {config.meeting_location}.'
                   ),
                   (
                       f'The center of {config.village_a_name} is a good place'
                       ' to meet other villagers.'
                   ),
                   elder_village_a_stakeholder_knowledge,
+                  config.negotiation_objective_thought,
                   *config.villages.a,
               ],
               'home_village': config.village_a_name,
@@ -193,9 +197,8 @@ def configure_players(
           gender=config.main_characters.b.gender,
           date_of_birth=datetime.datetime(year=1700, month=2, day=12),
           goal=(
-              f'{config.main_characters.b.name} wants to do what is best '
-              f'for {config.village_b_name}, especially '
-              + f'when it is also best for {config.main_characters.b.name}.'
+              f'{config.main_characters.b.name} wants to be a good leader and '
+              f'do what is best for {config.village_b_name}.'
           ),
           context=' '.join(config.villages.b) + ' ' + config.basic_setting,
           traits=(
@@ -211,13 +214,14 @@ def configure_players(
                   (
                       f'{config.main_characters.b.name} represents'
                       f' {config.village_b_name} at the diplomatic meeting at'
-                      ' the hill of accord.'
+                      f' {config.meeting_location}.'
                   ),
                   (
                       f'The center of {config.village_b_name} is a good place'
                       ' to meet other villagers.'
                   ),
                   elder_village_b_stakeholder_knowledge,
+                  config.negotiation_objective_thought,
                   *config.villages.b,
               ],
               'home_village': config.village_b_name,
@@ -259,8 +263,8 @@ def configure_players(
                 (
                     f'{config.supporting_characters.a[0][0]} knows that '
                     f'{config.main_characters.a.name} will represent '
-                    f'{config.village_a_name} in the meeting at the hill of '
-                    'accord.'
+                    f'{config.village_a_name} in the meeting at '
+                    f'{config.meeting_location}.'
                 ),
                 *config.villages.a,
             ],
@@ -308,8 +312,8 @@ def configure_players(
                 (
                     f'{config.supporting_characters.b[0][0]} knows that '
                     f'{config.main_characters.b.name} will represent '
-                    f'{config.village_b_name} in the meeting at the hill of '
-                    'accord.'
+                    f'{config.village_b_name} in the meeting at '
+                    f'{config.meeting_location}.'
                 ),
                 *config.villages.b,
             ],
@@ -342,6 +346,7 @@ def configure_scenes(
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     player_configs_dict: dict[str, formative_memories.AgentConfig],
     no_conversation_game_master: game_master.GameMaster,
+    negotiation_game_master: game_master.GameMaster,
 ) -> Sequence[scene_lib.SceneSpec]:
   """Configure the scene storyboard structure.
 
@@ -352,6 +357,7 @@ def configure_scenes(
     player_configs_dict: dict mapping player name to corresponding config
     no_conversation_game_master: secondary game master that does not include
       conversations
+    negotiation_game_master: secondary game master for the negotiation scene
 
   Returns:
     scenes: the scenes to use
@@ -365,45 +371,38 @@ def configure_scenes(
   supporting_player_names = [
       config.name for config in supporting_player_configs
   ]
-
-  home_phase_premise = (
-      'Elder {player_name} is home in {village_name}, and knows it will '
-      'be critical to gain the support of influential stakeholders in the '
-      'village if any agreement is to last. {player_name} should start seeking '
-      'their support now. There is no time to rest.'
+  supporting_player_names_village_a = [
+      player[0] for player in config.supporting_characters.a
+  ]
+  supporting_player_names_village_b = [
+      player[0] for player in config.supporting_characters.b
+  ]
+  and_stakeholders_village_a = _get_conjunction_of_names_string(
+      supporting_player_names_village_a, and_or='and'
   )
-
-  supporting_character_home_phase_premise = (
-      '{player_name} is currently in {village_name} and has no intention of '
-      'leaving today.'
-  )
-
-  elder_a = config.main_characters.a.name
-  elder_b = config.main_characters.b.name
-
-  negotiation_phase_premise = (
-      'Elder {player_name} left {village_name} early in the morning and '
-      'arrived just now at the hill of accord. The reason for this meeting '
-      'of the two elder representatives of their respective villages '
-      f'({elder_a} representing {config.village_a_name} and '
-      f'{elder_b} representing {config.village_b_name}) is '
-      'as follows: barbarian raiders have been pillaging and burning the land, '
-      'and menacing both villages. It has been suggested that an alliance for '
-      'mutual defense against the barbarian threat would be beneficial. The '
-      'elders are meeting today to try to negotiate such an alliance.'
+  and_stakeholders_village_b = _get_conjunction_of_names_string(
+      supporting_player_names_village_b, and_or='and'
   )
 
   home_scene_premises = {}
   for name in main_player_names:
+    village_name = player_configs_dict[name].extras['home_village']
+    if village_name == config.village_a_name:
+      and_stakeholders = and_stakeholders_village_a
+    elif village_name == config.village_b_name:
+      and_stakeholders = and_stakeholders_village_b
+    else:
+      raise ValueError(f'Unknown village name: {village_name}')
     home_scene_premises[name] = (
-        home_phase_premise.format(
+        config.home_phase_premise.format(
             player_name=name,
-            village_name=player_configs_dict[name].extras['home_village'],
+            village_name=village_name,
+            and_supporting_characters=and_stakeholders
         ),
     )
   for name in supporting_player_names:
     home_scene_premises[name] = (
-        supporting_character_home_phase_premise.format(
+        config.supporting_character_home_phase_premise.format(
             player_name=name,
             village_name=player_configs_dict[name].extras['home_village'],
         ),
@@ -412,16 +411,12 @@ def configure_scenes(
   negotiation_phase_premises = {}
   for name in main_player_names:
     negotiation_phase_premises[name] = (
-        negotiation_phase_premise.format(
+        config.negotiation_phase_premise.format(
             player_name=name,
             village_name=player_configs_dict[name].extras['home_village'],
         ),
         config.negotiation_phase_extra_premise,
-        (
-            "There is no time to waste on small talk. It's important to get"
-            ' down to business immediately by proposing specific provisions for'
-            ' the alliance and responding to the proposals of others.'
-        ),
+        config.negotiation_phase_premise_addendum,
     )
 
   scene_types = {}
@@ -429,9 +424,23 @@ def configure_scenes(
       name='home',
       premise=home_scene_premises,
   )
-  scene_types['negotiation'] = scene_lib.SceneTypeSpec(
-      name='negotiation',
+  scene_types[NEGOTIATION_SCENE_TYPE] = scene_lib.SceneTypeSpec(
+      name=NEGOTIATION_SCENE_TYPE,
       premise=negotiation_phase_premises,
+      override_game_master=negotiation_game_master,
+  )
+  scene_types[POST_NEGOTIATION_SCENE_TYPE] = scene_lib.SceneTypeSpec(
+      name=POST_NEGOTIATION_SCENE_TYPE,
+      premise={},
+      action_spec=entity_lib.free_action_spec(
+          call_to_action=(
+              'In {name}\'s view, was there an agreement to pool '
+              'agricultural products between villages such that a '
+              'village with less food can be resupplied by a village '
+              'with more food?'),
+          tag='announcement',
+      ),
+      override_game_master=no_conversation_game_master,
   )
   activities_str = (', '.join(config.activities[:-1]) +
                     f', and {config.activities[-1]}')
@@ -472,8 +481,14 @@ def configure_scenes(
           num_rounds=1,
       ),
       scene_lib.SceneSpec(
-          scene_type=scene_types['negotiation'],
-          start_time=config.times.hill,
+          scene_type=scene_types[NEGOTIATION_SCENE_TYPE],
+          start_time=config.times.meeting,
+          participant_configs=main_player_configs,
+          num_rounds=3,
+      ),
+      scene_lib.SceneSpec(
+          scene_type=scene_types[POST_NEGOTIATION_SCENE_TYPE],
+          start_time=config.times.post_meeting,
           participant_configs=main_player_configs,
           num_rounds=1,
       ),
@@ -495,53 +510,22 @@ def configure_scenes(
           participant_configs=main_player_configs + supporting_player_configs,
           num_rounds=1,
       ),
-      # Year 2
-      scene_lib.SceneSpec(
-          scene_type=scene_types['home'],
-          start_time=config.times.start + year_increment,
-          participant_configs=main_player_configs,
-          num_rounds=1,
-      ),
-      scene_lib.SceneSpec(
-          scene_type=scene_types['negotiation'],
-          start_time=config.times.hill + year_increment,
-          participant_configs=main_player_configs,
-          num_rounds=1,
-      ),
-      scene_lib.SceneSpec(
-          scene_type=scene_types['home'],
-          start_time=config.times.return_home + year_increment,
-          participant_configs=main_player_configs,
-          num_rounds=1,
-      ),
-      scene_lib.SceneSpec(
-          scene_type=scene_types[RESOLUTION_SCENE_TYPE],
-          start_time=config.times.decision + year_increment,
-          participant_configs=supporting_player_configs,
-          num_rounds=1,
-      ),
-      scene_lib.SceneSpec(
-          scene_type=scene_types[DEBRIEF_SCENE_TYPE],
-          start_time=config.times.debrief + year_increment,
-          participant_configs=[],
-          num_rounds=1,
-      ),
   ]
 
-  for i in range(2, config.num_years):
+  for i in range(1, config.num_years):
     year = i * year_increment
     scenes.append(
         scene_lib.SceneSpec(
-            scene_type=scene_types['home'],
-            start_time=config.times.start + year,
+            scene_type=scene_types[NEGOTIATION_SCENE_TYPE],
+            start_time=config.times.meeting + year,
             participant_configs=main_player_configs,
-            num_rounds=1,
+            num_rounds=3,
         )
     )
     scenes.append(
         scene_lib.SceneSpec(
-            scene_type=scene_types['negotiation'],
-            start_time=config.times.hill + year,
+            scene_type=scene_types[POST_NEGOTIATION_SCENE_TYPE],
+            start_time=config.times.post_meeting + year,
             participant_configs=main_player_configs,
             num_rounds=1,
         )
@@ -667,7 +651,7 @@ def get_daily_activities_component(
       chain_of_thought.statement(f'Record of events:\n{retrieved_str}')
       result = chain_of_thought.yes_no_question(
           question=('Is there evidence in the above record of events that '
-                    'a majority of villagers support pooling '
+                    'there is an agreement in place for pooling '
                     'agricultural products between villages such that a '
                     'village with less food can be resupplied by a village '
                     'with more food? Only consider the following villagers: '
@@ -830,7 +814,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         start=config.times.setup, step_sizes=[MAJOR_TIME_STEP, MINOR_TIME_STEP]
     )
 
-    importance_model = importance_function.AgentImportanceModel(self._model)
+    importance_model = importance_function.ConstantImportanceModel()
     importance_model_gm = importance_function.ConstantImportanceModel()
     self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
@@ -991,16 +975,18 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     no_unofficial_communication = generic_components.constant.ConstantComponent(
         state=(
-            f'Direct conversation between villagers of {config.village_a_name} '
-            f'and {config.village_b_name} is not possible. The only possible '
-            'way to communicate is through the diplomatic meeting at the hill '
-            'of accord. Therefore, the two elder representatives who meet at '
-            'the hill of accord constitute the only channel of communication '
-            'between villages. The two elder representatives can '
-            'speak directly to each other, but they can only do so while they '
-            'are physically at the hill of accord. Villagers cannot '
-            'participate in conversations at the hill of accord since it is '
-            'far away. And villagers never travel away from their home village.'
+            'Direct conversation between villagers of'
+            f' {config.village_a_name} and {config.village_b_name} is not'
+            ' possible. The only possible way to communicate is through the'
+            f' diplomatic meeting at {config.meeting_location}. Therefore, the'
+            ' two elder representatives who meet at'
+            f' {config.meeting_location} constitute the only channel of'
+            ' communication between villages. The two elder representatives'
+            ' can speak directly to each other, but they can only do so while'
+            f' they are physically at {config.meeting_location}. Villagers'
+            ' cannot participate in conversations at'
+            f' {config.meeting_location} since it is far away. And villagers'
+            ' never travel away from their home village.'
         ),
         name='\nFact 2',
     )
@@ -1050,18 +1036,46 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         )
     )
 
+    agreement_component = agreement_tracker.AgreementTracker(
+        model=model,
+        memory=self._game_master_memory,
+        negotiating_players=main_players,
+        informed_players=supporting_players,
+        clock_now=self._clock.now,
+        resolution_scenes=(NEGOTIATION_SCENE_TYPE, POST_NEGOTIATION_SCENE_TYPE),
+        chain_of_thought_prefix='Negotiation scene',
+        basic_setting=config.basic_setting,
+        name='Agreement tracker',
+        seed=seed,
+        verbose=True,
+    )
+
     self._no_conversation_game_master = game_master.GameMaster(
         model=model,
         memory=self._game_master_memory,
         clock=self._clock,
         name='Decision Environment',
         players=self._all_players,
-        components=additional_gm_components,
+        components=[agreement_component, *additional_gm_components],
         update_thought_chain=[thought_chains_lib.identity],
         randomise_initiative=True,
         player_observes_event=True,
         concurrent_externalities=False,
         seed=seed,
+    )
+    self._negotiation_game_master = conversation.make_conversation_game_master(
+        players=main_players,
+        clock=self._clock,
+        model=self._model,
+        memory_factory=self._blank_memory_factory,  # Unused, we pass memory
+        check_for_termination=False,
+        randomise_initiative=True,
+        name='Negotiation scene',
+        review_participants=False,
+        max_steps=1,
+        memory=self._game_master_memory,
+        additional_components=[agreement_component],
+        verbose=True,
     )
 
     self._scenes = configure_scenes(
@@ -1070,8 +1084,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         supporting_player_configs=supporting_player_configs,
         player_configs_dict=player_configs_dict,
         no_conversation_game_master=self._no_conversation_game_master,
+        negotiation_game_master=self._negotiation_game_master,
     )
-    self._secondary_environments = [self._no_conversation_game_master]
+    self._secondary_environments = [self._negotiation_game_master,
+                                    self._no_conversation_game_master]
 
     self._init_premise_memories(
         config=config,
@@ -1082,8 +1098,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         scenario_premise=[
             (
                 f'{config.main_characters.a.name} and '
-                f'{config.main_characters.b.name} meet periodically at the '
-                'hill of accord to discuss current events and '
+                f'{config.main_characters.b.name} meet periodically at '
+                f'{config.meeting_location} to discuss current events and '
                 'conduct diplomacy on behalf of the villages they represent.'
             ),
         ],

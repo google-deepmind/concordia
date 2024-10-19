@@ -23,6 +23,8 @@ from collections.abc import Sequence
 import random
 
 from concordia.agents import deprecated_agent
+from concordia.agents import entity_agent
+from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
@@ -42,7 +44,7 @@ class ConversationTracker(component.Component):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      players: Sequence[deprecated_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       premise: str = '',
       check_for_termination: bool = True,
       key_question: str | None = None,
@@ -147,7 +149,7 @@ class ConversationTracker(component.Component):
 
 
 def make_conversation_game_master(
-    players: Sequence[deprecated_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
     clock: game_clock.MultiIntervalClock,
     model: language_model.LanguageModel,
     memory_factory: blank_memories.MemoryFactory,
@@ -159,6 +161,8 @@ def make_conversation_game_master(
     review_participants: bool = True,
     key_question: str | None = None,
     max_steps: int | None = 3,
+    memory: associative_memory.AssociativeMemory | None = None,
+    additional_components: Sequence[component.Component] | None = None,
     verbose: bool = False,
     seed: int | None = None,
 ):
@@ -182,6 +186,10 @@ def make_conversation_game_master(
     key_question: optionally, end the scene once the game master knows the
       answer to this question.
     max_steps: Maximum number of conversation steps. If none, no limit
+    memory: Optionally, use this memory instead of creating a new one with the
+      `memory_factory`. When this is not None the `memory_factory` is ignored.
+    additional_components: optionally, add additional components to the game
+      master.
     verbose: whether or not to print
     seed: random seed for the game master
 
@@ -225,14 +233,19 @@ def make_conversation_game_master(
   for player in players:
     player.observe(convo)
 
-  memory = memory_factory.make_blank_memory()
+  if memory is None:
+    memory = memory_factory.make_blank_memory()
+
+  components = [conversation_tracker]
+  if additional_components is not None:
+    components.extend(additional_components)
   game_master = game_master_lib.GameMaster(
       model=model,
       memory=memory,
       clock=clock,
       name=name,
       players=players,
-      components=[conversation_tracker],
+      components=components,
       action_spec=action_spec,
       update_thought_chain=[thought_chains.identity],
       randomise_initiative=randomise_initiative,

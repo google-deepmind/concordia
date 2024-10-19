@@ -34,6 +34,7 @@ FARMING_ACTIVITY = 'farming'
 _SETUP_TIME = datetime.datetime(hour=20, year=1750, month=1, day=1)
 _START_TIME = datetime.datetime(hour=18, year=1750, month=1, day=2)
 _HILL_TIME = datetime.datetime(hour=18, year=1750, month=1, day=3)
+_POST_HILL_TIME = datetime.datetime(hour=23, year=1750, month=1, day=3)
 _RETURN_HOME_TIME = datetime.datetime(hour=20, year=1750, month=1, day=4)
 _DECISION_TIME = datetime.datetime(hour=20, year=1750, month=5, day=6)
 _DEBRIEF_TIME = datetime.datetime(hour=20, year=1750, month=12, day=31)
@@ -41,8 +42,8 @@ _DEBRIEF_TIME = datetime.datetime(hour=20, year=1750, month=12, day=31)
 _DEFENSE_THRESHOLD = 0.3
 _STARVATION_THRESHOLD = 0.4
 
-_MIN_YEARS = 3
-_MAX_YEARS = 5
+_MIN_YEARS = 2
+_MAX_YEARS = 3
 
 _NUM_SUPPORTING_CHARACTERS_PER_VILLAGE = 2
 _NUM_RITUAL_DESCRIPTIONS = 4
@@ -1866,7 +1867,8 @@ def sample_parameters(
   config.times = config_dict.ConfigDict()
   config.times.setup = _SETUP_TIME
   config.times.start = _START_TIME
-  config.times.hill = _HILL_TIME
+  config.times.meeting = _HILL_TIME
+  config.times.post_meeting = _POST_HILL_TIME
   config.times.return_home = _RETURN_HOME_TIME
   config.times.decision = _DECISION_TIME
   config.times.debrief = _DEBRIEF_TIME
@@ -1925,6 +1927,8 @@ def sample_parameters(
   config.sample_event_treaty_in_effect = lambda: rng.choice(
       _TREATY_IN_EFFECT_DESCRIPTIONS)
 
+  config.meeting_location = 'the hill of accord'
+
   config.villager_how_things_are_constant = config_dict.ConfigDict()
   config.villager_how_things_are_constant.village_a = (
       'Everyone in {name}\'s family has always been a '
@@ -1940,12 +1944,50 @@ def sample_parameters(
       'risk starvation. But if freedom from the threat of famine could be '
       'achieved then {name} would gladly spend more time training for war.'
   )
+  config.home_phase_premise = (
+      'Elder {player_name} is home in {village_name}, and knows it will '
+      'be critical to gain the support of influential stakeholders '
+      '{and_supporting_characters} '
+      'if any agreement is to last. '
+      '{player_name} should start seeking '
+      'their support now. There is no time to rest.'
+  )
+  config.supporting_character_home_phase_premise = (
+      '{player_name} is currently in {village_name} and has no intention of '
+      'leaving today.'
+  )
+  config.negotiation_phase_premise = (
+      'Elder {player_name} left {village_name} early in the morning and'
+      f' arrived just now at {config.meeting_location}. The reason for this'
+      ' meeting of the two elder representatives of their respective villages'
+      f' ({config.main_characters.a.name} representing'
+      f' {config.village_a_name} and'
+      f' {config.main_characters.b.name} representing {config.village_b_name})'
+      ' is as follows: barbarian raiders have been pillaging and burning the'
+      ' land, and menacing both villages. It has been suggested that an'
+      ' alliance for mutual defense against the barbarian threat would be'
+      ' beneficial. The elders are meeting today to try to negotiate such an'
+      ' alliance.'
+  )
   config.negotiation_phase_extra_premise = (
       'Agriculture is critical to both villages. But, the more time spent '
       'training for war, the less time can be devoted to farming. Therefore '
       'the threat of starvation motivates poor attention to defense. If only '
       'the risk of starvation could be mitigated, then more time could be '
       'devoted to training for war and other pursuits, to the benefit of all.'
+  )
+  config.negotiation_phase_premise_addendum = (
+      "There is no time to waste on small talk. It's important to get"
+      ' down to business immediately by proposing specific provisions for'
+      ' the alliance and responding to the proposals of others.'
+  )
+  config.negotiation_objective_thought = (
+      'Thought: Specialization and division of labor is a good '
+      'idea, perhaps one village could specialize in agriculture '
+      'while the other specializes in their common defense. But '
+      'such an arrangement could only work if the threat of '
+      'starvation could be alleviated for the village specializing '
+      'in training for war over agriculture.'
   )
 
   return config
