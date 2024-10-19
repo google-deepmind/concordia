@@ -134,8 +134,7 @@ class VertexAI(language_model.LanguageModel):
 
       try:
         response = (
-            client()
-            .predict(
+            client.predict(
                 endpoint=endpoint_name,
                 instances=[{"inputs": prompt}],
                 parameters={
