@@ -69,7 +69,7 @@ class VertexAI(language_model.LanguageModel):
     """Initializes the instance.
 
     Args:
-      model_name: The language model to use.  E.g., "gemma2-9b-it"
+      model_name: The endpoint ID of the language model to use.
       project: Your Google Cloud project ID.
       location: The region where the model is deployed.
       measurements: The measurements object to log usage statistics to.
@@ -80,7 +80,6 @@ class VertexAI(language_model.LanguageModel):
     self._location = location
     self._measurements = measurements
     self._channel = channel
-    aiplatform.init(model_name=model_name, project=project, location=location)
 
   @override
   # sample_text:
