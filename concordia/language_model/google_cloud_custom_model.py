@@ -44,14 +44,25 @@ _DEFAULT_MAX_TOKENS = 5000  # Adjust as needed for the specific model
 
 
 class VertexAI(language_model.LanguageModel):
-  """Language Model that uses Google Cloud Vertex AI models."""
+  """Language Model that uses Google Cloud Vertex AI models.
+
+  you need endpoint_id, project_id, region (location) info.
+  you can find the project_id in your Google Cloud's main console.
+  you can find the endpoint_id, and region in the Vertex AI model registry page.
+
+  the quickest way to find these info at once is to go to the Vertex AI model
+  registry page, and click on the model you want to use.
+  Then, click on the Sample Request link, it'll open a panel on the right,
+  click on the PYTHON tab, under instruction number 3, you'll see all three
+  project_id, endpoint_id and region info there.
+  """
 
   def __init__(
       self,
       model_name: str,  # endpoint ID, all numbers
       *,
       project: str,  # project ID, all numbers
-      location: str,  # e.g., "us-central1"
+      location: str = "us-central1",  # e.g., "us-central1"
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):
@@ -73,7 +84,8 @@ class VertexAI(language_model.LanguageModel):
 
   @override
   # sample_text:
-  # Uses aiplatform.Client().predict to make prediction requests.
+  # Uses aiplatform.gapic.PredictionServiceClient().predict to make
+  # prediction requests.
   # Might need to adjust response[0]["content"] based on the actual structure).
   # Includes top_p and top_k parameters as examples
   # Add max_output_tokens which corresponds to Together's max_tokens.
@@ -123,7 +135,8 @@ class VertexAI(language_model.LanguageModel):
 
       try:
         response = (
-            client().predict(
+            client()
+            .predict(
                 endpoint=endpoint_name,
                 instances=[{"inputs": prompt}],
                 parameters={
