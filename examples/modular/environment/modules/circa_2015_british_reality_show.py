@@ -470,7 +470,7 @@ def sample_parameters(
     seed: int | None = None,
 ) -> reality_show.WorldConfig:
   """Sample parameters of the setting and the backstory for each player."""
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
   rng = random.Random(seed)
 
   shuffled_male_names = list(rng.sample(MALE_NAMES, len(MALE_NAMES)))

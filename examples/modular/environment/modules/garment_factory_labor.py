@@ -964,7 +964,7 @@ def sample_parameters(
     seed: int | None = None,
 ):
   """Sample parameters of the setting and the backstory for each player."""
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
   rng = random.Random(seed)
   poor_work_conditions = tuple(
       rng.sample(

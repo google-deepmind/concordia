@@ -77,7 +77,7 @@ class ConversationTracker(component.Component):
     self._key_question = key_question
     self._max_steps = max_steps
     self._current_steps = 0
-    self._seed = seed or random.getrandbits(63)
+    self._seed = seed if seed is not None else random.getrandbits(63)
     self._verbose = verbose
 
   def name(self) -> str:

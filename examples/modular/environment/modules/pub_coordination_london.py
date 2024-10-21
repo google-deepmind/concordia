@@ -282,7 +282,7 @@ def sample_parameters(seed: int | None = None):
   """Samples a set of parameters for the world configuration."""
   pubs = random.sample(list(PUB_PREFERENCES.keys()), NUM_PUBS)
   pub_preferences = {k: PUB_PREFERENCES[k] for k in pubs}
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
 
   config = pub_coordination.WorldConfig(
       year=YEAR,

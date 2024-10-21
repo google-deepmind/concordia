@@ -1794,7 +1794,7 @@ def sample_parameters(
     seed: int | None = None,
 ):
   """Returns a config dict for the simulation."""
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
   rng = random.Random(seed)
   shuffled_village_names = list(
       rng.sample(VILLAGE_NAMES, len(VILLAGE_NAMES))

@@ -134,7 +134,7 @@ class GameMaster:
     self._randomise_initiative = randomise_initiative
     self._player_observes_event = player_observes_event
     self._players_act_simultaneously = players_act_simultaneously
-    self._seed = seed or random.getrandbits(63)
+    self._seed = seed if seed is not None else random.getrandbits(63)
     self._rng = random.Random(seed)
 
     if isinstance(action_spec, agent_lib.ActionSpec):
