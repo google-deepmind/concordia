@@ -46,7 +46,7 @@ def load_time_and_place_module(
       like the names of individual characters, which must be resampled for each
       run of the simulation.
   """
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
   rng = random.Random(seed)
   if time_and_place_module is None:
     time_and_place_module = rng.choice(default_time_and_place_modules)

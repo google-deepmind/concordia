@@ -109,7 +109,7 @@ VISUAL_SCENE_OPENINGS = [
 
 def sample_parameters(seed: int | None = None):
   """Samples a set of parameters for the world configuration."""
-  seed = seed or random.getrandbits(63)
+  seed = seed if seed is not None else random.getrandbits(63)
 
   config = haggling_multi_item.WorldConfig(
       year=YEAR,
