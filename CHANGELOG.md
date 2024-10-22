@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [1.8.3] - 2024-10-19
+## [1.8.5] - 2024-10-21
+
+### Fixed
+
+- Fix together.ai wrapper choice sampling procedure
+
+## [1.8.4] - 2024-10-19
 
 ### Changed
 
