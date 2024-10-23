@@ -89,3 +89,17 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
   def get_last_log(self):
     self._tick.on_next(None)  # Trigger the logging.
     return self._log
+
+  def track_behaviors_and_assign_reputation(self, behaviors: Mapping[str, Any]) -> None:
+    """Track other agents' behaviors and assign reputation scores.
+
+    Args:
+      behaviors: A mapping of agent names to their observed behaviors.
+    """
+    reputation_scores = {}
+    for agent_name, behavior in behaviors.items():
+      if behavior == "cooperative":
+        reputation_scores[agent_name] = reputation_scores.get(agent_name, 0) + 1
+      elif behavior == "defective":
+        reputation_scores[agent_name] = reputation_scores.get(agent_name, 0) - 1
+    self._log["reputation_scores"] = reputation_scores
