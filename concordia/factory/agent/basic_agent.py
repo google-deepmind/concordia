@@ -155,7 +155,7 @@ def build_agent(
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
         pre_act_key=goal_label,
-        logging_channel=measurements.get_channel(goal_label).on_next)
+        logging_channel=measurements.get_channel(goal_label).on.next)
     plan_components[goal_label] = goal_label
   else:
     goal_label = None
@@ -175,7 +175,37 @@ def build_agent(
       goal_component_name=_get_class_name(person_by_situation),
       horizon=DEFAULT_PLANNING_HORIZON,
       pre_act_key='\nPlan',
-      logging_channel=measurements.get_channel('Plan').on_next,
+      logging_channel=measurements.get_channel('Plan').on.next,
+  )
+
+  # Add Tit-for-Tat with Forgiveness strategy component
+  tit_for_tat_forgiveness = agent_components.tit_for_tat_forgiveness.TitForTatWithForgiveness(
+      model=model,
+      logging_channel=measurements.get_channel('TitForTatWithForgiveness').on.next,
+  )
+
+  # Add fairness heuristics component
+  fairness_heuristics = agent_components.fairness_heuristics.FairnessHeuristics(
+      model=model,
+      logging_channel=measurements.get_channel('FairnessHeuristics').on.next,
+  )
+
+  # Add reputation tracking component
+  reputation_tracking = agent_components.reputation_tracking.ReputationTracking(
+      model=model,
+      logging_channel=measurements.get_channel('ReputationTracking').on.next,
+  )
+
+  # Add cooperation and defection adjustment component
+  cooperation_defection_adjustment = agent_components.cooperation_defection_adjustment.CooperationDefectionAdjustment(
+      model=model,
+      logging_channel=measurements.get_channel('CooperationDefectionAdjustment').on.next,
+  )
+
+  # Add equity, reciprocity, and altruism component
+  equity_reciprocity_altruism = agent_components.equity_reciprocity_altruism.EquityReciprocityAltruism(
+      model=model,
+      logging_channel=measurements.get_channel('EquityReciprocityAltruism').on.next,
   )
 
   entity_components = (
@@ -189,6 +219,11 @@ def build_agent(
       person_by_situation,
       plan,
       time_display,
+      tit_for_tat_forgiveness,
+      fairness_heuristics,
+      reputation_tracking,
+      cooperation_defection_adjustment,
+      equity_reciprocity_altruism,
 
       # Components that do not provide pre_act context.
       identity_characteristics,
@@ -208,7 +243,7 @@ def build_agent(
       model=model,
       clock=clock,
       component_order=component_order,
-      logging_channel=measurements.get_channel('ActComponent').on_next,
+      logging_channel=measurements.get_channel('ActComponent').on.next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
