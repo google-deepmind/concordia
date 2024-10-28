@@ -86,6 +86,7 @@ setuptools.setup(
         'together',
         'transformers',
         'typing-extensions',
+        'jinja2',
     ),
     extras_require={
         # Used in development.
