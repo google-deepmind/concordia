@@ -189,6 +189,12 @@ class QuestionOfQueryAssociatedMemoriesWithoutPreAct(
   def update(self) -> None:
     self._component.update()
 
+  def get_state(self) -> entity_component.ComponentState:
+    return self._component.get_state()
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    self._component.set_state(state)
+
 
 class Identity(QuestionOfQueryAssociatedMemories):
   """Identity component containing a few characteristics.

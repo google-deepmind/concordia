@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Return all memories similar to a prompt and filter them for relevance.
-"""
+"""Return all memories similar to a prompt and filter them for relevance."""
 
-from collections.abc import Mapping
 import types
+from typing import Mapping
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory_component

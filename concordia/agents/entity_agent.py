@@ -107,6 +107,14 @@ class EntityAgent(entity_component.EntityWithComponents):
     component = self._context_components[name]
     return cast(entity_component.ComponentT, component)
 
+  def get_act_component(self) -> entity_component.ActingComponent:
+    return self._act_component
+
+  def get_all_context_components(
+      self,
+  ) -> Mapping[str, entity_component.ContextComponent]:
+    return types.MappingProxyType(self._context_components)
+
   def _parallel_call_(
       self,
       method_name: str,

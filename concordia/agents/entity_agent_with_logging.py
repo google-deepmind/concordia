@@ -15,10 +15,12 @@
 """A modular entity agent using the new component system with side logging."""
 
 from collections.abc import Mapping
+import copy
 import types
 from typing import Any
 from absl import logging
 from concordia.agents import entity_agent
+from concordia.associative_memory import formative_memories
 from concordia.typing import agent
 from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
@@ -39,6 +41,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
           types.MappingProxyType({})
       ),
       component_logging: measurements_lib.Measurements | None = None,
+      config: formative_memories.AgentConfig | None = None,
   ):
     """Initializes the agent.
 
@@ -56,6 +59,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
         None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
       component_logging: The channels where components publish events.
+      config: The agent configuration, used for checkpointing and debug.
     """
     super().__init__(agent_name=agent_name,
                      act_component=act_component,
@@ -75,6 +79,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
           on_error=lambda e: logging.error('Error in component logging: %s', e))
     else:
       self._channel_names = []
+    self._config = copy.deepcopy(config)
 
   def _set_log(self, log: tuple[Any, ...]) -> None:
     """Set the logging object to return from get_last_log.
@@ -89,3 +94,6 @@ class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
   def get_last_log(self):
     self._tick.on_next(None)  # Trigger the logging.
     return self._log
+
+  def get_config(self) -> formative_memories.AgentConfig | None:
+    return copy.deepcopy(self._config)
