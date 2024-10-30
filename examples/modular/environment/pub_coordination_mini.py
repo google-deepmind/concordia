@@ -35,7 +35,7 @@ class Simulation(pub_coordination.Simulation):
 
     super().__init__(
         pub_closed_probability=0.0,
-        num_games=1,
+        num_games=3,
         num_main_players=2,
         num_supporting_players=0,
         **kwargs,

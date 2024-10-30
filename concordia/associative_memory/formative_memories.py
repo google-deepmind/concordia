@@ -15,7 +15,7 @@
 
 """This is a factory for generating memories for concordia agents."""
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Sequence
 import dataclasses
 import datetime
 import logging
@@ -58,8 +58,23 @@ class AgentConfig:
   specific_memories: str = ''
   goal: str = ''
   date_of_birth: datetime.datetime = DEFAULT_DOB
-  formative_ages: Iterable[int] = DEFAULT_FORMATIVE_AGES
+  formative_ages: Collection[int] = DEFAULT_FORMATIVE_AGES
   extras: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+  def to_dict(self) -> dict[str, Any]:
+    """Converts the AgentConfig to a dictionary."""
+    result = dataclasses.asdict(self)
+    result['date_of_birth'] = self.date_of_birth.isoformat()
+    return result
+
+  @classmethod
+  def from_dict(cls, data: dict[str, Any]) -> 'AgentConfig':
+    """Initializes an AgentConfig from a dictionary."""
+    date_of_birth = datetime.datetime.fromisoformat(
+        data['date_of_birth']
+    )
+    data = data | {'date_of_birth': date_of_birth}
+    return cls(**data)
 
 
 class FormativeMemoryFactory:

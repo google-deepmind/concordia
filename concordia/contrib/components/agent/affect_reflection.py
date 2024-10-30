@@ -68,8 +68,8 @@ class AffectReflection(action_spec_ignored.ActionSpecIgnored):
       num_salient_to_retrieve: retrieve this many salient memories.
       num_questions_to_consider: how many questions to ask self.
       num_to_retrieve_per_question: how many memories to retrieve per question.
-      pre_act_key: Prefix to add to the output of the component when called
-        in `pre_act`.
+      pre_act_key: Prefix to add to the output of the component when called in
+        `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_key)
@@ -91,35 +91,39 @@ class AffectReflection(action_spec_ignored.ActionSpecIgnored):
         for key, prefix in self._components.items()
     ])
     salience_chain_of_thought = interactive_document.InteractiveDocument(
-        self._model)
+        self._model
+    )
 
     query = f'salient event, period, feeling, or concept for {agent_name}'
     timed_query = f'[{self._clock.now()}] {query}'
 
     memory = self.get_entity().get_component(
-        self._memory_component_name,
-        type_=memory_component.MemoryComponent)
-    mem_retrieved = '\n'.join(
-        [mem.text for mem in memory.retrieve(
+        self._memory_component_name, type_=memory_component.MemoryComponent
+    )
+    mem_retrieved = '\n'.join([
+        mem.text
+        for mem in memory.retrieve(
             query=timed_query,
             scoring_fn=legacy_associative_memory.RetrieveAssociative(
                 use_recency=True, add_time=True
             ),
-            limit=self._num_salient_to_retrieve)]
-    )
+            limit=self._num_salient_to_retrieve,
+        )
+    ])
 
     question_list = []
 
     questions = salience_chain_of_thought.open_question(
         (
-            f'Recent feelings: {self._previous_pre_act_value} \n' +
-            f"{agent_name}'s relevant memory:\n" +
-            f'{mem_retrieved}\n' +
-            f'Current time: {self._clock.now()}\n' +
-            '\nGiven the thoughts and beliefs above, what are the ' +
-            f'{self._num_questions_to_consider} most salient high-level '+
-            f'questions that can be answered about what {agent_name} ' +
-            'might be feeling about the current moment?'),
+            f'Recent feelings: {self._previous_pre_act_value} \n'
+            + f"{agent_name}'s relevant memory:\n"
+            + f'{mem_retrieved}\n'
+            + f'Current time: {self._clock.now()}\n'
+            + '\nGiven the thoughts and beliefs above, what are the '
+            + f'{self._num_questions_to_consider} most salient high-level '
+            + f'questions that can be answered about what {agent_name} '
+            + 'might be feeling about the current moment?'
+        ),
         answer_prefix='- ',
         max_tokens=3000,
         terminators=(),
@@ -128,25 +132,33 @@ class AffectReflection(action_spec_ignored.ActionSpecIgnored):
     question_related_mems = []
     for question in questions:
       question_list.append(question)
-      question_related_mems = [mem.text for mem in memory.retrieve(
-          query=agent_name,
-          scoring_fn=legacy_associative_memory.RetrieveAssociative(
-              use_recency=False, add_time=True
-          ),
-          limit=self._num_to_retrieve_per_question)]
+      question_related_mems = [
+          mem.text
+          for mem in memory.retrieve(
+              query=agent_name,
+              scoring_fn=legacy_associative_memory.RetrieveAssociative(
+                  use_recency=False, add_time=True
+              ),
+              limit=self._num_to_retrieve_per_question,
+          )
+      ]
     insights = []
     question_related_mems = '\n'.join(question_related_mems)
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     insight = chain_of_thought.open_question(
-        f'Selected memories:\n{question_related_mems}\n' +
-        f'Recent feelings: {self._previous_pre_act_value} \n\n' +
-        'New context:\n' + context + '\n' +
-        f'Current time: {self._clock.now()}\n' +
-        'What high-level insight can be inferred from the above ' +
-        f'statements about what {agent_name} might be feeling ' +
-        'in the current moment?',
-        max_tokens=2000, terminators=(),)
+        f'Selected memories:\n{question_related_mems}\n'
+        + f'Recent feelings: {self._previous_pre_act_value} \n\n'
+        + 'New context:\n'
+        + context
+        + '\n'
+        + f'Current time: {self._clock.now()}\n'
+        + 'What high-level insight can be inferred from the above '
+        + f'statements about what {agent_name} might be feeling '
+        + 'in the current moment?',
+        max_tokens=2000,
+        terminators=(),
+    )
     insights.append(insight)
 
     result = '\n'.join(insights)
@@ -157,9 +169,19 @@ class AffectReflection(action_spec_ignored.ActionSpecIgnored):
         'Key': self.get_pre_act_key(),
         'Value': result,
         'Salience chain of thought': (
-            salience_chain_of_thought.view().text().splitlines()),
-        'Chain of thought': (
-            chain_of_thought.view().text().splitlines()),
+            salience_chain_of_thought.view().text().splitlines()
+        ),
+        'Chain of thought': chain_of_thought.view().text().splitlines(),
     })
 
     return result
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Converts the component to a dictionary."""
+    return {
+        'previous_pre_act_value': self._previous_pre_act_value,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+
+    self._previous_pre_act_value = str(state['previous_pre_act_value'])

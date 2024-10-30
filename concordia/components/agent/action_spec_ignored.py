@@ -16,10 +16,11 @@
 
 import abc
 import threading
-from typing import Final
+from typing import Final, Any
 
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
+from typing_extensions import override
 
 
 class ActionSpecIgnored(
@@ -89,3 +90,11 @@ class ActionSpecIgnored(
     """Returns the pre-act value of a named component of the parent entity."""
     return self.get_entity().get_component(
         component_name, type_=ActionSpecIgnored).get_pre_act_value()
+
+  @override
+  def set_state(self, state: entity_component.ComponentState) -> Any:
+    return None
+
+  @override
+  def get_state(self) -> entity_component.ComponentState:
+    return {}

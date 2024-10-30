@@ -193,6 +193,7 @@ class AvailableOptionsPerception(QuestionOfRecentMemories):
   """This component answers the question 'what actions are available to me?'."""
 
   def __init__(self, **kwargs):
+
     super().__init__(
         question=(
             'Given the statements above, what actions are available to '

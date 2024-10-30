@@ -163,3 +163,15 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     })
 
     return result
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Converts the component to JSON data."""
+    with self._lock:
+      return {
+          'current_plan': self._current_plan,
+      }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the component state from JSON data."""
+    with self._lock:
+      self._current_plan = state['current_plan']
