@@ -19,13 +19,16 @@ from collections.abc import Collection, Mapping
 import enum
 import functools
 from typing import TypeVar
-
 from concordia.typing import entity as entity_lib
 
 ComponentName = str
 ComponentContext = str
 ComponentContextMapping = Mapping[ComponentName, ComponentContext]
 ComponentT = TypeVar("ComponentT", bound="BaseComponent")
+
+_LeafT = str | int | float | None
+_ValueT = _LeafT | Collection["_ValueT"] | Mapping[str, "_ValueT"]
+ComponentState = Mapping[str, _ValueT]
 
 
 class Phase(enum.Enum):
@@ -37,8 +40,7 @@ class Phase(enum.Enum):
     PRE_ACT: The agent has received a request to act. Components are being
       requested for their action context. This will be followed by `POST_ACT`.
     POST_ACT: The agent has just submitted an action attempt. Components are
-      being informed of the action attempt. This will be followed by
-      `UPDATE`.
+      being informed of the action attempt. This will be followed by `UPDATE`.
     PRE_OBSERVE: The agent has received an observation. Components are being
       informed of the observation. This will be followed by `POST_OBSERVE`.
     POST_OBSERVE: The agent has just observed. Components are given a chance to
@@ -47,6 +49,7 @@ class Phase(enum.Enum):
     UPDATE: The agent is updating its internal state. This will be followed by
       `READY`.
   """
+
   READY = enum.auto()
   PRE_ACT = enum.auto()
   POST_ACT = enum.auto()
@@ -76,9 +79,7 @@ class Phase(enum.Enum):
   def check_successor(self, successor: "Phase") -> None:
     """Raises ValueError if successor is not a valid next phase."""
     if successor not in self.successors:
-      raise ValueError(
-          f"The transition from {self} to {successor} is invalid."
-      )
+      raise ValueError(f"The transition from {self} to {successor} is invalid.")
 
 
 class BaseComponent:
@@ -108,6 +109,50 @@ class BaseComponent:
     if self._entity is None:
       raise RuntimeError("Entity is not set.")
     return self._entity
+
+  def get_state(self) -> ComponentState:
+    """Returns the state of the component.
+    
+    See `set_state` for details. The default implementation returns an empty
+    dictionary.
+    """
+    return {}
+
+  def set_state(self, state: ComponentState):
+    """Sets the state of the component.
+    
+    This is used to restore the state of the component. The state is assumed to
+    be the one returned by `get_state`.
+    The state does not need to contain any information that is passed in the 
+    initialization of the component (e.g. the memory bank, names of other 
+    componets etc.)
+    It is assumed that set_state is called on the component after it was 
+    initialized with the same parameters as the one used to restore it.
+    The default implementation does nothing, which implies that the component
+    does not have any state.
+
+    Example (Creating a copy):
+      obj1 = Component(**kwargs)
+      state = obj.get_state()
+      obj2 = Componet(**kwargs)
+      obj2.set_state(state)
+      # obj1 and obj2 will behave identically.
+
+    Example (Restoring previous behavior):
+      obj = Component(**kwargs)
+      state = obj.get_state()
+      # do more with obj
+      obj.set_state(state)
+      # obj will now behave the same as it did before.
+    
+    Note that the state does not need to contain any information that is passed
+    in __init__ (e.g. the memory bank, names of other components etc.)
+
+    Args:
+      state: The state of the component.
+    """
+    del state
+    return None
 
 
 class EntityWithComponents(entity_lib.Entity):

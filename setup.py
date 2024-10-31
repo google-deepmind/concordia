@@ -33,7 +33,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='gdm-concordia',
-    version='1.8.5',
+    version='1.8.6',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
@@ -86,6 +86,7 @@ setuptools.setup(
         'together',
         'transformers',
         'typing-extensions',
+        'jinja2',
     ),
     extras_require={
         # Used in development.

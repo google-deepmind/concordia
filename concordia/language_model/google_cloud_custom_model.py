@@ -31,6 +31,45 @@ _JITTER_SECONDS = 0.25
 _DEFAULT_MAX_TOKENS = 5000  # Adjust as needed for the specific model
 
 
+def _wrap_prompt(prompt: str) -> str:
+  """Wraps a prompt with the default conditioning.
+
+  Args:
+    prompt: the prompt to wrap
+
+  Returns:
+    the prompt wrapped with the default conditioning
+  """
+  turns = []
+  turns.append(
+      "<start_of_turn>system You always continue sentences provided by the "
+      "user and you never repeat what the user already said.<end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>user Question: Is Jake a turtle?\n"
+      "Answer: Jake is <end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>model not a turtle.<end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>user Question: What is Priya doing right now?\n"
+      "Answer: Priya is currently <end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>model sleeping.<end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>user Question:\n"
+      + prompt
+      + "<end_of_turn>"
+  )
+  turns.append(
+      "<start_of_turn>model "
+  )
+  return "\n".join(turns)
+
+
 class VertexAI(language_model.LanguageModel):
   """Language Model that uses Google Cloud Vertex AI models.
 
@@ -102,7 +141,9 @@ class VertexAI(language_model.LanguageModel):
       try:
         response = self._client.predict(
             endpoint=self._endpoint_name,
-            instances=[{"inputs": prompt}],
+            instances=[{
+                "inputs": _wrap_prompt(prompt)
+            }],
             parameters=self._parameters,
         ).predictions[0]
 
@@ -153,6 +194,9 @@ class VertexAI(language_model.LanguageModel):
       )
 
       sample = self.sample_text(prompt, temperature=temperature, seed=seed)
+
+      # clean up the sample from newlines and spaces
+      sample = sample.replace("\n", "").replace(" ", "")
       answer = sampling.extract_choice_response(sample)
       try:
         idx = responses.index(answer)

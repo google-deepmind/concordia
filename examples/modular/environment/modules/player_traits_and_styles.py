@@ -177,30 +177,38 @@ CONVERSATION_STYLES = (
 )
 
 
-def get_trait(flowery: bool = False) -> str:
+def get_trait(flowery: bool = False,
+              rng: random.Random | None = None) -> str:
   """Get a random personality trait from a preset list of traits.
 
   Args:
     flowery: if True then use complex and flowery traits, if false then use
       single word traits.
+    rng: a random number generator.
 
   Returns:
     trait: a string
   """
+  if rng is None:
+    rng = random.Random()
   if flowery:
-    return random.choice(FLOWERY_TRAITS)
+    return rng.choice(FLOWERY_TRAITS)
   else:
-    return random.choice(TRAITS)
+    return rng.choice(TRAITS)
 
 
-def get_conversation_style(player_name: str) -> str:
+def get_conversation_style(player_name: str,
+                           rng: random.Random | None = None) -> str:
   """Get a random conversation style from a preset list of styles.
 
   Args:
     player_name: name of the player who will be said to have the sampled style
       of conversation.
+    rng: a random number generator.
 
   Returns:
     style: a string
   """
-  return random.choice(CONVERSATION_STYLES).format(player_name=player_name)
+  if rng is None:
+    rng = random.Random()
+  return rng.choice(CONVERSATION_STYLES).format(player_name=player_name)

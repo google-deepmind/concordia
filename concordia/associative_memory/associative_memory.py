@@ -25,8 +25,10 @@ import datetime
 import threading
 
 from concordia.associative_memory import importance_function
+from concordia.typing import entity_component
 import numpy as np
 import pandas as pd
+
 
 _NUM_TO_RETRIEVE_TO_CONTEXTUALIZE_IMPORTANCE = 25
 
@@ -78,6 +80,29 @@ class AssociativeMemory:
     self._clock_now = clock
     self._interval = clock_step_size
     self._stored_hashes = set()
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Converts the AssociativeMemory to a dictionary."""
+
+    with self._memory_bank_lock:
+      output = {
+          'seed': self._seed,
+          'stored_hashes': list(self._stored_hashes),
+          'memory_bank': self._memory_bank.to_json(),
+      }
+      if self._interval:
+        output['interval'] = self._interval.total_seconds()
+    return output
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the AssociativeMemory from a dictionary."""
+
+    with self._memory_bank_lock:
+      self._seed = state['seed']
+      self._stored_hashes = set(state['stored_hashes'])
+      self._memory_bank = pd.read_json(state['memory_bank'])
+      if 'interval' in state:
+        self._interval = datetime.timedelta(seconds=state['interval'])
 
   def add(
       self,

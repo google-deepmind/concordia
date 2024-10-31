@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.6] - 2024-10-29
+
+### Added
+
+- Add ability to save and load rational and basic agents to/from json.
+- Add a version of agent development colab that uses GCP hosted model
+
+
 ## [1.8.5] - 2024-10-21
 
 ### Fixed

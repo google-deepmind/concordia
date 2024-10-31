@@ -57,6 +57,14 @@ class MemoryComponent(entity_component.ContextComponent):
           'You can only access the memory outside of the `UPDATE` phase.'
       )
 
+  def get_state(self) -> Mapping[str, Any]:
+    with self._lock:
+      return self._memory.get_state()
+
+  def set_state(self, state: Mapping[str, Any]) -> None:
+    with self._lock:
+      self._memory.set_state(state)
+
   def retrieve(
       self,
       query: str = '',

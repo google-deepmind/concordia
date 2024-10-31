@@ -14,14 +14,15 @@
 
 """A memory bank that uses AssociativeMemory to store and retrieve memories."""
 
-
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 import dataclasses
 import datetime
-from typing import Any
+from typing import Any, Mapping
 
 from concordia.associative_memory import associative_memory
+from concordia.typing import entity_component
 from concordia.typing import memory as memory_lib
+from typing_extensions import override
 
 
 # These are dummy scoring functions that will be used to know the appropriate
@@ -103,6 +104,51 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
 
   def add(self, text: str, metadata: Mapping[str, Any]) -> None:
     self._memory.add(text, **metadata)
+
+  @override
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the memory bank.
+    
+    See `set_state` for details. The default implementation returns an empty
+    dictionary.
+    """
+    return self._memory.get_state()
+
+  @override
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the memory bank.
+    
+    This is used to restore the state of the memory bank. The state is assumed 
+    to be the one returned by `get_state`.
+    The state does not need to contain any information that is passed in the 
+    initialization of the memory bank (e.g. embedder, clock, imporance etc.)
+    It is assumed that set_state is called on the memory bank after it was 
+    initialized with the same parameters as the one used to restore it.
+    The default implementation does nothing, which implies that the memory bank
+    does not have any state.
+
+    Example (Creating a copy):
+      obj1 = MemoryBank(**kwargs)
+      state = obj.get_state()
+      obj2 = MemoryBank(**kwargs)
+      obj2.set_state(state)
+      # obj1 and obj2 will behave identically.
+
+    Example (Restoring previous behavior):
+      obj = MemoryBank(**kwargs)
+      state = obj.get_state()
+      # do more with obj
+      obj.set_state(state)
+      # obj will now behave the same as it did before.
+    
+    Note that the state does not need to contain any information that is passed
+    in __init__ (e.g. the embedder, clock, imporance etc.)
+
+    Args:
+      state: The state of the memory bank.
+    """
+
+    self._memory.set_state(state)
 
   def _texts_with_constant_score(
       self, texts: Sequence[str]) -> Sequence[memory_lib.MemoryResult]:

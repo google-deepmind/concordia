@@ -164,3 +164,11 @@ class ConcatActComponent(entity_component.ActingComponent):
         'Value': result,
         'Prompt': prompt.view().text().splitlines(),
     })
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Converts the component to a dictionary."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    pass
+
