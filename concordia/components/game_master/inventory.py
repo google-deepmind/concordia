@@ -216,9 +216,9 @@ class Inventory(component.Component):
           question=(
               'In the above transcript, did any of the listed individuals '
               'gain or lose any items on the list of item types?  Make sure '
-              'to take into account items equivalent to the items on the list'
+              'to take into account items equivalent to the items on the list '
               'e.g. if "money" is on the list but the event mentions "gold" '
-              'then treat "gold" as equivalent to "money" since gold is a type'
+              'then treat "gold" as equivalent to "money" since gold is a type '
               'of money.'
           )
       )
