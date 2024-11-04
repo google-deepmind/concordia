@@ -119,13 +119,13 @@ def bargain_statements(
   """
   del chain_of_thought
 
-  if 'coins' in premise:
+  if 'coin' in premise:
     return f'{active_player_name} proposed {premise}'
   if 'accept' in premise:
     return f'{active_player_name} accepted the offer'
   if 'reject' in premise:
     return f'{active_player_name} rejected the offer'
-  return premise
+  return f'{active_player_name} {premise}'
 
 
 def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
