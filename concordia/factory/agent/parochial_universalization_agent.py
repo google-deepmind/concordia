@@ -19,6 +19,7 @@ import datetime
 import json
 import types
 
+from absl import logging as absl_logging
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
@@ -59,13 +60,8 @@ def _get_all_memories(
     sort_by_time: whether to sort by time
     constant_score: assign this score value to each memory
   """
-  # pylint: disable=protected-access
-  raw_memory = memory_component_._memory._memory
-  memories_data_frame = raw_memory.get_data_frame()
-  texts = raw_memory._pd_to_text(memories_data_frame,
-                                 add_time=add_time,
-                                 sort_by_time=sort_by_time)
-  # pylint: enable=protected-access
+  texts = memory_component_.get_all_memories_as_text(add_time=add_time,
+                                                     sort_by_time=sort_by_time)
   return [memory_lib.MemoryResult(text=t, score=constant_score) for t in texts]
 
 
@@ -77,13 +73,14 @@ def _get_earliest_timepoint(
   Args:
     memory_component_: The memory component to retrieve memories from.
   """
-  # pylint: disable=protected-access
-  raw_memory = memory_component_._memory._memory
-  memories_data_frame = raw_memory.get_data_frame()
-  sorted_memories_data_frame = memories_data_frame.sort_values(
-      'time', ascending=True)
-  # pylint: enable=protected-access
-  return sorted_memories_data_frame.iloc[0].time
+  memories_data_frame = memory_component_.get_raw_memory()
+  if not memories_data_frame.empty:
+    sorted_memories_data_frame = memories_data_frame.sort_values(
+        'time', ascending=True)
+    return sorted_memories_data_frame['time'][0]
+  else:
+    absl_logging.warn('No memories found in memory bank.')
+    return datetime.datetime.now()
 
 
 class AvailableOptionsPerception(

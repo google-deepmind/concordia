@@ -22,6 +22,7 @@ from typing import Any, Mapping
 from concordia.associative_memory import associative_memory
 from concordia.typing import entity_component
 from concordia.typing import memory as memory_lib
+import pandas as pd
 from typing_extensions import override
 
 
@@ -104,6 +105,19 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
 
   def add(self, text: str, metadata: Mapping[str, Any]) -> None:
     self._memory.add(text, **metadata)
+
+  def get_data_frame(self) -> pd.DataFrame:
+    """Returns the memory bank as a pandas dataframe."""
+    return self._memory.get_data_frame()
+
+  def get_all_memories_as_text(
+      self,
+      add_time: bool = True,
+      sort_by_time: bool = True,
+  ) -> Sequence[str]:
+    """Returns all memories in the memory bank as a sequence of strings."""
+    return self._memory.get_all_memories_as_text(add_time=add_time,
+                                                 sort_by_time=sort_by_time)
 
   @override
   def get_state(self) -> entity_component.ComponentState:

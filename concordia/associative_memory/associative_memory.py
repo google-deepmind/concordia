@@ -459,3 +459,15 @@ class AssociativeMemory:
         importance.
     """
     self._num_to_retrieve_to_contextualize_importance = num_to_retrieve
+
+  def get_all_memories_as_text(
+      self,
+      add_time: bool = True,
+      sort_by_time: bool = True,
+  ) -> Sequence[str]:
+    """Returns all memories in the memory bank as a sequence of strings."""
+    memories_data_frame = self.get_data_frame()
+    texts = self._pd_to_text(memories_data_frame,
+                             add_time=add_time,
+                             sort_by_time=sort_by_time)
+    return texts
