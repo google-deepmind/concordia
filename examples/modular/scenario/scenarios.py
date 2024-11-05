@@ -166,27 +166,12 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'organization collective action scenario with a boss '
             'who applies a fixed rule in which they only raise wages if most '
             'of their workers have joined the strike. There is also a visitor '
-            'agent who is rational'
+            'agent who is a parochial universalization agent.'
         ),
         substrate_config=SUBSTRATE_CONFIGS[
             'labor_collective_action__fixed_rule_boss'
         ],
-        background_agent_module='rational_agent',
-        time_and_place_module='wild_west_railroad_construction_labor',
-        focal_is_resident=True,
-        tags=('discouraging antisocial behavior',),
-    ),
-    labor_collective_action__rational_boss_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents in a labor '
-            'organization collective action scenario with a boss '
-            'who is rational and a visitor agent '
-            'who is rational'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS[
-            'labor_collective_action__rational_boss'
-        ],
-        background_agent_module='rational_agent',
+        background_agent_module='parochial_universalization_agent',
         time_and_place_module='wild_west_railroad_construction_labor',
         focal_is_resident=True,
         tags=('discouraging antisocial behavior',),
@@ -296,6 +281,24 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'persuasion',
         ),
     ),
+    reality_show_circa_2015_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents are contestants on a '
+            'reality show circa 2015 along with strangers who are parochial '
+            'universalization agents. The minigame played on the show is '
+            'multiplayer prisoners dilemma.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='parochial_universalization_agent',
+        time_and_place_module=(
+            'circa_2015_british_reality_show__prisoners_dilemma_3_players'
+        ),
+        focal_is_resident=True,
+        tags=(
+            'discouraging antisocial behavior',
+            'persuasion',
+        ),
+    ),
     reality_show_circa_2003_stag_hunt_0=ScenarioConfig(
         description=(
             'visitor focal agents are contestants on a reality show circa '
@@ -317,10 +320,11 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     state_formation_0=ScenarioConfig(
         description=(
             'player must negotiate a treaty to enable division of labor in '
-            'common defense and agriculture and sell it to village stakeholders'
+            'common defense and agriculture and sell it to village '
+            'stakeholders. The negotiating partner is a rational agent.'
         ),
         substrate_config=SUBSTRATE_CONFIGS['state_formation'],
-        background_agent_module='basic_agent_without_plan',
+        background_agent_module='rational_agent',
         time_and_place_module='pre_state_villages',
         focal_is_resident=True,
         tags=(
