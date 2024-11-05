@@ -261,10 +261,10 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'visitor focal agent in a haggling scenario with no supporting'
             ' agents and a rational visitor agent'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['haggling'],
+        substrate_config=SUBSTRATE_CONFIGS['haggling_gullible'],
         background_agent_module='rational_agent',
         time_and_place_module='fruitville_haggling',
-        focal_is_resident=False,
+        focal_is_resident=True,
         tags=('negotiation',),
     ),
     haggling_multi_item_0=ScenarioConfig(
