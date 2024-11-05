@@ -687,9 +687,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: str | None = None,
       pub_closed_probability: float = 0.0,
       use_relational_matrix: bool = False,
-      num_games: int = 3,
-      num_main_players: int = 4,
-      num_supporting_players: int = 1,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -717,9 +714,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       pub_closed_probability: the probability that a pub is closed. Zero by
         default.
       use_relational_matrix: whether to use relational matrix or not.
-      num_games: the number of games to play.
-      num_main_players: the number of main players.
-      num_supporting_players: the number of supporting players.
       seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
@@ -755,9 +749,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         )
     )
     self._rng = random.Random(sampled_settings.random_seed)
-    sampled_settings.num_main_players = num_main_players
-    sampled_settings.num_supporting_players = num_supporting_players
-    sampled_settings.num_games = num_games
 
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
@@ -799,7 +790,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     main_player_configs, supporting_player_configs = configure_players(
         sampled_settings, self._rng
     )
-    self._rng.shuffle(main_player_configs)
 
     tasks = {
         config.name: functools.partial(
@@ -996,6 +986,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     player_scores = self._coordination_payoffs()
+    print(player_scores)
     simulation_outcome = logging_lib.SimulationOutcome(
         resident_scores=immutabledict.immutabledict(
             {name: player_scores[name] for name in self._resident_names}

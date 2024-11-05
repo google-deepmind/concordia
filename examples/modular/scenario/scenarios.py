@@ -102,14 +102,6 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination',
         supporting_agent_module='basic_puppet_agent',
     ),
-    pub_coordination_mini=SubstrateConfig(
-        description=(
-            'pub attendance coordination with supporting agent being stubborn'
-            ' and always choosing their preference.'
-        ),
-        environment='pub_coordination_mini',
-        supporting_agent_module='basic_puppet_agent',
-    ),
     pub_coordination_closures=SubstrateConfig(
         description=(
             'pub attendance coordination with one pub sometimes being closed'
@@ -127,7 +119,7 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='haggling',
         supporting_agent_module='basic_puppet_agent',
     ),
-    haggling_multi_item=SubstrateConfig(
+    haggling_multi_item_gullible=SubstrateConfig(
         description='haggling over a price with multiple items',
         environment='haggling_multi_item',
         supporting_agent_module='basic_puppet_agent',
@@ -200,22 +192,23 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'a mini scenario with one focal and one rational visitor and no'
             ' supporting agents. Intended for fast testing.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_mini'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
+        time_and_place_module='pub_coordination_london_mini',
         focal_is_resident=True,
         tags=('coordination', 'persuasion'),
     ),
     pub_coordination_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a pub coordination scenario'
-            ' with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
+            'visitor population of focal agents in a pub coordination scenario'
+            ' with a supporting agents who are stubborn and have an opposite '
+            'preference and a rational resident agent who has opposite '
+            'preferences as well.'
         ),
         substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=True,
+        time_and_place_module='pub_coordination_london_follow',
+        focal_is_resident=False,
         tags=('coordination', 'persuasion'),
     ),
     pub_coordination_friendships_0=ScenarioConfig(
@@ -243,24 +236,24 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     ),
     haggling_1=ScenarioConfig(
         description=(
-            'visitor focal agent in a haggling scenario with no supporting'
-            ' agents and a rational visitor agent'
+            'visitor focal agent in a haggling scenario with a supporting'
+            ' agents who will accept any price and a rational visitor agent'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['haggling_gullible'],
+        substrate_config=SUBSTRATE_CONFIGS['haggling'],
         background_agent_module='rational_agent',
-        time_and_place_module='fruitville_haggling',
-        focal_is_resident=True,
+        time_and_place_module='fruitville_haggling_gullible',
+        focal_is_resident=False,
         tags=('negotiation',),
     ),
     haggling_multi_item_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a haggling scenario with no'
-            ' supporting agents and rational residents'
+            'visitor focal agent in a haggling scenario with a supporting'
+            ' agents who will accept any price and a rational visitor agent'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['haggling_multi_item'],
+        substrate_config=SUBSTRATE_CONFIGS['haggling_multi_item_gullible'],
         background_agent_module='rational_agent',
-        time_and_place_module='fruitville_haggling_multi_fruit',
-        focal_is_resident=True,
+        time_and_place_module='fruitville_haggling_multi_fruit_gullible',
+        focal_is_resident=False,
         tags=('negotiation', 'hidden information'),
     ),
     reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(

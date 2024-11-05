@@ -100,7 +100,7 @@ class WorldConfig:
   buyer_base_reward_min: int = 5
   seller_base_reward_max: int = 2
   num_games: int = 2
-  num_main_players: int = 3
+  num_main_players: int = 2
   prices: Sequence[int] = (1, 2, 3, 4, 5, 6)
   items_for_sale: Sequence[str] = ('apple', 'banana', 'pear')
   random_seed: int = 42
@@ -169,6 +169,11 @@ def configure_player(
         f'Would {name} accept the offer?:': 'accept',
         f'What price would {name} propose?:': '3 coins',
     }
+    extras['specific_memories'] = [
+        f'{name} does not care about the price. {name} will accept any offer!'
+        ' They are very vocal about it and will not haggle and will praise any'
+        ' offer.'
+    ]
 
   return formative_memories.AgentConfig(
       name=name,
@@ -579,10 +584,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
-      num_supporting_player: int = 0,
-      only_match_with_support: bool = False,
-      num_games: int = 2,
-      num_main_players: int = 3,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -607,11 +608,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      num_supporting_player: the number of supporting players.
-      only_match_with_support: whether to only match main players with
-        supporting players.
-      num_games: the number of games to play.
-      num_main_players: the number of main players.
       seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
@@ -625,10 +621,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             seed=seed,
         )
     )
-    sampled_settings.num_supporting_players = num_supporting_player
-    sampled_settings.only_match_with_support = only_match_with_support
-    sampled_settings.num_main_players = num_main_players
-    sampled_settings.num_games = num_games
+    # sampled_settings.num_supporting_players = num_supporting_player
+    # sampled_settings.only_match_with_support = only_match_with_support
+    # sampled_settings.num_main_players = num_main_players
+    # sampled_settings.num_games = num_games
     self._rng = random.Random(sampled_settings.random_seed)
 
     start_time = datetime.datetime(
@@ -728,10 +724,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           ),
       )
       explicit_preference = agent_components.constant.Constant(
-          pre_act_key='explicit preference',
+          pre_act_key='Explicit preference',
           state=(
               f'{player_config.name} will accept any offer! They are very vocal'
-              ' about it.'
+              ' about it and will not haggle and will praise any offer.'
           ),
       )
       player = self._build_supporting_agent(

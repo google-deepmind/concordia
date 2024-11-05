@@ -117,6 +117,10 @@ def sample_parameters(seed: int | None = None):
       premise=SCENARIO_PREMISE,
       scene_visuals=VISUAL_SCENE_OPENINGS,
       random_seed=seed,
+      num_supporting_players=1,
+      num_main_players=1,
+      num_games=3,
+      only_match_with_support=True,
   )
 
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
