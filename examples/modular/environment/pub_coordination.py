@@ -492,7 +492,7 @@ def configure_scenes(
     }
 
     if closed_pub:
-      players_in_the_know = rng.choice(player_configs)
+      players_in_the_know = player_configs[0]
       player_name = players_in_the_know.name
       per_player_premise[player_name].append(
           f'{player_name} have learnt that {closed_pub} is closed today. Going'

@@ -211,16 +211,17 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         focal_is_resident=False,
         tags=('coordination', 'persuasion'),
     ),
-    pub_coordination_friendships_0=ScenarioConfig(
+
+    pub_coordination_closures_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a pub coordination scenario'
-            ' with friendships with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
+            'visitor population of focal agents in a pub coordination scenario'
+            ' with a chance of a pub being closed and a'
+            ' rational visitor agent and a stubborn on supporting agent.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_friendships'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
         background_agent_module='rational_agent',
         time_and_place_module='pub_coordination_london',
-        focal_is_resident=True,
+        focal_is_resident=False,
         tags=('coordination', 'persuasion', 'social networks'),
     ),
     haggling_0=ScenarioConfig(
