@@ -45,7 +45,7 @@ MAX_EXTRA_MINIGAMES = 3
 prisoners_dilemma_schelling_diagram = SchellingDiagram(
     # A fear+greed-type (Prisoners' Dilemma-like) dilemma
     cooperation=lambda num_cooperators: num_cooperators - 1.0,
-    defection=lambda num_cooperators: num_cooperators + 2.0,
+    defection=lambda num_cooperators: (1.5 * num_cooperators) + 1.0,
 )
 chicken_schelling_diagram = SchellingDiagram(
     # A greed-type (Chicken-like) dilemma
@@ -55,7 +55,7 @@ chicken_schelling_diagram = SchellingDiagram(
 stag_hunt_schelling_diagram = SchellingDiagram(
     # A fear-type (Stag Hunt-like) dilemma
     cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
-    defection=lambda num_cooperators: num_cooperators + 4.0,
+    defection=lambda num_cooperators: (0.5 * num_cooperators) + 6.0,
 )
 
 
@@ -88,10 +88,10 @@ def get_prisoners_dilemma_host_speech(num_players: int) -> str:
       'Think of it as saving money and helping the environment!'
   ))
   d = 0
-  for c in range(num_players - 1, 1, -1):
+  for c in range(num_players - 1, 0, -1):
     d += 1
     cooperators_earn = prisoners_dilemma_schelling_diagram.cooperation(c)
-    defectors_earn = prisoners_dilemma_schelling_diagram.cooperation(d)
+    defectors_earn = prisoners_dilemma_schelling_diagram.defection(c)
     if d == 1:
       host_speech.append((
           f'* **If {c} of you carpool, and {d} drives alone,** the '
@@ -106,9 +106,7 @@ def get_prisoners_dilemma_host_speech(num_players: int) -> str:
           f'drivers get {defectors_earn} each.'
       ))
 
-  all_defectors_earn = prisoners_dilemma_schelling_diagram.defection(
-      num_players
-  )
+  all_defectors_earn = prisoners_dilemma_schelling_diagram.defection(0)
   host_speech.append((
       '* **And if everyone decides to go solo,** you all get '
       f'{all_defectors_earn} points.  No carpool, but no coordination '
@@ -148,10 +146,10 @@ def get_chicken_host_speech(num_players: int) -> str:
       f'and you each earn {all_cooperators_earn} points.'
   ))
   d = 0
-  for c in range(num_players - 1, 1, -1):
+  for c in range(num_players - 1, 0, -1):
     d += 1
     cooperators_earn = chicken_schelling_diagram.cooperation(c)
-    defectors_earn = chicken_schelling_diagram.cooperation(d)
+    defectors_earn = chicken_schelling_diagram.defection(c)
     if d == 1:
       host_speech.append((
           f'* **If {c} of you maintain the appliance, and {d} lets others '
@@ -167,7 +165,7 @@ def get_chicken_host_speech(num_players: int) -> str:
           f'{defectors_earn} each.'
       ))
 
-  all_defectors_earn = chicken_schelling_diagram.defection(num_players)
+  all_defectors_earn = chicken_schelling_diagram.defection(0)
   host_speech.append((
       '* **And if everyone leaves the upkeep to others,** the appliance '
       f'is neglected and you all get {all_defectors_earn} points.'
@@ -209,10 +207,10 @@ def get_stag_hunt_host_speech(num_players: int) -> str:
       f'race, and earn {all_cooperators_earn} points each!'
   ))
   d = 0
-  for c in range(num_players - 1, 1, -1):
+  for c in range(num_players - 1, 0, -1):
     d += 1
     cooperators_earn = stag_hunt_schelling_diagram.cooperation(c)
-    defectors_earn = stag_hunt_schelling_diagram.cooperation(d)
+    defectors_earn = stag_hunt_schelling_diagram.defection(c)
     if d == 1:
       host_speech.append((
           f'* **If {c} of you row vigorously, and {d} rows less '
@@ -227,9 +225,7 @@ def get_stag_hunt_host_speech(num_players: int) -> str:
           f'while the less vigorous rowers get {defectors_earn} each.'
       ))
 
-  all_defectors_earn = stag_hunt_schelling_diagram.defection(
-      num_players
-  )
+  all_defectors_earn = stag_hunt_schelling_diagram.defection(0)
   host_speech.append((
       '* **And if everyone decides to row less vigorously,** you all save '
       f'energy but lose the race, earning {all_defectors_earn} points each.'
