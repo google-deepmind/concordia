@@ -4,13 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+
+## [1.8.7] - 2024-11-5
+
+### Added
+
+- add parochial universalization agent to the main factories
+- add Jinja2 to the requirements to improve the prompting experience
+- Add get_raw_memories and get_raw_memories_as_text functions on the memory component.
+
+
 ## [1.8.6] - 2024-10-29
 
 ### Added
 
 - Add ability to save and load rational and basic agents to/from json.
-- Add a version of agent development colab that uses GCP hosted model
-
+- Add a version of agent development colab that uses GCP hosted model.
 
 ## [1.8.5] - 2024-10-21
 
