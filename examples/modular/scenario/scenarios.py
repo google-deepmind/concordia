@@ -341,6 +341,7 @@ def build_simulation(
     support_agent_base_module: str = DEFAULT_IMPORT_SUPPORT_AGENT_MODULE,
     env_base_module: str = DEFAULT_IMPORT_ENV_BASE_MODULE,
     seed: int | None = None,
+    override_background_agent_module: types.ModuleType | None = None,
 ) -> RunnableSimulationWithMemories:
   """Builds a simulation from a scenario configuration."""
   substrate_config = scenario_config.substrate_config
@@ -348,9 +349,12 @@ def build_simulation(
   simulation = importlib.import_module(
       f'{env_base_module}.{substrate_config.environment}'
   )
-  background_agent_module = importlib.import_module(
-      f'{agent_base_module}.{scenario_config.background_agent_module}'
-  )
+  if override_background_agent_module is not None:
+    background_agent_module = override_background_agent_module
+  else:
+    background_agent_module = importlib.import_module(
+        f'{agent_base_module}.{scenario_config.background_agent_module}'
+    )
   if scenario_config.focal_is_resident:
     resident_agent_module = focal_agent_module
     visitor_agent_module = background_agent_module
