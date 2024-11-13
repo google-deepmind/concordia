@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.8] - 2024-11-13
+
+### Fixed
+
+- Fixed a bug in the Schelling diagram payoffs component preventing some players
+from seeing outcomes on certain steps.
+
 
 ## [1.8.7] - 2024-11-5
 
