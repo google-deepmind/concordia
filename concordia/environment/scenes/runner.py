@@ -21,7 +21,7 @@ from concordia.environment import game_master
 from concordia.typing import clock as game_clock
 from concordia.typing import logging as logging_lib
 from concordia.typing import scene as scene_lib
-from concordia.utils import helper_functions
+from concordia.utils import json as json_lib
 
 
 def _get_interscene_messages(
@@ -145,7 +145,7 @@ def run_scenes(
       serialized_agents = {}
       for participant in participants:
         serialized_agents = {}
-        json_representation = helper_functions.save_to_json(participant)
+        json_representation = json_lib.save_to_json(participant)
         serialized_agents[participant.name] = json_representation
 
       if compute_metrics is not None:
