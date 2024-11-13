@@ -14,12 +14,14 @@
 
 """Scene runner."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from concordia.agents import deprecated_agent
 from concordia.environment import game_master
 from concordia.typing import clock as game_clock
+from concordia.typing import logging as logging_lib
 from concordia.typing import scene as scene_lib
+from concordia.utils import helper_functions
 
 
 def _get_interscene_messages(
@@ -61,6 +63,7 @@ def run_scenes(
     players: Sequence[deprecated_agent.BasicAgent],
     clock: game_clock.GameClock,
     verbose: bool = False,
+    compute_metrics: Mapping[str, logging_lib.Metric] | None = None,
 ) -> None:
   """Run a sequence of scenes.
 
@@ -70,6 +73,7 @@ def run_scenes(
     players: full list of players (a subset may participate in each scene)
     clock: the game clock which may be advanced between scenes
     verbose: if true then print intermediate outputs
+    compute_metrics: Optionally, a function to compute metrics.
   """
   players_by_name = {player.name: player for player in players}
   if len(players_by_name) != len(players):
@@ -135,3 +139,14 @@ def run_scenes(
           print(f'{participant.name} -- conclusion: {message}')
         participant.observe(message)
         this_scene_game_master_memory.add(message)
+
+    # Branch off a metric scene if applicable
+    if scene.scene_type.save_after_each_scene:
+      serialized_agents = {}
+      for participant in participants:
+        serialized_agents = {}
+        json_representation = helper_functions.save_to_json(participant)
+        serialized_agents[participant.name] = json_representation
+
+      if compute_metrics is not None:
+        compute_metrics(serialized_agents)

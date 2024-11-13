@@ -14,7 +14,7 @@
 
 """A Generic Environment Factory."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import operator
 
 from concordia import components as generic_components
@@ -295,6 +295,7 @@ def run_simulation(
     scenes: Sequence[scene_lib.SceneSpec],
     secondary_environments: Sequence[game_master.GameMaster] = tuple(),
     summarize_entire_episode_in_log: bool = True,
+    compute_metrics: Callable[[Mapping[str, str]], None] | None = None,
 ) -> str:
   """Run a simulation.
 
@@ -307,6 +308,7 @@ def run_simulation(
     secondary_environments: Sequence of secondary game masters for scenes.
     summarize_entire_episode_in_log: Optionally, include summaries of the full
       episode in the log.
+    compute_metrics: Optionally, a function to compute metrics.
 
   Returns:
     an HTML string log of the simulation.
@@ -317,6 +319,7 @@ def run_simulation(
       scenes=scenes,
       players=players,
       clock=clock,
+      compute_metrics=compute_metrics,
   )
   result_html_log = create_html_log(
       model=model,

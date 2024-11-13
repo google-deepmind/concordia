@@ -39,6 +39,8 @@ class SceneTypeSpec:
       the game master to ask the agents to produce during steps of this scene.
     override_game_master: optionally specify a game master to use instead of the
       default one.
+    save_after_each_scene: optionally specify whether to save the agent's state
+      after each scene.
   """
 
   name: str
@@ -52,6 +54,7 @@ class SceneTypeSpec:
       | None
   ) = None
   override_game_master: game_master.GameMaster | None = None
+  save_after_each_scene: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
