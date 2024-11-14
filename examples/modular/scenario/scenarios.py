@@ -102,18 +102,6 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination',
         supporting_agent_module='basic_puppet_agent',
     ),
-    pub_coordination_closures=SubstrateConfig(
-        description=(
-            'pub attendance coordination with one pub sometimes being closed'
-        ),
-        environment='pub_coordination_closures',
-        supporting_agent_module='basic_puppet_agent',
-    ),
-    pub_coordination_friendships=SubstrateConfig(
-        description='pub attendance coordination with friendship network',
-        environment='pub_coordination_friendships',
-        supporting_agent_module='basic_puppet_agent',
-    ),
     haggling=SubstrateConfig(
         description='haggling over a price',
         environment='haggling',
@@ -218,9 +206,9 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             ' with a chance of a pub being closed and a'
             ' rational visitor agent and a stubborn on supporting agent.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_closures'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
+        time_and_place_module='pub_coordination_london_closures',
         focal_is_resident=False,
         tags=('coordination', 'persuasion', 'social networks'),
     ),

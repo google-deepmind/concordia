@@ -89,6 +89,9 @@ class WorldConfig:
   num_supporting_players: int = 1
   num_games: int = 3
   random_seed: int = 42
+  pub_closed_probability: float = 0.0
+  player_who_knows_closed_pub: str | None = None
+  relationship_matrix: Mapping[str, Mapping[str, float]] | None = None
 
 
 def get_shared_memories_and_context(
@@ -208,7 +211,11 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
 
   for i in range(sampled_settings.num_main_players):
     name = names[i]
-    favorite_pub = sampled_settings.venues[i % num_pubs]
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
+    else:
+      favorite_pub = sampled_settings.venues[i % num_pubs]
+
     gender = sampled_settings.person_data[name]['gender']
     config = configure_player(
         name,
@@ -225,7 +232,10 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
   for i in range(sampled_settings.num_supporting_players):
     name = names[sampled_settings.num_main_players + i]
     gender = sampled_settings.person_data[name]['gender']
-    favorite_pub = sampled_settings.venues[1]
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
+    else:
+      favorite_pub = sampled_settings.venues[1]
     config = configure_player(
         name,
         gender,
@@ -334,7 +344,7 @@ def add_choice_scene_spec(
     scene_type_name: str,
     pubs: Sequence[str],
     rng: random.Random,
-    use_relational_matrix: bool = False,
+    relationship_matrix: Mapping[str, Mapping[str, float]] | None,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, CoordinationPayoffs]:
   """Add a minigame scene spec.
@@ -350,7 +360,7 @@ def add_choice_scene_spec(
     scene_type_name: the name of the scene type.
     pubs: the pubs to use.
     rng: the random number generator to use.
-    use_relational_matrix: whether to use relational matrix or not.
+    relationship_matrix: whether to use relational matrix or not.
     verbose: whether to print verbose output or not.
 
   Returns:
@@ -366,10 +376,6 @@ def add_choice_scene_spec(
   }
 
   names = [cfg.name for cfg in player_configs]
-  if use_relational_matrix:
-    relational_matrix = sample_symmetric_relationship_matrix(names, rng)
-  else:
-    relational_matrix = None
 
   coordination_payoffs = CoordinationPayoffs(
       model=model,
@@ -380,7 +386,7 @@ def add_choice_scene_spec(
       players=players,
       acting_player_names=[cfg.name for cfg in player_configs],
       outcome_summarization_fn=outcome_summary_fn,
-      relational_matrix=relational_matrix,
+      relational_matrix=relationship_matrix,
       clock_now=clock.now,
       name='scoring function',
       verbose=verbose,
@@ -400,9 +406,9 @@ def add_choice_scene_spec(
       verbose=verbose,
   )
 
-  if use_relational_matrix:
+  if relationship_matrix:
     friendship_statements = generate_relationship_statements(
-        names, relational_matrix, rng
+        names, relationship_matrix, rng
     )
   else:
     friendship_statements = {name: [''] for name in names}
@@ -431,10 +437,8 @@ def configure_scenes(
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     start_time: datetime.datetime,
-    pub_closed_probability: float,
     sampled_settings: Any,
     rng: random.Random,
-    use_relational_matrix: bool = False,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
     Callable[[], Mapping[str, float]],
@@ -450,10 +454,8 @@ def configure_scenes(
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     start_time: the start time/date in the game world for the first scene
-    pub_closed_probability: the probability that a pub is closed
     sampled_settings: the sampled settings for the world configuration
     rng: the random number generator to use
-    use_relational_matrix: whether to use relational matrix or not
 
   Returns:
     scenes: a sequence of scene specifications
@@ -464,6 +466,8 @@ def configure_scenes(
   coordination_payoffs = []
   scenes = []
   pubs = sampled_settings.venues
+
+  pub_closed_probability = sampled_settings.pub_closed_probability
 
   secondary_environments = []
 
@@ -492,8 +496,11 @@ def configure_scenes(
     }
 
     if closed_pub:
-      players_in_the_know = player_configs[0]
-      player_name = players_in_the_know.name
+      if sampled_settings.player_who_knows_closed_pub:
+        player_name = sampled_settings.player_who_knows_closed_pub
+      else:
+        player_name = rng.choice(player_configs).name
+
       per_player_premise[player_name].append(
           f'{player_name} have learnt that {closed_pub} is closed today. Going'
           ' there would be a bad idea.'
@@ -521,7 +528,7 @@ def configure_scenes(
         scene_type_name=DECISION_SCENE_TYPE,
         pubs=pubs,
         rng=rng,
-        use_relational_matrix=use_relational_matrix,
+        relationship_matrix=sampled_settings.relationship_matrix,
     )
     coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
@@ -685,8 +692,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
-      pub_closed_probability: float = 0.0,
-      use_relational_matrix: bool = False,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -711,9 +716,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      pub_closed_probability: the probability that a pub is closed. Zero by
-        default.
-      use_relational_matrix: whether to use relational matrix or not.
       seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
@@ -905,9 +907,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             supporting_player_configs=supporting_player_configs,
             sampled_settings=sampled_settings,
             start_time=start_time,
-            pub_closed_probability=pub_closed_probability,
             rng=self._rng,
-            use_relational_matrix=use_relational_matrix,
         )
     )
 
