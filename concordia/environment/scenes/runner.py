@@ -17,6 +17,7 @@
 from collections.abc import Mapping, Sequence
 
 from concordia.agents import deprecated_agent
+from concordia.agents import entity_agent
 from concordia.environment import game_master
 from concordia.typing import clock as game_clock
 from concordia.typing import logging as logging_lib
@@ -60,7 +61,7 @@ def _get_interscene_messages(
 def run_scenes(
     environment: game_master.GameMaster,
     scenes: Sequence[scene_lib.SceneSpec],
-    players: Sequence[deprecated_agent.BasicAgent],
+    players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
     clock: game_clock.GameClock,
     verbose: bool = False,
     compute_metrics: Mapping[str, logging_lib.Metric] | None = None,

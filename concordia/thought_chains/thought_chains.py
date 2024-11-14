@@ -19,6 +19,7 @@ from collections.abc import Callable, Sequence
 import random
 
 from concordia.agents import deprecated_agent
+from concordia.agents import entity_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import agent as agent_types
@@ -322,7 +323,7 @@ class AccountForAgencyOfOthers:
   def __init__(
       self,
       model: language_model.LanguageModel,
-      players: Sequence[deprecated_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       verbose: bool = False,
   ):
     self._model = model
