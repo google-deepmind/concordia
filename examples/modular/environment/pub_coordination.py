@@ -115,6 +115,7 @@ def configure_player(
     favorite_pub: str,
     is_main: bool,
     all_player_names_str: str,
+    friend_names_str: str,
     pub_preferences: dict[str, Sequence[str]],
     year: int,
     rng: random.Random,
@@ -126,7 +127,9 @@ def configure_player(
     gender: the gender of the player
     favorite_pub: the favorite pub of the player
     is_main: whether the player is a main character or not
-    all_player_names_str: the names of all the players in one string
+    all_player_names_str: the names of all the players in one comma-separated
+       string
+    friend_names_str: the names of the friends in one comma-separated string
     pub_preferences: the preferences of all the pubs
     year: the year of the simulation to sample the age of the players
     rng: the random number generator to use
@@ -152,7 +155,11 @@ def configure_player(
         _CALL_TO_ACTION.format(name=name): favorite_pub
     }
     extras['favourite_pub'] = favorite_pub
-
+  goal = (
+      f'Have a good time. To have a good time, {name} would like to'
+      f' watch the game in the same pub as {friend_names_str}.'
+      f' {name} would prefer everyone went to {favorite_pub}.'
+  )
   config = formative_memories.AgentConfig(
       name=name,
       gender=gender,
@@ -162,28 +169,48 @@ def configure_player(
           day=rng.randint(1, 28),
       ),
       formative_ages=[16, 20],
-      goal=(
-          f'Have a good time. To have a good time, {name} would like to'
-          f' watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer everyone went to {favorite_pub}.'
-      ),
+      goal=goal,
       context=(
-          f"{all_player_names_str}' are best friends. {name} has"
-          f' a favorite pub which is {favorite_pub}. They are also aware of the'
-          f' following:{reasons}'
+          f"{all_player_names_str}' are close friends. {name} has"
+          f' a favorite pub which is {favorite_pub}. They love that pub for the'
+          f' following reasons: {reasons}'
       ),
       traits=(
           f"{name}'s personality is like "
           + player_traits_and_styles.get_trait(flowery=True)
       ),
       extras=extras,
-      specific_memories=(
-          f'[goal] {name} goals is to have a good time. {name} would like to'
-          f' watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer everyone went to {favorite_pub}.'
-      ),
+      specific_memories=f'[goal] {goal}',
   )
   return config
+
+
+def _get_friends_names(name, all_names, relationship_matrix):
+  """Get the names of the friends of a player.
+
+  Args:
+    name: name of the player
+    all_names: names of all the players
+    relationship_matrix: relationship matrix of the players
+
+  Returns:
+    names of the friends of the player from the relationship matrix or if it 
+      is None, then all the names that are not the player itself
+  """
+  if (
+      relationship_matrix
+      and name in relationship_matrix
+  ):
+    direct_friends = []
+    for friend_name in relationship_matrix[name]:
+      if (
+          relationship_matrix[name][friend_name] == 1.0
+          and friend_name != name
+      ):
+        direct_friends.append(friend_name)
+    return ', '.join(direct_friends)
+  else:
+    return ', '.join([x for x in all_names if x != name])
 
 
 def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
@@ -216,6 +243,9 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
     else:
       favorite_pub = sampled_settings.venues[i % num_pubs]
 
+    friend_names = _get_friends_names(
+        name, names, sampled_settings.relationship_matrix
+    )
     gender = sampled_settings.person_data[name]['gender']
     config = configure_player(
         name,
@@ -223,6 +253,7 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
         favorite_pub,
         is_main=True,
         all_player_names_str=all_players,
+        friend_names_str=friend_names,
         pub_preferences=sampled_settings.venue_preferences,
         year=sampled_settings.year,
         rng=rng,
@@ -236,12 +267,17 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
       favorite_pub = sampled_settings.person_data[name]['favorite_pub']
     else:
       favorite_pub = sampled_settings.venues[1]
+
+    friend_names = _get_friends_names(
+        name, names, sampled_settings.relationship_matrix
+    )
     config = configure_player(
         name,
         gender,
         favorite_pub,
         is_main=False,
         all_player_names_str=all_players,
+        friend_names_str=friend_names,
         pub_preferences=sampled_settings.venue_preferences,
         year=sampled_settings.year,
         rng=rng,
