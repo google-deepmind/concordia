@@ -446,7 +446,7 @@ def configure_scenes(
         for item in sampled_settings.items_for_sale
     }
     seller_base_reward_per_item = {
-        item: rng.randint(sampled_settings.seller_base_reward_max, 6)
+        item: rng.randint(1, sampled_settings.seller_base_reward_max)
         for item in sampled_settings.items_for_sale
     }
 
