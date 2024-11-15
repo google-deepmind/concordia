@@ -123,7 +123,24 @@ def sample_parameters(seed: int | None = None):
       buyer_base_reward_min=6,
       seller_base_reward_max=1,
       only_match_with_support=True,
+      supporting_player_parameters={
+          "fixed_response_by_call_to_action": {
+              "Would {name} accept the offer?:": "accept",
+              "What price would {name} propose?:": "3 coins",
+          },
+          "specific_memories": [
+              "{name} does not care about the price. {name} will accept any"
+              " offer! They are very vocal about it and will not haggle and"
+              " will praise any offer."
+          ],
+          "explciti_preference_component": (
+              "{name} does not care about the price. {name} will accept any"
+              " offer! They are very vocal about it and will not haggle and"
+              " will praise any offer."
+          ),
+      },
   )
+
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
   rng = random.Random(config.random_seed)
   rng.shuffle(all_names)
