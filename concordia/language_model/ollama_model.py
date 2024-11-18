@@ -91,7 +91,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
         options={'stop': terminators},
         keep_alive='10m',
     )
-    result = response.response
+    result = response['response']
 
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -127,7 +127,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
           keep_alive='10m',
       )
       try:
-        json_data_response = json.loads(response.response)
+        json_data_response = json.loads(response['response'])
       except json.JSONDecodeError:
         continue
       sample_or_none = json_data_response.get('choice', None)
