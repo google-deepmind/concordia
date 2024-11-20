@@ -118,10 +118,31 @@ def sample_parameters(seed: int | None = None):
       scene_visuals=VISUAL_SCENE_OPENINGS,
       buyer_base_reward_min=2,
       seller_base_reward_max=5,
-      num_supporting_players=0,
-      num_main_players=4,
+      supporting_player_parameters={
+          "fixed_response_by_call_to_action": {
+              "proposed 1 coin": "reject",
+              "proposed 2 coins": "reject",
+              "proposed 3 coins": "reject",
+              "proposed 4 coins": "accept",
+              "proposed 5 coins": "reject",
+              "What price would {name} propose?:": "4 coins",
+          },
+          "specific_memories": [
+              "{name} is a stubborn merchant. {name} will sell his items"
+              " exactly for 4 coins no more and no less. He is very vocal"
+              " about it."
+          ],
+          "explciti_preference_component": (
+              "{name} is a stubborn merchant. {name} will sell his items"
+              " exactly for 4 coins no more and no less. He is very vocal"
+              " about it."
+          ),
+      },
+      num_supporting_players=1,
+      num_main_players=1,
+      num_games=5,
       random_seed=seed,
-      num_games=2,
+      only_match_with_support=True,
   )
   rng = random.Random(config.random_seed)
 

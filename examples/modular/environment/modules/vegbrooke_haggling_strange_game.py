@@ -116,12 +116,11 @@ def sample_parameters(seed: int | None = None):
       location="Fruitville",
       premise=SCENARIO_PREMISE,
       scene_visuals=VISUAL_SCENE_OPENINGS,
-      buyer_base_reward_min=2,
-      seller_base_reward_max=5,
-      num_supporting_players=0,
-      num_main_players=4,
+      buyer_base_reward_min=1,
+      buyer_base_reward_max=1,
+      seller_base_reward_min=6,
+      seller_base_reward_max=6,
       random_seed=seed,
-      num_games=2,
   )
   rng = random.Random(config.random_seed)
 
