@@ -55,6 +55,7 @@ import numpy as np
 
 
 DEFAULT_TIME_AND_PLACE_MODULES = (
+    'anthracite_coal_labor',
     'garment_factory_labor',
     'wild_west_railroad_construction_labor',
 )
