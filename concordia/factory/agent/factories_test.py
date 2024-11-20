@@ -24,6 +24,7 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
+from concordia.factory.agent import alternative_basic_agent
 from concordia.factory.agent import basic_agent
 from concordia.factory.agent import basic_agent_without_plan
 from concordia.factory.agent import observe_recall_prompt_agent
@@ -46,6 +47,7 @@ SPEECH_ACTION_SPEC = agent_lib.DEFAULT_SPEECH_ACTION_SPEC
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
+    'alternative_basic_agent': alternative_basic_agent,
     'basic_agent': basic_agent,
     'basic_agent_without_plan': basic_agent_without_plan,
     'observe_recall_prompt_agent': observe_recall_prompt_agent,
@@ -64,6 +66,11 @@ def _embedder(text: str):
 class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
+      dict(
+          testcase_name='alternative_basic_agent',
+          agent_name='alternative_basic_agent',
+          main_role=True
+      ),
       dict(
           testcase_name='basic_agent',
           agent_name='basic_agent',
