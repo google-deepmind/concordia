@@ -682,7 +682,7 @@ class WorldConfig:
   organizer: str | None = None
   supporting_player_locations: Sequence[str] = ()
   overheard_strike_talk: Sequence[str] = ()
-  num_additional_days: int = 3
+  num_additional_days: int = 4
   num_additional_dinners: int = 1
 
   def append_person(

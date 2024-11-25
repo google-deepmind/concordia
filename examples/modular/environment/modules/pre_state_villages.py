@@ -23,7 +23,7 @@ BASIC_SETTING = (
     '{village_a_name} and {village_b_name} are '
     'pre-state societies. They are small villages with a few hundred '
     'people each. They are located on the coast and supported by '
-    'both fishing and agriculture. The local farmers living outside '
+    'nearby farms. The local farmers living outside '
     'the villages share cultural and economic ties with the villagers.'
 )
 
