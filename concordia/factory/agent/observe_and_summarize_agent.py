@@ -78,17 +78,12 @@ def build_agent(
   )
 
   observation_label = '\nObservation'
-  observation = agent_components.observation.Observation(
-      clock_now=clock.now,
-      timeframe=clock.get_step_size(),
-      pre_act_key=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
-  )
-  observations_since_last_update.ObservationsSinceLastUpdate(
+  observation = observations_since_last_update.ObservationsSinceLastUpdate(
       model=model,
       clock_now=clock.now,
       pre_act_key=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate').on_next,
   )
 
   situation_representation_label = (
@@ -118,8 +113,8 @@ def build_agent(
       # Components that provide pre_act context.
       instructions,
       time_display,
-      observation,
       situation_representation,
+      observation,
   )
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}

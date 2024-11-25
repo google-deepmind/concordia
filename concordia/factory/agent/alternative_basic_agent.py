@@ -23,6 +23,7 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
+from concordia.contrib.components.agent import observations_since_last_update
 from concordia.contrib.components.agent import situation_representation_via_narrative
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
@@ -83,11 +84,12 @@ def build_agent(
   )
 
   observation_label = '\nObservation'
-  observation = agent_components.observation.Observation(
+  observation = observations_since_last_update.ObservationsSinceLastUpdate(
+      model=model,
       clock_now=clock.now,
-      timeframe=clock.get_step_size(),
       pre_act_key=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate').on_next,
   )
 
   situation_representation_label = (
@@ -131,8 +133,7 @@ def build_agent(
       model=model,
       components={
           _get_class_name(
-              situation_representation): situation_representation_label,
-          _get_class_name(time_display): 'The current date/time is'},
+              situation_representation): situation_representation_label},
       num_memories_to_retrieve=10,
       pre_act_key=relevant_memories_label,
       logging_channel=measurements.get_channel('AllSimilarMemories').on_next,
@@ -150,11 +151,11 @@ def build_agent(
   entity_components = (
       # Components that provide pre_act context.
       time_display,
-      observation,
+      relevant_memories,
       self_perception,
       situation_representation,
+      observation,
       person_by_situation,
-      relevant_memories,
   )
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
