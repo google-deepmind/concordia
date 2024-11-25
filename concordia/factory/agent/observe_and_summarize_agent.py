@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A factory implementing the three key questions agent as an entity."""
+"""An Agent Factory."""
 
 from collections.abc import Callable
 import datetime
@@ -23,17 +23,13 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
+from concordia.contrib.components.agent import observations_since_last_update
 from concordia.contrib.components.agent import situation_representation_via_narrative
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
-
-
-DEFAULT_INSTRUCTIONS_COMPONENT_KEY = 'Instructions'
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nInstructions'
-DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 
 
 def _get_class_name(object_: object) -> str:
@@ -72,7 +68,6 @@ def build_agent(
   measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
       agent_name=agent_name,
-      pre_act_key=DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
@@ -89,6 +84,12 @@ def build_agent(
       pre_act_key=observation_label,
       logging_channel=measurements.get_channel('Observation').on_next,
   )
+  observations_since_last_update.ObservationsSinceLastUpdate(
+      model=model,
+      clock_now=clock.now,
+      pre_act_key=observation_label,
+      logging_channel=measurements.get_channel('Observation').on_next,
+  )
 
   situation_representation_label = (
       f'\nQuestion: What situation is {agent_name} in right now?\nAnswer')
@@ -102,74 +103,35 @@ def build_agent(
           ).on_next,
       )
   )
-  self_perception_label = (
-      f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
-  self_perception = agent_components.question_of_recent_memories.SelfPerception(
-      model=model,
-      pre_act_key=self_perception_label,
-      logging_channel=measurements.get_channel('SelfPerception').on_next,
-  )
-
-  person_by_situation_label = (
-      f'\nQuestion: What would a person like {agent_name} do in '
-      'a situation like this?\nAnswer')
-  person_by_situation = (
-      agent_components.question_of_recent_memories.PersonBySituation(
-          model=model,
-          components={
-              _get_class_name(self_perception): self_perception_label,
-              _get_class_name(
-                  situation_representation): situation_representation_label,
-          },
-          clock_now=clock.now,
-          pre_act_key=person_by_situation_label,
-          logging_channel=measurements.get_channel('PersonBySituation').on_next,
-      )
-  )
-  relevant_memories_label = '\nRecalled memories and observations'
-  relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
-      model=model,
-      components={
-          _get_class_name(
-              situation_representation): situation_representation_label,
-          _get_class_name(time_display): 'The current date/time is'},
-      num_memories_to_retrieve=10,
-      pre_act_key=relevant_memories_label,
-      logging_channel=measurements.get_channel('AllSimilarMemories').on_next,
-  )
 
   if config.goal:
-    goal_label = '\nGoal'
+    goal_label = '\nOverarching goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
         pre_act_key=goal_label,
         logging_channel=measurements.get_channel(goal_label).on_next)
   else:
+    goal_label = None
     overarching_goal = None
 
   entity_components = (
       # Components that provide pre_act context.
+      instructions,
       time_display,
       observation,
-      self_perception,
       situation_representation,
-      person_by_situation,
-      relevant_memories,
   )
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
   components_of_agent[
       agent_components.memory_component.DEFAULT_MEMORY_COMPONENT_NAME] = (
           agent_components.memory_component.MemoryComponent(raw_memory))
-  component_order = list(components_of_agent.keys())
 
-  # Put the instructions first.
-  components_of_agent[DEFAULT_INSTRUCTIONS_COMPONENT_KEY] = instructions
-  component_order.insert(0, DEFAULT_INSTRUCTIONS_COMPONENT_KEY)
+  component_order = list(components_of_agent.keys())
   if overarching_goal is not None:
-    components_of_agent[DEFAULT_GOAL_COMPONENT_KEY] = overarching_goal
+    components_of_agent[goal_label] = overarching_goal
     # Place goal after the instructions.
-    component_order.insert(1, DEFAULT_GOAL_COMPONENT_KEY)
+    component_order.insert(1, goal_label)
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,

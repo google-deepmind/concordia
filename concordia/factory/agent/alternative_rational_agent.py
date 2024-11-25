@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A factory implementing the three key questions agent as an entity."""
+"""An Agent Factory."""
 
 from collections.abc import Callable
 import datetime
@@ -38,6 +38,48 @@ DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 
 def _get_class_name(object_: object) -> str:
   return object_.__class__.__name__
+
+
+class AvailableOptionsPerception(
+    agent_components.question_of_recent_memories.QuestionOfRecentMemories):
+  """This component answers the question 'what actions are available to me?'."""
+
+  def __init__(self, **kwargs):
+
+    super().__init__(
+        question=(
+            'Given the information above, what options are available to '
+            '{agent_name} right now? Make sure not to consider too few '
+            'alternatives. Brainstorm at least three options. Try to include '
+            'actions that seem most likely to be effective along with some '
+            'creative or unusual choices that could also plausibly work.'
+        ),
+        terminators=('\n\n',),
+        answer_prefix='',
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
+class BestOptionPerception(
+    agent_components.question_of_recent_memories.QuestionOfRecentMemories):
+  """This component answers 'which action is best for achieving my goal?'."""
+
+  def __init__(self, **kwargs):
+    super().__init__(
+        question=(
+            "Given the information above, which of {agent_name}'s options "
+            'has the highest likelihood of causing {agent_name} to achieve '
+            'their goal? If multiple options have the same likelihood, select '
+            'the option that {agent_name} thinks will most quickly and most '
+            'surely achieve their goal. The right choice is nearly always '
+            'one that is proactive, involves seizing the initative, '
+            'resoving uncertainty, and decisively moving towards the goal.'
+        ),
+        answer_prefix="{agent_name}'s best course of action is ",
+        add_to_memory=False,
+        **kwargs,
+    )
 
 
 def build_agent(
@@ -102,59 +144,71 @@ def build_agent(
           ).on_next,
       )
   )
-  self_perception_label = (
-      f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
-  self_perception = agent_components.question_of_recent_memories.SelfPerception(
-      model=model,
-      pre_act_key=self_perception_label,
-      logging_channel=measurements.get_channel('SelfPerception').on_next,
-  )
 
-  person_by_situation_label = (
-      f'\nQuestion: What would a person like {agent_name} do in '
-      'a situation like this?\nAnswer')
-  person_by_situation = (
-      agent_components.question_of_recent_memories.PersonBySituation(
-          model=model,
-          components={
-              _get_class_name(self_perception): self_perception_label,
-              _get_class_name(
-                  situation_representation): situation_representation_label,
-          },
-          clock_now=clock.now,
-          pre_act_key=person_by_situation_label,
-          logging_channel=measurements.get_channel('PersonBySituation').on_next,
-      )
-  )
-  relevant_memories_label = '\nRecalled memories and observations'
-  relevant_memories = agent_components.all_similar_memories.AllSimilarMemories(
-      model=model,
-      components={
-          _get_class_name(
-              situation_representation): situation_representation_label,
-          _get_class_name(time_display): 'The current date/time is'},
-      num_memories_to_retrieve=10,
-      pre_act_key=relevant_memories_label,
-      logging_channel=measurements.get_channel('AllSimilarMemories').on_next,
-  )
-
+  options_perception_components = {}
+  universalization_context_components = {}
+  best_option_perception = {}
   if config.goal:
-    goal_label = '\nGoal'
+    goal_label = f'{agent_name}\'s goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
         pre_act_key=goal_label,
         logging_channel=measurements.get_channel(goal_label).on_next)
+    options_perception_components[DEFAULT_GOAL_COMPONENT_KEY] = goal_label
+    universalization_context_components[DEFAULT_GOAL_COMPONENT_KEY] = goal_label
+    best_option_perception[DEFAULT_GOAL_COMPONENT_KEY] = goal_label
   else:
     overarching_goal = None
+
+  options_perception_components.update({
+      DEFAULT_INSTRUCTIONS_COMPONENT_KEY: DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+      _get_class_name(situation_representation): situation_representation_label,
+      _get_class_name(observation): observation_label,
+  })
+  options_perception_label = (
+      f'\nQuestion: Which options are available to {agent_name} '
+      'right now?\nAnswer')
+  options_perception = (
+      AvailableOptionsPerception(
+          model=model,
+          components=options_perception_components,
+          clock_now=clock.now,
+          pre_act_key=options_perception_label,
+          num_memories_to_retrieve=0,
+          logging_channel=measurements.get_channel(
+              'AvailableOptionsPerception'
+          ).on_next,
+      )
+  )
+
+  best_option_perception_label = (
+      f'\nQuestion: Of the options available to {agent_name}, and '
+      'given their goal, which choice of action or strategy is '
+      f'best to take right now?\nAnswer')
+  best_option_perception.update({
+      DEFAULT_INSTRUCTIONS_COMPONENT_KEY: DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+      _get_class_name(options_perception): options_perception_label,
+  })
+  best_option_perception = (
+      agent_components.question_of_recent_memories.BestOptionPerception(
+          model=model,
+          components=best_option_perception,
+          clock_now=clock.now,
+          pre_act_key=best_option_perception_label,
+          num_memories_to_retrieve=0,
+          logging_channel=measurements.get_channel(
+              'BestOptionPerception'
+          ).on_next,
+      )
+  )
 
   entity_components = (
       # Components that provide pre_act context.
       time_display,
       observation,
-      self_perception,
       situation_representation,
-      person_by_situation,
-      relevant_memories,
+      options_perception,
+      best_option_perception,
   )
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
