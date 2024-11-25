@@ -58,7 +58,7 @@ class AvailableOptionsPerception(
             'actions that seem most likely to be effective along with some '
             'creative or unusual choices that could also plausibly work.'
         ),
-        terminators=('\n\n',),
+        terminators=(),
         answer_prefix='',
         add_to_memory=False,
         **kwargs,
