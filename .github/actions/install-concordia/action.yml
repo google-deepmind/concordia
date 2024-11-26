@@ -17,7 +17,7 @@ runs:
   steps:
     - name: Set up Python ${{ inputs.python-version }}
       id: setup-python
-      uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -38,7 +38,7 @@ runs:
 
     - name: Restore Concordia installation
       id: restore
-      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+      uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a
       with:
         path: venv
         key: install-concordia-${{ steps.cache-key.outputs.key }}
@@ -77,7 +77,7 @@ runs:
 
     - name: Save Concordia installation
       if: steps.restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+      uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a
       with:
         path: venv
         key: ${{ steps.restore.outputs.cache-primary-key }}
