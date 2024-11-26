@@ -33,7 +33,7 @@ class CallLimitLanguageModel(language_model.LanguageModel):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      max_calls: int = 1000,
+      max_calls: int = 1200,
   ) -> None:
     """Wrap the underlying language model with a call limit.
 
