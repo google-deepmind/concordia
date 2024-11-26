@@ -67,6 +67,7 @@ the same model and embedder.
 """
 
 import argparse
+from collections.abc import Sequence
 import datetime
 import functools
 import importlib
@@ -230,7 +231,7 @@ def _evaluate_one_repetition(
 def _evaluate_all_repetitions_on_one_scenario(
     scenario_name: str,
     scenario_config: scenarios_lib.ScenarioConfig,
-) -> logging_lib.ScenarioResult:
+) -> Sequence[logging_lib.ScenarioResult]:
   """Evaluates the agent on one scenario, averaging over repetitions.
 
   Args:
