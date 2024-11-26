@@ -64,7 +64,7 @@ class ScenarioResult:
   """
 
   scenario: str
-  repetition_idx: int
+  repetition_idx: str
 
   focal_agent: str
   background_agent: str
