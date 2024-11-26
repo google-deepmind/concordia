@@ -228,7 +228,7 @@ for repetition_idx in range(args.num_repetitions_per_scenario):
 
   scenario_result = logging_lib.ScenarioResult(
       scenario=args.scenario_name,
-      repetition_idx=repetition_idx,
+      repetition_idx=str(repetition_idx),
       focal_agent=args.agent_name,
       background_agent=scenario_config.background_agent_module,
       focal_per_capita_score=focal_per_capita_score,
