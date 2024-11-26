@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.8.9] - 2024-11-25
+
+### Changed
+
+- Update launch and eval scripts for the eval phase of the contest
+- Further improve alternative baseline agents
+- Improve a few baseline agents
+
+### Added
+
+- Add another time and place module for reality show
+- Add support for scene-wise computation of metrics
+- Add alternative versions of basic and rational agent factories
+
+### Fixed
+
+- Catch another type of together API exception
+- Fix time serialization in associative_memory
+
+
 ## [1.8.8] - 2024-11-13
 
 ### Fixed
