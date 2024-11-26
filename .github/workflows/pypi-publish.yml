@@ -36,7 +36,14 @@ jobs:
           python --version
           pip list
       - name: Build distribution
-        run: python setup.py sdist bdist_wheel
+        run: |
+          python setup.py sdist bdist_wheel
+          # Workaround old setuptools not normalizing name in sdist.
+          for OLD in ./dist/gdm-concordia-*; do
+             NEW="$(echo "$OLD" | sed s/gdm-concordia/gdm_concordia/)"
+             mv "$OLD" "$NEW"
+          done
+          ls dist/*
       - name: Save artifact
         uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
         with:
