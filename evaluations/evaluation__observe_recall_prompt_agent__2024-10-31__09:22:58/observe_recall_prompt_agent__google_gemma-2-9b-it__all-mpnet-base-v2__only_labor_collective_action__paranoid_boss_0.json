@@ -1,0 +1,15 @@
+{
+  "scenario": "labor_collective_action__paranoid_boss_0",
+  "focal_agent": "observe_recall_prompt_agent",
+  "background_agent": "basic_agent",
+  "focal_per_capita_score": 7.25,
+  "background_per_capita_score": 7.25,
+  "ungrouped_per_capita_score": 7.25,
+  "simulation_outcomes": [],
+  "focal_is_resident": false,
+  "api_type": "together_ai",
+  "model": "google/gemma-2-9b-it",
+  "embedder": "all-mpnet-base-v2",
+  "disable_language_model": false,
+  "exclude_from_elo_calculation": false
+}

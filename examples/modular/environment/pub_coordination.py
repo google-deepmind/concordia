@@ -89,6 +89,9 @@ class WorldConfig:
   num_supporting_players: int = 1
   num_games: int = 3
   random_seed: int = 42
+  pub_closed_probability: float = 0.0
+  player_who_knows_closed_pub: str | None = None
+  relationship_matrix: Mapping[str, Mapping[str, float]] | None = None
 
 
 def get_shared_memories_and_context(
@@ -112,6 +115,7 @@ def configure_player(
     favorite_pub: str,
     is_main: bool,
     all_player_names_str: str,
+    friend_names_str: str,
     pub_preferences: dict[str, Sequence[str]],
     year: int,
     rng: random.Random,
@@ -123,7 +127,9 @@ def configure_player(
     gender: the gender of the player
     favorite_pub: the favorite pub of the player
     is_main: whether the player is a main character or not
-    all_player_names_str: the names of all the players in one string
+    all_player_names_str: the names of all the players in one comma-separated
+       string
+    friend_names_str: the names of the friends in one comma-separated string
     pub_preferences: the preferences of all the pubs
     year: the year of the simulation to sample the age of the players
     rng: the random number generator to use
@@ -149,7 +155,11 @@ def configure_player(
         _CALL_TO_ACTION.format(name=name): favorite_pub
     }
     extras['favourite_pub'] = favorite_pub
-
+  goal = (
+      f'Have a good time. To have a good time, {name} would like to'
+      f' watch the game in the same pub as {friend_names_str}.'
+      f' {name} would prefer everyone went to {favorite_pub}.'
+  )
   config = formative_memories.AgentConfig(
       name=name,
       gender=gender,
@@ -159,28 +169,48 @@ def configure_player(
           day=rng.randint(1, 28),
       ),
       formative_ages=[16, 20],
-      goal=(
-          f'Have a good time. To have a good time, {name} would like to'
-          f' watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer everyone went to {favorite_pub}.'
-      ),
+      goal=goal,
       context=(
-          f"{all_player_names_str}' are best friends. {name} has"
-          f' a favorite pub which is {favorite_pub}. They are also aware of the'
-          f' following:{reasons}'
+          f"{all_player_names_str}' are close friends. {name} has"
+          f' a favorite pub which is {favorite_pub}. They love that pub for the'
+          f' following reasons: {reasons}'
       ),
       traits=(
           f"{name}'s personality is like "
           + player_traits_and_styles.get_trait(flowery=True)
       ),
       extras=extras,
-      specific_memories=(
-          f'[goal] {name} goals is to have a good time. {name} would like to'
-          f' watch the game in the same pub as {all_player_names_str}.'
-          f' {name} would prefer everyone went to {favorite_pub}.'
-      ),
+      specific_memories=f'[goal] {goal}',
   )
   return config
+
+
+def _get_friends_names(name, all_names, relationship_matrix):
+  """Get the names of the friends of a player.
+
+  Args:
+    name: name of the player
+    all_names: names of all the players
+    relationship_matrix: relationship matrix of the players
+
+  Returns:
+    names of the friends of the player from the relationship matrix or if it 
+      is None, then all the names that are not the player itself
+  """
+  if (
+      relationship_matrix
+      and name in relationship_matrix
+  ):
+    direct_friends = []
+    for friend_name in relationship_matrix[name]:
+      if (
+          relationship_matrix[name][friend_name] == 1.0
+          and friend_name != name
+      ):
+        direct_friends.append(friend_name)
+    return ', '.join(direct_friends)
+  else:
+    return ', '.join([x for x in all_names if x != name])
 
 
 def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
@@ -208,7 +238,14 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
 
   for i in range(sampled_settings.num_main_players):
     name = names[i]
-    favorite_pub = sampled_settings.venues[i % num_pubs]
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
+    else:
+      favorite_pub = sampled_settings.venues[i % num_pubs]
+
+    friend_names = _get_friends_names(
+        name, names, sampled_settings.relationship_matrix
+    )
     gender = sampled_settings.person_data[name]['gender']
     config = configure_player(
         name,
@@ -216,6 +253,7 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
         favorite_pub,
         is_main=True,
         all_player_names_str=all_players,
+        friend_names_str=friend_names,
         pub_preferences=sampled_settings.venue_preferences,
         year=sampled_settings.year,
         rng=rng,
@@ -225,13 +263,21 @@ def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
   for i in range(sampled_settings.num_supporting_players):
     name = names[sampled_settings.num_main_players + i]
     gender = sampled_settings.person_data[name]['gender']
-    favorite_pub = sampled_settings.venues[1]
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
+    else:
+      favorite_pub = sampled_settings.venues[1]
+
+    friend_names = _get_friends_names(
+        name, names, sampled_settings.relationship_matrix
+    )
     config = configure_player(
         name,
         gender,
         favorite_pub,
         is_main=False,
         all_player_names_str=all_players,
+        friend_names_str=friend_names,
         pub_preferences=sampled_settings.venue_preferences,
         year=sampled_settings.year,
         rng=rng,
@@ -334,7 +380,7 @@ def add_choice_scene_spec(
     scene_type_name: str,
     pubs: Sequence[str],
     rng: random.Random,
-    use_relational_matrix: bool = False,
+    relationship_matrix: Mapping[str, Mapping[str, float]] | None,
     verbose: bool = False,
 ) -> tuple[scene_lib.SceneTypeSpec, CoordinationPayoffs]:
   """Add a minigame scene spec.
@@ -350,7 +396,7 @@ def add_choice_scene_spec(
     scene_type_name: the name of the scene type.
     pubs: the pubs to use.
     rng: the random number generator to use.
-    use_relational_matrix: whether to use relational matrix or not.
+    relationship_matrix: whether to use relational matrix or not.
     verbose: whether to print verbose output or not.
 
   Returns:
@@ -366,10 +412,6 @@ def add_choice_scene_spec(
   }
 
   names = [cfg.name for cfg in player_configs]
-  if use_relational_matrix:
-    relational_matrix = sample_symmetric_relationship_matrix(names, rng)
-  else:
-    relational_matrix = None
 
   coordination_payoffs = CoordinationPayoffs(
       model=model,
@@ -380,7 +422,7 @@ def add_choice_scene_spec(
       players=players,
       acting_player_names=[cfg.name for cfg in player_configs],
       outcome_summarization_fn=outcome_summary_fn,
-      relational_matrix=relational_matrix,
+      relational_matrix=relationship_matrix,
       clock_now=clock.now,
       name='scoring function',
       verbose=verbose,
@@ -400,9 +442,9 @@ def add_choice_scene_spec(
       verbose=verbose,
   )
 
-  if use_relational_matrix:
+  if relationship_matrix:
     friendship_statements = generate_relationship_statements(
-        names, relational_matrix, rng
+        names, relationship_matrix, rng
     )
   else:
     friendship_statements = {name: [''] for name in names}
@@ -431,10 +473,8 @@ def configure_scenes(
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
     start_time: datetime.datetime,
-    pub_closed_probability: float,
     sampled_settings: Any,
     rng: random.Random,
-    use_relational_matrix: bool = False,
 ) -> tuple[
     Sequence[scene_lib.SceneSpec],
     Callable[[], Mapping[str, float]],
@@ -450,10 +490,8 @@ def configure_scenes(
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
     start_time: the start time/date in the game world for the first scene
-    pub_closed_probability: the probability that a pub is closed
     sampled_settings: the sampled settings for the world configuration
     rng: the random number generator to use
-    use_relational_matrix: whether to use relational matrix or not
 
   Returns:
     scenes: a sequence of scene specifications
@@ -464,6 +502,8 @@ def configure_scenes(
   coordination_payoffs = []
   scenes = []
   pubs = sampled_settings.venues
+
+  pub_closed_probability = sampled_settings.pub_closed_probability
 
   secondary_environments = []
 
@@ -492,8 +532,11 @@ def configure_scenes(
     }
 
     if closed_pub:
-      players_in_the_know = rng.choice(player_configs)
-      player_name = players_in_the_know.name
+      if sampled_settings.player_who_knows_closed_pub:
+        player_name = sampled_settings.player_who_knows_closed_pub
+      else:
+        player_name = rng.choice(player_configs).name
+
       per_player_premise[player_name].append(
           f'{player_name} have learnt that {closed_pub} is closed today. Going'
           ' there would be a bad idea.'
@@ -521,7 +564,7 @@ def configure_scenes(
         scene_type_name=DECISION_SCENE_TYPE,
         pubs=pubs,
         rng=rng,
-        use_relational_matrix=use_relational_matrix,
+        relationship_matrix=sampled_settings.relationship_matrix,
     )
     coordination_payoffs.append(this_coordination_payoff)
     scene_specs[DECISION_SCENE_TYPE] = choice_scene_spec
@@ -685,11 +728,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
-      pub_closed_probability: float = 0.0,
-      use_relational_matrix: bool = False,
-      num_games: int = 3,
-      num_main_players: int = 4,
-      num_supporting_players: int = 1,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -714,12 +752,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      pub_closed_probability: the probability that a pub is closed. Zero by
-        default.
-      use_relational_matrix: whether to use relational matrix or not.
-      num_games: the number of games to play.
-      num_main_players: the number of main players.
-      num_supporting_players: the number of supporting players.
       seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
@@ -755,9 +787,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         )
     )
     self._rng = random.Random(sampled_settings.random_seed)
-    sampled_settings.num_main_players = num_main_players
-    sampled_settings.num_supporting_players = num_supporting_players
-    sampled_settings.num_games = num_games
 
     start_time = datetime.datetime(
         year=time_and_place_params.YEAR,
@@ -799,7 +828,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     main_player_configs, supporting_player_configs = configure_players(
         sampled_settings, self._rng
     )
-    self._rng.shuffle(main_player_configs)
 
     tasks = {
         config.name: functools.partial(
@@ -915,9 +943,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             supporting_player_configs=supporting_player_configs,
             sampled_settings=sampled_settings,
             start_time=start_time,
-            pub_closed_probability=pub_closed_probability,
             rng=self._rng,
-            use_relational_matrix=use_relational_matrix,
         )
     )
 
@@ -996,6 +1022,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     player_scores = self._coordination_payoffs()
+    print(player_scores)
     simulation_outcome = logging_lib.SimulationOutcome(
         resident_scores=immutabledict.immutabledict(
             {name: player_scores[name] for name in self._resident_names}

@@ -18,7 +18,9 @@ import abc
 from collections.abc import Mapping, Sequence
 import dataclasses
 from typing import Any, Protocol
+
 from concordia.typing import entity_component
+import pandas as pd
 
 
 class MemoryScorer(Protocol):
@@ -74,6 +76,24 @@ class MemoryBank(metaclass=abc.ABCMeta):
     """
     for text in texts:
       self.add(text, metadata)
+
+  @abc.abstractmethod
+  def get_data_frame(self) -> pd.DataFrame:
+    """Returns the memory bank as a pandas dataframe."""
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def get_all_memories_as_text(
+      self,
+      add_time: bool,
+      sort_by_time: bool) -> Sequence[str]:
+    """Returns the memory bank as a sequence of strings.
+    
+    Args:
+      add_time: Whether to add the time stamp to the memory.
+      sort_by_time: Whether to sort the memories by time.
+    """
+    raise NotImplementedError()
 
   @abc.abstractmethod
   def get_state(self) -> entity_component.ComponentState:

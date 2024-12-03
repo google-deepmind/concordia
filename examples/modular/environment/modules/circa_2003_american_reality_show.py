@@ -43,86 +43,203 @@ MINIGAME_INTRO_PREMISE = (
 
 MAX_EXTRA_MINIGAMES = 3
 
-MINIGAMES = {
-    'prisoners_dilemma': reality_show.MiniGameSpec(
-        name='Carpooling',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'The next minigame is called Carpooling. Three coworkers can '
-            'carpool, cutting commute costs for all, or drive individually. '
-            'The commute happens daily, creating repeated decisions.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A fear+greed-type (Prisoners' Dilemma-like) dilemma
-            cooperation=lambda num_cooperators: num_cooperators - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 2.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='try to carpool with others',
-            defection='drive individually',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=('try to carpool with others', 'drive individually'),
-            tag='minigame_action',
-        ),
-    ),
-    'chicken': reality_show.MiniGameSpec(
-        name='Home Appliance Sharing',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'Three neighbors share a tool/appliance infrequently. Each can '
-            'maintain it for shared use, or let others handle '
-            'upkeep and risk it being unavailable. Repeated use '
-            'creates dilemmas each time the tool/appliance is needed.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A greed-type (Chicken-like) dilemma
-            cooperation=lambda num_cooperators: 4.0 * num_cooperators,
-            defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='maintain the appliance',
-            defection='let others handle upkeep of the appliance',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=(
-                'maintain the appliance',
-                'let others handle upkeep of the appliance',
-            ),
-            tag='minigame_action',
-        ),
-    ),
-    'stag_hunt': reality_show.MiniGameSpec(
-        name='Boat Race',
-        public_premise=MINIGAME_INTRO_PREMISE
-        + (
-            'Three teammates are on a row boat racing team together. Each has '
-            'the option to give the race their all and really row '
-            'vigorously, but this option is very fatiguing and only '
-            'effective when all choose it simultaneously. Alternatively, each '
-            'teammate has the option of rowing less vigorously, this gets '
-            'them to their goal more slowly, but is less fatiguing and does '
-            'not require coordination with the others. The race is repeated '
-            'many times, going back and forth across the lake.'
-        ),
-        schelling_diagram=SchellingDiagram(
-            # A fear-type (Stag Hunt-like) dilemma
-            cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
-            defection=lambda num_cooperators: num_cooperators + 4.0,
-        ),
-        map_external_actions_to_schelling_diagram=dict(
-            cooperation='row vigorously',
-            defection='row less vigorously',
-        ),
-        action_spec=agent_lib.choice_action_spec(
-            call_to_action='Which action would {name} choose in the minigame?',
-            options=('row vigorously', 'row less vigorously'),
-            tag='minigame_action',
-        ),
-    ),
-}
+prisoners_dilemma_schelling_diagram = SchellingDiagram(
+    # A fear+greed-type (Prisoners' Dilemma-like) dilemma
+    cooperation=lambda num_cooperators: num_cooperators - 1.0,
+    defection=lambda num_cooperators: (1.5 * num_cooperators) + 1.0,
+)
+chicken_schelling_diagram = SchellingDiagram(
+    # A greed-type (Chicken-like) dilemma
+    cooperation=lambda num_cooperators: 4.0 * num_cooperators,
+    defection=lambda num_cooperators: 5.5 * num_cooperators - 2.0,
+)
+stag_hunt_schelling_diagram = SchellingDiagram(
+    # A fear-type (Stag Hunt-like) dilemma
+    cooperation=lambda num_cooperators: (4.0 * num_cooperators) - 1.0,
+    defection=lambda num_cooperators: (0.5 * num_cooperators) + 6.0,
+)
+
+
+def get_prisoners_dilemma_host_speech(num_players: int) -> str:
+  """Generate the host's speech for the prisoners dilemma minigame."""
+  host_speech = [(
+      "Listen up, contestants! It's time to put your loyalty to the test in a "
+      "game of trust, temptation, and tough choices! That's right, I'm talkin' "
+      "about... Carpooling!\nHere's the deal: You and your fellow players "
+      "are trapped in the daily grind, battlin' traffic and burnin' through "
+      "your hard-earned cash just to get to work. But there's a way out! You "
+      "can choose to carpool and share the burden, or you can go solo and "
+      "leave your teammates in the dust. Now, here's the twist: If everyone "
+      "chooses to carpool, you all save big time! And if you ditch your "
+      "teammates and drive alone, you'll be cruisin' in comfort while they're "
+      "stuck in gridlock.  Sounds tempting, right? But here's the catch: If "
+      "everyone thinks that way, you'll all end up losin' out! So, are you "
+      "gonna be a team player or a lone wolf? Are you gonna trust your "
+      "teammates to have your back, or are you gonna risk it all for a "
+      "smooth ride? The choice is yours! Here's how the points break down:"
+  )]
+  all_cooperators_earn = prisoners_dilemma_schelling_diagram.cooperation(
+      num_players
+  )
+  host_speech.append((
+      '* **If everyone carpools together,** you each earn '
+      f'{all_cooperators_earn} points. '
+      'Think of it as saving money and helping the environment!'
+  ))
+  d = 0
+  for c in range(num_players - 1, 0, -1):
+    d += 1
+    cooperators_earn = prisoners_dilemma_schelling_diagram.cooperation(c)
+    defectors_earn = prisoners_dilemma_schelling_diagram.defection(c)
+    if d == 1:
+      host_speech.append((
+          f'* **If {c} of you carpool, and {d} drives alone,** the '
+          f'carpoolers get {cooperators_earn} each, while the lone '
+          f'driver gets {defectors_earn} - they benefit from the reduced '
+          'congestion caused by the carpoolers, without the hassle!'
+      ))
+    else:
+      host_speech.append((
+          f'* **If {c} of you carpool, and {d} others drive alone,** the '
+          f'carpoolers get {cooperators_earn} each, while the lone '
+          f'drivers get {defectors_earn} each.'
+      ))
+
+  all_defectors_earn = prisoners_dilemma_schelling_diagram.defection(0)
+  host_speech.append((
+      '* **And if everyone decides to go solo,** you all get '
+      f'{all_defectors_earn} points.  No carpool, but no coordination '
+      'headaches either.'
+  ))
+  host_speech.append((
+      'So, the question is: can you cooperate and carpool to maximize your '
+      'points, or will the temptation of driving solo lead to everyone '
+      'missing out on those sweet carpool savings?\n'
+      "The choice is yours! Now, let's get carpooling - or not!"
+  ))
+  return '\n'.join(host_speech)
+
+
+def get_chicken_host_speech(num_players: int) -> str:
+  """Generate the host's speech for the chicken minigame."""
+  host_speech = [(
+      "Alright, contestants! It's time to ditch the drama and get down to "
+      "business... home appliance business, that is!  That's right, our next "
+      "minigame is called **Home Appliance Sharing!**\nHere's the 4-1-1: "
+      "Picture this - you and your fellow contestants are livin' it up in a "
+      "totally tricked-out crib, sharin' all the latest and greatest gadgets. "
+      "But, like, who's gonna be the responsible one and keep a cool appliance "
+      "in tip-top shape?  You gotta make a choice:  Be a team player and "
+      "maintain that appliance for everyone's benefit, or, like, totally "
+      "slack off and hope someone else picks up your slack.  But beware, "
+      "'cause if everyone's just chillin', that awesome appliance might just "
+      "break down when you need it most!  Talk about a bummer!  So, are you "
+      "gonna step up and be the ultimate housemate, or will you leave "
+      "your fate in the hands of your roommates?  Here's the point breakdown, "
+      "y'all:"
+  )]
+  all_cooperators_earn = chicken_schelling_diagram.cooperation(
+      num_players
+  )
+  host_speech.append((
+      '* **If everyone maintains the appliance,** it is always available, '
+      f'and you each earn {all_cooperators_earn} points.'
+  ))
+  d = 0
+  for c in range(num_players - 1, 0, -1):
+    d += 1
+    cooperators_earn = chicken_schelling_diagram.cooperation(c)
+    defectors_earn = chicken_schelling_diagram.defection(c)
+    if d == 1:
+      host_speech.append((
+          f'* **If {c} of you maintain the appliance, and {d} lets others '
+          f'handle it,** the maintainers get {cooperators_earn} each, '
+          f'while the person who leaves it to others gets '
+          f'{defectors_earn}.'
+      ))
+    else:
+      host_speech.append((
+          f'* **If {c} of you maintain the appliance, and {d} others let '
+          f'others handle it,** the maintainers get {cooperators_earn} '
+          f'each, while those who leave it to others get '
+          f'{defectors_earn} each.'
+      ))
+
+  all_defectors_earn = chicken_schelling_diagram.defection(0)
+  host_speech.append((
+      '* **And if everyone leaves the upkeep to others,** the appliance '
+      f'is neglected and you all get {all_defectors_earn} points.'
+  ))
+  host_speech.append((
+      'So, the question is: can you cooperate and ensure the appliance is '
+      'always available, or will everyone neglect their duties and risk '
+      'missing out when they need it most?\n'
+      "The choice is yours! Now, let's see who's willing to step up and "
+      'maintain that appliance!'
+  ))
+  return '\n'.join(host_speech)
+
+
+def get_stag_hunt_host_speech(num_players: int) -> str:
+  """Generate the host's speech for the stag hunt minigame."""
+  host_speech = [(
+      "Shiver me timbers, contestants! It's time to test your mettle in a"
+      " challenge that'll leave ye soaked and gasping for air!  I'm talkin'"
+      ' about our next minigame: **The Boat Race!**\nListen up, ya'
+      " scallywags! You'll be teamed up and thrown into a rickety rowboat. "
+      ' Your mission, should ye choose to accept it, is to row yer hearts out'
+      " across this here lake.  But here's the catch:  You gotta decide how"
+      ' much elbow grease yer gonna put into it.  Row like a kraken on fire,'
+      ' and you *might* just fly to victory... but only if yer crewmates are'
+      " pullin' with the same fire in their bellies!  It's a risky strategy,"
+      " and let me tell ya, it'll leave ye sweatin' like a pirate in a sauna. "
+      ' Or, ye can take it easy, conserve yer energy, and row like a lazy sea'
+      ' slug.  Might not get ya to the finish line first, but hey, at least'
+      " you'll have the energy for a celebratory grog afterwards!  The choice"
+      " be yours, mateys!  Just remember, this ain't no pleasure cruise.  We're"
+      " gonna be racin' back and forth across this lake till yer arms fall off!"
+      "  So, here's how the points be tallied:"
+  )]
+  all_cooperators_earn = stag_hunt_schelling_diagram.cooperation(
+      num_players
+  )
+  host_speech.append((
+      '* **If everyone rows vigorously,** you all work together, win the '
+      f'race, and earn {all_cooperators_earn} points each!'
+  ))
+  d = 0
+  for c in range(num_players - 1, 0, -1):
+    d += 1
+    cooperators_earn = stag_hunt_schelling_diagram.cooperation(c)
+    defectors_earn = stag_hunt_schelling_diagram.defection(c)
+    if d == 1:
+      host_speech.append((
+          f'* **If {c} of you row vigorously, and {d} rows less '
+          f'vigorously,** the vigorous rowers get {cooperators_earn} each '
+          f'(all that effort for little gain!), while the less vigorous '
+          f'rower gets {defectors_earn}.'
+      ))
+    else:
+      host_speech.append((
+          f'* **If {c} of you row vigorously, and {d} others row less '
+          f'vigorously,** the vigorous rowers get {cooperators_earn} each, '
+          f'while the less vigorous rowers get {defectors_earn} each.'
+      ))
+
+  all_defectors_earn = stag_hunt_schelling_diagram.defection(0)
+  host_speech.append((
+      '* **And if everyone decides to row less vigorously,** you all save '
+      f'energy but lose the race, earning {all_defectors_earn} points each.'
+  ))
+  host_speech.append((
+      'So, the question is: can you trust your teammates to put in the effort '
+      'for a glorious victory, or will you play it safe and row less '
+      'vigorously, risking a loss?\n'
+      'The choice is yours! Now, grab those oars and let\'s see some '
+      'synchronized rowing... or not!'
+  ))
+  return '\n'.join(host_speech)
+
 
 # These are all stereotypical reality show contestants. They are not meant to
 # be inclusive or diverse. They are meant to represent the time period and
@@ -739,6 +856,64 @@ def sample_parameters(
   shuffled_female_names = list(rng.sample(FEMALE_NAMES, len(FEMALE_NAMES)))
   if num_players is None:
     num_players = rng.choice(DEFAULT_POSSIBLE_NUM_PLAYERS)
+
+  minigames = {
+      'prisoners_dilemma': reality_show.MiniGameSpec(
+          name='Carpooling',
+          public_premise=MINIGAME_INTRO_PREMISE
+          + get_prisoners_dilemma_host_speech(num_players),
+          schelling_diagram=prisoners_dilemma_schelling_diagram,
+          map_external_actions_to_schelling_diagram=dict(
+              cooperation='try to carpool with others',
+              defection='drive individually',
+          ),
+          action_spec=agent_lib.choice_action_spec(
+              call_to_action=(
+                  'Which action would {name} choose in the minigame?'
+              ),
+              options=('try to carpool with others', 'drive individually'),
+              tag='minigame_action',
+          ),
+      ),
+      'chicken': reality_show.MiniGameSpec(
+          name='Home Appliance Sharing',
+          public_premise=MINIGAME_INTRO_PREMISE + get_chicken_host_speech(
+              num_players),
+          schelling_diagram=chicken_schelling_diagram,
+          map_external_actions_to_schelling_diagram=dict(
+              cooperation='maintain the appliance',
+              defection='let others handle upkeep of the appliance',
+          ),
+          action_spec=agent_lib.choice_action_spec(
+              call_to_action=(
+                  'Which action would {name} choose in the minigame?'
+              ),
+              options=(
+                  'maintain the appliance',
+                  'let others handle upkeep of the appliance',
+              ),
+              tag='minigame_action',
+          ),
+      ),
+      'stag_hunt': reality_show.MiniGameSpec(
+          name='Boat Race',
+          public_premise=MINIGAME_INTRO_PREMISE + get_stag_hunt_host_speech(
+              num_players),
+          schelling_diagram=stag_hunt_schelling_diagram,
+          map_external_actions_to_schelling_diagram=dict(
+              cooperation='row vigorously',
+              defection='row less vigorously',
+          ),
+          action_spec=agent_lib.choice_action_spec(
+              call_to_action=(
+                  'Which action would {name} choose in the minigame?'
+              ),
+              options=('row vigorously', 'row less vigorously'),
+              tag='minigame_action',
+          ),
+      ),
+  }
+
   contestants = {}
   for _ in range(num_players):
     gender = rng.choice(GENDERS)
@@ -770,7 +945,7 @@ def sample_parameters(
        for _ in range(num_additional_minigame_scenes)])
   return reality_show.WorldConfig(
       minigame_name=minigame_name,
-      minigame=MINIGAMES[minigame_name],
+      minigame=minigames[minigame_name],
       year=YEAR,
       month=MONTH,
       day=DAY,

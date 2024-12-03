@@ -22,7 +22,7 @@ import datetime
 import functools
 import random
 import types
-from typing import Union
+from typing import Union, Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
@@ -79,9 +79,13 @@ class WorldConfig:
     num_supporting_players: The number of supporting players in the scenario.
     only_match_with_support: Whether to only match with supporting players.
     buyer_base_reward_min: The minimum base reward for the buyer.
+    buyer_base_reward_max: The maximum base reward for the buyer.
+    seller_base_reward_min: The minimum base reward for the seller.
     seller_base_reward_max: The maximum base reward for the seller.
     num_games: The number of games to play.
     num_main_players: The number of main players in the scenario.
+    supporting_player_parameters: The parameters to be passed to the supporting
+      players factory build_agent function.
     random_seed: The random seed for the random number generator.
   """
 
@@ -96,9 +100,12 @@ class WorldConfig:
   num_supporting_players: int = 0
   only_match_with_support: bool = False
   buyer_base_reward_min: int = 5
+  buyer_base_reward_max: int = 6
+  seller_base_reward_min: int = 1
   seller_base_reward_max: int = 2
   num_games: int = 2
   num_main_players: int = 3
+  supporting_player_parameters: dict[str, Any] | None = None
   random_seed: int = 42
 
 
@@ -119,13 +126,13 @@ def bargain_statements(
   """
   del chain_of_thought
 
-  if 'coins' in premise:
+  if 'coin' in premise:
     return f'{active_player_name} proposed {premise}'
   if 'accept' in premise:
     return f'{active_player_name} accepted the offer'
   if 'reject' in premise:
     return f'{active_player_name} rejected the offer'
-  return premise
+  return f'{active_player_name} {premise}'
 
 
 def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
@@ -133,8 +140,10 @@ def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
   shared_memories = [
       'Fruits are sold by weight.',
       (
-          'The price of one kilogram of fruit is, on average, 3 coins. 1 coin'
-          ' is really cheap and 5 coins is really expensive.'
+          'The price of one kilogram of fruit is, on average, 3 coins. 1 coin '
+          'is really cheap and 5 coins is really expensive. The smallest value '
+          'of transaction is 1 coin, all prices have to be in multiples of 1 '
+          'coin. No fractional values are allowed.'
       ),
   ]
   shared_context = premise
@@ -142,7 +151,12 @@ def get_shared_memories_and_context(premise: str) -> tuple[Sequence[str], str]:
 
 
 def configure_player(
-    name: str, gender: str, year: int, is_main: bool, rng: random.Random
+    name: str,
+    gender: str,
+    year: int,
+    is_main: bool,
+    rng: random.Random,
+    supporting_player_parameters: dict[str, Any] | None = None,
 ):
   """Configure a player.
 
@@ -152,6 +166,7 @@ def configure_player(
     year: the year of the simulation to sample the age of the players
     is_main: whether the player is a main character or not
     rng: the random number generator to use
+    supporting_player_parameters: the parameters for the supporting player
 
   Returns:
     config: the config for the player
@@ -160,11 +175,21 @@ def configure_player(
       'player_specific_memories': [f'{name} always drives a hard bargain.'],
       'main_character': is_main,
   }
-  if not is_main:
-    extras['fixed_response_by_call_to_action'] = {
-        f'Would {name} accept the offer?:': 'accept',
-        f'What price would {name} propose?:': '3 coins',
+  if not is_main and supporting_player_parameters:
+
+    fixed_response = {
+        key: value.format(name=name)
+        for key, value in supporting_player_parameters[
+            'fixed_response_by_call_to_action'
+        ].items()
     }
+    specific_memories = []
+
+    for memory in supporting_player_parameters['specific_memories']:
+      specific_memories.append(memory.format(name=name))
+
+    extras['fixed_response_by_call_to_action'] = fixed_response
+    extras['specific_memories'] = specific_memories
 
   return formative_memories.AgentConfig(
       name=name,
@@ -227,6 +252,7 @@ def configure_players(
         sampled_settings.year,
         is_main=False,
         rng=rng,
+        supporting_player_parameters=sampled_settings.supporting_player_parameters,
     )
 
     player_configs.append(config)
@@ -424,8 +450,14 @@ def configure_scenes(
 
   for i in range(sampled_settings.num_games * len(pairs)):
 
-    buyer_base_reward = rng.randint(sampled_settings.buyer_base_reward_min, 6)
-    seller_base_reward = rng.randint(1, sampled_settings.seller_base_reward_max)
+    buyer_base_reward = rng.randint(
+        sampled_settings.buyer_base_reward_min,
+        sampled_settings.buyer_base_reward_max,
+    )
+    seller_base_reward = rng.randint(
+        sampled_settings.seller_base_reward_min,
+        sampled_settings.seller_base_reward_max,
+    )
 
     this_game_players = pairs[i % len(pairs)]
 
@@ -549,10 +581,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: types.ModuleType | None = None,
       time_and_place_module: str | None = None,
-      num_supporting_player: int = 0,
-      only_match_with_support: bool = False,
-      num_games: int = 2,
-      num_main_players: int = 3,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -577,11 +605,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      num_supporting_player: the number of supporting players.
-      only_match_with_support: whether to only match main players with
-        supporting players.
-      num_games: the number of games to play.
-      num_main_players: the number of main players.
+
       seed: the random seed to use.
     """
     # Support for these parameters will be added in a future addition coming
@@ -595,11 +619,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             seed=seed,
         )
     )
-    sampled_settings.num_supporting_players = num_supporting_player
-    sampled_settings.only_match_with_support = only_match_with_support
-    sampled_settings.num_main_players = num_main_players
-    sampled_settings.num_games = num_games
-
     self._rng = random.Random(sampled_settings.random_seed)
 
     start_time = datetime.datetime(
@@ -698,26 +717,32 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
               player_config.name
           ),
       )
-      explicit_preference = agent_components.constant.Constant(
-          pre_act_key='explicit preference',
-          state=(
-              f'{player_config.name} will accept any offer! They are very vocal'
-              ' about it.'
-          ),
-      )
+      additional_components = {
+          'Guiding principle of good conversation': conversation_style
+      }
+      if (
+          'explciti_preference_component'
+          in sampled_settings.supporting_player_parameters
+      ):
+        explicit_preference = agent_components.constant.Constant(
+            pre_act_key='Explicit preference',
+            state=sampled_settings.supporting_player_parameters[
+                'explciti_preference_component'
+            ],
+        )
+        additional_components['Explicit preference'] = explicit_preference
+
       player = self._build_supporting_agent(
           config=player_config,
           model=self._model,
           memory=self._all_memories[player_config.name],
           clock=self._clock,
           update_time_interval=MAJOR_TIME_STEP,
-          additional_components={
-              'Guiding principle of good conversation': conversation_style,
-              'Explicit preference': explicit_preference,
-          },
+          additional_components=additional_components,
           fixed_response_by_call_to_action=player_config.extras[
               'fixed_response_by_call_to_action'
           ],
+          search_in_prompt=True,
       )
       supporting_players.append(player)
 

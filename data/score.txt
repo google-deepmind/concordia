@@ -1,0 +1,129 @@
+[Haggle_0] orp_base 06 11:41
+Overall scores per player:
+Visitor
+  Aiden Riversong: 4.0
+Resident
+  Magnus Mulberrylane: 9.0
+Resident
+  Hazel Nutgrove: 9.0
+SCORE:  9.0
+-----
+[haggling_0] orp_base 06 13:05
+Overall scores per player:
+Visitor
+  Aiden Riversong: 8.0
+Resident
+  Magnus Mulberrylane: 6.0
+Resident
+  Hazel Nutgrove: 8.0
+>>> 7.0
+-----
+[haggling_0] orp_goal 06 13:24
+Overall scores per player:
+Visitor
+  Aiden Riversong: 9.0
+Resident
+  Magnus Mulberrylane: 5.0
+Resident
+  Hazel Nutgrove: 7.0
+>>> 6.0
+-----
+[haggling_0] orp_goal 06 13:48
+>>> 2.0
+-----
+[haggling_0] orp_goal 06 14:14
+>>> 7.0
+-----
+[haggling_0] orp_goal 06 14:24
+Overall scores per player:
+Visitor
+  Aiden Riversong: 6.0
+Resident
+  Magnus Mulberrylane: 6.0
+Resident
+  Hazel Nutgrove: 10.0
+>>> 8.0
+-----
+[haggling_0] orp_goal 06 14:35
+>>> 4.5
+-----
+[haggling_0] orp_goal 06 14:49
+Overall scores per player:
+Visitor
+  Aiden Riversong: 7.0
+Resident
+  Magnus Mulberrylane: 8.0
+Resident
+  Hazel Nutgrove: 11.0
+SCORE:  9.5
+>>> 9.5
+-----
+[reality_show_circa_2003_stag_hunt_0] orp_xob 07 11:51
+Overall scores per player:
+Visitor
+  Krystal Vaughn: 19.0
+Resident
+  Chad Donovan: 33.0
+Resident
+  Travis Pearson: 33.0
+Resident
+  Megan O'Connor: 33.0
+SCORE:  19.0
+-----
+[state_formation_0] orp_xob 07 12:17
+>>> 0.7661049550849677
+-----
+[haggling_0] orp_xmem 10 12:46
+>>> 5.5
+-----
+[haggling_0] orp_double 13 18:19
+>>> 8.0
+-----
+[haggling_0] risk_averse_agent 16 18:09
+>>> 0.0
+-----
+[state_formation_0] risk_averse_agent 16 18:50
+>>> 0.6793210615645804
+-----
+[state_formation_0] risk_averse_agent 16 19:18
+>>> 0.9926160206236118
+-----
+[state_formation_0] orp_xob 16 19:38
+>>> 0.614524292760651
+-----
+[haggling_0] risk_averse_agent 17 22:33
+>>> 4.5
+-----
+[haggling_0] risk_averse_agent 17 22:49
+>>> 5.5
+-----
+[haggling_0] risk_averse_agent 17 22:56
+>>> 6.5
+-----
+[haggling_0] orp_base 17 23:06
+>>> 8.5
+-----
+[state_formation_0] risk_averse_agent 17 23:51
+>>> 1.5081501085443676
+-----
+[state_formation_0] risk_averse_agent 18 00:17
+>>> 1.0574127894275411
+-----
+[haggling_0] risk_averse_agent 18 00:25
+>>> 2.0
+-----
+[haggling_0] risk_averse_agent 18 00:30
+>>> 3.5
+-----
+[haggling_0] risk_averse_agent 18 00:35
+>>> 5.0
+-----
+[haggling_0] risk_averse_agent 18 00:41
+>>> 2.5
+-----
+[haggling_0] risk_averse_agent 18 00:47
+>>> 6.0
+-----
+[haggling_0] risk_averse_agent 18 00:52
+>>> 5.0
+-----

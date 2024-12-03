@@ -121,6 +121,9 @@ class SchellingPayoffs(component.Component):
     self._partial_states = {player.name: '' for player in self._players}
     self._player_scores = {player.name: 0 for player in self._players}
 
+    self._map_names_to_players = {
+        player.name: player for player in self._players}
+
     self._resolution_scene = resolution_scene
     self._current_scene = current_scene.CurrentScene(
         name='current scene type',
@@ -265,6 +268,11 @@ class SchellingPayoffs(component.Component):
         # Use the outcome summarization function to get the state.
         self._set_outcome_messages(rewards, binary_joint_action, joint_action)
         self._memory.extend([self.state(),])
+        for player_name, partial_state in self._partial_states.items():
+          if partial_state:
+            if isinstance(self._map_names_to_players[player_name],
+                          entity_agent.EntityAgent):
+              self._map_names_to_players[player_name].observe(partial_state)
 
         joint_action_for_log = str(self._partial_joint_action)
         payoffs_for_log = self.state()

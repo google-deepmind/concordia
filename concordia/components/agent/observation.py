@@ -84,7 +84,6 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
         time_until=self._clock_now(),
         add_time=True,
     )
-    # removes memories that are not observations
     mems = memory.retrieve(scoring_fn=interval_scorer)
     # Remove memories that are not observations.
     mems = [mem.text for mem in mems if '[observation]' in mem.text]

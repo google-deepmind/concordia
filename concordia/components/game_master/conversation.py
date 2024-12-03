@@ -20,6 +20,7 @@ import random
 
 from concordia import components as generic_components
 from concordia.agents import deprecated_agent
+from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.clocks import game_clock
@@ -32,6 +33,7 @@ from concordia.typing import clock as clock_lib
 from concordia.typing import component
 from concordia.utils import helper_functions
 import termcolor
+
 
 CONVERSATIONALIST_STYLES = (
     'succinct',
@@ -89,7 +91,7 @@ class Conversation(component.Component):
 
   def __init__(
       self,
-      players: Sequence[deprecated_agent.BasicAgent],
+      players: Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent],
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
       clock: game_clock.MultiIntervalClock,

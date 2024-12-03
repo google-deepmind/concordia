@@ -205,11 +205,14 @@ class Gemma2(language_model.LanguageModel):
         )
       except (together.error.RateLimitError,
               together.error.APIError,
-              together.error.ServiceUnavailableError) as err:
+              together.error.ServiceUnavailableError,
+              together.error.InvalidRequestError) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Text exception prompt: {prompt}')
-        if isinstance(err, together.error.APIError):
+        if isinstance(err, together.error.APIError) or isinstance(
+            err, together.error.InvalidRequestError
+        ):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
@@ -282,11 +285,14 @@ class Gemma2(language_model.LanguageModel):
         )
       except (together.error.RateLimitError,
               together.error.APIError,
-              together.error.ServiceUnavailableError) as err:
+              together.error.ServiceUnavailableError,
+              together.error.InvalidRequestError) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Choice exception prompt: {augmented_prompt}')
-        if isinstance(err, together.error.APIError):
+        if isinstance(err, together.error.APIError) or isinstance(
+            err, together.error.InvalidRequestError
+        ):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.

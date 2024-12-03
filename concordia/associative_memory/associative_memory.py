@@ -85,10 +85,14 @@ class AssociativeMemory:
     """Converts the AssociativeMemory to a dictionary."""
 
     with self._memory_bank_lock:
+      serialized_times = self._memory_bank['time'].apply(
+          lambda x: x.strftime('[%d-%b-%Y-%H:%M:%S]')
+      ).tolist()
       output = {
           'seed': self._seed,
           'stored_hashes': list(self._stored_hashes),
           'memory_bank': self._memory_bank.to_json(),
+          'time': serialized_times,
       }
       if self._interval:
         output['interval'] = self._interval.total_seconds()
@@ -101,6 +105,10 @@ class AssociativeMemory:
       self._seed = state['seed']
       self._stored_hashes = set(state['stored_hashes'])
       self._memory_bank = pd.read_json(state['memory_bank'])
+      self._memory_bank['time'] = [
+          datetime.datetime.strptime(t, '[%d-%b-%Y-%H:%M:%S]')
+          for t in state['time']
+      ]
       if 'interval' in state:
         self._interval = datetime.timedelta(seconds=state['interval'])
 
@@ -459,3 +467,15 @@ class AssociativeMemory:
         importance.
     """
     self._num_to_retrieve_to_contextualize_importance = num_to_retrieve
+
+  def get_all_memories_as_text(
+      self,
+      add_time: bool = True,
+      sort_by_time: bool = True,
+  ) -> Sequence[str]:
+    """Returns all memories in the memory bank as a sequence of strings."""
+    memories_data_frame = self.get_data_frame()
+    texts = self._pd_to_text(memories_data_frame,
+                             add_time=add_time,
+                             sort_by_time=sort_by_time)
+    return texts

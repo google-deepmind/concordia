@@ -19,12 +19,13 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import deprecated_agent
+from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import blank_memories
 from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
+from concordia.components import agent as agent_components
 from concordia.environment import game_master
 from concordia.factory.environment import basic_game_master
 from concordia.language_model import no_language_model
@@ -63,12 +64,15 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
         importance=importance_model_gm.importance,
         clock_now=clock.now,
     )
-    player_a = deprecated_agent.BasicAgent(
+    act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
-        agent_name='Rakshit',
         clock=clock,
-        components=[],
-        update_interval=datetime.timedelta(hours=1),
+        component_order=[],
+    )
+    player_a = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='Rakshit',
+        act_component=act_component,
+        context_components={},
     )
 
     players = [player_a]

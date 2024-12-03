@@ -940,7 +940,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         name='\nSetting',
     )
     magic_is_not_real = generic_components.constant.ConstantComponent(
-        state='Magic is not real. Superatural events are impossible.',
+        state='Magic is not real. Supernatural events are impossible.',
         name='\nImportant fact',
     )
     barbarians_never_nice = generic_components.constant.ConstantComponent(

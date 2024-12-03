@@ -28,6 +28,7 @@ from concordia.factory.agent import basic_agent
 from concordia.factory.agent import basic_agent_without_plan
 from concordia.factory.agent import observe_recall_prompt_agent
 from concordia.factory.agent import paranoid_agent
+from concordia.factory.agent import parochial_universalization_agent
 from concordia.factory.agent import rational_agent
 from concordia.factory.agent import synthetic_user
 from concordia.language_model import no_language_model
@@ -49,6 +50,7 @@ AGENT_FACTORIES = {
     'basic_agent_without_plan': basic_agent_without_plan,
     'observe_recall_prompt_agent': observe_recall_prompt_agent,
     'paranoid_agent': paranoid_agent,
+    'parochial_universalization_agent': parochial_universalization_agent,
     'rational_agent': rational_agent,
     'synthetic_user': synthetic_user,
 }
@@ -80,6 +82,11 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(
           testcase_name='paranoid_agent',
           agent_name='paranoid_agent',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='parochial_universalization_agent',
+          agent_name='parochial_universalization_agent',
           main_role=True,
       ),
       dict(

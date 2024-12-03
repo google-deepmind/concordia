@@ -23,9 +23,9 @@ from concordia.utils import sampling
 from google.cloud import aiplatform
 from typing_extensions import override
 
-_MAX_ATTEMPTS = 20
-_MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
-_NUM_SILENT_ATTEMPTS = 3
+_MAX_ATTEMPTS = 4
+_MAX_MULTIPLE_CHOICE_ATTEMPTS = 4
+_NUM_SILENT_ATTEMPTS = 1
 _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED = 2
 _JITTER_SECONDS = 0.25
 _DEFAULT_MAX_TOKENS = 5000  # Adjust as needed for the specific model
@@ -132,6 +132,12 @@ class VertexAI(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
+          if attempts == _NUM_SILENT_ATTEMPTS:
+            filename = "/home/xinyuan/Documents/concordia/data/prompt.txt"
+            file_handle = open(filename, 'a')
+            file_handle.write(prompt)
+            file_handle.write("\n----------\n")
+            file_handle.close()
           print(
               f"Sleeping for {seconds_to_sleep} seconds... attempt:"
               f" {attempts} / {_MAX_ATTEMPTS}"
@@ -142,7 +148,7 @@ class VertexAI(language_model.LanguageModel):
         response = self._client.predict(
             endpoint=self._endpoint_name,
             instances=[{
-                "inputs": _wrap_prompt(prompt)
+                "prompt": _wrap_prompt(prompt)
             }],
             parameters=self._parameters,
         ).predictions[0]

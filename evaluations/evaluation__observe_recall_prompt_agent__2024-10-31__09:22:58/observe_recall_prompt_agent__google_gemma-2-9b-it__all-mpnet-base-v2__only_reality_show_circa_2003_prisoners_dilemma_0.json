@@ -1,0 +1,15 @@
+{
+  "scenario": "reality_show_circa_2003_prisoners_dilemma_0",
+  "focal_agent": "observe_recall_prompt_agent",
+  "background_agent": "basic_agent",
+  "focal_per_capita_score": 14.5,
+  "background_per_capita_score": 19.0,
+  "ungrouped_per_capita_score": 16.0,
+  "simulation_outcomes": [],
+  "focal_is_resident": true,
+  "api_type": "together_ai",
+  "model": "google/gemma-2-9b-it",
+  "embedder": "all-mpnet-base-v2",
+  "disable_language_model": false,
+  "exclude_from_elo_calculation": false
+}

@@ -102,32 +102,12 @@ SUBSTRATE_CONFIGS: Mapping[str, SubstrateConfig] = immutabledict.immutabledict(
         environment='pub_coordination',
         supporting_agent_module='basic_puppet_agent',
     ),
-    pub_coordination_mini=SubstrateConfig(
-        description=(
-            'pub attendance coordination with supporting agent being stubborn'
-            ' and always choosing their preference.'
-        ),
-        environment='pub_coordination_mini',
-        supporting_agent_module='basic_puppet_agent',
-    ),
-    pub_coordination_closures=SubstrateConfig(
-        description=(
-            'pub attendance coordination with one pub sometimes being closed'
-        ),
-        environment='pub_coordination_closures',
-        supporting_agent_module='basic_puppet_agent',
-    ),
-    pub_coordination_friendships=SubstrateConfig(
-        description='pub attendance coordination with friendship network',
-        environment='pub_coordination_friendships',
-        supporting_agent_module='basic_puppet_agent',
-    ),
     haggling=SubstrateConfig(
         description='haggling over a price',
         environment='haggling',
         supporting_agent_module='basic_puppet_agent',
     ),
-    haggling_multi_item=SubstrateConfig(
+    haggling_multi_item_gullible=SubstrateConfig(
         description='haggling over a price with multiple items',
         environment='haggling_multi_item',
         supporting_agent_module='basic_puppet_agent',
@@ -166,27 +146,12 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'organization collective action scenario with a boss '
             'who applies a fixed rule in which they only raise wages if most '
             'of their workers have joined the strike. There is also a visitor '
-            'agent who is rational'
+            'agent who is a parochial universalization agent.'
         ),
         substrate_config=SUBSTRATE_CONFIGS[
             'labor_collective_action__fixed_rule_boss'
         ],
-        background_agent_module='rational_agent',
-        time_and_place_module='wild_west_railroad_construction_labor',
-        focal_is_resident=True,
-        tags=('discouraging antisocial behavior',),
-    ),
-    labor_collective_action__rational_boss_0=ScenarioConfig(
-        description=(
-            'resident population of focal agents in a labor '
-            'organization collective action scenario with a boss '
-            'who is rational and a visitor agent '
-            'who is rational'
-        ),
-        substrate_config=SUBSTRATE_CONFIGS[
-            'labor_collective_action__rational_boss'
-        ],
-        background_agent_module='rational_agent',
+        background_agent_module='parochial_universalization_agent',
         time_and_place_module='wild_west_railroad_construction_labor',
         focal_is_resident=True,
         tags=('discouraging antisocial behavior',),
@@ -215,34 +180,36 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
             'a mini scenario with one focal and one rational visitor and no'
             ' supporting agents. Intended for fast testing.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_mini'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
+        time_and_place_module='pub_coordination_london_mini',
         focal_is_resident=True,
         tags=('coordination', 'persuasion'),
     ),
     pub_coordination_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a pub coordination scenario'
-            ' with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
+            'visitor population of focal agents in a pub coordination scenario'
+            ' with a supporting agents who are stubborn and have an opposite '
+            'preference and a rational resident agent who has opposite '
+            'preferences as well.'
         ),
         substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=True,
+        time_and_place_module='pub_coordination_london_follow',
+        focal_is_resident=False,
         tags=('coordination', 'persuasion'),
     ),
-    pub_coordination_friendships_0=ScenarioConfig(
+
+    pub_coordination_closures_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a pub coordination scenario'
-            ' with friendships with a supporting agent who is stubborn and a'
-            ' rational visitor agent'
+            'visitor population of focal agents in a pub coordination scenario'
+            ' with a chance of a pub being closed and a'
+            ' rational visitor agent and a stubborn on supporting agent.'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['pub_coordination_friendships'],
+        substrate_config=SUBSTRATE_CONFIGS['pub_coordination'],
         background_agent_module='rational_agent',
-        time_and_place_module='pub_coordination_london',
-        focal_is_resident=True,
+        time_and_place_module='pub_coordination_london_closures',
+        focal_is_resident=False,
         tags=('coordination', 'persuasion', 'social networks'),
     ),
     haggling_0=ScenarioConfig(
@@ -258,24 +225,24 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     ),
     haggling_1=ScenarioConfig(
         description=(
-            'visitor focal agent in a haggling scenario with no supporting'
-            ' agents and a rational visitor agent'
+            'visitor focal agent in a haggling scenario with a supporting'
+            ' agents who will accept any price and a rational visitor agent'
         ),
         substrate_config=SUBSTRATE_CONFIGS['haggling'],
         background_agent_module='rational_agent',
-        time_and_place_module='fruitville_haggling',
+        time_and_place_module='fruitville_haggling_gullible',
         focal_is_resident=False,
         tags=('negotiation',),
     ),
     haggling_multi_item_0=ScenarioConfig(
         description=(
-            'resident population of focal agents in a haggling scenario with no'
-            ' supporting agents and rational residents'
+            'visitor focal agent in a haggling scenario with a supporting'
+            ' agents who will accept any price and a rational visitor agent'
         ),
-        substrate_config=SUBSTRATE_CONFIGS['haggling_multi_item'],
+        substrate_config=SUBSTRATE_CONFIGS['haggling_multi_item_gullible'],
         background_agent_module='rational_agent',
-        time_and_place_module='fruitville_haggling_multi_fruit',
-        focal_is_resident=True,
+        time_and_place_module='fruitville_haggling_multi_fruit_gullible',
+        focal_is_resident=False,
         tags=('negotiation', 'hidden information'),
     ),
     reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(
@@ -289,6 +256,24 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
         background_agent_module='basic_agent',
         time_and_place_module=(
             'circa_2003_american_reality_show__prisoners_dilemma_3_players'
+        ),
+        focal_is_resident=True,
+        tags=(
+            'discouraging antisocial behavior',
+            'persuasion',
+        ),
+    ),
+    reality_show_circa_2015_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            'resident population of focal agents are contestants on a '
+            'reality show circa 2015 along with strangers who are parochial '
+            'universalization agents. The minigame played on the show is '
+            'multiplayer prisoners dilemma.'
+        ),
+        substrate_config=SUBSTRATE_CONFIGS['reality_show'],
+        background_agent_module='parochial_universalization_agent',
+        time_and_place_module=(
+            'circa_2015_british_reality_show__prisoners_dilemma_3_players'
         ),
         focal_is_resident=True,
         tags=(
@@ -317,10 +302,11 @@ SCENARIO_CONFIGS: Mapping[str, ScenarioConfig] = immutabledict.immutabledict(
     state_formation_0=ScenarioConfig(
         description=(
             'player must negotiate a treaty to enable division of labor in '
-            'common defense and agriculture and sell it to village stakeholders'
+            'common defense and agriculture and sell it to village '
+            'stakeholders. The negotiating partner is a rational agent.'
         ),
         substrate_config=SUBSTRATE_CONFIGS['state_formation'],
-        background_agent_module='basic_agent_without_plan',
+        background_agent_module='rational_agent',
         time_and_place_module='pre_state_villages',
         focal_is_resident=True,
         tags=(
@@ -343,6 +329,7 @@ def build_simulation(
     support_agent_base_module: str = DEFAULT_IMPORT_SUPPORT_AGENT_MODULE,
     env_base_module: str = DEFAULT_IMPORT_ENV_BASE_MODULE,
     seed: int | None = None,
+    override_background_agent_module: types.ModuleType | None = None,
 ) -> RunnableSimulationWithMemories:
   """Builds a simulation from a scenario configuration."""
   substrate_config = scenario_config.substrate_config
@@ -350,9 +337,12 @@ def build_simulation(
   simulation = importlib.import_module(
       f'{env_base_module}.{substrate_config.environment}'
   )
-  background_agent_module = importlib.import_module(
-      f'{agent_base_module}.{scenario_config.background_agent_module}'
-  )
+  if override_background_agent_module is not None:
+    background_agent_module = override_background_agent_module
+  else:
+    background_agent_module = importlib.import_module(
+        f'{agent_base_module}.{scenario_config.background_agent_module}'
+    )
   if scenario_config.focal_is_resident:
     resident_agent_module = focal_agent_module
     visitor_agent_module = background_agent_module
