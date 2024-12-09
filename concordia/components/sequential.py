@@ -27,7 +27,7 @@ class Sequential(component.Component):
   def __init__(self, name: str, components: Sequence[component.Component]):
     self._components = components
     self._name = name
-    logging.warn(
+    logging.warning(
         'The Sequential component is deprecated. Please use Entity Components '
         'and specifically `action_spec_ignored` to achieve the same effect '
         'as the old Sequential component.')

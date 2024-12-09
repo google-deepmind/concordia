@@ -42,7 +42,7 @@ def _get_earliest_timepoint(
         'time', ascending=True)
     return sorted_memories_data_frame['time'][0]
   else:
-    absl_logging.warn('No memories found in memory bank.')
+    absl_logging.warning('No memories found in memory bank.')
     return datetime.datetime.now()
 
 
