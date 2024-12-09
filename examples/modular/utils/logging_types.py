@@ -39,17 +39,17 @@ class SimulationOutcome:
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class ScenarioResult:
   """Result from testing a single agent on several repetitions of a scenario.
-  
+
   Attributes:
     scenario: The name of the scenario.
+    repetition_idx: The index of the repetition (i.e. the seed).
     focal_agent: The name of the agent that is being tested in the focal slots.
     background_agent: The name of the agent used in the background player slots.
     focal_per_capita_score: The per capita score of the focal agent.
     background_per_capita_score: The per capita score of the background agent.
     ungrouped_per_capita_score: The per capita score of the focal agent,
       averaged over all players (both residents and visitors).
-    simulation_outcomes: A tuple of SimulationOutcomes, one for each repetition
-      of the scenario.
+    simulation_outcome: A SimulationOutcome object.
     focal_is_resident: Whether the focal agent is a resident or a visitor.
     api_type: The API type used for the simulation
       (e.g. `google_aistudio_model`, `mistral`, `openai`, etc).
@@ -64,6 +64,7 @@ class ScenarioResult:
   """
 
   scenario: str
+  repetition_idx: str
 
   focal_agent: str
   background_agent: str
@@ -72,9 +73,7 @@ class ScenarioResult:
   background_per_capita_score: float
   ungrouped_per_capita_score: float
 
-  simulation_outcomes: tuple[SimulationOutcome, ...] = dataclasses.field(
-      repr=False
-  )
+  simulation_outcome: SimulationOutcome = dataclasses.field(repr=False)
 
   focal_is_resident: bool
 
@@ -87,16 +86,13 @@ class ScenarioResult:
 
   def to_json(self) -> str:
     """Encode this dataclass as a string to serialize as a json file."""
-    simulation_outcome_dicts = []
-    for outcome in self.simulation_outcomes:
-      outcome_dict = dataclasses.asdict(outcome)
-      outcome_dict['resident_scores'] = dict(outcome_dict['resident_scores'])
-      outcome_dict['visitor_scores'] = dict(outcome_dict['visitor_scores'])
-      outcome_dict['metadata'] = dict(outcome_dict['metadata'])
-      simulation_outcome_dicts.append(outcome_dict)
+    outcome_dict = dataclasses.asdict(self.simulation_outcome)
+    outcome_dict['resident_scores'] = dict(outcome_dict['resident_scores'])
+    outcome_dict['visitor_scores'] = dict(outcome_dict['visitor_scores'])
+    outcome_dict['metadata'] = dict(outcome_dict['metadata'])
 
     self_as_dict = dataclasses.asdict(self)
-    self_as_dict['simulation_outcomes'] = tuple(simulation_outcome_dicts)
+    self_as_dict['simulation_outcome'] = outcome_dict
 
     return json.dumps(self_as_dict, indent=2)
 

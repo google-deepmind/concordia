@@ -1,4 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2024 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library of components contributed by users."""
+"""Settings for a 1950s era american reality show for the prisoners_dilemma.
+"""
 
-from concordia.contrib.components.agent import affect_reflection
-from concordia.contrib.components.agent import dialectical_reflection
-from concordia.contrib.components.agent import observations_since_last_update
-from concordia.contrib.components.agent import situation_representation_via_narrative
+from examples.modular.environment.modules import circa_1955_american_reality_show as parent_module
+
+
+def sample_parameters(seed: int | None = None):
+  """Sample parameters of the setting and the backstory for each player."""
+  return parent_module.sample_parameters(
+      minigame_name='chicken',
+      num_players=4,
+      seed=seed,
+  )

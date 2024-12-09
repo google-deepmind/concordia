@@ -33,7 +33,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='gdm-concordia',
-    version='1.8.8',
+    version='1.8.9',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',
@@ -61,6 +61,7 @@ setuptools.setup(
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
@@ -78,7 +79,7 @@ setuptools.setup(
         'numpy',
         'ollama',
         'openai>=1.3.0',
-        'pandas<=2.0.3',
+        'pandas',
         'python-dateutil',
         'reactivex',
         'retry',

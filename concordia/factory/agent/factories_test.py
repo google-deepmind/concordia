@@ -24,8 +24,11 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
+from concordia.factory.agent import alternative_basic_agent
+from concordia.factory.agent import alternative_rational_agent
 from concordia.factory.agent import basic_agent
 from concordia.factory.agent import basic_agent_without_plan
+from concordia.factory.agent import observe_and_summarize_agent
 from concordia.factory.agent import observe_recall_prompt_agent
 from concordia.factory.agent import paranoid_agent
 from concordia.factory.agent import parochial_universalization_agent
@@ -46,9 +49,12 @@ SPEECH_ACTION_SPEC = agent_lib.DEFAULT_SPEECH_ACTION_SPEC
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
+    'alternative_basic_agent': alternative_basic_agent,
+    'alternative_rational_agent': alternative_rational_agent,
     'basic_agent': basic_agent,
     'basic_agent_without_plan': basic_agent_without_plan,
     'observe_recall_prompt_agent': observe_recall_prompt_agent,
+    'observe_and_summarize_agent': observe_and_summarize_agent,
     'paranoid_agent': paranoid_agent,
     'parochial_universalization_agent': parochial_universalization_agent,
     'rational_agent': rational_agent,
@@ -65,6 +71,16 @@ class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
+          testcase_name='alternative_basic_agent',
+          agent_name='alternative_basic_agent',
+          main_role=True
+      ),
+      dict(
+          testcase_name='alternative_rational_agent',
+          agent_name='alternative_rational_agent',
+          main_role=True
+      ),
+      dict(
           testcase_name='basic_agent',
           agent_name='basic_agent',
           main_role=True
@@ -72,6 +88,11 @@ class AgentFactoriesTest(parameterized.TestCase):
       dict(
           testcase_name='basic_agent_without_plan',
           agent_name='basic_agent_without_plan',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='observe_and_summarize_agent',
+          agent_name='observe_and_summarize_agent',
           main_role=True,
       ),
       dict(

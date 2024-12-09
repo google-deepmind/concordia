@@ -59,13 +59,17 @@ parser.add_argument(
 # Parse command line arguments
 args = parser.parse_args()
 
+sanitized_model_name = args.model_name.replace('/', '_')
+
 # Load data
 included = {}
 included_agent_idx = 0
 sorted_agent_names = sorted(args.agents)
+max_repetition_idx = -1
 for agent_name in sorted_agent_names:
   print(f'loading data from: {agent_name}')
-  json_filename = f'{agent_name}__{args.model_name}__{args.embedder_name}.json'
+  json_filename = (
+      f'{agent_name}__{sanitized_model_name}__{args.embedder_name}.json')
 
   loaded = file_utils.load_from_json_file(json_filename)
   scenario_results_to_include = {}
@@ -93,14 +97,23 @@ for agent_name in sorted_agent_names:
         f' {expected_background_agent}'
     )
 
-    if result.scenario in scenario_results_to_include:
-      raise RuntimeError(f'Duplicate scenario: {result.scenario}')
+    repetition_idx = int(result.repetition_idx)
+    max_repetition_idx = max(max_repetition_idx, repetition_idx)
+    scenario_with_repetition = f'{result.scenario}_{repetition_idx}'
 
-    scenario_results_to_include[result.scenario] = result
+    if scenario_with_repetition in scenario_results_to_include:
+      raise RuntimeError(f'Duplicate scenario: {scenario_with_repetition}')
+
+    scenario_results_to_include[scenario_with_repetition] = result
 
   # Check there are results for all scenarios.
+  expected_scenarios = []
+  for expected_scenario in set(scenarios_lib.SCENARIO_CONFIGS.keys()):
+    for repetition_idx in range(max_repetition_idx + 1):
+      expected_scenarios.append(f'{expected_scenario}_{repetition_idx}')
+  expected_scenarios = set(expected_scenarios)
   scenarios_found = set(scenario_results_to_include.keys())
-  if scenarios_found == set(scenarios_lib.SCENARIO_CONFIGS.keys()):
+  if scenarios_found == expected_scenarios:
     included[agent_name] = dict(
         agent_idx=included_agent_idx, results=scenario_results_to_include
     )
@@ -112,16 +125,18 @@ for agent_name in sorted_agent_names:
 # the data from the previous runs with other agent submissions.
 # We need to form a score matrix with shape [num_scenarios X num_agents]
 num_scenarios = len(scenarios_lib.SCENARIO_CONFIGS)
+num_scenarios_and_repetitions = num_scenarios * (max_repetition_idx + 1)
 agents_to_evaluate = list(included.keys())
 num_agents_to_evaluate = len(agents_to_evaluate)
-score_matrix = np.zeros((num_scenarios, num_agents_to_evaluate))
+score_matrix = np.zeros((num_scenarios_and_repetitions, num_agents_to_evaluate))
 for agent_name in agents_to_evaluate:
   results_per_scenario = included[agent_name]['results']
 
   num_scenarios_found = len(results_per_scenario)
   assert (
-      num_scenarios_found == num_scenarios
-  ), f'Wrong number of scenarios: {num_scenarios_found} != {num_scenarios}'
+      num_scenarios_found == num_scenarios_and_repetitions
+  ), ('Wrong number of scenarios: '
+      f'{num_scenarios_found} != {num_scenarios_and_repetitions}')
 
   names_by_scenario_vector = np.array(
       [result.scenario for result in results_per_scenario.values()]

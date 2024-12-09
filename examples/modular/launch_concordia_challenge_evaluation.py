@@ -67,6 +67,7 @@ the same model and embedder.
 """
 
 import argparse
+from collections.abc import Sequence
 import datetime
 import functools
 import importlib
@@ -230,7 +231,7 @@ def _evaluate_one_repetition(
 def _evaluate_all_repetitions_on_one_scenario(
     scenario_name: str,
     scenario_config: scenarios_lib.ScenarioConfig,
-) -> logging_lib.ScenarioResult:
+) -> Sequence[logging_lib.ScenarioResult]:
   """Evaluates the agent on one scenario, averaging over repetitions.
 
   Args:
@@ -243,11 +244,6 @@ def _evaluate_all_repetitions_on_one_scenario(
   """
   print(f'Running scenario: {scenario_name}')
   # Run several simulations per scenario
-  simulation_outcomes = []
-  focal_per_capita_scores_to_average = []
-  background_per_capita_scores_to_average = []
-  ungrouped_per_capita_scores_to_average = []
-
   tasks_this_scenario = {
       str(i): functools.partial(
           _evaluate_one_repetition,
@@ -267,6 +263,7 @@ def _evaluate_all_repetitions_on_one_scenario(
         'Raised errors', list(exceptions_per_repetition.values())
     )
 
+  scenario_results = []
   for repetition_idx, outcome in outputs_per_repetition.items():
     if scenario_config.focal_is_resident:
       focal_scores = list(outcome.resident_scores.values())
@@ -279,45 +276,38 @@ def _evaluate_all_repetitions_on_one_scenario(
     # Calculate per capita scores.
     print(f'\nScores for repetition {repetition_idx}:')
     focal_per_capita_score = np.mean(focal_scores)
-    focal_per_capita_scores_to_average.append(focal_per_capita_score)
     print(f'  Focal per capita score: {focal_per_capita_score}')
     background_per_capita_score = np.mean(background_scores)
-    background_per_capita_scores_to_average.append(background_per_capita_score)
     print(f'  Background per capita score: {background_per_capita_score}')
     ungrouped_per_capita_score = np.mean(ungrouped_scores)
-    ungrouped_per_capita_scores_to_average.append(ungrouped_per_capita_score)
     print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
 
-  # Average scores over repetitions and save results for all repetitions in a
-  # json-serializable format.
-  scenario_result_ = logging_lib.ScenarioResult(
-      scenario=scenario_name,
-      focal_agent=args.agent_name,
-      background_agent=scenario_config.background_agent_module,
-      focal_per_capita_score=np.mean(focal_per_capita_scores_to_average),
-      background_per_capita_score=np.mean(
-          background_per_capita_scores_to_average
-      ),
-      ungrouped_per_capita_score=np.mean(
-          ungrouped_per_capita_scores_to_average
-      ),
-      simulation_outcomes=tuple(simulation_outcomes),
-      focal_is_resident=scenario_config.focal_is_resident,
-      api_type=args.api_type,
-      model=args.model_name,
-      embedder=args.embedder_name,
-      disable_language_model=args.disable_language_model,
-      exclude_from_elo_calculation=args.exclude_from_elo_calculation,
-  )
-  scenario_json_filename = (
-      f'{args.agent_name}__{args.model_name}__'
-      f'{args.embedder_name}__only_{scenario_name}.json'
-  ).replace('/', '_')
-  scenario_json_filename = os.path.join(results_dir, scenario_json_filename)
-  json_str_ = scenario_result_.to_json()
-  with open(scenario_json_filename, 'a', encoding='utf-8') as f:
-    f.write(json_str_)
-  return scenario_result_
+    scenario_result_ = logging_lib.ScenarioResult(
+        scenario=scenario_name,
+        repetition_idx=repetition_idx,
+        focal_agent=args.agent_name,
+        background_agent=scenario_config.background_agent_module,
+        focal_per_capita_score=focal_per_capita_score,
+        background_per_capita_score=background_per_capita_score,
+        ungrouped_per_capita_score=ungrouped_per_capita_score,
+        simulation_outcome=outcome,
+        focal_is_resident=scenario_config.focal_is_resident,
+        api_type=args.api_type,
+        model=args.model_name,
+        embedder=args.embedder_name,
+        disable_language_model=args.disable_language_model,
+        exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+    )
+    scenario_json_filename = (
+        f'{args.agent_name}__{args.model_name}__'
+        f'{args.embedder_name}__only__{scenario_name}__{repetition_idx}.json'
+    ).replace('/', '_')
+    scenario_json_filename = os.path.join(results_dir, scenario_json_filename)
+    json_str_ = scenario_result_.to_json()
+    with open(scenario_json_filename, 'a', encoding='utf-8') as f:
+      f.write(json_str_)
+    scenario_results.append(scenario_result_)
+  return scenario_results
 
 tasks = {
     name: functools.partial(
@@ -330,16 +320,19 @@ tasks = {
 evaluation_results = concurrency.run_tasks(tasks)
 
 # Save evaluation results for all scenarios with this agent to one json file.
+num_expected_results = (len(scenarios_lib.SCENARIO_CONFIGS) *
+                        args.num_repetitions_per_scenario)
 json_filename = (
     f'{args.agent_name}__{args.model_name}__{args.embedder_name}.json'
 ).replace('/', '_')
 idx = 0
 with open(json_filename, 'a', encoding='utf-8') as file_handle:
   file_handle.write('[\n')
-  for scenario_name_, scenario_result in evaluation_results.items():
-    json_str = evaluation_results[scenario_name_].to_json()
-    if idx < len(scenarios_lib.SCENARIO_CONFIGS) - 1:
-      json_str += ',\n'
-    file_handle.write(json_str)
-    idx += 1
+  for scenario_name_, _ in evaluation_results.items():
+    for scenario_result in evaluation_results[scenario_name_]:
+      json_str = scenario_result.to_json()
+      if idx < num_expected_results - 1:
+        json_str += ',\n'
+      file_handle.write(json_str)
+      idx += 1
   file_handle.write('\n]')

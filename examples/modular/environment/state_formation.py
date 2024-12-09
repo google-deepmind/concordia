@@ -455,7 +455,9 @@ def configure_scenes(
                           'intend to spend on each of the '
                           f'following activities: {activities_str}. Note that '
                           'proportions of time should sum to 1. Sleep counts '
-                          f'as {config.free_time_activity}.'),
+                          f'as {config.free_time_activity} and, '
+                          'all else equal, '
+                          'more leisure time is better.'),
           tag='announcement',
       ),
       override_game_master=no_conversation_game_master,
@@ -1072,7 +1074,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         randomise_initiative=True,
         name='Negotiation scene',
         review_participants=False,
-        max_steps=1,
+        max_steps=4,
         memory=self._game_master_memory,
         additional_components=[agreement_component],
         verbose=True,

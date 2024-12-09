@@ -188,10 +188,6 @@ else:
 print(f'Running scenario: {args.scenario_name}')
 scenario_config = scenarios_lib.SCENARIO_CONFIGS[args.scenario_name]
 # Run several simulations per scenario
-simulation_outcomes = []
-focal_per_capita_scores_to_average = []
-background_per_capita_scores_to_average = []
-ungrouped_per_capita_scores_to_average = []
 for repetition_idx in range(args.num_repetitions_per_scenario):
   measurements = measurements_lib.Measurements()
   runnable_simulation = scenarios_lib.build_simulation(
@@ -205,7 +201,6 @@ for repetition_idx in range(args.num_repetitions_per_scenario):
   )
   # Run the simulation
   outcome, text_results_log = runnable_simulation()
-  simulation_outcomes.append(outcome)
   if scenario_config.focal_is_resident:
     focal_scores = list(outcome.resident_scores.values())
     background_scores = list(outcome.visitor_scores.values())
@@ -217,13 +212,10 @@ for repetition_idx in range(args.num_repetitions_per_scenario):
   # Calculate per capita scores.
   print('\nScores:')
   focal_per_capita_score = np.mean(focal_scores)
-  focal_per_capita_scores_to_average.append(focal_per_capita_score)
   print(f'  Focal per capita score: {focal_per_capita_score}')
   background_per_capita_score = np.mean(background_scores)
-  background_per_capita_scores_to_average.append(background_per_capita_score)
   print(f'  Background per capita score: {background_per_capita_score}')
   ungrouped_per_capita_score = np.mean(ungrouped_scores)
-  ungrouped_per_capita_scores_to_average.append(ungrouped_per_capita_score)
   print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
   # Write the full text log as an HTML file in the current working directory.
   html_filename = (
@@ -234,29 +226,27 @@ for repetition_idx in range(args.num_repetitions_per_scenario):
   with open(html_filename, 'a', encoding='utf-8') as f:
     f.write(text_results_log)
 
-# Average scores over repetitions and save results for all repetitions in a
-# json-serializable format.
-scenario_result = logging_lib.ScenarioResult(
-    scenario=args.scenario_name,
-    focal_agent=args.agent_name,
-    background_agent=scenario_config.background_agent_module,
-    focal_per_capita_score=np.mean(focal_per_capita_scores_to_average),
-    background_per_capita_score=np.mean(
-        background_per_capita_scores_to_average
-    ),
-    ungrouped_per_capita_score=np.mean(ungrouped_per_capita_scores_to_average),
-    simulation_outcomes=tuple(simulation_outcomes),
-    focal_is_resident=scenario_config.focal_is_resident,
-    api_type=args.api_type,
-    model=args.model_name,
-    embedder=args.embedder_name,
-    disable_language_model=args.disable_language_model,
-    exclude_from_elo_calculation=args.exclude_from_elo_calculation,
-)
-scenario_json_filename = (
-    f'{args.agent_name}__{args.model_name}__'
-    f'{args.embedder_name}__only_{args.scenario_name}.json'
-).replace('/', '_')
-json_str_ = scenario_result.to_json()
-with open(scenario_json_filename, 'a', encoding='utf-8') as f:
-  f.write(json_str_)
+  scenario_result = logging_lib.ScenarioResult(
+      scenario=args.scenario_name,
+      repetition_idx=str(repetition_idx),
+      focal_agent=args.agent_name,
+      background_agent=scenario_config.background_agent_module,
+      focal_per_capita_score=focal_per_capita_score,
+      background_per_capita_score=background_per_capita_score,
+      ungrouped_per_capita_score=ungrouped_per_capita_score,
+      simulation_outcome=outcome,
+      focal_is_resident=scenario_config.focal_is_resident,
+      api_type=args.api_type,
+      model=args.model_name,
+      embedder=args.embedder_name,
+      disable_language_model=args.disable_language_model,
+      exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+  )
+  scenario_json_filename = (
+      f'{args.agent_name}__{args.model_name}__'
+      f'{args.embedder_name}__only__{args.scenario_name}__{repetition_idx}'
+      '.json'
+  ).replace('/', '_')
+  json_str_ = scenario_result.to_json()
+  with open(scenario_json_filename, 'a', encoding='utf-8') as f:
+    f.write(json_str_)

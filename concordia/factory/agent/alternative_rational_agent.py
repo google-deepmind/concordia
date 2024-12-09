@@ -14,23 +14,20 @@
 
 """An Agent Factory."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 import datetime
 import json
-import types
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
-from concordia.components.agent import action_spec_ignored
+from concordia.contrib.components.agent import observations_since_last_update
 from concordia.contrib.components.agent import situation_representation_via_narrative
-from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import entity_component
-from concordia.typing import logging
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
@@ -86,81 +83,6 @@ class BestOptionPerception(
     )
 
 
-class Universalization(action_spec_ignored.ActionSpecIgnored):
-  """Consider ``what if everyone behaved that way?``."""
-
-  def __init__(
-      self,
-      model: language_model.LanguageModel,
-      context_components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
-      options_components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
-      pre_act_key: str = 'Universalization',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
-  ):
-    """Initialize a component to consider universalization of proposed actions.
-
-    Args:
-      model: The language model to use.
-      context_components: The components to condition the answer on. This is a 
-        mapping of component name to their labels to use in the prompt.
-      options_components: Components to report the options currently available
-        to the focal agent. This component will consider the universalization
-        of each option reported by these components. This is a mapping of
-        component name to label.
-      pre_act_key: Prefix to add to the output of the component when called
-        in `pre_act`.
-      logging_channel: The channel to log debug information to.
-    """
-    super().__init__(pre_act_key)
-    self._model = model
-    self._context_components = dict(context_components)
-    self._options_components = dict(options_components)
-    self._logging_channel = logging_channel
-
-  def _make_pre_act_value(self) -> str:
-    """Considers the universalization of each of the provided options."""
-    agent_name = self.get_entity().name
-    instructions_component = self.get_entity().get_component(
-        DEFAULT_INSTRUCTIONS_COMPONENT_KEY,
-        type_=agent_components.instructions.Instructions)
-
-    chain_of_thought = interactive_document.InteractiveDocument(self._model)
-    chain_of_thought.statement(instructions_component.get_pre_act_value())
-    context_component_values = '\n'.join([
-        f'{prefix}: {self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._context_components.items()
-    ])
-    chain_of_thought.statement(f'\n**Context**\n{context_component_values}')
-    options_component_values = '\n'.join([
-        f'{prefix}{self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._options_components.items()
-    ])
-    chain_of_thought.statement(
-        f'\n**{agent_name}\'s available options to consider**\n'
-        f'{options_component_values}')
-    result = chain_of_thought.open_question(
-        question=(f'{agent_name} ponders the available options, considering '
-                  'for each of them: "What if everyone behaved that way?" '
-                  f'Write out {agent_name}\'s thoughts on this matter. Make '
-                  f'sure to include {agent_name}\'s comments for each of the '
-                  'available options.'),
-        max_tokens=500,
-        terminators=(),
-        question_label='Exercise',
-    )
-
-    self._logging_channel(
-        {'Key': self.get_pre_act_key(),
-         'Value': result,
-         'Chain of thought': chain_of_thought.view().text().splitlines()})
-
-    return result
-
-
 def build_agent(
     *,
     config: formative_memories.AgentConfig,
@@ -204,11 +126,12 @@ def build_agent(
   )
 
   observation_label = '\nObservation'
-  observation = agent_components.observation.Observation(
+  observation = observations_since_last_update.ObservationsSinceLastUpdate(
+      model=model,
       clock_now=clock.now,
-      timeframe=clock.get_step_size(),
       pre_act_key=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate').on_next,
   )
 
   situation_representation_label = (
@@ -260,62 +183,13 @@ def build_agent(
       )
   )
 
-  ingroup_label = f'\n{agent_name}\'s  belief'
-  ingroup_belief = agent_components.constant.Constant(
-      state=(f'{agent_name} regards everyone they know by name as '
-             'part of their in-group and thus inside their circle of empathy, '
-             'trust, and caring.'),
-      pre_act_key=ingroup_label,
-      logging_channel=measurements.get_channel('Ingroup').on_next)
-
-  person_representation_label = f'\nPeople who {agent_name} knows by name'
-  people_representation = (
-      agent_components.person_representation.PersonRepresentation(
-          model=model,
-          components={
-              _get_class_name(time_display): 'The current date/time is',
-              _get_class_name(ingroup_belief): ingroup_label,
-          },
-          additional_questions=(
-              ('Given the information above, is the aforementioned character '
-               f'in {agent_name}\'s in-group?'),
-          ),
-          num_memories_to_retrieve=30,
-          pre_act_key=person_representation_label,
-          logging_channel=measurements.get_channel(
-              'PersonRepresentation').on_next,
-          )
-  )
-
-  universalization_context_components.update({
-      _get_class_name(situation_representation): situation_representation_label,
-      _get_class_name(observation): observation_label,
-      _get_class_name(ingroup_belief): ingroup_label,
-      _get_class_name(people_representation): person_representation_label,
-  })
-  universalization_options_components = {
-      _get_class_name(options_perception): '',
-  }
-  universalization_label = (
-      f'\nQuestion: For each of {agent_name}\'s available options, consider '
-      '"What if everyone in the in-group behaved that way"?\nAnswer')
-  universalization = (
-      Universalization(
-          model=model,
-          context_components=universalization_context_components,
-          options_components=universalization_options_components,
-          pre_act_key=universalization_label,
-          logging_channel=measurements.get_channel('Universalization').on_next,
-      )
-  )
-
   best_option_perception_label = (
       f'\nQuestion: Of the options available to {agent_name}, and '
       'given their goal, which choice of action or strategy is '
       f'best to take right now?\nAnswer')
   best_option_perception.update({
       DEFAULT_INSTRUCTIONS_COMPONENT_KEY: DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
-      _get_class_name(universalization): universalization_label,
+      _get_class_name(options_perception): options_perception_label,
   })
   best_option_perception = (
       agent_components.question_of_recent_memories.BestOptionPerception(
@@ -333,13 +207,9 @@ def build_agent(
   entity_components = (
       # Components that provide pre_act context.
       time_display,
-      observation,
       situation_representation,
+      observation,
       options_perception,
-
-      ingroup_belief,
-      people_representation,
-      universalization,
       best_option_perception,
   )
   components_of_agent = {_get_class_name(component): component

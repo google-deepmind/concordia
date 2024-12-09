@@ -21,7 +21,7 @@ YEAR = 2023
 MONTH = 10
 DAY = 14
 
-NUM_PUBS = 2
+NUM_PUBS = 3
 
 PUB_PREFERENCES = {
     "The Springbok's Lair": [
@@ -213,6 +213,8 @@ def sample_parameters(seed: int | None = None):
       venue_preferences=pub_preferences,
       social_context=SOCIAL_CONTEXT,
       random_seed=seed,
+      num_main_players=6,
+      num_supporting_players=0,
   )
 
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)
