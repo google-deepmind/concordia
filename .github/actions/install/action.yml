@@ -1,4 +1,4 @@
-name: install-concordia
+name: install
 
 inputs:
   python-version:
@@ -34,14 +34,14 @@ runs:
         else
           exit 1
         fi
-        echo "key=${name}-${version}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('setup.py') }}" >> $GITHUB_OUTPUT
+        echo "key=${name}-${version}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
 
-    - name: Restore Concordia installation
+    - name: Restore installation
       id: restore
       uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
       with:
         path: venv
-        key: install-concordia-${{ steps.cache-key.outputs.key }}
+        key: install-${{ steps.cache-key.outputs.key }}
 
     - name: Create venv
       if: steps.restore.outputs.cache-hit != 'true'
@@ -54,11 +54,12 @@ runs:
       run: |
         echo "${PWD}/venv/bin" >> $GITHUB_PATH
 
-    - name: Install Concordia
+    - name: Install
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        pip install --editable .[dev]
+        pip install --require-virtualenv --require-hashes -r requirements.txt
+        pip install --require-virtualenv --no-deps --no-index --no-build-isolation --editable .
 
     - name: Show installation
       shell: bash
@@ -75,7 +76,7 @@ runs:
         pytype --version
         pip list
 
-    - name: Save Concordia installation
+    - name: Save installation
       if: steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
       with:

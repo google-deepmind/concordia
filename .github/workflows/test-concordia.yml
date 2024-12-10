@@ -5,21 +5,23 @@ on:
     branches:
       - main
     paths:
-      - '.github/actions/install-concordia/action.yml'
+      - '.github/actions/install/action.yml'
       - '.github/workflows/test-concordia.yml'
       - '.pylintrc'
       - 'concordia/**'
       - 'pyproject.toml'
+      - 'requirements.txt'
       - 'setup.py'
   pull_request:
     branches:
       - main
     paths:
-      - '.github/actions/install-concordia/action.yml'
+      - '.github/actions/install/action.yml'
       - '.github/workflows/test-concordia.yml'
       - '.pylintrc'
       - 'concordia/**'
       - 'pyproject.toml'
+      - 'requirements.txt'
       - 'setup.py'
   workflow_dispatch:
 
@@ -38,7 +40,7 @@ jobs:
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
 
       - name: Install Concordia
-        uses: ./.github/actions/install-concordia
+        uses: ./.github/actions/install
 
       - name: Test Concordia
         run: pytest concordia
