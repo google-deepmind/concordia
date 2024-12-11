@@ -1454,9 +1454,9 @@ langchain-community==0.3.10 \
     --hash=sha256:f503e90cbb44ddb14afb141552a93fd9fbd0b216407315a6608f901861a938f9 \
     --hash=sha256:f718de973f60c6d0f10c71321e461cf41251cc74543f064b7b2ee7ae06b9a43f
     # via gdm-concordia (setup.py)
-langchain-core==0.3.22 \
-    --hash=sha256:b40b036b3bd4abc1dfc820e149f5a3c4abef2fee83eb807c4310a41a064580e0 \
-    --hash=sha256:c61c6d62f137dff2a1ec785473a3225e4fa237e53eac88f5359fda664dc5d91c
+langchain-core==0.3.24 \
+    --hash=sha256:460851e8145327f70b70aad7dce2cdbd285e144d14af82b677256b941fc99656 \
+    --hash=sha256:97192552ef882a3dd6ae3b870a180a743801d0137a1159173f51ac555eeb7eec
     # via
     #   langchain
     #   langchain-community
