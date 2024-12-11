@@ -15,7 +15,12 @@
 # limitations under the License.
 #
 # Set up devcontainer
-
 set -e
-pip install -e .[dev]
-pip install -r examples/requirements.txt
+
+python --version
+pip --version
+pip list
+
+pip install --no-deps --require-hashes -r requirements.txt
+pip install --no-deps --no-index --no-build-isolation --editable .
+pip list
