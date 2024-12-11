@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Concordia
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Show Python setup
         run: |
           python --version
@@ -45,7 +45,7 @@ jobs:
           done
           ls dist/*
       - name: Save artifact
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: dist
           path: ./dist
@@ -76,7 +76,7 @@ jobs:
           name: dist
           path: ./dist
       - name: Set up Python
-        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Python dependencies
@@ -111,12 +111,12 @@ jobs:
           path: ./dist
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
-        uses: pypa/gh-action-pypi-publish@897895f1e160c830e369f9779632ebc134688e1b
+        uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
         with:
           repository-url: https://test.pypi.org/legacy/
           verbose: true
       - name: Publish to PyPI
         if: github.event_name == 'release' || inputs.upload_to_pypi
-        uses: pypa/gh-action-pypi-publish@897895f1e160c830e369f9779632ebc134688e1b
+        uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
         with:
           verbose: true
