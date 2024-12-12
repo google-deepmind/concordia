@@ -58,8 +58,7 @@ runs:
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        pip install --require-virtualenv --require-hashes -r requirements.txt
-        pip install --require-virtualenv --no-deps --no-index --no-build-isolation --editable .
+        ./bin/install.sh
 
     - name: Show installation
       shell: bash
