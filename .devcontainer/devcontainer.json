@@ -2,7 +2,7 @@
 {
   "name": "Concordia",
   "image": "mcr.microsoft.com/devcontainers/python:0-3.11",
-  "postCreateCommand": ".devcontainer/setup.sh",
+  "postCreateCommand": "bin/install.sh",
   "customizations": {
     "vscode": {
       "extensions": [
