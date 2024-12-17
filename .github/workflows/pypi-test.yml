@@ -42,11 +42,14 @@ jobs:
       matrix:
         os:
           - macos-13
-          - macos-latest
+          - macos-14
           - ubuntu-20.04
-          - ubuntu-latest
+          - ubuntu-22.04
+          - ubuntu-24.04
         python-version:
           - '3.11'
+          - '3.12'
+          - '3.13'
 
     steps:
       - name: Set up Python ${{ matrix.python_version }}
