@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+
+## [1.8.10] - 2024-12-19
+
+### Changed
+
+- Avoid deprecated logging.warn function
+- Remove version restriction on pandas
+
+
 ## [1.8.9] - 2024-11-25
 
 ### Changed
