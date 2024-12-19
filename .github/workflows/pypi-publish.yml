@@ -60,7 +60,7 @@ jobs:
       SYSTEM_VERSION_COMPAT: 0  # See https://github.com/actions/setup-python/issues/279.
     timeout-minutes: 120
     strategy:
-      fail-fast: false
+      fail-fast: ${{ github.event_name == 'release' }}
       matrix:
         os:
           - macos-13
@@ -116,10 +116,12 @@ jobs:
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
         uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
         with:
+          attestations: false
           repository-url: https://test.pypi.org/legacy/
           verbose: true
       - name: Publish to PyPI
         if: github.event_name == 'release' || inputs.upload_to_pypi
         uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
         with:
+          attestations: false
           verbose: true
