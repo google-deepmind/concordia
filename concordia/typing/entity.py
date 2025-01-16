@@ -25,9 +25,43 @@ import functools
 @enum.unique
 class OutputType(enum.Enum):
   """The type of output that a entity can produce."""
+  # Common output types
   FREE = enum.auto()
   CHOICE = enum.auto()
   FLOAT = enum.auto()
+  # Game master output types
+  MAKE_OBSERVATION = enum.auto()
+  NEXT_ACTING = enum.auto()
+  NEXT_ACTION_SPEC = enum.auto()
+  RESOLVE = enum.auto()
+  TERMINATE = enum.auto()
+
+PLAYER_ACTION_TYPES = (
+    OutputType.FREE,
+    OutputType.CHOICE,
+    OutputType.FLOAT,
+)
+GAME_MASTER_ACTION_TYPES = (
+    OutputType.MAKE_OBSERVATION,
+    OutputType.NEXT_ACTING,
+    OutputType.NEXT_ACTION_SPEC,
+    OutputType.RESOLVE,
+    OutputType.TERMINATE,
+)
+FREE_ACTION_TYPES = (
+    OutputType.FREE,
+    OutputType.MAKE_OBSERVATION,
+    OutputType.NEXT_ACTING,
+    OutputType.RESOLVE,
+)
+CHOICE_ACTION_TYPES = (
+    OutputType.CHOICE,
+    OutputType.NEXT_ACTING,
+    OutputType.NEXT_ACTION_SPEC,
+    OutputType.TERMINATE,
+)
+
+BINARY_OPTIONS = {'affirmative': 'Yes', 'negative': 'No'}
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -48,7 +82,7 @@ class ActionSpec:
   tag: str | None = None
 
   def __post_init__(self):
-    if self.output_type == OutputType.CHOICE:
+    if self.output_type in CHOICE_ACTION_TYPES:
       if not self.options:
         raise ValueError('Options must be provided for CHOICE output type.')
       if len(set(self.options)) != len(self.options):
