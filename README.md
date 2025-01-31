@@ -47,7 +47,6 @@ and can be installed using:
 pip install gdm-concordia
 ```
 
-
 ### Manual install
 
 If you want to work on the Concordia source code, you can perform an editable
@@ -72,6 +71,15 @@ installation as follows:
     pytest --pyargs concordia
     ```
 
+### Devcontainer
+
+This project includes a pre-configured development environment
+([devcontainer](https://containers.dev)).
+
+You can launch a working development environment with one click, using e.g.
+[Github Codespaces](https://github.com/features/codespaces) or the
+[VSCode Containers](https://code.visualstudio.com/docs/remote/containers-tutorial)
+extension.
 
 ## Bring your own LLM
 
