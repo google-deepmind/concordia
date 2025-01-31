@@ -43,7 +43,6 @@ setuptools.setup(
     description=(
         'A library for building a generative model of social interacions.'
     ),
-    description_content_type='text/plain',
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     keywords=(
