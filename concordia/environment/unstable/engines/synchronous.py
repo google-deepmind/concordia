@@ -12,24 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Asynchronous engine.
+"""Synchronous engine.
 """
 
 from collections.abc import Sequence
 
-from concordia.environment.experimental import engine as engine_lib
+from concordia.environment.unstable import engine as engine_lib
 from concordia.typing import entity as entity_lib
 
-
 DEFAULT_CALL_TO_MAKE_OBSERVATION = 'What does {name} observe?'
-DEFAULT_CALL_TO_NEXT_ACTING = 'Which entities act next?'
+DEFAULT_CALL_TO_NEXT_ACTING = ('Which entity or object is the next to act?')
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     'How should the game master ask {name} for their action?')
 DEFAULT_CALL_TO_RESOLVE = 'What happens next?'
 DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game over?'
 
 
-class Asynchronous(engine_lib.Engine):
+class Synchronous(engine_lib.Engine):
   """Synchronous engine."""
 
   def __init__(
@@ -64,32 +63,29 @@ class Asynchronous(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> tuple[Sequence[entity_lib.Entity], entity_lib.ActionSpec]:
+  ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
     entities_by_name = {
         entity.name: entity for entity in entities
     }
-    next_object_names_string = game_master.act(
+    next_object_name = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_next_acting,
             output_type=entity_lib.OutputType.NEXT_ACTING,
             options=tuple(entities_by_name.keys()),
         )
     )
-    next_entity_names = next_object_names_string.split(',')
     next_action_spec_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_next_action_spec.format(
-                name=self._call_to_next_action_spec),
+                name=next_object_name),
             output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
             options=[action_type.name for action_type
                      in entity_lib.PLAYER_ACTION_TYPES],
         )
     )
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
-    return [
-        entities_by_name[entity_name] for entity_name in next_entity_names
-    ], next_action_spec
+    return (entities_by_name[next_object_name], next_action_spec)
 
   def resolve(self,
               game_master: entity_lib.Entity,
@@ -128,11 +124,16 @@ class Asynchronous(engine_lib.Engine):
     self.resolve(game_master, premise)
     steps = 0
     while not self.terminate(game_master) and steps < max_steps:
-      next_entities, next_action_spec = self.next_acting(game_master, entities)
-      # In the future we will make the following loop concurrent
-      for entity in next_entities:
+      for entity in entities:
         observation = self.make_observation(game_master, entity)
+        if verbose:
+          print(f'Entity {entity.name} observed: {observation}')
         entity.observe(observation)
-        action = entity.act(next_action_spec)
-        self.resolve(game_master, action)
+      entity, entity_spec_to_use = self.next_acting(game_master, entities)
+      if verbose:
+        print(f'Entity {entity.name} is next to act.')
+      action = entity.act(entity_spec_to_use)
+      if verbose:
+        print(f'Entity {entity.name} chose action: {action}')
+      self.resolve(game_master, action)
       steps += 1

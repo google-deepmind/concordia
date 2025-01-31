@@ -18,7 +18,7 @@
 import functools
 
 from absl.testing import absltest
-from concordia.environment.experimental.engines import asynchronous
+from concordia.environment.unstable.engines import asynchronous
 from concordia.typing import entity as entity_lib
 from typing_extensions import override
 

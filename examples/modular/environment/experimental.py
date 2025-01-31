@@ -28,12 +28,12 @@ from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
-from concordia.environment.experimental import engine as engine_lib
+from concordia.environment.unstable import engine as engine_lib
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.scenario import scenarios as scenarios_lib
 from concordia.factory.agent import basic_agent
-from concordia.factory.environment.experimental import simulation as simulation_factory
+from concordia.factory.environment.unstable import simulation as simulation_factory
 from concordia.language_model import language_model
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency

@@ -25,8 +25,8 @@ from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
-from concordia.environment.experimental.engines import synchronous
-from concordia.factory.environment.experimental import simulation
+from concordia.environment.unstable.engines import synchronous
+from concordia.factory.environment.unstable import simulation
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import scene as scene_lib

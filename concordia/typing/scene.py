@@ -23,7 +23,7 @@ from concordia.agents import entity_agent
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import formative_memories
 from concordia.environment import game_master
-from concordia.environment.experimental import engine as engine_lib
+from concordia.environment.unstable import engine as engine_lib
 from concordia.typing import agent as agent_lib
 
 

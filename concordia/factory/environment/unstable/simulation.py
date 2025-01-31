@@ -22,10 +22,10 @@ from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as components_lib
 from concordia.components.agent import memory_component
-from concordia.components.game_master import experimental as gm_components_lib
-from concordia.environment.experimental import engine as engine_lib
-from concordia.environment.experimental.engines import synchronous
-from concordia.environment.scenes.experimental import runner
+from concordia.components.game_master import unstable as gm_components_lib
+from concordia.environment.scenes.unstable import runner
+from concordia.environment.unstable import engine as engine_lib
+from concordia.environment.unstable.engines import synchronous
 from concordia.language_model import language_model
 from concordia.memory_bank import legacy_associative_memory
 from concordia.typing import entity_component as entity_component_lib
