@@ -428,9 +428,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       html_results_log: browseable log of the simulation in HTML format
     """
     simulation_factory.run_simulation(
+        model=self._model,
         players=self._all_players,
         clock=self._clock,
         scenes=self._scenes,
         verbose=True,
     )
-

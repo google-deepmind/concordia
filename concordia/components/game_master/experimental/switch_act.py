@@ -14,7 +14,6 @@
 
 """A game master acting component with specific calls per action type."""
 
-
 from collections.abc import Sequence
 
 from concordia.document import interactive_document
@@ -25,6 +24,7 @@ from concordia.typing import entity_component
 from concordia.typing import logging
 from concordia.utils import helper_functions
 from typing_extensions import override
+
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 
@@ -44,6 +44,7 @@ class SwitchAct(entity_component.ActingComponent):
       self,
       model: language_model.LanguageModel,
       clock: game_clock.GameClock,
+      entity_names: Sequence[str],
       component_order: Sequence[str] | None = None,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -53,6 +54,7 @@ class SwitchAct(entity_component.ActingComponent):
     Args:
       model: The language model to use for generating the action attempt.
       clock: the game clock is needed to know when is the current time
+      entity_names: sequence of entity names to choose from.
       component_order: The order in which the component contexts will be
         assembled when calling the act component. If None, the contexts will be
         assembled in the iteration order of the `ComponentContextMapping` passed
@@ -72,6 +74,7 @@ class SwitchAct(entity_component.ActingComponent):
     """
     self._model = model
     self._clock = clock
+    self._entity_names = entity_names
     if component_order is None:
       self._component_order = None
     else:
@@ -118,25 +121,41 @@ class SwitchAct(entity_component.ActingComponent):
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
-    if 'initiative' in contexts:
-      return str(contexts['initiative'])
+    context = self._context_for_action(contexts)
+    if 'Initiative:' in contexts:
+      return str(contexts['Initiative:'])
     else:
-      return ''
+      # YOLO case
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(context)
+      next_entity_index = chain_of_thought.multiple_choice_question(
+          question='Who is next?', answers=self._entity_names)
+      return self._entity_names[next_entity_index]
 
   def _next_entity_action_spec(
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
+    context = self._context_for_action(contexts)
     if 'next_action_spec' in contexts:
       # action_spec_string = _convert_to_string(
       #     next_action_spec['scene_type'].action_spec)
       return ''
     else:
       # YOLO case
-      # Ask the GM first what kind of choice it is.
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(context)
+      _ = chain_of_thought.open_question(
+          question='Who is next to act and what kind of decision do they face?')
       # Then ask the GM to reformat their answer in whatever string format can
       # be used by the engine and its parser.
-      return ''
+      chain_of_thought.statement(
+          'Example formatted action specs:\n"type: free"\n"type: choice"')
+      next_action_spec_string = chain_of_thought.open_question(
+          question='Format the decision type as an action spec.')
+      if 'type:' not in next_action_spec_string:
+        next_action_spec_string = 'type: free' + next_action_spec_string
+      return next_action_spec_string
 
   def _resolve(
       self,
@@ -145,7 +164,12 @@ class SwitchAct(entity_component.ActingComponent):
     if 'resolution' in contexts:
       return contexts['resolution']
     else:
-      return ''
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      context = self._context_for_action(contexts)
+      chain_of_thought.statement(context)
+      resolution = chain_of_thought.open_question(
+          question='As a result of the above, what happens next?')
+      return resolution
 
   @override
   def get_action_attempt(

@@ -21,6 +21,7 @@ from concordia.associative_memory import associative_memory
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as components_lib
+from concordia.components.agent import memory_component
 from concordia.components.game_master import experimental as gm_components_lib
 from concordia.environment.experimental import engine as engine_lib
 from concordia.environment.experimental.engines import synchronous
@@ -124,6 +125,7 @@ def build_simulation(
   act_component = gm_components_lib.switch_act.SwitchAct(
       model=model,
       clock=clock,
+      entity_names=player_names,
       component_order=component_order,
   )
 
@@ -139,24 +141,71 @@ def build_simulation(
   return env, game_master_memory, game_master
 
 
+def create_log(
+    *,
+    model: language_model.LanguageModel,
+    scenes: Sequence[scene_lib.ExperimentalSceneSpec],
+    summarize_entire_episode: bool = True,
+) -> str:
+  """Create an HTML log of the simulation.
+
+  Args:
+    model: The language model to use.
+    scenes: Sequence of scenes.
+    summarize_entire_episode: Optionally, summarize the entire episode. This may
+      load a lot of tokens into a language model all at once and in some cases
+      exceed the model's context window and cause it to crash.
+
+  Returns:
+    An HTML string log of the simulation.
+  """
+  memories_per_scene = []
+  for scene in scenes:
+    scene_type = scene.scene_type
+    scene_game_master = scene_type.game_master
+    scene_memories = scene_game_master.get_component(
+        memory_component.DEFAULT_MEMORY_COMPONENT_NAME,
+        type_=memory_component.MemoryComponent).get_all_memories_as_text()
+    memories_per_scene.append('\n'.join(scene_memories))
+
+  if summarize_entire_episode:
+    detailed_story = '\n'.join(memories_per_scene)
+    episode_summary = model.sample_text(
+        f'Sequence of events:\n{detailed_story}'
+        + '\nNarratively summarize the above temporally ordered '
+        + 'sequence of events. Write it as a news report. Summary:\n',
+        max_tokens=3500,
+        terminators=(),
+    )
+  else:
+    episode_summary = ''
+
+  return episode_summary
+
+
 def run_simulation(
+    model: language_model.LanguageModel,
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     clock: game_clock.MultiIntervalClock,
     scenes: Sequence[scene_lib.ExperimentalSceneSpec],
     verbose: bool = False,
+    summarize_entire_episode_in_log: bool = True,
     compute_metrics: Callable[[Mapping[str, str]], None] | None = None,
-) -> None:
+) -> str:
   """Run a simulation.
 
   Args:
+    model: The language model to use.
     players: The players.
     clock: The clock of the run.
     scenes: Sequence of scenes to simulate.
     verbose: Whether or not to print verbose debug information.
+    summarize_entire_episode_in_log: Optionally, include summaries of the full
+      episode in the log.
     compute_metrics: Optionally, a function to compute metrics.
 
   Returns:
-    None
+    string of the log of the simulation.
   """
   # Run the simulation.
   runner.run_scenes(
@@ -166,3 +215,9 @@ def run_simulation(
       verbose=verbose,
       compute_metrics=compute_metrics,
   )
+  result_log = create_log(
+      model=model,
+      scenes=scenes,
+      summarize_entire_episode=summarize_entire_episode_in_log,
+  )
+  return result_log
