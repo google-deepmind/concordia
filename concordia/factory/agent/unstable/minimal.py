@@ -75,8 +75,12 @@ def build_agent(
   else:
     time_display = None
 
+  observation_to_memory = agent_components_v2.observation.ObservationToMemory(
+      logging_channel=measurements.get_channel('Observation').on_next,
+  )
+
   observation_label = '\nObservation'
-  observation = agent_components_v2.observation.Observation(
+  observation = agent_components_v2.observation.LastNObservations(
       history_length=100,
       pre_act_key=observation_label,
       logging_channel=measurements.get_channel('Observation').on_next,
@@ -96,6 +100,7 @@ def build_agent(
   entity_components = (
       # Components that provide pre_act context.
       instructions,
+      observation_to_memory,
       observation,
   )
   components_of_agent = {

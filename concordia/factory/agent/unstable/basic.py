@@ -75,8 +75,14 @@ def build_agent(
       logging_channel=measurements.get_channel('TimeDisplay').on_next,
   )
 
+  observation_to_memory = agent_components_v2.observation.ObservationToMemory(
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate'
+      ).on_next,
+  )
+
   observation_label = '\nObservation'
-  observation = agent_components_v2.observation.Observation(
+  observation = agent_components_v2.observation.LastNObservations(
       history_length=100,
       pre_act_key=observation_label,
       logging_channel=measurements.get_channel(
@@ -154,6 +160,7 @@ def build_agent(
       relevant_memories,
       self_perception,
       situation_representation,
+      observation_to_memory,
       observation,
       person_by_situation,
   )

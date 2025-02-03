@@ -22,7 +22,42 @@ from concordia.typing import logging
 DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observation'
 
 
-class Observation(action_spec_ignored.ActionSpecIgnored):
+class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
+  """A component that adds observations to the memory."""
+
+  def __init__(
+      self,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      ),
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the observation component.
+
+    Args:
+      memory_component_name: Name of the memory component to add observations to
+        in `pre_observe` and to retrieve observations from in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+    """
+    super().__init__('')
+    self._memory_component_name = memory_component_name
+    self._logging_channel = logging_channel
+
+  def pre_observe(
+      self,
+      observation: str,
+  ) -> str:
+    memory = self.get_entity().get_component(
+        self._memory_component_name, type_=memory_component.Memory
+    )
+    memory.add(f'[observation] {observation}')
+    return ''
+
+  def _make_pre_act_value(self) -> str:
+    return ''
+
+
+class LastNObservations(action_spec_ignored.ActionSpecIgnored):
   """A simple component to receive observations."""
 
   def __init__(
@@ -49,16 +84,6 @@ class Observation(action_spec_ignored.ActionSpecIgnored):
     self._memory_component_name = memory_component_name
     self._history_length = history_length
     self._logging_channel = logging_channel
-
-  def pre_observe(
-      self,
-      observation: str,
-  ) -> str:
-    memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
-    )
-    memory.add(f'[observation] {observation}')
-    return ''
 
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
