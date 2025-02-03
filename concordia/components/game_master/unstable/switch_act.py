@@ -28,6 +28,12 @@ from typing_extensions import override
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 
+DEFAULT_TERMINATE_COMPONENT_NAME = '__terminate__'
+DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'
+DEFAULT_NEXT_ACTING_COMPONENT_NAME = '__next_acting__'
+DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = '__next_action_spec__'
+DEFAULT_RESOLUTION_COMPONENT_NAME = '__resolution__'
+
 
 class SwitchAct(entity_component.ActingComponent):
   """A component which calls the appropriate method for each action type.
@@ -108,68 +114,109 @@ class SwitchAct(entity_component.ActingComponent):
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
-    return 'No'
+    context = self._context_for_action(contexts)
+    if DEFAULT_TERMINATE_COMPONENT_NAME in contexts:
+      result = str(contexts[DEFAULT_TERMINATE_COMPONENT_NAME])
+      self._log(result, context)
+    else:
+      # YOLO case
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(context)
+      termination_bool = chain_of_thought.yes_no_question(
+          question=action_spec.call_to_action)
+      if termination_bool:
+        result = 'Yes'
+      else:
+        result = 'No'
+      self._log(result, chain_of_thought)
+
+    return result
 
   def _make_observation(
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
-    return ('{name} is standing in an open field west of a white house, '
-            'with a boarded front door. There is a small mailbox here.')
+    context = self._context_for_action(contexts)
+    if DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME in contexts:
+      result = str(contexts[DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME])
+      self._log(result, context)
+    else:
+      # YOLO case
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(context)
+      result = chain_of_thought.open_question(
+          question=action_spec.call_to_action,
+          max_tokens=1000)
+      self._log(result, chain_of_thought)
+
+    return result
 
   def _next_acting(
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if 'Initiative:' in contexts:
-      return str(contexts['Initiative:'])
+    if DEFAULT_NEXT_ACTING_COMPONENT_NAME in contexts:
+      result = str(contexts[DEFAULT_NEXT_ACTING_COMPONENT_NAME])
+      self._log(result, context)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       next_entity_index = chain_of_thought.multiple_choice_question(
-          question='Who is next?', answers=self._entity_names)
-      return self._entity_names[next_entity_index]
+          question=action_spec.call_to_action,
+          answers=self._entity_names)
+      result = self._entity_names[next_entity_index]
+      self._log(result, chain_of_thought)
+
+    return result
 
   def _next_entity_action_spec(
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if 'next_action_spec' in contexts:
+    if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME in contexts:
       # action_spec_string = _convert_to_string(
       #     next_action_spec['scene_type'].action_spec)
-      return ''
+      result = ''
+      self._log(result, context)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
-      _ = chain_of_thought.open_question(
-          question='Who is next to act and what kind of decision do they face?')
+      _ = chain_of_thought.open_question(question=action_spec.call_to_action)
       # Then ask the GM to reformat their answer in whatever string format can
       # be used by the engine and its parser.
       chain_of_thought.statement(
-          'Example formatted action specs:\n"type: free"\n"type: choice"')
+          'Example formatted action specs:\n"type: free"\n'
+          '"type: choice options: x, y, z"')
       next_action_spec_string = chain_of_thought.open_question(
-          question='Format the decision type as an action spec.')
+          question='Format the decision prompt type as an action spec.')
       if 'type:' not in next_action_spec_string:
         next_action_spec_string = 'type: free' + next_action_spec_string
-      return next_action_spec_string
+
+      result = next_action_spec_string
+      self._log(result, chain_of_thought)
+
+    return result
 
   def _resolve(
       self,
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
-    if 'resolution' in contexts:
-      return contexts['resolution']
+    context = self._context_for_action(contexts)
+    if DEFAULT_RESOLUTION_COMPONENT_NAME in contexts:
+      result = contexts[DEFAULT_RESOLUTION_COMPONENT_NAME]
+      self._log(result, context)
     else:
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
-      context = self._context_for_action(contexts)
       chain_of_thought.statement(context)
-      resolution = chain_of_thought.open_question(
-          question='As a result of the above, what happens next?')
-      return resolution
+      result = chain_of_thought.open_question(
+          question=action_spec.call_to_action)
+      self._log(result, chain_of_thought)
+
+    return result
 
   @override
   def get_action_attempt(
@@ -239,11 +286,13 @@ class SwitchAct(entity_component.ActingComponent):
 
   def _log(self,
            result: str,
-           prompt: interactive_document.InteractiveDocument):
+           prompt: str | interactive_document.InteractiveDocument):
+    if isinstance(prompt, interactive_document.InteractiveDocument):
+      prompt = prompt.view().text().splitlines()
     self._logging_channel({
         'Key': self._pre_act_key,
         'Value': result,
-        'Prompt': prompt.view().text().splitlines(),
+        'Prompt': prompt,
     })
 
   def get_state(self) -> entity_component.ComponentState:

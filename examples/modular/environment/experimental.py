@@ -44,15 +44,65 @@ import numpy as np
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
+NUM_ROUNDS_BY_SCENE = [1]
 
-class SundropSaloon(entity_agent.EntityAgent):
-  """A pub in Riverbend."""
+BARTENDER_PERSONAS = [
+    (
+        "Aged and weathered, this bartender's eyes hold a distant, knowing"
+        " quality, familiar with everyone's preferences and the unspoken"
+        ' thoughts around them as they pour drinks; sometimes, in quiet'
+        ' moments, they speak to the taps as if they were old companions, a'
+        ' habit formed over years behind the bar. Tomorrow is election'
+        ' day, but they don\'t speak of it.'
+    ),
+    (
+        'A forced cheerfulness barely masks an underlying tension in this'
+        ' bartender, offering jokes that miss the mark and an overly attentive'
+        ' ear to local concerns as they wipe down the counter; they arrived in'
+        " Riverbend with a boisterous energy that didn't fit, and sometimes"
+        ' they can be seen staring at the Solripple, lost in thought while'
+        ' polishing glasses.'
+    ),
+    (
+        "This bartender's folksy demeanor carries an unsettling undercurrent,"
+        ' spinning yarns that take on disturbing shapes and pouring strong'
+        ' drinks with an unsteady hand, always present at town gatherings or'
+        ' discussions about the river; their family history is deeply tied to'
+        " Riverbend, and they speak of the river's deeper nature in their more"
+        ' unguarded moments, and Bob\'s Folly in their  more unguarded'
+        ' moments between serving customers. They make no mention of the'
+        ' election.'
+    ),
+    (
+        "This bartender's sharp wit seems to guard a hidden vulnerability,"
+        ' offering cynical advice on life and local problems from behind the'
+        ' bar, but their eyes betray a nervousness, especially when the wind'
+        ' picks up; they inherited the Sundrop Saloon and a recurring nightmare'
+        ' about the basement flooding with something unnatural, something old'
+        ' and ravenous, a worry they sometimes share after a few too many.'
+    ),
+    (
+        "This bartender's extensive knowledge feels somehow corrupted,"
+        ' dispensing local wisdom mixed with disturbing certainties, especially'
+        " when it comes to the Solripple's troubles, their smile never fully"
+        ' genuine as they lean against the counter; they talk of old practices,'
+        ' older than modern understanding, hinting at agreements made with the'
+        ' river by Riverbend\'s founders, agreements now jeopardized by certain'
+        ' incumbents who think chemicals are fish food. They\'ll casually'
+        ' mention the election, while looking anyone who says Bob\'s name'
+        ' in the eye.'
+    ),
+]
+
+
+class Bartender(entity_agent.EntityAgent):
+  """The bartender of the Sundrop Saloon in Riverbend."""
 
   def __init__(
       self,
       model: language_model.LanguageModel,
       clock: game_clock.MultiIntervalClock,
-      name: str = 'Sundrop Saloon',
+      name: str = 'Bartender',
   ):
     self._act_component = (
         agent_components.concat_act_component.ConcatActComponent(
@@ -68,7 +118,11 @@ class SundropSaloon(entity_agent.EntityAgent):
         state='Sundrop Saloon is a pub in Riverbend.',
         pre_act_key='\nLocation: ',
     )
-    self._context_components = (background_constant,)
+    persona_constant = agent_components.constant.Constant(
+        state=random.choice(BARTENDER_PERSONAS),
+        pre_act_key='\nPersona: ',
+    )
+    self._context_components = (background_constant, persona_constant)
 
 
 def get_shared_memories_and_context(
@@ -184,7 +238,7 @@ def configure_scenes(
           scene_type=scene_specs['free'],
           start_time=start_time + 0 * datetime.timedelta(hours=2),
           participant_configs=player_configs,
-          num_rounds=1,
+          num_rounds=NUM_ROUNDS_BY_SCENE[0],
       ),
   ]
 
@@ -337,12 +391,12 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._all_players = main_players + supporting_players
 
-    sundrop_saloon = SundropSaloon(
+    bartender = Bartender(
         model=self._model,
         clock=self._clock,
     )
     nonplayer_entities = [
-        sundrop_saloon,
+        bartender,
     ]
 
     self._primary_environment, self._game_master_memory, self._game_master = (
@@ -421,16 +475,17 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
   def get_all_player_memories(self):
     return self._all_memories
 
-  def __call__(self) -> None:
+  def __call__(self) -> str:
     """Run the simulation.
 
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
-    simulation_factory.run_simulation(
+    results_log = simulation_factory.run_simulation(
         model=self._model,
         players=self._all_players,
         clock=self._clock,
         scenes=self._scenes,
         verbose=True,
     )
+    return results_log

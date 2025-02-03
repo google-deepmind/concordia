@@ -18,6 +18,7 @@
 import functools
 
 from absl.testing import absltest
+from concordia.agents import entity_agent_with_logging
 from concordia.environment.unstable.engines import asynchronous
 from concordia.typing import entity as entity_lib
 from typing_extensions import override
@@ -26,7 +27,7 @@ from typing_extensions import override
 _ENTITY_NAMES = ('entity_0', 'entity_1')
 
 
-class MockEntity(entity_lib.Entity):
+class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
   """Mock entity."""
 
   def __init__(self, name: str) -> None:

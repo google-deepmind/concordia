@@ -14,5 +14,6 @@
 
 """Library of components specifically for generative game masters."""
 
+from concordia.components.game_master.unstable import event_resolution
 from concordia.components.game_master.unstable import instructions
 from concordia.components.game_master.unstable import switch_act

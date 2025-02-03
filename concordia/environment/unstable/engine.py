@@ -16,7 +16,8 @@
 """
 
 import abc
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from concordia.typing import entity as entity_lib
 
@@ -63,6 +64,7 @@ class Engine(metaclass=abc.ABCMeta):
       premise: str,
       max_steps: int,
       verbose: bool,
+      log: list[Mapping[str, Any]] | None,
   ):
     """Run a game loop."""
 
@@ -74,7 +76,10 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
         call_to_action=next_action_spec_string,
         output_type=entity_lib.OutputType.FREE,
     )
-  elif 'type: choice' in next_action_spec_string:
+  elif (
+      'type: choice' in next_action_spec_string
+      and 'options: ' in next_action_spec_string
+  ):
     return entity_lib.ActionSpec(
         call_to_action=next_action_spec_string,
         output_type=entity_lib.OutputType.CHOICE,

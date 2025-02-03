@@ -15,6 +15,7 @@
 """Scene runner."""
 
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from concordia.agents import entity_agent
 from concordia.typing import clock as game_clock
@@ -62,6 +63,7 @@ def run_scenes(
     clock: game_clock.GameClock,
     verbose: bool = False,
     compute_metrics: Mapping[str, logging_lib.Metric] | None = None,
+    log: list[Mapping[str, Any]] | None = None,
 ) -> None:
   """Run a sequence of scenes.
 
@@ -71,6 +73,7 @@ def run_scenes(
     clock: the game clock which may be advanced between scenes
     verbose: if true then print intermediate outputs
     compute_metrics: Optionally, a function to compute metrics.
+    log: Optionally, a log to append debug information to.
   """
   players_by_name = {player.name: player for player in players}
   if len(players_by_name) != len(players):
@@ -105,11 +108,13 @@ def run_scenes(
     # Run the scene
     for _ in range(scene.num_rounds):
       game_master.observe(f'[scene type] {scene.scene_type.name}')
+      # run_loop modifies log in place by appending to it
       scene_simulation.run_loop(
           game_master=game_master,
           entities=participants,
           max_steps=scene.num_rounds * len(participants),
           verbose=verbose,
+          log=log,
       )
 
     # Conclude the scene

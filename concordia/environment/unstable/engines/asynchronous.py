@@ -15,9 +15,11 @@
 """Asynchronous engine.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from concordia.environment.unstable import engine as engine_lib
+from concordia.typing import agent as agent_lib
 from concordia.typing import entity as entity_lib
 
 
@@ -118,11 +120,12 @@ class Asynchronous(engine_lib.Engine):
 
   def run_loop(
       self,
-      game_master: entity_lib.Entity,
-      entities: Sequence[entity_lib.Entity],
+      game_master: agent_lib.GenerativeAgent,
+      entities: Sequence[agent_lib.GenerativeAgent],
       premise: str = '',
       max_steps: int = 100,
       verbose: bool = False,
+      log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
     self.resolve(game_master, premise)

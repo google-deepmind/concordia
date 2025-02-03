@@ -15,17 +15,25 @@
 """Synchronous engine.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from concordia.environment.unstable import engine as engine_lib
+from concordia.typing import agent as agent_lib
 from concordia.typing import entity as entity_lib
 
-DEFAULT_CALL_TO_MAKE_OBSERVATION = 'What does {name} observe?'
-DEFAULT_CALL_TO_NEXT_ACTING = ('Which entity or object is the next to act?')
+
+DEFAULT_CALL_TO_MAKE_OBSERVATION = (
+    'Given the identity of the player whose turn is next, what is the'
+    ' current situation they face? What do they now observe?'
+    ' Only inclue information of which they are aware.')
+DEFAULT_CALL_TO_NEXT_ACTING = 'Which entity is next to act?'
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
-    'How should the game master ask {name} for their action?')
-DEFAULT_CALL_TO_RESOLVE = 'What happens next?'
-DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game over?'
+    'Who is next to act and what kind of decision do they face? How should'
+    ' the game master ask them for their action?')
+DEFAULT_CALL_TO_RESOLVE = (
+    'What happens next as a result of the considerations above?')
+DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
 
 
 class Synchronous(engine_lib.Engine):
@@ -62,8 +70,8 @@ class Synchronous(engine_lib.Engine):
   def next_acting(
       self,
       game_master: entity_lib.Entity,
-      entities: Sequence[entity_lib.Entity],
-  ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
+      entities: Sequence[agent_lib.GenerativeAgent],
+  ) -> tuple[agent_lib.GenerativeAgent, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
     entities_by_name = {
         entity.name: entity for entity in entities
@@ -89,8 +97,11 @@ class Synchronous(engine_lib.Engine):
 
   def resolve(self,
               game_master: entity_lib.Entity,
-              event: str) -> None:
+              event: str,
+              verbose: bool = False) -> None:
     """Resolve an event."""
+    if verbose:
+      print(f'The suggested action or event to resolve was: {event}')
     game_master.observe(observation=event)
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -99,9 +110,12 @@ class Synchronous(engine_lib.Engine):
         )
     )
     game_master.observe(observation=result)
+    if verbose:
+      print(f'The resolved event was: {result}')
 
   def terminate(self,
-                game_master: entity_lib.Entity) -> bool:
+                game_master: entity_lib.Entity,
+                verbose: bool = False) -> bool:
     """Decide if the episode should terminate."""
     should_terminate_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -110,30 +124,50 @@ class Synchronous(engine_lib.Engine):
             options=tuple(entity_lib.BINARY_OPTIONS.values()),
         )
     )
+    if verbose:
+      print(f'Terminate? {should_terminate_string}')
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def run_loop(
       self,
-      game_master: entity_lib.Entity,
-      entities: Sequence[entity_lib.Entity],
+      game_master: agent_lib.GenerativeAgent,
+      entities: Sequence[agent_lib.GenerativeAgent],
       premise: str = '',
       max_steps: int = 100,
       verbose: bool = False,
+      log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
-    self.resolve(game_master, premise)
+    game_master_multi_part_log = {}
+    if log is not None:
+      game_master_multi_part_log = {
+          'terminate': {},
+          # 'next_acting': {'next_entity_to_act': {},
+          #                 'next_action_spec': {}},
+          'resolve': {},
+      }
+
+    self.resolve(game_master, premise, verbose=verbose)
     steps = 0
-    while not self.terminate(game_master) and steps < max_steps:
+    while not self.terminate(game_master, verbose) and steps < max_steps:
+      if log is not None:
+        game_master_multi_part_log['terminate'] = game_master.get_last_log()
       for entity in entities:
         observation = self.make_observation(game_master, entity)
         if verbose:
           print(f'Entity {entity.name} observed: {observation}')
         entity.observe(observation)
-      entity, entity_spec_to_use = self.next_acting(game_master, entities)
+      next_entity, entity_spec_to_use = self.next_acting(game_master, entities)
       if verbose:
-        print(f'Entity {entity.name} is next to act.')
-      action = entity.act(entity_spec_to_use)
+        print(f'Entity {next_entity.name} is next to act.')
+      action = next_entity.act(entity_spec_to_use)
       if verbose:
-        print(f'Entity {entity.name} chose action: {action}')
-      self.resolve(game_master, action)
+        print(f'Entity {next_entity.name} chose action: {action}')
+      self.resolve(game_master=game_master, event=action, verbose=verbose)
+      if log is not None:
+        game_master_multi_part_log['resolve'] = game_master.get_last_log()
+        log.append({
+            'Game Master': game_master_multi_part_log,
+            'Entity': next_entity.get_last_log(),
+        })
       steps += 1

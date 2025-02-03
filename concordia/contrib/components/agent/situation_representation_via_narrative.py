@@ -15,8 +15,9 @@
 """A component for representing the current situation via narrative.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import datetime
+import types
 
 from absl import logging as absl_logging
 from concordia.components import agent as agent_components
@@ -77,6 +78,10 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
+      components: Mapping[
+          entity_component.ComponentName, str
+      ] = types.MappingProxyType({}),
+      declare_entity_as_protagonist: bool = True,
       pre_act_key: str = 'The current situation',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -87,6 +92,10 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       clock_now: Function that returns the current time.
       memory_component_name: The name of the memory component from which to
         retrieve related memories.
+      components: Components to condition the narrative on. This is a mapping
+        of the component name to a label to use in the prompt.
+      declare_entity_as_protagonist: Whether to declare the entity to be the
+        protagonist in the prompt.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
@@ -95,10 +104,24 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     self._model = model
     self._clock_now = clock_now
     self._memory_component_name = memory_component_name
+    self._components = dict(components)
+    self._declare_entity_as_protagonist = declare_entity_as_protagonist
     self._logging_channel = logging_channel
 
     self._previous_time = None
     self._situation_thus_far = None
+
+  def _add_components_if_any(
+      self,
+      chain_of_thought: interactive_document.InteractiveDocument,
+  ) -> None:
+    """Adds components to the chain of thought if any are present."""
+    if self._components:
+      component_states = '\n'.join([
+          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
+          for key, prefix in self._components.items()
+      ])
+      chain_of_thought.statement(f'Considerations:\n{component_states}\n')
 
   def _make_pre_act_value(self) -> str:
     """Returns a representation of the current situation to pre act."""
@@ -113,9 +136,11 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       self._previous_time = _get_earliest_timepoint(memory)
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement('~~ Creative Writing Assignment ~~')
-      chain_of_thought.statement(f'Protagonist: {agent_name}')
+      if self._declare_entity_as_protagonist:
+        chain_of_thought.statement(f'Protagonist: {agent_name}')
       mems = '\n'.join([mem.text for mem in _get_all_memories(memory)])
       chain_of_thought.statement(f'Story fragments and world data:\n{mems}')
+      self._add_components_if_any(chain_of_thought)
       chain_of_thought.statement(f'Events continue after {current_time}')
       self._situation_thus_far = chain_of_thought.open_question(
           question=(
@@ -143,10 +168,14 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     result = '\n'.join(mems) + '\n'
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(f'Context:\n{self._situation_thus_far}')
-    chain_of_thought.statement(f'Protagonist: {agent_name}')
-    chain_of_thought.statement(
-        f'Thoughts and memories of {agent_name}:\n{result}'
-    )
+    self._add_components_if_any(chain_of_thought)
+    if self._declare_entity_as_protagonist:
+      chain_of_thought.statement(f'Protagonist: {agent_name}')
+      chain_of_thought.statement(
+          f'Thoughts and memories of {agent_name}:\n{result}'
+      )
+    else:
+      chain_of_thought.statement(f'Notes:\n{result}')
     self._situation_thus_far = chain_of_thought.open_question(
         question=(
             'What situation does the protagonist find themselves in? '
