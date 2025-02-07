@@ -98,41 +98,34 @@ def build_simulation(
   gm_memory_bank = legacy_associative_memory.AssociativeMemoryBank(
       game_master_memory)
 
-  instructions = gm_components_lib.instructions.Instructions(
-      # logging_channel=measurements.get_channel('Instructions').on_next,
-  )
+  instructions = gm_components_lib.instructions.Instructions()
+
+  examples_synchronous = gm_components_lib.instructions.ExamplesSynchronous()
 
   player_names = [player.name for player in players]
   player_characters = gm_components_lib.instructions.PlayerCharacters(
       player_characters=player_names,
-      # logging_channel=measurements.get_channel('PlayerCharacters').on_next,
   )
 
   scenario_knowledge = components_lib.constant.Constant(
       state='\n'.join(shared_memories),
       pre_act_key='\nBackground:\n',
-      # logging_channel=measurements.get_channel('ScenarioKnowledge').on_next,
   )
 
   nonplayer_entities_list = components_lib.constant.Constant(
       state='\n'.join([entity.name for entity in nonplayer_entities]),
-      pre_act_key='\nNon-player entities:\n',
-      # logging_channel=measurements.get_channel('NonPlayerEntitiesList').on_next,
+      pre_act_key='\nNon-player characters:\n',
   )
 
   if supporting_players_at_fixed_locations is not None:
     supporting_character_locations_if_any = components_lib.constant.Constant(
         state='\n'.join(supporting_players_at_fixed_locations),
         pre_act_key='\nNotes:\n',
-        # logging_channel=measurements.get_channel(
-        #     'SupportingCharacterLocationsIfAny').on_next,
     )
   else:
     supporting_character_locations_if_any = components_lib.constant.Constant(
         state='',
         pre_act_key='\nNotes:\n',
-        # logging_channel=measurements.get_channel(
-        #     'SupportingCharacterLocationsIfAny').on_next,
     )
 
   observation_label = '\nObservation'
@@ -172,6 +165,7 @@ def build_simulation(
 
   entity_components = (
       instructions,
+      examples_synchronous,
       player_characters,
       scenario_knowledge,
       supporting_character_locations_if_any,
@@ -204,6 +198,9 @@ def build_simulation(
       event_resolution_steps=event_resolution_steps,
       components={
           _get_class_name(instructions): _get_class_name(instructions),
+          _get_class_name(examples_synchronous): _get_class_name(
+              examples_synchronous
+          ),
           _get_class_name(player_characters): _get_class_name(
               player_characters
           ),
