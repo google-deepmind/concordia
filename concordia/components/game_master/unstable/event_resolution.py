@@ -18,6 +18,7 @@ from collections.abc import Callable, Mapping, Sequence
 import types
 
 from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
@@ -33,9 +34,11 @@ GET_ACTIVE_ENTITY_QUERY = ('Which entity just took an action?'
                            ' other words.')
 GET_PUTATIVE_ACTION_QUERY = 'What is {name} attempting to do?'
 
+EVENT_TAG = '[event]'
+
 
 class EventResolution(entity_component.ContextComponent):
-  """A component that resolves and records events.
+  """A component that resolves events.
   """
 
   def __init__(
@@ -121,3 +124,96 @@ class EventResolution(entity_component.ContextComponent):
          'Value': result,
          'Prompt': prompt_to_log})
     return result
+
+
+class EventMemorizer(entity_component.ContextComponent):
+  """A component that records events by writing them to memory.
+  """
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      ),
+      exclude: Sequence[str] = tuple(['Yes', 'No', 'type: free']),
+      pre_act_key: str = '',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      model: The language model to use for the component.
+      memory_component_name: The name of the memory component in which to write
+        records of events.
+      exclude: Specific events to exclude from the memory.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._model = model
+    self._memory_component_name = memory_component_name
+    self._exclude = exclude
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+  def post_act(
+      self,
+      action_attempt: str,
+  ) -> str:
+    """Record the `action_attempt` i.e. the resolved event in memory."""
+    memory = self.get_entity().get_component(
+        self._memory_component_name, type_=memory_component.Memory
+    )
+    if action_attempt not in self._exclude:
+      memory.add(f'{EVENT_TAG} {action_attempt}')
+    return ''
+
+
+class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
+  """A component that displays recent events in `pre_act` loaded from memory.
+  """
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      ),
+      num_events_to_retrieve: int = 100,
+      pre_act_key: str = 'Recent events',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      model: The language model to use for the component.
+      memory_component_name: The name of the memory component in which to write
+        records of events.
+      num_events_to_retrieve: The number of events to retrieve.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__(pre_act_key)
+    self._model = model
+    self._memory_component_name = memory_component_name
+    self._num_events_to_retrieve = num_events_to_retrieve
+    self._logging_channel = logging_channel
+
+  def _make_pre_act_value(self) -> str:
+    memory = self.get_entity().get_component(
+        self._memory_component_name, type_=memory_component.Memory
+    )
+    events = memory.retrieve_associative(
+        query=EVENT_TAG, limit=self._num_events_to_retrieve)
+    return '\n'.join([event for event in events if EVENT_TAG in event])

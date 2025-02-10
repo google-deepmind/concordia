@@ -22,8 +22,27 @@ from concordia.components.agent import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import logging
+
+SELF_PERCEPTION_QUESTION = 'What kind of person is {agent_name}?'
+SITUATION_PERCEPTION_QUESTION = (
+    'What kind of situation is {agent_name} in right now?'
+)
+PERSON_BY_SITUATION_QUESTION = (
+    'What would a person like {agent_name} do in a situation like this?'
+)
+AVAILABLE_OPTIONS_QUESTION = (
+    'What actions are available to {agent_name} right now?'
+)
+BEST_OPTION_PERCEPTION_QUESTION = (
+    "Which of {agent_name}'s options "
+    'has the highest likelihood of causing {agent_name} to achieve '
+    'their goal? If multiple options have the same likelihood, select '
+    'the option that {agent_name} thinks will most quickly and most '
+    'surely achieve their goal.'
+)
 
 
 class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
@@ -136,6 +155,38 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
     return result
 
 
+class QuestionOfRecentMemoriesWithoutPreAct(
+    action_spec_ignored.ActionSpecIgnored
+):
+  """QuestionOfRecentMemories component that does not output to pre_act.
+  """
+
+  def __init__(self, *args, **kwargs):
+    self._component = QuestionOfRecentMemories(*args, **kwargs)
+
+  def set_entity(self, entity: entity_component.EntityWithComponents) -> None:
+    self._component.set_entity(entity)
+
+  def _make_pre_act_value(self) -> str:
+    return ''
+
+  def get_pre_act_value(self) -> str:
+    return self._component.get_pre_act_value()
+
+  def get_pre_act_key(self) -> str:
+    return self._component.get_pre_act_key()
+
+  def pre_act(
+      self,
+      unused_action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    del unused_action_spec
+    return ''
+
+  def update(self) -> None:
+    self._component.update()
+
+
 class SelfPerception(QuestionOfRecentMemories):
   """This component answers the question 'what kind of person is the agent?'."""
 
@@ -143,10 +194,32 @@ class SelfPerception(QuestionOfRecentMemories):
       self,
       **kwargs,
   ):
+    default_pre_act_key = f'\n{SELF_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
     super().__init__(
-        question='Given the above, what kind of person is {agent_name}?',
+        question=SELF_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is ',
-        add_to_memory=True,
+        add_to_memory=False,
+        memory_tag='[self reflection]',
+        **kwargs,
+    )
+
+
+class SelfPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
+  """This component answers the question 'what kind of person is the agent?'."""
+
+  def __init__(
+      self,
+      **kwargs,
+  ):
+    default_pre_act_key = f'\n{SELF_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
+    super().__init__(
+        question=SELF_PERCEPTION_QUESTION,
+        answer_prefix='{agent_name} is ',
+        add_to_memory=False,
         memory_tag='[self reflection]',
         **kwargs,
     )
@@ -159,11 +232,29 @@ class SituationPerception(QuestionOfRecentMemories):
       self,
       **kwargs,
   ):
+    default_pre_act_key = f'\n{SITUATION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
     super().__init__(
-        question=(
-            'Given the statements above, what kind of situation is'
-            ' {agent_name} in right now?'
-        ),
+        question=SITUATION_PERCEPTION_QUESTION,
+        answer_prefix='{agent_name} is currently ',
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
+class SituationPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
+  """This component answers the question 'what kind of situation is it?'."""
+
+  def __init__(
+      self,
+      **kwargs,
+  ):
+    default_pre_act_key = f'\n{SITUATION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
+    super().__init__(
+        question=SITUATION_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is currently ',
         add_to_memory=False,
         **kwargs,
@@ -174,12 +265,29 @@ class PersonBySituation(QuestionOfRecentMemories):
   """What would a person like the agent do in a situation like this?"""
 
   def __init__(self, **kwargs):
+    default_pre_act_key = f'\n{PERSON_BY_SITUATION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
     super().__init__(
-        question=(
-            'What would a person like {agent_name} do in a situation like this?'
-        ),
+        question=PERSON_BY_SITUATION_QUESTION,
         answer_prefix='{agent_name} would ',
-        add_to_memory=True,
+        add_to_memory=False,
+        memory_tag='[intent reflection]',
+        **kwargs,
+    )
+
+
+class PersonBySituationWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
+  """What would a person like the agent do in a situation like this?"""
+
+  def __init__(self, **kwargs):
+    default_pre_act_key = f'\n{PERSON_BY_SITUATION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
+    super().__init__(
+        question=PERSON_BY_SITUATION_QUESTION,
+        answer_prefix='{agent_name} would ',
+        add_to_memory=False,
         memory_tag='[intent reflection]',
         **kwargs,
     )
@@ -189,12 +297,28 @@ class AvailableOptionsPerception(QuestionOfRecentMemories):
   """This component answers the question 'what actions are available to me?'."""
 
   def __init__(self, **kwargs):
-
+    default_pre_act_key = f'\n{AVAILABLE_OPTIONS_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
     super().__init__(
-        question=(
-            'Given the statements above, what actions are available to '
-            '{agent_name} right now?'
-        ),
+        question=AVAILABLE_OPTIONS_QUESTION,
+        terminators=('\n\n',),
+        answer_prefix='',
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
+class AvailableOptionsPerceptionsWithoutPreAct(
+    QuestionOfRecentMemoriesWithoutPreAct):
+  """This component answers the question 'what actions are available to me?'."""
+
+  def __init__(self, **kwargs):
+    default_pre_act_key = f'\n{AVAILABLE_OPTIONS_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
+    super().__init__(
+        question=AVAILABLE_OPTIONS_QUESTION,
         terminators=('\n\n',),
         answer_prefix='',
         add_to_memory=False,
@@ -206,14 +330,26 @@ class BestOptionPerception(QuestionOfRecentMemories):
   """This component answers 'which action is best for achieving my goal?'."""
 
   def __init__(self, **kwargs):
+    default_pre_act_key = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
     super().__init__(
-        question=(
-            "Given the statements above, which of {agent_name}'s options "
-            'has the highest likelihood of causing {agent_name} to achieve '
-            'their goal? If multiple options have the same likelihood, select '
-            'the option that {agent_name} thinks will most quickly and most '
-            'surely achieve their goal.'
-        ),
+        question=BEST_OPTION_PERCEPTION_QUESTION,
+        answer_prefix="{agent_name}'s best course of action is ",
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
+class BestOptionPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
+  """This component answers 'which action is best for achieving my goal?'."""
+
+  def __init__(self, **kwargs):
+    default_pre_act_key = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_key') is None:
+      kwargs['pre_act_key'] = default_pre_act_key
+    super().__init__(
+        question=BEST_OPTION_PERCEPTION_QUESTION,
         answer_prefix="{agent_name}'s best course of action is ",
         add_to_memory=False,
         **kwargs,

@@ -100,15 +100,16 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
-      return '\n'.join(
+      result = '\n'.join(
           context for context in contexts.values() if context
       )
     else:
       order = self._component_order + tuple(sorted(
           set(contexts.keys()) - set(self._component_order)))
-      return '\n'.join(
+      result = '\n'.join(
           contexts[name] for name in order if contexts[name]
       )
+    return result.replace('\n\n\n', '\n\n')
 
   def _terminate(
       self,

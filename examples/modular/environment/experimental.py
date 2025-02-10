@@ -33,7 +33,7 @@ from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
 from examples.modular.scenario import scenarios as scenarios_lib
 from concordia.factory.agent import basic_agent
-from concordia.factory.environment.unstable import simulation as simulation_factory
+from concordia.factory.environment.unstable import unstable_simulation as simulation_factory
 from concordia.language_model import language_model
 from concordia.typing import scene as scene_lib
 from concordia.utils import concurrency
@@ -44,7 +44,7 @@ import numpy as np
 MAJOR_TIME_STEP = datetime.timedelta(minutes=10)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
-NUM_ROUNDS_BY_SCENE = [1]
+NUM_ROUNDS_BY_SCENE = [2]
 
 BARTENDER_PERSONAS = [
     (
@@ -317,7 +317,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     importance_model = importance_function.ConstantImportanceModel()
-    importance_model_gm = importance_function.ConstantImportanceModel()
     self._blank_memory_factory = blank_memories.MemoryFactory(
         model=self._model,
         embedder=self._embedder,
@@ -353,7 +352,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           model=copy.copy(self._agent_model),
           memory=self._all_memories[player_config.name],
           clock=self._clock,
-          update_time_interval=MAJOR_TIME_STEP,
       )
       if self._resident_visitor_mode:
         if idx == 0:
@@ -403,7 +401,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         simulation_factory.build_simulation(
             model=self._model,
             embedder=self._embedder,
-            importance_model=importance_model_gm,
             clock=self._clock,
             players=self._all_players,
             shared_memories=shared_memories,

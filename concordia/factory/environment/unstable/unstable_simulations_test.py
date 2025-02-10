@@ -20,13 +20,12 @@ import datetime
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent_with_logging
-from concordia.associative_memory import associative_memory
 from concordia.associative_memory import formative_memories
-from concordia.associative_memory import importance_function
+from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.environment.unstable.engines import synchronous
-from concordia.factory.environment.unstable import simulation
+from concordia.factory.environment.unstable import unstable_simulation
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import scene as scene_lib
@@ -34,7 +33,7 @@ import numpy as np
 
 
 ENVIRONMENT_FACTORIES = {
-    'simulation': simulation,
+    'unstable_simulation': unstable_simulation,
 }
 
 
@@ -46,13 +45,12 @@ def _embedder(text: str):
 class EnvironmentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='simulation',
-           simulation_factory_name='simulation'),
+      dict(testcase_name='unstable_simulation',
+           simulation_factory_name='unstable_simulation'),
   )
   def test_simulation_factory(self, simulation_factory_name: str):
     simulation_factory = ENVIRONMENT_FACTORIES[simulation_factory_name]
     model = no_language_model.NoLanguageModel()
-    importance_model_gm = importance_function.ConstantImportanceModel()
     setup_time = datetime.datetime.now()
     clock = game_clock.MultiIntervalClock(
         start=setup_time,
@@ -74,13 +72,12 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
     env, mem, game_master = simulation_factory.build_simulation(
         model=model,
         embedder=_embedder,
-        importance_model=importance_model_gm,
         clock=clock,
         players=players,
         shared_memories=[],
     )
     self.assertIsInstance(env, synchronous.Synchronous)
-    self.assertIsInstance(mem, associative_memory.AssociativeMemory)
+    self.assertIsInstance(mem, associative_memory.AssociativeMemoryBank)
     self.assertIsInstance(game_master,
                           entity_agent_with_logging.EntityAgentWithLogging)
 

@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited.
+# Copyright 2023 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library of components specifically for generative game masters."""
+"""Library of components contributed by users."""
 
-from concordia.components.game_master.unstable import event_resolution
-from concordia.components.game_master.unstable import instructions
-from concordia.components.game_master.unstable import make_observation
-from concordia.components.game_master.unstable import switch_act
+from concordia.contrib.components.agent.unstable import choice_of_component

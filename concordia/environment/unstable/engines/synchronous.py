@@ -142,8 +142,7 @@ class Synchronous(engine_lib.Engine):
     if log is not None:
       game_master_multi_part_log = {
           'terminate': {},
-          # 'next_acting': {'next_entity_to_act': {},
-          #                 'next_action_spec': {}},
+          'make_observation': {},
           'resolve': {},
       }
 
@@ -152,8 +151,11 @@ class Synchronous(engine_lib.Engine):
     while not self.terminate(game_master, verbose) and steps < max_steps:
       if log is not None:
         game_master_multi_part_log['terminate'] = game_master.get_last_log()
+        game_master_multi_part_log['make_observation'] = {}
       for entity in entities:
         observation = self.make_observation(game_master, entity)
+        game_master_multi_part_log['make_observation'][entity.name] = (
+            game_master.get_last_log())
         if verbose:
           print(f'Entity {entity.name} observed: {observation}')
         entity.observe(observation)
