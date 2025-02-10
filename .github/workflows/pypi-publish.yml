@@ -45,7 +45,7 @@ jobs:
           done
           ls dist/*
       - name: Save artifact
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: dist
           path: ./dist
@@ -79,7 +79,7 @@ jobs:
           name: dist
           path: ./dist
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Python dependencies
@@ -114,14 +114,14 @@ jobs:
           path: ./dist
       - name: Publish to TestPyPI
         if: github.event_name == 'release' || inputs.upload_to_test_pypi
-        uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
         with:
           attestations: false
           repository-url: https://test.pypi.org/legacy/
           verbose: true
       - name: Publish to PyPI
         if: github.event_name == 'release' || inputs.upload_to_pypi
-        uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
         with:
           attestations: false
           verbose: true
