@@ -108,7 +108,7 @@ def build_agent(
   }
   components_of_agent[
       agent_components_v2.memory.DEFAULT_MEMORY_COMPONENT_NAME
-  ] = agent_components_v2.memory.Memory(memory_bank=memory)
+  ] = agent_components_v2.memory.ListMemory(memory_bank=memory)
 
   component_order = list(components_of_agent.keys())
   if overarching_goal is not None:

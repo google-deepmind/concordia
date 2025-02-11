@@ -150,7 +150,8 @@ def build_simulation(
       _get_class_name(situation_representation): situation_representation,
       _get_class_name(observation_to_memory): observation_to_memory,
       components_unstable.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
-          components_unstable.memory.Memory(memory_bank=game_master_memory)
+          components_unstable.memory.ListMemory(
+              memory_bank=game_master_memory)
       ),
       _get_class_name(event_memorizer): event_memorizer,
       _get_class_name(display_events): display_events,

@@ -214,6 +214,11 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
     memory = self.get_entity().get_component(
         self._memory_component_name, type_=memory_component.Memory
     )
-    events = memory.retrieve_associative(
-        query=EVENT_TAG, limit=self._num_events_to_retrieve)
-    return '\n'.join([event for event in events if EVENT_TAG in event])
+    events = memory.scan(selector_fn=lambda x: EVENT_TAG in x)
+
+    limit = self._num_events_to_retrieve
+    if limit > len(events):
+      limit = len(events)
+    events = events[-limit:]
+
+    return '\n'.join(events)

@@ -77,7 +77,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     )
 
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_name, type_=memory_component.AssociativeMemory
     )
 
     query = f'{agent_name}, {prompt_summary}'

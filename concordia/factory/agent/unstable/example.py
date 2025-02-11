@@ -108,7 +108,7 @@ def build_agent(
       person_by_situation_key: person_by_situation,
       'ObservationToMemory': observation_to_memory,
       components_unstable.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
-          components_unstable.memory.Memory(memory_bank=memory)
+          components_unstable.memory.AssociativeMemory(memory_bank=memory)
       ),
   }
   choice_of_component_key = 'Choice of component'
