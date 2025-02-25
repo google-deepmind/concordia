@@ -17,7 +17,7 @@ runs:
   steps:
     - name: Set up Python ${{ inputs.python-version }}
       id: setup-python
-      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+      uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -38,7 +38,7 @@ runs:
 
     - name: Restore installation
       id: restore
-      uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57
+      uses: actions/cache/restore@0c907a75c2c80ebcb7f088228285e798b750cf8f
       with:
         path: venv
         key: install-${{ steps.cache-key.outputs.key }}
@@ -77,7 +77,7 @@ runs:
 
     - name: Save installation
       if: steps.restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57
+      uses: actions/cache/save@0c907a75c2c80ebcb7f088228285e798b750cf8f
       with:
         path: venv
         key: ${{ steps.restore.outputs.cache-primary-key }}
