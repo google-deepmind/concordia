@@ -19,7 +19,10 @@ from concordia.components.agent import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.typing import logging
 
+DEFAULT_OBSERVATION_COMPONENT_NAME = '__observation__'
 DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observation'
+
+OBSERVATION_TAG = '[observation]'
 
 
 class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
@@ -50,7 +53,7 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
     memory = self.get_entity().get_component(
         self._memory_component_name, type_=memory_component.Memory
     )
-    memory.add(f'[observation] {observation}')
+    memory.add(f'{OBSERVATION_TAG} {observation}')
     return ''
 
   def _make_pre_act_value(self) -> str:
@@ -93,7 +96,7 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
 
     mems = memory.retrieve_recent(limit=self._history_length)
     # Remove memories that are not observations.
-    mems = [mem for mem in mems if '[observation]' in mem]
+    mems = [mem for mem in mems if OBSERVATION_TAG in mem]
     result = '\n'.join(mems) + '\n'
     self._logging_channel(
         {'Key': self.get_pre_act_key(), 'Value': result.splitlines()}
@@ -145,7 +148,7 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
     if self._num_since_last_pre_act >= 1:
       mems = memory.retrieve_recent(limit=self._num_since_last_pre_act)
       # Remove memories that are not observations.
-      mems = [mem for mem in mems if '[observation]' in mem]
+      mems = [mem for mem in mems if OBSERVATION_TAG in mem]
       result = '\n'.join(mems) + '\n'
       self._num_since_last_pre_act = 0
 

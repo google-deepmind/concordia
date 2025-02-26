@@ -21,7 +21,6 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import associative_memory
-from concordia.associative_memory import formative_memories
 from concordia.associative_memory import importance_function
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
@@ -91,8 +90,7 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
                 game_master=game_master,
                 engine=env),
             start_time=setup_time,
-            participant_configs=[
-                formative_memories.AgentConfig(name='Rakshit')],
+            participants=['Rakshit'],
             num_rounds=1,
         ),
     ]
@@ -116,8 +114,7 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
                     options=['x', 'y']),
             ),
             start_time=setup_time,
-            participant_configs=[
-                formative_memories.AgentConfig(name='Rakshit')],
+            participants=['Rakshit'],
             num_rounds=1,
         ),
     ]

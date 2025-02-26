@@ -18,8 +18,8 @@ from collections.abc import Callable
 import json
 
 from concordia.agents import entity_agent_with_logging
-from concordia.associative_memory import formative_memories
 from concordia.associative_memory.unstable import basic_associative_memory
+from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.components.agent import unstable as components_unstable
@@ -64,7 +64,8 @@ def build_agent(
 
   observation_to_memory = components_unstable.observation.ObservationToMemory()
 
-  observations_key = 'Observations'
+  observations_key = (
+      components_unstable.observation.DEFAULT_OBSERVATION_COMPONENT_NAME)
   observation = components_unstable.observation.LastNObservations(
       history_length=100,
   )

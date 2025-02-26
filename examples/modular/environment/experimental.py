@@ -237,7 +237,7 @@ def configure_scenes(
       scene_lib.ExperimentalSceneSpec(
           scene_type=scene_specs['free'],
           start_time=start_time + 0 * datetime.timedelta(hours=2),
-          participant_configs=player_configs,
+          participants=[cfg.name for cfg in player_configs],
           num_rounds=NUM_ROUNDS_BY_SCENE[0],
       ),
   ]

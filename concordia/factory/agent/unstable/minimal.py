@@ -18,8 +18,8 @@ from collections.abc import Callable
 import json
 
 from concordia.agents import entity_agent_with_logging
-from concordia.associative_memory import formative_memories
 from concordia.associative_memory.unstable import basic_associative_memory
+from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.components import agent as agent_components
 from concordia.components.agent import unstable as agent_components_v2
@@ -101,7 +101,6 @@ def build_agent(
       # Components that provide pre_act context.
       instructions,
       observation_to_memory,
-      observation,
   )
   components_of_agent = {
       _get_class_name(component): component for component in entity_components
@@ -109,6 +108,9 @@ def build_agent(
   components_of_agent[
       agent_components_v2.memory.DEFAULT_MEMORY_COMPONENT_NAME
   ] = agent_components_v2.memory.ListMemory(memory_bank=memory)
+  components_of_agent[
+      agent_components_v2.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+  ] = observation
 
   component_order = list(components_of_agent.keys())
   if overarching_goal is not None:

@@ -97,6 +97,10 @@ class ExperimentalSceneTypeSpec:
       scene.
     save_after_each_scene: optionally specify whether to save the agent's state
       after each scene.
+    possible_participants: optionally specify a list of possible participants
+      for this scene. If specified, the participants field in the
+      ExperimentalSceneSpec will be intersected with this list to determine the
+      actual participants for each scene.
   """
 
   name: str
@@ -114,6 +118,7 @@ class ExperimentalSceneTypeSpec:
   nonplayer_entities: Sequence[
       entity_agent.EntityAgent] = tuple([])
   save_after_each_scene: bool = False
+  possible_participants: Sequence[str] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -124,11 +129,11 @@ class ExperimentalSceneSpec:
     scene_type: Select a specific type of scene.
     start_time: Automatically advance the clock to this time when the scene
       starts.
-    participant_configs: Which players participate in the scene.
+    participants: Which players participate in the scene.
     num_rounds: How many rounds the scene lasts.
   """
 
   scene_type: ExperimentalSceneTypeSpec
   start_time: datetime.datetime
-  participant_configs: Sequence[formative_memories.AgentConfig]
+  participants: Sequence[str]
   num_rounds: int

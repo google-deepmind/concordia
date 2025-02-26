@@ -14,8 +14,9 @@
 
 """A factory implementing the three key questions agent as an entity."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
+import types
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
@@ -44,6 +45,10 @@ def build_agent(
     model: language_model.LanguageModel,
     memory: basic_associative_memory.AssociativeMemoryBank,
     clock: game_clock.MultiIntervalClock,
+    additional_context_components: Mapping[
+        entity_component.ComponentName,
+        entity_component.ContextComponent,
+    ] = types.MappingProxyType({}),
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -52,11 +57,12 @@ def build_agent(
     model: The language model to use.
     memory: The agent's memory object.
     clock: The clock to use.
+    additional_context_components: Additional components to add to the agent.
 
   Returns:
     An agent.
   """
-  if not config.extras.get('main_character', False):
+  if config.extras.get('main_character', False):
     raise ValueError('This function is meant for a main character '
                      'but it was called on a supporting character.')
 
@@ -161,6 +167,7 @@ def build_agent(
       self_perception,
       situation_representation,
       observation_to_memory,
+      observation,
       person_by_situation,
   )
   components_of_agent = {_get_class_name(component): component
@@ -168,9 +175,7 @@ def build_agent(
   components_of_agent[
       agent_components_v2.memory.DEFAULT_MEMORY_COMPONENT_NAME
   ] = agent_components_v2.memory.AssociativeMemory(memory_bank=memory)
-  components_of_agent[
-      agent_components_v2.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
-  ] = observation
+  components_of_agent.update(additional_context_components)
 
   component_order = list(components_of_agent.keys())
 

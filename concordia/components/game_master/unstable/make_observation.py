@@ -25,7 +25,7 @@ from concordia.typing import entity_component
 from concordia.typing import logging
 
 
-DEFAULT_OBSERVATION_COMPONENT_NAME = '__make_observation__'
+DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'
 DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY = '\nPrompt'
 
 GET_ACTIVE_ENTITY_QUERY = 'Who is about to act?'
@@ -86,16 +86,15 @@ class MakeObservation(entity_component.ContextComponent):
           f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
-      prompt.statement(f'Statements:\n{component_states}\n')
+      prompt.statement(f'{component_states}\n')
       active_entity_name = prompt.open_question(
           GET_ACTIVE_ENTITY_QUERY)
-      observation = prompt.open_question(
+      result = prompt.open_question(
           question=(f'What does {active_entity_name} observe now? Never '
                     'repeat information that was already provided to '
                     f'{active_entity_name} unless absolutely necessary. Keep '
                     'the story moving forward.'),
           max_tokens=1200)
-      result = f'{self._pre_act_key}: {observation}'
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(

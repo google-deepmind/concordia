@@ -20,10 +20,11 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import deprecated_agent
 from concordia.agents import entity_agent
-from concordia.associative_memory import formative_memories
 from concordia.associative_memory.unstable import basic_associative_memory
+from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.factory.agent.unstable import basic
+from concordia.factory.agent.unstable import example
 from concordia.factory.agent.unstable import minimal
 from concordia.language_model import no_language_model
 from concordia.typing import agent as agent_lib
@@ -41,6 +42,7 @@ AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic': basic,
+    'example': example,
     'minimal': minimal,
 }
 
@@ -53,10 +55,11 @@ def _embedder(text: str):
 class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='minimal', agent_name='minimal', main_role=True),
       dict(
           testcase_name='basic', agent_name='basic', main_role=True
       ),
+      dict(testcase_name='example', agent_name='example', main_role=True),
+      dict(testcase_name='minimal', agent_name='minimal', main_role=True),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):
     agent_factory = AGENT_FACTORIES[agent_name]

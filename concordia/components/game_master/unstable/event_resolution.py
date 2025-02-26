@@ -82,6 +82,9 @@ class EventResolution(entity_component.ContextComponent):
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
+    self._active_entity_name = None
+    self._putative_action = None
+
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
@@ -96,6 +99,8 @@ class EventResolution(entity_component.ContextComponent):
   ) -> str:
     result = ''
     prompt_to_log = ''
+    self._active_entity_name = None
+    self._putative_action = None
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
       entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
@@ -105,16 +110,16 @@ class EventResolution(entity_component.ContextComponent):
           for key, prefix in self._components.items()
       ])
       prompt.statement(f'Statements:\n{component_states}\n')
-      active_entity_name = prompt.open_question(
+      self._active_entity_name = prompt.open_question(
           GET_ACTIVE_ENTITY_QUERY)
-      putative_action = prompt.open_question(
-          GET_PUTATIVE_ACTION_QUERY.format(name=active_entity_name),
+      self._putative_action = prompt.open_question(
+          GET_PUTATIVE_ACTION_QUERY.format(name=self._active_entity_name),
           max_tokens=1200)
       prompt, event_statement = thought_chains.run_chain_of_thought(
           thoughts=self._event_resolution_steps,
-          premise=putative_action,
+          premise=self._putative_action,
           document=prompt,
-          active_player_name=active_entity_name,
+          active_player_name=self._active_entity_name,
       )
       result = f'{self._pre_act_key}: {event_statement}'
       prompt_to_log = prompt.view().text()
@@ -124,6 +129,14 @@ class EventResolution(entity_component.ContextComponent):
          'Value': result,
          'Prompt': prompt_to_log})
     return result
+
+  def get_active_entity_name(self) -> str | None:
+    """Returns the name of the entity that just took an action."""
+    return self._active_entity_name
+
+  def get_putative_action(self) -> str | None:
+    """Returns the putative action from the entity that just took an action."""
+    return self._putative_action
 
 
 class EventMemorizer(entity_component.ContextComponent):
@@ -161,17 +174,26 @@ class EventMemorizer(entity_component.ContextComponent):
     self._exclude = exclude
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
+    self._latest_action_spec = None
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    self._latest_action_spec = action_spec
+    return ''
 
   def post_act(
       self,
-      action_attempt: str,
+      event: str,
   ) -> str:
-    """Record the `action_attempt` i.e. the resolved event in memory."""
-    memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
-    )
-    if action_attempt not in self._exclude:
-      memory.add(f'{EVENT_TAG} {action_attempt}')
+    """Record the `event` in memory."""
+    if self._latest_action_spec == entity_lib.OutputType.RESOLVE:
+      memory = self.get_entity().get_component(
+          self._memory_component_name, type_=memory_component.Memory
+      )
+      if event not in self._exclude:
+        memory.add(f'{EVENT_TAG} {event}')
     return ''
 
 

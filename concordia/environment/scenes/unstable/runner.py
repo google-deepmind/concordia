@@ -18,10 +18,16 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from concordia.agents import entity_agent
+from concordia.components.agent.unstable import memory as memory_component
+from concordia.components.agent.unstable import observation as observation_component
 from concordia.typing import clock as game_clock
 from concordia.typing import logging as logging_lib
 from concordia.typing import scene as scene_lib
 from concordia.utils import json as json_lib
+
+_SCENE_TYPE_TAG = '[scene type]'
+_SCENE_PARTICIPANTS_TAG = '[scene participants]'
+_PARTICIPANTS_DELIMITER = ', '
 
 
 def _get_interscene_messages(
@@ -83,10 +89,24 @@ def run_scenes(
     scene_simulation = scene.scene_type.engine
     game_master = scene.scene_type.game_master
 
-    participant_names = [config.name for config in scene.participant_configs]
-    if verbose:
-      print(f'\n\n    Scene {scene_idx}    Participants: {participant_names}\n')
+    scene_type_spec = scene.scene_type
+    possible_participants = scene_type_spec.possible_participants
+    participants_from_scene = scene.participants
+    if possible_participants is None:
+      participant_names = participants_from_scene
+    else:
+      if participants_from_scene:
+        participant_names = list(set(possible_participants).intersection(
+            participants_from_scene
+        ))
+      else:
+        participant_names = possible_participants
+
+    participants_str = _PARTICIPANTS_DELIMITER.join(participant_names)
     participants = [players_by_name[name] for name in participant_names]
+
+    if verbose:
+      print(f'\n\n    Scene {scene_idx}    Participants: {participants_str}\n')
 
     # Prepare to run the scene
     clock.set(scene.start_time)
@@ -107,7 +127,8 @@ def run_scenes(
 
     # Run the scene
     for _ in range(scene.num_rounds):
-      game_master.observe(f'[scene type] {scene.scene_type.name}')
+      game_master.observe(f'{_SCENE_TYPE_TAG} {scene.scene_type.name}')
+      game_master.observe(f'{_SCENE_PARTICIPANTS_TAG} {participants_str}')
       # run_loop modifies log in place by appending to it
       scene_simulation.run_loop(
           game_master=game_master,
@@ -140,3 +161,32 @@ def run_scenes(
 
       if compute_metrics is not None:
         compute_metrics(serialized_agents)
+
+
+def _get_latest_memory_item(
+    memory: memory_component.Memory,
+    tag: str,
+) -> str:
+  """Return the latest item prefixed by a tag in the memory."""
+  retrieved = memory.scan(
+      selector_fn=lambda x: x.startswith(tag),
+  )
+  if retrieved:
+    result = retrieved[-1]
+    return result[result.find(tag) + len(tag) + 1:]
+  else:
+    return ''
+
+
+def get_current_scene_type(memory: memory_component.Memory) -> str:
+  """Return the latest item prefixed by '[scene type]' in the memory."""
+  tag = f'{observation_component.OBSERVATION_TAG} {_SCENE_TYPE_TAG}'
+  return _get_latest_memory_item(memory, tag=tag)
+
+
+def get_current_scene_participants(
+    memory: memory_component.Memory) -> Sequence[str]:
+  """Return the latest item prefixed by '[scene participants]' in the memory."""
+  tag = f'{observation_component.OBSERVATION_TAG} {_SCENE_PARTICIPANTS_TAG}'
+  participants_str = _get_latest_memory_item(memory, tag=tag)
+  return participants_str.split(_PARTICIPANTS_DELIMITER)
