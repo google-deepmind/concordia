@@ -146,7 +146,8 @@ class Synchronous(engine_lib.Engine):
           'resolve': {},
       }
 
-    self.resolve(game_master, premise, verbose=verbose)
+    if premise:
+      self.resolve(game_master, premise, verbose=verbose)
     steps = 0
     while not self.terminate(game_master, verbose) and steps < max_steps:
       if log is not None:

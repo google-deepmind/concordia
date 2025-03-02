@@ -128,7 +128,8 @@ class Asynchronous(engine_lib.Engine):
       log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
-    self.resolve(game_master, premise)
+    if premise:
+      self.resolve(game_master, premise)
     steps = 0
     while not self.terminate(game_master) and steps < max_steps:
       next_entities, next_action_spec = self.next_acting(game_master, entities)
