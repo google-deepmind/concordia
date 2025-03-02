@@ -43,7 +43,7 @@ def build_agent(
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: basic_associative_memory.AssociativeMemoryBank,
-    clock: game_clock.MultiIntervalClock,
+    clock: game_clock.MultiIntervalClock | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -69,11 +69,16 @@ def build_agent(
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
-  time_display = agent_components.report_function.ReportFunction(
-      function=clock.current_time_interval_str,
-      pre_act_key='\nCurrent time',
-      logging_channel=measurements.get_channel('TimeDisplay').on_next,
-  )
+  if clock:
+    clock_now = clock.now
+    time_display = agent_components.report_function.ReportFunction(
+        function=clock.current_time_interval_str,
+        pre_act_key='\nCurrent time',
+        logging_channel=measurements.get_channel('TimeDisplay').on_next,
+    )
+  else:
+    clock_now = None
+    time_display = None
 
   observation_to_memory = agent_components_v2.observation.ObservationToMemory(
       logging_channel=measurements.get_channel(
@@ -123,7 +128,7 @@ def build_agent(
                   situation_representation_label
               ),
           },
-          clock_now=clock.now,
+          clock_now=clock_now,
           pre_act_key=person_by_situation_label,
           logging_channel=measurements.get_channel('PersonBySituation').on_next,
       )
@@ -156,7 +161,6 @@ def build_agent(
 
   entity_components = (
       # Components that provide pre_act context.
-      time_display,
       relevant_memories,
       self_perception,
       situation_representation,
@@ -171,6 +175,8 @@ def build_agent(
   components_of_agent[
       agent_components_v2.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
   ] = observation
+  if time_display:
+    components_of_agent['TimeDisplay'] = time_display
 
   component_order = list(components_of_agent.keys())
 

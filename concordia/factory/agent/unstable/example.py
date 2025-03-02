@@ -35,7 +35,7 @@ def build_agent(
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: basic_associative_memory.AssociativeMemoryBank,
-    clock: game_clock.MultiIntervalClock,
+    clock: game_clock.MultiIntervalClock | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -70,6 +70,17 @@ def build_agent(
       history_length=100,
   )
 
+  if clock:
+    clock_now = clock.now
+    time_display = agent_components.report_function.ReportFunction(
+        function=clock.current_time_interval_str,
+        pre_act_key='\nCurrent time',
+        logging_channel=measurements.get_channel('TimeDisplay').on_next,
+    )
+  else:
+    clock_now = None
+    time_display = None
+
   situation_representation = components_unstable.question_of_recent_memories.SituationPerceptionWithoutPreAct(
       model=model,
   )
@@ -84,7 +95,7 @@ def build_agent(
 
   person_by_situation = components_unstable.question_of_recent_memories.PersonBySituationWithoutPreAct(
       model=model,
-      clock_now=clock.now,
+      clock_now=clock_now,
   )
   person_by_situation_key = person_by_situation.get_pre_act_key().format(
       agent_name=agent_name)
@@ -112,6 +123,10 @@ def build_agent(
           components_unstable.memory.AssociativeMemory(memory_bank=memory)
       ),
   }
+
+  if time_display:
+    components_of_agent['TimeDisplay'] = time_display
+
   choice_of_component_key = 'Choice of component'
   components_of_agent[choice_of_component_key] = (
       contrib_unstable.choice_of_component.ChoiceOfComponent(
