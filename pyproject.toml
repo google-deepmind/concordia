@@ -4,9 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.isort]
 profile = "google"
-# TODO remove once https://github.com/PyCQA/isort/pull/2149 submitted.
-line_length = 1000
-single_line_exclusions = ["collections.abc", "typing", "typing_extensions"]
 known_thirdparty = ["concordia"]
 
 [tool.pyink]
@@ -14,6 +11,15 @@ line-length = 80
 unstable = true
 pyink-indentation = 2
 pyink-use-majority-quotes = true
+pyink-annotation-pragmas = [
+  "noqa",
+  "pylint:",
+  "type: ignore",
+  "pytype:",
+  "mypy:",
+  "pyright:",
+  "pyre-",
+]
 
 [tool.pytest.ini_options]
 required_plugins = ["pytest-xdist"]
