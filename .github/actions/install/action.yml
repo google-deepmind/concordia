@@ -4,7 +4,7 @@ inputs:
   python-version:
     description: Python version
     required: false
-    default: '3.11'
+    default: ''
     type: string
 
 outputs:
