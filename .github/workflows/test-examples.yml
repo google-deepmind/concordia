@@ -22,6 +22,7 @@ on:
       - '.github/actions/install/action.yml'
       - '.github/workflows/test-examples.yml'
       - '.pylintrc'
+      - '.python-version'
       - 'bin/convert_notebooks.sh'
       - 'bin/install.sh'
       - 'concordia/**'

@@ -20,6 +20,7 @@ on:
       - '.github/actions/install/action.yml'
       - '.github/workflows/test-concordia.yml'
       - '.pylintrc'
+      - '.python-version'
       - 'bin/install.sh'
       - 'concordia/**'
       - 'pyproject.toml'
