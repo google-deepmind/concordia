@@ -17,12 +17,12 @@
 from collections.abc import Mapping
 import types
 
-from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import entity_component
 
 
 DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'

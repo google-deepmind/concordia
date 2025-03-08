@@ -14,15 +14,15 @@
 
 """A simple acting component that aggregates contexts from components."""
 
-
 from collections.abc import Sequence
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import entity_component
 from typing_extensions import override
+
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 

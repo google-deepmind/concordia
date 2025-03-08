@@ -22,14 +22,13 @@ import random
 import types
 from typing import Any
 
-from concordia.agents import deprecated_agent
-from concordia.agents import entity_agent
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
-from concordia.components.agent import constant
 from concordia.components.agent import unstable as agent_components
+from concordia.components.agent.unstable import constant
 from concordia.components.game_master import unstable as unstable_gm_components
 from concordia.contrib.components.game_master import unstable as gm_contrib
 from concordia.document import interactive_document
@@ -41,11 +40,11 @@ from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import logging_types as logging_lib
 from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
-from concordia.factory.agent import basic_agent
+from concordia.factory.agent.unstable import basic as basic_agent_factory
 from concordia.factory.environment.unstable import unstable_simulation as simulation_factory
 from concordia.language_model import language_model
-from concordia.typing import agent as agent_lib
-from concordia.typing import scene as scene_lib
+from concordia.typing.unstable import agent as agent_lib
+from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
 import immutabledict
@@ -595,7 +594,7 @@ def configure_scenes(
 
 def get_inventories_component(
     model: language_model.LanguageModel,
-    main_players: Sequence[deprecated_agent.BasicAgent],
+    main_players: Sequence[entity_agent.EntityAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
     measurements: measurements_lib.Measurements | None = None,
@@ -641,7 +640,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
       measurements: measurements_lib.Measurements,
-      agent_module: types.ModuleType = basic_agent,
+      agent_module: types.ModuleType = basic_agent_factory,
       override_agent_model: language_model.LanguageModel | None = None,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
       supporting_agent_module: (

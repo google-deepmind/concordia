@@ -17,13 +17,13 @@
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.clocks import game_clock
-from concordia.components import agent as components_lib
-from concordia.components.agent import action_spec_ignored
-from concordia.components.agent import memory_component
-from concordia.components.agent import unstable as components_unstable
+from concordia.components.agent import unstable as agent_components
+from concordia.components.agent.unstable import action_spec_ignored
+from concordia.components.agent.unstable import memory as memory_component
+from concordia.components.agent.unstable import observation as observation_component
 from concordia.components.game_master import unstable as gm_components_lib
 from concordia.contrib.components.agent.unstable import situation_representation_via_narrative
 from concordia.document import interactive_document
@@ -32,16 +32,17 @@ from concordia.environment.unstable import engine as engine_lib
 from concordia.environment.unstable.engines import synchronous
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
-from concordia.typing import entity_component as entity_component_lib
-from concordia.typing import scene as scene_lib
+from concordia.typing.unstable import entity_component as entity_component_lib
+from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import html as html_lib
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
+
 _MEMORY_COMPONENT_NAME = (
-    components_unstable.memory.DEFAULT_MEMORY_COMPONENT_NAME)
+    memory_component.DEFAULT_MEMORY_COMPONENT_NAME)
 _OBSERVATION_COMPONENT_NAME = (
-    components_unstable.observation.DEFAULT_OBSERVATION_COMPONENT_NAME)
+    observation_component.DEFAULT_OBSERVATION_COMPONENT_NAME)
 
 
 def _get_class_name(object_: object) -> str:
@@ -111,19 +112,19 @@ def build_simulation(
       player_characters=player_names,
   )
 
-  scenario_knowledge = components_lib.constant.Constant(
+  scenario_knowledge = agent_components.constant.Constant(
       state='\n'.join(shared_memories),
       pre_act_key='\nBackground:\n',
   )
 
   nonplayer_entities_list_key = '\nNon-player characters: '
-  nonplayer_entities_list = components_lib.constant.Constant(
+  nonplayer_entities_list = agent_components.constant.Constant(
       state='\n'.join([entity.name for entity in nonplayer_entities]),
       pre_act_key=nonplayer_entities_list_key,
   )
 
-  observation_to_memory = components_unstable.observation.ObservationToMemory()
-  observation = components_unstable.observation.LastNObservations(
+  observation_to_memory = observation_component.ObservationToMemory()
+  observation = observation_component.LastNObservations(
       history_length=100,
   )
 
@@ -167,7 +168,7 @@ def build_simulation(
       _get_class_name(observation_to_memory): observation_to_memory,
       _get_class_name(event_memorizer): event_memorizer,
       _get_class_name(display_events): display_events,
-      _MEMORY_COMPONENT_NAME: components_unstable.memory.ListMemory(
+      _MEMORY_COMPONENT_NAME: memory_component.ListMemory(
           memory_bank=game_master_memory),
   }
   if additional_context_components is not None:
@@ -283,7 +284,6 @@ def build_simulation(
 
   act_component = gm_components_lib.switch_act.SwitchAct(
       model=model,
-      clock=clock,
       entity_names=player_names,
       component_order=component_order,
       logging_channel=measurements.get_channel('SwitchAct').on_next,
@@ -328,7 +328,7 @@ def create_log(
     scene_game_master = scene_type.game_master
     scene_memories = scene_game_master.get_component(
         memory_component.DEFAULT_MEMORY_COMPONENT_NAME,
-        type_=memory_component.MemoryComponent).get_all_memories_as_text()
+        type_=memory_component.Memory).get_all_memories_as_text()
     memories_per_scene.append('\n'.join(scene_memories))
 
   if summarize_entire_episode:

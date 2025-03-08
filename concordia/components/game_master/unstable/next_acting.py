@@ -17,14 +17,14 @@
 from collections.abc import Mapping, Sequence
 import types
 
-from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.environment.scenes.unstable import runner as scene_runner
 from concordia.language_model import language_model
-from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import entity_component
 
 
 DEFAULT_NEXT_ACTING_COMPONENT_NAME = '__next_acting__'

@@ -19,7 +19,7 @@ import abc
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from concordia.typing import entity as entity_lib
+from concordia.typing.unstable import entity as entity_lib
 
 
 class Engine(metaclass=abc.ABCMeta):

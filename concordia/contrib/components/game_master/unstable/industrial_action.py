@@ -18,23 +18,22 @@
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 
-from concordia.agents import deprecated_agent
-from concordia.agents import entity_agent
+from concordia.agents.unstable import entity_agent
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.game_master.unstable import event_resolution as event_resolution_component
 from concordia.components.game_master.unstable import switch_act
 from concordia.environment.scenes.unstable import runner as scene_runner
 from concordia.language_model import language_model
-from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import entity_component
 import numpy as np
 import termcolor
 
 
 # A function that maps number of cooperators to a scalar.
 CollectiveActionProductionFunction = Callable[[int], float]
-PlayersT = Sequence[deprecated_agent.BasicAgent | entity_agent.EntityAgent]
+PlayersT = Sequence[entity_agent.EntityAgent]
 
 
 def get_pressure_str(pressure: float, pressure_threshold: float) -> str:

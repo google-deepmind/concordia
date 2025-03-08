@@ -18,7 +18,7 @@
 from collections.abc import Callable, Iterable, Sequence
 import threading
 
-from concordia.typing import entity_component
+from concordia.typing.unstable import entity_component
 import numpy as np
 import pandas as pd
 

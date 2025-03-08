@@ -18,8 +18,7 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import deprecated_agent
-from concordia.agents import entity_agent
+from concordia.agents.unstable import entity_agent
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
@@ -27,7 +26,7 @@ from concordia.factory.agent.unstable import basic
 from concordia.factory.agent.unstable import example
 from concordia.factory.agent.unstable import minimal
 from concordia.language_model import no_language_model
-from concordia.typing import agent as agent_lib
+from concordia.typing.unstable import agent as agent_lib
 import numpy as np
 
 
@@ -85,7 +84,7 @@ class AgentFactoriesTest(parameterized.TestCase):
     )
     self.assertEqual(agent.name, AGENT_NAME)
     self.assertIsInstance(
-        agent, deprecated_agent.BasicAgent | entity_agent.EntityAgent
+        agent, entity_agent.EntityAgent
     )
 
     agent.observe('foo')

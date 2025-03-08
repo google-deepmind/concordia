@@ -18,14 +18,13 @@ from collections.abc import Callable, Mapping
 import json
 import types
 
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
-from concordia.components import agent as agent_components
 from concordia.components.agent import unstable as components_unstable
 from concordia.language_model import language_model
-from concordia.typing import entity_component
+from concordia.typing.unstable import entity_component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
@@ -69,7 +68,7 @@ def build_agent(
   agent_name = config.name
 
   measurements = measurements_lib.Measurements()
-  instructions = agent_components.instructions.Instructions(
+  instructions = components_unstable.instructions.Instructions(
       agent_name=agent_name,
       logging_channel=measurements.get_channel('Instructions').on_next,
   )

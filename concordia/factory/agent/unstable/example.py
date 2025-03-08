@@ -17,15 +17,14 @@
 from collections.abc import Callable
 import json
 
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
-from concordia.components import agent as agent_components
-from concordia.components.agent import unstable as components_unstable
+from concordia.components.agent import unstable as agent_components
 from concordia.contrib.components.agent import unstable as contrib_unstable
 from concordia.language_model import language_model
-from concordia.typing import entity_component
+from concordia.typing.unstable import entity_component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
@@ -62,11 +61,11 @@ def build_agent(
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
-  observation_to_memory = components_unstable.observation.ObservationToMemory()
+  observation_to_memory = agent_components.observation.ObservationToMemory()
 
   observations_key = (
-      components_unstable.observation.DEFAULT_OBSERVATION_COMPONENT_NAME)
-  observation = components_unstable.observation.LastNObservations(
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME)
+  observation = agent_components.observation.LastNObservations(
       history_length=100,
   )
 
@@ -81,19 +80,23 @@ def build_agent(
     clock_now = None
     time_display = None
 
-  situation_representation = components_unstable.question_of_recent_memories.SituationPerceptionWithoutPreAct(
+  situation_representation = agent_components.question_of_recent_memories.SituationPerceptionWithoutPreAct(
       model=model,
   )
   situation_perception_key = situation_representation.get_pre_act_key().format(
-      agent_name=agent_name)
+      agent_name=agent_name
+  )
 
-  self_perception = components_unstable.question_of_recent_memories.SelfPerceptionWithoutPreAct(
-      model=model,
+  self_perception = (
+      agent_components.question_of_recent_memories.SelfPerceptionWithoutPreAct(
+          model=model,
+      )
   )
   self_perception_key = self_perception.get_pre_act_key().format(
-      agent_name=agent_name)
+      agent_name=agent_name
+  )
 
-  person_by_situation = components_unstable.question_of_recent_memories.PersonBySituationWithoutPreAct(
+  person_by_situation = agent_components.question_of_recent_memories.PersonBySituationWithoutPreAct(
       model=model,
       clock_now=clock_now,
   )
@@ -101,7 +104,7 @@ def build_agent(
       agent_name=agent_name)
 
   relevant_memories = (
-      components_unstable.all_similar_memories.AllSimilarMemoriesWithoutPreAct(
+      agent_components.all_similar_memories.AllSimilarMemoriesWithoutPreAct(
           model=model,
           num_memories_to_retrieve=10,
       )
@@ -119,8 +122,8 @@ def build_agent(
       situation_perception_key: situation_representation,
       person_by_situation_key: person_by_situation,
       'ObservationToMemory': observation_to_memory,
-      components_unstable.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
-          components_unstable.memory.AssociativeMemory(memory_bank=memory)
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
+          agent_components.memory.AssociativeMemory(memory_bank=memory)
       ),
   }
 
@@ -143,7 +146,7 @@ def build_agent(
       )
   )
 
-  act_component = components_unstable.concat_act_component.ConcatActComponent(
+  act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       logging_channel=measurements.get_channel('ActComponent').on_next,
   )

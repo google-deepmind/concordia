@@ -19,15 +19,15 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.clocks import game_clock
-from concordia.components import agent as agent_components
+from concordia.components.agent import unstable as agent_components
 from concordia.environment.unstable.engines import synchronous
 from concordia.factory.environment.unstable import unstable_simulation
 from concordia.language_model import no_language_model
-from concordia.typing import entity as entity_lib
-from concordia.typing import scene as scene_lib
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import scene as scene_lib
 import numpy as np
 
 
@@ -57,8 +57,6 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
                     datetime.timedelta(minutes=10)])
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
-        clock=clock,
-        component_order=[],
     )
     player_a = entity_agent_with_logging.EntityAgentWithLogging(
         agent_name='Rakshit',

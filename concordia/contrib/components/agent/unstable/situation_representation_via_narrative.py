@@ -19,11 +19,11 @@ from collections.abc import Callable, Mapping
 import datetime
 import types
 
-from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity_component
 
 
 class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):

@@ -17,14 +17,14 @@
 from collections.abc import Callable, Mapping, Sequence
 import types
 
-from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains
-from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.typing import logging
+from concordia.typing.unstable import entity as entity_lib
+from concordia.typing.unstable import entity_component
 
 
 DEFAULT_RESOLUTION_PRE_ACT_KEY = '\nEvent'

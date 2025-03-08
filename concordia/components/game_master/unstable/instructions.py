@@ -16,7 +16,7 @@
 
 from collections.abc import Sequence
 
-from concordia.components.agent import constant
+from concordia.components.agent.unstable import constant
 from concordia.environment.unstable.engines import synchronous
 from concordia.typing import logging
 

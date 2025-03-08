@@ -20,7 +20,7 @@ import threading
 from typing import Any
 
 from concordia.associative_memory.unstable import basic_associative_memory
-from concordia.typing import entity_component
+from concordia.typing.unstable import entity_component
 import pandas as pd
 
 

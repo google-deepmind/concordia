@@ -18,9 +18,9 @@
 import functools
 
 from absl.testing import absltest
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.environment.unstable.engines import asynchronous
-from concordia.typing import entity as entity_lib
+from concordia.typing.unstable import entity as entity_lib
 from typing_extensions import override
 
 

@@ -17,14 +17,13 @@
 from collections.abc import Callable
 import json
 
-from concordia.agents import entity_agent_with_logging
+from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
-from concordia.components import agent as agent_components
-from concordia.components.agent import unstable as agent_components_v2
+from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
-from concordia.typing import entity_component
+from concordia.typing.unstable import entity_component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
 
@@ -80,14 +79,14 @@ def build_agent(
     clock_now = None
     time_display = None
 
-  observation_to_memory = agent_components_v2.observation.ObservationToMemory(
+  observation_to_memory = agent_components.observation.ObservationToMemory(
       logging_channel=measurements.get_channel(
           'ObservationsSinceLastUpdate'
       ).on_next,
   )
 
   observation_label = '\nObservation'
-  observation = agent_components_v2.observation.LastNObservations(
+  observation = agent_components.observation.LastNObservations(
       history_length=100,
       pre_act_key=observation_label,
       logging_channel=measurements.get_channel(
@@ -98,7 +97,7 @@ def build_agent(
   situation_representation_label = (
       f'\nQuestion: What situation is {agent_name} in right now?\nAnswer')
   situation_representation = (
-      agent_components_v2.question_of_recent_memories.SituationPerception(
+      agent_components.question_of_recent_memories.SituationPerception(
           model=model,
           pre_act_key=situation_representation_label,
           logging_channel=measurements.get_channel(
@@ -109,7 +108,7 @@ def build_agent(
   self_perception_label = (
       f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
   self_perception = (
-      agent_components_v2.question_of_recent_memories.SelfPerception(
+      agent_components.question_of_recent_memories.SelfPerception(
           model=model,
           pre_act_key=self_perception_label,
           logging_channel=measurements.get_channel('SelfPerception').on_next,
@@ -120,7 +119,7 @@ def build_agent(
       f'\nQuestion: What would a person like {agent_name} do in '
       'a situation like this?\nAnswer')
   person_by_situation = (
-      agent_components_v2.question_of_recent_memories.PersonBySituation(
+      agent_components.question_of_recent_memories.PersonBySituation(
           model=model,
           components={
               _get_class_name(self_perception): self_perception_label,
@@ -135,7 +134,7 @@ def build_agent(
   )
   relevant_memories_label = '\nRecalled memories and observations'
   relevant_memories = (
-      agent_components_v2.all_similar_memories.AllSimilarMemories(
+      agent_components.all_similar_memories.AllSimilarMemories(
           model=model,
           components={
               _get_class_name(situation_representation): (
@@ -170,10 +169,10 @@ def build_agent(
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
   components_of_agent[
-      agent_components_v2.memory.DEFAULT_MEMORY_COMPONENT_NAME
-  ] = agent_components_v2.memory.AssociativeMemory(memory_bank=memory)
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME
+  ] = agent_components.memory.AssociativeMemory(memory_bank=memory)
   components_of_agent[
-      agent_components_v2.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
   ] = observation
   if time_display:
     components_of_agent['TimeDisplay'] = time_display
@@ -188,7 +187,7 @@ def build_agent(
     # Place goal after the instructions.
     component_order.insert(1, DEFAULT_GOAL_COMPONENT_KEY)
 
-  act_component = agent_components_v2.concat_act_component.ConcatActComponent(
+  act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       component_order=component_order,
       logging_channel=measurements.get_channel('ActComponent').on_next,

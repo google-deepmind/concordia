@@ -672,7 +672,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-        seed: the random seed to use.
+      seed: the random seed to use.
     """
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False

@@ -19,8 +19,8 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from concordia.environment.unstable import engine as engine_lib
-from concordia.typing import agent as agent_lib
-from concordia.typing import entity as entity_lib
+from concordia.typing.unstable import agent as agent_lib
+from concordia.typing.unstable import entity as entity_lib
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = 'What does {name} observe?'

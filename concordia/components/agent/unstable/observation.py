@@ -15,7 +15,7 @@
 """A simple component to receive observations."""
 
 
-from concordia.components.agent import action_spec_ignored
+from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.typing import logging
 
