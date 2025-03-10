@@ -32,7 +32,7 @@ class Memory(entity_component.ContextComponent):
 
   def __init__(
       self,
-      memory_bank: basic_associative_memory.AssociativeMemoryBank,
+      memory_bank: basic_associative_memory.AssociativeMemoryBank | list[str],
   ):
     """Initializes the memory."""
     raise NotImplementedError()
@@ -241,7 +241,7 @@ class ListMemory(Memory):
 
   def __init__(
       self,
-      memory_bank: basic_associative_memory.AssociativeMemoryBank,
+      memory_bank: basic_associative_memory.AssociativeMemoryBank | list[str],
   ):
     """Initializes the list memory.
 
@@ -251,7 +251,10 @@ class ListMemory(Memory):
     self._lock = threading.Lock()
     self._buffer = []
     # Convert the memory bank to a list of strings.
-    self._memory_bank = list(memory_bank.get_data_frame()['text'])
+    if hasattr(memory_bank, 'get_data_frame'):
+      self._memory_bank = list(memory_bank.get_data_frame()['text'])
+    else:
+      self._memory_bank = memory_bank
 
   def get_state(self) -> Mapping[str, Any]:
     with self._lock:
