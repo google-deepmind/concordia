@@ -21,19 +21,31 @@ from typing import Any
 from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import agent as agent_lib
 from concordia.typing.unstable import entity as entity_lib
+import termcolor
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
     'Given the identity of the player whose turn is next, what is the'
     ' current situation they face? What do they now observe?'
-    ' Only inclue information of which they are aware.')
+    ' Only include information of which they are aware.')
 DEFAULT_CALL_TO_NEXT_ACTING = 'Which entity is next to act?'
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
-    'Who is next to act and what kind of decision do they face? How should'
-    ' the game master ask them for their action?')
+    'Who is next to act and what kind of decision do they face? In what format'
+    ' should they respond?')
 DEFAULT_CALL_TO_RESOLVE = (
     'What happens next as a result of the considerations above?')
 DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
+
+_PRINT_COLOR = 'cyan'
+
+
+def _get_empty_log_entry():
+  """Returns a dictionary to store a single log entry."""
+  return {
+      'terminate': {},
+      'make_observation': {},
+      'resolve': {},
+  }
 
 
 class Synchronous(engine_lib.Engine):
@@ -70,8 +82,8 @@ class Synchronous(engine_lib.Engine):
   def next_acting(
       self,
       game_master: entity_lib.Entity,
-      entities: Sequence[agent_lib.GenerativeAgent],
-  ) -> tuple[agent_lib.GenerativeAgent, entity_lib.ActionSpec]:
+      entities: Sequence[entity_lib.Entity],
+  ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
     entities_by_name = {
         entity.name: entity for entity in entities
@@ -88,8 +100,6 @@ class Synchronous(engine_lib.Engine):
             call_to_action=self._call_to_next_action_spec.format(
                 name=next_object_name),
             output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
-            options=[action_type.name for action_type
-                     in entity_lib.PLAYER_ACTION_TYPES],
         )
     )
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
@@ -101,7 +111,9 @@ class Synchronous(engine_lib.Engine):
               verbose: bool = False) -> None:
     """Resolve an event."""
     if verbose:
-      print(f'The suggested action or event to resolve was: {event}')
+      print(termcolor.colored(
+          f'The suggested action or event to resolve was: {event}',
+          _PRINT_COLOR))
     game_master.observe(observation=event)
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -111,7 +123,8 @@ class Synchronous(engine_lib.Engine):
     )
     game_master.observe(observation=result)
     if verbose:
-      print(f'The resolved event was: {result}')
+      print(termcolor.colored(
+          f'The resolved event was: {result}', _PRINT_COLOR))
 
   def terminate(self,
                 game_master: entity_lib.Entity,
@@ -125,52 +138,72 @@ class Synchronous(engine_lib.Engine):
         )
     )
     if verbose:
-      print(f'Terminate? {should_terminate_string}')
+      print(termcolor.colored(
+          f'Terminate? {should_terminate_string}', _PRINT_COLOR))
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def run_loop(
       self,
-      game_master: agent_lib.GenerativeAgent,
-      entities: Sequence[agent_lib.GenerativeAgent],
+      game_master: entity_lib.Entity | agent_lib.GenerativeAgent,
+      entities: Sequence[entity_lib.Entity | agent_lib.GenerativeAgent],
       premise: str = '',
       max_steps: int = 100,
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
-    game_master_multi_part_log = {}
-    if log is not None:
-      game_master_multi_part_log = {
-          'terminate': {},
-          'make_observation': {},
-          'resolve': {},
-      }
-
+    log_entry = _get_empty_log_entry()
+    steps = 0
     if premise:
       self.resolve(game_master, premise, verbose=verbose)
-    steps = 0
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['resolve'] = game_master.get_last_log()
+        log.append({
+            'Game Master': log_entry,
+            'Entity': {},
+            'Step': steps,
+        })
+        log_entry = _get_empty_log_entry()
     while not self.terminate(game_master, verbose) and steps < max_steps:
       if log is not None:
-        game_master_multi_part_log['terminate'] = game_master.get_last_log()
-        game_master_multi_part_log['make_observation'] = {}
+        if hasattr(game_master, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+          log_entry['terminate'] = game_master.get_last_log()
       for entity in entities:
         observation = self.make_observation(game_master, entity)
-        game_master_multi_part_log['make_observation'][entity.name] = (
-            game_master.get_last_log())
+        if log is not None and hasattr(game_master, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+          log_entry['make_observation'][entity.name] = (
+              game_master.get_last_log())
         if verbose:
-          print(f'Entity {entity.name} observed: {observation}')
+          print(termcolor.colored(
+              f'Entity {entity.name} observed: {observation}', _PRINT_COLOR))
         entity.observe(observation)
       next_entity, entity_spec_to_use = self.next_acting(game_master, entities)
       if verbose:
-        print(f'Entity {next_entity.name} is next to act.')
+        print(termcolor.colored(
+            f'Entity {next_entity.name} is next to act. They must respond '
+            f' in the format: "{entity_spec_to_use}".', _PRINT_COLOR))
       action = next_entity.act(entity_spec_to_use)
       if verbose:
-        print(f'Entity {next_entity.name} chose action: {action}')
+        print(termcolor.colored(
+            f'Entity {next_entity.name} chose action: {action}', _PRINT_COLOR))
       self.resolve(game_master=game_master, event=action, verbose=verbose)
-      if log is not None:
-        game_master_multi_part_log['resolve'] = game_master.get_last_log()
-        log.append({
-            'Game Master': game_master_multi_part_log,
-            'Entity': next_entity.get_last_log(),
-        })
+
       steps += 1
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['resolve'] = game_master.get_last_log()
+        next_entity_log = ''
+        entity_key = 'Entity'
+        if hasattr(next_entity, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+          next_entity_log = next_entity.get_last_log()
+          entity_key = f'{entity_key} [{next_entity.name}]'
+        log.append({
+            'Game Master': log_entry,
+            entity_key: next_entity_log,
+            'Step': steps,
+        })
+        log_entry = _get_empty_log_entry()

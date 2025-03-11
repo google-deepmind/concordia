@@ -51,13 +51,12 @@ GAME_MASTER_ACTION_TYPES = (
 FREE_ACTION_TYPES = (
     OutputType.FREE,
     OutputType.MAKE_OBSERVATION,
-    OutputType.NEXT_ACTING,
+    OutputType.NEXT_ACTION_SPEC,
     OutputType.RESOLVE,
 )
 CHOICE_ACTION_TYPES = (
     OutputType.CHOICE,
     OutputType.NEXT_ACTING,
-    OutputType.NEXT_ACTION_SPEC,
     OutputType.TERMINATE,
 )
 
@@ -139,6 +138,20 @@ DEFAULT_CALL_TO_ACTION = (
 DEFAULT_ACTION_SPEC = free_action_spec(
     call_to_action=DEFAULT_CALL_TO_ACTION,
     tag='action',
+)
+
+
+DEFAULT_CALL_TO_SPEECH = (
+    'Given the above, what is {name} likely to say next? Respond in'
+    ' the format `{name} -- "..."` For example, '
+    'Cristina -- "Hello! Mighty fine weather today, right?", '
+    'Ichabod -- "I wonder if the alfalfa is ready to harvest", or '
+    'Townsfolk -- "Good morning".\n'
+)
+
+DEFAULT_SPEECH_ACTION_SPEC = free_action_spec(
+    call_to_action=DEFAULT_CALL_TO_SPEECH,
+    tag='speech',
 )
 
 

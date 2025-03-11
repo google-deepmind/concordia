@@ -27,6 +27,7 @@ from concordia.factory.agent.unstable import example
 from concordia.factory.agent.unstable import minimal
 from concordia.language_model import no_language_model
 from concordia.typing.unstable import agent as agent_lib
+from concordia.typing.unstable import entity as entity_lib
 import numpy as np
 
 
@@ -36,7 +37,7 @@ DECISION_ACTION_SPEC = agent_lib.choice_action_spec(
     options=OPTIONS,
     tag='decision',
 )
-SPEECH_ACTION_SPEC = agent_lib.DEFAULT_SPEECH_ACTION_SPEC
+SPEECH_ACTION_SPEC = entity_lib.DEFAULT_SPEECH_ACTION_SPEC
 AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {

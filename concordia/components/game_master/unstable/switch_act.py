@@ -173,9 +173,9 @@ class SwitchAct(entity_component.ActingComponent):
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME in contexts:
-      # action_spec_string = _convert_to_string(
-      #     next_action_spec['scene_type'].action_spec)
-      result = ''
+      result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME])
+      if not result:
+        result = f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
       self._log(result, context)
     else:
       # YOLO case
@@ -185,12 +185,18 @@ class SwitchAct(entity_component.ActingComponent):
       # Then ask the GM to reformat their answer in whatever string format can
       # be used by the engine and its parser.
       chain_of_thought.statement(
-          'Example formatted action specs:\n"type: free"\n'
-          '"type: choice options: x, y, z"')
+          'Example formatted action specs:\n1). "prompt: p;;type: free"\n'
+          '2). "prompt: p;;type: choice;;options: x, y, z".\nNote that p is a '
+          'string of any length, typically a question, and x, y, z, etc are '
+          'multiple choice answer responses. For instance, a valid format '
+          'could be indicated as '
+          'prompt: Where will Edgar go?;;type: choice;;'
+          'options: home, London, Narnia, the third moon of Jupiter')
       next_action_spec_string = chain_of_thought.open_question(
-          question='Format the decision prompt type as an action spec.')
+          question='In what action spec format should the next player respond?')
       if 'type:' not in next_action_spec_string:
-        next_action_spec_string = 'type: free' + next_action_spec_string
+        next_action_spec_string = (
+            f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free')
 
       result = next_action_spec_string
       self._log(result, chain_of_thought)

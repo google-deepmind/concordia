@@ -21,7 +21,7 @@ from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.thought_chains import thought_chains
+from concordia.thought_chains.unstable import thought_chains
 from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
@@ -98,7 +98,6 @@ class EventResolution(entity_component.ContextComponent):
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     result = ''
-    prompt_to_log = ''
     self._active_entity_name = None
     self._putative_action = None
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
@@ -124,10 +123,10 @@ class EventResolution(entity_component.ContextComponent):
       result = f'{self._pre_act_key}: {event_statement}'
       prompt_to_log = prompt.view().text()
 
-    self._logging_channel(
-        {'Key': self._pre_act_key,
-         'Value': result,
-         'Prompt': prompt_to_log})
+      self._logging_channel(
+          {'Key': self._pre_act_key,
+           'Value': result,
+           'Prompt': prompt_to_log})
     return result
 
   def get_active_entity_name(self) -> str | None:

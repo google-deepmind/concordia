@@ -31,7 +31,7 @@ from concordia.environment.scenes.unstable import runner
 from concordia.environment.unstable import engine as engine_lib
 from concordia.environment.unstable.engines import synchronous
 from concordia.language_model import language_model
-from concordia.thought_chains import thought_chains as thought_chains_lib
+from concordia.thought_chains.unstable import thought_chains as thought_chains_lib
 from concordia.typing.unstable import entity_component as entity_component_lib
 from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import html as html_lib

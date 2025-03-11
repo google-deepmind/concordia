@@ -39,9 +39,11 @@ MAKE_OBS_RESPONSE_EXAMPLE = (
 )
 NEXT_ACTING_RESPONSE_EXAMPLE = 'Rowan'
 NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_1 = (
-    'type: choice options: open the door, bar the door, flee'
+    'prompt: What would Kerensa do?;;type: choice;;options: '
+    'open the door, bar the door, flee'
 )
-NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2 = 'type: free'
+NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2 = (
+    'prompt: What would Morwenna say?;;type: free')
 RESOLVE_RESPONSE_PUTATIVE_ACTION_EXAMPLE = (
     'What is Yorik attempting to do?\n'
     'Yorik investigates the discarded machinery.')
