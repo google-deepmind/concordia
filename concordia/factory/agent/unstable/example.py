@@ -47,12 +47,6 @@ def build_agent(
   Returns:
     An agent.
   """
-  if not config.extras.get('main_character', False):
-    raise ValueError(
-        'This function is meant for a main character '
-        'but it was called on a supporting character.'
-    )
-
   agent_name = config.name
 
   measurements = measurements_lib.Measurements()
