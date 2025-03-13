@@ -80,7 +80,7 @@ class ActionSpecIgnored(
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     del action_spec
-    return f"{self.get_pre_act_key()}: {self.get_pre_act_value()}"
+    return f"{self.get_pre_act_key()}:\n{self.get_pre_act_value()}"
 
   def update(self) -> None:
     with self._lock:
