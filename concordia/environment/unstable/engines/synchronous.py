@@ -185,7 +185,11 @@ class Synchronous(engine_lib.Engine):
         print(termcolor.colored(
             f'Entity {next_entity.name} is next to act. They must respond '
             f' in the format: "{entity_spec_to_use}".', _PRINT_COLOR))
-      action = next_entity.act(entity_spec_to_use)
+      raw_action = next_entity.act(entity_spec_to_use)
+      if next_entity.name in raw_action:
+        action = raw_action
+      else:
+        action = f'{next_entity.name}: {raw_action}'
       if verbose:
         print(termcolor.colored(
             f'Entity {next_entity.name} chose action: {action}', _PRINT_COLOR))
