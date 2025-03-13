@@ -113,7 +113,7 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
-      pre_act_key: str = 'ObservationsSinceLastPreAct',
+      pre_act_key: str = DEFAULT_OBSERVATION_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
