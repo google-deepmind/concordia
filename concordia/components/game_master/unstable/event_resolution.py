@@ -19,6 +19,8 @@ import types
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
+from concordia.components.game_master.unstable import make_observation as make_observation_component
+from concordia.components.game_master.unstable import next_acting as next_acting_components
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.thought_chains.unstable import thought_chains
@@ -27,11 +29,11 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-DEFAULT_RESOLUTION_PRE_ACT_KEY = '\nEvent'
+DEFAULT_RESOLUTION_COMPONENT_NAME = '__resolution__'
+DEFAULT_RESOLUTION_PRE_ACT_KEY = 'Event'
+DEFAULT_CALL_TO_RESOLVE = (
+    'What happens next as a result of the considerations above?')
 
-GET_ACTIVE_ENTITY_QUERY = ('Which entity just took an action?'
-                           ' Respond using only the entity\'s name and no'
-                           ' other words.')
 GET_PUTATIVE_ACTION_QUERY = 'What is {name} attempting to do?'
 
 EVENT_TAG = '[event]'
@@ -55,6 +57,13 @@ class EventResolution(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
+      notify_observers: bool = False,
+      make_observation_component_name: str = (
+          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      ),
+      next_acting_component_name: str = (
+          next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_NAME
+      ),
       pre_act_key: str = DEFAULT_RESOLUTION_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -67,6 +76,11 @@ class EventResolution(entity_component.ContextComponent):
         real events in the simulation.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
+      notify_observers: Whether to explicitly notify observers of the event.
+      make_observation_component_name: The name of the MakeObservation component
+        to use to notify observers of the event.
+      next_acting_component_name: The name of the NextActing component to use
+        to get the name of the player whose turn it is.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
@@ -79,8 +93,12 @@ class EventResolution(entity_component.ContextComponent):
     self._model = model
     self._event_resolution_steps = event_resolution_steps
     self._components = dict(components)
+    self._notify_observers = notify_observers
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
+
+    self._make_observation_component_name = make_observation_component_name
+    self._next_acting_component_name = next_acting_component_name
 
     self._active_entity_name = None
     self._putative_action = None
@@ -101,16 +119,16 @@ class EventResolution(entity_component.ContextComponent):
     self._active_entity_name = None
     self._putative_action = None
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
-      entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
       component_states = '\n'.join([
-          f"{entity_name}'s"
-          f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
+          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
-      prompt.statement(f'Statements:\n{component_states}\n')
-      self._active_entity_name = prompt.open_question(
-          GET_ACTIVE_ENTITY_QUERY)
+      prompt.statement(f'{component_states}\n')
+      self._active_entity_name = self.get_entity().get_component(
+          self._next_acting_component_name,
+          type_=next_acting_components.NextActing
+      ).get_currently_active_player()
       self._putative_action = prompt.open_question(
           GET_PUTATIVE_ACTION_QUERY.format(name=self._active_entity_name),
           max_tokens=1200)
@@ -120,13 +138,33 @@ class EventResolution(entity_component.ContextComponent):
           document=prompt,
           active_player_name=self._active_entity_name,
       )
-      result = f'{self._pre_act_key}: {event_statement}'
+
+      observers_prompt_to_log = ''
+      if self._notify_observers:
+        make_observation = self.get_entity().get_component(
+            self._make_observation_component_name,
+            type_=make_observation_component.MakeObservation,
+        )
+        observers_prompt = prompt.copy()
+        observers_prompt.statement(f'Event that occurred: {event_statement}')
+        observer_names_str = observers_prompt.open_question(
+            question=('Which entities are aware of the event? Answer with a '
+                      'comma-separated list of entity names.')
+        )
+        observer_names = observer_names_str.split(',')
+        for name in observer_names:
+          make_observation.add_to_queue(name.strip(), event_statement)
+
+        observers_prompt_to_log = observers_prompt.view().text()
+
+      result = f'{self._pre_act_key}: {event_statement}\n'
       prompt_to_log = prompt.view().text()
 
       self._logging_channel(
           {'Key': self._pre_act_key,
            'Value': result,
-           'Prompt': prompt_to_log})
+           'Prompt': prompt_to_log,
+           'Observers prompt': observers_prompt_to_log})
     return result
 
   def get_active_entity_name(self) -> str | None:

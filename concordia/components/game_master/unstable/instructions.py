@@ -15,17 +15,26 @@
 """Component that provides the default game master instructions."""
 
 from collections.abc import Sequence
+import random
 
 from concordia.components.agent.unstable import constant
 from concordia.environment.unstable.engines import synchronous
 from concordia.typing import logging
 
 
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nGame master instructions: '
-DEFAULT_PLAYER_CHARACTERS_PRE_ACT_KEY = '\nThe player characters are:\n'
+DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = 'Game master instructions: '
+DEFAULT_PLAYER_CHARACTERS_PRE_ACT_KEY = 'The player characters are:\n'
+
+EXAMPLE_NAMES = (
+    'Ianthe',
+    'Rowan',
+    'Kerensa',
+    'Morwenna',
+    'Yorik',
+)
 
 MAKE_OBS_RESPONSE_EXAMPLE = (
-    'Ianthe steps into the room. The air is thick and still, almost heavy.'
+    '{name} steps into the room. The air is thick and still, almost heavy.'
     ' The only light comes from a single, bare bulb hanging precariously from'
     ' the high ceiling, casting long, distorted shadows that dance with the'
     ' slightest movement. The walls are rough, unfinished concrete, damp in'
@@ -37,26 +46,24 @@ MAKE_OBS_RESPONSE_EXAMPLE = (
     ' discarded machinery, covered in a thick layer of grime, sits against the'
     ' wall.'
 )
-NEXT_ACTING_RESPONSE_EXAMPLE = 'Rowan'
+NEXT_ACTING_RESPONSE_EXAMPLE = '{name}'
 NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_1 = (
-    'prompt: What would Kerensa do?;;type: choice;;options: '
+    'prompt: What would {name} do?;;type: choice;;options: '
     'open the door, bar the door, flee'
 )
 NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2 = (
-    'prompt: What would Morwenna say?;;type: free')
+    'prompt: What would {name} say?;;type: free')
 RESOLVE_RESPONSE_PUTATIVE_ACTION_EXAMPLE = (
-    'What is Yorik attempting to do?\n'
-    'Yorik investigates the discarded machinery.')
+    'What is {name} attempting to do?\n'
+    '{name} opens the enchanted storybook.')
 RESOLVE_RESPONSE_EXAMPLE = (
-    'Yorik approaches the pile of discarded machinery. As she gets'
-    ' closer, the smell of rust becomes stronger, almost overpowering.  The'
-    ' grime coating everything is thick and greasy, and sticks to Yorik\'s'
-    ' fingers when she touches it. Yorik can make out shapes beneath the'
-    ' grime - gears, pipes, wires, all tangled together in a chaotic mess.'
-    ' Some of the metal is bent and broken, suggesting whatever this was,'
-    ' it was damaged badly. Yorik notices one section that looks slightly less'
-    ' corroded than the rest. It appears to be some kind of panel, secured '
-    ' by several bolts.'
+    '{name} opens the colorful storybook. As she turns the pages, she notices '
+    'the delightful scent of cinnamon and vanilla fills the air, warm and '
+    'inviting. Sparkling illustrations twinkle merrily on the '
+    'pages, and leave a pleasant tingling on {name}\'s fingers when she '
+    'touches them. {name} notices one section that glows slightly more '
+    'brightly than the rest. It appears to be some kind of special '
+    'chapter, marked by several golden ribbons.'
 )
 TERMINATION_RESPONSE_EXAMPLE_1 = 'No'
 TERMINATION_RESPONSE_EXAMPLE_2 = 'Yes'
@@ -87,7 +94,8 @@ class Instructions(constant.Constant):
         'aware of which events in the world, and must tell the player whenever '
         'anything happens that their character would be aware of. Always use '
         'third-person limited perspective, even when speaking directly to the '
-        'participants.'
+        'participants. Try to ensure the story always moves forward and never '
+        'gets stuck, even if the participants make repetitive choices.'
     )
     super().__init__(
         state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
@@ -102,7 +110,7 @@ class PlayerCharacters(constant.Constant):
       pre_act_key: str = DEFAULT_PLAYER_CHARACTERS_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
-    state = '\n'.join(player_characters)
+    state = '\n'.join(player_characters) + '\n'
     super().__init__(
         state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
 
@@ -112,42 +120,93 @@ class ExamplesSynchronous(constant.Constant):
 
   def __init__(
       self,
+      exercises: Sequence[str] = tuple(['make_observation',
+                                        'next_acting',
+                                        'next_action_spec_1',
+                                        'next_action_spec_2',
+                                        'resolve',
+                                        'check_termination_1',
+                                        'check_termination_2']),
       pre_act_key: str = 'Game master workflow examples',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+      rnd: random.Random | None = None,
   ):
-    call_to_make_observation = synchronous.DEFAULT_CALL_TO_MAKE_OBSERVATION
+    if rnd is None:
+      rnd = random.Random()
+    names = rnd.sample(EXAMPLE_NAMES, len(EXAMPLE_NAMES))
+
+    name_for_obs = names[0]
+    name_for_next_acting = names[1]
+    name_for_next_action_spec_1 = names[2]
+    name_for_next_action_spec_2 = names[3]
+    name_for_resolve = names[4]
+
+    call_to_make_observation = (
+        synchronous.DEFAULT_CALL_TO_MAKE_OBSERVATION.format(name=name_for_obs))
     call_to_next_acting = synchronous.DEFAULT_CALL_TO_NEXT_ACTING
-    call_to_get_action_spec = synchronous.DEFAULT_CALL_TO_NEXT_ACTION_SPEC
+    call_to_action_spec_1 = (
+        synchronous.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
+            name=name_for_next_action_spec_1))
+    call_to_action_spec_2 = (
+        synchronous.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
+            name=name_for_next_action_spec_2))
     call_to_resolve = synchronous.DEFAULT_CALL_TO_RESOLVE
     call_to_check_termination = synchronous.DEFAULT_CALL_TO_CHECK_TERMINATION
 
-    make_obs_response = MAKE_OBS_RESPONSE_EXAMPLE
-    next_acting_response = NEXT_ACTING_RESPONSE_EXAMPLE
-    next_action_spec_response_1 = NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_1
-    next_action_spec_response_2 = NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2
-    resolve_response_putative_action = RESOLVE_RESPONSE_PUTATIVE_ACTION_EXAMPLE
-    resolve_response = RESOLVE_RESPONSE_EXAMPLE
+    make_obs_response = MAKE_OBS_RESPONSE_EXAMPLE.format(name=name_for_obs)
+    next_acting_response = NEXT_ACTING_RESPONSE_EXAMPLE.format(
+        name=name_for_next_acting)
+    next_action_spec_response_1 = NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_1.format(
+        name=name_for_next_action_spec_1)
+    next_action_spec_response_2 = NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2.format(
+        name=name_for_next_action_spec_2)
+    resolve_response_putative_action = (
+        RESOLVE_RESPONSE_PUTATIVE_ACTION_EXAMPLE.format(name=name_for_resolve))
+    resolve_response = RESOLVE_RESPONSE_EXAMPLE.format(name=name_for_resolve)
     termination_response_1 = TERMINATION_RESPONSE_EXAMPLE_1
     termination_response_2 = TERMINATION_RESPONSE_EXAMPLE_2
 
     state = (
-        'Example exercises with default responses.'
-        '\n\nExercise 1 --- Response 1\n'
-        f'Exercise: {call_to_make_observation} --- {make_obs_response}'
-        '\n\nExercise 2 --- Response 2\n'
-        f'Exercise: {call_to_next_acting} --- {next_acting_response}'
-        '\n\nExercise 3 --- Response 3\n'
-        f'Exercise: {call_to_get_action_spec} --- {next_action_spec_response_1}'
-        '\n\nExercise 4 --- Response 4\n'
-        f'Exercise: {call_to_get_action_spec} --- {next_action_spec_response_2}'
-        '\n\nExercise 5 --- Response 5\n'
-        f'Exercise: {call_to_resolve} --- {resolve_response_putative_action} '
-        f'--- {resolve_response}'
-        '\n\nExercise 6 --- Response 6\n'
-        f'Exercise: {call_to_check_termination} --- {termination_response_1}'
-        '\n\nExercise 7 --- Response 7\n'
-        f'Exercise: {call_to_check_termination} --- {termination_response_2}'
+        '\nExample exercises with default responses\n'
+        '**--START EXAMPLES--**\n'
     )
+    if 'make_observation' in exercises:
+      state += (
+          '\n\nExercise 1 --- Response 1\n'
+          f'Exercise: {call_to_make_observation} --- {make_obs_response}'
+      )
+    if 'next_acting' in exercises:
+      state += (
+          '\n\nExercise 2 --- Response 2\n'
+          f'Exercise: {call_to_next_acting} --- {next_acting_response}'
+      )
+    if 'next_action_spec_1' in exercises:
+      state += (
+          '\n\nExercise 3 --- Response 3\n'
+          f'Exercise: {call_to_action_spec_1} --- {next_action_spec_response_1}'
+      )
+    if 'next_action_spec_2' in exercises:
+      state += (
+          '\n\nExercise 4 --- Response 4\n'
+          f'Exercise: {call_to_action_spec_2} --- {next_action_spec_response_2}'
+      )
+    if 'resolve' in exercises:
+      state += (
+          '\n\nExercise 5 --- Response 5\n'
+          f'Exercise: {call_to_resolve} --- {resolve_response_putative_action} '
+          f'--- {resolve_response}'
+      )
+    if 'check_termination_1' in exercises:
+      state += (
+          '\n\nExercise 6 --- Response 6\n'
+          f'Exercise: {call_to_check_termination} --- {termination_response_1}'
+      )
+    if 'check_termination_2' in exercises:
+      state += (
+          '\n\nExercise 7 --- Response 7\n'
+          f'Exercise: {call_to_check_termination} --- {termination_response_2}'
+      )
+    state += '\n\n**--END EXAMPLES--**\n'
 
     super().__init__(
         state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)

@@ -27,8 +27,14 @@ from concordia.typing.unstable import entity_component
 
 DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'
 DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY = '\nPrompt'
+DEFAULT_CALL_TO_MAKE_OBSERVATION = (
+    'What is the current situation faced by {name}? What do they now observe?'
+    ' Only include information of which they are aware.')
 
-GET_ACTIVE_ENTITY_QUERY = 'Who is about to act?'
+GET_ACTIVE_ENTITY_QUERY = (
+    'Who is being asked about? Respond using only their name and no other '
+    'words. Use their full name if known.'
+)
 
 
 class MakeObservation(entity_component.ContextComponent):
@@ -64,6 +70,8 @@ class MakeObservation(entity_component.ContextComponent):
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
+    self._queue = {}
+
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
@@ -79,22 +87,30 @@ class MakeObservation(entity_component.ContextComponent):
     result = ''
     prompt_to_log = ''
     if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
-      entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
       component_states = '\n'.join([
-          f"{entity_name}'s"
-          f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
+          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
       prompt.statement(f'{component_states}\n')
+      prompt.statement(
+          f'Working out the answer to: "{action_spec.call_to_action}"')
       active_entity_name = prompt.open_question(
-          GET_ACTIVE_ENTITY_QUERY)
-      result = prompt.open_question(
-          question=(f'What does {active_entity_name} observe now? Never '
-                    'repeat information that was already provided to '
-                    f'{active_entity_name} unless absolutely necessary. Keep '
-                    'the story moving forward.'),
-          max_tokens=1200)
+          GET_ACTIVE_ENTITY_QUERY).strip()
+
+      if active_entity_name in self._queue and self._queue[active_entity_name]:
+        result = ''
+        for event in self._queue[active_entity_name]:
+          result += event + '\n'
+
+        self._queue[active_entity_name] = []
+      else:
+        result = prompt.open_question(
+            question=(f'What does {active_entity_name} observe now? Never '
+                      'repeat information that was already provided to '
+                      f'{active_entity_name} unless absolutely necessary. Keep '
+                      'the story moving forward.'),
+            max_tokens=1200)
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
@@ -102,3 +118,9 @@ class MakeObservation(entity_component.ContextComponent):
          'Value': result,
          'Prompt': prompt_to_log})
     return result
+
+  def add_to_queue(self, entity_name: str, event: str):
+    """Adds an event to the queue of events to observe."""
+    if entity_name not in self._queue:
+      self._queue[entity_name] = []
+    self._queue[entity_name].append(event)

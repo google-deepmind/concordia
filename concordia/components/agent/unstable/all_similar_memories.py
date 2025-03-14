@@ -67,8 +67,7 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     prompt = interactive_document.InteractiveDocument(self._model)
 
     component_states = '\n'.join([
-        f"{agent_name}'s"
-        f' {prefix}:\n{self.get_named_component_pre_act_value(key)}'
+        f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
         for key, prefix in self._components.items()
     ])
     prompt.statement(f'Statements:\n{component_states}\n')
@@ -81,39 +80,21 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
     )
 
     query = f'{agent_name}, {prompt_summary}'
-    mems = '\n'.join([
+    result = '\n'.join([
         mem
         for mem in memory.retrieve_associative(
             query=query, limit=self._num_memories_to_retrieve
         )
     ])
 
-    question = (
-        'Select the subset of the following set of statements that is most '
-        f'important for {agent_name} to consider right now. Whenever two '
-        'or more statements are not mutally consistent with each other '
-        'select whichever statement is more recent. Repeat all the '
-        'selected statements verbatim. Do not summarize. Include timestamps. '
-        'When in doubt, err on the side of including more, especially for '
-        'recent events. As long as they are not inconsistent, revent events '
-        'are usually important to consider.'
-    )
-    new_prompt = prompt.new()
-    result = new_prompt.open_question(
-        f'{question}\nStatements:\n{mems}',
-        max_tokens=2000,
-        terminators=('\n\n',),
-    )
-
     self._logging_channel({
         'Key': self.get_pre_act_key(),
         'Value': result,
-        'Initial chain of thought': prompt.view().text().splitlines(),
+        'Chain of thought': prompt.view().text().splitlines(),
         'Query': f'{query}',
-        'Final chain of thought': new_prompt.view().text().splitlines(),
     })
 
-    return result
+    return result + '\n'
 
 
 class AllSimilarMemoriesWithoutPreAct(

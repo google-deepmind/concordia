@@ -33,11 +33,11 @@ DEFAULT_NEXT_ACTING_COMPONENT_NAME = '__next_acting__'
 # Initiative is the Dungeons & Dragons term for the rule system that controls
 # turn taking.
 DEFAULT_NEXT_ACTING_PRE_ACT_KEY = '\nInitiative'
+DEFAULT_CALL_TO_NEXT_ACTING = 'Who is next to act?'
 
 DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = '__next_action_spec__'
 DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY = '\nType of action'
-
-_DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
+DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     'In what action spec format should {name} respond?')
 
 
@@ -77,6 +77,8 @@ class NextActing(entity_component.ContextComponent):
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
+    self._currently_active_player = None
+
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
@@ -91,11 +93,9 @@ class NextActing(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
       component_states = '\n'.join([
-          f"{entity_name}'s"
-          f' {prefix}:\n{self._get_named_component_pre_act_value(key)}'
+          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
       prompt.statement(f'{component_states}\n')
@@ -103,8 +103,12 @@ class NextActing(entity_component.ContextComponent):
           question='Whose turn is next?',
           answers=self._player_names)
       result = self._player_names[idx]
+      self._currently_active_player = result
 
     return result
+
+  def get_currently_active_player(self) -> str | None:
+    return self._currently_active_player
 
 
 class NextActingFromSceneSpec(entity_component.ContextComponent):
@@ -145,6 +149,8 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
+    self._currently_active_player = None
+
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
@@ -165,11 +171,9 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
       component_states = '\n'.join([
-          f"{entity_name}'s"
-          f' {prefix}:\n{self._get_named_component_pre_act_value(key)}'
+          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
       prompt.statement(f'{component_states}\n')
@@ -180,7 +184,12 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
           answers=scene_participants)
       result = scene_participants[idx]
 
+      self._currently_active_player = result
+
     return result
+
+  def get_currently_active_player(self) -> str | None:
+    return self._currently_active_player
 
 
 class NextActionSpec(entity_component.ContextComponent):
@@ -194,7 +203,8 @@ class NextActionSpec(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      call_to_next_action_spec: str = _DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
+      call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
+      next_acting_component_name: str = DEFAULT_NEXT_ACTING_COMPONENT_NAME,
       pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -208,6 +218,8 @@ class NextActionSpec(entity_component.ContextComponent):
       call_to_next_action_spec: prompt to use for the game master to decide on
         what action spec to use for the next turn. Will be formatted to
         substitute {name} for the name of the player whose turn is next.
+      next_acting_component_name: The name of the NextActing component to use
+        to get the name of the player whose turn is next.
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
@@ -221,6 +233,7 @@ class NextActionSpec(entity_component.ContextComponent):
     self._player_names = player_names
     self._components = dict(components)
     self._call_to_next_action_spec = call_to_next_action_spec
+    self._next_acting_component_name = next_acting_component_name
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
@@ -238,18 +251,15 @@ class NextActionSpec(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
-      entity_name = self.get_entity().name
       prompt = interactive_document.InteractiveDocument(self._model)
       component_states = '\n'.join([
-          f"{entity_name}'s"
-          f' {prefix}:\n{self._get_named_component_pre_act_value(key)}'
+          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
           for key, prefix in self._components.items()
       ])
       prompt.statement(f'{component_states}\n')
-      idx = prompt.multiple_choice_question(
-          question='Whose turn is next?',
-          answers=self._player_names)
-      active_player = self._player_names[idx]
+      active_player = self.get_entity().get_component(
+          self._next_acting_component_name, type_=NextActing
+      ).get_currently_active_player()
       prompt.statement(
           'Example formatted action specs:\n1). "prompt: p;;type: free"\n'
           '2). "prompt: p;;type: choice;;options: x, y, z".\nNote that p is a '

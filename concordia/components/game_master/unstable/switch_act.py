@@ -16,6 +16,9 @@
 
 from collections.abc import Sequence
 
+from concordia.components.game_master.unstable import event_resolution as event_resolution_components
+from concordia.components.game_master.unstable import make_observation as make_observation_component
+from concordia.components.game_master.unstable import next_acting as next_acting_components
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import logging
@@ -24,13 +27,18 @@ from concordia.typing.unstable import entity_component
 from typing_extensions import override
 
 
+DEFAULT_ACT_COMPONENT_NAME = '__act__'
 DEFAULT_PRE_ACT_KEY = 'Act'
 
 DEFAULT_TERMINATE_COMPONENT_NAME = '__terminate__'
-DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'
-DEFAULT_NEXT_ACTING_COMPONENT_NAME = '__next_acting__'
-DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = '__next_action_spec__'
-DEFAULT_RESOLUTION_COMPONENT_NAME = '__resolution__'
+DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = (
+    make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME)
+DEFAULT_NEXT_ACTING_COMPONENT_NAME = (
+    next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_NAME)
+DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = (
+    next_acting_components.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME)
+DEFAULT_RESOLUTION_COMPONENT_NAME = (
+    event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_NAME)
 
 
 class SwitchAct(entity_component.ActingComponent):

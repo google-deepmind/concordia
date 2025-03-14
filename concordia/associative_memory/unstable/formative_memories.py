@@ -60,23 +60,25 @@ class AgentConfig:
   context: str = ''
   specific_memories: str = ''
   goal: str = ''
-  date_of_birth: datetime.datetime = DEFAULT_DOB
+  date_of_birth: datetime.datetime | None = None
   formative_ages: Collection[int] = DEFAULT_FORMATIVE_AGES
   extras: dict[str, Any] = dataclasses.field(default_factory=dict)
 
   def to_dict(self) -> dict[str, Any]:
     """Converts the AgentConfig to a dictionary."""
     result = dataclasses.asdict(self)
-    result['date_of_birth'] = self.date_of_birth.isoformat()
+    if self.date_of_birth is not None:
+      result['date_of_birth'] = self.date_of_birth.isoformat()
     return result
 
   @classmethod
   def from_dict(cls, data: dict[str, Any]) -> 'AgentConfig':
     """Initializes an AgentConfig from a dictionary."""
-    date_of_birth = datetime.datetime.fromisoformat(
-        data['date_of_birth']
-    )
-    data = data | {'date_of_birth': date_of_birth}
+    if 'date_of_birth' in data and data['date_of_birth'] is not None:
+      date_of_birth = datetime.datetime.fromisoformat(
+          data['date_of_birth']
+      )
+      data = data | {'date_of_birth': date_of_birth}
     return cls(**data)
 
 
@@ -160,8 +162,9 @@ class FormativeMemoryFactory:
     question = (
         f'Write a life story for a {agent_config.gender} character '
         f'named {agent_config.name} ')
-    question += (
-        f'who was born in the year {str(agent_config.date_of_birth.year)} ')
+    if agent_config.date_of_birth is not None:
+      question += (
+          f'who was born in the year {str(agent_config.date_of_birth.year)} ')
     if agent_config.traits:
       question += (
           f'with the following traits: {agent_config.traits}. ')
@@ -180,7 +183,8 @@ class FormativeMemoryFactory:
         f'understanding of {agent_config.name}.'
     )
     if agent_config.context:
-      question += f' Incorporate the following context: {agent_config.context}'
+      question += ('Incorporate the following context into the '
+                   f'story: {agent_config.context}')
     result = prompt.open_question(
         question,
         max_tokens=4500,
@@ -268,12 +272,15 @@ class FormativeMemoryFactory:
           'probably not problematic.')
 
     for episode_age, episode in zip(agent_config.formative_ages, episodes):
-      timestamp = agent_config.date_of_birth + relativedelta(years=episode_age)
-      memory.add(
-          f'[{timestamp}] {episode}',
-      )
+      if agent_config.date_of_birth is not None:
+        timestamp = (
+            agent_config.date_of_birth + relativedelta(years=episode_age))
+        memory_to_add = f'[{timestamp}] {episode}'
+      else:
+        memory_to_add = episode
+      memory.add(memory_to_add)
 
-    if self._current_date:
+    if self._current_date and agent_config.date_of_birth is not None:
       age = relativedelta(self._current_date, agent_config.date_of_birth).years
       timestamp = self._current_date
       memory.add(
@@ -293,7 +300,7 @@ class FormativeMemoryFactory:
 
     context = agent_config.context
     if agent_config.goal:
-      context += '\n' + agent_config.goal
+      context += '\n' + f'{agent_config.name}\'s goal is: {agent_config.goal}'
 
     self.add_memories(memory=mem, agent_config=agent_config)
 

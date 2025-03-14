@@ -18,6 +18,10 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from concordia.components.game_master.unstable import event_resolution as event_resolution_components
+from concordia.components.game_master.unstable import make_observation as make_observation_component
+from concordia.components.game_master.unstable import next_acting as next_acting_components
+from concordia.components.game_master.unstable import switch_act as switch_act_component
 from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import agent as agent_lib
 from concordia.typing.unstable import entity as entity_lib
@@ -25,16 +29,14 @@ import termcolor
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
-    'Given the identity of the player whose turn is next, what is the'
-    ' current situation they face? What do they now observe?'
-    ' Only include information of which they are aware.')
-DEFAULT_CALL_TO_NEXT_ACTING = 'Which entity is next to act?'
+    make_observation_component.DEFAULT_CALL_TO_MAKE_OBSERVATION)
+DEFAULT_CALL_TO_NEXT_ACTING = next_acting_components.DEFAULT_CALL_TO_NEXT_ACTING
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
-    'Who is next to act and what kind of decision do they face? In what format'
-    ' should they respond?')
-DEFAULT_CALL_TO_RESOLVE = (
-    'What happens next as a result of the considerations above?')
+    next_acting_components.DEFAULT_CALL_TO_NEXT_ACTION_SPEC)
+DEFAULT_CALL_TO_RESOLVE = event_resolution_components.DEFAULT_CALL_TO_RESOLVE
 DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
+
+DEFAULT_ACT_COMPONENT_NAME = switch_act_component.DEFAULT_ACT_COMPONENT_NAME
 
 _PRINT_COLOR = 'cyan'
 
@@ -200,13 +202,19 @@ class Synchronous(engine_lib.Engine):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['resolve'] = game_master.get_last_log()
         next_entity_log = ''
+        game_master_key = 'Game Master'
         entity_key = 'Entity'
         if hasattr(next_entity, 'get_last_log'):
           assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
           next_entity_log = next_entity.get_last_log()
           entity_key = f'{entity_key} [{next_entity.name}]'
+        if DEFAULT_ACT_COMPONENT_NAME in log_entry['resolve']:
+          event_to_log = log_entry['resolve'][
+              DEFAULT_ACT_COMPONENT_NAME
+          ]['Value']
+          game_master_key = f'{game_master_key} --- {event_to_log}'
         log.append({
-            'Game Master': log_entry,
+            game_master_key: log_entry,
             entity_key: next_entity_log,
             'Step': steps,
         })
