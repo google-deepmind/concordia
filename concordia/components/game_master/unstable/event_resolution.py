@@ -31,11 +31,8 @@ from concordia.typing.unstable import entity_component
 
 DEFAULT_RESOLUTION_COMPONENT_NAME = '__resolution__'
 DEFAULT_RESOLUTION_PRE_ACT_KEY = 'Event'
-DEFAULT_CALL_TO_RESOLVE = (
-    'What happens next as a result of the considerations above?')
 
-GET_PUTATIVE_ACTION_QUERY = 'What is {name} attempting to do?'
-
+PUTATIVE_EVENT_TAG = '[putative_event]'
 EVENT_TAG = '[event]'
 
 
@@ -61,6 +58,9 @@ class EventResolution(entity_component.ContextComponent):
       make_observation_component_name: str = (
           make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
       ),
+      memory_component_name: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      ),
       next_acting_component_name: str = (
           next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_NAME
       ),
@@ -79,6 +79,8 @@ class EventResolution(entity_component.ContextComponent):
       notify_observers: Whether to explicitly notify observers of the event.
       make_observation_component_name: The name of the MakeObservation component
         to use to notify observers of the event.
+      memory_component_name: The name of the Memory component to use to retrieve
+        memories.
       next_acting_component_name: The name of the NextActing component to use
         to get the name of the player whose turn it is.
       pre_act_key: Prefix to add to the output of the component when called
@@ -98,6 +100,7 @@ class EventResolution(entity_component.ContextComponent):
     self._logging_channel = logging_channel
 
     self._make_observation_component_name = make_observation_component_name
+    self._memory_component_name = memory_component_name
     self._next_acting_component_name = next_acting_component_name
 
     self._active_entity_name = None
@@ -116,6 +119,8 @@ class EventResolution(entity_component.ContextComponent):
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     result = ''
+    prompt_to_log = ''
+    observers_prompt_to_log = ''
     self._active_entity_name = None
     self._putative_action = None
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
@@ -129,9 +134,19 @@ class EventResolution(entity_component.ContextComponent):
           self._next_acting_component_name,
           type_=next_acting_components.NextActing
       ).get_currently_active_player()
-      self._putative_action = prompt.open_question(
-          GET_PUTATIVE_ACTION_QUERY.format(name=self._active_entity_name),
-          max_tokens=1200)
+      memory = self.get_entity().get_component(
+          self._memory_component_name, type_=memory_component.Memory
+      )
+      suggestions = memory.scan(selector_fn=lambda x: PUTATIVE_EVENT_TAG in x)
+      if not suggestions:
+        raise RuntimeError('No suggested events to resolve.')
+      if self._active_entity_name is None:
+        raise RuntimeError('No active entity suggesting an event to resolve.')
+
+      putative_action = suggestions[-1][
+          suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG):]
+      self._putative_action = f'Putative event to resolve: {putative_action}'
+      prompt.statement(self._putative_action)
       prompt, event_statement = thought_chains.run_chain_of_thought(
           thoughts=self._event_resolution_steps,
           premise=self._putative_action,
@@ -160,11 +175,12 @@ class EventResolution(entity_component.ContextComponent):
       result = f'{self._pre_act_key}: {event_statement}\n'
       prompt_to_log = prompt.view().text()
 
-      self._logging_channel(
-          {'Key': self._pre_act_key,
-           'Value': result,
-           'Prompt': prompt_to_log,
-           'Observers prompt': observers_prompt_to_log})
+    self._log(
+        key=self._pre_act_key,
+        value=result,
+        prompt=prompt_to_log,
+        observers_prompt=observers_prompt_to_log,
+    )
     return result
 
   def get_active_entity_name(self) -> str | None:
@@ -174,6 +190,14 @@ class EventResolution(entity_component.ContextComponent):
   def get_putative_action(self) -> str | None:
     """Returns the putative action from the entity that just took an action."""
     return self._putative_action
+
+  def _log(self, key: str, value: str, prompt: str, observers_prompt: str):
+    self._logging_channel({
+        'Key': key,
+        'Value': value,
+        'Prompt': prompt,
+        'Details': {'Observers prompt': observers_prompt,},
+    })
 
 
 class EventMemorizer(entity_component.ContextComponent):
@@ -279,5 +303,7 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
     if limit > len(events):
       limit = len(events)
     events = events[-limit:]
+    events = [f'{i}). {event.split(EVENT_TAG)[-1]}'
+              for i, event in enumerate(events)]
 
     return '\n'.join(events)

@@ -33,10 +33,13 @@ DEFAULT_CALL_TO_MAKE_OBSERVATION = (
 DEFAULT_CALL_TO_NEXT_ACTING = next_acting_components.DEFAULT_CALL_TO_NEXT_ACTING
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     next_acting_components.DEFAULT_CALL_TO_NEXT_ACTION_SPEC)
-DEFAULT_CALL_TO_RESOLVE = event_resolution_components.DEFAULT_CALL_TO_RESOLVE
+DEFAULT_CALL_TO_RESOLVE = 'Because of all that came before, what happens next?'
 DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
 
 DEFAULT_ACT_COMPONENT_NAME = switch_act_component.DEFAULT_ACT_COMPONENT_NAME
+
+PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
+EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 
@@ -109,21 +112,21 @@ class Synchronous(engine_lib.Engine):
 
   def resolve(self,
               game_master: entity_lib.Entity,
-              event: str,
+              putative_event: str,
               verbose: bool = False) -> None:
     """Resolve an event."""
     if verbose:
       print(termcolor.colored(
-          f'The suggested action or event to resolve was: {event}',
+          f'The suggested action or event to resolve was: {putative_event}',
           _PRINT_COLOR))
-    game_master.observe(observation=event)
+    game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_resolve,
             output_type=entity_lib.OutputType.RESOLVE,
         )
     )
-    game_master.observe(observation=result)
+    game_master.observe(observation=f'{EVENT_TAG} {result}')
     if verbose:
       print(termcolor.colored(
           f'The resolved event was: {result}', _PRINT_COLOR))
@@ -157,16 +160,8 @@ class Synchronous(engine_lib.Engine):
     log_entry = _get_empty_log_entry()
     steps = 0
     if premise:
-      self.resolve(game_master, premise, verbose=verbose)
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-        log_entry['resolve'] = game_master.get_last_log()
-        log.append({
-            'Game Master': log_entry,
-            'Entity': {},
-            'Step': steps,
-        })
-        log_entry = _get_empty_log_entry()
+      premise = f'{EVENT_TAG} {premise}'
+      game_master.observe(premise)
     while not self.terminate(game_master, verbose) and steps < max_steps:
       if log is not None:
         if hasattr(game_master, 'get_last_log'):
@@ -195,13 +190,15 @@ class Synchronous(engine_lib.Engine):
       if verbose:
         print(termcolor.colored(
             f'Entity {next_entity.name} chose action: {action}', _PRINT_COLOR))
-      self.resolve(game_master=game_master, event=action, verbose=verbose)
+      self.resolve(game_master=game_master,
+                   putative_event=action,
+                   verbose=verbose)
 
       steps += 1
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['resolve'] = game_master.get_last_log()
-        next_entity_log = ''
+        next_entity_log = {}
         game_master_key = 'Game Master'
         entity_key = 'Entity'
         if hasattr(next_entity, 'get_last_log'):
@@ -213,9 +210,28 @@ class Synchronous(engine_lib.Engine):
               DEFAULT_ACT_COMPONENT_NAME
           ]['Value']
           game_master_key = f'{game_master_key} --- {event_to_log}'
-        log.append({
-            game_master_key: log_entry,
-            entity_key: next_entity_log,
-            'Step': steps,
-        })
+        self._log(
+            log=log,
+            steps=steps,
+            entity_key=entity_key,
+            entity_log=next_entity_log,
+            game_master_key=game_master_key,
+            game_master_log=log_entry,
+        )
         log_entry = _get_empty_log_entry()
+
+  def _log(
+      self,
+      log: list[Mapping[str, Any]],
+      steps: int,
+      entity_key: str,
+      entity_log: Mapping[str, Any],
+      game_master_key: str,
+      game_master_log: Mapping[str, Any],
+  ):
+    """Modify log in place to append a new entry."""
+    log.append({
+        'Step': steps,
+        entity_key: entity_log,
+        game_master_key: game_master_log,
+    })

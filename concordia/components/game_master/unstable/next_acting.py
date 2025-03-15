@@ -38,7 +38,8 @@ DEFAULT_CALL_TO_NEXT_ACTING = 'Who is next to act?'
 DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = '__next_action_spec__'
 DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY = '\nType of action'
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
-    'In what action spec format should {name} respond?')
+    'In what action spec format should {name} respond? Respond in  '
+    'one of the provided formats and use no additional words.')
 
 
 class NextActing(entity_component.ContextComponent):
