@@ -24,6 +24,27 @@ from concordia.typing import component
 from concordia.utils import concurrency
 
 
+def extract_text_between_delimiters(text: str, delimiter: str) -> str | None:
+  """Extracts text between the first two occurrences of a delimiter in a string.
+
+  Args:
+    text: The string to search through and extract from.
+    delimiter: The delimiter string.
+
+  Returns:
+    The extracted text, or None if the delimiter does not appear twice.
+  """
+  first_delimiter_index = text.find(delimiter)
+  if first_delimiter_index == -1:
+    return None
+  second_delimiter_index = text.find(delimiter,
+                                     first_delimiter_index + len(delimiter))
+  if second_delimiter_index == -1:
+    return None
+
+  return text[first_delimiter_index + len(delimiter):second_delimiter_index]
+
+
 def filter_copy_as_statement(
     doc: interactive_document.InteractiveDocument,
     include_tags: Iterable[str] = (),
