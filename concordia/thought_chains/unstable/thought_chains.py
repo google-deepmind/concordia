@@ -22,6 +22,7 @@ from concordia.agents.unstable import entity_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.unstable import agent as agent_types
+from concordia.typing.unstable import entity as entity_lib
 import termcolor
 
 
@@ -141,13 +142,15 @@ def result_to_causal_statement(
   )
   raw_causal_statement = f'{event} Because of that, {effect}'
   causal_statement = chain_of_thought.open_question(
-      'Rewrite the following statements to be one sentence and to better '
-      'highlight cause and effect. Do not express uncertainty (e.g. say '
-      + '"Francis released the demon" not "Francis could release the demon" '
-      + 'and not "The demon may have been released")\n'
-      + 'Statements: '
-      + raw_causal_statement
-      + '\n'
+      question=(
+          'Rewrite the following statements to be one sentence and to better '
+          'highlight cause and effect. Do not express uncertainty (e.g. say '
+          '"Francis released the demon" not "Francis could release the demon" '
+          'and not "The demon may have been released")\n'
+          f'Statements: {raw_causal_statement}\n'
+      ),
+      max_tokens=1500,
+      terminators=(),
   )
   return causal_statement
 
@@ -172,6 +175,7 @@ def attempt_to_result(
       'What happens as a result of the attempted action?'
       ' Take into account the location and status of each player.',
       max_tokens=1200,
+      terminators=(),
   )
   raw_causal_statement = f'{action_attempt} Because of that, {result}'
   return raw_causal_statement
@@ -195,22 +199,26 @@ def attempt_to_most_likely_outcome(
   _ = chain_of_thought.open_question(
       f'Where is {active_player_name}?',
       max_tokens=1200,
+      terminators=(),
   )
   _ = chain_of_thought.open_question(
       f'What is {active_player_name} trying to do?',
       max_tokens=1200,
+      terminators=(),
   )
   _ = chain_of_thought.open_question(
-      f"List some possible direct consequences of {active_player_name}'s "
+      f"List at least 3 possible direct consequences of {active_player_name}'s "
       'action. Never assume any other person will take a voluntary action. '
       'Be specific and concrete. Never beg the question. For instance, it is '
       'wrong to say "Alex finds something". Instead specify exactly '
       'what Alex finds. For example "Alex finds a teddy bear".',
       max_tokens=3000,
+      terminators=(),
   )
   result = chain_of_thought.open_question(
       'Which outcome is the most likely?',
       max_tokens=1200,
+      terminators=(),
   )
   raw_causal_statement = f'{action_attempt} Because of that, {result}'
   return raw_causal_statement
@@ -239,6 +247,7 @@ def result_to_who_what_where(
       ' opened the door" not "Francis could open the door" and not "The door'
       ' may have been opened").\n',
       max_tokens=1500,
+      terminators=(),
   )
   return causal_statement
 
@@ -271,6 +280,7 @@ def result_to_effect_caused_by_active_player(
       'room no one visited before then the game master should invent what is '
       'in the room using common sense and knowledge of the game world.',
       max_tokens=1500,
+      terminators=(),
   )
   return causal_statement
 
@@ -428,6 +438,225 @@ class AccountForAgencyOfOthers:
       if self._verbose:
         print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
     return candidate_event
+
+
+class Conversation:
+  """Resolve conversations into events.
+  """
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      players: Sequence[entity_agent.EntityAgent],
+      verbose: bool = False,
+  ):
+    self._model = model
+    self._players = players
+    self._player_names = [player.name for player in players]
+    self._verbose = verbose
+    self._player_by_name = {player.name: player for player in players}
+
+  def __call__(
+      self,
+      chain_of_thought: interactive_document.InteractiveDocument,
+      candidate_event: str,
+      active_player_name: str,
+  ):
+    tmp_chain_of_thought = interactive_document.InteractiveDocument(
+        model=self._model)
+    tmp_chain_of_thought.statement(f'Event: {candidate_event}')
+    conversation_occurred = tmp_chain_of_thought.yes_no_question(
+        'Does the event suggest a conversation?',
+    )
+    if not conversation_occurred:
+      return candidate_event
+
+    participants_str = tmp_chain_of_thought.open_question(
+        question=('Who participated in the conversation? Respond in a '
+                  'comma-separated list e.g. "Jacob,Sasha,Ishita". Use full '
+                  'names if known.'),
+        terminators=('.',),
+    )
+    participant_names = participants_str.split(',')
+    if not participant_names:
+      return candidate_event
+    contributions = {}
+    for participant_name in participant_names:
+      name = participant_name.strip()
+      if name in self._player_names:
+        action_spec = entity_lib.free_action_spec(
+            call_to_action=(
+                f'A conversation is suggested by {candidate_event}. '
+                'In this event, what would {name} say?'),
+            tag='action',
+        )
+        contribution = self._player_by_name[name].act(action_spec)
+      else:
+        contribution = tmp_chain_of_thought.open_question(
+            question=(f'What would {name} say?')
+        )
+      contributions[name] = f'{name}: {contribution}'
+
+    contributions_str = '\n'.join(contributions.values())
+    chain_of_thought.statement(
+        f'Contributions to the conversation:\n{contributions_str}\n'
+    )
+    conversation = chain_of_thought.open_question(
+        question=('Generate a conversation consistent with all the relevant '
+                  'information above, especially the explicit contributions '
+                  'of each participant and their underlying intentions. Only '
+                  'characters with explicit contributions listed above should '
+                  'speak in the conversation. No one else.'),
+        max_tokens=2200,
+        terminators=(),
+        question_label='Exercise',
+    )
+
+    for participant_name in contributions:
+      name = participant_name.strip()
+      if name in self._player_names:
+        self._player_by_name[name].observe(conversation)
+
+    if self._verbose:
+      print(termcolor.colored(
+          (f'Contributions:\n{contributions_str}\n\n'
+           f'Conversation:\n{conversation}'),
+          'yellow'))
+    return conversation
+
+
+def get_action_category_and_player_capability(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    putative_event: str,
+    active_player_name: str,
+):
+  """Determines the category of the attempted action.
+
+  Inspired by the tabletop role-playing game rule book: "Girl by moonlight" by
+  Andrew Gillis. 2023. Evil Hat Productions LLC.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    putative_event: the candidate event
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+    unmodified string describing the putative event.
+  """
+  chain_of_thought.statement(
+      'The following types of voluntary action are possible:\n1. Confess --'
+      ' When a character confesses, they expose the inner world of their'
+      ' thoughts and feelings to another. They might reveal to someone that it'
+      ' was them who left anonymous gifts at their doorstop. They might admit'
+      ' to a friend that they were once affiliated with a rival'
+      ' organization.\n2. Forgive -- When a character forgives, they show that'
+      ' they care for someone despite a mistake they have made. They might'
+      ' offer a chance for reconciliation to a friend that wronged them. They'
+      ' might reach out to a troubled individual with a difficult past, in the'
+      ' hopes that they might find redemption.\n3. Perceive -- When a character'
+      ' perceives, they see the world as it presents itself, without judgement.'
+      ' They might observe someone and note their daily routine. They might see'
+      ' beauty present in even the darkest and most unusual corners of the'
+      ' world.\n4. Express --  When a character expresses, they communicate'
+      ' purposefully to achieve a specific outcome. They might share an'
+      ' important life lesson about friendship with a younger colleague. They'
+      ' might negotiate with a long-standing competitor to form a temporary'
+      ' alliance for mutual benefit.\n5. Defy -- When a character defies, they'
+      ' muster their courage and face opposition head on. They might stand up'
+      ' to a bully. They might confront a dangerous adversary with'
+      ' determination. They might speak truth to power in a tense meeting'
+      ' situation.\n6. Empathize -- When a character empathizes, they'
+      ' understand a person intuitively, and feel their emotions as if they'
+      " were their own. They might listen to someone's story, and gain an"
+      ' understanding of their perspective. They might connect with a person'
+      ' others find frightening, and sense the vulnerability beneath their'
+      ' intimidating exterior.\n7. Conceal -- When a character conceals, they'
+      ' hide their true intentions and feelings. They might pass unnoticed, as'
+      ' just another face in the crowd. They might suppress their true feelings'
+      ' and lie to someone or present a composed façade during a difficult'
+      ' conversation.\n8. Flow -- When a character flows, they move with'
+      ' adaptability and respond intuitively to changing circumstances. They'
+      ' might navigate a physical obstacle with practiced agility. They might'
+      ' seamlessly adjust their behavior to match social expectations in'
+      ' different environments.\n9. Analyze -- When a character analyzes, they'
+      ' search beyond the surface presentation of the world, and discover'
+      ' secrets. They might study an old document for historical information.'
+      " They might discern a weakness in an opponent's strategy.\n"
+  )
+  categories = (
+      'Confess',
+      'Forgive',
+      'Perceive',
+      'Express',
+      'Defy',
+      'Empathize',
+      'Conceal',
+      'Flow',
+      'Analyze',
+  )
+  chain_of_thought.statement(
+      f'The player responsible for {active_player_name} suggests: '
+      f'{putative_event}')
+  category_idx = chain_of_thought.multiple_choice_question(
+      question=(f'What category does {active_player_name}\'s latest voluntary '
+                'action fall into?'),
+      answers=categories,
+  )
+  category = categories[category_idx]
+  _ = chain_of_thought.open_question(
+      question=(
+          f'Is {active_player_name} proficient in actions of type {category} '
+          'and currently able to perform them? Why or why not? Never refer '
+          'directly to action categories, rather provide an appropriate answer '
+          'to the question in terms that make sense within the story itself.'
+      ),
+      max_tokens=1500,
+      terminators=(),
+  )
+  return putative_event
+
+
+def maybe_inject_narrative_push(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    putative_event: str,
+    active_player_name: str,
+):
+  """Maybe inject some new event to push the narrative forward.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    putative_event: putative event to (maybe) add a narrrative push to
+    active_player_name: name of player whose turn it currently is
+
+  Returns:
+  """
+  del active_player_name
+  if not chain_of_thought.yes_no_question(
+      question='Has the story gotten a bit repetitive?'
+  ):
+    return putative_event
+
+  tmp_chain_of_thought = chain_of_thought.copy()
+  plausible_events = tmp_chain_of_thought.open_question(
+      question=('Suggest five plausible events that may now occur to move '
+                'the narrative forward. Put each event on a separate line. '
+                'Do not include titles, headings, or numbers in events. Just '
+                'include the in-narrative description of each of the plausible '
+                'events. '
+                'Eg:\nfirst plausible event\nsecond plausible event\n'
+                'third plausible event\nfourth plausible event\n'
+                'fifth plausible event\n'),
+      max_tokens=1500,
+      terminators=(),
+  )
+  plausible_events = plausible_events.split('\n')
+
+  additional_plausible_event = random.choice(plausible_events)
+  combined_plausible_event = f'{putative_event}\n{additional_plausible_event}'
+
+  chain_of_thought.statement(combined_plausible_event)
+
+  return combined_plausible_event
 
 
 def run_chain_of_thought(
