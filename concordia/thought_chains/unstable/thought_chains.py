@@ -21,7 +21,6 @@ import random
 from concordia.agents.unstable import entity_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing.unstable import agent as agent_types
 from concordia.typing.unstable import entity as entity_lib
 import termcolor
 
@@ -386,7 +385,7 @@ class AccountForAgencyOfOthers:
           call_to_action = ('Is the following possible action something that ' +
                             '{name} would do in this situation?\n' +
                             f'Possible action: {what_did_they_do}\n')
-          action_spec = agent_types.choice_action_spec(
+          action_spec = entity_lib.choice_action_spec(
               call_to_action=call_to_action,
               options=['Yes', 'No'],
               tag='action',
@@ -461,7 +460,7 @@ class Conversation:
       chain_of_thought: interactive_document.InteractiveDocument,
       candidate_event: str,
       active_player_name: str,
-  ):
+  ) -> str:
     tmp_chain_of_thought = interactive_document.InteractiveDocument(
         model=self._model)
     tmp_chain_of_thought.statement(f'Event: {candidate_event}')
@@ -523,6 +522,26 @@ class Conversation:
            f'Conversation:\n{conversation}'),
           'yellow'))
     return conversation
+
+
+class RemoveSpecificText:
+  """Remove specific text from a string.
+  """
+
+  def __init__(
+      self,
+      substring_to_remove: str,
+  ):
+    self._substring_to_remove = substring_to_remove
+
+  def __call__(
+      self,
+      chain_of_thought: interactive_document.InteractiveDocument,
+      candidate_event: str,
+      active_player_name: str,
+  ) -> str:
+    result = candidate_event.replace(self._substring_to_remove, '')
+    return result
 
 
 def get_action_category_and_player_capability(

@@ -14,7 +14,7 @@
 
 """Component that helps a game master decide whose turn is next."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import types
 
 from concordia.components.agent.unstable import action_spec_ignored
@@ -124,3 +124,88 @@ class MakeObservation(entity_component.ContextComponent):
     if entity_name not in self._queue:
       self._queue[entity_name] = []
     self._queue[entity_name].append(event)
+
+
+class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
+  """A component that passes component pre-act values to players.
+  """
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      player_names: Sequence[str],
+      components: Mapping[
+          entity_component.ComponentName, str
+      ] = types.MappingProxyType({}),
+      pre_act_key: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      model: The language model to use for the component.
+      player_names: Names of players.
+      components: The components to condition the answer on. This is a mapping
+        of the component name to a label to use in the prompt.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._model = model
+    self._player_names = player_names
+    self._components = dict(components)
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+    self._map_names_to_previous_observations = {
+        player_name: '' for player_name in player_names
+    }
+
+  def get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_value()
+    )
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    prompt_to_log = ''
+    if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
+      prompt = interactive_document.InteractiveDocument(self._model)
+      prompt.statement(
+          f'Working out the answer to: "{action_spec.call_to_action}"')
+      active_entity_idx = prompt.multiple_choice_question(
+          question=GET_ACTIVE_ENTITY_QUERY,
+          answers=self._player_names)
+      active_entity_name = self._player_names[active_entity_idx]
+      component_states_string = '\n'.join([
+          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
+          for key, prefix in self._components.items()
+      ])
+      prompt.statement(f'{component_states_string}\n')
+      proceed = prompt.yes_no_question(
+          question=(
+              f'Is {active_entity_name} aware of the latest event above?'))
+      if proceed:
+        # Remove their previous observation since they have already seen it.
+        result = component_states_string.replace(
+            self._map_names_to_previous_observations[active_entity_name], '')
+
+      self._map_names_to_previous_observations[active_entity_name] += result
+      prompt_to_log = prompt.view().text()
+
+    self._logging_channel(
+        {'Key': self._pre_act_key,
+         'Value': result,
+         'Prompt': prompt_to_log})
+    return result

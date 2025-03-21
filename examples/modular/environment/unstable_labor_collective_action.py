@@ -43,7 +43,7 @@ from examples.modular.utils import supporting_agent_factory_with_overrides as bo
 from concordia.factory.agent.unstable import basic as basic_agent_factory
 from concordia.factory.environment.unstable import unstable_simulation as simulation_factory
 from concordia.language_model import language_model
-from concordia.typing.unstable import agent as agent_lib
+from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import measurements as measurements_lib
@@ -469,7 +469,7 @@ def configure_scenes(
               ]
               for cfg in player_configs
           },
-          action_spec=agent_lib.choice_action_spec(
+          action_spec=entity_lib.choice_action_spec(
               call_to_action='How will {name} spend the day?',
               options=tuple(DAILY_OPTIONS.values()),
               tag='daily_action',
@@ -487,7 +487,7 @@ def configure_scenes(
               ]
               for cfg in player_configs
           },
-          action_spec=agent_lib.choice_action_spec(
+          action_spec=entity_lib.choice_action_spec(
               call_to_action=time_and_place_params.BOSS_CALL_TO_ACTION,
               options=tuple(time_and_place_params.BOSS_OPTIONS.values()),
               tag='boss_action',

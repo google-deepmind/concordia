@@ -26,13 +26,12 @@ from concordia.factory.agent.unstable import basic
 from concordia.factory.agent.unstable import example
 from concordia.factory.agent.unstable import minimal
 from concordia.language_model import no_language_model
-from concordia.typing.unstable import agent as agent_lib
 from concordia.typing.unstable import entity as entity_lib
 import numpy as np
 
 
 OPTIONS = ('x', 'y')
-DECISION_ACTION_SPEC = agent_lib.choice_action_spec(
+DECISION_ACTION_SPEC = entity_lib.choice_action_spec(
     call_to_action='Does {name} prefer x or y?',
     options=OPTIONS,
     tag='decision',

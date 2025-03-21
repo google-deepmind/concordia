@@ -22,13 +22,14 @@ from typing import Any
 from absl import logging
 from concordia.agents.unstable import entity_agent
 from concordia.associative_memory.unstable import formative_memories
-from concordia.typing.unstable import agent
+from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from concordia.utils import measurements as measurements_lib
 import reactivex as rx
 
 
-class EntityAgentWithLogging(entity_agent.EntityAgent, agent.GenerativeAgent):
+class EntityAgentWithLogging(entity_agent.EntityAgent,
+                             entity_lib.EntityWithLogging):
   """An agent that exposes the latest information of each component."""
 
   def __init__(

@@ -67,7 +67,7 @@ class SynchronousTest(absltest.TestCase):
         MockEntity(name=_ENTITY_NAMES[1]),
     ]
     env.run_loop(
-        game_master=game_master,
+        game_masters=[game_master],
         entities=entities,
         max_steps=2,
     )

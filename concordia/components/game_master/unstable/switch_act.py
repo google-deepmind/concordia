@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from concordia.components.game_master.unstable import event_resolution as event_resolution_components
 from concordia.components.game_master.unstable import make_observation as make_observation_component
 from concordia.components.game_master.unstable import next_acting as next_acting_components
+from concordia.components.game_master.unstable import next_game_master as next_game_master_components
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import logging
@@ -31,6 +32,8 @@ DEFAULT_ACT_COMPONENT_NAME = '__act__'
 DEFAULT_PRE_ACT_KEY = 'Act'
 
 DEFAULT_TERMINATE_COMPONENT_NAME = '__terminate__'
+DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME = (
+    next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME)
 DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = (
     make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME)
 DEFAULT_NEXT_ACTING_COMPONENT_NAME = (
@@ -228,6 +231,26 @@ class SwitchAct(entity_component.ActingComponent):
 
     return result
 
+  def _next_game_master(
+      self,
+      contexts: entity_component.ComponentContextMapping,
+      action_spec: entity_lib.ActionSpec) -> str:
+    context = self._context_for_action(contexts)
+    if DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME in contexts:
+      game_master = str(contexts[DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME])
+      self._log(game_master, context)
+    else:
+      # YOLO case
+      chain_of_thought = interactive_document.InteractiveDocument(self._model)
+      chain_of_thought.statement(context)
+      game_master_idx = chain_of_thought.multiple_choice_question(
+          question=action_spec.call_to_action,
+          answers=action_spec.options)
+      game_master = action_spec.options[game_master_idx]
+      self._log(game_master, chain_of_thought)
+
+    return game_master
+
   @override
   def get_action_attempt(
       self,
@@ -276,6 +299,8 @@ class SwitchAct(entity_component.ActingComponent):
         return '0.0'
     elif action_spec.output_type == entity_lib.OutputType.TERMINATE:
       return self._terminate(contexts, action_spec)
+    elif action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+      return self._next_game_master(contexts, action_spec)
     elif action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
       return self._make_observation(contexts, action_spec)
     elif action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
@@ -288,7 +313,8 @@ class SwitchAct(entity_component.ActingComponent):
       raise NotImplementedError(
           (f'Unsupported output type: {action_spec.output_type}. '
            'Supported output types are: FREE, CHOICE, FLOAT, TERMINATE, '
-           'MAKE_OBSERVATION, NEXT_ACTING, and RESOLVE.')
+           'MAKE_OBSERVATION, NEXT_ACTING, NEXT_ACTION_SPEC, NEXT_GAME_MASTER, '
+           'and RESOLVE.')
       )
 
   def _log(self,

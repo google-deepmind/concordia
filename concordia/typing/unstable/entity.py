@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """The abstract class that defines an Entity interface."""
 
 import abc
@@ -20,6 +19,7 @@ from collections.abc import Sequence
 import dataclasses
 import enum
 import functools
+from typing import Any
 
 
 @enum.unique
@@ -35,6 +35,7 @@ class OutputType(enum.Enum):
   NEXT_ACTION_SPEC = enum.auto()
   RESOLVE = enum.auto()
   TERMINATE = enum.auto()
+  NEXT_GAME_MASTER = enum.auto()
 
 PLAYER_ACTION_TYPES = (
     OutputType.FREE,
@@ -47,6 +48,7 @@ GAME_MASTER_ACTION_TYPES = (
     OutputType.NEXT_ACTION_SPEC,
     OutputType.RESOLVE,
     OutputType.TERMINATE,
+    OutputType.NEXT_GAME_MASTER,
 )
 FREE_ACTION_TYPES = (
     OutputType.FREE,
@@ -58,6 +60,7 @@ CHOICE_ACTION_TYPES = (
     OutputType.CHOICE,
     OutputType.NEXT_ACTING,
     OutputType.TERMINATE,
+    OutputType.NEXT_GAME_MASTER,
 )
 
 BINARY_OPTIONS = {'affirmative': 'Yes', 'negative': 'No'}
@@ -199,3 +202,12 @@ class Entity(metaclass=abc.ABCMeta):
       observation: The observation for the entity to process. Always a string.
     """
     raise NotImplementedError()
+
+
+class EntityWithLogging(Entity):
+  """An agent interface for taking actions."""
+
+  @abc.abstractmethod
+  def get_last_log(self) -> dict[str, Any]:
+    """Returns debugging information in the form of a dictionary."""
+    raise NotImplementedError

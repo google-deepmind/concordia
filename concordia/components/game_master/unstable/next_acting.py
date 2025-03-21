@@ -339,3 +339,43 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
       action_spec_string = engine_lib.action_spec_to_string(action_spec)
 
     return action_spec_string
+
+
+class FixedActionSpec(entity_component.ContextComponent):
+  """A component that always returns the same action spec.
+  """
+
+  def __init__(
+      self,
+      action_spec: entity_lib.ActionSpec,
+      pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      action_spec: The action spec to return whenever pre_act is called with
+        output type NEXT_ACTION_SPEC.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._fixed_entity_action_spec = action_spec
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    entity_action_spec_string = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
+      entity_action_spec_string = engine_lib.action_spec_to_string(
+          self._fixed_entity_action_spec)
+
+    return entity_action_spec_string

@@ -19,6 +19,7 @@ from concordia.components.game_master.unstable import instructions
 from concordia.components.game_master.unstable import inventory
 from concordia.components.game_master.unstable import make_observation
 from concordia.components.game_master.unstable import next_acting
+from concordia.components.game_master.unstable import next_game_master
 from concordia.components.game_master.unstable import switch_act
 from concordia.components.game_master.unstable import triggered_function
 from concordia.components.game_master.unstable import triggered_inventory_effect

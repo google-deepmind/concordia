@@ -131,7 +131,7 @@ def run_scenes(
       game_master.observe(f'{_SCENE_PARTICIPANTS_TAG} {participants_str}')
       # run_loop modifies log in place by appending to it
       scene_simulation.run_loop(
-          game_master=game_master,
+          game_masters=[game_master],
           entities=participants,
           max_steps=scene.num_rounds * len(participants),
           verbose=verbose,

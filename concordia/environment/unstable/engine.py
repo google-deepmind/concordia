@@ -57,9 +57,17 @@ class Engine(metaclass=abc.ABCMeta):
     """Decide if the episode should terminate or continue."""
 
   @abc.abstractmethod
-  def run_loop(
+  def next_game_master(
       self,
       game_master: entity_lib.Entity,
+      game_masters: Sequence[entity_lib.Entity],
+  ) -> entity_lib.Entity:
+    """Return the game master that will be responsible for the next step."""
+
+  @abc.abstractmethod
+  def run_loop(
+      self,
+      game_masters: Sequence[entity_lib.Entity],
       entities: Sequence[entity_lib.Entity],
       premise: str,
       max_steps: int,

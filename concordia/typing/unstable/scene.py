@@ -22,7 +22,7 @@ from typing import Mapping, Union
 from concordia.agents.unstable import entity_agent
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.environment.unstable import engine as engine_lib
-from concordia.typing.unstable import agent as agent_lib
+from concordia.typing.unstable import entity as entity_lib
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,8 +57,8 @@ class ExperimentalSceneTypeSpec:
   conclusion: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
   action_spec: (
       Union[
-          Mapping[str, agent_lib.ActionSpec],
-          agent_lib.ActionSpec,
+          Mapping[str, entity_lib.ActionSpec],
+          entity_lib.ActionSpec,
       ]
       | None
   ) = None
