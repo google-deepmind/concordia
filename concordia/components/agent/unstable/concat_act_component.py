@@ -109,7 +109,7 @@ class ConcatActComponent(entity_component.ActingComponent):
     call_to_action = action_spec.call_to_action.format(
         name=self.get_entity().name
     )
-    if action_spec.output_type == entity_lib.OutputType.FREE:
+    if action_spec.output_type in entity_lib.FREE_ACTION_TYPES:
       output = self.get_entity().name + ' '
       output += prompt.open_question(
           call_to_action,
@@ -120,7 +120,7 @@ class ConcatActComponent(entity_component.ActingComponent):
       )
       self._log(output, prompt)
       return output
-    elif action_spec.output_type == entity_lib.OutputType.CHOICE:
+    elif action_spec.output_type in entity_lib.CHOICE_ACTION_TYPES:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
