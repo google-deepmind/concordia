@@ -72,8 +72,8 @@ MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 LaborStrike = gm_contrib.industrial_action.LaborStrike
 ItemTypeConfig = unstable_gm_components.inventory.ItemTypeConfig
 
-triggered_function = unstable_gm_components.triggered_function
-triggered_inventory_effect = unstable_gm_components.triggered_inventory_effect
+triggered_function = gm_contrib.triggered_function
+triggered_inventory_effect = gm_contrib.triggered_inventory_effect
 _TriggeredFunctionPreEventFnArgsT = triggered_function.PreEventFnArgsT
 _TriggeredInventoryEffectPreEventFnArgsT = (
     triggered_inventory_effect.PreEventFnArgsT
