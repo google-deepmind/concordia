@@ -15,6 +15,7 @@
 """Component that helps a game master decide whose turn is next."""
 
 from collections.abc import Mapping, Sequence
+import random
 import types
 
 from concordia.components.agent.unstable import action_spec_ignored
@@ -110,6 +111,122 @@ class NextActing(entity_component.ContextComponent):
 
   def get_currently_active_player(self) -> str | None:
     return self._currently_active_player
+
+
+class NextActingInFixedOrder(entity_component.ContextComponent):
+  """A component that decides whose turn is next in a fixed sequence.
+  """
+
+  def __init__(
+      self,
+      sequence: Sequence[str],
+      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      sequence: Sequence of player names. The game master will select players
+        to take turns in this order. The sequence will be cycled through.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._sequence = sequence
+
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+    self._currently_active_player_idx = None
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      idx = self._currently_active_player_idx
+      if idx is None:
+        idx = 0
+      idx = (idx + 1) % len(self._sequence)
+      result = self._sequence[idx]
+      self._currently_active_player_idx = idx
+
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    if self._currently_active_player_idx is None:
+      return None
+    return self._sequence[self._currently_active_player_idx]
+
+
+class NextActingInRandomOrder(entity_component.ContextComponent):
+  """A component that decides whose turn is next in a random sequence.
+  """
+
+  def __init__(
+      self,
+      player_names: Sequence[str],
+      replace: bool = False,
+      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      player_names: Sequence of player names. The game master will select
+        players out of this sequence randomly, either with or without
+        replacement.
+      replace: Whether to sample players with or without replacement.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._player_names = player_names
+    self._replace = replace
+
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+    self._currently_available_indices = list(range(len(self._player_names)))
+
+    self._currently_active_player_idx = None
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      # If sampling without replacement then we need to reset the list of
+      # indices after we have sampled all of them so we can start
+      # sampling from the beginning again.
+      if not self._replace and not self._currently_available_indices:
+        self._currently_available_indices = list(range(len(self._player_names)))
+
+      self._currently_active_player_idx = random.choice(
+          self._currently_available_indices)
+      result = self._player_names[self._currently_active_player_idx]
+      if not self._replace:
+        self._currently_available_indices.remove(
+            self._currently_active_player_idx)
+
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    if self._currently_active_player_idx is None:
+      return None
+    return self._player_names[self._currently_active_player_idx]
 
 
 class NextActingFromSceneSpec(entity_component.ContextComponent):
