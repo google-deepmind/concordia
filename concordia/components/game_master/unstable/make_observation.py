@@ -47,6 +47,7 @@ class MakeObservation(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
+      reformat_observations_in_specified_style: str = '',
       pre_act_key: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -56,6 +57,14 @@ class MakeObservation(entity_component.ContextComponent):
       model: The language model to use for the component.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
+      reformat_observations_in_specified_style: If non-empty, the component
+        will ask the model to reformat the observation to fit the style
+        specified in this string. By default, the component does not reformat
+        the observation. When turned on, a reasonable starting style to try in
+        the case that you have information from a time component that you want
+        to include in the observation is:
+        "The format to use when describing the current situation to a player is:
+        "//date or time//situation description"."
       pre_act_key: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
@@ -67,6 +76,9 @@ class MakeObservation(entity_component.ContextComponent):
     super().__init__()
     self._model = model
     self._components = dict(components)
+    self._reformat_observations_in_specified_style = (
+        reformat_observations_in_specified_style
+    )
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
@@ -111,6 +123,26 @@ class MakeObservation(entity_component.ContextComponent):
                       f'{active_entity_name} unless absolutely necessary. Keep '
                       'the story moving forward.'),
             max_tokens=1200)
+
+      if self._reformat_observations_in_specified_style:
+        prompt.statement(
+            'Required observation format: '
+            f'{self._reformat_observations_in_specified_style}')
+        result_without_newlines = result.replace('\n', '').strip()
+        correct_format = prompt.yes_no_question(
+            question=(
+                f'Draft: {active_entity_name} will observe:'
+                f' "{result_without_newlines}"\nIs the draft formatted'
+                ' correctly in the specified format?'
+            )
+        )
+        if not correct_format:
+          result = prompt.open_question(
+              question=(f'Reformat {active_entity_name}\'s draft observation '
+                        'to fit the required format.'),
+              max_tokens=1200,
+              terminators=())
+
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(

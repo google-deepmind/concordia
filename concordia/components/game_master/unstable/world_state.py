@@ -260,3 +260,134 @@ class Locations(entity_component.ContextComponent):
             self._entity_locations[name.strip()] = location.strip()
 
     return ''
+
+
+class GenerativeClock(entity_component.ContextComponent):
+  """A component to represent a generative clock updated via language model."""
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      prompt: str,
+      start_time: str,
+      components: Mapping[
+          entity_component.ComponentName, str
+      ] = types.MappingProxyType({}),
+      format_description_key: str = 'Clock format description',
+      pre_act_key: str = '\nClock',
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    This component is used to represent a clock that is updated by the language
+    model based on the specified components and the latest event. The clock is
+    updated on each step of the simulation, and is used to represent the
+    current time or date.
+
+    Args:
+      model: The language model to use.
+      prompt: description of what the clock represents, how it gets updated,
+        and what it is used for.
+      start_time: The initial time of the clock.
+      components: The components to condition clock updates on. It
+        is a mapping of the component name to a label to use in the prompt.
+      format_description_key: The key to prepend to the descripton of the
+        desired format to use in the prompt for the sample that produces the
+        clock's update on each step.
+      pre_act_key: Prefix to add to the output of the component when called
+        in `pre_act`.
+      logging_channel: The channel to use for debug logging.
+    """
+    self._pre_act_key = pre_act_key
+    self._model = model
+    self._format_description_key = format_description_key
+    self._prompt = prompt
+    self._components = dict(components)
+    self._logging_channel = logging_channel
+
+    chain_of_thought = interactive_document.InteractiveDocument(self._model)
+    chain_of_thought.statement(self._prompt)
+    chain_of_thought.statement(f'Start time: {start_time}')
+    self._clock_description = chain_of_thought.open_question(
+        question=(
+            'Given the context above, when is the clock updated? How are times '
+            'represented internally? (usually as a number of steps). And, how '
+            'do internal time repesentations map to the time representations '
+            'communicated to players?'
+        ),
+        max_tokens=1000,
+        terminators=(),
+    )
+
+    self._num_steps = 0
+    self._time = start_time
+    self._prompt_to_log = ''
+    self._latest_action_spec = None
+
+  def get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_value()
+    )
+
+  def get_pre_act_key(self) -> str:
+    """Returns the key used as a prefix in the string returned by `pre_act`."""
+    return self._pre_act_key
+
+  def get_pre_act_value(self) -> str:
+    """Returns the current world state."""
+    return self._time + '\n'
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    self._latest_action_spec = action_spec
+    result = self.get_pre_act_value()
+    self._logging_channel({
+        'Key': self._pre_act_key,
+        'Value': result,
+        'Prompt': self._prompt_to_log,
+    })
+    return result
+
+  def post_act(
+      self,
+      event: str,
+  ) -> str:
+    if (self._latest_action_spec is not None and
+        self._latest_action_spec.output_type == entity_lib.OutputType.RESOLVE):
+      prompt = interactive_document.InteractiveDocument(self._model)
+
+      component_states = '\n'.join([
+          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
+          for key, prefix in self._components.items()
+      ])
+      prompt.statement(f'\n{component_states}\n')
+
+      prompt.statement(
+          f'{self._format_description_key}:\n{self._clock_description}\n***\n')
+
+      prompt.statement(f'Number of simulation steps so far: {self._num_steps}')
+      prompt.statement(f'Time prior to the latest event: {self._time}')
+
+      self._num_steps += 1
+      prompt.statement(f'The next event: {event}')
+      prompt.statement('After the next event, the number of simulation steps '
+                       f'will be: {self._num_steps}.')
+      self._time = prompt.open_question(
+          question=(
+              'Given the context above, and after the event, what is the new '
+              'time? Never respond with a sentence like "the time is unchanged"'
+              ' or anything to that effect. Also never respond with "unknown". '
+              'Correct responses always follow the '
+              f'{self._format_description_key} above.'
+          ),
+          max_tokens=128,
+      )
+
+      self._prompt_to_log = prompt.view().text()
+
+    return ''

@@ -678,6 +678,84 @@ def maybe_inject_narrative_push(
   return combined_plausible_event
 
 
+def maybe_cut_to_next_scene(
+    chain_of_thought: interactive_document.InteractiveDocument,
+    event: str,
+    unused_active_player_name: str,
+):
+  """Determine if the story demands a cut in time.
+
+  Args:
+    chain_of_thought: the document to condition on and record the thoughts
+    event: the latest event
+    unused_active_player_name: name of player whose turn it currently is
+
+  Returns:
+  """
+  _ = chain_of_thought.open_question(
+      question=('What is the current scene about? What is the narrative '
+                'function of the latest event to occur in the scene?'),
+      max_tokens=1500,
+      terminators=(),
+  )
+  chain_of_thought.statement(
+      'Stories often transition between scenes in order to highlight the '
+      'most crucial or dramatic moments in an overall narrative, and to skip '
+      'uninteresting details. Time gaps between scenes can span any duration.'
+  )
+  cut_to_next_scene = chain_of_thought.yes_no_question(
+      question=(
+          'Considering the current story, does the latest event constitute '
+          'a good place in the overall story for the current scene to end? '
+          'Note that the only valid reasons to end a scene are:\n'
+          '*Resolution of Immediate Conflict: A central conflict or tension '
+          'within the scene might be resolved, even if larger conflicts '
+          'remain.\n'
+          '*Pacing Considerations: If a scene has served its purpose and '
+          'risks becoming drawn out or repetitive, it\'s time to end it '
+          'and move on to advance the story.\n'
+          '*Revelation of Key Information: Once crucial information has been '
+          'revealed, a scene might end to allow the audience (or other '
+          'characters) to process it.\n'
+          '*Catalyst for Future Action: The scene might end just after an '
+          'event that will clearly trigger the events of the next scene.\n'
+          '*Establishment of Setting or Character: If the primary goal of '
+          'the scene was to establish a new location or reveal a significant '
+          'aspect of a character, it can end once that\'s achieved.\n'
+          '*Emphasis of a Theme: The scene might end after a moment that '
+          'strongly reinforces a central theme of the story.\n'
+          '*Natural Break Points: Sometimes the physical environment or the '
+          'flow of events within the narrative suggests a natural place to '
+          'pause. For instance, when all characters go to sleep it\'s a good '
+          'time to end the scene.\n'
+          '**Remember: If none of the above criteria apply, or if a transition '
+          'would feel too abrupt, then continue the current scene '
+          '(respond "No" to the question). **\n')
+  )
+  if cut_to_next_scene:
+    next_scene_and_time_till_it_starts = chain_of_thought.open_question(
+        question=(
+            'What duration should we declare to have passed '
+            'before presenting the next truly compelling scene? What will '
+            'be the underlying premise or driving force of that scene? Be '
+            'creative in your suggestions here. Include just the time duration '
+            'on its own line (just one line) at the end of your answer, and '
+            'include no other text on that line aside from the duration. '
+            'Describe the duration with a phrase such as "a few minutes '
+            'later", "three days later", "next year", "many years later", '
+            'or "in the far future".'
+        ),
+        max_tokens=1200,
+        terminators=(),
+    ).strip()
+    splits = next_scene_and_time_till_it_starts.split('\n')
+    if len(splits) >= 2:
+      duration = splits[-1].strip()
+      event += f'\n\n[CUT TO NEXT SCENE]\n\nSetting: {duration}\n'
+
+  return event
+
+
 def run_chain_of_thought(
     thoughts: Sequence[
         Callable[[interactive_document.InteractiveDocument, str, str], str]

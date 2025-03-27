@@ -149,10 +149,6 @@ def build_simulation(
       )
   )
 
-  event_memorizer = gm_components_lib.event_resolution.EventMemorizer(
-      model=model,
-  )
-
   display_events = gm_components_lib.event_resolution.DisplayEvents(
       model=model,
   )
@@ -166,7 +162,6 @@ def build_simulation(
       _OBSERVATION_COMPONENT_NAME: observation,
       _get_class_name(situation_representation): situation_representation,
       _get_class_name(observation_to_memory): observation_to_memory,
-      _get_class_name(event_memorizer): event_memorizer,
       _get_class_name(display_events): display_events,
       _MEMORY_COMPONENT_NAME: memory_component.ListMemory(
           memory_bank=game_master_memory),
