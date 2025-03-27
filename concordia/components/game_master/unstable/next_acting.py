@@ -388,7 +388,8 @@ class NextActionSpec(entity_component.ContextComponent):
           'options: home, London, Narnia, the third moon of Jupiter')
       result = prompt.open_question(
           question=self._call_to_next_action_spec.format(name=active_player),
-          max_tokens=512)
+          max_tokens=512,
+          terminators=())
 
     return result
 
