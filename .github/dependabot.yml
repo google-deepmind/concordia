@@ -1,14 +1,5 @@
 version: 2
 updates:
-  - package-ecosystem: pip
-    directory: /
-    schedule:
-      interval: monthly
-    groups:
-      pip:
-        patterns:
-          - "*"
-
   - package-ecosystem: github-actions
     directories:
       - "/"
