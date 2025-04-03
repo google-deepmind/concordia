@@ -20,8 +20,8 @@ import types
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
+from concordia.components.game_master.unstable import scene_tracker as scene_tracker_component
 from concordia.document import interactive_document
-from concordia.environment.scenes.unstable import runner as scene_runner
 from concordia.environment.unstable import engine as engine_lib
 from concordia.language_model import language_model
 from concordia.typing import logging
@@ -242,6 +242,9 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
+      scene_tracker_component_name: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      ),
       pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -252,8 +255,9 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
       memory_component_name: The name of the memory component.
-      pre_act_key: Prefix to add to the output of the component when called
-        in `pre_act`.
+      scene_tracker_component_name: The name of the scene tracker component.
+      pre_act_key: Prefix to add to the output of the component when called in
+        `pre_act`.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -263,11 +267,13 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     super().__init__()
     self._model = model
     self._memory_component_name = memory_component_name
+    self._scene_tracker_component_name = scene_tracker_component_name
     self._components = dict(components)
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
     self._currently_active_player = None
+    self._counter = 0
 
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
@@ -278,10 +284,12 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     )
 
   def _get_current_scene_participants(self) -> Sequence[str]:
-    memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+
+    scene_tracker = self.get_entity().get_component(
+        self._scene_tracker_component_name,
+        type_=scene_tracker_component.SceneTracker,
     )
-    return scene_runner.get_current_scene_participants(memory=memory)
+    return scene_tracker.get_participants()
 
   def pre_act(
       self,
@@ -289,18 +297,10 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join([
-          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
-      prompt.statement(f'{component_states}\n')
       scene_participants = self._get_current_scene_participants()
-
-      idx = prompt.multiple_choice_question(
-          question='Whose turn is next?',
-          answers=scene_participants)
+      idx = self._counter % len(scene_participants)
       result = scene_participants[idx]
+      self._counter += 1
 
       self._currently_active_player = result
 
@@ -404,6 +404,9 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_NAME
       ),
+      scene_tracker_component_name: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      ),
       pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
@@ -412,8 +415,9 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
     Args:
       scenes: All scenes to be used in the episode.
       memory_component_name: The name of the memory component.
-      pre_act_key: Prefix to add to the output of the component when called
-        in `pre_act`.
+      scene_tracker_component_name: The name of the scene tracker component.
+      pre_act_key: Prefix to add to the output of the component when called in
+        `pre_act`.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -422,6 +426,7 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
     """
     super().__init__()
     self._memory_component_name = memory_component_name
+    self._scene_tracker_component_name = scene_tracker_component_name
     self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
@@ -439,12 +444,13 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
     )
 
   def _get_current_scene_type(self) -> scene_lib.ExperimentalSceneTypeSpec:
-    memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+
+    scene_tracker = self.get_entity().get_component(
+        self._scene_tracker_component_name,
+        type_=scene_tracker_component.SceneTracker,
     )
-    scene_type_str = scene_runner.get_current_scene_type(memory=memory)
-    scene_type_spec = self._scene_type_specs[scene_type_str]
-    return scene_type_spec
+
+    return scene_tracker.get_current_scene_type()
 
   def pre_act(
       self,
@@ -455,7 +461,6 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
       scene_type_spec = self._get_current_scene_type()
       action_spec = scene_type_spec.action_spec
       action_spec_string = engine_lib.action_spec_to_string(action_spec)
-
     return action_spec_string
 
 

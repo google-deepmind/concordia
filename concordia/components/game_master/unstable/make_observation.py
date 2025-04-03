@@ -158,6 +158,113 @@ class MakeObservation(entity_component.ContextComponent):
     self._queue[entity_name].append(event)
 
 
+class MakeObservationFromQueueOnly(entity_component.ContextComponent):
+  """A component that decides which game master to use next."""
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      reformat_observations_in_specified_style: str = '',
+      pre_act_key: str = DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      model: The language model to use for the component.
+      reformat_observations_in_specified_style: If non-empty, the component will
+        ask the model to reformat the observation to fit the style specified in
+        this string. By default, the component does not reformat the
+        observation. When turned on, a reasonable starting style to try in the
+        case that you have information from a time component that you want to
+        include in the observation is: "The format to use when describing the
+        current situation to a player is: "//date or time//situation
+        description"."
+      pre_act_key: Prefix to add to the output of the component when called in
+        `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._model = model
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+    self._reformat_observations_in_specified_style = (
+        reformat_observations_in_specified_style
+    )
+    self._queue = {}
+
+    self._currently_active_game_master = None
+
+  def get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity()
+        .get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        )
+        .get_pre_act_value()
+    )
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    prompt_to_log = ''
+    if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
+      prompt = interactive_document.InteractiveDocument(self._model)
+      prompt.statement(
+          f'Working out the answer to: "{action_spec.call_to_action}"'
+      )
+      active_entity_name = prompt.open_question(GET_ACTIVE_ENTITY_QUERY).strip()
+
+      if active_entity_name in self._queue and self._queue[active_entity_name]:
+        result = ''
+        for event in self._queue[active_entity_name]:
+          result += event + '\n'
+
+        self._queue[active_entity_name] = []
+      else:
+        result = ''
+
+      if self._reformat_observations_in_specified_style:
+        prompt.statement(
+            'Required observation format: '
+            f'{self._reformat_observations_in_specified_style}'
+        )
+        result_without_newlines = result.replace('\n', '').strip()
+        correct_format = prompt.yes_no_question(
+            question=(
+                f'Draft: {active_entity_name} will observe:'
+                f' "{result_without_newlines}"\nIs the draft formatted'
+                ' correctly in the specified format?'
+            )
+        )
+        if not correct_format:
+          result = prompt.open_question(
+              question=(
+                  f"Reformat {active_entity_name}'s draft observation "
+                  'to fit the required format.'
+              ),
+              max_tokens=1200,
+              terminators=(),
+          )
+
+      prompt_to_log = prompt.view().text()
+
+    self._logging_channel(
+        {'Key': self._pre_act_key, 'Value': result, 'Prompt': prompt_to_log}
+    )
+    return result
+
+  def get_currently_active_game_master(self) -> str | None:
+    return self._currently_active_game_master
+
+
 class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
   """A component that passes component pre-act values to players.
   """

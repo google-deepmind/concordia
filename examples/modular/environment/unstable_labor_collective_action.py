@@ -32,13 +32,12 @@ from concordia.components.agent.unstable import constant
 from concordia.components.game_master import unstable as unstable_gm_components
 from concordia.contrib.components.game_master import unstable as gm_contrib
 from concordia.document import interactive_document
-from concordia.environment.unstable import engine as engine_lib
+from concordia.environment.unstable.engines import synchronous
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory.unstable import basic as basic_agent_supporting
 from examples.modular.environment.supporting_agent_factory.unstable import rational as rational_agent_supporting
 from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
-from examples.modular.utils import logging_types as logging_lib
 from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.factory.agent.unstable import basic as basic_agent_factory
 from concordia.factory.environment.unstable import unstable_simulation as simulation_factory
@@ -46,8 +45,8 @@ from concordia.language_model import language_model
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import concurrency
+from concordia.utils import html as html_lib
 from concordia.utils import measurements as measurements_lib
-import immutabledict
 import numpy as np
 
 
@@ -97,9 +96,7 @@ class Boss(entity_agent.EntityAgent):
             model=model,
         )
     )
-    super().__init__(
-        agent_name=name,
-        act_component=self._act_component)
+    super().__init__(agent_name=name, act_component=self._act_component)
 
     background_constant = constant.Constant(
         state=config.context,
@@ -127,9 +124,7 @@ class LaborOrganizer(entity_agent.EntityAgent):
             model=model,
         )
     )
-    super().__init__(
-        agent_name=name,
-        act_component=self._act_component)
+    super().__init__(agent_name=name, act_component=self._act_component)
 
     background_constant = constant.Constant(
         state=config.context,
@@ -266,8 +261,11 @@ def configure_players(
         ),
         traits=traits_str,
         extras={
-            'player_specific_memories': player_backstory_answers + list(
-                environment_cfg.person_data[player_name]['salient_beliefs']
+            'player_specific_memories': (
+                player_backstory_answers
+                + list(
+                    environment_cfg.person_data[player_name]['salient_beliefs']
+                )
             ),
             'main_character': True,
             'initial_endowment': {
@@ -399,7 +397,6 @@ def configure_players(
 
 
 def configure_scenes(
-    engine: engine_lib.Engine,
     default_game_master: entity_agent_with_logging.EntityAgentWithLogging,
     main_player_configs: Sequence[formative_memories.AgentConfig],
     supporting_player_configs: Sequence[formative_memories.AgentConfig],
@@ -411,7 +408,6 @@ def configure_scenes(
   """Configure the scene storyboard structure.
 
   Args:
-    engine: the engine to use.
     default_game_master: the main game master, which may be overridden in
       specific scenes.
     main_player_configs: configs for the main characters
@@ -429,12 +425,12 @@ def configure_scenes(
   player_configs = main_player_configs_list + list(supporting_player_configs)
 
   def _get_discussion_scene_type(
-      idx: int) -> tuple[str, scene_lib.ExperimentalSceneTypeSpec]:
+      idx: int,
+  ) -> tuple[str, scene_lib.ExperimentalSceneTypeSpec]:
     scene_type_name = f'{DISCUSSION_SCENE_TYPE}_{idx}'
     scene_type_spec = scene_lib.ExperimentalSceneTypeSpec(
         name=scene_type_name,
-        game_master=default_game_master,
-        engine=engine,
+        game_master_name=default_game_master.name,
         premise={
             cfg.name: [
                 time_and_place_params.WORKER_EVENING_INTRO.format(
@@ -459,8 +455,6 @@ def configure_scenes(
   scene_specs = {
       DECISION_SCENE_TYPE: scene_lib.ExperimentalSceneTypeSpec(
           name=DECISION_SCENE_TYPE,
-          game_master=default_game_master,
-          engine=engine,
           premise={
               cfg.name: [
                   time_and_place_params.WORKER_MORNING_INTRO.format(
@@ -477,8 +471,7 @@ def configure_scenes(
       ),
       BOSS_DECISION_SCENE_TYPE: scene_lib.ExperimentalSceneTypeSpec(
           name=BOSS_DECISION_SCENE_TYPE,
-          game_master=default_game_master,
-          engine=engine,
+          game_master_name=default_game_master.name,
           premise={
               cfg.name: [
                   time_and_place_params.BOSS_MORNING_INTRO.format(
@@ -494,9 +487,12 @@ def configure_scenes(
           ),
       ),
   }
-  scene_specs.update({discussion_scene_type: discussion_scene_spec
-                      for discussion_scene_type, discussion_scene_spec
-                      in zip(discussion_scene_types, discussion_scene_specs)})
+  scene_specs.update({
+      discussion_scene_type: discussion_scene_spec
+      for discussion_scene_type, discussion_scene_spec in zip(
+          discussion_scene_types, discussion_scene_specs
+      )
+  })
 
   day = datetime.timedelta(days=1)
   scenes = [
@@ -546,7 +542,8 @@ def configure_scenes(
             # Workers start the day first
             scene_type=scene_specs[DECISION_SCENE_TYPE],
             start_time=(
-                start_time + datetime.timedelta(hours=work_hour) + idx * day),
+                start_time + datetime.timedelta(hours=work_hour) + idx * day
+            ),
             participants=[cfg.name for cfg in main_player_configs],
             num_rounds=1,
         ),
@@ -569,8 +566,10 @@ def configure_scenes(
                 # Dinner in the saloon
                 scene_type=scene_specs[discussion_scene_types[idx]],
                 start_time=(
-                    start_time + datetime.timedelta(
-                        hours=dinner_hour) + idx * day),
+                    start_time
+                    + datetime.timedelta(hours=dinner_hour)
+                    + idx * day
+                ),
                 participants=[cfg.name for cfg in main_player_configs],
                 num_rounds=1,
             )
@@ -705,12 +704,12 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         month=time_and_place_params.MONTH,
         day=time_and_place_params.DAY,
     )
-    scenario_premise = [(
+    scenario_premise = [
         'A group of workers consider their options after Boss '
         f'{sampled_settings.antagonist} cut their pay '
         f'from {time_and_place_params.ORIGINAL_DAILY_PAY} coin to '
         f'{time_and_place_params.LOW_DAILY_PAY} coin.'
-    )]
+    ]
 
     # The setup clock time is arbitrary.
     setup_clock_time = start_time - datetime.timedelta(days=1)
@@ -803,9 +802,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         # probably fine since the labor organizer character is not really the
         # focus of investigation here. The character's purpose is just to nudge
         # the focal players to discuss the labor strike.
-        player = basic_agent_supporting.build_agent(
-            **supporting_player_kwargs
-        )
+        player = basic_agent_supporting.build_agent(**supporting_player_kwargs)
       supporting_players.append(player)
 
       if player_config.name == sampled_settings.antagonist:
@@ -867,7 +864,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       memory = args.memory
       # Determine wage by searching memory for the latest wage setting event.
       wage = _get_wage_from_game_master_memory(
-          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY)
+          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY
+      )
       # Modify inventory based on player choice, scene type, and wage.
       player_inventory = dict(inventories[player_name])
       antagonist_inventory = dict(inventories[antagonist_player.name])
@@ -886,10 +884,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       elif DISCUSSION_SCENE_TYPE in current_scene_type:
         # Apply daily expenses.
         player_inventory['coin'] += time_and_place_params.DAILY_EXPENSES
-        memory.add(
-            (f'{player_name} spent {time_and_place_params.DAILY_EXPENSES} coin '
-             'on daily expenses.')
-        )
+        memory.add((
+            f'{player_name} spent {time_and_place_params.DAILY_EXPENSES} coin '
+            'on daily expenses.'
+        ))
         if player_inventory['coin'] <= 0:
           memory.add(
               f'{player_name} has run out of money and cannot afford daily '
@@ -916,23 +914,30 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       current_scene_type = args.current_scene_type
       memory = args.memory
       wage = _get_wage_from_game_master_memory(
-          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY)
+          memory, initial_wage=time_and_place_params.LOW_DAILY_PAY
+      )
       log = f'old wage: {wage}'
       if current_scene_type == BOSS_DECISION_SCENE_TYPE:
         if player_name == sampled_settings.antagonist:
           # The antagonist is the boss and has the power to set wages.
-          if player_choice == time_and_place_params.BOSS_OPTIONS[
-              'cave to pressure']:
+          if (
+              player_choice
+              == time_and_place_params.BOSS_OPTIONS['cave to pressure']
+          ):
             # The boss caves to pressure and raises wages.
             wage = wage * time_and_place_params.WAGE_INCREASE_FACTOR
-            result_str = (f'Boss {sampled_settings.antagonist} caves '
-                          f'to pressure and raises wages to {wage} '
-                          'coin per day!')
+            result_str = (
+                f'Boss {sampled_settings.antagonist} caves '
+                f'to pressure and raises wages to {wage} '
+                'coin per day!'
+            )
           else:
             # The boss holds firm and leaves wages unchanged.
-            result_str = (f'Boss {sampled_settings.antagonist} holds '
-                          f'firm and leaves wages unchanged at {wage} coin '
-                          'per day.')
+            result_str = (
+                f'Boss {sampled_settings.antagonist} holds '
+                f'firm and leaves wages unchanged at {wage} coin '
+                'per day.'
+            )
 
           memory.add(result_str)
           memory.add(f'[set wage] {wage}')
@@ -951,7 +956,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         cooperative_option=DAILY_OPTIONS['cooperation'],
         resolution_scene=DECISION_SCENE_TYPE,
         production_function=(
-            lambda num_cooperators: num_cooperators / num_workers),
+            lambda num_cooperators: num_cooperators / num_workers
+        ),
         all_player_names=[player.name for player in self._main_players],
         acting_player_names=[cfg.name for cfg in main_player_configs],
         players_to_inform=[antagonist_config.name],
@@ -987,8 +993,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         boss,
         labor_organizer,
     ]
+    self._environment = synchronous.Synchronous()
 
-    self._primary_environment, self._game_master_memory, self._game_master = (
+    self._game_master_memory, self._game_master = (
         simulation_factory.build_simulation(
             model=self._model,
             embedder=self._embedder,
@@ -997,11 +1004,9 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             shared_memories=shared_memories,
             nonplayer_entities=nonplayer_entities,
             additional_context_components=additional_gm_components,
-            use_scenes=True,
         )
     )
     self._scenes = configure_scenes(
-        engine=self._primary_environment,
         default_game_master=self._game_master,
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
@@ -1067,48 +1072,28 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
   def get_all_player_memories(self):
     return self._all_memories
 
-  def __call__(self) -> tuple[logging_lib.SimulationOutcome, str]:
+  def __call__(self) -> tuple[str, Any]:
     """Run the simulation.
 
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
-    html_results_log = simulation_factory.run_simulation(
-        model=self._model,
-        players=self._all_players,
-        clock=self._clock,
-        scenes=self._scenes,
+    raw_log = []
+    self._environment.run_loop(
+        game_masters=[self._game_master, self._decision_game_master],
+        entities=self._all_players,
+        premise='A group of friends are considering which pub to go to.',
+        max_steps=4,
         verbose=True,
+        log=raw_log,
     )
-
-    player_scores = self._score.get_scores()
-    simulation_outcome = logging_lib.SimulationOutcome(
-        resident_scores=immutabledict.immutabledict(
-            {name: player_scores[name] for name in self._resident_names}
-        ),
-        visitor_scores=immutabledict.immutabledict(
-            {name: player_scores[name] for name in self._visitor_names}
-        ),
-        metadata=immutabledict.immutabledict({
-            'wallclock_time': datetime.datetime.now().strftime(
-                '%Y-%m-%d %H:%M:%S'
-            ),
-            'environment': __file__,
-            'time_and_place_module': self._time_and_place_module,
-        }),
+    results_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
+    tabbed_html = html_lib.combine_html_pages(
+        [results_log],
+        ['GM'],
+        summary='',
+        title='Simulation Log',
     )
-    print('Overall scores per player:')
-    if self._resident_visitor_mode:
-      idx = 0
-      for player_name, score in player_scores.items():
-        if idx == 0:
-          print('Visitor')
-        else:
-          print('Resident')
-        print(f'  {player_name}: {score}')
-        idx += 1
-    else:
-      for player_name, score in player_scores.items():
-        print(f'{player_name}: {score}')
+    html_results_log = html_lib.finalise_html(tabbed_html)
 
-    return simulation_outcome, html_results_log
+    return html_results_log, raw_log

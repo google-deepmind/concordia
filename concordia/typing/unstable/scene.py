@@ -20,8 +20,6 @@ import datetime
 from typing import Mapping, Union
 
 from concordia.agents.unstable import entity_agent
-from concordia.agents.unstable import entity_agent_with_logging
-from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import entity as entity_lib
 
 
@@ -32,6 +30,7 @@ class ExperimentalSceneTypeSpec:
   Attributes:
     name: name of this type of scene.
     game_master: specify a game master to use for this type of scene.
+    game_master_name: specify a game master to use for this type of scene.
     engine: specify a engine to use for this type of scene.
     premise: map player names to messages they receive before the scene.
       Messages may be either literal strings or functions that return strings.
@@ -51,8 +50,7 @@ class ExperimentalSceneTypeSpec:
   """
 
   name: str
-  game_master: entity_agent_with_logging.EntityAgentWithLogging
-  engine: engine_lib.Engine
+  game_master_name: str | None = None
   premise: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
   conclusion: Mapping[str, Sequence[str | Callable[[str], str]]] | None = None
   action_spec: (

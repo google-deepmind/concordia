@@ -26,8 +26,6 @@ from concordia.components.agent import unstable as agent_components
 from concordia.environment.unstable.engines import synchronous
 from concordia.factory.environment.unstable import unstable_simulation
 from concordia.language_model import no_language_model
-from concordia.typing.unstable import entity as entity_lib
-from concordia.typing.unstable import scene as scene_lib
 import numpy as np
 
 
@@ -65,62 +63,28 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
     )
 
     players = [player_a]
+    environment = synchronous.Synchronous()
 
-    env, mem, game_master = simulation_factory.build_simulation(
+    mem, game_master = simulation_factory.build_simulation(
         model=model,
         embedder=_embedder,
         clock=clock,
         players=players,
         shared_memories=[],
     )
-    self.assertIsInstance(env, synchronous.Synchronous)
     self.assertIsInstance(mem, associative_memory.AssociativeMemoryBank)
     self.assertIsInstance(game_master,
                           entity_agent_with_logging.EntityAgentWithLogging)
 
-    free_scenes = [
-        scene_lib.ExperimentalSceneSpec(
-            scene_type=scene_lib.ExperimentalSceneTypeSpec(
-                name='day',
-                game_master=game_master,
-                engine=env),
-            start_time=setup_time,
-            participants=['Rakshit'],
-            num_rounds=1,
-        ),
-    ]
-
-    free_results_log = simulation_factory.run_simulation(
-        model=model,
-        players=players,
-        clock=clock,
-        scenes=free_scenes,
+    environment.run_loop(
+        game_masters=[game_master],
+        entities=players,
     )
-    self.assertIsInstance(free_results_log, str)
 
-    choice_scenes = [
-        scene_lib.ExperimentalSceneSpec(
-            scene_type=scene_lib.ExperimentalSceneTypeSpec(
-                name='night',
-                game_master=game_master,
-                engine=env,
-                action_spec=entity_lib.choice_action_spec(
-                    call_to_action='Pick x or y',
-                    options=['x', 'y']),
-            ),
-            start_time=setup_time,
-            participants=['Rakshit'],
-            num_rounds=1,
-        ),
-    ]
-
-    choice_results_log = simulation_factory.run_simulation(
-        model=model,
-        players=players,
-        clock=clock,
-        scenes=choice_scenes,
+    environment.run_loop(
+        game_masters=[game_master],
+        entities=players,
     )
-    self.assertIsInstance(choice_results_log, str)
 
 if __name__ == '__main__':
   absltest.main()

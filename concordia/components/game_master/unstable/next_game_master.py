@@ -18,6 +18,7 @@ from collections.abc import Mapping
 import types
 
 from concordia.components.agent.unstable import action_spec_ignored
+from concordia.components.game_master.unstable import scene_tracker as scene_tracker_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import logging
@@ -104,6 +105,75 @@ class NextGameMaster(entity_component.ContextComponent):
       self._currently_active_game_master = self._game_master_names[idx]
       result = self._currently_active_game_master
       prompt_to_log = prompt.view().text()
+
+    self._logging_channel({
+        'Key': self._pre_act_key,
+        'Value': result,
+        'Prompt': prompt_to_log,
+    })
+    return result
+
+  def get_currently_active_game_master(self) -> str | None:
+    return self._currently_active_game_master
+
+
+class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
+  """A component that decides which game master to use next."""
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      scene_tracker_component_name: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      ),
+      pre_act_key: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
+      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
+  ):
+    """Initializes the component.
+
+    Args:
+      model: The language model to use for the component.
+      scene_tracker_component_name: The name of the SceneTracker component to
+        use to get the current scene type.
+      pre_act_key: Prefix to add to the output of the component when called in
+        `pre_act`.
+      logging_channel: The channel to use for debug logging.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._model = model
+    self._scene_tracker_component_name = scene_tracker_component_name
+    self._pre_act_key = pre_act_key
+    self._logging_channel = logging_channel
+
+    self._currently_active_game_master = None
+
+  def _get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity()
+        .get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        )
+        .get_pre_act_value()
+    )
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    prompt_to_log = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+      scene_tracker = self.get_entity().get_component(
+          self._scene_tracker_component_name,
+          type_=scene_tracker_component.SceneTracker,
+      )
+      scene_type = scene_tracker.get_current_scene_type()
+      result = scene_type.game_master_name
 
     self._logging_channel({
         'Key': self._pre_act_key,
