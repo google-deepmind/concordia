@@ -27,12 +27,16 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-SELF_PERCEPTION_QUESTION = 'What kind of person is {agent_name}?'
+SELF_PERCEPTION_QUESTION = (
+    'What kind of person is {agent_name}? Respond using 1-5 sentences.')
+
 SITUATION_PERCEPTION_QUESTION = (
-    'What kind of situation is {agent_name} in right now?'
+    'What kind of situation is {agent_name} in right now? Respond using 1-5 '
+    'sentences.'
 )
 PERSON_BY_SITUATION_QUESTION = (
-    'What would a person like {agent_name} do in a situation like this?'
+    'What would a person like {agent_name} do in a situation like this? '
+    'Respond using 1-5 sentences.'
 )
 AVAILABLE_OPTIONS_QUESTION = (
     'What actions are available to {agent_name} right now?'

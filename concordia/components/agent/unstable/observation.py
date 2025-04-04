@@ -20,7 +20,7 @@ from concordia.components.agent.unstable import memory as memory_component
 from concordia.typing import logging
 
 DEFAULT_OBSERVATION_COMPONENT_NAME = '__observation__'
-DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observation'
+DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observations (ordered from oldest to latest)'
 
 OBSERVATION_TAG = '[observation]'
 

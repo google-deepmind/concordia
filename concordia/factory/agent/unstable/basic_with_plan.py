@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""An Agent Factory."""
+"""A factory implementing the three key questions agent as an entity."""
 
 from collections.abc import Callable
 import json
@@ -20,12 +20,16 @@ import json
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
-from concordia.clocks import game_clock
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
 from concordia.utils import measurements as measurements_lib
 import numpy as np
+
+
+DEFAULT_INSTRUCTIONS_COMPONENT_NAME = 'Instructions'
+DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nInstructions'
+DEFAULT_GOAL_COMPONENT_NAME = 'Goal'
 
 
 def _get_class_name(object_: object) -> str:
@@ -37,7 +41,7 @@ def build_agent(
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: basic_associative_memory.AssociativeMemoryBank,
-    clock: game_clock.MultiIntervalClock | None = None,
+    force_time_horizon: str | bool = False,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
@@ -45,76 +49,144 @@ def build_agent(
     config: The agent config to use.
     model: The language model to use.
     memory: The agent's memory object.
-    clock: The clock to use.
+    force_time_horizon: If not False, then use this time horizon to plan for
+      instead of asking the LLM to determine the time horizon.
 
   Returns:
     An agent.
   """
-
   agent_name = config.name
 
   measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
       agent_name=agent_name,
+      pre_act_key=DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
-  if clock:
-    time_display = agent_components.report_function.ReportFunction(
-        function=clock.current_time_interval_str,
-        pre_act_key='\nCurrent time',
-        logging_channel=measurements.get_channel('TimeDisplay').on_next,
-    )
-  else:
-    time_display = None
-
   observation_to_memory = agent_components.observation.ObservationToMemory(
-      logging_channel=measurements.get_channel('Observation').on_next,
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate'
+      ).on_next,
   )
 
   observation_label = '\nObservation'
   observation = agent_components.observation.LastNObservations(
       history_length=100,
       pre_act_key=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
+      logging_channel=measurements.get_channel(
+          'ObservationsSinceLastUpdate'
+      ).on_next,
+  )
+
+  situation_representation_label = (
+      f'\nQuestion: What situation is {agent_name} in right now?\nAnswer')
+  situation_representation = (
+      agent_components.question_of_recent_memories.SituationPerception(
+          model=model,
+          pre_act_key=situation_representation_label,
+          logging_channel=measurements.get_channel(
+              'SituationPerception'
+          ).on_next,
+      )
+  )
+  self_perception_label = (
+      f'\nQuestion: What kind of person is {agent_name}?\nAnswer')
+  self_perception = (
+      agent_components.question_of_recent_memories.SelfPerception(
+          model=model,
+          pre_act_key=self_perception_label,
+          logging_channel=measurements.get_channel('SelfPerception').on_next,
+      )
+  )
+
+  person_by_situation_label = (
+      f'\nQuestion: What would a person like {agent_name} do in '
+      'a situation like this?\nAnswer')
+  person_by_situation = (
+      agent_components.question_of_recent_memories.PersonBySituation(
+          model=model,
+          components={
+              _get_class_name(self_perception): self_perception_label,
+              _get_class_name(situation_representation): (
+                  situation_representation_label
+              ),
+          },
+          pre_act_key=person_by_situation_label,
+          logging_channel=measurements.get_channel('PersonBySituation').on_next,
+      )
+  )
+  relevant_memories_label = '\nRecalled memories and observations'
+  relevant_memories = (
+      agent_components.all_similar_memories.AllSimilarMemories(
+          model=model,
+          components={
+              _get_class_name(situation_representation): (
+                  situation_representation_label
+              )
+          },
+          num_memories_to_retrieve=10,
+          pre_act_key=relevant_memories_label,
+          logging_channel=measurements.get_channel(
+              'AllSimilarMemories'
+          ).on_next,
+      )
   )
 
   if config.goal:
-    goal_label = '\nOverarching goal'
+    goal_label = '\nGoal'
+    goal_component_name = DEFAULT_GOAL_COMPONENT_NAME
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
         pre_act_key=goal_label,
-        logging_channel=measurements.get_channel(goal_label).on_next,
-    )
+        logging_channel=measurements.get_channel(goal_label).on_next)
   else:
-    goal_label = None
+    goal_component_name = None
     overarching_goal = None
+
+  plan_label = '\nPlan'
+  plan = agent_components.plan.Plan(
+      model=model,
+      components={
+          _get_class_name(self_perception): self_perception_label,
+          _get_class_name(situation_representation): (
+              situation_representation_label
+          )
+      },
+      goal_component_name=goal_component_name,
+      num_memories_to_retrieve=10,
+      force_time_horizon=force_time_horizon,
+      pre_act_key=plan_label,
+      logging_channel=measurements.get_channel('Plan').on_next,
+  )
 
   entity_components = (
       # Components that provide pre_act context.
-      instructions,
+      relevant_memories,
+      self_perception,
+      situation_representation,
       observation_to_memory,
+      person_by_situation,
+      plan,
   )
-  components_of_agent = {
-      _get_class_name(component): component for component in entity_components
-  }
+  components_of_agent = {_get_class_name(component): component
+                         for component in entity_components}
   components_of_agent[
       agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME
-  ] = agent_components.memory.ListMemory(memory_bank=memory)
+  ] = agent_components.memory.AssociativeMemory(memory_bank=memory)
   components_of_agent[
       agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
   ] = observation
 
   component_order = list(components_of_agent.keys())
-  if overarching_goal is not None:
-    components_of_agent[goal_label] = overarching_goal
-    # Place goal after the instructions.
-    component_order.insert(1, goal_label)
 
-  if time_display is not None:
-    components_of_agent[time_display.get_pre_act_key()] = time_display
-    # Place time display after the instructions.
-    component_order.insert(1, time_display.get_pre_act_key())
+  # Put the instructions first.
+  components_of_agent[DEFAULT_INSTRUCTIONS_COMPONENT_NAME] = instructions
+  component_order.insert(0, DEFAULT_INSTRUCTIONS_COMPONENT_NAME)
+  if overarching_goal is not None:
+    components_of_agent[DEFAULT_GOAL_COMPONENT_NAME] = overarching_goal
+    # Place goal after the instructions.
+    component_order.insert(1, DEFAULT_GOAL_COMPONENT_NAME)
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
@@ -175,7 +247,6 @@ def rebuild_from_json(
     json_data: str,
     model: language_model.LanguageModel,
     embedder: Callable[[str], np.ndarray],
-    clock: game_clock.MultiIntervalClock | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Rebuilds an agent from JSON data."""
 
@@ -195,7 +266,6 @@ def rebuild_from_json(
       config=agent_config,
       model=model,
       memory=new_agent_memory,
-      clock=clock,
   )
 
   for component_name in agent.get_all_context_components():

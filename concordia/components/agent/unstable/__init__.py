@@ -21,5 +21,6 @@ from concordia.components.agent.unstable import constant
 from concordia.components.agent.unstable import instructions
 from concordia.components.agent.unstable import memory
 from concordia.components.agent.unstable import observation
+from concordia.components.agent.unstable import plan
 from concordia.components.agent.unstable import question_of_recent_memories
 from concordia.components.agent.unstable import report_function
