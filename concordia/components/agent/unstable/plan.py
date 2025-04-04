@@ -18,7 +18,6 @@ from collections.abc import Mapping
 import types
 
 from concordia.components.agent.unstable import action_spec_ignored
-from concordia.components.agent.unstable import observation as observation_component_module
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import logging
@@ -33,13 +32,10 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      observation_component_name: str = (
-          observation_component_module.DEFAULT_OBSERVATION_COMPONENT_NAME),
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       goal_component_name: str | None = None,
-      clock_component_name: str | None = None,
       force_time_horizon: str | bool = False,
       pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -48,14 +44,10 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: a language model
-      observation_component_name: The name of the observation component from
-        which to retrieve observations.
       components: components to build the context of planning. This is a mapping
         of the component name to a label to use in the prompt.
       goal_component_name: index into `components` to use to represent the goal
         of planning
-      clock_component_name: index into `components` to use to represent the
-        current time
       force_time_horizon: If not False, then use this time horizon to plan for
         instead of asking the LLM to determine the time horizon.
       pre_act_key: Prefix to add to the output of the component when called
@@ -64,10 +56,8 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     """
     super().__init__(pre_act_key)
     self._model = model
-    self._observation_component_name = observation_component_name
     self._components = dict(components)
     self._goal_component_name = goal_component_name
-    self._clock_component_name = clock_component_name
     self._force_time_horizon = force_time_horizon
 
     self._current_plan = ''
@@ -76,10 +66,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
-    observation_component = self.get_entity().get_component(
-        self._observation_component_name,
-        type_=action_spec_ignored.ActionSpecIgnored)
-    latest_observations = observation_component.get_pre_act_value()
 
     if self._goal_component_name:
       goal_component = self.get_entity().get_component(
@@ -98,8 +84,8 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     if goal_component is not None:
       prompt.statement(
           f'Current goal: {goal_component.get_pre_act_value()}.')
+
     prompt.statement(f'Current plan: {self._current_plan}')
-    prompt.statement(f'Current situation: {latest_observations}')
 
     prompt.statement('Some kinds of goals can be achieved without planning. '
                      'These goals might be those that have a more "intuitive" '
