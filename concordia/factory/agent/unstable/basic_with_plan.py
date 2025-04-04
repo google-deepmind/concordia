@@ -20,6 +20,7 @@ import json
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
+from concordia.clocks import game_clock
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
@@ -41,6 +42,7 @@ def build_agent(
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
     memory: basic_associative_memory.AssociativeMemoryBank,
+    clock: game_clock.MultiIntervalClock | None = None,
     force_time_horizon: str | bool = False,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
@@ -49,12 +51,14 @@ def build_agent(
     config: The agent config to use.
     model: The language model to use.
     memory: The agent's memory object.
+    clock: DEPRECATED. The clock argument is ignored by this factory.
     force_time_horizon: If not False, then use this time horizon to plan for
       instead of asking the LLM to determine the time horizon.
 
   Returns:
     An agent.
   """
+  del clock
   agent_name = config.name
 
   measurements = measurements_lib.Measurements()
@@ -151,10 +155,11 @@ def build_agent(
           _get_class_name(self_perception): self_perception_label,
           _get_class_name(situation_representation): (
               situation_representation_label
-          )
+          ),
+          agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME: (
+              observation_label),
       },
       goal_component_name=goal_component_name,
-      num_memories_to_retrieve=10,
       force_time_horizon=force_time_horizon,
       pre_act_key=plan_label,
       logging_channel=measurements.get_channel('Plan').on_next,

@@ -23,6 +23,8 @@ from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.factory.agent.unstable import basic
+from concordia.factory.agent.unstable import basic_with_plan
+from concordia.factory.agent.unstable import configurable
 from concordia.factory.agent.unstable import example
 from concordia.factory.agent.unstable import minimal
 from concordia.language_model import no_language_model
@@ -41,6 +43,8 @@ AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic': basic,
+    'basic_with_plan': basic_with_plan,
+    'configurable': configurable,
     'example': example,
     'minimal': minimal,
 }
@@ -56,6 +60,16 @@ class AgentFactoriesTest(parameterized.TestCase):
   @parameterized.named_parameters(
       dict(
           testcase_name='basic', agent_name='basic', main_role=True
+      ),
+      dict(
+          testcase_name='basic_with_plan',
+          agent_name='basic_with_plan',
+          main_role=True,
+      ),
+      dict(
+          testcase_name='configurable',
+          agent_name='configurable',
+          main_role=True,
       ),
       dict(testcase_name='example', agent_name='example', main_role=True),
       dict(testcase_name='minimal', agent_name='minimal', main_role=True),
