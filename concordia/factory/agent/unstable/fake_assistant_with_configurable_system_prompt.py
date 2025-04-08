@@ -61,13 +61,13 @@ def build_agent(
   measurements = measurements_lib.Measurements()
   instructions = agent_components.constant.Constant(
       state=system_prompt,
-      pre_act_key='System',
+      pre_act_label='System',
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
   prevent_repetition = agent_components.constant.Constant(
       state=PREVENT_REPETITION_PROMPT,
-      pre_act_key='Important note',
+      pre_act_label='Important note',
       logging_channel=measurements.get_channel('PreventRepetition').on_next,
   )
 
@@ -79,7 +79,7 @@ def build_agent(
       agent_components.observation.DEFAULT_OBSERVATION_PRE_ACT_KEY)
   observation = agent_components.observation.LastNObservations(
       history_length=100,
-      pre_act_key=observation_label,
+      pre_act_label=observation_label,
       logging_channel=measurements.get_channel('Observation').on_next,
   )
 
@@ -87,10 +87,10 @@ def build_agent(
       'Instructions': instructions,
       'PreventRepetition': prevent_repetition,
       'ObservationToMemory': observation_to_memory,
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME: (
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (
           observation
       ),
-      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
           agent_components.memory.ListMemory(memory_bank=memory)
       ),
   }

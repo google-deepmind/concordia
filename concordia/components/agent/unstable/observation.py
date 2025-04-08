@@ -19,8 +19,9 @@ from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.typing import logging
 
-DEFAULT_OBSERVATION_COMPONENT_NAME = '__observation__'
-DEFAULT_OBSERVATION_PRE_ACT_KEY = 'Observations (ordered from oldest to latest)'
+DEFAULT_OBSERVATION_COMPONENT_KEY = '__observation__'
+DEFAULT_OBSERVATION_PRE_ACT_LABEL = (
+    'Observations (ordered from oldest to latest)')
 
 OBSERVATION_TAG = '[observation]'
 
@@ -30,20 +31,20 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
 
   def __init__(
       self,
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
     Args:
-      memory_component_name: Name of the memory component to add observations to
+      memory_component_key: Name of the memory component to add observations to
         in `pre_observe` and to retrieve observations from in `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
     super().__init__('')
-    self._memory_component_name = memory_component_name
+    self._memory_component_key = memory_component_key
     self._logging_channel = logging_channel
 
   def pre_observe(
@@ -51,7 +52,7 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
       observation: str,
   ) -> str:
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
     memory.add(f'{OBSERVATION_TAG} {observation}')
     return ''
@@ -66,10 +67,10 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       history_length: int,
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_OBSERVATION_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_OBSERVATION_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
@@ -77,21 +78,21 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
     Args:
       history_length: The maximum number of observations to retrieve in
         `pre_act`.
-      memory_component_name: Name of the memory component to add observations to
+      memory_component_key: Name of the memory component to add observations to
         in `pre_observe` and to retrieve observations from in `pre_act`.
-      pre_act_key: Prefix to add to the output of the component when called in
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    super().__init__(pre_act_key)
-    self._memory_component_name = memory_component_name
+    super().__init__(pre_act_label)
+    self._memory_component_key = memory_component_key
     self._history_length = history_length
     self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
 
     mems = memory.retrieve_recent(limit=self._history_length)
@@ -99,7 +100,7 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
     mems = [mem for mem in mems if OBSERVATION_TAG in mem]
     result = '\n'.join(mems) + '\n'
     self._logging_channel(
-        {'Key': self.get_pre_act_key(), 'Value': result.splitlines()}
+        {'Key': self.get_pre_act_label(), 'Value': result.splitlines()}
     )
 
     return result
@@ -110,23 +111,23 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
 
   def __init__(
       self,
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_OBSERVATION_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_OBSERVATION_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
     Args:
-      memory_component_name: Name of the memory component to add observations to
+      memory_component_key: Name of the memory component to add observations to
         in `pre_observe` and to retrieve observations from in `pre_act`.
-      pre_act_key: Prefix to add to the output of the component when called in
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    super().__init__(pre_act_key)
-    self._memory_component_name = memory_component_name
+    super().__init__(pre_act_label)
+    self._memory_component_key = memory_component_key
     self._logging_channel = logging_channel
 
     self._num_since_last_pre_act = 0
@@ -141,7 +142,7 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
 
     result = ''
@@ -153,7 +154,7 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
       self._num_since_last_pre_act = 0
 
     self._logging_channel(
-        {'Key': self.get_pre_act_key(), 'Value': result.splitlines()}
+        {'Key': self.get_pre_act_label(), 'Value': result.splitlines()}
     )
 
     return result

@@ -37,7 +37,7 @@ DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
 DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
     'Which rule set should we use for the next step?')
 
-DEFAULT_ACT_COMPONENT_NAME = switch_act_component.DEFAULT_ACT_COMPONENT_NAME
+DEFAULT_ACT_COMPONENT_KEY = switch_act_component.DEFAULT_ACT_COMPONENT_KEY
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG

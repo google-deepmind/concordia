@@ -60,13 +60,13 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      pre_act_key: str,
+      pre_act_label: str,
       question: str,
       answer_prefix: str,
       add_to_memory: bool,
       memory_tag: str = '',
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       components: Mapping[
           entity_component.ComponentName, str
@@ -80,13 +80,13 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The language model to use.
-      pre_act_key: Prefix to add to the value of the component when called in
+      pre_act_label: Prefix to add to the value of the component when called in
         `pre_act`.
       question: The question to ask.
       answer_prefix: The prefix to add to the answer.
       add_to_memory: Whether to add the answer to the memory.
       memory_tag: The tag to use when adding the answer to the memory.
-      memory_component_name: The name of the memory component from which to
+      memory_component_key: The name of the memory component from which to
         retrieve recent memories.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
@@ -96,9 +96,9 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: The number of recent memories to retrieve.
       logging_channel: channel to use for debug logging.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._model = model
-    self._memory_component_name = memory_component_name
+    self._memory_component_key = memory_component_key
     self._components = dict(components)
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
@@ -114,7 +114,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
     agent_name = self.get_entity().name
 
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
     mems = '\n'.join([
         mem
@@ -146,7 +146,7 @@ class QuestionOfRecentMemories(action_spec_ignored.ActionSpecIgnored):
       memory.add(f'{self._memory_tag} {result}')
 
     log = {
-        'Key': self.get_pre_act_key(),
+        'Key': self.get_pre_act_label(),
         'Summary': question,
         'State': result,
         'Chain of thought': prompt.view().text().splitlines(),
@@ -178,8 +178,8 @@ class QuestionOfRecentMemoriesWithoutPreAct(
   def get_pre_act_value(self) -> str:
     return self._component.get_pre_act_value()
 
-  def get_pre_act_key(self) -> str:
-    return self._component.get_pre_act_key()
+  def get_pre_act_label(self) -> str:
+    return self._component.get_pre_act_label()
 
   def pre_act(
       self,
@@ -199,9 +199,9 @@ class SelfPerception(QuestionOfRecentMemories):
       self,
       **kwargs,
   ):
-    default_pre_act_key = f'\n{SELF_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{SELF_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=SELF_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is ',
@@ -218,9 +218,9 @@ class SelfPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
       self,
       **kwargs,
   ):
-    default_pre_act_key = f'\n{SELF_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{SELF_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=SELF_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is ',
@@ -237,9 +237,9 @@ class SituationPerception(QuestionOfRecentMemories):
       self,
       **kwargs,
   ):
-    default_pre_act_key = f'\n{SITUATION_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{SITUATION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=SITUATION_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is currently ',
@@ -255,9 +255,9 @@ class SituationPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
       self,
       **kwargs,
   ):
-    default_pre_act_key = f'\n{SITUATION_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{SITUATION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=SITUATION_PERCEPTION_QUESTION,
         answer_prefix='{agent_name} is currently ',
@@ -270,9 +270,9 @@ class PersonBySituation(QuestionOfRecentMemories):
   """What would a person like the agent do in a situation like this?"""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{PERSON_BY_SITUATION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{PERSON_BY_SITUATION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=PERSON_BY_SITUATION_QUESTION,
         answer_prefix='{agent_name} would ',
@@ -286,9 +286,9 @@ class PersonBySituationWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
   """What would a person like the agent do in a situation like this?"""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{PERSON_BY_SITUATION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{PERSON_BY_SITUATION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=PERSON_BY_SITUATION_QUESTION,
         answer_prefix='{agent_name} would ',
@@ -302,9 +302,9 @@ class AvailableOptionsPerception(QuestionOfRecentMemories):
   """This component answers the question 'what actions are available to me?'."""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{AVAILABLE_OPTIONS_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{AVAILABLE_OPTIONS_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=AVAILABLE_OPTIONS_QUESTION,
         terminators=('\n\n',),
@@ -319,9 +319,9 @@ class AvailableOptionsPerceptionsWithoutPreAct(
   """This component answers the question 'what actions are available to me?'."""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{AVAILABLE_OPTIONS_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{AVAILABLE_OPTIONS_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=AVAILABLE_OPTIONS_QUESTION,
         terminators=('\n\n',),
@@ -335,9 +335,9 @@ class BestOptionPerception(QuestionOfRecentMemories):
   """This component answers 'which action is best for achieving my goal?'."""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=BEST_OPTION_PERCEPTION_QUESTION,
         answer_prefix="{agent_name}'s best course of action is ",
@@ -350,9 +350,9 @@ class BestOptionPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
   """This component answers 'which action is best for achieving my goal?'."""
 
   def __init__(self, **kwargs):
-    default_pre_act_key = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
-    if kwargs.get('pre_act_key') is None:
-      kwargs['pre_act_key'] = default_pre_act_key
+    default_pre_act_label = f'\n{BEST_OPTION_PERCEPTION_QUESTION}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
     super().__init__(
         question=BEST_OPTION_PERCEPTION_QUESTION,
         answer_prefix="{agent_name}'s best course of action is ",

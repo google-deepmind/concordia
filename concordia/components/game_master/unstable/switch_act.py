@@ -28,20 +28,20 @@ from concordia.typing.unstable import entity_component
 from typing_extensions import override
 
 
-DEFAULT_ACT_COMPONENT_NAME = '__act__'
-DEFAULT_PRE_ACT_KEY = 'Act'
+DEFAULT_ACT_COMPONENT_KEY = '__act__'
+DEFAULT_PRE_ACT_LABEL = 'Act'
 
-DEFAULT_TERMINATE_COMPONENT_NAME = '__terminate__'
-DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME = (
-    next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME)
-DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = (
-    make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME)
-DEFAULT_NEXT_ACTING_COMPONENT_NAME = (
-    next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_NAME)
-DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = (
-    next_acting_components.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME)
-DEFAULT_RESOLUTION_COMPONENT_NAME = (
-    event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_NAME)
+DEFAULT_TERMINATE_COMPONENT_KEY = '__terminate__'
+DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY = (
+    next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
+DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY = (
+    make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY)
+DEFAULT_NEXT_ACTING_COMPONENT_KEY = (
+    next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_KEY)
+DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY = (
+    next_acting_components.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY)
+DEFAULT_RESOLUTION_COMPONENT_KEY = (
+    event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_KEY)
 
 
 class SwitchAct(entity_component.ActingComponent):
@@ -60,7 +60,6 @@ class SwitchAct(entity_component.ActingComponent):
       model: language_model.LanguageModel,
       entity_names: Sequence[str],
       component_order: Sequence[str] | None = None,
-      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
@@ -78,7 +77,6 @@ class SwitchAct(entity_component.ActingComponent):
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
-      pre_act_key: Prefix to add to the context of the component.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -98,7 +96,6 @@ class SwitchAct(entity_component.ActingComponent):
             + ', '.join(self._component_order)
         )
 
-    self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
   def _context_for_action(
@@ -122,8 +119,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_TERMINATE_COMPONENT_NAME in contexts:
-      result = str(contexts[DEFAULT_TERMINATE_COMPONENT_NAME])
+    if DEFAULT_TERMINATE_COMPONENT_KEY in contexts:
+      result = str(contexts[DEFAULT_TERMINATE_COMPONENT_KEY])
       self._log(result, context)
     else:
       # YOLO case
@@ -144,8 +141,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME in contexts:
-      result = str(contexts[DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME])
+    if DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY in contexts:
+      result = str(contexts[DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY])
       self._log(result, context)
     else:
       # YOLO case
@@ -163,8 +160,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_NEXT_ACTING_COMPONENT_NAME in contexts:
-      result = str(contexts[DEFAULT_NEXT_ACTING_COMPONENT_NAME])
+    if DEFAULT_NEXT_ACTING_COMPONENT_KEY in contexts:
+      result = str(contexts[DEFAULT_NEXT_ACTING_COMPONENT_KEY])
       self._log(result, context)
     else:
       # YOLO case
@@ -183,8 +180,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME in contexts:
-      result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME])
+    if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY in contexts:
+      result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY])
       if not result:
         result = f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
       self._log(result, context)
@@ -219,8 +216,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_RESOLUTION_COMPONENT_NAME in contexts:
-      result = contexts[DEFAULT_RESOLUTION_COMPONENT_NAME]
+    if DEFAULT_RESOLUTION_COMPONENT_KEY in contexts:
+      result = contexts[DEFAULT_RESOLUTION_COMPONENT_KEY]
       self._log(result, context)
     else:
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -236,8 +233,8 @@ class SwitchAct(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec) -> str:
     context = self._context_for_action(contexts)
-    if DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME in contexts:
-      game_master = str(contexts[DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME])
+    if DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY in contexts:
+      game_master = str(contexts[DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY])
       self._log(game_master, context)
     else:
       # YOLO case
@@ -323,7 +320,7 @@ class SwitchAct(entity_component.ActingComponent):
     if isinstance(prompt, interactive_document.InteractiveDocument):
       prompt = prompt.view().text().splitlines()
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': 'Act',
         'Value': result,
         'Prompt': prompt,
     })

@@ -87,14 +87,14 @@ class Inventory(entity_component.ContextComponent):
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
       observations_component_name: str = (
-          observation_component.DEFAULT_OBSERVATION_COMPONENT_NAME),
+          observation_component.DEFAULT_OBSERVATION_COMPONENT_KEY),
       memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       chain_of_thought_prefix: str = _DEFAULT_CHAIN_OF_THOUGHT_PREFIX,
       financial: bool = False,
       never_increase: bool = False,
-      pre_act_key: str = 'Inventory',
+      pre_act_label: str = 'Inventory',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
@@ -118,12 +118,12 @@ class Inventory(entity_component.ContextComponent):
         amount of any item. Events where an item would have been gained lead to
         no change in the inventory and the game master instead invents a reason
         for why the item was not gained.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
       verbose: whether to print the full update chain of thought or not
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._model = model
     self._observations_component_name = observations_component_name
     self._memory_component_name = memory_component_name
@@ -164,7 +164,7 @@ class Inventory(entity_component.ContextComponent):
     })
 
   def _get_player_inventory_str(self, player_name: str) -> str:
-    return f"{player_name}'s {self._pre_act_key}: " + str(
+    return f"{player_name}'s {self._pre_act_label}: " + str(
         self._inventories[player_name]
     )
 
@@ -248,7 +248,7 @@ class Inventory(entity_component.ContextComponent):
                       new_inventories[formatted_player]
                   )
                   prefix = (
-                      f"[effect on {formatted_player}'s {self._pre_act_key}]"
+                      f"[effect on {formatted_player}'s {self._pre_act_label}]"
                   )
                   many_or_much = _many_or_much_fn(
                       self._is_count_noun[item_type]
@@ -365,7 +365,7 @@ class Inventory(entity_component.ContextComponent):
         print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
 
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': str(self._inventories),
         'Chain of thought': display_chain_of_thought,
     })
@@ -405,7 +405,7 @@ class Score(entity_component.ContextComponent):
       inventory: Inventory,
       player_names: Sequence[str],
       targets: Mapping[str, Sequence[str]],
-      pre_act_key: str = '   \n',
+      pre_act_label: str = '   \n',
       verbose: bool = False,
   ):
     """Initialize a grounded inventory component tracking objects in python.
@@ -415,10 +415,10 @@ class Score(entity_component.ContextComponent):
       player_names: sequence of players who have an inventory.
       targets: Mapping of player name to their target items. They will be scored
         by the number of items of the specified types in their inventory. 
-      pre_act_key: the name of this component to use in pre_act.
+      pre_act_label: the name of this component to use in pre_act.
       verbose: whether to print the full update chain of thought or not
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._inventory = inventory
     self._player_names = player_names
     self._targets = targets

@@ -30,25 +30,25 @@ class ChoiceOfComponent(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      observations_component_name: str,
+      observations_component_key: str,
       menu_of_components: Sequence[str],
-      pre_act_key: str = 'ChoiceComponent',
+      pre_act_label: str = 'ChoiceComponent',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component that selects other components from a list.
 
     Args:
       model: The language model to use.
-      observations_component_name: The name of the component that contains the
+      observations_component_key: The name of the component that contains the
         observations.
       menu_of_components: The sequence of components to choose from.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._model = model
-    self._observations_component_name = observations_component_name
+    self._observations_component_key = observations_component_key
     self._menu = menu_of_components
     self._logging_channel = logging_channel
 
@@ -56,7 +56,7 @@ class ChoiceOfComponent(action_spec_ignored.ActionSpecIgnored):
     agent_name = self.get_entity().name
 
     observations = self.get_named_component_pre_act_value(
-        self._observations_component_name)
+        self._observations_component_key)
 
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(observations)
@@ -75,7 +75,7 @@ class ChoiceOfComponent(action_spec_ignored.ActionSpecIgnored):
     result = loaded_component.get_pre_act_value()
 
     self._logging_channel({
-        'Key': self.get_pre_act_key(),
+        'Key': self.get_pre_act_label(),
         'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
     })

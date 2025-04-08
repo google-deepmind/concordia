@@ -29,7 +29,7 @@ import numpy as np
 
 
 DEFAULT_INSTRUCTIONS_COMPONENT_KEY = 'Instructions'
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nInstructions'
+DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = '\nInstructions'
 DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 
 
@@ -64,7 +64,7 @@ def build_agent(
   measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
       agent_name=agent_name,
-      pre_act_key=DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+      pre_act_label=DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
@@ -72,7 +72,7 @@ def build_agent(
     clock_now = clock.now
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
-        pre_act_key='\nCurrent time',
+        pre_act_label='\nCurrent time',
         logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
@@ -88,7 +88,7 @@ def build_agent(
   observation_label = '\nObservation'
   observation = agent_components.observation.LastNObservations(
       history_length=100,
-      pre_act_key=observation_label,
+      pre_act_label=observation_label,
       logging_channel=measurements.get_channel(
           'ObservationsSinceLastUpdate'
       ).on_next,
@@ -99,7 +99,7 @@ def build_agent(
   situation_representation = (
       agent_components.question_of_recent_memories.SituationPerception(
           model=model,
-          pre_act_key=situation_representation_label,
+          pre_act_label=situation_representation_label,
           logging_channel=measurements.get_channel(
               'SituationPerception'
           ).on_next,
@@ -110,7 +110,7 @@ def build_agent(
   self_perception = (
       agent_components.question_of_recent_memories.SelfPerception(
           model=model,
-          pre_act_key=self_perception_label,
+          pre_act_label=self_perception_label,
           logging_channel=measurements.get_channel('SelfPerception').on_next,
       )
   )
@@ -128,7 +128,7 @@ def build_agent(
               ),
           },
           clock_now=clock_now,
-          pre_act_key=person_by_situation_label,
+          pre_act_label=person_by_situation_label,
           logging_channel=measurements.get_channel('PersonBySituation').on_next,
       )
   )
@@ -142,7 +142,7 @@ def build_agent(
               )
           },
           num_memories_to_retrieve=10,
-          pre_act_key=relevant_memories_label,
+          pre_act_label=relevant_memories_label,
           logging_channel=measurements.get_channel(
               'AllSimilarMemories'
           ).on_next,
@@ -153,7 +153,7 @@ def build_agent(
     goal_label = '\nGoal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
-        pre_act_key=goal_label,
+        pre_act_label=goal_label,
         logging_channel=measurements.get_channel(goal_label).on_next)
   else:
     overarching_goal = None
@@ -169,10 +169,10 @@ def build_agent(
   components_of_agent = {_get_class_name(component): component
                          for component in entity_components}
   components_of_agent[
-      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
   ] = agent_components.memory.AssociativeMemory(memory_bank=memory)
   components_of_agent[
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
   ] = observation
   if time_display:
     components_of_agent['TimeDisplay'] = time_display
@@ -229,8 +229,8 @@ def save_to_json(
     raise ValueError('The agent must be in the `READY` phase to be saved.')
 
   data = {
-      component_name: agent.get_component(component_name).get_state()
-      for component_name in agent.get_all_context_components()
+      component_key: agent.get_component(component_key).get_state()
+      for component_key in agent.get_all_context_components()
   }
 
   data['act_component'] = agent.get_act_component().get_state()
@@ -269,8 +269,8 @@ def rebuild_from_json(
       clock=clock,
   )
 
-  for component_name in agent.get_all_context_components():
-    agent.get_component(component_name).set_state(data.pop(component_name))
+  for component_key in agent.get_all_context_components():
+    agent.get_component(component_key).set_state(data.pop(component_key))
 
   agent.get_act_component().set_state(data.pop('act_component'))
 

@@ -30,12 +30,8 @@ import numpy as np
 
 
 DEFAULT_INSTRUCTIONS_COMPONENT_KEY = 'Instructions'
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nInstructions'
+DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = '\nInstructions'
 DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
-
-
-def _get_class_name(object_: object) -> str:
-  return object_.__class__.__name__
 
 
 def build_agent(
@@ -70,6 +66,7 @@ def build_agent(
   measurements = measurements_lib.Measurements()
   instructions = components_unstable.instructions.Instructions(
       agent_name=agent_name,
+      pre_act_label=DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
       logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
@@ -83,7 +80,7 @@ def build_agent(
   options_perception = components_unstable.question_of_recent_memories.AvailableOptionsPerception(
       model=model,
   )
-  options_perception_key = options_perception.get_pre_act_key().format(
+  options_perception_key = options_perception.get_pre_act_label().format(
       agent_name=agent_name)
 
   best_option = (
@@ -92,7 +89,7 @@ def build_agent(
           clock_now=clock.now,
       )
   )
-  best_option_key = best_option.get_pre_act_key().format(
+  best_option_key = best_option.get_pre_act_label().format(
       agent_name=agent_name)
 
   relevant_memories = (
@@ -101,7 +98,7 @@ def build_agent(
           num_memories_to_retrieve=10,
       )
   )
-  relevant_memories_key = relevant_memories.get_pre_act_key().format(
+  relevant_memories_key = relevant_memories.get_pre_act_label().format(
       agent_name=agent_name)
 
   components_of_agent = {
@@ -113,7 +110,7 @@ def build_agent(
       options_perception_key: options_perception,
       best_option_key: best_option,
       'ObservationToMemory': observation_to_memory,
-      components_unstable.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
+      components_unstable.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
           components_unstable.memory.AssociativeMemory(memory_bank=memory)
       ),
   }

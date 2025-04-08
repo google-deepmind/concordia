@@ -25,8 +25,8 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME = '__make_observation__'
-DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY = '\nPrompt'
+DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY = '__make_observation__'
+DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL = '\nPrompt'
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
     'What is the current situation faced by {name}? What do they now observe?'
     ' Only include information of which they are aware.')
@@ -48,7 +48,7 @@ class MakeObservation(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       reformat_observations_in_specified_style: str = '',
-      pre_act_key: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -65,7 +65,7 @@ class MakeObservation(entity_component.ContextComponent):
         to include in the observation is:
         "The format to use when describing the current situation to a player is:
         "//date or time//situation description"."
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -79,7 +79,7 @@ class MakeObservation(entity_component.ContextComponent):
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
     )
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._queue = {}
@@ -146,7 +146,7 @@ class MakeObservation(entity_component.ContextComponent):
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_key,
+        {'Key': self._pre_act_label,
          'Value': result,
          'Prompt': prompt_to_log})
     return result
@@ -165,7 +165,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
       self,
       model: language_model.LanguageModel,
       reformat_observations_in_specified_style: str = '',
-      pre_act_key: str = DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME,
+      pre_act_label: str = DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -180,7 +180,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
         include in the observation is: "The format to use when describing the
         current situation to a player is: "//date or time//situation
         description"."
-      pre_act_key: Prefix to add to the output of the component when called in
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -190,7 +190,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
     """
     super().__init__()
     self._model = model
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
@@ -257,7 +257,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_key, 'Value': result, 'Prompt': prompt_to_log}
+        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
     )
     return result
 
@@ -276,7 +276,7 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      pre_act_key: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -286,7 +286,7 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
       player_names: Names of players.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -298,7 +298,7 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
     self._model = model
     self._player_names = player_names
     self._components = dict(components)
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._map_names_to_previous_observations = {
@@ -344,7 +344,7 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_key,
+        {'Key': self._pre_act_label,
          'Value': result,
          'Prompt': prompt_to_log})
     return result

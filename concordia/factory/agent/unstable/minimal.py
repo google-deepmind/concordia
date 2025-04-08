@@ -62,7 +62,7 @@ def build_agent(
   if clock:
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
-        pre_act_key='\nCurrent time',
+        pre_act_label='\nCurrent time',
         logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
@@ -75,7 +75,7 @@ def build_agent(
   observation_label = '\nObservation'
   observation = agent_components.observation.LastNObservations(
       history_length=100,
-      pre_act_key=observation_label,
+      pre_act_label=observation_label,
       logging_channel=measurements.get_channel('Observation').on_next,
   )
 
@@ -83,7 +83,7 @@ def build_agent(
     goal_label = '\nOverarching goal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
-        pre_act_key=goal_label,
+        pre_act_label=goal_label,
         logging_channel=measurements.get_channel(goal_label).on_next,
     )
   else:
@@ -99,10 +99,10 @@ def build_agent(
       _get_class_name(component): component for component in entity_components
   }
   components_of_agent[
-      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
   ] = agent_components.memory.ListMemory(memory_bank=memory)
   components_of_agent[
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
   ] = observation
 
   component_order = list(components_of_agent.keys())
@@ -112,9 +112,9 @@ def build_agent(
     component_order.insert(1, goal_label)
 
   if time_display is not None:
-    components_of_agent[time_display.get_pre_act_key()] = time_display
+    components_of_agent[time_display.get_pre_act_label()] = time_display
     # Place time display after the instructions.
-    component_order.insert(1, time_display.get_pre_act_key())
+    component_order.insert(1, time_display.get_pre_act_label())
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,

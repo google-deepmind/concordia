@@ -33,12 +33,12 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       clock_now: Callable[[], datetime.datetime],
-      observation_component_name: str,
+      observation_component_key: str,
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       declare_entity_as_protagonist: bool = True,
-      pre_act_key: str = 'The current situation',
+      pre_act_label: str = 'The current situation',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to consider the current situation.
@@ -46,20 +46,20 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     Args:
       model: The language model to use.
       clock_now: Function that returns the current time.
-      observation_component_name: The name of the component that contains the
+      observation_component_key: The name of the component that contains the
         latest observations.
       components: Components to condition the narrative on. This is a mapping
         of the component name to a label to use in the prompt.
       declare_entity_as_protagonist: Whether to declare the entity to be the
         protagonist in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._model = model
     self._clock_now = clock_now
-    self._observation_component_name = observation_component_name
+    self._observation_component_key = observation_component_key
     self._components = dict(components)
     self._declare_entity_as_protagonist = declare_entity_as_protagonist
     self._logging_channel = logging_channel
@@ -84,7 +84,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     agent_name = self.get_entity().name
     current_time = self._clock_now()
     observations = self.get_entity().get_component(
-        self._observation_component_name)
+        self._observation_component_key)
 
     initial_step_thought_chain = ''
     if self._situation_thus_far is None:
@@ -146,7 +146,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
         chain_of_thought.view().text().splitlines())
 
     self._logging_channel({
-        'Key': self.get_pre_act_key(),
+        'Key': self.get_pre_act_label(),
         'Value': self._situation_thus_far,
         'Chain of thought': (initial_step_thought_chain +
                              '\n***\n' +

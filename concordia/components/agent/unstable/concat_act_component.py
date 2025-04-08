@@ -24,9 +24,6 @@ from concordia.typing.unstable import entity_component
 from typing_extensions import override
 
 
-DEFAULT_PRE_ACT_KEY = 'Act'
-
-
 class ConcatActComponent(entity_component.ActingComponent):
   """A component which concatenates contexts from context components.
 
@@ -42,7 +39,6 @@ class ConcatActComponent(entity_component.ActingComponent):
       self,
       model: language_model.LanguageModel,
       component_order: Sequence[str] | None = None,
-      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
@@ -59,7 +55,6 @@ class ConcatActComponent(entity_component.ActingComponent):
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
-      pre_act_key: Prefix to add to the context of the component.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -78,7 +73,6 @@ class ConcatActComponent(entity_component.ActingComponent):
             + ', '.join(self._component_order)
         )
 
-    self._pre_act_key = pre_act_key
     self._logging_channel = logging_channel
 
   def _context_for_action(
@@ -149,7 +143,7 @@ class ConcatActComponent(entity_component.ActingComponent):
            result: str,
            prompt: interactive_document.InteractiveDocument):
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': 'Act',
         'Value': result,
         'Prompt': prompt.view().text().splitlines(),
     })

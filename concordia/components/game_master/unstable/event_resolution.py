@@ -29,8 +29,8 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-DEFAULT_RESOLUTION_COMPONENT_NAME = '__resolution__'
-DEFAULT_RESOLUTION_PRE_ACT_KEY = 'Event'
+DEFAULT_RESOLUTION_COMPONENT_KEY = '__resolution__'
+DEFAULT_RESOLUTION_PRE_ACT_LABEL = 'Event'
 
 PUTATIVE_EVENT_TAG = '[putative_event]'
 EVENT_TAG = '[event]'
@@ -55,16 +55,16 @@ class EventResolution(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       notify_observers: bool = False,
-      make_observation_component_name: str = (
-          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      make_observation_component_key: str = (
+          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      next_acting_component_name: str = (
-          next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_NAME
+      next_acting_component_key: str = (
+          next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_RESOLUTION_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_RESOLUTION_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -77,13 +77,13 @@ class EventResolution(entity_component.ContextComponent):
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
       notify_observers: Whether to explicitly notify observers of the event.
-      make_observation_component_name: The name of the MakeObservation component
+      make_observation_component_key: The name of the MakeObservation component
         to use to notify observers of the event.
-      memory_component_name: The name of the Memory component to use to retrieve
+      memory_component_key: The name of the Memory component to use to retrieve
         memories.
-      next_acting_component_name: The name of the NextActing component to use
+      next_acting_component_key: The name of the NextActing component to use
         to get the name of the player whose turn it is.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -96,12 +96,12 @@ class EventResolution(entity_component.ContextComponent):
     self._event_resolution_steps = event_resolution_steps
     self._components = dict(components)
     self._notify_observers = notify_observers
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
-    self._make_observation_component_name = make_observation_component_name
-    self._memory_component_name = memory_component_name
-    self._next_acting_component_name = next_acting_component_name
+    self._make_observation_component_key = make_observation_component_key
+    self._memory_component_key = memory_component_key
+    self._next_acting_component_key = next_acting_component_key
 
     self._active_entity_name = None
     self._putative_action = None
@@ -131,11 +131,11 @@ class EventResolution(entity_component.ContextComponent):
       ])
       prompt.statement(f'{component_states}\n')
       self._active_entity_name = self.get_entity().get_component(
-          self._next_acting_component_name,
+          self._next_acting_component_key,
           type_=next_acting_components.NextActing
       ).get_currently_active_player()
       memory = self.get_entity().get_component(
-          self._memory_component_name, type_=memory_component.Memory
+          self._memory_component_key, type_=memory_component.Memory
       )
       suggestions = memory.scan(selector_fn=lambda x: PUTATIVE_EVENT_TAG in x)
       if not suggestions:
@@ -157,7 +157,7 @@ class EventResolution(entity_component.ContextComponent):
       observers_prompt_to_log = ''
       if self._notify_observers:
         make_observation = self.get_entity().get_component(
-            self._make_observation_component_name,
+            self._make_observation_component_key,
             type_=make_observation_component.MakeObservation,
         )
         observers_prompt = prompt.copy()
@@ -172,11 +172,11 @@ class EventResolution(entity_component.ContextComponent):
 
         observers_prompt_to_log = observers_prompt.view().text()
 
-      result = f'{self._pre_act_key}: {event_statement}\n'
+      result = f'{self._pre_act_label}: {event_statement}\n'
       prompt_to_log = prompt.view().text()
 
     self._log(
-        key=self._pre_act_key,
+        key=self._pre_act_label,
         value=result,
         prompt=prompt_to_log,
         observers_prompt=observers_prompt_to_log,
@@ -207,21 +207,21 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       num_events_to_retrieve: int = 100,
-      pre_act_key: str = 'Recent events',
+      pre_act_label: str = 'Recent events',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
     Args:
       model: The language model to use for the component.
-      memory_component_name: The name of the memory component in which to write
+      memory_component_key: The name of the memory component in which to write
         records of events.
       num_events_to_retrieve: The number of events to retrieve.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -229,15 +229,15 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
       ValueError: If the component order is not None and contains duplicate
         components.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._model = model
-    self._memory_component_name = memory_component_name
+    self._memory_component_key = memory_component_key
     self._num_events_to_retrieve = num_events_to_retrieve
     self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
     events = memory.scan(selector_fn=lambda x: EVENT_TAG in x)
 

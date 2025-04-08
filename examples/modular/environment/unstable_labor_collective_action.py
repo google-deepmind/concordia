@@ -78,7 +78,7 @@ _TriggeredInventoryEffectPreEventFnArgsT = (
     triggered_inventory_effect.PreEventFnArgsT
 )
 
-_INVENTORY_COMPONENT_NAME = 'inventory'
+_INVENTORY_COMPONENT_KEY = 'inventory'
 
 
 class Boss(entity_agent.EntityAgent):
@@ -100,11 +100,11 @@ class Boss(entity_agent.EntityAgent):
 
     background_constant = constant.Constant(
         state=config.context,
-        pre_act_key='\nBackground: ',
+        pre_act_label='\nBackground: ',
     )
     persona_constant = constant.Constant(
         state=config.traits + ' ' + config.goal,
-        pre_act_key='\nPersona: ',
+        pre_act_label='\nPersona: ',
     )
     self._context_components = (background_constant, persona_constant)
 
@@ -128,11 +128,11 @@ class LaborOrganizer(entity_agent.EntityAgent):
 
     background_constant = constant.Constant(
         state=config.context,
-        pre_act_key='\nBackground: ',
+        pre_act_label='\nBackground: ',
     )
     persona_constant = constant.Constant(
         state=config.traits + ' ' + config.goal,
-        pre_act_key='\nPersona: ',
+        pre_act_label='\nPersona: ',
     )
     self._context_components = (background_constant, persona_constant)
 
@@ -618,7 +618,7 @@ def get_inventories_component(
       clock_now=clock_now,
       financial=True,
       never_increase=True,
-      pre_act_key='possessions',
+      pre_act_label='possessions',
       logging_channel=logging_channel,
       verbose=False,
   )
@@ -776,7 +776,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     supporting_players = []
     for player_config in supporting_player_configs:
       conversation_style = constant.Constant(
-          pre_act_key='guiding principle of good conversation',
+          pre_act_label='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
               player_config.name
           ),
@@ -832,18 +832,18 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             f'The year is {sampled_settings.year} and '
             f'the location is {sampled_settings.location}.'
         ),
-        pre_act_key='Setting',
+        pre_act_label='Setting',
     )
     magic_is_not_real = constant.Constant(
         state='Magic is not real. Supernatural events are impossible.',
-        pre_act_key='Important Fact',
+        pre_act_label='Important Fact',
     )
     no_frivolous_talk = constant.Constant(
         state=(
             f'{sampled_settings.antagonist} does not engage in frivolous '
             'conversation with workers. They are not worth the time.'
         ),
-        pre_act_key='Another fact',
+        pre_act_label='Another fact',
     )
 
     inventory_component, self._score = get_inventories_component(
@@ -903,8 +903,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     paid_labor = triggered_inventory_effect.TriggeredInventoryEffect(
         function=inventory_effect_function,
         clock_now=self._clock.now,
-        inventory_component_name=_INVENTORY_COMPONENT_NAME,
-        pre_act_key='paid labor',
+        inventory_component_key=_INVENTORY_COMPONENT_KEY,
+        pre_act_label='paid labor',
         logging_channel=measurements.get_channel('Paid Labor').on_next,
     )
 
@@ -963,7 +963,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         players_to_inform=[antagonist_config.name],
         clock_now=self._clock.now,
         pressure_threshold=time_and_place_params.PRESSURE_THRESHOLD,
-        pre_act_key='pressure from industrial action',
+        pre_act_label='pressure from industrial action',
         verbose=True,
     )
 
@@ -971,7 +971,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         'setting': setting,
         'info': magic_is_not_real,
         'note': no_frivolous_talk,
-        _INVENTORY_COMPONENT_NAME: inventory_component,
+        _INVENTORY_COMPONENT_KEY: inventory_component,
         'industrial_action': industrial_action,
         'pay': paid_labor,
         'wage': wage_setting,

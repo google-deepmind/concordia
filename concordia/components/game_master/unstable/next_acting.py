@@ -30,14 +30,14 @@ from concordia.typing.unstable import entity_component
 from concordia.typing.unstable import scene as scene_lib
 
 
-DEFAULT_NEXT_ACTING_COMPONENT_NAME = '__next_acting__'
+DEFAULT_NEXT_ACTING_COMPONENT_KEY = '__next_acting__'
 # Initiative is the Dungeons & Dragons term for the rule system that controls
 # turn taking.
-DEFAULT_NEXT_ACTING_PRE_ACT_KEY = '\nInitiative'
+DEFAULT_NEXT_ACTING_PRE_ACT_LABEL = '\nInitiative'
 DEFAULT_CALL_TO_NEXT_ACTING = 'Who is next to act?'
 
-DEFAULT_NEXT_ACTION_SPEC_COMPONENT_NAME = '__next_action_spec__'
-DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY = '\nType of action'
+DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY = '__next_action_spec__'
+DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL = '\nType of action'
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     'In what action spec format should {name} respond? Respond in  '
     'one of the provided formats and use no additional words.')
@@ -54,7 +54,7 @@ class NextActing(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -64,7 +64,7 @@ class NextActing(entity_component.ContextComponent):
       player_names: Names of players to choose from.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -76,7 +76,7 @@ class NextActing(entity_component.ContextComponent):
     self._model = model
     self._player_names = player_names
     self._components = dict(components)
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_active_player = None
@@ -120,7 +120,7 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   def __init__(
       self,
       sequence: Sequence[str],
-      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -128,7 +128,7 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     Args:
       sequence: Sequence of player names. The game master will select players
         to take turns in this order. The sequence will be cycled through.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -139,7 +139,7 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     super().__init__()
     self._sequence = sequence
 
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_active_player_idx = None
@@ -173,7 +173,7 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
       self,
       player_names: Sequence[str],
       replace: bool = False,
-      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -183,7 +183,7 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
         players out of this sequence randomly, either with or without
         replacement.
       replace: Whether to sample players with or without replacement.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -195,7 +195,7 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
     self._player_names = player_names
     self._replace = replace
 
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_available_indices = list(range(len(self._player_names)))
@@ -239,13 +239,13 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      scene_tracker_component_name: str = (
-          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      scene_tracker_component_key: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_NEXT_ACTING_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -254,9 +254,9 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
       model: The language model to use for the component.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      memory_component_name: The name of the memory component.
-      scene_tracker_component_name: The name of the scene tracker component.
-      pre_act_key: Prefix to add to the output of the component when called in
+      memory_component_key: The name of the memory component.
+      scene_tracker_component_key: The name of the scene tracker component.
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -266,10 +266,10 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     """
     super().__init__()
     self._model = model
-    self._memory_component_name = memory_component_name
-    self._scene_tracker_component_name = scene_tracker_component_name
+    self._memory_component_key = memory_component_key
+    self._scene_tracker_component_key = scene_tracker_component_key
     self._components = dict(components)
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_active_player = None
@@ -286,7 +286,7 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
   def _get_current_scene_participants(self) -> Sequence[str]:
 
     scene_tracker = self.get_entity().get_component(
-        self._scene_tracker_component_name,
+        self._scene_tracker_component_key,
         type_=scene_tracker_component.SceneTracker,
     )
     return scene_tracker.get_participants()
@@ -322,8 +322,8 @@ class NextActionSpec(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
-      next_acting_component_name: str = DEFAULT_NEXT_ACTING_COMPONENT_NAME,
-      pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
+      next_acting_component_key: str = DEFAULT_NEXT_ACTING_COMPONENT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -336,9 +336,9 @@ class NextActionSpec(entity_component.ContextComponent):
       call_to_next_action_spec: prompt to use for the game master to decide on
         what action spec to use for the next turn. Will be formatted to
         substitute {name} for the name of the player whose turn is next.
-      next_acting_component_name: The name of the NextActing component to use
+      next_acting_component_key: The name of the NextActing component to use
         to get the name of the player whose turn is next.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -351,8 +351,8 @@ class NextActionSpec(entity_component.ContextComponent):
     self._player_names = player_names
     self._components = dict(components)
     self._call_to_next_action_spec = call_to_next_action_spec
-    self._next_acting_component_name = next_acting_component_name
-    self._pre_act_key = pre_act_key
+    self._next_acting_component_key = next_acting_component_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
@@ -376,7 +376,7 @@ class NextActionSpec(entity_component.ContextComponent):
       ])
       prompt.statement(f'{component_states}\n')
       active_player = self.get_entity().get_component(
-          self._next_acting_component_name, type_=NextActing
+          self._next_acting_component_key, type_=NextActing
       ).get_currently_active_player()
       prompt.statement(
           'Example formatted action specs:\n1). "prompt: p;;type: free"\n'
@@ -401,22 +401,22 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
   def __init__(
       self,
       scenes: Sequence[scene_lib.ExperimentalSceneSpec],
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      scene_tracker_component_name: str = (
-          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      scene_tracker_component_key: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
     Args:
       scenes: All scenes to be used in the episode.
-      memory_component_name: The name of the memory component.
-      scene_tracker_component_name: The name of the scene tracker component.
-      pre_act_key: Prefix to add to the output of the component when called in
+      memory_component_key: The name of the memory component.
+      scene_tracker_component_key: The name of the scene tracker component.
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -425,9 +425,9 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
         components.
     """
     super().__init__()
-    self._memory_component_name = memory_component_name
-    self._scene_tracker_component_name = scene_tracker_component_name
-    self._pre_act_key = pre_act_key
+    self._memory_component_key = memory_component_key
+    self._scene_tracker_component_key = scene_tracker_component_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     # Extract all scene type specs from the provided scenes.
@@ -446,7 +446,7 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
   def _get_current_scene_type(self) -> scene_lib.ExperimentalSceneTypeSpec:
 
     scene_tracker = self.get_entity().get_component(
-        self._scene_tracker_component_name,
+        self._scene_tracker_component_key,
         type_=scene_tracker_component.SceneTracker,
     )
 
@@ -471,7 +471,7 @@ class FixedActionSpec(entity_component.ContextComponent):
   def __init__(
       self,
       action_spec: entity_lib.ActionSpec,
-      pre_act_key: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -479,7 +479,7 @@ class FixedActionSpec(entity_component.ContextComponent):
     Args:
       action_spec: The action spec to return whenever pre_act is called with
         output type NEXT_ACTION_SPEC.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -489,7 +489,7 @@ class FixedActionSpec(entity_component.ContextComponent):
     """
     super().__init__()
     self._fixed_entity_action_spec = action_spec
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
   def pre_act(

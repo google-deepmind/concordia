@@ -17,7 +17,7 @@
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.typing import logging
 
-DEFAULT_PRE_ACT_KEY = 'Constant'
+DEFAULT_PRE_ACT_LABEL = 'Constant'
 
 
 class Constant(action_spec_ignored.ActionSpecIgnored):
@@ -27,14 +27,14 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       state: str,
-      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
 
     Args:
       state: the state of the component.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -42,11 +42,11 @@ class Constant(action_spec_ignored.ActionSpecIgnored):
       ValueError: If the component order is not None and contains duplicate
         components.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._state = state
     self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     self._logging_channel(
-        {'Key': self.get_pre_act_key(), 'Value': self._state})
+        {'Key': self.get_pre_act_label(), 'Value': self._state})
     return self._state

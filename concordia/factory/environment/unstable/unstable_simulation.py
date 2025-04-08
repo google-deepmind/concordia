@@ -34,9 +34,9 @@ from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
-_MEMORY_COMPONENT_NAME = memory_component.DEFAULT_MEMORY_COMPONENT_NAME
-_OBSERVATION_COMPONENT_NAME = (
-    observation_component.DEFAULT_OBSERVATION_COMPONENT_NAME
+_MEMORY_COMPONENT_KEY = memory_component.DEFAULT_MEMORY_COMPONENT_KEY
+_OBSERVATION_COMPONENT_KEY = (
+    observation_component.DEFAULT_OBSERVATION_COMPONENT_KEY
 )
 
 
@@ -111,13 +111,13 @@ def build_simulation(
 
   scenario_knowledge = agent_components.constant.Constant(
       state='\n'.join(shared_memories),
-      pre_act_key='\nBackground:\n',
+      pre_act_label='\nBackground:\n',
   )
 
   nonplayer_entities_list_key = '\nNon-player characters: '
   nonplayer_entities_list = agent_components.constant.Constant(
       state='\n'.join([entity.name for entity in nonplayer_entities]),
-      pre_act_key=nonplayer_entities_list_key,
+      pre_act_label=nonplayer_entities_list_key,
   )
 
   observation_to_memory = observation_component.ObservationToMemory()
@@ -130,19 +130,19 @@ def build_simulation(
       situation_representation_via_narrative.SituationRepresentation(
           model=model,
           clock_now=clock.now,
-          observation_component_name=_OBSERVATION_COMPONENT_NAME,
+          observation_component_key=_OBSERVATION_COMPONENT_KEY,
           components={
-              _get_class_name(instructions): instructions.get_pre_act_key(),
+              _get_class_name(instructions): instructions.get_pre_act_label(),
               _get_class_name(scenario_knowledge): (
-                  scenario_knowledge.get_pre_act_key()
+                  scenario_knowledge.get_pre_act_label()
               ),
               _get_class_name(player_characters): (
-                  player_characters.get_pre_act_key()
+                  player_characters.get_pre_act_label()
               ),
               nonplayer_entities_list_key: nonplayer_entities_list_key,
           },
           declare_entity_as_protagonist=False,
-          pre_act_key=situation_representation_label,
+          pre_act_label=situation_representation_label,
           logging_channel=measurements.get_channel(
               'SituationRepresentation'
           ).on_next,
@@ -159,11 +159,11 @@ def build_simulation(
       _get_class_name(player_characters): player_characters,
       _get_class_name(scenario_knowledge): scenario_knowledge,
       nonplayer_entities_list_key: nonplayer_entities_list,
-      _OBSERVATION_COMPONENT_NAME: observation,
+      _OBSERVATION_COMPONENT_KEY: observation,
       _get_class_name(situation_representation): situation_representation,
       _get_class_name(observation_to_memory): observation_to_memory,
       _get_class_name(display_events): display_events,
-      _MEMORY_COMPONENT_NAME: memory_component.ListMemory(
+      _MEMORY_COMPONENT_KEY: memory_component.ListMemory(
           memory_bank=game_master_memory
       ),
   }
@@ -176,49 +176,49 @@ def build_simulation(
   make_observation = gm_components_lib.make_observation.MakeObservation(
       model=model,
       components={
-          _get_class_name(instructions): instructions.get_pre_act_key(),
+          _get_class_name(instructions): instructions.get_pre_act_label(),
           _get_class_name(
               examples_synchronous
-          ): examples_synchronous.get_pre_act_key(),
+          ): examples_synchronous.get_pre_act_label(),
           _get_class_name(
               player_characters
-          ): player_characters.get_pre_act_key(),
+          ): player_characters.get_pre_act_label(),
           _get_class_name(
               scenario_knowledge
-          ): scenario_knowledge.get_pre_act_key(),
+          ): scenario_knowledge.get_pre_act_label(),
           nonplayer_entities_list_key: nonplayer_entities_list_key,
-          _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+          _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
           _get_class_name(
               situation_representation
-          ): situation_representation.get_pre_act_key(),
-          _get_class_name(display_events): display_events.get_pre_act_key(),
+          ): situation_representation.get_pre_act_label(),
+          _get_class_name(display_events): display_events.get_pre_act_label(),
       },
       logging_channel=measurements.get_channel('MakeObservation').on_next,
   )
 
   components_of_game_master[
-      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
   ] = make_observation
 
   next_acting_kwargs = dict(
       model=model,
       components={
-          _get_class_name(instructions): instructions.get_pre_act_key(),
+          _get_class_name(instructions): instructions.get_pre_act_label(),
           _get_class_name(
               examples_synchronous
-          ): examples_synchronous.get_pre_act_key(),
+          ): examples_synchronous.get_pre_act_label(),
           _get_class_name(
               player_characters
-          ): player_characters.get_pre_act_key(),
+          ): player_characters.get_pre_act_label(),
           _get_class_name(
               scenario_knowledge
-          ): scenario_knowledge.get_pre_act_key(),
+          ): scenario_knowledge.get_pre_act_label(),
           nonplayer_entities_list_key: nonplayer_entities_list_key,
-          _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+          _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
           _get_class_name(
               situation_representation
-          ): situation_representation.get_pre_act_key(),
-          _get_class_name(display_events): display_events.get_pre_act_key(),
+          ): situation_representation.get_pre_act_label(),
+          _get_class_name(display_events): display_events.get_pre_act_label(),
       },
       logging_channel=measurements.get_channel('NextActing').on_next,
   )
@@ -229,7 +229,7 @@ def build_simulation(
   )
 
   components_of_game_master[
-      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_NAME
+      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
   ] = next_actor
 
   # Define thinking steps for the event resolution component to use whenever it
@@ -247,17 +247,19 @@ def build_simulation(
   ]
 
   event_resolution_components = {
-      _get_class_name(instructions): instructions.get_pre_act_key(),
+      _get_class_name(instructions): instructions.get_pre_act_label(),
       _get_class_name(
           examples_synchronous
-      ): examples_synchronous.get_pre_act_key(),
-      _get_class_name(player_characters): player_characters.get_pre_act_key(),
-      _get_class_name(scenario_knowledge): scenario_knowledge.get_pre_act_key(),
+      ): examples_synchronous.get_pre_act_label(),
+      _get_class_name(player_characters): player_characters.get_pre_act_label(),
+      _get_class_name(
+          scenario_knowledge
+      ): scenario_knowledge.get_pre_act_label(),
       nonplayer_entities_list_key: nonplayer_entities_list_key,
-      _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+      _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
       _get_class_name(
           situation_representation
-      ): situation_representation.get_pre_act_key(),
+      ): situation_representation.get_pre_act_label(),
   }
 
   if additional_context_components is not None:
@@ -265,8 +267,8 @@ def build_simulation(
       if key in event_resolution_components:
         raise ValueError(f'Key {key} already exists default game master.')
       if isinstance(component, action_spec_ignored.ActionSpecIgnored):
-        assert hasattr(component, 'get_pre_act_key')  # Assertion for pytype
-        event_resolution_components[key] = component.get_pre_act_key()
+        assert hasattr(component, 'get_pre_act_label')  # Assertion for pytype
+        event_resolution_components[key] = component.get_pre_act_label()
 
   event_resolution = gm_components_lib.event_resolution.EventResolution(
       model=model,
@@ -276,7 +278,7 @@ def build_simulation(
   )
 
   components_of_game_master[
-      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_NAME
+      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
   ] = event_resolution
 
   component_order = list(components_of_game_master.keys())
@@ -369,13 +371,13 @@ def build_simulation_with_scenes(
 
   scenario_knowledge = agent_components.constant.Constant(
       state='\n'.join(shared_memories),
-      pre_act_key='\nScenario knowledge:\n',
+      pre_act_label='\nScenario knowledge:\n',
   )
 
   nonplayer_entities_list_key = '\nNon-player characters: '
   nonplayer_entities_list = agent_components.constant.Constant(
       state='\n'.join([entity.name for entity in nonplayer_entities]),
-      pre_act_key=nonplayer_entities_list_key,
+      pre_act_label=nonplayer_entities_list_key,
   )
 
   observation_to_memory = observation_component.ObservationToMemory()
@@ -388,19 +390,19 @@ def build_simulation_with_scenes(
       situation_representation_via_narrative.SituationRepresentation(
           model=model,
           clock_now=clock.now,
-          observation_component_name=_OBSERVATION_COMPONENT_NAME,
+          observation_component_key=_OBSERVATION_COMPONENT_KEY,
           components={
-              _get_class_name(instructions): instructions.get_pre_act_key(),
+              _get_class_name(instructions): instructions.get_pre_act_label(),
               _get_class_name(scenario_knowledge): (
-                  scenario_knowledge.get_pre_act_key()
+                  scenario_knowledge.get_pre_act_label()
               ),
               _get_class_name(player_characters): (
-                  player_characters.get_pre_act_key()
+                  player_characters.get_pre_act_label()
               ),
               nonplayer_entities_list_key: nonplayer_entities_list_key,
           },
           declare_entity_as_protagonist=False,
-          pre_act_key=situation_representation_label,
+          pre_act_label=situation_representation_label,
           logging_channel=measurements.get_channel(
               'SituationRepresentation'
           ).on_next,
@@ -417,11 +419,11 @@ def build_simulation_with_scenes(
       _get_class_name(player_characters): player_characters,
       _get_class_name(scenario_knowledge): scenario_knowledge,
       nonplayer_entities_list_key: nonplayer_entities_list,
-      _OBSERVATION_COMPONENT_NAME: observation,
+      _OBSERVATION_COMPONENT_KEY: observation,
       _get_class_name(situation_representation): situation_representation,
       _get_class_name(observation_to_memory): observation_to_memory,
       _get_class_name(display_events): display_events,
-      _MEMORY_COMPONENT_NAME: memory_component.ListMemory(
+      _MEMORY_COMPONENT_KEY: memory_component.ListMemory(
           memory_bank=game_master_memory
       ),
   }
@@ -434,49 +436,49 @@ def build_simulation_with_scenes(
   make_observation = gm_components_lib.make_observation.MakeObservation(
       model=model,
       components={
-          _get_class_name(instructions): instructions.get_pre_act_key(),
+          _get_class_name(instructions): instructions.get_pre_act_label(),
           _get_class_name(
               examples_synchronous
-          ): examples_synchronous.get_pre_act_key(),
+          ): examples_synchronous.get_pre_act_label(),
           _get_class_name(
               player_characters
-          ): player_characters.get_pre_act_key(),
+          ): player_characters.get_pre_act_label(),
           _get_class_name(
               scenario_knowledge
-          ): scenario_knowledge.get_pre_act_key(),
+          ): scenario_knowledge.get_pre_act_label(),
           nonplayer_entities_list_key: nonplayer_entities_list_key,
-          _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+          _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
           # _get_class_name(
           #     situation_representation
-          # ): situation_representation.get_pre_act_key(),
-          _get_class_name(display_events): display_events.get_pre_act_key(),
+          # ): situation_representation.get_pre_act_label(),
+          _get_class_name(display_events): display_events.get_pre_act_label(),
       },
       logging_channel=measurements.get_channel('MakeObservation').on_next,
   )
 
   components_of_game_master[
-      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
   ] = make_observation
 
   next_acting_kwargs = dict(
       model=model,
       components={
-          _get_class_name(instructions): instructions.get_pre_act_key(),
+          _get_class_name(instructions): instructions.get_pre_act_label(),
           _get_class_name(
               examples_synchronous
-          ): examples_synchronous.get_pre_act_key(),
+          ): examples_synchronous.get_pre_act_label(),
           _get_class_name(
               player_characters
-          ): player_characters.get_pre_act_key(),
+          ): player_characters.get_pre_act_label(),
           _get_class_name(
               scenario_knowledge
-          ): scenario_knowledge.get_pre_act_key(),
+          ): scenario_knowledge.get_pre_act_label(),
           nonplayer_entities_list_key: nonplayer_entities_list_key,
-          _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+          _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
           _get_class_name(
               situation_representation
-          ): situation_representation.get_pre_act_key(),
-          _get_class_name(display_events): display_events.get_pre_act_key(),
+          ): situation_representation.get_pre_act_label(),
+          _get_class_name(display_events): display_events.get_pre_act_label(),
       },
       logging_channel=measurements.get_channel('NextActing').on_next,
   )
@@ -486,28 +488,28 @@ def build_simulation_with_scenes(
   )
   next_game_master = gm_components_lib.next_game_master.NextGameMasterFromSceneSpec(
       model=model,
-      scene_tracker_component_name=gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_NAME,
-      pre_act_key=gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
+      scene_tracker_component_key=gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
+      pre_act_label=gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
       logging_channel=measurements.get_channel('NextGameMaster').on_next,
   )
   components_of_game_master[
-      gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME
+      gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
   ] = next_game_master
   scene_tracker = gm_components_lib.scene_tracker.SceneTracker(
       model=model,
       scenes=scenes,
       step_counter=globabl_scene_counter,
-      observation_component_name=(
-          gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      observation_component_key=(
+          gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
   )
 
   components_of_game_master[
-      gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
   ] = scene_tracker
   next_action_spec = gm_components_lib.next_acting.NextActionSpecFromSceneSpec(
       scenes=scenes,
-      memory_component_name=_MEMORY_COMPONENT_NAME,
+      memory_component_key=_MEMORY_COMPONENT_KEY,
       logging_channel=measurements.get_channel('NextActionSpec').on_next,
   )
   components_of_game_master[
@@ -515,7 +517,7 @@ def build_simulation_with_scenes(
   ] = next_action_spec
 
   components_of_game_master[
-      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_NAME
+      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
   ] = next_actor
 
   # Define thinking steps for the event resolution component to use whenever it
@@ -533,17 +535,19 @@ def build_simulation_with_scenes(
   ]
 
   event_resolution_components = {
-      _get_class_name(instructions): instructions.get_pre_act_key(),
+      _get_class_name(instructions): instructions.get_pre_act_label(),
       _get_class_name(
           examples_synchronous
-      ): examples_synchronous.get_pre_act_key(),
-      _get_class_name(player_characters): player_characters.get_pre_act_key(),
-      _get_class_name(scenario_knowledge): scenario_knowledge.get_pre_act_key(),
+      ): examples_synchronous.get_pre_act_label(),
+      _get_class_name(player_characters): player_characters.get_pre_act_label(),
+      _get_class_name(
+          scenario_knowledge
+      ): scenario_knowledge.get_pre_act_label(),
       nonplayer_entities_list_key: nonplayer_entities_list_key,
-      _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+      _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
       _get_class_name(
           situation_representation
-      ): situation_representation.get_pre_act_key(),
+      ): situation_representation.get_pre_act_label(),
   }
 
   if additional_context_components is not None:
@@ -551,8 +555,8 @@ def build_simulation_with_scenes(
       if key in event_resolution_components:
         raise ValueError(f'Key {key} already exists default game master.')
       if isinstance(component, action_spec_ignored.ActionSpecIgnored):
-        assert hasattr(component, 'get_pre_act_key')  # Assertion for pytype
-        event_resolution_components[key] = component.get_pre_act_key()
+        assert hasattr(component, 'get_pre_act_label')  # Assertion for pytype
+        event_resolution_components[key] = component.get_pre_act_label()
 
   event_resolution = gm_components_lib.event_resolution.EventResolution(
       model=model,
@@ -562,7 +566,7 @@ def build_simulation_with_scenes(
   )
 
   components_of_game_master[
-      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_NAME
+      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
   ] = event_resolution
 
   component_order = list(components_of_game_master.keys())
@@ -626,8 +630,8 @@ def build_decision_scene_game_master(
       _get_class_name(player_characters): player_characters,
       _get_class_name(observation_to_memory): observation_to_memory,
       _get_class_name(display_events): display_events,
-      _OBSERVATION_COMPONENT_NAME: observation,
-      _MEMORY_COMPONENT_NAME: memory_component.ListMemory(
+      _OBSERVATION_COMPONENT_KEY: observation,
+      _MEMORY_COMPONENT_KEY: memory_component.ListMemory(
           memory_bank=game_master_memory
       ),
   }
@@ -640,20 +644,20 @@ def build_decision_scene_game_master(
   )
 
   components_of_game_master[
-      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
   ] = make_observation
 
   next_acting_kwargs = dict(
       model=model,
       components={
-          _get_class_name(instructions): instructions.get_pre_act_key(),
+          _get_class_name(instructions): instructions.get_pre_act_label(),
           _get_class_name(
               examples_synchronous
-          ): examples_synchronous.get_pre_act_key(),
+          ): examples_synchronous.get_pre_act_label(),
           _get_class_name(
               player_characters
-          ): player_characters.get_pre_act_key(),
-          _get_class_name(display_events): display_events.get_pre_act_key(),
+          ): player_characters.get_pre_act_label(),
+          _get_class_name(display_events): display_events.get_pre_act_label(),
       },
       logging_channel=measurements.get_channel('NextActing').on_next,
   )
@@ -663,7 +667,7 @@ def build_decision_scene_game_master(
   )
   next_action_spec = gm_components_lib.next_acting.NextActionSpecFromSceneSpec(
       scenes=scenes,
-      memory_component_name=_MEMORY_COMPONENT_NAME,
+      memory_component_key=_MEMORY_COMPONENT_KEY,
       logging_channel=measurements.get_channel('NextActionSpec').on_next,
   )
   components_of_game_master[
@@ -671,17 +675,17 @@ def build_decision_scene_game_master(
   ] = next_action_spec
 
   components_of_game_master[
-      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_NAME
+      gm_components_lib.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
   ] = next_actor
 
   next_game_master = gm_components_lib.next_game_master.NextGameMasterFromSceneSpec(
       model=model,
-      scene_tracker_component_name=gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_NAME,
-      pre_act_key=gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
+      scene_tracker_component_key=gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
+      pre_act_label=gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
       logging_channel=measurements.get_channel('NextGameMaster').on_next,
   )
   components_of_game_master[
-      gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME
+      gm_components_lib.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
   ] = next_game_master
 
   event_resolution_steps = [
@@ -689,12 +693,12 @@ def build_decision_scene_game_master(
   ]
 
   event_resolution_components = {
-      _get_class_name(instructions): instructions.get_pre_act_key(),
+      _get_class_name(instructions): instructions.get_pre_act_label(),
       _get_class_name(
           examples_synchronous
-      ): examples_synchronous.get_pre_act_key(),
-      _get_class_name(player_characters): player_characters.get_pre_act_key(),
-      _OBSERVATION_COMPONENT_NAME: observation.get_pre_act_key(),
+      ): examples_synchronous.get_pre_act_label(),
+      _get_class_name(player_characters): player_characters.get_pre_act_label(),
+      _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
   }
 
   event_resolution = gm_components_lib.event_resolution.EventResolution(
@@ -704,19 +708,19 @@ def build_decision_scene_game_master(
       logging_channel=measurements.get_channel('EventResolution').on_next,
   )
   components_of_game_master[
-      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_NAME
+      gm_components_lib.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
   ] = event_resolution
 
   scene_tracker = gm_components_lib.scene_tracker.SceneTracker(
       model=model,
       scenes=scenes,
       step_counter=globabl_scene_counter,
-      observation_component_name=(
-          gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      observation_component_key=(
+          gm_components_lib.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
   )
   components_of_game_master[
-      gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      gm_components_lib.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
   ] = scene_tracker
 
   component_order = list(components_of_game_master.keys())

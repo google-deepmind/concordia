@@ -22,8 +22,8 @@ from concordia.environment.unstable.engines import synchronous
 from concordia.typing import logging
 
 
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = 'Game master instructions: '
-DEFAULT_PLAYER_CHARACTERS_PRE_ACT_KEY = 'The player characters are:\n'
+DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = 'Game master instructions: '
+DEFAULT_PLAYER_CHARACTERS_PRE_ACT_LABEL = 'The player characters are:\n'
 
 EXAMPLE_NAMES = (
     'Ianthe',
@@ -74,7 +74,7 @@ class Instructions(constant.Constant):
 
   def __init__(
       self,
-      pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     state = (
@@ -98,7 +98,9 @@ class Instructions(constant.Constant):
         'gets stuck, even if the participants make repetitive choices.'
     )
     super().__init__(
-        state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
+        state=state,
+        pre_act_label=pre_act_label,
+        logging_channel=logging_channel)
 
 
 class PlayerCharacters(constant.Constant):
@@ -107,12 +109,14 @@ class PlayerCharacters(constant.Constant):
   def __init__(
       self,
       player_characters: Sequence[str],
-      pre_act_key: str = DEFAULT_PLAYER_CHARACTERS_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_PLAYER_CHARACTERS_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     state = '\n'.join(player_characters) + '\n'
     super().__init__(
-        state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
+        state=state,
+        pre_act_label=pre_act_label,
+        logging_channel=logging_channel)
 
 
 class ExamplesSynchronous(constant.Constant):
@@ -127,7 +131,7 @@ class ExamplesSynchronous(constant.Constant):
                                         'resolve',
                                         'check_termination_1',
                                         'check_termination_2']),
-      pre_act_key: str = 'Game master workflow examples',
+      pre_act_label: str = 'Game master workflow examples',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       rnd: random.Random | None = None,
   ):
@@ -209,4 +213,6 @@ class ExamplesSynchronous(constant.Constant):
     state += '\n\n**--END EXAMPLES--**\n'
 
     super().__init__(
-        state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
+        state=state,
+        pre_act_label=pre_act_label,
+        logging_channel=logging_channel)

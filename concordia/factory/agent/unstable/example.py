@@ -58,7 +58,7 @@ def build_agent(
   observation_to_memory = agent_components.observation.ObservationToMemory()
 
   observations_key = (
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME)
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY)
   observation = agent_components.observation.LastNObservations(
       history_length=100,
   )
@@ -67,7 +67,7 @@ def build_agent(
     clock_now = clock.now
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
-        pre_act_key='\nCurrent time',
+        pre_act_label='\nCurrent time',
         logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
@@ -77,8 +77,8 @@ def build_agent(
   situation_representation = agent_components.question_of_recent_memories.SituationPerceptionWithoutPreAct(
       model=model,
   )
-  situation_perception_key = situation_representation.get_pre_act_key().format(
-      agent_name=agent_name
+  situation_perception_key = (
+      situation_representation.get_pre_act_label().format(agent_name=agent_name)
   )
 
   self_perception = (
@@ -86,7 +86,7 @@ def build_agent(
           model=model,
       )
   )
-  self_perception_key = self_perception.get_pre_act_key().format(
+  self_perception_key = self_perception.get_pre_act_label().format(
       agent_name=agent_name
   )
 
@@ -94,7 +94,7 @@ def build_agent(
       model=model,
       clock_now=clock_now,
   )
-  person_by_situation_key = person_by_situation.get_pre_act_key().format(
+  person_by_situation_key = person_by_situation.get_pre_act_label().format(
       agent_name=agent_name)
 
   relevant_memories = (
@@ -103,7 +103,7 @@ def build_agent(
           num_memories_to_retrieve=10,
       )
   )
-  relevant_memories_key = relevant_memories.get_pre_act_key().format(
+  relevant_memories_key = relevant_memories.get_pre_act_label().format(
       agent_name=agent_name)
 
   components_of_agent = {
@@ -116,7 +116,7 @@ def build_agent(
       situation_perception_key: situation_representation,
       person_by_situation_key: person_by_situation,
       'ObservationToMemory': observation_to_memory,
-      agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME: (
+      agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
           agent_components.memory.AssociativeMemory(memory_bank=memory)
       ),
   }
@@ -128,7 +128,7 @@ def build_agent(
   components_of_agent[choice_of_component_key] = (
       contrib_unstable.choice_of_component.ChoiceOfComponent(
           model=model,
-          observations_component_name=observations_key,
+          observations_component_key=observations_key,
           menu_of_components=[
               relevant_memories_key,
               self_perception_key,
@@ -181,8 +181,8 @@ def save_to_json(
     raise ValueError('The agent must be in the `READY` phase to be saved.')
 
   data = {
-      component_name: agent.get_component(component_name).get_state()
-      for component_name in agent.get_all_context_components()
+      component_key: agent.get_component(component_key).get_state()
+      for component_key in agent.get_all_context_components()
   }
 
   data['act_component'] = agent.get_act_component().get_state()
@@ -221,8 +221,8 @@ def rebuild_from_json(
       clock=clock,
   )
 
-  for component_name in agent.get_all_context_components():
-    agent.get_component(component_name).set_state(data.pop(component_name))
+  for component_key in agent.get_all_context_components():
+    agent.get_component(component_key).set_state(data.pop(component_key))
 
   agent.get_act_component().set_state(data.pop('act_component'))
 

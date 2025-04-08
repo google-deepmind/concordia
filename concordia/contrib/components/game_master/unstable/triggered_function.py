@@ -65,14 +65,14 @@ class TriggeredFunction(entity_component.ContextComponent):
   def __init__(
       self,
       clock_now: Callable[[], datetime.datetime],
-      event_resolution_component_name: str = (
-          switch_act.DEFAULT_RESOLUTION_COMPONENT_NAME),
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      event_resolution_component_key: str = (
+          switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY),
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       pre_event_fn: Callable[[PreEventFnArgsT], str] | None = None,
       post_event_fn: Callable[[PostEventFnArgsT], str] | None = None,
-      pre_act_key: str = '',
+      pre_act_label: str = '',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
@@ -80,23 +80,23 @@ class TriggeredFunction(entity_component.ContextComponent):
 
     Args:
       clock_now: Function to call to get current time.
-      event_resolution_component_name: The name of the event resolution
+      event_resolution_component_key: The name of the event resolution
         component.
-      memory_component_name: The name of the memory component.
+      memory_component_key: The name of the memory component.
       pre_event_fn: function to call with the action attempt before
         computing the event. It returns a string to log.
       post_event_fn: function to call with the event statement.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
       verbose: whether to print the full update chain of thought or not
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
     self._verbose = verbose
 
-    self._event_resolution_component_name = event_resolution_component_name
-    self._memory_component_name = memory_component_name
+    self._event_resolution_component_key = event_resolution_component_key
+    self._memory_component_key = memory_component_key
     self._clock_now = clock_now
 
     self._pre_event_fn = pre_event_fn
@@ -115,14 +115,14 @@ class TriggeredFunction(entity_component.ContextComponent):
     pre_event_log = ''
     if self._latest_action_spec == entity_lib.OutputType.RESOLVE:
       event_resolution = self.get_entity().get_component(
-          self._event_resolution_component_name,
+          self._event_resolution_component_key,
           type_=event_resolution_component.EventResolution,
       )
       player_name = event_resolution.get_active_entity_name()
       choice = event_resolution.get_putative_action()
 
       memory = self.get_entity().get_component(
-          self._memory_component_name, type_=memory_component.Memory
+          self._memory_component_key, type_=memory_component.Memory
       )
 
       current_scene_type = scene_runner.get_current_scene_type(memory=memory)
@@ -134,7 +134,7 @@ class TriggeredFunction(entity_component.ContextComponent):
                           memory=memory)
       )
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': pre_event_log,
     })
     return ''
@@ -147,7 +147,7 @@ class TriggeredFunction(entity_component.ContextComponent):
       return ''
     if self._latest_action_spec == entity_lib.OutputType.RESOLVE:
       memory = self.get_entity().get_component(
-          self._memory_component_name, type_=memory_component.Memory
+          self._memory_component_key, type_=memory_component.Memory
       )
       current_scene_type = scene_runner.get_current_scene_type(memory=memory)
       _ = self._post_event_fn(

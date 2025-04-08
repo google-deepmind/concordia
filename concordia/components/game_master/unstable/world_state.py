@@ -34,7 +34,7 @@ class WorldState(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      pre_act_key: str = '\nState',
+      pre_act_label: str = '\nState',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the world state component.
@@ -43,11 +43,11 @@ class WorldState(entity_component.ContextComponent):
       model: The language model to use.
       components: The components to condition the world state changes on. It
         is a mapping of the component name to a label to use in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._model = model
     self._components = dict(components)
     self._logging_channel = logging_channel
@@ -63,9 +63,9 @@ class WorldState(entity_component.ContextComponent):
         ).get_pre_act_value()
     )
 
-  def get_pre_act_key(self) -> str:
+  def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
-    return self._pre_act_key
+    return self._pre_act_label
 
   def get_pre_act_value(self) -> str:
     """Returns the current world state."""
@@ -81,7 +81,7 @@ class WorldState(entity_component.ContextComponent):
     self._latest_action_spec = action_spec
     result = self.get_pre_act_value()
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
     })
     return result
@@ -140,7 +140,7 @@ class Locations(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      pre_act_key: str = '\nEntity locations',
+      pre_act_label: str = '\nEntity locations',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -153,11 +153,11 @@ class Locations(entity_component.ContextComponent):
         representing the locations and their properties (e.g. their topology). 
       components: The components to condition location changes on. It
         is a mapping of the component name to a label to use in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._model = model
     self._entity_names = entity_names
     self._prompt = prompt
@@ -197,9 +197,9 @@ class Locations(entity_component.ContextComponent):
         ).get_pre_act_value()
     )
 
-  def get_pre_act_key(self) -> str:
+  def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
-    return self._pre_act_key
+    return self._pre_act_label
 
   def get_pre_act_value(self) -> str:
     """Returns the current world state."""
@@ -216,7 +216,7 @@ class Locations(entity_component.ContextComponent):
     self._latest_action_spec = action_spec
     result = self.get_pre_act_value()
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
     })
     return result
@@ -274,7 +274,7 @@ class GenerativeClock(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       format_description_key: str = 'Clock format description',
-      pre_act_key: str = '\nClock',
+      pre_act_label: str = '\nClock',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -294,11 +294,11 @@ class GenerativeClock(entity_component.ContextComponent):
       format_description_key: The key to prepend to the descripton of the
         desired format to use in the prompt for the sample that produces the
         clock's update on each step.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._model = model
     self._format_description_key = format_description_key
     self._prompt = prompt
@@ -332,9 +332,9 @@ class GenerativeClock(entity_component.ContextComponent):
         ).get_pre_act_value()
     )
 
-  def get_pre_act_key(self) -> str:
+  def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
-    return self._pre_act_key
+    return self._pre_act_label
 
   def get_pre_act_value(self) -> str:
     """Returns the current world state."""
@@ -347,7 +347,7 @@ class GenerativeClock(entity_component.ContextComponent):
     self._latest_action_spec = action_spec
     result = self.get_pre_act_value()
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
         'Prompt': self._prompt_to_log,
     })

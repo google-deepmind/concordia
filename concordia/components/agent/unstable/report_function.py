@@ -25,7 +25,7 @@ from typing import Callable
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.typing import logging
 
-DEFAULT_PRE_ACT_KEY = 'Report'
+DEFAULT_PRE_ACT_LABEL = 'Report'
 
 
 class ReportFunction(action_spec_ignored.ActionSpecIgnored):
@@ -35,7 +35,7 @@ class ReportFunction(action_spec_ignored.ActionSpecIgnored):
       self,
       function: Callable[[], str],
       *,
-      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -43,11 +43,11 @@ class ReportFunction(action_spec_ignored.ActionSpecIgnored):
     Args:
       function: the function that returns a string to report as state of the
         component.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._function = function
     self._logging_channel = logging_channel
 
@@ -55,7 +55,7 @@ class ReportFunction(action_spec_ignored.ActionSpecIgnored):
     """Returns state of this component obtained by calling a function."""
     value = self._function()
     self._logging_channel({
-        'Key': self.get_pre_act_key(),
+        'Key': self.get_pre_act_label(),
         'Value': value,
     })
     return value

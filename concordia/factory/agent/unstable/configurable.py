@@ -28,7 +28,7 @@ from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 DEFAULT_INSTRUCTIONS_COMPONENT_KEY = 'Instructions'
-DEFAULT_INSTRUCTIONS_PRE_ACT_KEY = '\nInstructions'
+DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = '\nInstructions'
 DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 
 
@@ -76,14 +76,14 @@ def build_agent(
   else:
     instructions = agent_components.instructions.Instructions(
         agent_name=agent_name,
-        pre_act_key=DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
+        pre_act_label=DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
         logging_channel=measurements.get_channel('Instructions').on_next,
     )
 
   if clock:
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
-        pre_act_key='\nCurrent time',
+        pre_act_label='\nCurrent time',
         logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
@@ -98,7 +98,7 @@ def build_agent(
   observation_label = '\nObservation'
   observation = agent_components.observation.LastNObservations(
       history_length=100,
-      pre_act_key=observation_label,
+      pre_act_label=observation_label,
       logging_channel=measurements.get_channel(
           'ObservationsSinceLastUpdate'
       ).on_next,
@@ -108,7 +108,7 @@ def build_agent(
     goal_label = '\nGoal'
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
-        pre_act_key=goal_label,
+        pre_act_label=goal_label,
         logging_channel=measurements.get_channel(goal_label).on_next,
     )
   else:
@@ -121,11 +121,11 @@ def build_agent(
   components_of_agent = {
       _get_class_name(component): component for component in entity_components
   }
-  components_of_agent[agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME] = (
+  components_of_agent[agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY] = (
       agent_components.memory.AssociativeMemory(memory_bank=memory)
   )
   components_of_agent[
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
   ] = observation
   if time_display:
     components_of_agent['TimeDisplay'] = time_display
@@ -185,8 +185,8 @@ def save_to_json(
     raise ValueError('The agent must be in the `READY` phase to be saved.')
 
   data = {
-      component_name: agent.get_component(component_name).get_state()
-      for component_name in agent.get_all_context_components()
+      component_key: agent.get_component(component_key).get_state()
+      for component_key in agent.get_all_context_components()
   }
 
   data['act_component'] = agent.get_act_component().get_state()
@@ -225,8 +225,8 @@ def rebuild_from_json(
       clock=clock,
   )
 
-  for component_name in agent.get_all_context_components():
-    agent.get_component(component_name).set_state(data.pop(component_name))
+  for component_key in agent.get_all_context_components():
+    agent.get_component(component_key).set_state(data.pop(component_key))
 
   agent.get_act_component().set_state(data.pop('act_component'))
 

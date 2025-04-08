@@ -67,12 +67,12 @@ class LaborStrike(entity_component.ContextComponent):
       players_to_inform: Sequence[str],
       clock_now: Callable[[], datetime.datetime],
       pressure_threshold: float,
-      event_resolution_component_name: str = (
-          switch_act.DEFAULT_RESOLUTION_COMPONENT_NAME),
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      event_resolution_component_key: str = (
+          switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY),
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      pre_act_key: str = '',
+      pre_act_label: str = '',
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
@@ -95,20 +95,20 @@ class LaborStrike(entity_component.ContextComponent):
       clock_now: Function to call to get current time.
       pressure_threshold: the threshold above which the boss will feel compelled
         to take action.
-      event_resolution_component_name: The name of the event resolution
+      event_resolution_component_key: The name of the event resolution
         component.
-      memory_component_name: The name of the memory component.
-      pre_act_key: Prefix to add to the output of the component when called
+      memory_component_key: The name of the memory component.
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to log debug information to.
       verbose: whether to print the full update chain of thought or not
     """
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._model = model
-    self._memory_component_name = memory_component_name
-    self._event_resolution_component_name = event_resolution_component_name
+    self._memory_component_key = memory_component_key
+    self._event_resolution_component_key = event_resolution_component_key
     self._cooperative_option = cooperative_option
     self._production_function = production_function
     self._all_player_names = all_player_names
@@ -135,7 +135,7 @@ class LaborStrike(entity_component.ContextComponent):
 
   def _get_current_scene_type(self) -> str:
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
     return scene_runner.get_current_scene_type(memory=memory)
 
@@ -168,7 +168,7 @@ class LaborStrike(entity_component.ContextComponent):
         and action_spec.output_type == entity_lib.OutputType.RESOLVE
     ):
       event_resolution = self.get_entity().get_component(
-          self._event_resolution_component_name,
+          self._event_resolution_component_key,
           type_=event_resolution_component.EventResolution,
       )
       player_name = event_resolution.get_active_entity_name()
@@ -177,7 +177,7 @@ class LaborStrike(entity_component.ContextComponent):
         self._partial_joint_action[player_name] = choice
 
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': action_spec,
     })
     return ''
@@ -202,7 +202,7 @@ class LaborStrike(entity_component.ContextComponent):
         pressure_str = get_pressure_str(pressure, self._pressure_threshold)
 
         memory = self.get_entity().get_component(
-            self._memory_component_name, type_=memory_component.Memory
+            self._memory_component_key, type_=memory_component.Memory
         )
         memory.add(pressure_str)
         lowercase_pressure_str = pressure_str[0].lower() + pressure_str[1:]

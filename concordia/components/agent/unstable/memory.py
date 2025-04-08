@@ -24,7 +24,7 @@ from concordia.typing.unstable import entity_component
 import pandas as pd
 
 
-DEFAULT_MEMORY_COMPONENT_NAME = '__memory__'
+DEFAULT_MEMORY_COMPONENT_KEY = '__memory__'
 
 
 class Memory(entity_component.ContextComponent):

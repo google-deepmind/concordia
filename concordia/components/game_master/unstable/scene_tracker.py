@@ -28,10 +28,9 @@ _SCENE_TYPE_TAG = '[scene type]'
 _SCENE_PARTICIPANTS_TAG = '[scene participants]'
 _PARTICIPANTS_DELIMITER = ', '
 
-DEFAULT_SCENE_TRACKER_COMPONENT_NAME = '__scene_tracker__'
-# Initiative is the Dungeons & Dragons term for the rule system that controls
-# turn taking.
-DEFAULT_SCENE_TRACKER_PRE_ACT_KEY = '\nCurrent Scene'
+DEFAULT_SCENE_TRACKER_COMPONENT_KEY = '__scene_tracker__'
+
+DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL = '\nCurrent Scene'
 
 
 class ThreadSafeCounter:
@@ -73,13 +72,13 @@ class SceneTracker(entity_component.ContextComponent):
       model: language_model.LanguageModel,
       scenes: Sequence[scene_lib.ExperimentalSceneSpec],
       step_counter: ThreadSafeCounter,
-      observation_component_name: str = (
-          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_NAME
+      observation_component_key: str = (
+          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
-      memory_component_name: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_NAME
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_SCENE_TRACKER_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
@@ -89,9 +88,9 @@ class SceneTracker(entity_component.ContextComponent):
       model: The language model to use for the component.
       scenes: All scenes to be used in the episode.
       step_counter: The counter to use for the step within the scene.
-      observation_component_name: The name of the observation component.
-      memory_component_name: The name of the memory component.
-      pre_act_key: Prefix to add to the output of the component when called in
+      observation_component_key: The name of the observation component.
+      memory_component_key: The name of the memory component.
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
       verbose: Whether to print verbose debug information.
@@ -102,11 +101,11 @@ class SceneTracker(entity_component.ContextComponent):
     """
     super().__init__()
     self._model = model
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
-    self._memory_component_name = memory_component_name
+    self._memory_component_key = memory_component_key
 
-    self._observation_component_name = observation_component_name
+    self._observation_component_key = observation_component_key
     self._step_counter = step_counter
     self._scenes = scenes
     self._verbose = verbose
@@ -152,7 +151,7 @@ class SceneTracker(entity_component.ContextComponent):
     prompt_to_log = ''
 
     memory = self.get_entity().get_component(
-        self._memory_component_name, type_=memory_component.Memory
+        self._memory_component_key, type_=memory_component.Memory
     )
     step_within_scene, current_scene = self._get_scene_step_and_scene()
 
@@ -164,7 +163,7 @@ class SceneTracker(entity_component.ContextComponent):
       if step_within_scene == 0:
 
         make_observation = self.get_entity().get_component(
-            self._observation_component_name,
+            self._observation_component_key,
             type_=make_observation_component.MakeObservation,
         )
 
@@ -196,7 +195,7 @@ class SceneTracker(entity_component.ContextComponent):
       self._step_counter.increment(amount=1)
 
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
         'Prompt': prompt_to_log,
     })

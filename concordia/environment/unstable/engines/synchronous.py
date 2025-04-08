@@ -38,7 +38,7 @@ DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
 DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
     next_game_master_components.DEFAULT_CALL_TO_NEXT_GAME_MASTER)
 
-DEFAULT_ACT_COMPONENT_NAME = switch_act_component.DEFAULT_ACT_COMPONENT_NAME
+DEFAULT_ACT_COMPONENT_KEY = switch_act_component.DEFAULT_ACT_COMPONENT_KEY
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG
@@ -245,9 +245,9 @@ class Synchronous(engine_lib.Engine):
           assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
           next_entity_log = next_entity.get_last_log()
           entity_key = f'{entity_key} [{next_entity.name}]'
-        if DEFAULT_ACT_COMPONENT_NAME in log_entry['resolve']:
+        if DEFAULT_ACT_COMPONENT_KEY in log_entry['resolve']:
           event_to_log = log_entry['resolve'][
-              DEFAULT_ACT_COMPONENT_NAME
+              DEFAULT_ACT_COMPONENT_KEY
           ]['Value']
           game_master_key = f'{game_master_key} --- {event_to_log}'
         self._log(

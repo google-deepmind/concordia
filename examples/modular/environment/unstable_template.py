@@ -57,7 +57,7 @@ MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
 ItemTypeConfig = gm_components.inventory.ItemTypeConfig
 
-_INVENTORY_COMPONENT_NAME = 'inventory'
+_INVENTORY_COMPONENT_KEY = 'inventory'
 
 
 @dataclasses.dataclass
@@ -348,7 +348,7 @@ def get_inventories_component(
       clock_now=clock_now,
       financial=True,
       never_increase=True,
-      pre_act_key='possessions',
+      pre_act_label='possessions',
       logging_channel=logging_channel,
       verbose=False,
   )
@@ -507,7 +507,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     supporting_players = []
     for player_config in supporting_player_configs:
       conversation_style = constant.Constant(
-          pre_act_key='guiding principle of good conversation',
+          pre_act_label='guiding principle of good conversation',
           state=player_traits_and_styles.get_conversation_style(
               player_config.name
           ),
@@ -541,7 +541,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             f'The year is {sampled_settings.year} and '
             f'the location is {sampled_settings.location}.'
         ),
-        pre_act_key='Setting',
+        pre_act_label='Setting',
     )
 
     self._environment = synchronous.Synchronous()
@@ -560,7 +560,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     additional_gm_components = {
         'setting': setting,
-        _INVENTORY_COMPONENT_NAME: inventory_component,
+        _INVENTORY_COMPONENT_KEY: inventory_component,
         'score': self._score,
     }
 

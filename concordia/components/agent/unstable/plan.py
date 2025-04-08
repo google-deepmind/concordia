@@ -23,7 +23,7 @@ from concordia.language_model import language_model
 from concordia.typing import logging
 from concordia.typing.unstable import entity_component
 
-DEFAULT_PRE_ACT_KEY = 'Plan'
+DEFAULT_PRE_ACT_LABEL = 'Plan'
 
 
 class Plan(action_spec_ignored.ActionSpecIgnored):
@@ -35,9 +35,9 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      goal_component_name: str | None = None,
+      goal_component_key: str | None = None,
       force_time_horizon: str | bool = False,
-      pre_act_key: str = DEFAULT_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to represent the agent's plan.
@@ -46,18 +46,18 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       model: a language model
       components: components to build the context of planning. This is a mapping
         of the component name to a label to use in the prompt.
-      goal_component_name: index into `components` to use to represent the goal
+      goal_component_key: index into `components` to use to represent the goal
         of planning
       force_time_horizon: If not False, then use this time horizon to plan for
         instead of asking the LLM to determine the time horizon.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: channel to use for debug logging.
     """
-    super().__init__(pre_act_key)
+    super().__init__(pre_act_label)
     self._model = model
     self._components = dict(components)
-    self._goal_component_name = goal_component_name
+    self._goal_component_key = goal_component_key
     self._force_time_horizon = force_time_horizon
 
     self._current_plan = ''
@@ -67,9 +67,9 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
 
-    if self._goal_component_name:
+    if self._goal_component_key:
       goal_component = self.get_entity().get_component(
-          self._goal_component_name,
+          self._goal_component_key,
           type_=action_spec_ignored.ActionSpecIgnored)
     else:
       goal_component = None
@@ -139,7 +139,7 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
     result = self._current_plan
 
     self._logging_channel({
-        'Key': self.get_pre_act_key(),
+        'Key': self.get_pre_act_label(),
         'Value': result,
         'Chain of thought': prompt.view().text().splitlines(),
     })

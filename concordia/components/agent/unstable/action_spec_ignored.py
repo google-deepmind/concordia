@@ -31,15 +31,15 @@ class ActionSpecIgnored(
   As a consequence, its `pre_act` state can be accessed safely by other
   components. This is useful for components that need to condition their
   `pre_act` state on the state of other components. Derived classes should
-  implement `_make_pre_act_value` and `pre_act_key` instead of
+  implement `_make_pre_act_value` and `pre_act_label` instead of
   `pre_act`. The pre_act context will be constructed as `f'{key}: {value}'`.
   This will be cached and cleaned up in `update`.
   """
 
-  def __init__(self, pre_act_key: str):
+  def __init__(self, pre_act_label: str):
     super().__init__()
     self._pre_act_value: str | None = None
-    self._pre_act_key: Final[str] = pre_act_key
+    self._pre_act_label: Final[str] = pre_act_label
     self._lock: threading.Lock = threading.Lock()
 
   @abc.abstractmethod
@@ -71,16 +71,16 @@ class ActionSpecIgnored(
         self._pre_act_value = self._make_pre_act_value()
       return self._pre_act_value
 
-  def get_pre_act_key(self) -> str:
+  def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
-    return self._pre_act_key
+    return self._pre_act_label
 
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     del action_spec
-    return f"{self.get_pre_act_key()}:\n{self.get_pre_act_value()}\n"
+    return f"{self.get_pre_act_label()}:\n{self.get_pre_act_value()}\n"
 
   def update(self) -> None:
     with self._lock:

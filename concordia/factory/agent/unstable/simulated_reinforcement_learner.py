@@ -42,18 +42,18 @@ def build_agent(
   instructions_key = 'instructions'
   instructions = agent_components.constant.Constant(
       state='You are simulating a reinforcement learning agent.',
-      pre_act_key='\nInstructions',
+      pre_act_label='\nInstructions',
       logging_channel=measurements.get_channel(instructions_key).on_next,
   )
 
   reward_key = 'goal'
   reward_component = agent_components.constant.Constant(
       state=reward,
-      pre_act_key='\nReward variable to maximize',
+      pre_act_label='\nReward variable to maximize',
       logging_channel=measurements.get_channel(reward_key).on_next,
   )
 
-  memory_component_key = agent_components.memory.DEFAULT_MEMORY_COMPONENT_NAME
+  memory_component_key = agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
   memory_component = agent_components.memory.ListMemory(memory_bank=[])
 
   observation_to_memory_key = 'observation_to_memory'
@@ -62,16 +62,16 @@ def build_agent(
   history_key = '\nHistory of previous observations'
   history_component = agent_components.observation.LastNObservations(
       history_length=history_length,
-      pre_act_key=history_key,
+      pre_act_label=history_key,
       logging_channel=measurements.get_channel(history_key).on_next,
   )
 
   observation_key = (
-      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_NAME
+      agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
   )
   observation_component = (
       agent_components.observation.ObservationsSinceLastPreAct(
-          pre_act_key='\nLatest observation',
+          pre_act_label='\nLatest observation',
           logging_channel=measurements.get_channel(observation_key).on_next,
       )
   )

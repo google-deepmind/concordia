@@ -26,10 +26,9 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-DEFAULT_NEXT_GAME_MASTER_COMPONENT_NAME = '__next_game_master__'
-# Initiative is the Dungeons & Dragons term for the rule system that controls
-# turn taking.
-DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY = '\nGame Master'
+DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY = '__next_game_master__'
+
+DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL = '\nGame Master'
 DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
     'Which rule set should we use for the next step?')
 
@@ -46,7 +45,7 @@ class NextGameMaster(entity_component.ContextComponent):
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
-      pre_act_key: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
@@ -59,7 +58,7 @@ class NextGameMaster(entity_component.ContextComponent):
       call_to_action: The question to ask the model to select a game master.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      pre_act_key: Prefix to add to the output of the component when called
+      pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -73,7 +72,7 @@ class NextGameMaster(entity_component.ContextComponent):
     self._game_master_choices = list(map_game_master_names_to_choices.values())
     self._call_to_action = call_to_action
     self._components = dict(components)
-    self._pre_act_key = pre_act_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_active_game_master = None
@@ -107,7 +106,7 @@ class NextGameMaster(entity_component.ContextComponent):
       prompt_to_log = prompt.view().text()
 
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
         'Prompt': prompt_to_log,
     })
@@ -123,19 +122,19 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      scene_tracker_component_name: str = (
-          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_NAME
+      scene_tracker_component_key: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
-      pre_act_key: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_KEY,
+      pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
     Args:
       model: The language model to use for the component.
-      scene_tracker_component_name: The name of the SceneTracker component to
+      scene_tracker_component_key: The name of the SceneTracker component to
         use to get the current scene type.
-      pre_act_key: Prefix to add to the output of the component when called in
+      pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       logging_channel: The channel to use for debug logging.
 
@@ -145,8 +144,8 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
     """
     super().__init__()
     self._model = model
-    self._scene_tracker_component_name = scene_tracker_component_name
-    self._pre_act_key = pre_act_key
+    self._scene_tracker_component_key = scene_tracker_component_key
+    self._pre_act_label = pre_act_label
     self._logging_channel = logging_channel
 
     self._currently_active_game_master = None
@@ -169,14 +168,14 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
     prompt_to_log = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
       scene_tracker = self.get_entity().get_component(
-          self._scene_tracker_component_name,
+          self._scene_tracker_component_key,
           type_=scene_tracker_component.SceneTracker,
       )
       scene_type = scene_tracker.get_current_scene_type()
       result = scene_type.game_master_name
 
     self._logging_channel({
-        'Key': self._pre_act_key,
+        'Key': self._pre_act_label,
         'Value': result,
         'Prompt': prompt_to_log,
     })
