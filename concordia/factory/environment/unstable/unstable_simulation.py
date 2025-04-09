@@ -509,7 +509,6 @@ def build_simulation_with_scenes(
   ] = scene_tracker
   next_action_spec = gm_components_lib.next_acting.NextActionSpecFromSceneSpec(
       scenes=scenes,
-      memory_component_key=_MEMORY_COMPONENT_KEY,
       logging_channel=measurements.get_channel('NextActionSpec').on_next,
   )
   components_of_game_master[
@@ -593,6 +592,9 @@ def build_decision_scene_game_master(
     players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
     globabl_scene_counter: gm_components_lib.scene_tracker.ThreadSafeCounter,
     memory: associative_memory.AssociativeMemoryBank,
+    additional_context_components: (
+        Mapping[str, entity_component_lib.ContextComponent] | None
+    ) = None,
     scenes: Sequence[scene_lib.ExperimentalSceneSpec] | None = None,
     measurements: measurements_lib.Measurements | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
@@ -600,7 +602,6 @@ def build_decision_scene_game_master(
 
   if measurements is None:
     measurements = measurements_lib.Measurements()
-
   game_master_memory = memory
 
   instructions = gm_components_lib.instructions.Instructions()
@@ -635,6 +636,12 @@ def build_decision_scene_game_master(
           memory_bank=game_master_memory
       ),
   }
+
+  if additional_context_components is not None:
+    for key, component in additional_context_components.items():
+      if key in components_of_game_master:
+        raise ValueError(f'Key {key} already exists default game master.')
+      components_of_game_master[key] = component
 
   make_observation = (
       gm_components_lib.make_observation.MakeObservationFromQueueOnly(

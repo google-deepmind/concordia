@@ -22,13 +22,10 @@ import functools
 import random
 import types
 from typing import Any, Union
-from concordia.agents.unstable import entity_agent
-from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent.unstable import constant
 from concordia.components.game_master import unstable as gm_components
-from concordia.document import interactive_document
 from concordia.environment.unstable.engines import synchronous
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory.unstable import rational as rational_agent_supporting
@@ -54,10 +51,6 @@ DECISION_SCENE_TYPE = 'choice'
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
-
-ItemTypeConfig = gm_components.inventory.ItemTypeConfig
-
-_INVENTORY_COMPONENT_KEY = 'inventory'
 
 
 @dataclasses.dataclass
@@ -85,132 +78,139 @@ class WorldConfig:
   relationship_matrix: Mapping[str, Mapping[str, float]] | None = None
 
 
-def configure_players(
-    model: language_model.LanguageModel,
-    sampled_settings: Any,
+def configure_player(
+    name: str,
+    gender: str,
+    favorite_pub: str,
+    is_main: bool,
+    all_player_names_str: str,
+    pub_preferences: dict[str, Sequence[str]],
+    year: int,
     rng: random.Random,
-) -> tuple[
+) -> formative_memories.AgentConfig:
+  """Configure a player.
+
+  Args:
+    name: the name of the player
+    gender: the gender of the player
+    favorite_pub: the favorite pub of the player
+    is_main: whether the player is a main character or not
+    all_player_names_str: the names of all the players in one comma-separated
+      string
+    pub_preferences: the preferences of all the pubs
+    year: the year of the simulation to sample the age of the players
+    rng: the random number generator to use
+
+  Returns:
+    config: the player config
+  """
+  social_classes = ['working', 'middle', 'upper']
+
+  social_class = rng.choice(social_classes)
+  reasons = rng.choice(pub_preferences[favorite_pub])
+  pubs = list(pub_preferences.keys())
+  extras = {
+      'player_specific_memories': [
+          f'{name} is a member of the {social_class} class.',
+      ],
+      'main_character': is_main,
+      'preference': {pub: 1.0 if pub == favorite_pub else 0.8 for pub in pubs},
+  }
+
+  if not is_main:
+    extras['favourite_pub'] = favorite_pub
+  goal = (
+      f'Have a good time. To have a good time, {name} would like to'
+      f' watch the game in the same pub as {all_player_names_str}.'
+      f' {name} would prefer everyone went to {favorite_pub}.'
+  )
+  config = formative_memories.AgentConfig(
+      name=name,
+      gender=gender,
+      date_of_birth=datetime.datetime(
+          year=year - rng.randint(25, 54),
+          month=rng.randint(1, 12),
+          day=rng.randint(1, 28),
+      ),
+      formative_ages=[16, 20],
+      goal=goal,
+      context=(
+          f"{all_player_names_str}' are close friends. {name} has"
+          f' a favorite pub which is {favorite_pub}. They love that pub for the'
+          f' following reasons: {reasons}'
+      ),
+      traits=(
+          f"{name}'s personality is like "
+          + player_traits_and_styles.get_trait(flowery=True)
+      ),
+      extras=extras,
+      specific_memories=f'[goal] {goal}',
+  )
+  return config
+
+
+def configure_players(sampled_settings: Any, rng: random.Random) -> tuple[
     list[formative_memories.AgentConfig],
     list[formative_memories.AgentConfig],
 ]:
   """Configure the players.
 
   Args:
-    model: the language model to use
-    sampled_settings: the environment configuration containing the time and
-      place details.
-    rng: the random number generator to use.
+    sampled_settings: the sampled settings for the world configuration
+    rng: the random number generator to use
 
   Returns:
     main_player_configs: configs for the main characters
     supporting_player_configs: configs for the supporting characters
-    antagonist_config: config of the antagonist character
-    organizer_config: config of the labor organizer character
   """
-  num_main_players = sampled_settings.num_main_players
-  if sampled_settings.num_main_players > len(sampled_settings.people):
-    num_main_players = len(sampled_settings.people)
-  main_player_names = sampled_settings.people[:num_main_players]
+  names = sampled_settings.people[
+      : sampled_settings.num_main_players
+      + sampled_settings.num_supporting_players
+  ]
+  all_players = ', '.join(names)
+  player_configs = []
 
-  joined_world_elements = '\n'.join(sampled_settings.world_elements)
+  num_pubs = len(sampled_settings.venues)
 
-  def get_agent_config(player_name: str, environment_cfg: Any):
-    if environment_cfg.person_data[player_name]['gender'] == 'male':
-      subject_pronoun = 'he'
-      object_pronoun = 'him'
-    elif environment_cfg.person_data[player_name]['gender'] == 'female':
-      subject_pronoun = 'she'
-      object_pronoun = 'her'
+  for i in range(sampled_settings.num_main_players):
+    name = names[i]
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
     else:
-      subject_pronoun = 'they'
-      object_pronoun = 'their'
+      favorite_pub = sampled_settings.venues[i % num_pubs]
 
-    birth_year = environment_cfg.year - (30 + rng.randint(-8, 8))
-    birth_month = rng.randint(1, 12)
-    birth_day = rng.randint(1, 28)
-    goal_str = (
-        f'{player_name} hopes to be able to provide for their '
-        'family and live a full life.'
+    gender = sampled_settings.person_data[name]['gender']
+    config = configure_player(
+        name,
+        gender,
+        favorite_pub,
+        is_main=True,
+        all_player_names_str=all_players,
+        pub_preferences=sampled_settings.venue_preferences,
+        year=sampled_settings.year,
+        rng=rng,
     )
-    traits_str = (
-        f"{player_name}'s personality is like "
-        + player_traits_and_styles.get_trait(flowery=True)
-    )
-    prompt = interactive_document.InteractiveDocument(
-        model, rng=np.random.default_rng(sampled_settings.random_seed)
-    )
-    prompt.statement(
-        'The following exercise is preparatory work for a role playing '
-        'session. The purpose of the exercise is to fill in the backstory '
-        f'for a character named {player_name}.'
-    )
-    prompt.statement(f'The year is {environment_cfg.year}.\n')
-    prompt.statement(f'The location is {environment_cfg.location}.\n')
-    prompt.statement(f'{player_name} was born in the year {birth_year}.\n')
-    prompt.statement(f'Past events:\n{joined_world_elements}\n')
-    prompt.statement(goal_str)
-    prompt.statement(traits_str)
-    player_backstory_answers = []
-    for question in environment_cfg.formative_memory_prompts[player_name]:
-      answer = prompt.open_question(question=question, max_tokens=500)
-      player_backstory_answers.append(answer)
-    public_face_prefix = (
-        f'What casual acquaintances remember about {player_name} is that '
-    )
-    public_face = prompt.open_question(
-        question=(
-            f'What do most acquaintances know about {player_name}? How '
-            f'does {subject_pronoun} present {object_pronoun}self to others? '
-            f'Does {subject_pronoun} have any personality quirks, salient '
-            'mannerisms, accents, or patterns of speech which casual '
-            f'acquaintances may be aware of? Is {subject_pronoun} especially '
-            'likely to bring up certain favorite conversation topics? '
-            f'Is {subject_pronoun} known for having '
-            'unusual beliefs or for uncommon fashion choices? Does '
-            f'{subject_pronoun} often talk about memorable life experiences, '
-            'past occupations, or hopes for the future which others would be '
-            'likely to remember them for? Overall, how '
-            f'would casual acquaintances describe {object_pronoun} if pressed?'
-        ),
-        answer_prefix=public_face_prefix,
-        max_tokens=500,
-    )
-    # public_face = 'he is a good listener'
-    player_backstory_answers.append(public_face_prefix + public_face)
-    return formative_memories.AgentConfig(
-        name=player_name,
-        gender=environment_cfg.person_data[player_name].get('gender', None),
-        date_of_birth=datetime.datetime(
-            year=birth_year, month=birth_month, day=birth_day
-        ),
-        goal=goal_str,
-        context='',
-        traits=traits_str,
-        extras={
-            'player_specific_memories': player_backstory_answers,
-            'main_character': True,
-            'initial_endowment': {
-                'coin': 5.0,
-            },
-            'public_face': public_face,
-        },
-    )
+    player_configs.append(config)
 
-  # Embellish main player backstory prompts in parallel.
-  player_configs = concurrency.map_parallel(
-      functools.partial(get_agent_config, environment_cfg=sampled_settings),
-      main_player_names,
-  )
+  for i in range(sampled_settings.num_supporting_players):
+    name = names[sampled_settings.num_main_players + i]
+    gender = sampled_settings.person_data[name]['gender']
+    if 'favorite_pub' in sampled_settings.person_data[name]:
+      favorite_pub = sampled_settings.person_data[name]['favorite_pub']
+    else:
+      favorite_pub = sampled_settings.venues[1]
 
-  public_faces = {
-      config.name: config.extras['public_face'] for config in player_configs
-  }
-  for config in player_configs:
-    for name, public_face in public_faces.items():
-      if config.name != name:
-        config.extras['player_specific_memories'].append(
-            f'What {config.name} remembers about {name} is that ' + public_face
-        )
+    config = configure_player(
+        name,
+        gender,
+        favorite_pub,
+        is_main=False,
+        all_player_names_str=all_players,
+        pub_preferences=sampled_settings.venue_preferences,
+        year=sampled_settings.year,
+        rng=rng,
+    )
+    player_configs.append(config)
 
   main_player_configs = [
       player for player in player_configs if player.extras['main_character']
@@ -219,10 +219,7 @@ def configure_players(
       player for player in player_configs if not player.extras['main_character']
   ]
 
-  return (
-      main_player_configs,
-      supporting_player_configs,
-  )
+  return main_player_configs, supporting_player_configs
 
 
 def configure_scenes(
@@ -288,77 +285,61 @@ def configure_scenes(
   scenes = [
       # # # Day 0
       scene_lib.ExperimentalSceneSpec(
-          # Dinner in the saloon
+          # Conversation phase
           scene_type=discussion_scene_type,
           start_time=start_time,
           participants=[cfg.name for cfg in main_player_configs],
           num_rounds=1,
       ),
-      # Day 1
+      # Choice of the pub
       scene_lib.ExperimentalSceneSpec(
           # Construction workers start the day first
           scene_type=decision_scene_type,
           start_time=start_time + datetime.timedelta(hours=9) + day,
           participants=[cfg.name for cfg in main_player_configs],
-          num_rounds=len(main_player_configs),
+          num_rounds=len(main_player_configs) + 1,
       ),
-      # scene_lib.ExperimentalSceneSpec(
-      #     # Construction workers start the day first
-      #     scene_type=discussion_scene_type,
-      #     start_time=start_time + datetime.timedelta(hours=12) + day,
-      #     participants=[cfg.name for cfg in main_player_configs],
-      #     num_rounds=1,
-      # ),
-      # scene_lib.ExperimentalSceneSpec(
-      #     # Dinner in the saloon
-      #     scene_type=discussion_scene_type,
-      #     start_time=start_time + datetime.timedelta(hours=20) + day,
-      #     participants=[cfg.name for cfg in main_player_configs],
-      #     num_rounds=1,
-      # ),
+      scene_lib.ExperimentalSceneSpec(
+          # Conversation phase
+          scene_type=discussion_scene_type,
+          start_time=start_time + datetime.timedelta(hours=12) + day,
+          participants=[cfg.name for cfg in main_player_configs],
+          num_rounds=2,
+      ),
   ]
 
   return scenes
 
 
-def get_inventories_component(
-    model: language_model.LanguageModel,
-    main_players: Sequence[entity_agent.EntityAgent],
-    player_configs: Sequence[formative_memories.AgentConfig],
-    clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
-    measurements: measurements_lib.Measurements | None = None,
-) -> tuple[
-    gm_components.inventory.Inventory,
-    gm_components.inventory.Score,
-]:
-  """Get the inventory tracking component for the game master."""
-  money_config = ItemTypeConfig(name='coin')
-  player_initial_endowments = {
-      config.name: config.extras['initial_endowment']
-      for config in player_configs
-  }
-  if measurements is None:
-    logging_channel = None
-  else:
-    logging_channel = measurements.get_channel('Inventory').on_next
-  inventories = gm_components.inventory.Inventory(
-      model=model,
-      item_type_configs=(money_config,),
-      player_initial_endowments=player_initial_endowments,
-      clock_now=clock_now,
-      financial=True,
-      never_increase=True,
-      pre_act_label='possessions',
-      logging_channel=logging_channel,
-      verbose=False,
-  )
-  score = gm_components.inventory.Score(
-      inventory=inventories,
-      player_names=[player.name for player in main_players],
-      targets={player.name: ('coin',) for player in main_players},
-      verbose=True,
-  )
-  return inventories, score
+def action_to_scores(
+    joint_action: Mapping[str, str],
+) -> Mapping[str, float]:
+  """Map a joint action to a dictionary of scores for each player."""
+  scores = {player_name: 0.0 for player_name in joint_action}
+  print(f'joint_action: {joint_action}')
+  for player_name in joint_action:
+    for other_player_name in joint_action:
+      if player_name != other_player_name:
+        if joint_action[player_name] == joint_action[other_player_name]:
+          scores[player_name] += 1.0
+  return scores
+
+
+def scores_to_observation(scores: Mapping[str, float]) -> Mapping[str, str]:
+  """Map a dictionary of scores for each player to a string observation."""
+  observations = {}
+  for player_name in scores:
+    if scores[player_name] > 0:
+      observations[player_name] = (
+          f'{player_name} had a good time at the pub, whatching a game with'
+          ' their friends.'
+      )
+    else:
+      observations[player_name] = (
+          f'{player_name} had a bad time, since non of their friends were'
+          ' there.'
+      )
+  return observations
 
 
 class Simulation(scenarios_lib.RunnableSimulationWithMemories):
@@ -457,29 +438,18 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     )
 
     (main_player_configs, supporting_player_configs) = configure_players(
-        model=model,
         sampled_settings=sampled_settings,
         rng=self._rng,
     )
     self._rng.shuffle(main_player_configs)
 
-    # tasks = {
-    #     config.name: functools.partial(
-    #         self._make_player_memories, config=config
-    #     )
-    #     for config in main_player_configs + supporting_player_configs
-    # }
-    # self._all_memories = concurrency.run_tasks(tasks)
-    self._all_memories = {}
-    for config in main_player_configs + supporting_player_configs:
-      print(config.name)
-      print(config.extras['player_specific_memories'])
-      player_memory = associative_memory.AssociativeMemoryBank(
-          sentence_embedder=self._embedder,
-      )
-      for memory in config.extras['player_specific_memories']:
-        player_memory.add(memory)
-      self._all_memories[config.name] = player_memory
+    tasks = {
+        config.name: functools.partial(
+            self._make_player_memories, config=config
+        )
+        for config in main_player_configs + supporting_player_configs
+    }
+    self._all_memories = concurrency.run_tasks(tasks)
 
     self._main_players = []
     self._resident_names = []
@@ -528,14 +498,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._all_players = self._main_players + supporting_players
 
-    inventory_component, self._score = get_inventories_component(
-        model=model,
-        main_players=self._main_players,
-        player_configs=main_player_configs + supporting_player_configs,
-        clock_now=self._clock.now,
-        measurements=self._measurements,
-    )
-
     setting = constant.Constant(
         state=(
             f'The year is {sampled_settings.year} and '
@@ -557,11 +519,17 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     self._globabl_scene_counter = gm_components.scene_tracker.ThreadSafeCounter(
         initial_value=0
     )
+    all_player_names = [player.name for player in self._all_players]
+    self._payoff_matrix = gm_components.payoff_matrix.PayoffMatrix(
+        model=self._model,
+        acting_player_names=all_player_names,
+        action_to_scores=action_to_scores,
+        scores_to_observation=scores_to_observation,
+        verbose=True,
+    )
 
     additional_gm_components = {
         'setting': setting,
-        _INVENTORY_COMPONENT_KEY: inventory_component,
-        'score': self._score,
     }
 
     scenario_knowledge = (
@@ -581,7 +549,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             players=self._main_players,
             shared_memories=[scenario_knowledge],
             additional_context_components=additional_gm_components,
-            measurements=self._measurements,
+            # measurements=self._measurements,
             scenes=self._scenes,
             globabl_scene_counter=self._globabl_scene_counter,
         )
@@ -594,7 +562,10 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             memory=self._game_master_memory,
             scenes=self._scenes,
             globabl_scene_counter=self._globabl_scene_counter,
-            measurements=self._measurements,
+            additional_context_components={
+                'payoff_matrix': self._payoff_matrix
+            },
+            # measurements=self._measurements,
         )
     )
 
@@ -667,10 +638,12 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         game_masters=[self._game_master, self._decision_game_master],
         entities=self._all_players,
         premise='A group of friends are considering which pub to go to.',
-        max_steps=4,
+        max_steps=6,
         verbose=True,
         log=raw_log,
     )
+    scores = self._payoff_matrix._player_scores
+    print(f'scores: {scores}')
     results_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
     tabbed_html = html_lib.combine_html_pages(
         [results_log],

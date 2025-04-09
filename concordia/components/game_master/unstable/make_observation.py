@@ -261,6 +261,12 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
     )
     return result
 
+  def add_to_queue(self, entity_name: str, event: str):
+    """Adds an event to the queue of events to observe."""
+    if entity_name not in self._queue:
+      self._queue[entity_name] = []
+    self._queue[entity_name].append(event)
+
   def get_currently_active_game_master(self) -> str | None:
     return self._currently_active_game_master
 

@@ -144,12 +144,24 @@ class EventResolution(entity_component.ContextComponent):
         raise RuntimeError('No active entity suggesting an event to resolve.')
 
       putative_action = suggestions[-1][
-          suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG):]
-      self._putative_action = f'Putative event to resolve: {putative_action}'
-      prompt.statement(self._putative_action)
+          suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+      ]
+
+      # Check if the action starts with the active entity name and a colon,
+      # remove it if present, and strip leading whitespace.
+      prefix_to_remove = f' {self._active_entity_name}:'
+      if putative_action.startswith(prefix_to_remove):
+        self._putative_action = putative_action[
+            len(prefix_to_remove) :
+        ].lstrip()
+      else:
+        self._putative_action = putative_action
+
+      putative_action = f'Putative event to resolve: {putative_action}'
+      prompt.statement(putative_action)
       prompt, event_statement = thought_chains.run_chain_of_thought(
           thoughts=self._event_resolution_steps,
-          premise=self._putative_action,
+          premise=putative_action,
           document=prompt,
           active_player_name=self._active_entity_name,
       )
