@@ -16,6 +16,7 @@
 """
 
 from collections.abc import Mapping, Sequence
+import functools
 from typing import Any
 
 from concordia.components.game_master.unstable import event_resolution as event_resolution_components
@@ -25,6 +26,7 @@ from concordia.components.game_master.unstable import next_game_master as next_g
 from concordia.components.game_master.unstable import switch_act as switch_act_component
 from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import entity as entity_lib
+from concordia.utils import concurrency
 import termcolor
 
 
@@ -205,7 +207,8 @@ class Synchronous(engine_lib.Engine):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['next_game_master'] = game_master.get_last_log()
 
-      for entity in entities:
+      # Define a function to make an entity's observation and send it to them.
+      def _entity_observation(entity: entity_lib.Entity) -> None:
         observation = self.make_observation(game_master, entity)
         if log is not None and hasattr(game_master, 'get_last_log'):
           assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
@@ -215,6 +218,12 @@ class Synchronous(engine_lib.Engine):
           print(termcolor.colored(
               f'Entity {entity.name} observed: {observation}', _PRINT_COLOR))
         entity.observe(observation)
+
+      tasks = {
+          entity.name: functools.partial(_entity_observation, entity)
+          for entity in entities
+      }
+      concurrency.run_tasks(tasks)
 
       next_entity, entity_spec_to_use = self.next_acting(game_master, entities)
       if verbose:
