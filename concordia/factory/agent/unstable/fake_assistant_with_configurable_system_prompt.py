@@ -44,14 +44,14 @@ In essence, users prefer interactions that feel smooth, natural, and efficient. 
 def build_agent(
     *,
     model: language_model.LanguageModel,
-    memory: basic_associative_memory.AssociativeMemoryBank | Sequence[str],
+    memory_bank: basic_associative_memory.AssociativeMemoryBank | Sequence[str],
     system_prompt: str,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
 
   Args:
     model: The language model to use.
-    memory: The agent's memory object.
+    memory_bank: The agent's memory_bank object.
     system_prompt: The system prompt to use.
 
   Returns:
@@ -91,13 +91,13 @@ def build_agent(
           observation
       ),
       agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
-          agent_components.memory.ListMemory(memory_bank=memory)
+          agent_components.memory.ListMemory(memory_bank=memory_bank)
       ),
   }
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
-      logging_channel=measurements.get_channel('ActComponent').on_next,
+      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(

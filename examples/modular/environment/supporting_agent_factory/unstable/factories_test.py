@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test agent factories."""
+"""Test agent factories.
+"""
 
 import datetime
 
@@ -22,11 +23,8 @@ from concordia.agents.unstable import entity_agent
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
-from concordia.factory.agent.unstable import basic
-from concordia.factory.agent.unstable import basic_with_plan
-from concordia.factory.agent.unstable import configurable
-from concordia.factory.agent.unstable import example
-from concordia.factory.agent.unstable import minimal
+from examples.modular.environment.supporting_agent_factory.unstable import basic
+from examples.modular.environment.supporting_agent_factory.unstable import rational
 from concordia.language_model import no_language_model
 from concordia.typing.unstable import entity as entity_lib
 import numpy as np
@@ -43,10 +41,7 @@ AGENT_NAME = 'Rakshit'
 
 AGENT_FACTORIES = {
     'basic': basic,
-    'basic_with_plan': basic_with_plan,
-    'configurable': configurable,
-    'example': example,
-    'minimal': minimal,
+    'rational': rational,
 }
 
 
@@ -59,20 +54,15 @@ class AgentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='basic', agent_name='basic', main_role=True
+          testcase_name='basic',
+          agent_name='basic',
+          main_role=False
       ),
       dict(
-          testcase_name='basic_with_plan',
-          agent_name='basic_with_plan',
-          main_role=True,
+          testcase_name='rational',
+          agent_name='rational',
+          main_role=False,
       ),
-      dict(
-          testcase_name='configurable',
-          agent_name='configurable',
-          main_role=True,
-      ),
-      dict(testcase_name='example', agent_name='example', main_role=True),
-      dict(testcase_name='minimal', agent_name='minimal', main_role=True),
   )
   def test_output_in_right_format(self, agent_name: str, main_role: bool):
     agent_factory = AGENT_FACTORIES[agent_name]
@@ -80,29 +70,28 @@ class AgentFactoriesTest(parameterized.TestCase):
     setup_time = datetime.datetime.now()
     clock = game_clock.MultiIntervalClock(
         start=setup_time,
-        step_sizes=[
-            datetime.timedelta(hours=1),
-            datetime.timedelta(minutes=10),
-        ],
-    )
+        step_sizes=[datetime.timedelta(hours=1),
+                    datetime.timedelta(minutes=10)])
     config = formative_memories.AgentConfig(
-        name=AGENT_NAME, extras={'main_character': main_role}
-    )
+        name=AGENT_NAME,
+        extras={'main_character': main_role})
     agent = agent_factory.build_agent(
         config=config,
         model=model,
         memory_bank=basic_associative_memory.AssociativeMemoryBank(
-            sentence_embedder=_embedder
-        ),
+            sentence_embedder=_embedder),
         clock=clock,
     )
+
     self.assertEqual(agent.name, AGENT_NAME)
-    self.assertIsInstance(
-        agent, entity_agent.EntityAgent
-    )
+    self.assertIsInstance(agent, entity_agent.EntityAgent)
 
     agent.observe('foo')
     agent.observe('bar')
+
+    # Free action
+    action = agent.act()
+    self.assertIsInstance(action, str)
 
     # Choice action
     action = agent.act(action_spec=DECISION_ACTION_SPEC)
@@ -111,7 +100,6 @@ class AgentFactoriesTest(parameterized.TestCase):
     # Speech action
     action = agent.act(action_spec=SPEECH_ACTION_SPEC)
     self.assertIsInstance(action, str)
-
 
 if __name__ == '__main__':
   absltest.main()

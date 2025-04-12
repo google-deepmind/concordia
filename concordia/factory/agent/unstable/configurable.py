@@ -40,7 +40,7 @@ def build_agent(
     *,
     config: formative_memories.AgentConfig,
     model: language_model.LanguageModel,
-    memory: basic_associative_memory.AssociativeMemoryBank,
+    memory_bank: basic_associative_memory.AssociativeMemoryBank,
     custom_instructions: agent_components.constant.Constant | None = None,
     extra_components: (
         dict[str, entity_component.ContextComponent] | None
@@ -53,7 +53,7 @@ def build_agent(
   Args:
     config: The agent config to use.
     model: The language model to use.
-    memory: The agent's memory object.
+    memory_bank: The agent's memory_bank object.
     custom_instructions: A constant component to use for instructions. If not
       provided, default instructions will be used.
     extra_components: Extra components to add to the agent. These will be added
@@ -122,7 +122,7 @@ def build_agent(
       _get_class_name(component): component for component in entity_components
   }
   components_of_agent[agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY] = (
-      agent_components.memory.AssociativeMemory(memory_bank=memory)
+      agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
   )
   components_of_agent[
       agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
@@ -146,7 +146,7 @@ def build_agent(
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       component_order=component_order,
-      logging_channel=measurements.get_channel('ActComponent').on_next,
+      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
@@ -208,7 +208,7 @@ def rebuild_from_json(
 
   data = json.loads(json_data)
 
-  new_agent_memory = basic_associative_memory.AssociativeMemoryBank(
+  new_agent_memory_bank = basic_associative_memory.AssociativeMemoryBank(
       sentence_embedder=embedder,
   )
 
@@ -221,7 +221,7 @@ def rebuild_from_json(
   agent = build_agent(
       config=agent_config,
       model=model,
-      memory=new_agent_memory,
+      memory_bank=new_agent_memory_bank,
       clock=clock,
   )
 

@@ -458,7 +458,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       kwargs = dict(
           config=player_config,
           model=copy.copy(self._agent_model),
-          memory=self._all_memories[player_config.name],
+          memory_bank=self._all_memories[player_config.name],
           clock=self._clock,
       )
       if self._resident_visitor_mode:
@@ -485,7 +485,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       supporting_player_kwargs = dict(
           config=player_config,
           model=self._model,
-          memory=self._all_memories[player_config.name],
+          memory_bank=self._all_memories[player_config.name],
           clock=self._clock,
           additional_context_components={
               'Guiding principle of good conversation': conversation_style
