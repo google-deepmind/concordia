@@ -58,17 +58,16 @@ def build_agent(
       logging_channel=measurements.get_channel(instructions_key).on_next,
   )
 
-  observation_to_memory_key = 'ObservationToMemory'
-  observation_to_memory = agent_components.observation.ObservationToMemory(
-      logging_channel=measurements.get_channel(
-          observation_to_memory_key).on_next,
-  )
+  observation_to_memory_key = 'Observation'
+  observation_to_memory = agent_components.observation.ObservationToMemory()
 
   observation_key = (
       agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY)
   observation = agent_components.observation.LastNObservations(
       history_length=100,
-      pre_act_label='\nObservation',
+      pre_act_label=(
+          '\nEvents so far (ordered from least recent to most recent)'
+      ),
       logging_channel=measurements.get_channel(observation_key).on_next,
   )
 
