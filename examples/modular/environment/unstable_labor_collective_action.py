@@ -999,10 +999,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         simulation_factory.build_simulation(
             model=self._model,
             embedder=self._embedder,
-            clock=self._clock,
-            players=self._main_players,
+            players=self._main_players + nonplayer_entities,
             shared_memories=shared_memories,
-            nonplayer_entities=nonplayer_entities,
             additional_context_components=additional_gm_components,
         )
     )

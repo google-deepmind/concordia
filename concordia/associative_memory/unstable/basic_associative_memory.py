@@ -135,7 +135,8 @@ class AssociativeMemoryBank:
     Returns:
       A list of strings, one for each memory
     """
-
+    if data.empty:
+      return []
     output = data['text']
 
     return output.tolist()
@@ -174,6 +175,8 @@ class AssociativeMemoryBank:
       List of strings corresponding to memories, sorted by recency
     """
     with self._memory_bank_lock:
+      if self._memory_bank.empty:
+        return []
       is_selected = self._memory_bank['text'].apply(selector_fn)
       data = self._memory_bank[is_selected]
     return self._pd_to_text(data)
@@ -194,6 +197,8 @@ class AssociativeMemoryBank:
       raise ValueError('Limit must be positive.')
 
     with self._memory_bank_lock:
+      if self._memory_bank.empty:
+        return []
       return self._pd_to_text(self._memory_bank.iloc[-k:])
 
   def __len__(self):

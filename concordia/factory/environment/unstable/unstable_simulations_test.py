@@ -15,13 +15,10 @@
 """Test environment (game master) factories.
 """
 
-import datetime
-
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
-from concordia.clocks import game_clock
 from concordia.components.agent import unstable as agent_components
 from concordia.environment.unstable.engines import synchronous
 from concordia.factory.environment.unstable import unstable_simulation
@@ -48,11 +45,7 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
   def test_simulation_factory(self, simulation_factory_name: str):
     simulation_factory = ENVIRONMENT_FACTORIES[simulation_factory_name]
     model = no_language_model.NoLanguageModel()
-    setup_time = datetime.datetime.now()
-    clock = game_clock.MultiIntervalClock(
-        start=setup_time,
-        step_sizes=[datetime.timedelta(hours=1),
-                    datetime.timedelta(minutes=10)])
+
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
     )
@@ -68,7 +61,6 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
     mem, game_master = simulation_factory.build_simulation(
         model=model,
         embedder=_embedder,
-        clock=clock,
         players=players,
         shared_memories=[],
     )

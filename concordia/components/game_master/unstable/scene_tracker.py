@@ -148,7 +148,6 @@ class SceneTracker(entity_component.ContextComponent):
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     result = ''
-    prompt_to_log = ''
 
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
@@ -194,9 +193,4 @@ class SceneTracker(entity_component.ContextComponent):
       print(f'step counter: {step_within_scene}')
       self._step_counter.increment(amount=1)
 
-    self._logging_channel({
-        'Key': self._pre_act_label,
-        'Value': result,
-        'Prompt': prompt_to_log,
-    })
     return result

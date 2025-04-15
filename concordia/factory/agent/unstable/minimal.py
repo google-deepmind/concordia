@@ -98,9 +98,10 @@ def build_agent(
   components_of_agent = {
       _get_class_name(component): component for component in entity_components
   }
-  components_of_agent[
-      agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
-  ] = agent_components.memory.ListMemory(memory_bank=memory_bank)
+  list_memory_bank = list(memory_bank.get_data_frame()['text'])
+  components_of_agent[agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY] = (
+      agent_components.memory.ListMemory(memory_bank=list_memory_bank)
+  )
   components_of_agent[
       agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
   ] = observation

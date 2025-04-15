@@ -153,7 +153,7 @@ class EventResolution(entity_component.ContextComponent):
       if putative_action.startswith(prefix_to_remove):
         self._putative_action = putative_action[
             len(prefix_to_remove) :
-        ].lstrip()
+        ].strip()
       else:
         self._putative_action = putative_action
 
@@ -180,7 +180,7 @@ class EventResolution(entity_component.ContextComponent):
         )
         observer_names = observer_names_str.split(',')
         for name in observer_names:
-          make_observation.add_to_queue(name.strip(), event_statement)
+          make_observation.add_to_queue(name.strip(' .,'), event_statement)
 
         observers_prompt_to_log = observers_prompt.view().text()
 

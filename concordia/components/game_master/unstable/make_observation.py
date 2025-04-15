@@ -29,7 +29,8 @@ DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY = '__make_observation__'
 DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL = '\nPrompt'
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
     'What is the current situation faced by {name}? What do they now observe?'
-    ' Only include information of which they are aware.')
+    ' Only include information of which they are aware.'
+)
 
 GET_ACTIVE_ENTITY_QUERY = (
     'Who is being asked about? Respond using only their name and no other '
@@ -38,8 +39,7 @@ GET_ACTIVE_ENTITY_QUERY = (
 
 
 class MakeObservation(entity_component.ContextComponent):
-  """A component that generates observations to send to players.
-  """
+  """A component that generates observations to send to players."""
 
   def __init__(
       self,
@@ -57,16 +57,16 @@ class MakeObservation(entity_component.ContextComponent):
       model: The language model to use for the component.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      reformat_observations_in_specified_style: If non-empty, the component
-        will ask the model to reformat the observation to fit the style
-        specified in this string. By default, the component does not reformat
-        the observation. When turned on, a reasonable starting style to try in
-        the case that you have information from a time component that you want
-        to include in the observation is:
-        "The format to use when describing the current situation to a player is:
-        "//date or time//situation description"."
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      reformat_observations_in_specified_style: If non-empty, the component will
+        ask the model to reformat the observation to fit the style specified in
+        this string. By default, the component does not reformat the
+        observation. When turned on, a reasonable starting style to try in the
+        case that you have information from a time component that you want to
+        include in the observation is: "The format to use when describing the
+        current situation to a player is: "//date or time//situation
+        description"."
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -106,9 +106,11 @@ class MakeObservation(entity_component.ContextComponent):
       ])
       prompt.statement(f'{component_states}\n')
       prompt.statement(
-          f'Working out the answer to: "{action_spec.call_to_action}"')
-      active_entity_name = prompt.open_question(
-          GET_ACTIVE_ENTITY_QUERY).strip()
+          f'Working out the answer to: "{action_spec.call_to_action}"'
+      )
+      active_entity_name = prompt.open_question(GET_ACTIVE_ENTITY_QUERY).strip(
+          ' .,'
+      )
 
       if active_entity_name in self._queue and self._queue[active_entity_name]:
         result = ''
@@ -118,16 +120,20 @@ class MakeObservation(entity_component.ContextComponent):
         self._queue[active_entity_name] = []
       else:
         result = prompt.open_question(
-            question=(f'What does {active_entity_name} observe now? Never '
-                      'repeat information that was already provided to '
-                      f'{active_entity_name} unless absolutely necessary. Keep '
-                      'the story moving forward.'),
-            max_tokens=1200)
+            question=(
+                f'What does {active_entity_name} observe now? Never '
+                'repeat information that was already provided to '
+                f'{active_entity_name} unless absolutely necessary. Keep '
+                'the story moving forward.'
+            ),
+            max_tokens=1200,
+        )
 
       if self._reformat_observations_in_specified_style:
         prompt.statement(
             'Required observation format: '
-            f'{self._reformat_observations_in_specified_style}')
+            f'{self._reformat_observations_in_specified_style}'
+        )
         result_without_newlines = result.replace('\n', '').strip()
         correct_format = prompt.yes_no_question(
             question=(
@@ -138,17 +144,19 @@ class MakeObservation(entity_component.ContextComponent):
         )
         if not correct_format:
           result = prompt.open_question(
-              question=(f'Reformat {active_entity_name}\'s draft observation '
-                        'to fit the required format.'),
+              question=(
+                  f"Reformat {active_entity_name}'s draft observation "
+                  'to fit the required format.'
+              ),
               max_tokens=1200,
-              terminators=())
+              terminators=(),
+          )
 
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_label,
-         'Value': result,
-         'Prompt': prompt_to_log})
+        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
+    )
     return result
 
   def add_to_queue(self, entity_name: str, event: str):
@@ -164,6 +172,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
   def __init__(
       self,
       model: language_model.LanguageModel,
+      queue: dict[str, list[str]] | None = None,
       reformat_observations_in_specified_style: str = '',
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -172,6 +181,8 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
 
     Args:
       model: The language model to use for the component.
+      queue: A mapping of entity names to lists of events to observe, to be
+        shared between different game masters.
       reformat_observations_in_specified_style: If non-empty, the component will
         ask the model to reformat the observation to fit the style specified in
         this string. By default, the component does not reformat the
@@ -195,8 +206,10 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
     )
-    self._queue = {}
-
+    if queue is None:
+      self._queue = {}
+    else:
+      self._queue = queue
     self._currently_active_game_master = None
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
@@ -220,7 +233,9 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
       prompt.statement(
           f'Working out the answer to: "{action_spec.call_to_action}"'
       )
-      active_entity_name = prompt.open_question(GET_ACTIVE_ENTITY_QUERY).strip()
+      active_entity_name = prompt.open_question(GET_ACTIVE_ENTITY_QUERY).strip(
+          ' .,'
+      )
 
       if active_entity_name in self._queue and self._queue[active_entity_name]:
         result = ''
@@ -263,6 +278,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
 
   def add_to_queue(self, entity_name: str, event: str):
     """Adds an event to the queue of events to observe."""
+
     if entity_name not in self._queue:
       self._queue[entity_name] = []
     self._queue[entity_name].append(event)
@@ -272,8 +288,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
 
 
 class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
-  """A component that passes component pre-act values to players.
-  """
+  """A component that passes component pre-act values to players."""
 
   def __init__(
       self,
@@ -292,8 +307,8 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
       player_names: Names of players.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
       logging_channel: The channel to use for debug logging.
 
     Raises:
@@ -328,10 +343,11 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
     if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
       prompt = interactive_document.InteractiveDocument(self._model)
       prompt.statement(
-          f'Working out the answer to: "{action_spec.call_to_action}"')
+          f'Working out the answer to: "{action_spec.call_to_action}"'
+      )
       active_entity_idx = prompt.multiple_choice_question(
-          question=GET_ACTIVE_ENTITY_QUERY,
-          answers=self._player_names)
+          question=GET_ACTIVE_ENTITY_QUERY, answers=self._player_names
+      )
       active_entity_name = self._player_names[active_entity_idx]
       component_states_string = '\n'.join([
           f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
@@ -339,18 +355,18 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
       ])
       prompt.statement(f'{component_states_string}\n')
       proceed = prompt.yes_no_question(
-          question=(
-              f'Is {active_entity_name} aware of the latest event above?'))
+          question=f'Is {active_entity_name} aware of the latest event above?'
+      )
       if proceed:
         # Remove their previous observation since they have already seen it.
         result = component_states_string.replace(
-            self._map_names_to_previous_observations[active_entity_name], '')
+            self._map_names_to_previous_observations[active_entity_name], ''
+        )
 
       self._map_names_to_previous_observations[active_entity_name] += result
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_label,
-         'Value': result,
-         'Prompt': prompt_to_log})
+        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
+    )
     return result

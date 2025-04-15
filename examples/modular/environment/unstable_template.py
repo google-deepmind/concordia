@@ -49,6 +49,7 @@ DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 DISCUSSION_SCENE_TYPE = 'discussion'
 DECISION_SCENE_TYPE = 'choice'
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
+SIMULATION_STEPS = 8
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
@@ -264,7 +265,7 @@ def configure_scenes(
           for cfg in player_configs
       },
       action_spec=entity_lib.free_action_spec(
-          call_to_action='What would {name} say next?',
+          call_to_action=entity_lib.DEFAULT_CALL_TO_SPEECH,
       ),
   )
 
@@ -289,7 +290,7 @@ def configure_scenes(
           scene_type=discussion_scene_type,
           start_time=start_time,
           participants=[cfg.name for cfg in main_player_configs],
-          num_rounds=1,
+          num_rounds=3,
       ),
       # Choice of the pub
       scene_lib.ExperimentalSceneSpec(
@@ -349,7 +350,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       self,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      measurements: measurements_lib.Measurements,
       agent_module: types.ModuleType = basic_agent_factory,
       override_agent_model: language_model.LanguageModel | None = None,
       resident_visitor_modules: Sequence[types.ModuleType] | None = None,
@@ -357,6 +357,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           bots_lib.SupportingAgentFactory | types.ModuleType
       ) = rational_agent_supporting,
       time_and_place_module: str | None = None,
+      measurements: measurements_lib.Measurements | None = None,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -364,7 +365,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     Args:
       model: the language model to use.
       embedder: the sentence transformer to use.
-      measurements: the measurements object to use.
+      
       agent_module: the agent module to use for all main characters.
       override_agent_model: optionally, override the model for all agents. The
         model will be copied for every agent.
@@ -379,7 +380,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-        seed: the random seed to use.
+      measurements: the measurements object to use.
+      seed: the random seed to use.
     """
     if resident_visitor_modules is None:
       self._resident_visitor_mode = False
@@ -398,7 +400,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._model = model
     self._embedder = embedder
-    self._measurements = measurements
 
     self._time_and_place_module = time_and_place_module
     time_and_place_params, sampled_settings = (
@@ -541,17 +542,18 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         ' they want to go to. '
     )
 
+    observation_queue = {}
     self._game_master_memory, self._game_master = (
         simulation_factory.build_simulation_with_scenes(
             model=self._model,
             embedder=self._embedder,
-            clock=self._clock,
             players=self._main_players,
             shared_memories=[scenario_knowledge],
             additional_context_components=additional_gm_components,
-            # measurements=self._measurements,
             scenes=self._scenes,
             globabl_scene_counter=self._globabl_scene_counter,
+            observation_queue=observation_queue,
+            measurements=measurements,
         )
     )
 
@@ -565,7 +567,8 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             additional_context_components={
                 'payoff_matrix': self._payoff_matrix
             },
-            # measurements=self._measurements,
+            observation_queue=observation_queue,
+            measurements=measurements,
         )
     )
 
@@ -638,7 +641,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         game_masters=[self._game_master, self._decision_game_master],
         entities=self._all_players,
         premise='A group of friends are considering which pub to go to.',
-        max_steps=6,
+        max_steps=SIMULATION_STEPS,
         verbose=True,
         log=raw_log,
     )

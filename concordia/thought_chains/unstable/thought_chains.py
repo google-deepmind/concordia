@@ -41,6 +41,8 @@ def identity(
     string describing the outcome
   """
   del chain_of_thought, active_player_name
+  if premise.startswith('Putative event to resolve: '):
+    premise = premise[len('Putative event to resolve: ') :]
   return premise
 
 
