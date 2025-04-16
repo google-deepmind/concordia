@@ -20,13 +20,14 @@ import types
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity_component
 
 DEFAULT_PRE_ACT_LABEL = 'Plan'
 
 
-class Plan(action_spec_ignored.ActionSpecIgnored):
+class Plan(
+    action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
+):
   """Component representing the agent's plan."""
 
   def __init__(
@@ -38,7 +39,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
       goal_component_key: str | None = None,
       force_time_horizon: str | bool = False,
       pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to represent the agent's plan.
 
@@ -52,7 +52,6 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
         instead of asking the LLM to determine the time horizon.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: channel to use for debug logging.
     """
     super().__init__(pre_act_label)
     self._model = model
@@ -62,15 +61,13 @@ class Plan(action_spec_ignored.ActionSpecIgnored):
 
     self._current_plan = ''
 
-    self._logging_channel = logging_channel
-
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
 
     if self._goal_component_key:
       goal_component = self.get_entity().get_component(
-          self._goal_component_key,
-          type_=action_spec_ignored.ActionSpecIgnored)
+          self._goal_component_key, type_=action_spec_ignored.ActionSpecIgnored
+      )
     else:
       goal_component = None
 

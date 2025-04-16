@@ -19,7 +19,10 @@ from collections.abc import Collection, Mapping
 import enum
 import functools
 from typing import TypeVar
+
+from concordia.typing import logging as logging_lib
 from concordia.typing.unstable import entity as entity_lib
+
 
 ComponentName = str
 ComponentContext = str
@@ -153,6 +156,18 @@ class BaseComponent:
     """
     del state
     return None
+
+
+class ComponentWithLogging(BaseComponent):
+  """A base class for components with logging."""
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self._logging_channel = logging_lib.NoOpLoggingChannel
+
+  def set_logging_channel(self, logging_channel: logging_lib.LoggingChannel):
+    """Sets the logging channel for the component."""
+    self._logging_channel = logging_channel
 
 
 class EntityWithComponents(entity_lib.Entity):

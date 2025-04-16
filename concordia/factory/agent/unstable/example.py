@@ -25,7 +25,6 @@ from concordia.components.agent import unstable as agent_components
 from concordia.contrib.components.agent import unstable as contrib_unstable
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -49,10 +48,8 @@ def build_agent(
   """
   agent_name = config.name
 
-  measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
       agent_name=agent_name,
-      logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
   observation_to_memory = agent_components.observation.ObservationToMemory()
@@ -68,7 +65,6 @@ def build_agent(
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
         pre_act_label='\nCurrent time',
-        logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
     clock_now = None
@@ -133,21 +129,17 @@ def build_agent(
               situation_perception_key,
               person_by_situation_key,
           ],
-          logging_channel=measurements.get_channel(
-              choice_of_component_key).on_next,
       )
   )
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
-      model=model,
-      logging_channel=measurements.get_channel('Act').on_next,
+      model=model
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=agent_name,
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return agent

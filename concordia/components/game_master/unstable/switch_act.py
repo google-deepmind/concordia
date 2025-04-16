@@ -22,7 +22,6 @@ from concordia.components.game_master.unstable import next_acting as next_acting
 from concordia.components.game_master.unstable import next_game_master as next_game_master_components
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from typing_extensions import override
@@ -44,7 +43,9 @@ DEFAULT_RESOLUTION_COMPONENT_KEY = (
     event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_KEY)
 
 
-class SwitchAct(entity_component.ActingComponent):
+class SwitchAct(
+    entity_component.ActingComponent, entity_component.ComponentWithLogging
+):
   """A component which calls the appropriate method for each action type.
 
   This component will receive the contexts from `pre_act` from all the
@@ -60,7 +61,6 @@ class SwitchAct(entity_component.ActingComponent):
       model: language_model.LanguageModel,
       entity_names: Sequence[str],
       component_order: Sequence[str] | None = None,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the agent.
 
@@ -77,7 +77,6 @@ class SwitchAct(entity_component.ActingComponent):
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -95,8 +94,6 @@ class SwitchAct(entity_component.ActingComponent):
             'The component order contains duplicate components: '
             + ', '.join(self._component_order)
         )
-
-    self._logging_channel = logging_channel
 
   def _context_for_action(
       self,
@@ -331,4 +328,3 @@ class SwitchAct(entity_component.ActingComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     pass
-

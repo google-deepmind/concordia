@@ -39,7 +39,6 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import html as html_lib
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -49,7 +48,7 @@ DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 DISCUSSION_SCENE_TYPE = 'discussion'
 DECISION_SCENE_TYPE = 'choice'
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
-SIMULATION_STEPS = 8
+SIMULATION_STEPS = 2
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
@@ -357,7 +356,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           bots_lib.SupportingAgentFactory | types.ModuleType
       ) = rational_agent_supporting,
       time_and_place_module: str | None = None,
-      measurements: measurements_lib.Measurements | None = None,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -380,7 +378,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      measurements: the measurements object to use.
       seed: the random seed to use.
     """
     if resident_visitor_modules is None:
@@ -553,7 +550,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             scenes=self._scenes,
             globabl_scene_counter=self._globabl_scene_counter,
             observation_queue=observation_queue,
-            measurements=measurements,
         )
     )
 
@@ -568,7 +564,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
                 'payoff_matrix': self._payoff_matrix
             },
             observation_queue=observation_queue,
-            measurements=measurements,
         )
     )
 

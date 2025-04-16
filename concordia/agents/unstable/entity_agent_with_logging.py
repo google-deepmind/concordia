@@ -19,13 +19,11 @@ import copy
 import types
 from typing import Any
 
-from absl import logging
 from concordia.agents.unstable import entity_agent
 from concordia.associative_memory.unstable import formative_memories
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
-from concordia.utils import measurements as measurements_lib
-import reactivex as rx
+from concordia.utils.unstable import measurements as measurements_lib
 
 
 class EntityAgentWithLogging(entity_agent.EntityAgent,
@@ -42,7 +40,6 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
-      component_logging: measurements_lib.Measurements | None = None,
       config: formative_memories.AgentConfig | None = None,
   ):
     """Initializes the agent.
@@ -60,42 +57,35 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_processor: The component that will be used to process contexts. If
         None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
-      component_logging: The channels where components publish events.
       config: The agent configuration, used for checkpointing and debug.
     """
     super().__init__(agent_name=agent_name,
                      act_component=act_component,
                      context_processor=context_processor,
                      context_components=context_components)
-    self._log: Mapping[str, Any] = {}
-    self._tick = rx.subject.Subject()
-    self._component_logging = component_logging
-    if self._component_logging is not None:
-      self._channel_names = list(self._component_logging.available_channels())
-      channels = [
-          self._component_logging.get_channel(channel)  # pylint: disable=attribute-error  pytype mistakenly forgets that `_component_logging` is not None.
-          for channel in self._channel_names
-      ]
-      rx.with_latest_from(self._tick, *channels).subscribe(
-          self._set_log,
-          on_error=lambda e: logging.error('Error in component logging: %s', e))
-    else:
-      self._channel_names = []
+    self._component_logging = measurements_lib.Measurements()
+
+    for component_name, component in self._context_components.items():
+      if isinstance(component, entity_component.ComponentWithLogging):
+        channel_name = component_name
+        component.set_logging_channel(
+            self._component_logging.get_channel(channel_name).append
+        )
+    if isinstance(act_component, entity_component.ComponentWithLogging):
+      act_component.set_logging_channel(
+          self._component_logging.get_channel('__act__').append
+      )
+    if isinstance(context_processor, entity_component.ComponentWithLogging):
+      context_processor.set_logging_channel(
+          self._component_logging.get_channel('__context_processor__').append
+      )
     self._config = copy.deepcopy(config)
 
-  def _set_log(self, log: tuple[Any, ...]) -> None:
-    """Set the logging object to return from get_last_log.
-
-    Args:
-      log: A tuple with the tick first, and the latest log from each component.
-    """
-    tick_value, *channel_values = log
-    assert tick_value is None
-    self._log = dict(zip(self._channel_names, channel_values, strict=True))
-
   def get_last_log(self):
-    self._tick.on_next(None)  # Trigger the logging.
-    return self._log
+    log: dict[str, Any] = {}
+    for channel_name in sorted(self._component_logging.available_channels()):
+      log[channel_name] = self._component_logging.get_last_datum(channel_name)
+    return log
 
   def get_config(self) -> formative_memories.AgentConfig | None:
     return copy.deepcopy(self._config)

@@ -20,12 +20,13 @@ import types
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-class WorldState(entity_component.ContextComponent):
+class WorldState(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that represents the world state."""
 
   def __init__(
@@ -35,7 +36,6 @@ class WorldState(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       pre_act_label: str = '\nState',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the world state component.
 
@@ -45,12 +45,10 @@ class WorldState(entity_component.ContextComponent):
         is a mapping of the component name to a label to use in the prompt.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     self._pre_act_label = pre_act_label
     self._model = model
     self._components = dict(components)
-    self._logging_channel = logging_channel
 
     self._state = {}
     self._latest_action_spec = None
@@ -129,7 +127,9 @@ class WorldState(entity_component.ContextComponent):
     return ''
 
 
-class Locations(entity_component.ContextComponent):
+class Locations(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that represents locations of entities in the world."""
 
   def __init__(
@@ -141,7 +141,6 @@ class Locations(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       pre_act_label: str = '\nEntity locations',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -155,14 +154,12 @@ class Locations(entity_component.ContextComponent):
         is a mapping of the component name to a label to use in the prompt.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     self._pre_act_label = pre_act_label
     self._model = model
     self._entity_names = entity_names
     self._prompt = prompt
     self._components = dict(components)
-    self._logging_channel = logging_channel
 
     self._locations = {}
     self._entity_locations = {name: '' for name in entity_names}
@@ -262,7 +259,9 @@ class Locations(entity_component.ContextComponent):
     return ''
 
 
-class GenerativeClock(entity_component.ContextComponent):
+class GenerativeClock(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component to represent a generative clock updated via language model."""
 
   def __init__(
@@ -275,7 +274,6 @@ class GenerativeClock(entity_component.ContextComponent):
       ] = types.MappingProxyType({}),
       format_description_key: str = 'Clock format description',
       pre_act_label: str = '\nClock',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -296,14 +294,12 @@ class GenerativeClock(entity_component.ContextComponent):
         clock's update on each step.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     self._pre_act_label = pre_act_label
     self._model = model
     self._format_description_key = format_description_key
     self._prompt = prompt
     self._components = dict(components)
-    self._logging_channel = logging_channel
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)

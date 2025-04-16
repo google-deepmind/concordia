@@ -596,7 +596,6 @@ def get_inventories_component(
     main_players: Sequence[entity_agent.EntityAgent],
     player_configs: Sequence[formative_memories.AgentConfig],
     clock_now: Callable[[], datetime.datetime] = datetime.datetime.now,
-    measurements: measurements_lib.Measurements | None = None,
 ) -> tuple[
     unstable_gm_components.inventory.Inventory,
     unstable_gm_components.inventory.Score,
@@ -607,10 +606,6 @@ def get_inventories_component(
       config.name: config.extras['initial_endowment']
       for config in player_configs
   }
-  if measurements is None:
-    logging_channel = None
-  else:
-    logging_channel = measurements.get_channel('Inventory').on_next
   inventories = unstable_gm_components.inventory.Inventory(
       model=model,
       item_type_configs=(money_config,),
@@ -619,7 +614,6 @@ def get_inventories_component(
       financial=True,
       never_increase=True,
       pre_act_label='possessions',
-      logging_channel=logging_channel,
       verbose=False,
   )
   score = unstable_gm_components.inventory.Score(
@@ -851,7 +845,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         main_players=self._main_players,
         player_configs=main_player_configs + supporting_player_configs,
         clock_now=self._clock.now,
-        measurements=self._measurements,
     )
 
     def inventory_effect_function(

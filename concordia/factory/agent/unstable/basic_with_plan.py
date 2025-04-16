@@ -24,7 +24,6 @@ from concordia.clocks import game_clock
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -52,13 +51,10 @@ def build_agent(
   del clock
   agent_name = config.name
 
-  measurements = measurements_lib.Measurements()
-
   instructions_key = 'Instructions'
   instructions = agent_components.instructions.Instructions(
       agent_name=agent_name,
       pre_act_label='\nInstructions',
-      logging_channel=measurements.get_channel(instructions_key).on_next,
   )
 
   observation_to_memory_key = 'Observation'
@@ -71,7 +67,6 @@ def build_agent(
       pre_act_label=(
           '\nEvents so far (ordered from least recent to most recent)'
       ),
-      logging_channel=measurements.get_channel(observation_key).on_next,
   )
 
   situation_perception_key = 'SituationPerception'
@@ -82,16 +77,12 @@ def build_agent(
               f'\nQuestion: What situation is {agent_name} in right now?'
               '\nAnswer'
           ),
-          logging_channel=measurements.get_channel(
-              situation_perception_key
-          ).on_next,
       )
   )
   self_perception_key = 'SelfPerception'
   self_perception = agent_components.question_of_recent_memories.SelfPerception(
       model=model,
       pre_act_label=f'\nQuestion: What kind of person is {agent_name}?\nAnswer',
-      logging_channel=measurements.get_channel(self_perception_key).on_next,
   )
 
   person_by_situation_key = 'PersonBySituation'
@@ -106,8 +97,6 @@ def build_agent(
           pre_act_label=(
               f'\nQuestion: What would a person like {agent_name} do in '
               'a situation like this?\nAnswer'),
-          logging_channel=measurements.get_channel(
-              person_by_situation_key).on_next,
       )
   )
   relevant_memories_key = 'RelevantMemories'
@@ -121,18 +110,14 @@ def build_agent(
           },
           num_memories_to_retrieve=10,
           pre_act_label='\nRecalled memories and observations',
-          logging_channel=measurements.get_channel(
-              relevant_memories_key
-          ).on_next,
       )
   )
 
   if config.goal:
     goal_key = 'Goal'
     overarching_goal = agent_components.constant.Constant(
-        state=config.goal,
-        pre_act_label='\nGoal',
-        logging_channel=measurements.get_channel(goal_key).on_next)
+        state=config.goal, pre_act_label='\nGoal'
+    )
   else:
     goal_key = None
     overarching_goal = None
@@ -149,7 +134,6 @@ def build_agent(
       goal_component_key=goal_key,
       force_time_horizon=force_time_horizon,
       pre_act_label='\nPlan',
-      logging_channel=measurements.get_channel(plan_key).on_next,
   )
 
   components_of_agent = {
@@ -176,14 +160,12 @@ def build_agent(
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       component_order=component_order,
-      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=agent_name,
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return agent

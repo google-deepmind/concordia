@@ -24,7 +24,6 @@ from concordia.components.game_master.unstable import next_acting as next_acting
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.thought_chains.unstable import thought_chains
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
@@ -36,7 +35,9 @@ PUTATIVE_EVENT_TAG = '[putative_event]'
 EVENT_TAG = '[event]'
 
 
-class EventResolution(entity_component.ContextComponent):
+class EventResolution(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that resolves events.
   """
 
@@ -65,7 +66,6 @@ class EventResolution(entity_component.ContextComponent):
           next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_RESOLUTION_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -85,7 +85,6 @@ class EventResolution(entity_component.ContextComponent):
         to get the name of the player whose turn it is.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -97,7 +96,6 @@ class EventResolution(entity_component.ContextComponent):
     self._components = dict(components)
     self._notify_observers = notify_observers
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._make_observation_component_key = make_observation_component_key
     self._memory_component_key = memory_component_key
@@ -212,7 +210,9 @@ class EventResolution(entity_component.ContextComponent):
     })
 
 
-class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
+class DisplayEvents(
+    action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
+):
   """A component that displays recent events in `pre_act` loaded from memory.
   """
 
@@ -224,7 +224,6 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
       ),
       num_events_to_retrieve: int = 100,
       pre_act_label: str = 'Recent events',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -235,7 +234,6 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
       num_events_to_retrieve: The number of events to retrieve.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -245,7 +243,6 @@ class DisplayEvents(action_spec_ignored.ActionSpecIgnored):
     self._model = model
     self._memory_component_key = memory_component_key
     self._num_events_to_retrieve = num_events_to_retrieve
-    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     memory = self.get_entity().get_component(

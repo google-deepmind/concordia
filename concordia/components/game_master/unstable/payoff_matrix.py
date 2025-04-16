@@ -22,7 +22,6 @@ from concordia.components.game_master.unstable import event_resolution as event_
 from concordia.components.game_master.unstable import make_observation as make_observation_component
 from concordia.components.game_master.unstable import switch_act
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 import termcolor
@@ -33,7 +32,9 @@ CollectiveActionProductionFunction = Callable[[int], float]
 PlayersT = Sequence[entity_agent.EntityAgent]
 
 
-class PayoffMatrix(entity_component.ContextComponent):
+class PayoffMatrix(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component for computing payoffs for a game."""
 
   def __init__(
@@ -52,7 +53,6 @@ class PayoffMatrix(entity_component.ContextComponent):
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       pre_act_label: str = '',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
     """Initialize a component for computing payoffs.
@@ -74,11 +74,9 @@ class PayoffMatrix(entity_component.ContextComponent):
         memory.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to log debug information to.
       verbose: whether to print the full update chain of thought or not
     """
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._model = model
     self._observation_component_key = observation_component_key

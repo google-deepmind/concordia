@@ -17,7 +17,6 @@
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 
 
 def build_agent(
@@ -37,20 +36,16 @@ def build_agent(
     An actor that simulates reinforcement learning.
   """
 
-  measurements = measurements_lib.Measurements()
-
   instructions_key = 'instructions'
   instructions = agent_components.constant.Constant(
       state='You are simulating a reinforcement learning agent.',
       pre_act_label='\nInstructions',
-      logging_channel=measurements.get_channel(instructions_key).on_next,
   )
 
   reward_key = 'goal'
   reward_component = agent_components.constant.Constant(
       state=reward,
       pre_act_label='\nReward variable to maximize',
-      logging_channel=measurements.get_channel(reward_key).on_next,
   )
 
   memory_component_key = agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
@@ -63,7 +58,6 @@ def build_agent(
   history_component = agent_components.observation.LastNObservations(
       history_length=history_length,
       pre_act_label=history_key,
-      logging_channel=measurements.get_channel(history_key).on_next,
   )
 
   observation_key = (
@@ -72,7 +66,6 @@ def build_agent(
   observation_component = (
       agent_components.observation.ObservationsSinceLastPreAct(
           pre_act_label='\nLatest observation',
-          logging_channel=measurements.get_channel(observation_key).on_next,
       )
   )
 
@@ -85,18 +78,15 @@ def build_agent(
       history_key: history_component,
   }
 
-  act_component_key = 'act_component'
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       component_order=list(components_of_agent.keys()),
-      logging_channel=measurements.get_channel(act_component_key).on_next,
   )
 
   actor = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name='',
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return actor

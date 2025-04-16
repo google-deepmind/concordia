@@ -15,7 +15,6 @@
 """Component that provides the default role playing instructions to an agent."""
 
 from concordia.components.agent.unstable import constant
-from concordia.typing import logging
 
 DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL = 'Role playing instructions'
 
@@ -27,7 +26,6 @@ class Instructions(constant.Constant):
       self,
       agent_name: str,
       pre_act_label: str = DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     state = (
         f'The instructions for how to play the role of {agent_name} are as '
@@ -42,7 +40,4 @@ class Instructions(constant.Constant):
         f'into account all information about {agent_name} that you have. '
         'Always use third-person limited perspective.'
     )
-    super().__init__(
-        state=state,
-        pre_act_label=pre_act_label,
-        logging_channel=logging_channel)
+    super().__init__(state=state, pre_act_label=pre_act_label)

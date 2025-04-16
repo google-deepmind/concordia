@@ -21,12 +21,13 @@ from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
 
-class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
+class AllSimilarMemories(
+    action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
+):
   """Get all memories similar to the state of the components and filter them."""
 
   def __init__(
@@ -40,7 +41,6 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       ] = types.MappingProxyType({}),
       num_memories_to_retrieve: int = 25,
       pre_act_label: str = 'Relevant memories',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initialize a component to report relevant memories (similar to a prompt).
 
@@ -53,14 +53,12 @@ class AllSimilarMemories(action_spec_ignored.ActionSpecIgnored):
       num_memories_to_retrieve: The number of memories to retrieve.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to log debug information to.
     """
     super().__init__(pre_act_label)
     self._model = model
     self._memory_component_key = memory_component_key
     self._components = dict(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
-    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
