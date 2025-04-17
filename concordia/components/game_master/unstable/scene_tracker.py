@@ -63,7 +63,8 @@ class ThreadSafeCounter:
       return self._value
 
 
-class SceneTracker(entity_component.ContextComponent):
+class SceneTracker(entity_component.ContextComponent,
+                   entity_component.ComponentWithLogging):
   """A component that decides which game master to use next."""
 
   def __init__(
@@ -187,6 +188,12 @@ class SceneTracker(entity_component.ContextComponent):
       print('Resolve')
       print(f'current scene: {current_scene.scene_type.name}')
       print(f'step counter: {step_within_scene}')
+      self._logging_channel({
+          'Summary': f'Scene: {current_scene.scene_type.name}',
+          'Step within scene': step_within_scene,
+          'Global step': self._step_counter.value(),
+          'Scene participants': ', '.join(self.get_participants()),
+      })
       self._step_counter.increment(amount=1)
 
     return result

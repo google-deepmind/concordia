@@ -140,7 +140,7 @@ class ConcatActComponent(
            result: str,
            prompt: interactive_document.InteractiveDocument):
     self._logging_channel({
-        'Key': 'Act',
+        'Summary': f'Action: {result}',
         'Value': result,
         'Prompt': prompt.view().text().splitlines(),
     })

@@ -118,7 +118,7 @@ class SwitchAct(
     context = self._context_for_action(contexts)
     if DEFAULT_TERMINATE_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_TERMINATE_COMPONENT_KEY])
-      self._log(result, context)
+      self._log(result, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -129,7 +129,7 @@ class SwitchAct(
         result = 'Yes'
       else:
         result = 'No'
-      self._log(result, chain_of_thought)
+      self._log(result, chain_of_thought, action_spec)
 
     return result
 
@@ -140,7 +140,7 @@ class SwitchAct(
     context = self._context_for_action(contexts)
     if DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY])
-      self._log(result, context)
+      self._log(result, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -148,7 +148,7 @@ class SwitchAct(
       result = chain_of_thought.open_question(
           question=action_spec.call_to_action,
           max_tokens=1000)
-      self._log(result, chain_of_thought)
+      self._log(result, chain_of_thought, action_spec)
 
     return result
 
@@ -159,7 +159,7 @@ class SwitchAct(
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_ACTING_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_NEXT_ACTING_COMPONENT_KEY])
-      self._log(result, context)
+      self._log(result, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -168,7 +168,7 @@ class SwitchAct(
           question=action_spec.call_to_action,
           answers=self._entity_names)
       result = self._entity_names[next_entity_index]
-      self._log(result, chain_of_thought)
+      self._log(result, chain_of_thought, action_spec)
 
     return result
 
@@ -181,7 +181,7 @@ class SwitchAct(
       result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY])
       if not result:
         result = f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
-      self._log(result, context)
+      self._log(result, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -204,7 +204,7 @@ class SwitchAct(
             f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free')
 
       result = next_action_spec_string
-      self._log(result, chain_of_thought)
+      self._log(result, chain_of_thought, action_spec)
 
     return result
 
@@ -215,13 +215,13 @@ class SwitchAct(
     context = self._context_for_action(contexts)
     if DEFAULT_RESOLUTION_COMPONENT_KEY in contexts:
       result = contexts[DEFAULT_RESOLUTION_COMPONENT_KEY]
-      self._log(result, context)
+      self._log(result, context, action_spec)
     else:
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       result = chain_of_thought.open_question(
           question=action_spec.call_to_action)
-      self._log(result, chain_of_thought)
+      self._log(result, chain_of_thought, action_spec)
 
     return result
 
@@ -232,7 +232,7 @@ class SwitchAct(
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY in contexts:
       game_master = str(contexts[DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY])
-      self._log(game_master, context)
+      self._log(game_master, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -241,7 +241,7 @@ class SwitchAct(
           question=action_spec.call_to_action,
           answers=action_spec.options)
       game_master = action_spec.options[game_master_idx]
-      self._log(game_master, chain_of_thought)
+      self._log(game_master, chain_of_thought, action_spec)
 
     return game_master
 
@@ -270,14 +270,14 @@ class SwitchAct(
           terminators=('" ', '\n'),
           question_label='Exercise',
       )
-      self._log(output, prompt)
+      self._log(output, prompt, action_spec)
       return output
     elif action_spec.output_type == entity_lib.OutputType.CHOICE:
       idx = prompt.multiple_choice_question(
           question=call_to_action, answers=action_spec.options
       )
       output = action_spec.options[idx]
-      self._log(output, prompt)
+      self._log(output, prompt, action_spec)
       return output
     elif action_spec.output_type == entity_lib.OutputType.FLOAT:
       prefix = self.get_entity().name + ' '
@@ -286,7 +286,7 @@ class SwitchAct(
           max_tokens=2200,
           answer_prefix=prefix,
       )
-      self._log(sampled_text, prompt)
+      self._log(sampled_text, prompt, action_spec)
       try:
         return str(float(sampled_text))
       except ValueError:
@@ -313,11 +313,13 @@ class SwitchAct(
 
   def _log(self,
            result: str,
-           prompt: str | interactive_document.InteractiveDocument):
+           prompt: str | interactive_document.InteractiveDocument,
+           action_spec: entity_lib.ActionSpec):
     if isinstance(prompt, interactive_document.InteractiveDocument):
       prompt = prompt.view().text().splitlines()
     self._logging_channel({
-        'Key': 'Act',
+        'Summary': result,
+        'Action Spec': action_spec.call_to_action,
         'Value': result,
         'Prompt': prompt,
     })

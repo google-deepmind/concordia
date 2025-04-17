@@ -48,7 +48,7 @@ DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 DISCUSSION_SCENE_TYPE = 'discussion'
 DECISION_SCENE_TYPE = 'choice'
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
-SIMULATION_STEPS = 2
+SIMULATION_STEPS = 8
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
@@ -363,7 +363,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     Args:
       model: the language model to use.
       embedder: the sentence transformer to use.
-      
       agent_module: the agent module to use for all main characters.
       override_agent_model: optionally, override the model for all agents. The
         model will be copied for every agent.
@@ -650,4 +649,4 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         title='Simulation Log',
     )
     html_results_log = html_lib.finalise_html(tabbed_html)
-    return html_results_log, raw_log
+    return scores, html_results_log
