@@ -19,7 +19,6 @@ import threading
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.game_master.unstable import make_observation as make_observation_component
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from concordia.typing.unstable import scene as scene_lib
@@ -64,7 +63,8 @@ class ThreadSafeCounter:
       return self._value
 
 
-class SceneTracker(entity_component.ContextComponent):
+class SceneTracker(entity_component.ContextComponent,
+                   entity_component.ComponentWithLogging):
   """A component that decides which game master to use next."""
 
   def __init__(
@@ -79,7 +79,6 @@ class SceneTracker(entity_component.ContextComponent):
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
     """Initializes the component.
@@ -92,7 +91,6 @@ class SceneTracker(entity_component.ContextComponent):
       memory_component_key: The name of the memory component.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
       verbose: Whether to print verbose debug information.
 
     Raises:
@@ -102,7 +100,6 @@ class SceneTracker(entity_component.ContextComponent):
     super().__init__()
     self._model = model
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
     self._memory_component_key = memory_component_key
 
     self._observation_component_key = observation_component_key
@@ -191,6 +188,12 @@ class SceneTracker(entity_component.ContextComponent):
       print('Resolve')
       print(f'current scene: {current_scene.scene_type.name}')
       print(f'step counter: {step_within_scene}')
+      self._logging_channel({
+          'Summary': f'Scene: {current_scene.scene_type.name}',
+          'Step within scene': step_within_scene,
+          'Global step': self._step_counter.value(),
+          'Scene participants': ', '.join(self.get_participants()),
+      })
       self._step_counter.increment(amount=1)
 
     return result

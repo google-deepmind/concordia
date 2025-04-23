@@ -17,7 +17,7 @@
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
-from concordia.typing import logging
+from concordia.typing.unstable import entity_component
 
 DEFAULT_OBSERVATION_COMPONENT_KEY = '__observation__'
 DEFAULT_OBSERVATION_PRE_ACT_LABEL = (
@@ -34,18 +34,15 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
     Args:
       memory_component_key: Name of the memory component to add observations to
         in `pre_observe` and to retrieve observations from in `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     super().__init__('')
     self._memory_component_key = memory_component_key
-    self._logging_channel = logging_channel
 
   def pre_observe(
       self,
@@ -61,7 +58,9 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
     return ''
 
 
-class LastNObservations(action_spec_ignored.ActionSpecIgnored):
+class LastNObservations(
+    action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
+):
   """A simple component to receive observations."""
 
   def __init__(
@@ -71,7 +70,6 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_OBSERVATION_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
@@ -82,12 +80,10 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
         in `pre_observe` and to retrieve observations from in `pre_act`.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_label)
     self._memory_component_key = memory_component_key
     self._history_length = history_length
-    self._logging_channel = logging_channel
 
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
@@ -106,7 +102,9 @@ class LastNObservations(action_spec_ignored.ActionSpecIgnored):
     return result
 
 
-class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
+class ObservationsSinceLastPreAct(
+    action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
+):
   """A component to retrieve observations obtained since the last `pre_act`."""
 
   def __init__(
@@ -115,7 +113,6 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_OBSERVATION_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the observation component.
 
@@ -124,11 +121,9 @@ class ObservationsSinceLastPreAct(action_spec_ignored.ActionSpecIgnored):
         in `pre_observe` and to retrieve observations from in `pre_act`.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
     """
     super().__init__(pre_act_label)
     self._memory_component_key = memory_component_key
-    self._logging_channel = logging_channel
 
     self._num_since_last_pre_act = 0
 

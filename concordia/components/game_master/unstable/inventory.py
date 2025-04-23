@@ -26,7 +26,6 @@ from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.agent.unstable import observation as observation_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from concordia.utils import concurrency
@@ -77,7 +76,9 @@ def _many_or_much_fn(is_count_noun: bool) -> str:
     return 'much'
 
 
-class Inventory(entity_component.ContextComponent):
+class Inventory(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A grounded inventory tracking amounts of items in python."""
 
   def __init__(
@@ -95,7 +96,6 @@ class Inventory(entity_component.ContextComponent):
       financial: bool = False,
       never_increase: bool = False,
       pre_act_label: str = 'Inventory',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       verbose: bool = False,
   ):
     """Initialize a grounded inventory component tracking objects in python.
@@ -120,7 +120,6 @@ class Inventory(entity_component.ContextComponent):
         for why the item was not gained.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to log debug information to.
       verbose: whether to print the full update chain of thought or not
     """
     self._pre_act_label = pre_act_label
@@ -132,7 +131,6 @@ class Inventory(entity_component.ContextComponent):
     self._financial = financial
     self._clock_now = clock_now
     self._never_increase = never_increase
-    self._logging_channel = logging_channel
     self._verbose = verbose
 
     self._item_types = [config.name for config in item_type_configs]

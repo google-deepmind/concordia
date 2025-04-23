@@ -25,7 +25,6 @@ from concordia.clocks import game_clock
 from concordia.components.agent import unstable as components_unstable
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -63,11 +62,9 @@ def build_agent(
 
   agent_name = config.name
 
-  measurements = measurements_lib.Measurements()
   instructions = components_unstable.instructions.Instructions(
       agent_name=agent_name,
       pre_act_label=DEFAULT_INSTRUCTIONS_PRE_ACT_LABEL,
-      logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
   observation_to_memory = components_unstable.observation.ObservationToMemory()
@@ -118,14 +115,12 @@ def build_agent(
 
   act_component = components_unstable.concat_act_component.ConcatActComponent(
       model=model,
-      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=agent_name,
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return agent

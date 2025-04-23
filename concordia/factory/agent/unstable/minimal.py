@@ -24,7 +24,6 @@ from concordia.clocks import game_clock
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity_component
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -53,30 +52,25 @@ def build_agent(
 
   agent_name = config.name
 
-  measurements = measurements_lib.Measurements()
   instructions = agent_components.instructions.Instructions(
-      agent_name=agent_name,
-      logging_channel=measurements.get_channel('Instructions').on_next,
+      agent_name=agent_name
   )
 
   if clock:
     time_display = agent_components.report_function.ReportFunction(
         function=clock.current_time_interval_str,
         pre_act_label='\nCurrent time',
-        logging_channel=measurements.get_channel('TimeDisplay').on_next,
     )
   else:
     time_display = None
 
   observation_to_memory = agent_components.observation.ObservationToMemory(
-      logging_channel=measurements.get_channel('Observation').on_next,
   )
 
   observation_label = '\nObservation'
   observation = agent_components.observation.LastNObservations(
       history_length=100,
       pre_act_label=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
   )
 
   if config.goal:
@@ -84,7 +78,6 @@ def build_agent(
     overarching_goal = agent_components.constant.Constant(
         state=config.goal,
         pre_act_label=goal_label,
-        logging_channel=measurements.get_channel(goal_label).on_next,
     )
   else:
     goal_label = None
@@ -120,14 +113,12 @@ def build_agent(
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
       component_order=component_order,
-      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=agent_name,
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return agent

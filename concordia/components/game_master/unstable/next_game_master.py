@@ -21,7 +21,6 @@ from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.game_master.unstable import scene_tracker as scene_tracker_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
@@ -33,7 +32,9 @@ DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
     'Which rule set should we use for the next step?')
 
 
-class NextGameMaster(entity_component.ContextComponent):
+class NextGameMaster(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides which game master to use next.
   """
 
@@ -46,7 +47,6 @@ class NextGameMaster(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -60,7 +60,6 @@ class NextGameMaster(entity_component.ContextComponent):
         of the component name to a label to use in the prompt.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -73,7 +72,6 @@ class NextGameMaster(entity_component.ContextComponent):
     self._call_to_action = call_to_action
     self._components = dict(components)
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_active_game_master = None
 
@@ -116,7 +114,9 @@ class NextGameMaster(entity_component.ContextComponent):
     return self._currently_active_game_master
 
 
-class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
+class NextGameMasterFromSceneSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides which game master to use next."""
 
   def __init__(
@@ -126,7 +126,6 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
           scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -136,7 +135,6 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
         use to get the current scene type.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -146,7 +144,6 @@ class NextGameMasterFromSceneSpec(entity_component.ContextComponent):
     self._model = model
     self._scene_tracker_component_key = scene_tracker_component_key
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_active_game_master = None
 

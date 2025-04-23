@@ -27,7 +27,6 @@ from concordia.language_model import language_model
 from concordia.thought_chains.unstable import thought_chains as thought_chains_lib
 from concordia.typing.unstable import entity_component as entity_component_lib
 from concordia.typing.unstable import scene as scene_lib
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 _MEMORY_COMPONENT_KEY = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
@@ -56,7 +55,6 @@ def build_simulation(
     additional_context_components: (
         Mapping[str, entity_component_lib.ContextComponent] | None
     ) = None,
-    measurements: measurements_lib.Measurements | None = None,
 ) -> tuple[
     associative_memory.AssociativeMemoryBank,
     entity_agent_with_logging.EntityAgentWithLogging,
@@ -75,13 +73,10 @@ def build_simulation(
       events in the simulation.
     additional_context_components: Additional context components to add to the
       game master.
-    measurements: The measurements to use for the game master.
 
   Returns:
     A tuple consisting of a game master and its memory.
   """
-  if measurements is None:
-    measurements = measurements_lib.Measurements()
 
   if memory is not None:
     game_master_memory = memory
@@ -142,7 +137,6 @@ def build_simulation(
       },
       num_memories_to_retrieve=25,
       pre_act_label='Background info',
-      logging_channel=measurements.get_channel(relevant_memories_key).on_next,
   )
 
   world_state_key = 'world_state'
@@ -155,7 +149,6 @@ def build_simulation(
           relevant_memories_key: relevant_memories.get_pre_act_label(),
           display_events_key: display_events.get_pre_act_label(),
       },
-      logging_channel=measurements.get_channel(world_state_key).on_next,
   )
 
   make_observation_key = (
@@ -175,7 +168,6 @@ def build_simulation(
           'current situation to a player is: '
           '"//date or time//situation description".'
       ),
-      logging_channel=measurements.get_channel(make_observation_key).on_next,
   )
 
   next_acting_kwargs = dict(
@@ -233,7 +225,6 @@ def build_simulation(
       event_resolution_steps=event_resolution_steps,
       components=event_resolution_components,
       notify_observers=True,
-      logging_channel=measurements.get_channel(event_resolution_key).on_next,
   )
 
   components_of_game_master = {
@@ -261,19 +252,16 @@ def build_simulation(
 
   component_order = list(components_of_game_master.keys())
 
-  act_component_key = gm_components.switch_act.DEFAULT_ACT_COMPONENT_KEY
   act_component = gm_components.switch_act.SwitchAct(
       model=model,
       entity_names=player_names,
       component_order=component_order,
-      logging_channel=measurements.get_channel(act_component_key).on_next,
   )
 
   game_master = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=game_master_name,
       act_component=act_component,
       context_components=components_of_game_master,
-      component_logging=measurements,
   )
 
   for mem in shared_memories:
@@ -301,7 +289,6 @@ def build_simulation_with_scenes(
     additional_context_components: (
         Mapping[str, entity_component_lib.ContextComponent] | None
     ) = None,
-    measurements: measurements_lib.Measurements | None = None,
 ) -> tuple[
     associative_memory.AssociativeMemoryBank,
     entity_agent_with_logging.EntityAgentWithLogging,
@@ -323,13 +310,10 @@ def build_simulation_with_scenes(
       events in the simulation.
     additional_context_components: Additional context components to add to the
       game master.
-    measurements: The measurements to use for the game master.
 
   Returns:
     A tuple consisting of a game master and its memory.
   """
-  if measurements is None:
-    measurements = measurements_lib.Measurements()
 
   if memory is not None:
     game_master_memory = memory
@@ -372,9 +356,6 @@ def build_simulation_with_scenes(
       gm_components.make_observation.MakeObservationFromQueueOnly(
           model=model,
           queue=observation_queue,
-          logging_channel=measurements.get_channel(
-              make_observation_key
-          ).on_next,
       )
   )
 
@@ -437,7 +418,6 @@ def build_simulation_with_scenes(
       event_resolution_steps=event_resolution_steps,
       components=event_resolution_components,
       notify_observers=True,
-      logging_channel=measurements.get_channel(event_resolution_key).on_next,
   )
 
   components_of_game_master = {
@@ -463,19 +443,16 @@ def build_simulation_with_scenes(
 
   component_order = list(components_of_game_master.keys())
 
-  act_component_key = gm_components.switch_act.DEFAULT_ACT_COMPONENT_KEY
   act_component = gm_components.switch_act.SwitchAct(
       model=model,
       entity_names=player_names,
       component_order=component_order,
-      logging_channel=measurements.get_channel(act_component_key).on_next,
   )
 
   game_master = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name=game_master_name,
       act_component=act_component,
       context_components=components_of_game_master,
-      component_logging=measurements,
   )
   for mem in shared_memories:
     game_master.observe(mem)
@@ -493,12 +470,9 @@ def build_decision_scene_game_master(
     additional_context_components: (
         Mapping[str, entity_component_lib.ContextComponent] | None
     ) = None,
-    measurements: measurements_lib.Measurements | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build a decision game master for decision scenes."""
 
-  if measurements is None:
-    measurements = measurements_lib.Measurements()
   game_master_memory = memory
 
   instructions = gm_components.instructions.Instructions()
@@ -521,16 +495,10 @@ def build_decision_scene_game_master(
       model=model,
   )
 
-  make_observation_key = (
-      gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
-  )
   make_observation = (
       gm_components.make_observation.MakeObservationFromQueueOnly(
           model=model,
           queue=observation_queue,
-          logging_channel=measurements.get_channel(
-              make_observation_key
-          ).on_next,
       )
   )
 
@@ -565,15 +533,10 @@ def build_decision_scene_game_master(
       _OBSERVATION_COMPONENT_KEY: observation.get_pre_act_label(),
   }
 
-  event_resolution_key = (
-      gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
-  )
-
   event_resolution = gm_components.event_resolution.EventResolution(
       model=model,
       event_resolution_steps=event_resolution_steps,
       components=event_resolution_components,
-      logging_channel=measurements.get_channel(event_resolution_key).on_next,
   )
   scene_tracker = gm_components.scene_tracker.SceneTracker(
       model=model,
@@ -619,19 +582,16 @@ def build_decision_scene_game_master(
 
   component_order = list(components_of_game_master.keys())
 
-  act_component_key = gm_components.switch_act.DEFAULT_ACT_COMPONENT_KEY
   act_component = gm_components.switch_act.SwitchAct(
       model=model,
       entity_names=player_names,
       component_order=component_order,
-      logging_channel=measurements.get_channel(act_component_key).on_next,
   )
 
   game_master = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name='Decision_Game_Master',
       act_component=act_component,
       context_components=components_of_game_master,
-      component_logging=measurements,
   )
 
   return game_master

@@ -97,10 +97,7 @@ class Instructions(constant.Constant):
         'participants. Try to ensure the story always moves forward and never '
         'gets stuck, even if the participants make repetitive choices.'
     )
-    super().__init__(
-        state=state,
-        pre_act_label=pre_act_label,
-        logging_channel=logging_channel)
+    super().__init__(state=state, pre_act_label=pre_act_label)
 
 
 class PlayerCharacters(constant.Constant):
@@ -113,10 +110,7 @@ class PlayerCharacters(constant.Constant):
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     state = '\n'.join(player_characters) + '\n'
-    super().__init__(
-        state=state,
-        pre_act_label=pre_act_label,
-        logging_channel=logging_channel)
+    super().__init__(state=state, pre_act_label=pre_act_label)
 
 
 class ExamplesSynchronous(constant.Constant):
@@ -132,7 +126,6 @@ class ExamplesSynchronous(constant.Constant):
                                         'check_termination_1',
                                         'check_termination_2']),
       pre_act_label: str = 'Game master workflow examples',
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
       rnd: random.Random | None = None,
   ):
     if rnd is None:
@@ -212,7 +205,4 @@ class ExamplesSynchronous(constant.Constant):
       )
     state += '\n\n**--END EXAMPLES--**\n'
 
-    super().__init__(
-        state=state,
-        pre_act_label=pre_act_label,
-        logging_channel=logging_channel)
+    super().__init__(state=state, pre_act_label=pre_act_label)

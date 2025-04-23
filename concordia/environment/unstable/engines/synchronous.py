@@ -283,4 +283,5 @@ class Synchronous(engine_lib.Engine):
         'Step': steps,
         entity_key: entity_log,
         game_master_key: game_master_log,
+        'Summary': f'Step {steps} {game_master_key}'
     })

@@ -132,6 +132,16 @@ PUB_PREFERENCES = {
     ],
 }
 
+SCENARIO_KNOWLEDGE = (
+    (
+        "It is 2015, London. The European football cup is happening. A group of"
+        " friends is planning to go to the pub and watch the game. The"
+        " simulation consists of several scenes. In the discussion scene"
+        " players meet in social circumstances and have a conversation."
+        " Aftewards comes a decision scene where they each decide which pub"
+        " they want to go to. "
+    ),
+)
 SOCIAL_CONTEXT = [
     (
         "The sun peeks through the morning"
@@ -295,6 +305,7 @@ def sample_parameters(seed: int | None = None):
       venue_preferences=pub_preferences,
       social_context=SOCIAL_CONTEXT,
       random_seed=seed,
+      num_supporting_players=0,
   )
 
   all_names = list(MALE_NAMES) + list(FEMALE_NAMES)

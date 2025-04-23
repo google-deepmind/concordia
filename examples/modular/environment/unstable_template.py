@@ -39,7 +39,6 @@ from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib
 from concordia.utils import concurrency
 from concordia.utils import html as html_lib
-from concordia.utils import measurements as measurements_lib
 import numpy as np
 
 
@@ -357,7 +356,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
           bots_lib.SupportingAgentFactory | types.ModuleType
       ) = rational_agent_supporting,
       time_and_place_module: str | None = None,
-      measurements: measurements_lib.Measurements | None = None,
       seed: int | None = None,
   ):
     """Initialize the simulation object.
@@ -365,7 +363,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     Args:
       model: the language model to use.
       embedder: the sentence transformer to use.
-      
       agent_module: the agent module to use for all main characters.
       override_agent_model: optionally, override the model for all agents. The
         model will be copied for every agent.
@@ -380,7 +377,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
       time_and_place_module: optionally, specify a module containing settings
         that create a sense of setting in a specific time and place. If not
         specified, a random module will be chosen from the default options.
-      measurements: the measurements object to use.
       seed: the random seed to use.
     """
     if resident_visitor_modules is None:
@@ -553,7 +549,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
             scenes=self._scenes,
             globabl_scene_counter=self._globabl_scene_counter,
             observation_queue=observation_queue,
-            measurements=measurements,
         )
     )
 
@@ -568,7 +563,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
                 'payoff_matrix': self._payoff_matrix
             },
             observation_queue=observation_queue,
-            measurements=measurements,
         )
     )
 
@@ -655,4 +649,4 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         title='Simulation Log',
     )
     html_results_log = html_lib.finalise_html(tabbed_html)
-    return html_results_log, raw_log
+    return scores, html_results_log

@@ -24,7 +24,6 @@ from concordia.components.game_master.unstable import scene_tracker as scene_tra
 from concordia.document import interactive_document
 from concordia.environment.unstable import engine as engine_lib
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from concordia.typing.unstable import scene as scene_lib
@@ -43,7 +42,9 @@ DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     'one of the provided formats and use no additional words.')
 
 
-class NextActing(entity_component.ContextComponent):
+class NextActing(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides whose turn is next.
   """
 
@@ -55,7 +56,6 @@ class NextActing(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -66,7 +66,6 @@ class NextActing(entity_component.ContextComponent):
         of the component name to a label to use in the prompt.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -77,7 +76,6 @@ class NextActing(entity_component.ContextComponent):
     self._player_names = player_names
     self._components = dict(components)
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_active_player = None
 
@@ -121,7 +119,6 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
       self,
       sequence: Sequence[str],
       pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -130,7 +127,6 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
         to take turns in this order. The sequence will be cycled through.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -140,7 +136,6 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     self._sequence = sequence
 
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_active_player_idx = None
 
@@ -174,7 +169,6 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
       player_names: Sequence[str],
       replace: bool = False,
       pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -185,7 +179,6 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
       replace: Whether to sample players with or without replacement.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -196,7 +189,6 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
     self._replace = replace
 
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_available_indices = list(range(len(self._player_names)))
 
@@ -229,7 +221,9 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
     return self._player_names[self._currently_active_player_idx]
 
 
-class NextActingFromSceneSpec(entity_component.ContextComponent):
+class NextActingFromSceneSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides whose turn is next using the current scene spec.
   """
 
@@ -246,7 +240,6 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
           scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -258,7 +251,6 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
       scene_tracker_component_key: The name of the scene tracker component.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -270,7 +262,6 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     self._scene_tracker_component_key = scene_tracker_component_key
     self._components = dict(components)
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._currently_active_player = None
     self._counter = 0
@@ -310,7 +301,9 @@ class NextActingFromSceneSpec(entity_component.ContextComponent):
     return self._currently_active_player
 
 
-class NextActionSpec(entity_component.ContextComponent):
+class NextActionSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides whose turn is next.
   """
 
@@ -324,7 +317,6 @@ class NextActionSpec(entity_component.ContextComponent):
       call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
       next_acting_component_key: str = DEFAULT_NEXT_ACTING_COMPONENT_KEY,
       pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -340,7 +332,6 @@ class NextActionSpec(entity_component.ContextComponent):
         to get the name of the player whose turn is next.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -353,7 +344,6 @@ class NextActionSpec(entity_component.ContextComponent):
     self._call_to_next_action_spec = call_to_next_action_spec
     self._next_acting_component_key = next_acting_component_key
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
@@ -394,7 +384,9 @@ class NextActionSpec(entity_component.ContextComponent):
     return result
 
 
-class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
+class NextActionSpecFromSceneSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides the next action spec using the current scene spec.
   """
 
@@ -408,7 +400,6 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
           scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -418,7 +409,6 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
       scene_tracker_component_key: The name of the scene tracker component.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -428,7 +418,6 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
     self._memory_component_key = memory_component_key
     self._scene_tracker_component_key = scene_tracker_component_key
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     # Extract all scene type specs from the provided scenes.
     self._scene_type_specs = {}
@@ -464,7 +453,9 @@ class NextActionSpecFromSceneSpec(entity_component.ContextComponent):
     return action_spec_string
 
 
-class FixedActionSpec(entity_component.ContextComponent):
+class FixedActionSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that always returns the same action spec.
   """
 
@@ -472,7 +463,6 @@ class FixedActionSpec(entity_component.ContextComponent):
       self,
       action_spec: entity_lib.ActionSpec,
       pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -481,7 +471,6 @@ class FixedActionSpec(entity_component.ContextComponent):
         output type NEXT_ACTION_SPEC.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -490,7 +479,6 @@ class FixedActionSpec(entity_component.ContextComponent):
     super().__init__()
     self._fixed_entity_action_spec = action_spec
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
   def pre_act(
       self,

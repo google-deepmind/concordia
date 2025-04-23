@@ -20,7 +20,6 @@ from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 
 PREVENT_REPETITION_PROMPT = """
 Users often find it off-putting when AI chatbots prefix every response in the same way (e.g., "As an AI...", "Certainly!", "Okay, here's the information you requested..."). Here's why:
@@ -58,21 +57,17 @@ def build_agent(
     An agent.
   """
 
-  measurements = measurements_lib.Measurements()
   instructions = agent_components.constant.Constant(
       state=system_prompt,
       pre_act_label='System',
-      logging_channel=measurements.get_channel('Instructions').on_next,
   )
 
   prevent_repetition = agent_components.constant.Constant(
       state=PREVENT_REPETITION_PROMPT,
       pre_act_label='Important note',
-      logging_channel=measurements.get_channel('PreventRepetition').on_next,
   )
 
   observation_to_memory = agent_components.observation.ObservationToMemory(
-      logging_channel=measurements.get_channel('Observation').on_next,
   )
 
   observation_label = (
@@ -80,7 +75,6 @@ def build_agent(
   observation = agent_components.observation.LastNObservations(
       history_length=100,
       pre_act_label=observation_label,
-      logging_channel=measurements.get_channel('Observation').on_next,
   )
 
   components_of_agent = {
@@ -97,14 +91,12 @@ def build_agent(
 
   act_component = agent_components.concat_act_component.ConcatActComponent(
       model=model,
-      logging_channel=measurements.get_channel('Act').on_next,
   )
 
   agent = entity_agent_with_logging.EntityAgentWithLogging(
       agent_name='Assistant',
       act_component=act_component,
       context_components=components_of_agent,
-      component_logging=measurements,
   )
 
   return agent
