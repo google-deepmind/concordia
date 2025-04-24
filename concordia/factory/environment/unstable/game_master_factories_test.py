@@ -21,13 +21,15 @@ from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.components.agent import unstable as agent_components
 from concordia.environment.unstable.engines import synchronous
-from concordia.factory.environment.unstable import unstable_simulation
+from concordia.factory.environment.unstable import conversation
+from concordia.factory.environment.unstable import default
 from concordia.language_model import no_language_model
 import numpy as np
 
 
 ENVIRONMENT_FACTORIES = {
-    'unstable_simulation': unstable_simulation,
+    'conversation': conversation,
+    'default': default,
 }
 
 
@@ -39,8 +41,10 @@ def _embedder(text: str):
 class EnvironmentFactoriesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='unstable_simulation',
-           simulation_factory_name='unstable_simulation'),
+      dict(testcase_name='conversation',
+           simulation_factory_name='conversation'),
+      dict(testcase_name='default',
+           simulation_factory_name='default'),
   )
   def test_simulation_factory(self, simulation_factory_name: str):
     simulation_factory = ENVIRONMENT_FACTORIES[simulation_factory_name]
@@ -58,13 +62,16 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
     players = [player_a]
     environment = synchronous.Synchronous()
 
-    mem, game_master = simulation_factory.build_simulation(
-        model=model,
-        embedder=_embedder,
-        players=players,
-        shared_memories=[],
+    memory_bank = associative_memory.AssociativeMemoryBank(
+        sentence_embedder=_embedder,
     )
-    self.assertIsInstance(mem, associative_memory.AssociativeMemoryBank)
+
+    game_master = simulation_factory.build(
+        model=model,
+        memory_bank=memory_bank,
+        players=players,
+    )
+
     self.assertIsInstance(game_master,
                           entity_agent_with_logging.EntityAgentWithLogging)
 

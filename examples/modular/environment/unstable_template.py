@@ -22,6 +22,8 @@ import functools
 import random
 import types
 from typing import Any, Union
+
+from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent.unstable import constant
@@ -33,7 +35,8 @@ from examples.modular.environment.utils import helper_functions
 from examples.modular.scenario import scenarios as scenarios_lib
 from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.factory.agent.unstable import basic as basic_agent_factory
-from concordia.factory.environment.unstable import unstable_simulation as simulation_factory
+from concordia.factory.environment.unstable import conversation_with_scenes
+from concordia.factory.environment.unstable import matrix_game_with_scenes
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib
@@ -51,6 +54,18 @@ NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
 SIMULATION_STEPS = 8
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
+
+_CONVERSATION_GAME_MASTER_NAME = 'conversation rules'
+_DECISION_GAME_MASTER_NAME = 'decision rules'
+
+_SCENARIO_KNOWLEDGE = (
+    'It is 2015, London. The European football cup is happening. A group of'
+    ' friends is planning to go to the pub and watch the game. The'
+    ' simulation consists of several scenes. In the discussion scene'
+    ' players meet in social circumstances and have a conversation.'
+    ' Aftewards comes a decision scene where they each decide which pub'
+    ' they want to go to. '
+)
 
 
 @dataclasses.dataclass
@@ -249,7 +264,7 @@ def configure_scenes(
 
   discussion_scene_type = scene_lib.ExperimentalSceneTypeSpec(
       name=DISCUSSION_SCENE_TYPE,
-      game_master_name='Main_Game_Master',
+      game_master_name=_CONVERSATION_GAME_MASTER_NAME,
       premise={
           cfg.name: [
               social_context.format(
@@ -270,7 +285,7 @@ def configure_scenes(
 
   decision_scene_type = scene_lib.ExperimentalSceneTypeSpec(
       name=DECISION_SCENE_TYPE,
-      game_master_name='Decision_Game_Master',
+      game_master_name=_DECISION_GAME_MASTER_NAME,
       premise={
           cfg.name: ['It is time to make a decision.'] for cfg in player_configs
       },
@@ -495,25 +510,16 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._all_players = self._main_players + supporting_players
 
-    setting = constant.Constant(
-        state=(
-            f'The year is {sampled_settings.year} and '
-            f'the location is {sampled_settings.location}.'
-        ),
-        pre_act_label='Setting',
-    )
-
     self._environment = synchronous.Synchronous()
 
     self._scenes = configure_scenes(
         main_player_configs=main_player_configs,
         supporting_player_configs=supporting_player_configs,
-        # time_and_place_params=time_and_place_params,
         sampled_settings=sampled_settings,
         start_time=start_time,
     )
 
-    self._globabl_scene_counter = gm_components.scene_tracker.ThreadSafeCounter(
+    self._global_scene_counter = gm_components.scene_tracker.ThreadSafeCounter(
         initial_value=0
     )
     all_player_names = [player.name for player in self._all_players]
@@ -525,44 +531,35 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         verbose=True,
     )
 
-    additional_gm_components = {
-        'setting': setting,
-    }
-
-    scenario_knowledge = (
-        'It is 2015, London. The European football cup is happening. A group of'
-        ' friends is planning to go to the pub and watch the game. The'
-        ' simulation consists of several scenes. In the discussion scene'
-        ' players meet in social circumstances and have a conversation.'
-        ' Aftewards comes a decision scene where they each decide which pub'
-        ' they want to go to. '
+    self._game_master_memory = associative_memory.AssociativeMemoryBank(
+        sentence_embedder=self._embedder,
     )
 
     observation_queue = {}
-    self._game_master_memory, self._game_master = (
-        simulation_factory.build_simulation_with_scenes(
+    self._game_master = (
+        conversation_with_scenes.build(
             model=self._model,
-            embedder=self._embedder,
-            players=self._main_players,
-            shared_memories=[scenario_knowledge],
-            additional_context_components=additional_gm_components,
+            memory_bank=self._game_master_memory,
+            player_names=[player.name for player in self._main_players],
             scenes=self._scenes,
-            globabl_scene_counter=self._globabl_scene_counter,
             observation_queue=observation_queue,
+            global_scene_counter=self._global_scene_counter,
+            name=_CONVERSATION_GAME_MASTER_NAME,
         )
     )
 
+    self._game_master.observe(_SCENARIO_KNOWLEDGE)
+
     self._decision_game_master = (
-        simulation_factory.build_decision_scene_game_master(
+        matrix_game_with_scenes.build(
             model=self._model,
-            players=self._main_players,
-            memory=self._game_master_memory,
+            memory_bank=self._game_master_memory,
+            player_names=[player.name for player in self._main_players],
             scenes=self._scenes,
-            globabl_scene_counter=self._globabl_scene_counter,
-            additional_context_components={
-                'payoff_matrix': self._payoff_matrix
-            },
+            payoff_matrix_component=self._payoff_matrix,
             observation_queue=observation_queue,
+            global_scene_counter=self._global_scene_counter,
+            name=_DECISION_GAME_MASTER_NAME,
         )
     )
 
@@ -628,8 +625,6 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
-    # player_names_str = self.get_player_names_string()
-
     raw_log = []
     self._environment.run_loop(
         game_masters=[self._game_master, self._decision_game_master],

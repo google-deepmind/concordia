@@ -41,8 +41,6 @@ def identity(
     string describing the outcome
   """
   del chain_of_thought, active_player_name
-  if premise.startswith('Putative event to resolve: '):
-    premise = premise[len('Putative event to resolve: ') :]
   return premise
 
 
@@ -242,11 +240,12 @@ def result_to_who_what_where(
   del active_player_name
   chain_of_thought.statement(event)
   causal_statement = chain_of_thought.open_question(
-      'Rewrite the statements above to be one sentence and to better highlight'
+      'Rewrite the statements above to better highlight'
       ' the main person the event is about, where and what they did, and what'
       ' happened as a result. Do not express uncertainty (e.g. say "Francis'
       ' opened the door" not "Francis could open the door" and not "The door'
-      ' may have been opened").\n',
+      ' may have been opened"). If anyone spoke then make sure to include '
+      ' exaxtly what they said verbatim.\n',
       max_tokens=1500,
       terminators=(),
   )
@@ -653,17 +652,26 @@ def maybe_inject_narrative_push(
   """
   del active_player_name
   if not chain_of_thought.yes_no_question(
-      question='Has the story gotten a bit repetitive?'
+      question='Is the story traced out by the above list of events repetitive?'
   ):
     return putative_event
 
   tmp_chain_of_thought = chain_of_thought.copy()
   plausible_events = tmp_chain_of_thought.open_question(
-      question=('Suggest five plausible events that may now occur to move '
-                'the narrative forward. Put each event on a separate line. '
-                'Do not include titles, headings, or numbers in events. Just '
+      question=('Suggest five plausible events or complications to the '
+                'putative event being resolved that may now occur to move '
+                'the narrative forward. Put each one on a separate line. '
+                'Do not include titles, headings, or numbers. Just '
                 'include the in-narrative description of each of the plausible '
-                'events. '
+                'events or complications. Only suggest the sort of thing that '
+                'the game master of a typical tabletop role-playing game would '
+                'be able to decide on their own without reducing '
+                'the players\' feelings of agency or making the world feel '
+                'arbitrary and unfair. '
+                'In particular, never assume a player character takes '
+                'a voluntary action. Non-player characters, on the other hand, '
+                'can always be used to push the narrative forward since they '
+                'are controlled by the game master.'
                 'Eg:\nfirst plausible event\nsecond plausible event\n'
                 'third plausible event\nfourth plausible event\n'
                 'fifth plausible event\n'),
@@ -673,11 +681,19 @@ def maybe_inject_narrative_push(
   plausible_events = plausible_events.split('\n')
 
   additional_plausible_event = random.choice(plausible_events)
-  combined_plausible_event = f'{putative_event}\n{additional_plausible_event}'
+  combined_plausible_event = (f'1. {putative_event}\n'
+                              f'2. {additional_plausible_event}')
 
-  chain_of_thought.statement(combined_plausible_event)
+  composite_event = chain_of_thought.open_question(
+      question=(f'Given:\n{combined_plausible_event}\n\nHow does 2 modify, '
+                'complicate, extend, or otherwise change the meaning of 1? '
+                'Answer in the form of an in-narrative compound event that '
+                'incorporates both 1 and 2 into a single composite event.'),
+      max_tokens=1500,
+      terminators=(),
+  )
 
-  return combined_plausible_event
+  return composite_event
 
 
 def maybe_cut_to_next_scene(

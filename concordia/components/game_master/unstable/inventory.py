@@ -146,10 +146,6 @@ class Inventory(
           for item_type in self._item_types
       }
 
-    self._latest_update_log = None
-    self._state = ''
-    self._partial_states = {name: '' for name in self._player_names}
-
     # Determine if each item type is a count noun or a mass noun.
     self._is_count_noun = {}
     self._lock = threading.Lock()
@@ -395,7 +391,8 @@ class Inventory(
       self._inventories = copy.deepcopy(new_inventories)
 
 
-class Score(entity_component.ContextComponent):
+class Score(entity_component.ContextComponent,
+            entity_component.ComponentWithLogging):
   """This component assigns score based on possession of items in inventory."""
 
   def __init__(
@@ -412,7 +409,7 @@ class Score(entity_component.ContextComponent):
       inventory: the inventory component to use to get the inventory of players.
       player_names: sequence of players who have an inventory.
       targets: Mapping of player name to their target items. They will be scored
-        by the number of items of the specified types in their inventory. 
+        by the number of items of the specified types in their inventory.
       pre_act_label: the name of this component to use in pre_act.
       verbose: whether to print the full update chain of thought or not
     """
@@ -446,4 +443,8 @@ class Score(entity_component.ContextComponent):
       unused_action_spec: entity_lib.ActionSpec,
   ) -> str:
     del unused_action_spec
+    self._logging_channel(
+        {'Key': 'score based on inventory',
+         'Value': self.get_scores()}
+    )
     return ''

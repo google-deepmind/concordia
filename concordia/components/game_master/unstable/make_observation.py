@@ -20,7 +20,6 @@ import types
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 
@@ -38,7 +37,8 @@ GET_ACTIVE_ENTITY_QUERY = (
 )
 
 
-class MakeObservation(entity_component.ContextComponent):
+class MakeObservation(entity_component.ContextComponent,
+                      entity_component.ComponentWithLogging):
   """A component that generates observations to send to players."""
 
   def __init__(
@@ -49,7 +49,6 @@ class MakeObservation(entity_component.ContextComponent):
       ] = types.MappingProxyType({}),
       reformat_observations_in_specified_style: str = '',
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -67,7 +66,6 @@ class MakeObservation(entity_component.ContextComponent):
         description"."
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -80,7 +78,6 @@ class MakeObservation(entity_component.ContextComponent):
         reformat_observations_in_specified_style
     )
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._queue = {}
 
@@ -166,8 +163,9 @@ class MakeObservation(entity_component.ContextComponent):
     self._queue[entity_name].append(event)
 
 
-class MakeObservationFromQueueOnly(entity_component.ContextComponent):
-  """A component that decides which game master to use next."""
+class MakeObservationFromQueueOnly(entity_component.ContextComponent,
+                                   entity_component.ComponentWithLogging):
+  """A component that generates observations to send to players."""
 
   def __init__(
       self,
@@ -175,7 +173,6 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
       queue: dict[str, list[str]] | None = None,
       reformat_observations_in_specified_style: str = '',
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -193,7 +190,6 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
         description"."
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -202,7 +198,6 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
     super().__init__()
     self._model = model
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
     )
@@ -287,7 +282,8 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent):
     return self._currently_active_game_master
 
 
-class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
+class SendComponentPreActValuesToPlayers(entity_component.ContextComponent,
+                                         entity_component.ComponentWithLogging):
   """A component that passes component pre-act values to players."""
 
   def __init__(
@@ -298,7 +294,6 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
-      logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     """Initializes the component.
 
@@ -309,7 +304,6 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
         of the component name to a label to use in the prompt.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-      logging_channel: The channel to use for debug logging.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -320,7 +314,6 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent):
     self._player_names = player_names
     self._components = dict(components)
     self._pre_act_label = pre_act_label
-    self._logging_channel = logging_channel
 
     self._map_names_to_previous_observations = {
         player_name: '' for player_name in player_names
