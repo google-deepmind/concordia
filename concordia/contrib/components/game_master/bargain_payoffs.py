@@ -245,16 +245,16 @@ class BargainPayoffs(component.Component):
     if current_scene_type == self._resolution_scene:
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()
-      if self._joint_action_is_complete(joint_action):
+      if self._joint_action_is_complete(joint_action):  # pytype: disable=wrong-arg-types
         # Map the joint action to rewards per player.
-        rewards = self._get_rewards_from_joint_action(joint_action)
+        rewards = self._get_rewards_from_joint_action(joint_action)  # pytype: disable=wrong-arg-types
 
         # Accumulate the rewards per player.
         for name in self._acting_player_names:
           self._player_scores[name] += rewards[name]
 
         # Use the outcome summarization function to get the state.
-        self._set_outcome_messages(joint_action, rewards)
+        self._set_outcome_messages(joint_action, rewards)  # pytype: disable=wrong-arg-types
         self._memory.extend([
             self.state(),
         ])

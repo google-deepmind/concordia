@@ -256,9 +256,9 @@ class SchellingPayoffs(component.Component):
     if current_scene_type == self._resolution_scene:
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()
-      if self._joint_action_is_complete(joint_action):
+      if self._joint_action_is_complete(joint_action):  # pytype: disable=wrong-arg-types
         # Map the joint action to rewards per player.
-        binary_joint_action = self._binarize_joint_action(joint_action)
+        binary_joint_action = self._binarize_joint_action(joint_action)  # pytype: disable=wrong-arg-types
         rewards = self._get_rewards_from_joint_action(binary_joint_action)
 
         # Accumulate the rewards per player.
@@ -266,7 +266,7 @@ class SchellingPayoffs(component.Component):
           self._player_scores[name] += rewards[name]
 
         # Use the outcome summarization function to get the state.
-        self._set_outcome_messages(rewards, binary_joint_action, joint_action)
+        self._set_outcome_messages(rewards, binary_joint_action, joint_action)  # pytype: disable=wrong-arg-types
         self._memory.extend([self.state(),])
         for player_name, partial_state in self._partial_states.items():
           if partial_state:

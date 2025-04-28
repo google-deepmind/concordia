@@ -644,4 +644,4 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         title='Simulation Log',
     )
     html_results_log = html_lib.finalise_html(tabbed_html)
-    return scores, html_results_log
+    return scores, html_results_log  # pytype: disable=bad-return-type

@@ -152,7 +152,7 @@ class AgreementTracker(component.Component):
     if current_scene_type in self._resolution_scenes:
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()
-      if self._joint_action_is_complete(joint_action):
+      if self._joint_action_is_complete(joint_action):  # pytype: disable=wrong-arg-types
         # Check if negotiators agree.
         chain_of_thought = interactive_document.InteractiveDocument(
             self._model, rng=np.random.default_rng(self._seed))
