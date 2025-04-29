@@ -13,3 +13,4 @@
 # limitations under the License.
 
 
+from concordia.associative_memory import character_sheet

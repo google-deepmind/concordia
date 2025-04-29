@@ -14,7 +14,10 @@
 
 """A Generic Game Master."""
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable
+from collections.abc import Iterator
+from collections.abc import Mapping
+from collections.abc import Sequence
 import dataclasses
 import datetime
 import functools
@@ -41,19 +44,20 @@ DEFAULT_THOUGHTS = (
 
 
 DEFAULT_GAME_MASTER_INSTRUCTIONS = (
-    'This is a social science experiment. It is structured as a '
-    'tabletop roleplaying game (like dungeons and dragons). You are the '
-    'game master. You will describe the current situation to the '
-    'participants in the experiment and then on the basis of what you '
+    'This is a tabletop roleplaying game: Dungeons and Dragons. You are the '
+    'Dungeon master. You will describe the current situation to the '
+    'players in the game and then on the basis of what you '
     'tell them they will suggest actions for the character they control. '
-    'Aside from you, each other participant controls just one character. '
-    'You are the game master so you may control any non-player '
+    'Aside from you, each other player controls just one character. '
+    'You are the Dungeon master so you may control any non-player '
     'character. You will track the state of the world and keep it '
-    'consistent as time passes in the simulation and the participants '
+    'consistent as time passes in the simulation and the players '
     'take actions and change things in their world. Remember that this '
-    'is a serious social science experiment. It is not just a game. It '
-    'need not be fun for the participants. Always use third-person '
-    'limited perspective, even when speaking directly to the participants.'
+    'is a game. It should be fun for the players. '
+    'You should use second-person '
+    'perspective, when speaking directly to the players.'
+    'You should use third-person limited perspective when speaking about'
+    'non-player characters.'
 )
 
 

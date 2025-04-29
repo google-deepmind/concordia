@@ -16,6 +16,7 @@
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import all_similar_memories
+from concordia.components.agent import character_class_consistency
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import constant
 from concordia.components.agent import instructions
