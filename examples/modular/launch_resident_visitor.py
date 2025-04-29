@@ -87,7 +87,8 @@ parser.add_argument('--api_key',
 parser.add_argument('--device',
                     action='store',
                     default=None,
-                    dest='device')
+                    dest='device',
+                    help='Device to use for model inference (e.g., "cuda:0" for GPU, "cpu" for CPU). Only applies to local models.')
 parser.add_argument('--disable_language_model',
                     action='store_true',
                     help=('replace the language model with a null model. This '

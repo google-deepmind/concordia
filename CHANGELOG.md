@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+
+- Improved documentation for `--device` flag in `launch_concordia_challenge_evaluation.py` to clarify GPU usage for local models
 
 ## [1.8.10] - 2024-12-19
 
