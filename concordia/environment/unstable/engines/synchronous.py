@@ -191,6 +191,9 @@ class Synchronous(engine_lib.Engine):
       log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
+    if not game_masters:
+      raise ValueError('No game masters provided.')
+
     log_entry = _get_empty_log_entry()
     steps = 0
     game_master = game_masters[0]

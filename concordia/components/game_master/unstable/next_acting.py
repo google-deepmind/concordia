@@ -79,6 +79,9 @@ class NextActing(
 
     self._currently_active_player = None
 
+    if not self._player_names:
+      raise ValueError('No player names provided.')
+
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
@@ -369,16 +372,16 @@ class NextActionSpec(
           self._next_acting_component_key, type_=NextActing
       ).get_currently_active_player()
       prompt.statement(
-          'Example formatted action specs:\n1). "prompt: p;;type: free"\n'
-          '2). "prompt: p;;type: choice;;options: x, y, z".\nNote that p is a '
-          'string of any length, typically a question, and x, y, z, etc are '
-          'multiple choice answer responses. For instance, a valid format '
-          'could be indicated as '
-          'prompt: Where will Edgar go?;;type: choice;;'
-          'options: home, London, Narnia, the third moon of Jupiter')
+          'Example formatted action specs:\n'
+          '1). "prompt: what does Maxine say?;;type: free"\n'
+          '2). "prompt: Where will Edgar go?;;type: choice;;'
+          'options: home, London, Narnia, the third moon of Jupiter"\n'
+          'Note that prompts can be of any length, they are typically '
+          'questions, and multiple choice answer responses must be '
+          'provided in the form of a comma-separated list of options.')
       result = prompt.open_question(
           question=self._call_to_next_action_spec.format(name=active_player),
-          max_tokens=512,
+          max_tokens=1024,
           terminators=())
 
     return result

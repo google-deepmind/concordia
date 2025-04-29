@@ -257,4 +257,11 @@ class DisplayEvents(
     events = [f'{i}). {event.split(EVENT_TAG)[-1]}'
               for i, event in enumerate(events)]
 
-    return '\n'.join(events)
+    events_str = '\n'.join(events)
+
+    self._logging_channel({
+        'Key': self.get_pre_act_label(),
+        'Value': events_str,
+    })
+
+    return events_str

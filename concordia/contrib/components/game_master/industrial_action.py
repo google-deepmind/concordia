@@ -189,9 +189,9 @@ class LaborStrike(component.Component):
     if current_scene_type == self._resolution_scene:
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()
-      if self._joint_action_is_complete(joint_action):
+      if self._joint_action_is_complete(joint_action):  # pytype: disable=wrong-arg-types
         # Map the joint action to an amount of pressure produced.
-        binary_joint_action = self._binarize_joint_action(joint_action)
+        binary_joint_action = self._binarize_joint_action(joint_action)  # pytype: disable=wrong-arg-types
         pressure = self._get_pressure_from_joint_action(binary_joint_action)
         pressure_str = get_pressure_str(pressure, self._pressure_threshold)
         for player_name in self._players_to_inform:
