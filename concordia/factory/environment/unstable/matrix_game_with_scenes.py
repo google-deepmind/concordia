@@ -127,6 +127,14 @@ def build(
           gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
   )
+
+  terminator_key = (
+      gm_components.switch_act.DEFAULT_TERMINATE_COMPONENT_KEY
+  )
+  terminator = gm_components.scene_tracker.SceneTerminator(
+      scene_tracker_component_key=gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
+  )
+
   components_of_game_master = {
       _get_class_name(instructions): instructions,
       _get_class_name(examples_synchronous): examples_synchronous,
@@ -134,6 +142,7 @@ def build(
       gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY: (
           scene_tracker
       ),
+      terminator_key: terminator,
       _get_class_name(observation_to_memory): observation_to_memory,
       display_events_key: display_events,
       actor_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (

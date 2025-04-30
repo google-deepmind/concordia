@@ -14,6 +14,7 @@
 
 """A module that acts like a registry of measurements for experimenter use."""
 
+import copy
 import threading
 from typing import Any, Dict, Set
 
@@ -81,6 +82,11 @@ class Measurements:
         return channel[-1]
       else:
         return None
+
+  def get_all_channels(self) -> Dict[str, list[Any]]:
+    """Returns all channels."""
+    with self._channels_lock:
+      return copy.deepcopy(self._channels)
 
   def close_channel(self, channel: str) -> None:
     """Closes the channel for the given name.

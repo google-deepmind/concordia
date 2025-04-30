@@ -81,6 +81,9 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       )
     self._config = copy.deepcopy(config)
 
+  def get_all_logs(self):
+    return self._component_logging.get_all_channels()
+
   def get_last_log(self):
     log: dict[str, Any] = {}
     for channel_name in sorted(self._component_logging.available_channels()):
