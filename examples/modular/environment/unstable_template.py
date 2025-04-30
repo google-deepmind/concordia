@@ -51,7 +51,7 @@ DAILY_OPTIONS = {'cooperation': 'join the strike', 'defection': 'go to work'}
 DISCUSSION_SCENE_TYPE = 'discussion'
 DECISION_SCENE_TYPE = 'choice'
 NUM_FLAVOR_PROMPTS_PER_PLAYER = 3
-SIMULATION_STEPS = 8
+MAX_SIMULATION_STEPS = 20
 MAJOR_TIME_STEP = datetime.timedelta(minutes=30)
 MINOR_TIME_STEP = datetime.timedelta(seconds=10)
 
@@ -619,7 +619,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
   def get_all_player_memories(self):
     return self._all_memories
 
-  def __call__(self) -> tuple[str, Any]:
+  def __call__(self) -> tuple[Any, str]:
     """Run the simulation.
 
     Returns:
@@ -630,18 +630,32 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
         game_masters=[self._game_master, self._decision_game_master],
         entities=self._all_players,
         premise='A group of friends are considering which pub to go to.',
-        max_steps=SIMULATION_STEPS,
+        max_steps=MAX_SIMULATION_STEPS,
         verbose=True,
         log=raw_log,
     )
     scores = self._payoff_matrix._player_scores
     print(f'scores: {scores}')
-    results_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
-    tabbed_html = html_lib.combine_html_pages(
-        [results_log],
-        ['GM'],
-        summary='',
-        title='Simulation Log',
+
+    player_logs = []
+    player_log_names = []
+    for name, player_memmory in self.get_all_player_memories().items():
+      all_player_mem = player_memmory.retrieve_recent(k=1000)
+      all_player_mem = ['Memories:'] + all_player_mem
+      player_html = html_lib.PythonObjectToHTMLConverter(
+          all_player_mem
+      ).convert()
+      player_logs.append(player_html)
+      player_log_names.append(f'{name}')
+
+    simulation_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
+
+    player_memories_html = html_lib.combine_html_pages(
+        [simulation_log] + player_logs,
+        ['Simulation log'] + player_log_names,
+        summary='Scores: ' + str(scores),
+        title='Simulation Log and Player Memories',
     )
-    html_results_log = html_lib.finalise_html(tabbed_html)
-    return scores, html_results_log  # pytype: disable=bad-return-type
+    final_html = html_lib.finalise_html(player_memories_html)
+
+    return scores, final_html

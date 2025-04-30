@@ -63,8 +63,9 @@ class ThreadSafeCounter:
       return self._value
 
 
-class SceneTracker(entity_component.ContextComponent,
-                   entity_component.ComponentWithLogging):
+class SceneTracker(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """A component that decides which game master to use next."""
 
   def __init__(
@@ -121,6 +122,13 @@ class SceneTracker(entity_component.ContextComponent,
         'Probably the simulation is not terminated after all scenes are done.'
     )
 
+  def is_done(self) -> bool:
+    try:
+      self._get_scene_step_and_scene()
+      return False
+    except ValueError:
+      return True
+
   def get_current_scene_type(self) -> scene_lib.ExperimentalSceneTypeSpec:
     _, scene = self._get_scene_step_and_scene()
     return scene.scene_type
@@ -146,12 +154,12 @@ class SceneTracker(entity_component.ContextComponent,
   ) -> str:
     result = ''
 
-    memory = self.get_entity().get_component(
-        self._memory_component_key, type_=memory_component.Memory
-    )
-    step_within_scene, current_scene = self._get_scene_step_and_scene()
-
     if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+      memory = self.get_entity().get_component(
+          self._memory_component_key, type_=memory_component.Memory
+      )
+      step_within_scene, current_scene = self._get_scene_step_and_scene()
+
       if self._verbose:
         print('Next game master pre-act')
         print(f'Scene game master: {current_scene.scene_type.game_master_name}')
@@ -185,6 +193,8 @@ class SceneTracker(entity_component.ContextComponent,
               make_observation.add_to_queue(participant, observation)
 
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
+      step_within_scene, current_scene = self._get_scene_step_and_scene()
+
       print('Resolve')
       print(f'current scene: {current_scene.scene_type.name}')
       print(f'step counter: {step_within_scene}')
@@ -197,3 +207,42 @@ class SceneTracker(entity_component.ContextComponent,
       self._step_counter.increment(amount=1)
 
     return result
+
+
+class SceneTerminator(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
+  """A component that terminates the simulation when a scene is done."""
+
+  def __init__(
+      self,
+      scene_tracker_component_key: str = DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
+  ):
+    """Initializes the component.
+
+    Args:
+      scene_tracker_component_key: The name of the scene tracker component.
+    """
+    super().__init__()
+    self._scene_tracker_component_key = scene_tracker_component_key
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    scene_tracker = self.get_entity().get_component(
+        self._scene_tracker_component_key, type_=SceneTracker
+    )
+
+    if scene_tracker.is_done():
+      print('Scene Terminator: Signaling to terminate the simulation.')
+      self._logging_channel({
+          'Summary': 'Terminating the simulation.',
+          'Scene tracker': scene_tracker,
+      })
+      return 'Yes'
+    self._logging_channel({
+        'Summary': 'Scene not done.',
+        'Scene tracker': scene_tracker,
+    })
+    return ''

@@ -114,6 +114,13 @@ def build(
       ),
   )
 
+  terminator_key = (
+      gm_components.switch_act.DEFAULT_TERMINATE_COMPONENT_KEY
+  )
+  terminator = gm_components.scene_tracker.SceneTerminator(
+      scene_tracker_component_key=gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
+  )
+
   next_action_spec = gm_components.next_acting.NextActionSpecFromSceneSpec(
       scenes=scenes,
   )
@@ -137,6 +144,7 @@ def build(
   components_of_game_master = {
       instructions_key: instructions,
       scene_tracker_key: scene_tracker,
+      terminator_key: terminator,
       player_characters_key: player_characters,
       observation_component_key: observation,
       observation_to_memory_key: observation_to_memory,
