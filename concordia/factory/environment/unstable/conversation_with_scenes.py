@@ -14,7 +14,7 @@
 
 """A factory to configure conversation game masters with scenes."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
@@ -30,7 +30,7 @@ def build(
     memory_bank: list[str] | associative_memory.AssociativeMemoryBank,
     player_names: Sequence[str],
     scenes: Sequence[scene_lib.ExperimentalSceneSpec],
-    observation_queue: Mapping[str, list[str]],
+    observation_queue: dict[str, list[str]],
     global_scene_counter: gm_components.scene_tracker.ThreadSafeCounter,
     name: str = 'conversation rules',
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
@@ -88,7 +88,6 @@ def build(
 
   next_actor = gm_components.next_acting.NextActingFromSceneSpec(
       model=model,
-      components=[],
       memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
       scene_tracker_component_key=gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
   )

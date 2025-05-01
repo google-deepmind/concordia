@@ -105,9 +105,10 @@ class Asynchronous(engine_lib.Engine):
         )
     )
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
-    return [
-        entities_by_name[entity_name] for entity_name in next_entity_names
-    ], next_action_spec
+    return (
+        [entities_by_name[entity_name] for entity_name in next_entity_names],
+        next_action_spec,
+    )
 
   def resolve(self,
               game_master: entity_lib.Entity,

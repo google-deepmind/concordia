@@ -14,8 +14,6 @@
 
 """This is a factory for wrapping a language model as a Concordia agent."""
 
-from collections.abc import Sequence
-
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
@@ -42,7 +40,7 @@ In essence, users prefer interactions that feel smooth, natural, and efficient. 
 def build_agent(
     *,
     model: language_model.LanguageModel,
-    memory_bank: Sequence[str],
+    memory_bank: list[str],
     system_prompt: str,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
