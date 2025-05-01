@@ -40,7 +40,7 @@ class Engine(metaclass=abc.ABCMeta):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> Sequence[entity_lib.Entity]:
+  ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
 
   @abc.abstractmethod
