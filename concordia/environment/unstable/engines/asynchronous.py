@@ -25,6 +25,7 @@ from concordia.components.game_master.unstable import switch_act as switch_act_c
 from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import entity as entity_lib
 import termcolor
+from typing_extensions import override
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
@@ -78,6 +79,7 @@ class Asynchronous(engine_lib.Engine):
     )
     return observation
 
+  @override
   def next_acting(
       self,
       game_master: entity_lib.Entity,
