@@ -60,6 +60,7 @@ class ConcatActComponent(
       ValueError: If the component order is not None and contains duplicate
         components.
     """
+    super().__init__()
     self._model = model
     if component_order is None:
       self._component_order = None
