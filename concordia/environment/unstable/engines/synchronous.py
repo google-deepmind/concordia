@@ -54,6 +54,8 @@ def _get_empty_log_entry():
       'terminate': {},
       'next_game_master': {},
       'make_observation': {},
+      'next_acting': {},
+      'next_action_spec': {},
       'resolve': {},
   }
 
@@ -95,6 +97,8 @@ class Synchronous(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
+      log_entry: Mapping[str, Any] | None = None,
+      log: list[Mapping[str, Any]] | None = None,
   ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
     entities_by_name = {
@@ -107,6 +111,9 @@ class Synchronous(engine_lib.Engine):
             options=tuple(entities_by_name.keys()),
         )
     )
+    if log is not None and hasattr(game_master, 'get_last_log'):
+      assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+      log_entry['next_acting'] = game_master.get_last_log()
     next_action_spec_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_next_action_spec.format(
@@ -114,6 +121,9 @@ class Synchronous(engine_lib.Engine):
             output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
         )
     )
+    if log is not None and hasattr(game_master, 'get_last_log'):
+      assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+      log_entry['next_action_spec'] = game_master.get_last_log()
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
     return (entities_by_name[next_object_name], next_action_spec)
 
@@ -228,7 +238,19 @@ class Synchronous(engine_lib.Engine):
       }
       concurrency.run_tasks(tasks)
 
-      next_entity, entity_spec_to_use = self.next_acting(game_master, entities)
+      next_entity, entity_spec_to_use = self.next_acting(
+          game_master, entities, log_entry=log_entry, log=log)
+
+      if entity_spec_to_use.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
+        # For initialization, it is often useful to have a special game master
+        # that initializes other players and game masters but does not itself
+        # allow players to take actions. In this case, we skip the current
+        # step and continue to the next step.
+        if verbose:
+          print(termcolor.colored(
+              '\nSkipping the action phase for the current time step.\n'))
+        continue
+
       if verbose:
         print(termcolor.colored(
             f'Entity {next_entity.name} is next to act. They must respond '
@@ -282,9 +304,21 @@ class Synchronous(engine_lib.Engine):
       game_master_log: Mapping[str, Any],
   ):
     """Modify log in place to append a new entry."""
+    game_master_finalized_log = {}
+    for segment_key, segment_log in game_master_log.items():
+      game_master_finalized_log[segment_key] = {}
+      for component_key, component_value in segment_log.items():
+        if component_value:
+          tmp_log_dict = {
+              key: value for key, value in component_value.items() if value
+          }
+          if len(tmp_log_dict) > 1:
+            # Only log if component logged more than just a key.
+            game_master_finalized_log[segment_key][component_key] = tmp_log_dict
+
     log.append({
         'Step': steps,
         entity_key: entity_log,
-        game_master_key: game_master_log,
-        'Summary': f'Step {steps} {game_master_key}'
+        game_master_key: game_master_finalized_log,
+        'Summary': f'Step {steps} {game_master_key}',
     })

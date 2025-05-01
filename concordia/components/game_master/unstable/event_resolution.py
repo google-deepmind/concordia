@@ -204,6 +204,7 @@ class EventResolution(
   def _log(self, key: str, value: str, prompt: str, observers_prompt: str):
     self._logging_channel({
         'Key': key,
+        'Summary': value,
         'Value': value,
         'Prompt': prompt,
         'Details': {'Observers prompt': observers_prompt,},
@@ -261,6 +262,7 @@ class DisplayEvents(
 
     self._logging_channel({
         'Key': self.get_pre_act_label(),
+        'Summary': events_str,
         'Value': events_str,
     })
 

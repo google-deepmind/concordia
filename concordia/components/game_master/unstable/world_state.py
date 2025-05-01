@@ -80,6 +80,7 @@ class WorldState(
     result = self.get_pre_act_value()
     self._logging_channel({
         'Key': self._pre_act_label,
+        'Summary': result,
         'Value': result,
     })
     return result
@@ -214,6 +215,7 @@ class Locations(
     result = self.get_pre_act_value()
     self._logging_channel({
         'Key': self._pre_act_label,
+        'Summary': result,
         'Value': result,
     })
     return result
@@ -344,6 +346,7 @@ class GenerativeClock(
     result = self.get_pre_act_value()
     self._logging_channel({
         'Key': self._pre_act_label,
+        'Summary': result,
         'Value': result,
         'Prompt': self._prompt_to_log,
     })

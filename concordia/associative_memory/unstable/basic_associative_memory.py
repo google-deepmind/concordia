@@ -28,12 +28,14 @@ class AssociativeMemoryBank:
 
   def __init__(
       self,
-      sentence_embedder: Callable[[str], np.ndarray],
+      sentence_embedder: Callable[[str], np.ndarray] | None = None,
   ):
     """Constructor.
 
     Args:
-      sentence_embedder: text embedding model
+      sentence_embedder: text embedding model, if None then skip setting the
+        embedder on initialization of the object. It still must be set before
+        calling `add` or `retrieve` methods.
     """
     self._memory_bank_lock = threading.Lock()
     self._embedder = sentence_embedder
@@ -67,6 +69,8 @@ class AssociativeMemoryBank:
     Args:
       text: what goes into the memory
     """
+    if not self._embedder:
+      raise ValueError('Embedder must be set before calling `add` method.')
 
     # Remove all newline characters from memories.
     text = text.replace('\n', ' ')
@@ -155,6 +159,10 @@ class AssociativeMemoryBank:
     Returns:
       List of strings corresponding to memories, sorted by cosine similarity
     """
+    if not self._embedder:
+      raise ValueError('Embedder must be set before calling the '
+                       '`retrieve_associative` method.')
+
     if k <= 0:
       raise ValueError('Limit must be positive.')
 
@@ -217,3 +225,7 @@ class AssociativeMemoryBank:
     memories_data_frame = self.get_data_frame()
     texts = self._pd_to_text(memories_data_frame)
     return texts
+
+  def set_embedder(self, embedder: Callable[[str], np.ndarray]):
+    """Sets the embedder for the memory bank."""
+    self._embedder = embedder

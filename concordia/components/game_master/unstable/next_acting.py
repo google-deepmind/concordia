@@ -373,9 +373,11 @@ class NextActionSpec(
       ).get_currently_active_player()
       prompt.statement(
           'Example formatted action specs:\n'
-          '1). "prompt: what does Maxine say?;;type: free"\n'
-          '2). "prompt: Where will Edgar go?;;type: choice;;'
+          f'1). "prompt: what does {active_player} say?;;type: free"\n'
+          f'2). "prompt: Where will {active_player} go?;;type: choice;;'
           'options: home, London, Narnia, the third moon of Jupiter"\n'
+          f'3). "prompt: Where will {active_player} go?;;type: choice;;'
+          'options: stay here, go elsewhere"\n'
           'Note that prompts can be of any length, they are typically '
           'questions, and multiple choice answer responses must be '
           'provided in the form of a comma-separated list of options.')
