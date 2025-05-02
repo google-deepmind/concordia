@@ -84,7 +84,8 @@ class Asynchronous(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> tuple[Sequence[entity_lib.Entity], entity_lib.ActionSpec]:
+  ) -> tuple[Sequence[entity_lib.Entity],
+             entity_lib.ActionSpec]:  # pytype: disable=signature-mismatch
     """Return the next entity or entities to act."""
     entities_by_name = {
         entity.name: entity for entity in entities

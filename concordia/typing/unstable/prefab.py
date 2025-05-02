@@ -17,13 +17,18 @@
 import abc
 from collections.abc import Mapping, Sequence
 import dataclasses
+import enum
 from typing import ClassVar
 
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.language_model import language_model
 
-DEFAULT_ROLE_KEY = '__role__'
+
+class Role(enum.StrEnum):
+  ENTITY = 'entity'
+  GAME_MASTER = 'game_master'
+  INITIALIZER = 'initializer'
 
 
 @dataclasses.dataclass
@@ -53,3 +58,18 @@ class Prefab(abc.ABC):
       raise TypeError(
           f"Class {cls.__name__} must define the 'description' class attribute."
       )
+
+
+@dataclasses.dataclass
+class InstanceConfig:
+  prefab: str
+  role: Role
+  params: Mapping[str, str]
+
+
+@dataclasses.dataclass
+class Config:
+  prefabs: Mapping[str, Prefab]
+  instances: Sequence[InstanceConfig]
+  default_premise: str = ''
+  default_max_steps: int = 100

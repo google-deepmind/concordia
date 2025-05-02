@@ -15,9 +15,8 @@
 """An adaptable simulation prefab that can be configured to run any simulation.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 import copy
-import dataclasses
 
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.environment.unstable.engines import synchronous
@@ -28,17 +27,8 @@ import numpy as np
 
 
 Runnable = Callable[[str, int], str]
-DEFAULT_ROLE_KEY = prefab_lib.DEFAULT_ROLE_KEY
-
-
-@dataclasses.dataclass
-class Config:
-  prefabs: Mapping[str, prefab_lib.Prefab]
-  instances: Sequence[
-      Mapping[str, str | int | float | bool | Mapping[str, str]]
-  ]
-  default_premise: str = ""
-  default_max_steps: int = 100
+Config = prefab_lib.Config
+Role = prefab_lib.Role
 
 
 class Simulation(Runnable):
@@ -74,25 +64,33 @@ class Simulation(Runnable):
     self.game_masters = []
     self.entities = []
 
-    game_master_configs = []
+    initializer_game_master_configs = []
+    non_initializer_game_master_configs = []
     entity_configs = []
 
     all_data = self._config.instances
     game_masters_data = [entity_cfg for entity_cfg in all_data
-                         if entity_cfg[DEFAULT_ROLE_KEY] == "game_master"]
+                         if entity_cfg.role == Role.GAME_MASTER]
     entities_data = [entity_cfg for entity_cfg in all_data
-                     if entity_cfg[DEFAULT_ROLE_KEY] == "entity"]
+                     if entity_cfg.role == Role.ENTITY]
+    initializers_data = [entity_cfg for entity_cfg in all_data
+                         if entity_cfg.role == Role.INITIALIZER]
 
-    # Create a copy of each prefab using the params specified in the editor.
-    for config in game_masters_data + entities_data:
+    # Create a copy of each prefab using the params specified in its instance.
+    for config in game_masters_data + entities_data + initializers_data:
       # Deep copy the prefab to avoid modifying the original prefab.
-      entity_config = copy.deepcopy(self._config.prefabs[config["type"]])
-      entity_config.params = config["params"]
+      entity_config = copy.deepcopy(self._config.prefabs[config.prefab])
+      entity_config.params = config.params
 
-      if config[DEFAULT_ROLE_KEY] == "game_master":
-        game_master_configs.append(entity_config)
+      if config.role == "game_master":
+        non_initializer_game_master_configs.append(entity_config)
+      elif config.role == "initializer":
+        initializer_game_master_configs.append(entity_config)
       else:
         entity_configs.append(entity_config)
+
+    game_master_configs = (initializer_game_master_configs +
+                           non_initializer_game_master_configs)
 
     # All game masters share the same memory bank.
     self.game_master_memory_bank = associative_memory.AssociativeMemoryBank(
