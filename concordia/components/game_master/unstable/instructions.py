@@ -18,7 +18,7 @@ from collections.abc import Sequence
 import random
 
 from concordia.components.agent.unstable import constant
-from concordia.environment.unstable.engines import synchronous
+from concordia.environment.unstable.engines import sequential
 from concordia.typing import logging
 
 
@@ -139,16 +139,16 @@ class ExamplesSynchronous(constant.Constant):
     name_for_resolve = names[4]
 
     call_to_make_observation = (
-        synchronous.DEFAULT_CALL_TO_MAKE_OBSERVATION.format(name=name_for_obs))
-    call_to_next_acting = synchronous.DEFAULT_CALL_TO_NEXT_ACTING
+        sequential.DEFAULT_CALL_TO_MAKE_OBSERVATION.format(name=name_for_obs))
+    call_to_next_acting = sequential.DEFAULT_CALL_TO_NEXT_ACTING
     call_to_action_spec_1 = (
-        synchronous.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
+        sequential.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
             name=name_for_next_action_spec_1))
     call_to_action_spec_2 = (
-        synchronous.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
+        sequential.DEFAULT_CALL_TO_NEXT_ACTION_SPEC.format(
             name=name_for_next_action_spec_2))
-    call_to_resolve = synchronous.DEFAULT_CALL_TO_RESOLVE
-    call_to_check_termination = synchronous.DEFAULT_CALL_TO_CHECK_TERMINATION
+    call_to_resolve = sequential.DEFAULT_CALL_TO_RESOLVE
+    call_to_check_termination = sequential.DEFAULT_CALL_TO_CHECK_TERMINATION
 
     make_obs_response = MAKE_OBS_RESPONSE_EXAMPLE.format(name=name_for_obs)
     next_acting_response = NEXT_ACTING_RESPONSE_EXAMPLE.format(

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Synchronous engine.
+"""Sequential (turn-based) action engine.
 """
 
 from collections.abc import Mapping, Sequence
@@ -60,8 +60,14 @@ def _get_empty_log_entry():
   }
 
 
-class Synchronous(engine_lib.Engine):
-  """Synchronous engine."""
+class Sequential(engine_lib.Engine):
+  """Sequential action (turn-based) engine.
+
+  When this engine is used, one entity is acting at a time. The game master
+  decides which entity to ask for an action on each step. The entity then
+  decides what to do next, which is passed to the game master for resolution.
+  The game master prepares observations for all entities in parallel.
+  """
 
   def __init__(
       self,
@@ -72,7 +78,7 @@ class Synchronous(engine_lib.Engine):
       call_to_check_termination: str = DEFAULT_CALL_TO_CHECK_TERMINATION,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
   ):
-    """Synchronous engine constructor."""
+    """Sequential engine constructor."""
     self._call_to_make_observation = call_to_make_observation
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec

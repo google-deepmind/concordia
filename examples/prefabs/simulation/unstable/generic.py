@@ -19,7 +19,7 @@ from collections.abc import Callable
 import copy
 
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
-from concordia.environment.unstable.engines import synchronous
+from concordia.environment.unstable.engines import sequential
 from concordia.language_model import language_model
 from concordia.typing.unstable import prefab as prefab_lib
 from concordia.utils import html as html_lib
@@ -59,7 +59,7 @@ class Simulation(Runnable):
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._environment = synchronous.Synchronous()
+    self._environment = sequential.Sequential()
 
     self.game_masters = []
     self.entities = []

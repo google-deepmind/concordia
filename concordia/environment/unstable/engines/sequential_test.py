@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for synchronous simulation.
+"""Tests for sequential (turn-based) simulation.
 """
 
 import functools
 
 from absl.testing import absltest
 from concordia.agents.unstable import entity_agent_with_logging
-from concordia.environment.unstable.engines import synchronous
+from concordia.environment.unstable.engines import sequential
 from concordia.typing.unstable import entity as entity_lib
 from typing_extensions import override
 
@@ -60,7 +60,7 @@ class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
 class SynchronousTest(absltest.TestCase):
 
   def test_run_loop(self):
-    env = synchronous.Synchronous()
+    env = sequential.Sequential()
     game_master = MockEntity(name='game_master')
     entities = [
         MockEntity(name=_ENTITY_NAMES[0]),

@@ -20,7 +20,7 @@ from absl.testing import parameterized
 from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.components.agent import unstable as agent_components
-from concordia.environment.unstable.engines import synchronous
+from concordia.environment.unstable.engines import sequential
 from concordia.factory.environment.unstable import conversation
 from concordia.factory.environment.unstable import default
 from concordia.language_model import no_language_model
@@ -60,7 +60,7 @@ class EnvironmentFactoriesTest(parameterized.TestCase):
     )
 
     players = [player_a]
-    environment = synchronous.Synchronous()
+    environment = sequential.Sequential()
 
     memory_bank = associative_memory.AssociativeMemoryBank(
         sentence_embedder=_embedder,

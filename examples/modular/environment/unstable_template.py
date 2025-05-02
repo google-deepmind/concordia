@@ -28,7 +28,7 @@ from concordia.associative_memory.unstable import formative_memories
 from concordia.clocks import game_clock
 from concordia.components.agent.unstable import constant
 from concordia.components.game_master import unstable as gm_components
-from concordia.environment.unstable.engines import synchronous
+from concordia.environment.unstable.engines import sequential
 from examples.modular.environment.modules import player_traits_and_styles
 from examples.modular.environment.supporting_agent_factory.unstable import rational as rational_agent_supporting
 from examples.modular.environment.utils import helper_functions
@@ -510,7 +510,7 @@ class Simulation(scenarios_lib.RunnableSimulationWithMemories):
 
     self._all_players = self._main_players + supporting_players
 
-    self._environment = synchronous.Synchronous()
+    self._environment = sequential.Sequential()
 
     self._scenes = configure_scenes(
         main_player_configs=main_player_configs,
