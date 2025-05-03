@@ -103,9 +103,8 @@ class AgentConfig:
   flaws: str = ''
 
   # History
-  backstory: str = ''
   allegiance: str = ''
-  # context: str = ''
+  context: str = ''
   specific_memories: str = ''
   goal: str = ''
   date_of_birth: datetime.datetime = DEFAULT_DOB
