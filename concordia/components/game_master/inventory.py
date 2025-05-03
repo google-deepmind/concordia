@@ -14,7 +14,9 @@
 
 """A component to represent each agent's inventory or possessions."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
+from collections.abc import Mapping
+from collections.abc import Sequence
 import copy
 import dataclasses
 import datetime
@@ -32,17 +34,21 @@ from concordia.utils import helper_functions
 import numpy as np
 import termcolor
 
-
 _DEFAULT_CHAIN_OF_THOUGHT_PREFIX = (
-    'This is a social science experiment. It is structured as a '
-    'tabletop roleplaying game. You are the game master and storyteller. '
-    'Your job is to make sure the game runs smoothly and accurately tracks '
-    'the state of the world, subject to the laws of logic and physics. Next, '
-    'you will be asked a series of questions to help you reason through '
-    'whether a specific event should be deemed as having caused a change in '
-    'the number or amount of items possessed or owned by specific individuals. '
-    'Never mention that it is a game. Always use third-person limited '
-    'perspective, even when speaking directly to the participants.'
+    'This is a tabletop roleplaying game: Dungeons and Dragons. You are the '
+    'Dungeon master. You will describe the current situation to the '
+    'players in the game and then on the basis of what you '
+    'tell them they will suggest actions for the character they control. '
+    'Aside from you, each other player controls just one character. '
+    'You are the Dungeon master so you may control any non-player '
+    'character. You will track the state of the world and keep it '
+    'consistent as time passes in the simulation and the players '
+    'take actions and change things in their world. Remember that this '
+    'is a game. It should be fun for the players. '
+    'You should use second-person '
+    'perspective, when speaking directly to the players.'
+    'You should use first-person limited perspective when roleplaying as'
+    'non-player characters and adversaries.'
 )
 
 _DEFAULT_QUANTITY = 0

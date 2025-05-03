@@ -56,8 +56,8 @@ DEFAULT_GAME_MASTER_INSTRUCTIONS = (
     'is a game. It should be fun for the players. '
     'You should use second-person '
     'perspective, when speaking directly to the players.'
-    'You should use third-person limited perspective when speaking about'
-    'non-player characters.'
+    'You should use first-person limited perspective when roleplaying as'
+    'non-player characters and adversaries.'
 )
 
 

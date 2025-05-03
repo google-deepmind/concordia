@@ -76,7 +76,7 @@ class AgentConfig:
     extras: a field for the user to keep any experiment specific data they need
       to define an agent
   """
-#Identifiers
+  # Identifiers
   name: str
   gender: int = ''
   class_and_level: str = ''
@@ -85,23 +85,24 @@ class AgentConfig:
   background: str = ''
   alignment: str = ''
 
-#Statistics
-  equipment: dict[str, Any] = dataclasses.field(default_factory=dict)
+  # Statistics
+  equipment: list[str, Any] = dataclasses.field(default_factory=list)
+  abilities: dict[str, Any] = dataclasses.field(default_factory=dict)
   saving_throws: dict[str, Any] = dataclasses.field(default_factory=dict)
   skills: dict[str, Any] = dataclasses.field(default_factory=dict)
-  armour_class: int = ''
-  initiative: int = ''
-  speed: int = ''
+  armour_class: str = ''
+  initiative: str = ''
+  speed: str = ''
   hit_points: dict[str, Any] = dataclasses.field(default_factory=dict)
   attacks_and_spells: dict[str, Any] = dataclasses.field(default_factory=dict)
 
-#Persona
+  # Persona
   personality_traits: str = ''
   ideals: str = ''
   bonds: str = ''
   flaws: str = ''
 
-#History
+  # History
   backstory: str = ''
   allegiance: str = ''
   # context: str = ''
