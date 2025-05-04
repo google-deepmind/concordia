@@ -32,7 +32,7 @@ from dateutil.relativedelta import \
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DOB = datetime.datetime(year=1489, month=1, day=1, hour=0, minute=0)
+DEFAULT_DOB = datetime.datetime(year=1984, month=7, day=3, hour=0, minute=0)
 DEFAULT_FORMATIVE_AGES = (6, 9, 13, 16, 19, 21, 23)
 
 
