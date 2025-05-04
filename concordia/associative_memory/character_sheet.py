@@ -97,7 +97,7 @@ class AgentConfig:
   attacks_and_spells: dict[str, Any] = dataclasses.field(default_factory=dict)
 
   # Persona
-  personality_traits: str = ''
+  traits: str = ''
   ideals: str = ''
   bonds: str = ''
   flaws: str = ''
