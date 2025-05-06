@@ -40,6 +40,8 @@ class GameMaster(prefab_lib.Prefab):
           # Provide a comma-separated list of shared memories to pass verbatim
           # to all entities and game masters.
           'shared_memories': '',
+          'player_specific_context': {},
+          'player_specific_memories': {},
       }
   )
   entities: (
@@ -106,6 +108,12 @@ class GameMaster(prefab_lib.Prefab):
             next_game_master_name=next_game_master_name,
             player_names=player_names,
             shared_memories=shared_memories,
+            player_specific_memories=self.params.get(
+                'player_specific_memories', {}
+            ),
+            player_specific_context=self.params.get(
+                'player_specific_context', {}
+            ),
         )
     )
 

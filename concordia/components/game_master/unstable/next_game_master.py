@@ -198,6 +198,10 @@ class FormativeMemoriesInitializer(
       next_game_master_name: str,
       player_names: Sequence[str],
       shared_memories: Sequence[str] = (),
+      player_specific_memories: Mapping[
+          str, Sequence[str]
+      ] = types.MappingProxyType({}),
+      player_specific_context: Mapping[str, str] = types.MappingProxyType({}),
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
@@ -223,6 +227,10 @@ class FormativeMemoriesInitializer(
         after this game master is finished initializing.
       player_names: Names of the player entities in the game.
       shared_memories: specific memories all players and the game master share.
+      player_specific_memories: specific memories each player shares with the
+        game master.
+      player_specific_context: specific context each player needs to know about
+        the game master.
       components: The components to condition on. This is a mapping
         of the component name to a label to use in the prompt.
       delimiter_symbol: The symbol to use to separate episodes in the generated
@@ -247,6 +255,9 @@ class FormativeMemoriesInitializer(
     self._memory_component_key = memory_component_key
     self._make_observation_component_key = make_observation_component_key
     self._pre_act_label = pre_act_label
+
+    self._player_specific_memories = player_specific_memories
+    self._player_specific_context = player_specific_context
 
     self._initialized = False
 
@@ -282,6 +293,11 @@ class FormativeMemoriesInitializer(
           for episode in episodes:
             make_observation.add_to_queue(player_name, episode)
             memory.add(f'{player_name} remembers: "{episode}"')
+          for player_memory in self._player_specific_memories.get(
+              player_name, []
+          ):
+            make_observation.add_to_queue(player_name, player_memory)
+            memory.add(f'{player_name} remembers: "{player_memory}"')
 
         self._initialized = True
         return self.get_entity().name
@@ -296,19 +312,30 @@ class FormativeMemoriesInitializer(
     ])
     prompt.statement(f'{component_states}\n')
     prompt.statement('----- Role Playing Master Class -----\n')
-    prompt.statement('Question: What is the protagonist\'s name?')
+    prompt.statement("Question: What is the protagonist's name?")
     prompt.statement(f'Answer: {active_entity_name}\n')
     prompt.statement('Question: Describe the setting or background.')
     shared_memories = '\n'.join(self._shared_memories)
     prompt.statement(f'Answer: {shared_memories}\n')
-    gender = prompt.open_question('What is the protagonist\'s gender?')
+
+    player_specific_context = '\n'.join(
+        self._player_specific_context.get(active_entity_name, [])
+    )
+    if player_specific_context:
+      prompt.statement(
+          'Question: Describe the personal context of the protagonist.'
+      )
+      prompt.statement(f'Answer: {player_specific_context}\n')
+
+    gender = prompt.open_question("What is the protagonist's gender?")
     date_of_birth = prompt.open_question(
         'What year was protagonist born? Respond with just the year as a '
         'number, e.g. "1990".'
     )
     question = (
         f'Write a life story for a {gender} character '
-        f'named {active_entity_name} who was born in {date_of_birth}.')
+        f'named {active_entity_name} who was born in {date_of_birth}.'
+    )
     question += (
         f'Begin the story when {active_entity_name} is very young and end it'
         ' when they are quite old. The story should be no more than four'
@@ -356,4 +383,10 @@ class FormativeMemoriesInitializer(
         terminators=[],
     )
     episodes = list(aggregated_result.split(self._delimiter_symbol))
+    self._logging_channel({
+        'Key': self._pre_act_label,
+        'Episodes': episodes,
+        'Inner Prompt': inner_prompt.view().text(),
+        'Prompt': prompt.view().text(),
+    })
     return episodes
