@@ -21,6 +21,8 @@ from typing import Any
 
 from concordia.typing.unstable import entity as entity_lib
 
+_TYPE_SKIP_THIS_STEP = 'type: __SKIP_THIS_STEP__'
+
 
 class Engine(metaclass=abc.ABCMeta):
   """Engine interface."""
@@ -38,7 +40,7 @@ class Engine(metaclass=abc.ABCMeta):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> Sequence[entity_lib.Entity]:
+  ) -> tuple[entity_lib.Entity, entity_lib.ActionSpec]:
     """Return the next entity or entities to act."""
 
   @abc.abstractmethod
@@ -103,6 +105,8 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
         output_type=entity_lib.OutputType.CHOICE,
         options=tuple(next_action_spec_string.split('options: ')[1].split(',')),
     )
+  elif _TYPE_SKIP_THIS_STEP in next_action_spec_string:
+    return entity_lib.skip_this_step_action_spec()
   else:
     raise RuntimeError(
         'Invalid next action spec string: \"{}\"'.format(
@@ -118,6 +122,8 @@ def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
         f'prompt: {action_spec.call_to_action};;type: choice options: '
         + ', '.join(action_spec.options)
     )
+  elif action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
+    return f'prompt: {action_spec.call_to_action};;{_TYPE_SKIP_THIS_STEP}'
   else:
     raise RuntimeError(
         'Invalid action spec output type: \"{}\"'.format(

@@ -25,6 +25,7 @@ from concordia.components.game_master.unstable import switch_act as switch_act_c
 from concordia.environment.unstable import engine as engine_lib
 from concordia.typing.unstable import entity as entity_lib
 import termcolor
+from typing_extensions import override
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
@@ -78,11 +79,13 @@ class Asynchronous(engine_lib.Engine):
     )
     return observation
 
+  @override
   def next_acting(
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> tuple[Sequence[entity_lib.Entity], entity_lib.ActionSpec]:
+  ) -> tuple[Sequence[entity_lib.Entity],
+             entity_lib.ActionSpec]:  # pytype: disable=signature-mismatch
     """Return the next entity or entities to act."""
     entities_by_name = {
         entity.name: entity for entity in entities
@@ -105,9 +108,10 @@ class Asynchronous(engine_lib.Engine):
         )
     )
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
-    return [
-        entities_by_name[entity_name] for entity_name in next_entity_names
-    ], next_action_spec
+    return (
+        [entities_by_name[entity_name] for entity_name in next_entity_names],
+        next_action_spec,
+    )
 
   def resolve(self,
               game_master: entity_lib.Entity,

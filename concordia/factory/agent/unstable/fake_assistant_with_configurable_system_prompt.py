@@ -14,10 +14,7 @@
 
 """This is a factory for wrapping a language model as a Concordia agent."""
 
-from collections.abc import Sequence
-
 from concordia.agents.unstable import entity_agent_with_logging
-from concordia.associative_memory.unstable import basic_associative_memory
 from concordia.components.agent import unstable as agent_components
 from concordia.language_model import language_model
 
@@ -43,7 +40,7 @@ In essence, users prefer interactions that feel smooth, natural, and efficient. 
 def build_agent(
     *,
     model: language_model.LanguageModel,
-    memory_bank: basic_associative_memory.AssociativeMemoryBank | Sequence[str],
+    memory_bank: list[str],
     system_prompt: str,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build an agent.
@@ -71,7 +68,7 @@ def build_agent(
   )
 
   observation_label = (
-      agent_components.observation.DEFAULT_OBSERVATION_PRE_ACT_KEY)
+      agent_components.observation.DEFAULT_OBSERVATION_PRE_ACT_LABEL)
   observation = agent_components.observation.LastNObservations(
       history_length=100,
       pre_act_label=observation_label,

@@ -21,7 +21,8 @@ PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_concordia_challenge
   --api_type=API_TYPE \
   --model=MODEL_NAME \
   --embedder=EMBEDDER_NAME \
-  --num_repetitions_per_scenario=NUM_REPETITIONS_PER_SCENARIO
+  --num_repetitions_per_scenario=NUM_REPETITIONS_PER_SCENARIO \
+  --device=DEVICE_NAME
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
 ENVIRONMENT_NAME indicates a file under examples/modular/environment,
@@ -30,10 +31,12 @@ e.g. 'google_aistudio_model', 'openai', 'mistral', 'ollama', 'amazon_bedrock'.
 MODEL_NAME is a specific model under the chosen API_TYPE. See the corresponding
 wrapper in concordia/language_model/ for the link to the website where the
 model names are listed for each type of API.
-and EMBEDDER_NAME specifies a sentence transformers embedding model listed at
+EMBEDDER_NAME specifies a sentence transformers embedding model listed at
 https://huggingface.co/sentence-transformers.
 NUM_REPETITIONS_PER_SCENARIO specifies how many times to repeat each scenario,
 averaging the results to produce a single score per scenario.
+DEVICE_NAME is used for local models to specify computing device (e.g., 'cuda:0'
+for GPU acceleration or 'cpu' for CPU processing).
 
 This script will download the embedder from huggingface and cache it locally.
 
@@ -102,6 +105,10 @@ parser.add_argument(
     action='store',
     default=None,
     dest='device',
+    help=(
+        'Device to use for model inference (e.g., "cuda:0" for GPU, "cpu" for '
+        'CPU). Only applies to local models.'
+    ),
 )
 parser.add_argument(
     '--model', action='store', default='codestral-latest', dest='model_name'

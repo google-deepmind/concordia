@@ -36,6 +36,7 @@ class OutputType(enum.Enum):
   RESOLVE = enum.auto()
   TERMINATE = enum.auto()
   NEXT_GAME_MASTER = enum.auto()
+  SKIP_THIS_STEP = enum.auto()
 
 PLAYER_ACTION_TYPES = (
     OutputType.FREE,
@@ -49,6 +50,7 @@ GAME_MASTER_ACTION_TYPES = (
     OutputType.RESOLVE,
     OutputType.TERMINATE,
     OutputType.NEXT_GAME_MASTER,
+    OutputType.SKIP_THIS_STEP,
 )
 FREE_ACTION_TYPES = (
     OutputType.FREE,
@@ -129,6 +131,13 @@ def float_action_spec(**kwargs) -> ActionSpec:
 def choice_action_spec(**kwargs) -> ActionSpec:
   """Returns an action spec with output type CHOICE."""
   return ActionSpec(output_type=OutputType.CHOICE, **kwargs)
+
+
+def skip_this_step_action_spec(**kwargs) -> ActionSpec:
+  """Returns an action spec with output type SKIP_THIS_STEP."""
+  return ActionSpec(
+      output_type=OutputType.SKIP_THIS_STEP, call_to_action='', **kwargs
+  )
 
 
 DEFAULT_CALL_TO_ACTION = (

@@ -51,7 +51,10 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
-    memory.add(f'{OBSERVATION_TAG} {observation}')
+    observations = observation.split('\n\n\n')
+    for observation in observations:
+      if observation:
+        memory.add(f'{OBSERVATION_TAG} {observation}')
     return ''
 
   def _make_pre_act_value(self) -> str:

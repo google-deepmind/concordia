@@ -117,6 +117,7 @@ def build(
   )
   make_observation = gm_components.make_observation.MakeObservation(
       model=model,
+      player_names=player_names,
       components={
           instructions_key: instructions.get_pre_act_label(),
           player_characters_key: player_characters.get_pre_act_label(),

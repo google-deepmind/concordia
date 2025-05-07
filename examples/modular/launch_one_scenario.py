@@ -123,6 +123,10 @@ parser.add_argument(
     action='store',
     default=None,
     dest='device',
+    help=(
+        'Device to use for model inference (e.g., "cuda:0" for GPU, "cpu" for '
+        'CPU). Only applies to local models.'
+    ),
 )
 parser.add_argument(
     '--disable_language_model',

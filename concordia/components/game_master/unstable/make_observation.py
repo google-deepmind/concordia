@@ -44,6 +44,7 @@ class MakeObservation(entity_component.ContextComponent,
   def __init__(
       self,
       model: language_model.LanguageModel,
+      player_names: Sequence[str],
       components: Mapping[
           entity_component.ComponentName, str
       ] = types.MappingProxyType({}),
@@ -54,6 +55,7 @@ class MakeObservation(entity_component.ContextComponent,
 
     Args:
       model: The language model to use for the component.
+      player_names: Names of players.
       components: The components to condition the answer on. This is a mapping
         of the component name to a label to use in the prompt.
       reformat_observations_in_specified_style: If non-empty, the component will
@@ -73,6 +75,7 @@ class MakeObservation(entity_component.ContextComponent,
     """
     super().__init__()
     self._model = model
+    self._player_names = player_names
     self._components = dict(components)
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
@@ -105,14 +108,16 @@ class MakeObservation(entity_component.ContextComponent,
       prompt.statement(
           f'Working out the answer to: "{action_spec.call_to_action}"'
       )
-      active_entity_name = prompt.open_question(GET_ACTIVE_ENTITY_QUERY).strip(
-          ' .,'
+      idx = prompt.multiple_choice_question(
+          question=GET_ACTIVE_ENTITY_QUERY,
+          answers=self._player_names,
       )
+      active_entity_name = self._player_names[idx]
 
       if active_entity_name in self._queue and self._queue[active_entity_name]:
         result = ''
         for event in self._queue[active_entity_name]:
-          result += event + '\n'
+          result += event + '\n\n\n'
 
         self._queue[active_entity_name] = []
       else:
@@ -152,7 +157,10 @@ class MakeObservation(entity_component.ContextComponent,
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
+        {'Key': self._pre_act_label,
+         'Summary': result,
+         'Value': result,
+         'Prompt': prompt_to_log}
     )
     return result
 
@@ -235,7 +243,7 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent,
       if active_entity_name in self._queue and self._queue[active_entity_name]:
         result = ''
         for event in self._queue[active_entity_name]:
-          result += event + '\n'
+          result += event + '\n\n\n'
 
         self._queue[active_entity_name] = []
       else:
@@ -267,7 +275,10 @@ class MakeObservationFromQueueOnly(entity_component.ContextComponent,
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
+        {'Key': self._pre_act_label,
+         'Summary': result,
+         'Value': result,
+         'Prompt': prompt_to_log}
     )
     return result
 
@@ -360,6 +371,9 @@ class SendComponentPreActValuesToPlayers(entity_component.ContextComponent,
       prompt_to_log = prompt.view().text()
 
     self._logging_channel(
-        {'Key': self._pre_act_label, 'Value': result, 'Prompt': prompt_to_log}
+        {'Key': self._pre_act_label,
+         'Summary': result,
+         'Value': result,
+         'Prompt': prompt_to_log}
     )
     return result
