@@ -82,7 +82,7 @@ class AgentConfig:
   class_and_level: str = ''
   race: str = ''
   experience_points: str = ''
-  backstory: str = ''
+  background: str = ''
   alignment: str = ''
 
   # Statistics

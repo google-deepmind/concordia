@@ -26,6 +26,22 @@ fiddler_config = character_sheet.AgentConfig(
         'Waterskin weighing 5 pounds',
     ],
     armour_class='18',
+    ability_score={
+        'strength': '14',
+        'dexterity': '8',
+        'constitution': '15',
+        'intelligence': '10',
+        'wisdom': '16',
+        'charisma': '12',
+    },
+    ability_modifier={
+        'strength': '+2',
+        'dexterity': '-1',
+        'constitution': '+2',
+        'intelligence': '0',
+        'wisdom': '+3',
+        'charisma': '+1',
+    },
     initiative='-1',
     speed='25 feet (walking)',
     backstory="""You trained as a soldier on the island of Mintarn and joined a mercenary company. You traveled to the city of Neverwinter with your company to serve in both the army and city watch. Over time, you grew disillusioned with many of your fellow soldiers. They seemed to enjoy their authority at the expense of the people they’re supposed to protect.
@@ -34,7 +50,7 @@ fiddler_config = character_sheet.AgentConfig(
 )
 
 
-icarium_config = character_sheet.AgentConfig(
+laezel_config = character_sheet.AgentConfig(
     name="Lae'zel",
     gender='female',
     class_and_level='Fighter Level 1',
@@ -56,6 +72,22 @@ icarium_config = character_sheet.AgentConfig(
         'Waterskin weighing 5 pounds',
     ],
     armour_class='16',
+    ability_score={
+        'strength': '17',
+        'dexterity': '13',
+        'constitution': '15',
+        'intelligence': '10',
+        'wisdom': '12',
+        'charisma': '8',
+    },
+    ability_modifier={
+        'strength': '+3',
+        'dexterity': '+1',
+        'constitution': '+2',
+        'intelligence': '+0',
+        'wisdom': '+1',
+        'charisma': '-1',
+    },
     initiative='+1',
     speed='30 feet (walking)',
     allegiance="""If Lae’zel can track down an outpost of her own people, they and their fabled red dragons are experts in fighting against mind flayers. Every githyanki swears their life in service to the Lich-Queen Vlaakith CLVII. Vlaakith’s mission to conquer the cosmos leaves no room for allies outside of the githyanki people, and makes them the subject of fear and hatred across the planes. """,
@@ -90,6 +122,22 @@ quickben_config = character_sheet.AgentConfig(
         'Waterskin weighing 5 pounds',
     ],
     armour_class='12',
+    ability_score={
+        'strength': '9',
+        'dexterity': '13',
+        'constitution': '15',
+        'intelligence': '14',
+        'wisdom': '11',
+        'charisma': '16',
+    },
+    ability_modifier={
+        'strength': '-1',
+        'dexterity': '+1',
+        'constitution': '+2',
+        'intelligence': '+2',
+        'wisdom': '+0',
+        'charisma': '+3',
+    },
     initiative='+1',
     speed='30 feet (walking)',
     allegiance="""Councillor Florrick of Baldur’s Gate watched Wyll grow up, and feels it a tragedy that one of her oldest friends and his son have become so estranged.
