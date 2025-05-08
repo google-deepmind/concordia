@@ -45,7 +45,7 @@ class AgentConfig:
     class & level: class and level of the character.
     gender: the gender of the character.
     race: the race the D&D character belongs to.
-    background: one-word background information about the character
+    backstory: one-word background information about the character
     experience points: the way in which the player recieves experience points e.g. at a Milestone.
     alignment: defined by an array of lawful, neutral and chaotic by good, neutral and evil.
 
@@ -82,12 +82,13 @@ class AgentConfig:
   class_and_level: str = ''
   race: str = ''
   experience_points: str = ''
-  background: str = ''
+  backstory: str = ''
   alignment: str = ''
 
   # Statistics
   equipment: list[str, Any] = dataclasses.field(default_factory=list)
-  abilities: dict[str, Any] = dataclasses.field(default_factory=dict)
+  ability_score: dict[str, Any] = dataclasses.field(default_factory=dict)
+  ability_modifier: dict[str, Any] = dataclasses.field(default_factory=dict)
   saving_throws: dict[str, Any] = dataclasses.field(default_factory=dict)
   skills: dict[str, Any] = dataclasses.field(default_factory=dict)
   armour_class: str = ''
