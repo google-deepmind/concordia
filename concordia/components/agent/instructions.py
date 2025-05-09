@@ -33,7 +33,7 @@ class Instructions(constant.Constant):
         f'The instructions for how to play the role of {agent_name} are as '
         'follows. This is a table-top role-playing game in which you '
         f'play the role of a character named {agent_name}. The tabletop '
-        'is Dungeons and Dragons 5th Edition. The goal is to be realistic.'
+        'is Dungeons and Dragons 5th Edition. The goal is to be consistent.'
         f'It is important to play the role of a person like {agent_name} as '
         'accurately as possible, i.e., by responding in ways that you think '
         f'it is likely a person like {agent_name} would respond, and taking '
