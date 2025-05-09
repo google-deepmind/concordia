@@ -39,7 +39,7 @@ class GameMaster(prefab_lib.Prefab):
           'next_game_master_name': 'default rules',
           # Provide a comma-separated list of shared memories to pass verbatim
           # to all entities and game masters.
-          'shared_memories': '',
+          'shared_memories': [],
           'player_specific_context': {},
           'player_specific_memories': {},
       }
@@ -65,13 +65,7 @@ class GameMaster(prefab_lib.Prefab):
     name = self.params.get('name', 'initial setup rules')
     next_game_master_name = self.params.get('next_game_master_name',
                                             'default rules')
-    shared_memories = self.params.get('shared_memories', '')
-
-    if ',' in shared_memories:
-      shared_memories = [
-          step.strip() for step in shared_memories.split(',') if step]
-    else:
-      shared_memories = [shared_memories]
+    shared_memories = self.params.get('shared_memories', [])
 
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
     memory_component = actor_components.memory.AssociativeMemory(

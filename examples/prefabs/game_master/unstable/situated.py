@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A prefab containing a generic game master."""
+"""A prefab for a game master for games set in a specific location."""
 
 from collections.abc import Mapping, Sequence
 import copy
@@ -30,26 +30,26 @@ from concordia.typing.unstable import prefab as prefab_lib
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab entity implementing a generic game master."""
+  """A prefab entity implementing a game master for games set in a specific location."""
 
-  description: str = 'A general purpose game master.'
+  description: str = (
+      'A general game master for games set in a specific location.'
+  )
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'default rules',
           # Provide a comma-separated list of thought chain steps to use in the
           # event resolution component.
           'extra_event_resolution_steps': '',
+          'locations': '',
           'extra_components': {},
           # A mapping from component name to the index at which to insert it
           # in the component order. If not specified, the extra components
           # will be inserted at the end of the component order.
           'extra_components_index': {},
-
       }
   )
-  entities: (
-      Sequence[entity_agent_with_logging.EntityAgentWithLogging]
-  ) = ()
+  entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
 
   def build(
       self,
@@ -68,7 +68,6 @@ class GameMaster(prefab_lib.Prefab):
 
     extra_components = self.params.get('extra_components', {})
     extra_components_index = self.params.get('extra_components_index', {})
-
     if extra_components_index and extra_components:
       if extra_components_index.keys() != extra_components.keys():
         raise ValueError(
@@ -122,7 +121,8 @@ class GameMaster(prefab_lib.Prefab):
     display_events = gm_components.event_resolution.DisplayEvents(
         model=model,
         pre_act_label=(
-            'Story so far (ordered from oldest to most recent events)'),
+            'Story so far (ordered from oldest to most recent events)'
+        ),
     )
 
     relevant_memories_key = 'relevant_memories'
@@ -132,9 +132,42 @@ class GameMaster(prefab_lib.Prefab):
             components={
                 display_events_key: display_events.get_pre_act_label(),
             },
-            num_memories_to_retrieve=5,
+            num_memories_to_retrieve=25,
             pre_act_label='Background info',
         )
+    )
+
+    locations_constant_key = 'locations_constant'
+    locations_constant = actor_components.constant.Constant(
+        self.params.get('locations'), pre_act_label='Locations'
+    )
+
+    locations_key = 'locations'
+    entity_locations = gm_components.world_state.Locations(
+        model=model,
+        entity_names=player_names,
+        prompt=self.params.get('locations'),
+        components={
+            instructions_key: instructions.get_pre_act_label(),
+            locations_constant_key: locations_constant.get_pre_act_label(),
+            player_characters_key: player_characters.get_pre_act_label(),
+            relevant_memories_key: relevant_memories.get_pre_act_label(),
+            display_events_key: display_events.get_pre_act_label(),
+        },
+    )
+
+    world_state_key = 'world_state'
+    world_state = gm_components.world_state.WorldState(
+        model=model,
+        components={
+            instructions_key: instructions.get_pre_act_label(),
+            locations_constant_key: locations_constant.get_pre_act_label(),
+            locations_key: entity_locations.get_pre_act_label(),
+            player_characters_key: player_characters.get_pre_act_label(),
+            relevant_memories_key: relevant_memories.get_pre_act_label(),
+            display_events_key: display_events.get_pre_act_label(),
+        },
+        pre_act_label='World state',
     )
 
     make_observation_key = (
@@ -148,11 +181,12 @@ class GameMaster(prefab_lib.Prefab):
             player_characters_key: player_characters.get_pre_act_label(),
             relevant_memories_key: relevant_memories.get_pre_act_label(),
             display_events_key: display_events.get_pre_act_label(),
+            world_state_key: world_state.get_pre_act_label(),
         },
         reformat_observations_in_specified_style=(
             'The format to use when describing the '
             'current situation to a player is: '
-            '"//date or time//situation description".'
+            '"// date or time // situation description".'
         ),
     )
 
@@ -163,6 +197,7 @@ class GameMaster(prefab_lib.Prefab):
             player_characters_key: player_characters.get_pre_act_label(),
             relevant_memories_key: relevant_memories.get_pre_act_label(),
             display_events_key: display_events.get_pre_act_label(),
+            world_state_key: world_state.get_pre_act_label(),
         },
     )
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
@@ -187,7 +222,6 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     event_resolution_steps = [
-        thought_chains_lib.maybe_inject_narrative_push,
         account_for_agency_of_others,
         thought_chains_lib.result_to_who_what_where,
     ]
@@ -201,6 +235,7 @@ class GameMaster(prefab_lib.Prefab):
         player_characters_key: player_characters.get_pre_act_label(),
         relevant_memories_key: relevant_memories.get_pre_act_label(),
         display_events_key: display_events.get_pre_act_label(),
+        world_state_key: world_state.get_pre_act_label(),
     }
 
     event_resolution_key = (
@@ -221,6 +256,9 @@ class GameMaster(prefab_lib.Prefab):
         observation_component_key: observation,
         observation_to_memory_key: observation_to_memory,
         display_events_key: display_events,
+        locations_constant_key: locations_constant,
+        locations_key: entity_locations,
+        world_state_key: world_state,
         memory_component_key: memory_component,
         make_observation_key: make_observation,
         next_actor_key: next_actor,
