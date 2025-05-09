@@ -20,7 +20,7 @@
 # import datetime
 # import types
 
-from concordia.associative_memory.character_sheet import AgentConfig
+from concordia.associative_memory import character_sheet
 from concordia.components.agent.instructions import Instructions
 # from concordia.components.agent import action_spec_ignored
 # from concordia.components.agent import memory_component
@@ -146,7 +146,9 @@ from concordia.components.agent.question_of_recent_memories import \
 #     return result
 
 
-class CharacterConsistency(QuestionOfRecentMemories, AgentConfig):
+class CharacterConsistency(
+    QuestionOfRecentMemories, character_sheet.AgentConfig
+):
   """This component answers the question 'what kind of person is the agent?'."""
 
   def __init__(
@@ -154,15 +156,20 @@ class CharacterConsistency(QuestionOfRecentMemories, AgentConfig):
       **kwargs,
   ):
     super().__init__(
-        question= f'Given the {AgentConfig} above, what kind of person is {AgentConfig.name}?',
-        answer_prefix=f'{AgentConfig.name} is ',
+        question=(
+            f'Given the {character_sheet.AgentConfig} above, what kind of'
+            f' person is {character_sheet.AgentConfig.name}?'
+        ),
+        answer_prefix=f'{character_sheet.AgentConfig.name} is ',
         add_to_memory=True,
         memory_tag='[self reflection]',
         **kwargs,
     )
 
 
-class SituationPerception(QuestionOfRecentMemories, Instructions):
+class SituationPerception(
+    QuestionOfRecentMemories, character_sheet.AgentConfig, Instructions
+):
   """This component answers the question 'what kind of situation is it?'."""
 
   def __init__(
@@ -172,31 +179,35 @@ class SituationPerception(QuestionOfRecentMemories, Instructions):
     super().__init__(
         question=(
             'Given the statements above, what kind of situation is'
-            f'{AgentConfig.name} in right now?'
+            f'{character_sheet.AgentConfig.name} in right now?'
         ),
-        answer_prefix=f'{AgentConfig.name} is currently ',
+        answer_prefix=f'{character_sheet.AgentConfig.name} is currently ',
         add_to_memory=False,
         **kwargs,
     )
 
 
-class PersonBySituation(QuestionOfRecentMemories, Instructions):
+class PersonBySituation(
+    QuestionOfRecentMemories, character_sheet.AgentConfig, Instructions
+):
   """What would a person like the agent do in a situation like this?"""
 
   def __init__(self, **kwargs):
     super().__init__(
         question=(
-            f'What would a person like {AgentConfig.name}, with the following'
-            f'{Instructions} do in a situation like this?'
+            f'What would a person like {character_sheet.AgentConfig.name}, with'
+            f' the following{Instructions} do in a situation like this?'
         ),
-        answer_prefix=f'{AgentConfig.name} would ',
+        answer_prefix=f'{character_sheet.AgentConfig.name} would ',
         add_to_memory=True,
         memory_tag='[intent reflection]',
         **kwargs,
     )
 
 
-class AvailableOptionsPerception(QuestionOfRecentMemories, AgentConfig):
+class AvailableOptionsPerception(
+    QuestionOfRecentMemories, character_sheet.AgentConfig
+):
   """This component answers the question 'what actions are available to me?'."""
 
   def __init__(self, **kwargs):
@@ -204,7 +215,7 @@ class AvailableOptionsPerception(QuestionOfRecentMemories, AgentConfig):
     super().__init__(
         question=(
             'Given the statements above, what actions are available to '
-            f'{AgentConfig.name} right now?'
+            f'{character_sheet.AgentConfig.name} right now?'
         ),
         terminators=('\n\n',),
         answer_prefix='',
@@ -213,19 +224,25 @@ class AvailableOptionsPerception(QuestionOfRecentMemories, AgentConfig):
     )
 
 
-class BestOptionPerception(QuestionOfRecentMemories, AgentConfig):
+class BestOptionPerception(
+    QuestionOfRecentMemories, character_sheet.AgentConfig
+):
   """This component answers 'which action is best for achieving my goal?'."""
 
   def __init__(self, **kwargs):
     super().__init__(
         question=(
-            f"Given the statements above, which of {AgentConfig.name}'s options "
-            f'has the highest likelihood of causing {AgentConfig.name} to achieve '
-            'their goal? If multiple options have the same likelihood, select '
-            f'the option that {AgentConfig.name} thinks will most quickly and most '
-            'surely achieve their goal.'
+            'Given the statements above, which of'
+            f" {character_sheet.AgentConfig.name}'s options has the highest"
+            f' likelihood of causing {character_sheet.AgentConfig.name} to'
+            ' achieve their goal? If multiple options have the same'
+            ' likelihood, select the option that'
+            f' {character_sheet.AgentConfig.name} thinks will most quickly and'
+            ' most surely achieve their goal.'
         ),
-        answer_prefix= f"{AgentConfig.name}'s best course of action is ",
+        answer_prefix=(
+            f"{character_sheet.AgentConfig.name}'s best course of action is "
+        ),
         add_to_memory=False,
         **kwargs,
     )
