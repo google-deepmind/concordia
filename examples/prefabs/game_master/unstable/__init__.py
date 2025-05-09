@@ -16,3 +16,4 @@
 
 from examples.prefabs.game_master.unstable import formative_memories_initializer
 from examples.prefabs.game_master.unstable import generic
+from examples.prefabs.game_master.unstable import situated

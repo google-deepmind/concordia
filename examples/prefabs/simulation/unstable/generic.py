@@ -41,7 +41,7 @@ class Simulation(Runnable):
       embedder: Callable[[str], np.ndarray],
   ):
     """Initialize the simulation object.
-    
+
     This simulation differentiates between game masters and entities. Game
     masters are responsible for creating the world state and resolving events.
     Entities are passive agents that react to the world state. Game masters are
@@ -143,10 +143,35 @@ class Simulation(Runnable):
         verbose=True,
         log=raw_log,
     )
+
+    player_logs = []
+    player_log_names = []
+
+    for player in self.entities:
+      if player.get_component("__memory__") is None:
+        continue
+
+      entity_memory_component = player.get_component("__memory__")
+      entity_memories = entity_memory_component.get_all_memories_as_text()
+      player_html = html_lib.PythonObjectToHTMLConverter(
+          entity_memories
+      ).convert()
+      player_logs.append(player_html)
+      player_log_names.append(f"{player.name}")
+
+    game_master_memories = (
+        self.game_master_memory_bank.get_all_memories_as_text()
+    )
+    game_master_html = html_lib.PythonObjectToHTMLConverter(
+        game_master_memories
+    ).convert()
+    player_logs.append(game_master_html)
+    player_log_names.append("Game Master Memories")
+
     results_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
     tabbed_html = html_lib.combine_html_pages(
-        [results_log],
-        ["Game Master"],
+        [results_log, *player_logs],
+        ["Game Master log", *player_log_names],
         summary="",
         title="Simulation Log",
     )
