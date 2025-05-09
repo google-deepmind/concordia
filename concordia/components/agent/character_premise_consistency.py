@@ -21,7 +21,6 @@
 # import types
 
 from concordia.associative_memory.character_sheet import AgentConfig
-from concordia.components.agent.instructions import Instructions
 # from concordia.components.agent import action_spec_ignored
 # from concordia.components.agent import memory_component
 from concordia.components.agent.question_of_recent_memories import \
@@ -162,7 +161,7 @@ class CharacterConsistency(QuestionOfRecentMemories, AgentConfig):
     )
 
 
-class SituationPerception(QuestionOfRecentMemories, Instructions):
+class SituationPerception(QuestionOfRecentMemories):
   """This component answers the question 'what kind of situation is it?'."""
 
   def __init__(
@@ -171,25 +170,25 @@ class SituationPerception(QuestionOfRecentMemories, Instructions):
   ):
     super().__init__(
         question=(
-            f'Given the statements above and the following {Instructions}, what kind of situation is'
+            'Given the statements above, what kind of situation is'
             f'{AgentConfig.name} in right now?'
         ),
-        answer_prefix= f'{AgentConfig.name} is currently ',
+        answer_prefix=f'{AgentConfig.name} is currently ',
         add_to_memory=False,
         **kwargs,
     )
 
 
-class PersonBySituation(QuestionOfRecentMemories, Instructions):
+class PersonBySituation(QuestionOfRecentMemories):
   """What would a person like the agent do in a situation like this?"""
 
   def __init__(self, **kwargs):
     super().__init__(
         question=(
-            f'What would a person like {AgentConfig.name}, with the following'
-            f'{Instructions} do in a situation like this?'
+            f'What would a person like {AgentConfig.name}'
+            'do in a situation like this?'
         ),
-        answer_prefix= f'{AgentConfig.name} would ',
+        answer_prefix=f'{AgentConfig.name} would ',
         add_to_memory=True,
         memory_tag='[intent reflection]',
         **kwargs,
