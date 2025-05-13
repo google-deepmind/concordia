@@ -43,7 +43,6 @@ class QueryRecentMems(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      name: str,
       pre_act_key: str,
       question: str,
       answer_prefix: str,
@@ -83,7 +82,6 @@ class QueryRecentMems(action_spec_ignored.ActionSpecIgnored):
     """
     super().__init__(pre_act_key)
     self._model = model
-    self._name = name
     self._memory_component_name = memory_component_name
     self._components = dict(components)
     self._clock_now = clock_now
@@ -163,7 +161,6 @@ class CharacterConsistency(
             f'Given the above, the {character_sheet.AgentConfig} and'
             f' {Instructions}, what kind of person is {{agent_name}}?'
         ),
-        name='{agent_name}',
         answer_prefix='{agent_name} is ',
         add_to_memory=True,
         memory_tag='[self reflection]',
@@ -183,7 +180,6 @@ class SituationPerception(QueryRecentMems, Instructions):
             'Given the statements above, what kind of situation is'
             '{agent_name} in right now?'
         ),
-        name='{agent_name}',
         answer_prefix='{agent_name} is currently ',
         add_to_memory=False,
         **kwargs,
@@ -201,7 +197,7 @@ class PersonBySituation(
             'What would a person like {agent_name}, with'
             f' the following{Instructions} do in a situation like this?'
         ),
-        name='{agent_name}',
+        character_name='{agent_name}',
         answer_prefix='{agent_name} would ',
         add_to_memory=True,
         memory_tag='[intent reflection]',
@@ -219,7 +215,6 @@ class AvailableOptionsPerception(QueryRecentMems, character_sheet.AgentConfig):
             'Given the statements above, what actions are available to '
             '{agent_name} right now?'
         ),
-        name='{agent_name}',
         terminators=('\n\n',),
         answer_prefix='',
         add_to_memory=False,
@@ -241,7 +236,6 @@ class BestOptionPerception(QueryRecentMems, character_sheet.AgentConfig):
             ' {agent_name} thinks will most quickly and'
             ' most surely achieve their goal.'
         ),
-        name='{agent_name}',
         answer_prefix="{agent_name}'s best course of action is ",
         add_to_memory=False,
         **kwargs,
