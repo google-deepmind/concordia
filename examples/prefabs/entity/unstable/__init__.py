@@ -15,3 +15,5 @@
 """Entity prefabs."""
 
 from examples.prefabs.entity.unstable import basic
+from examples.prefabs.entity.unstable import basic_with_plan
+from examples.prefabs.entity.unstable import minimal
