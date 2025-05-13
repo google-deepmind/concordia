@@ -163,7 +163,7 @@ class CharacterConsistency(
             f'Given the above, the {character_sheet.AgentConfig} and'
             f' {Instructions}, what kind of person is {{agent_name}}?'
         ),
-        name=character_sheet.AgentConfig.name,
+        name='{agent_name}',
         answer_prefix='{agent_name} is ',
         add_to_memory=True,
         memory_tag='[self reflection]',
@@ -183,7 +183,7 @@ class SituationPerception(QueryRecentMems, Instructions):
             'Given the statements above, what kind of situation is'
             '{agent_name} in right now?'
         ),
-        name=character_sheet.AgentConfig.name,
+        name='{agent_name}',
         answer_prefix='{agent_name} is currently ',
         add_to_memory=False,
         **kwargs,
@@ -201,7 +201,7 @@ class PersonBySituation(
             'What would a person like {agent_name}, with'
             f' the following{Instructions} do in a situation like this?'
         ),
-        name=character_sheet.AgentConfig.name,
+        name='{agent_name}',
         answer_prefix='{agent_name} would ',
         add_to_memory=True,
         memory_tag='[intent reflection]',
@@ -219,7 +219,7 @@ class AvailableOptionsPerception(QueryRecentMems, character_sheet.AgentConfig):
             'Given the statements above, what actions are available to '
             '{agent_name} right now?'
         ),
-        name=character_sheet.AgentConfig.name,
+        name='{agent_name}',
         terminators=('\n\n',),
         answer_prefix='',
         add_to_memory=False,
@@ -241,7 +241,7 @@ class BestOptionPerception(QueryRecentMems, character_sheet.AgentConfig):
             ' {agent_name} thinks will most quickly and'
             ' most surely achieve their goal.'
         ),
-        name=character_sheet.AgentConfig.name,
+        name='{agent_name}',
         answer_prefix="{agent_name}'s best course of action is ",
         add_to_memory=False,
         **kwargs,
