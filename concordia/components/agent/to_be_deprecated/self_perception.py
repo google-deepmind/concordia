@@ -18,7 +18,6 @@ from typing import Callable, Sequence
 
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import character_sheet
-from concordia.components.agent import instructions
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
@@ -30,7 +29,6 @@ class SelfPerception(component.Component):
 
   def __init__(
       self,
-      inst: instructions.Instructions,
       cs: character_sheet.AgentConfig,
       name: str,
       model: language_model.LanguageModel,
@@ -55,7 +53,6 @@ class SelfPerception(component.Component):
     """
 
     self._verbose = verbose
-    self._instructions = inst
     self._character_sheet = cs
     self._model = model
     self._memory = memory

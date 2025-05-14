@@ -25,7 +25,6 @@ class Instructions(constant.Constant):
 
   def __init__(
       self,
-      name,  # placeholder to allow instructions to be passed to self perception
       agent_name: str,
       pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
@@ -44,8 +43,3 @@ class Instructions(constant.Constant):
     )
     super().__init__(
         state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
-
-    self._name = name
-
-  def name(self) -> str:
-    return self._name
