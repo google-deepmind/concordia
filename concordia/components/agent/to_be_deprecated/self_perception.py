@@ -18,7 +18,6 @@ from typing import Callable, Sequence
 
 from concordia.associative_memory import associative_memory
 from concordia.associative_memory import character_sheet
-from concordia.components.agent import instructions
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
@@ -108,7 +107,7 @@ class SelfPerception(component.Component):
     prompt.statement(component_states)
 
     question = (
-        f'Given the above, {self._character_sheet} and {self._instructions},'
+        f'Given the above and {self._character_sheet},'
         f' what kind of person is {self._agent_name}?'
     )
     old_state = self._state
