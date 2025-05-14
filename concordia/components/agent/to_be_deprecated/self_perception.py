@@ -31,7 +31,6 @@ class SelfPerception(component.Component):
   def __init__(
       self,
       cs: character_sheet.AgentConfig,
-      inst: instructions.Instructions,
       name: str,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
@@ -55,7 +54,6 @@ class SelfPerception(component.Component):
     """
 
     self._verbose = verbose
-    self._instructions = inst
     self._character_sheet = cs
     self._model = model
     self._memory = memory
