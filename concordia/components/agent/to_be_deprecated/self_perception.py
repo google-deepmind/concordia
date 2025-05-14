@@ -17,6 +17,8 @@ import datetime
 from typing import Callable, Sequence
 
 from concordia.associative_memory import associative_memory
+from concordia.associative_memory import character_sheet
+from concordia.components.agent import instructions
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import component
@@ -28,6 +30,8 @@ class SelfPerception(component.Component):
 
   def __init__(
       self,
+      cs: character_sheet.AgentConfig,
+      inst: instructions.Instructions,
       name: str,
       model: language_model.LanguageModel,
       memory: associative_memory.AssociativeMemory,
@@ -51,6 +55,8 @@ class SelfPerception(component.Component):
     """
 
     self._verbose = verbose
+    self._instructions = inst
+    self._character_sheet = cs
     self._model = model
     self._memory = memory
     self._state = ''
@@ -104,7 +110,8 @@ class SelfPerception(component.Component):
     prompt.statement(component_states)
 
     question = (
-        f'Given the above, what kind of person is {self._agent_name}?'
+        f'Given the above, {self._character_sheet} and {self._instructions},'
+        f' what kind of person is {self._agent_name}?'
     )
     old_state = self._state
     self._state = prompt.open_question(

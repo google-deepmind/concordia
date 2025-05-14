@@ -19,7 +19,6 @@ from concordia.components import constant
 from concordia.components import report_function
 from concordia.components import sequential
 from concordia.components.agent.to_be_deprecated import all_similar_memories
-from concordia.components.agent.to_be_deprecated import character_premise_consistency
 from concordia.components.agent.to_be_deprecated import characteristic
 from concordia.components.agent.to_be_deprecated import creative_reflection
 from concordia.components.agent.to_be_deprecated import dialectical_reflection
