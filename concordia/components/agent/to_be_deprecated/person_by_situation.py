@@ -14,8 +14,7 @@
 
 """Agent component for self perception."""
 import datetime
-from typing import Callable
-from typing import Sequence
+from typing import Callable, Sequence
 
 from concordia.associative_memory import associative_memory
 from concordia.document import interactive_document
@@ -97,8 +96,8 @@ class PersonBySituation(component.Component):
     prompt.statement(
         f'***\nCurrent time: {self._clock_now()}\n' + component_states)
     question = (
-        f'What would a person like {self._agent_name} do in a situation like'
-        ' this?'
+        f'What would a person like {self._agent_name}, given the role playing'
+        ' instructions do in a situation like this?'
     )
     if self._clock_now is not None:
       question = f'{question}'

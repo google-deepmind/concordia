@@ -42,4 +42,7 @@ class Instructions(constant.Constant):
         ' with the game master.Always use first-person limited perspective.'
     )
     super().__init__(
-        state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
+        state=state,
+        pre_act_key=pre_act_key,
+        logging_channel=logging_channel,
+    )

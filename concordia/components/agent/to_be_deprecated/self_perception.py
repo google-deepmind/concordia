@@ -107,7 +107,7 @@ class SelfPerception(component.Component):
     prompt.statement(component_states)
 
     question = (
-        f'Given the above, the {self._instructions} and'
+        'Given the above, the role playing instructions and'
         f'{self._character_sheet}, what kind of person is {self._agent_name}?'
     )
     old_state = self._state
