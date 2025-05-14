@@ -25,20 +25,27 @@ class Instructions(constant.Constant):
 
   def __init__(
       self,
+      name,  # placeholder to allow instructions to be passed to self perception
       agent_name: str,
       pre_act_key: str = DEFAULT_INSTRUCTIONS_PRE_ACT_KEY,
       logging_channel: logging.LoggingChannel = logging.NoOpLoggingChannel,
   ):
     state = (
-        f'The instructions for how to play the role of {agent_name} are as '
-        'follows. This is a table-top role-playing game in which you '
-        f'play the role of a character named {agent_name}. The tabletop '
-        'is Dungeons and Dragons 5th Edition. The goal is to be consistent.'
-        f'It is important to play the role of a person like {agent_name} as '
-        'accurately as possible, i.e., by responding in ways that you think '
-        f'it is likely a person like {agent_name} would respond, and taking '
-        f'into account all information about {agent_name} that you have. '
-        'Always use third-person limited perspective.'
+        f'The instructions for how to play the role of {agent_name} are as'
+        ' follows. This is a table-top role-playing game in which you play the'
+        f' role of a character named {agent_name}. The tabletop is Dungeons and'
+        ' Dragons 5th Edition. The goal is to be consistent.It is important to'
+        f' play the role of a person like {agent_name} as accurately as'
+        ' possible, i.e., by responding in ways that you think it is likely a'
+        f' person like {agent_name} would respond, and taking into account all'
+        f' information about {agent_name} that you have. It is important that'
+        ' you collaborate with other adventurers in your group and cooperate'
+        ' with the game master.Always use first-person limited perspective.'
     )
     super().__init__(
         state=state, pre_act_key=pre_act_key, logging_channel=logging_channel)
+
+    self._name = name
+
+  def name(self) -> str:
+    return self._name
