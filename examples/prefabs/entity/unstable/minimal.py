@@ -53,7 +53,7 @@ class Entity(prefab_lib.Prefab):
       }
   )
 
-  def build_agent(
+  def build(
       self,
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
