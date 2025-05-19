@@ -14,8 +14,7 @@
 
 """A component to represent any world state variables the GM deems important."""
 
-from collections.abc import Mapping, Sequence
-import types
+from collections.abc import Sequence
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
@@ -32,23 +31,20 @@ class WorldState(
   def __init__(
       self,
       model: language_model.LanguageModel,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       pre_act_label: str = '\nState',
   ):
     """Initializes the world state component.
 
     Args:
       model: The language model to use.
-      components: The components to condition the world state changes on. It
-        is a mapping of the component name to a label to use in the prompt.
+      components: Keys of components to condition the world state on.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
     """
     self._pre_act_label = pre_act_label
     self._model = model
-    self._components = dict(components)
+    self._components = components
 
     self._state = {}
     self._latest_action_spec = None
@@ -60,6 +56,20 @@ class WorldState(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
         ).get_pre_act_value()
     )
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
 
   def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
@@ -93,10 +103,9 @@ class WorldState(
         self._latest_action_spec.output_type == entity_lib.OutputType.RESOLVE):
       prompt = interactive_document.InteractiveDocument(self._model)
 
-      component_states = '\n'.join([
-          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'\n{component_states}\n')
       prompt.statement(f'State prior to the latest event:\n{self._state}')
       prompt.statement(f'The latest event: {event}')
@@ -138,9 +147,7 @@ class Locations(
       model: language_model.LanguageModel,
       entity_names: Sequence[str],
       prompt: str,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       pre_act_label: str = '\nEntity locations',
   ):
     """Initializes the component.
@@ -151,8 +158,7 @@ class Locations(
       prompt: description of all locations to be specifically represented in the
         world. This is used to prompt the model to generate concrete variables
         representing the locations and their properties (e.g. their topology). 
-      components: The components to condition location changes on. It
-        is a mapping of the component name to a label to use in the prompt.
+      components: Keys of components to condition entity locations on.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
     """
@@ -160,7 +166,7 @@ class Locations(
     self._model = model
     self._entity_names = entity_names
     self._prompt = prompt
-    self._components = dict(components)
+    self._components = components
 
     self._locations = {}
     self._entity_locations = {name: '' for name in entity_names}
@@ -195,6 +201,20 @@ class Locations(
         ).get_pre_act_value()
     )
 
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
+
   def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
     return self._pre_act_label
@@ -228,10 +248,9 @@ class Locations(
         self._latest_action_spec.output_type == entity_lib.OutputType.RESOLVE):
       prompt = interactive_document.InteractiveDocument(self._model)
 
-      component_states = '\n'.join([
-          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'\n{component_states}\n')
       locations_and_properties = '\n'.join([
           f'{name}: {value}' for name, value in self._locations.items()
@@ -271,9 +290,7 @@ class GenerativeClock(
       model: language_model.LanguageModel,
       prompt: str,
       start_time: str,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       format_description_key: str = 'Clock format description',
       pre_act_label: str = '\nClock',
   ):
@@ -289,8 +306,7 @@ class GenerativeClock(
       prompt: description of what the clock represents, how it gets updated,
         and what it is used for.
       start_time: The initial time of the clock.
-      components: The components to condition clock updates on. It
-        is a mapping of the component name to a label to use in the prompt.
+      components: Keys of components to condition clock updates on.
       format_description_key: The key to prepend to the descripton of the
         desired format to use in the prompt for the sample that produces the
         clock's update on each step.
@@ -301,7 +317,7 @@ class GenerativeClock(
     self._model = model
     self._format_description_key = format_description_key
     self._prompt = prompt
-    self._components = dict(components)
+    self._components = components
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)
@@ -329,6 +345,20 @@ class GenerativeClock(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
         ).get_pre_act_value()
     )
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
 
   def get_pre_act_label(self) -> str:
     """Returns the key used as a prefix in the string returned by `pre_act`."""
@@ -360,10 +390,9 @@ class GenerativeClock(
         self._latest_action_spec.output_type == entity_lib.OutputType.RESOLVE):
       prompt = interactive_document.InteractiveDocument(self._model)
 
-      component_states = '\n'.join([
-          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'\n{component_states}\n')
 
       prompt.statement(

@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Return all memories similar to a prompt and filter them for relevance."""
+"""Return memories similar to a prompt composed of component pre_act values."""
 
-import types
-from typing import Mapping
+from collections.abc import Sequence
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
@@ -36,9 +35,7 @@ class AllSimilarMemories(
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       num_memories_to_retrieve: int = 25,
       pre_act_label: str = 'Relevant memories',
   ):
@@ -48,8 +45,7 @@ class AllSimilarMemories(
       model: The language model to use.
       memory_component_key: The name of the memory component from which to
         retrieve related memories.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the answer on.
       num_memories_to_retrieve: The number of memories to retrieve.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
@@ -57,17 +53,30 @@ class AllSimilarMemories(
     super().__init__(pre_act_label)
     self._model = model
     self._memory_component_key = memory_component_key
-    self._components = dict(components)
+    self._components = components
     self._num_memories_to_retrieve = num_memories_to_retrieve
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
     prompt = interactive_document.InteractiveDocument(self._model)
 
-    component_states = '\n'.join([
-        f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._components.items()
-    ])
+    component_states = '\n'.join(
+        [self._component_pre_act_display(key) for key in self._components]
+    )
     prompt.statement(f'Statements:\n{component_states}\n')
     prompt_summary = prompt.open_question(
         'Summarize the statements above.', max_tokens=750

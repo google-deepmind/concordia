@@ -14,53 +14,28 @@
 
 """Component helping a game master pick which game master to use next."""
 
-from collections.abc import Sequence
-import threading
-from concordia.components.agent.unstable import memory as memory_component
-from concordia.components.game_master.unstable import make_observation as make_observation_component
+from collections.abc import Callable, Sequence
+from concordia.components.agent.unstable import memory as memory_component_module
+from concordia.components.game_master.unstable import make_observation as make_observation_component_module
+from concordia.components.game_master.unstable import next_game_master as next_game_master_component_module
+from concordia.components.game_master.unstable import terminate as terminate_component_module
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
 from concordia.typing.unstable import scene as scene_lib
 
+_SCENE_COUNTER_TAG = '[scene counter]'
+
 _SCENE_TYPE_TAG = '[scene type]'
 _SCENE_PARTICIPANTS_TAG = '[scene participants]'
 _PARTICIPANTS_DELIMITER = ', '
 
-DEFAULT_SCENE_TRACKER_COMPONENT_KEY = '__scene_tracker__'
-
 DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL = '\nCurrent Scene'
 
+_TERMINATE_SIGNAL = 'Yes'
 
-class ThreadSafeCounter:
-  """A thread-safe counter that can only be incremented."""
-
-  def __init__(self, initial_value=0):
-    """Initializes the counter with an optional initial value.
-
-    Args:
-        initial_value (int): The initial value of the counter. Defaults to 0.
-    """
-    self._value = initial_value
-    self._lock = threading.Lock()
-
-  def increment(self, amount=1):
-    """Increments the counter by the specified amount.
-
-    Args:
-        amount (int): The amount to increment the counter by. Defaults to 1.
-    """
-    with self._lock:
-      self._value += amount
-
-  def value(self):
-    """Returns the current value of the counter.
-
-    Returns:
-        int: The current value of the counter.
-    """
-    with self._lock:
-      return self._value
+DEFAULT_SCENE_TRACKER_COMPONENT_KEY = (
+    next_game_master_component_module.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
 
 
 class SceneTracker(
@@ -71,13 +46,15 @@ class SceneTracker(
   def __init__(
       self,
       model: language_model.LanguageModel,
-      scenes: Sequence[scene_lib.ExperimentalSceneSpec],
-      step_counter: ThreadSafeCounter,
+      scenes: Sequence[scene_lib.SceneSpec],
       observation_component_key: str = (
-          make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
+          make_observation_component_module.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
       memory_component_key: str = (
-          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
+          memory_component_module.DEFAULT_MEMORY_COMPONENT_KEY
+      ),
+      terminator_component_key: str = (
+          terminate_component_module.DEFAULT_TERMINATE_COMPONENT_KEY
       ),
       pre_act_label: str = DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL,
       verbose: bool = False,
@@ -87,54 +64,65 @@ class SceneTracker(
     Args:
       model: The language model to use for the component.
       scenes: All scenes to be used in the episode.
-      step_counter: The counter to use for the step within the scene.
       observation_component_key: The name of the observation component.
       memory_component_key: The name of the memory component.
+      terminator_component_key: The name of the terminator component.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       verbose: Whether to print verbose debug information.
-
-    Raises:
-      ValueError: If the component order is not None and contains duplicate
-        components.
     """
     super().__init__()
     self._model = model
     self._pre_act_label = pre_act_label
     self._memory_component_key = memory_component_key
-
     self._observation_component_key = observation_component_key
-    self._step_counter = step_counter
+    self._terminator_component_key = terminator_component_key
     self._scenes = scenes
     self._verbose = verbose
 
+    self._round_idx_to_scene = {}
+    round_idx = 0
+    for scene in self._scenes:
+      for idx in range(scene.num_rounds):
+        self._round_idx_to_scene[round_idx] = {'scene': scene,
+                                               'step_within_scene': idx}
+        round_idx += 1
+
+    self._max_rounds = round_idx
+
   def _get_scene_step_and_scene(
       self,
-  ) -> tuple[int, scene_lib.ExperimentalSceneSpec]:
-    counter = self._step_counter.value()
-    for scene in self._scenes:
-      if counter < scene.num_rounds:
-        return (counter, scene)
-      else:
-        counter -= scene.num_rounds
-    raise ValueError(
-        f'No scene found for global step {self._step_counter.value()}. '
-        'Probably the simulation is not terminated after all scenes are done.'
+  ) -> tuple[int, scene_lib.SceneSpec, int]:
+    memory_component = self.get_entity().get_component(
+        self._memory_component_key, type_=memory_component_module.Memory
     )
+    counter_states = memory_component.scan(
+        lambda x: x.startswith(_SCENE_COUNTER_TAG))
+    counter_state = len(counter_states)
+    if counter_state == self._max_rounds:
+      return -1, self._scenes[0], counter_state
+    elif counter_state > self._max_rounds:
+      raise RuntimeError(
+          f'Counter state {counter_state} is greater than max number of rounds'
+          f' {self._max_rounds}.'
+      )
+    step_within_scene = (
+        self._round_idx_to_scene[counter_state]['step_within_scene'])
+    scene = self._round_idx_to_scene[counter_state]['scene']
+    return step_within_scene, scene, counter_state
 
   def is_done(self) -> bool:
-    try:
-      self._get_scene_step_and_scene()
-      return False
-    except ValueError:
+    _, _, global_step = self._get_scene_step_and_scene()
+    if global_step >= self._max_rounds:
       return True
+    return False
 
-  def get_current_scene_type(self) -> scene_lib.ExperimentalSceneTypeSpec:
-    _, scene = self._get_scene_step_and_scene()
+  def get_current_scene_type(self) -> scene_lib.SceneTypeSpec:
+    _, scene, _ = self._get_scene_step_and_scene()
     return scene.scene_type
 
   def get_participants(self) -> Sequence[str]:
-    _, scene = self._get_scene_step_and_scene()
+    _, scene, _ = self._get_scene_step_and_scene()
     participants = scene.participants
     if scene.scene_type.possible_participants:
       participants = list(
@@ -142,107 +130,89 @@ class SceneTracker(
       )
     return participants
 
-  def get_observation_for_participant(self, participant: str) -> str:
-    scene_step, scene = self._get_scene_step_and_scene()
-    if scene_step == 0:
-      return '\n'.join(scene.scene_type.premise[participant])
-    return ''
+  def _get_premise(
+      self, scene: scene_lib.SceneSpec, participant: str
+  ) -> Sequence[str]:
+    if scene.premise is None:
+      premises = scene.scene_type.default_premise[participant]
+    else:
+      premises = scene.premise[participant]
+
+    result = []
+    for premise in premises:
+      if isinstance(premise, str):
+        assert isinstance(premise, str), type(premise)  # For pytype.
+        result.append(premise)
+      else:
+        assert isinstance(premise, Callable), type(premise)  # For pytype.
+        evaluated_premise = premise(participant)
+        result.append(evaluated_premise)
+
+    return result
 
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
-    result = ''
-
-    if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+    if action_spec.output_type == entity_lib.OutputType.TERMINATE:
       memory = self.get_entity().get_component(
-          self._memory_component_key, type_=memory_component.Memory
+          self._memory_component_key, type_=memory_component_module.Memory
       )
-      step_within_scene, current_scene = self._get_scene_step_and_scene()
+      step_within_scene, current_scene, _ = self._get_scene_step_and_scene()
 
       if self._verbose:
-        print('Next game master pre-act')
         print(f'Scene game master: {current_scene.scene_type.game_master_name}')
         print(f'Step counter: {step_within_scene}')
-      if step_within_scene == 0:
 
+      if self.is_done():
+        terminator = self.get_entity().get_component(
+            self._terminator_component_key,
+            type_=terminate_component_module.Terminate,
+        )
+        terminator.terminate()
+        self._logging_channel({
+            'Summary': 'Terminating the simulation.',
+        })
+        return _TERMINATE_SIGNAL
+
+      if step_within_scene == 0:
         make_observation = self.get_entity().get_component(
             self._observation_component_key,
-            type_=make_observation_component.MakeObservation,
+            type_=make_observation_component_module.MakeObservation,
         )
-
-        print(f'Starting the scene: {current_scene.scene_type.name}')
         memory.add(f'{_SCENE_TYPE_TAG} {current_scene.scene_type.name}')
         memory.add(
             f'{_SCENE_PARTICIPANTS_TAG} {", ".join(self.get_participants())}'
         )
-        print(
-            'Adding to memory:'
-            f' {_SCENE_TYPE_TAG} {current_scene.scene_type.name}'
-        )
-        print(
-            'Adding to memory:'
-            f' {_SCENE_PARTICIPANTS_TAG} {", ".join(self.get_participants())}'
-        )
         for participant in self.get_participants():
-          if 'game_master' in participant:
-            for observation in current_scene.scene_type.premise[participant]:
-              memory.add(observation)
-          else:
-            for observation in current_scene.scene_type.premise[participant]:
-              make_observation.add_to_queue(participant, observation)
+          for observation in self._get_premise(
+              scene=current_scene,
+              participant=participant):
+            make_observation.add_to_queue(participant, observation)
+            memory.add(f'{participant} observed the following: {observation}')
+
+    if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+      _, next_scene, _ = self._get_scene_step_and_scene()
+      if next_scene.scene_type.game_master_name is None:
+        return 'default_rules'
+      return next_scene.scene_type.game_master_name
 
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
-      step_within_scene, current_scene = self._get_scene_step_and_scene()
+      step_within_scene, current_scene, global_step = (
+          self._get_scene_step_and_scene()
+      )
 
-      print('Resolve')
-      print(f'current scene: {current_scene.scene_type.name}')
-      print(f'step counter: {step_within_scene}')
       self._logging_channel({
           'Summary': f'Scene: {current_scene.scene_type.name}',
           'Step within scene': step_within_scene,
-          'Global step': self._step_counter.value(),
+          'Global step': global_step,
           'Scene participants': ', '.join(self.get_participants()),
       })
-      self._step_counter.increment(amount=1)
 
-    return result
+      memory = self.get_entity().get_component(
+          self._memory_component_key, type_=memory_component_module.Memory
+      )
+      global_step += 1
+      memory.add(f'{_SCENE_COUNTER_TAG}({global_step})')
 
-
-class SceneTerminator(
-    entity_component.ContextComponent, entity_component.ComponentWithLogging
-):
-  """A component that terminates the simulation when a scene is done."""
-
-  def __init__(
-      self,
-      scene_tracker_component_key: str = DEFAULT_SCENE_TRACKER_COMPONENT_KEY,
-  ):
-    """Initializes the component.
-
-    Args:
-      scene_tracker_component_key: The name of the scene tracker component.
-    """
-    super().__init__()
-    self._scene_tracker_component_key = scene_tracker_component_key
-
-  def pre_act(
-      self,
-      action_spec: entity_lib.ActionSpec,
-  ) -> str:
-    scene_tracker = self.get_entity().get_component(
-        self._scene_tracker_component_key, type_=SceneTracker
-    )
-
-    if scene_tracker.is_done():
-      print('Scene Terminator: Signaling to terminate the simulation.')
-      self._logging_channel({
-          'Summary': 'Terminating the simulation.',
-          'Scene tracker': scene_tracker,
-      })
-      return 'Yes'
-    self._logging_channel({
-        'Summary': 'Scene not done.',
-        'Scene tracker': scene_tracker,
-    })
     return ''

@@ -65,7 +65,7 @@ class Entity(prefab_lib.Prefab):
       memory_bank: The agent's memory_bank object.
 
     Returns:
-      An agent.
+      An entity.
     """
 
     agent_name = self.params.get('name', 'Alice')

@@ -20,6 +20,7 @@ from concordia.components.game_master.unstable import event_resolution as event_
 from concordia.components.game_master.unstable import make_observation as make_observation_component
 from concordia.components.game_master.unstable import next_acting as next_acting_components
 from concordia.components.game_master.unstable import next_game_master as next_game_master_components
+from concordia.components.game_master.unstable import terminate as terminate_components
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity as entity_lib
@@ -30,7 +31,8 @@ from typing_extensions import override
 DEFAULT_ACT_COMPONENT_KEY = '__act__'
 DEFAULT_PRE_ACT_LABEL = 'Act'
 
-DEFAULT_TERMINATE_COMPONENT_KEY = '__terminate__'
+DEFAULT_TERMINATE_COMPONENT_KEY = (
+    terminate_components.DEFAULT_TERMINATE_COMPONENT_KEY)
 DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY = (
     next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
 DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY = (
