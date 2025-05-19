@@ -51,7 +51,7 @@ class Plan(
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._components = dict(components)
+    self._components = components
     self._goal_component_key = goal_component_key
     self._force_time_horizon = force_time_horizon
 
@@ -134,7 +134,7 @@ class Plan(
       # Replan on the first step and when the LLM suggests the agent should.
       self._current_plan = prompt.open_question(
           question=(
-              f"Write {agent_name}'s step-by-step plan for how they intend to"
+              f'Write {agent_name}\'s step-by-step plan for how they intend to'
               ' accomplish their goal over the time horizon mentioned above.'
           ),
           max_tokens=1200,
