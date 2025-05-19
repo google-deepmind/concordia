@@ -14,8 +14,7 @@
 
 """Agent components for planning."""
 
-from collections.abc import Mapping
-import types
+from collections.abc import Sequence
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.document import interactive_document
@@ -33,9 +32,7 @@ class Plan(
   def __init__(
       self,
       model: language_model.LanguageModel,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       goal_component_key: str | None = None,
       force_time_horizon: str | bool = False,
       pre_act_label: str = DEFAULT_PRE_ACT_LABEL,
@@ -44,8 +41,7 @@ class Plan(
 
     Args:
       model: a language model
-      components: components to build the context of planning. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: keys of components to use to build the context for planning.
       goal_component_key: index into `components` to use to represent the goal
         of planning
       force_time_horizon: If not False, then use this time horizon to plan for
@@ -61,6 +57,20 @@ class Plan(
 
     self._current_plan = ''
 
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
+
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
 
@@ -72,9 +82,7 @@ class Plan(
       goal_component = None
 
     component_states = '\n'.join([
-        f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._components.items()
-    ])
+        self._component_pre_act_display(key) for key in self._components])
 
     prompt = interactive_document.InteractiveDocument(self._model)
     prompt.statement(f'{component_states}\n')

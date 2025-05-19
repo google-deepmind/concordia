@@ -53,7 +53,7 @@ class Entity(prefab_lib.Prefab):
       }
   )
 
-  def build_agent(
+  def build(
       self,
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
@@ -65,7 +65,7 @@ class Entity(prefab_lib.Prefab):
       memory_bank: The agent's memory_bank object.
 
     Returns:
-      An agent.
+      An entity.
     """
 
     agent_name = self.params.get('name', 'Alice')

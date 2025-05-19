@@ -14,9 +14,8 @@
 
 """Component that helps a game master decide whose turn is next."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 import random
-import types
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
@@ -52,9 +51,7 @@ class NextActing(
       self,
       model: language_model.LanguageModel,
       player_names: Sequence[str],
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
   ):
     """Initializes the component.
@@ -62,8 +59,7 @@ class NextActing(
     Args:
       model: The language model to use for the component.
       player_names: Names of players to choose from.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the answer on.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
 
@@ -74,7 +70,7 @@ class NextActing(
     super().__init__()
     self._model = model
     self._player_names = player_names
-    self._components = dict(components)
+    self._components = components
     self._pre_act_label = pre_act_label
 
     self._currently_active_player = None
@@ -90,6 +86,20 @@ class NextActing(
         ).get_pre_act_value()
     )
 
+  def _get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self._get_component_pre_act_label(key)}:\n'
+        f'{self._get_named_component_pre_act_value(key)}')
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -97,10 +107,9 @@ class NextActing(
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
       prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join([
-          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'{component_states}\n')
       idx = prompt.multiple_choice_question(
           question='Whose turn is next?',
@@ -232,10 +241,6 @@ class NextActingFromSceneSpec(
 
   def __init__(
       self,
-      model: language_model.LanguageModel,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
@@ -247,23 +252,14 @@ class NextActingFromSceneSpec(
     """Initializes the component.
 
     Args:
-      model: The language model to use for the component.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
       memory_component_key: The name of the memory component.
       scene_tracker_component_key: The name of the scene tracker component.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
-
-    Raises:
-      ValueError: If the component order is not None and contains duplicate
-        components.
     """
     super().__init__()
-    self._model = model
     self._memory_component_key = memory_component_key
     self._scene_tracker_component_key = scene_tracker_component_key
-    self._components = dict(components)
     self._pre_act_label = pre_act_label
 
     self._currently_active_player = None
@@ -314,9 +310,7 @@ class NextActionSpec(
       self,
       model: language_model.LanguageModel,
       player_names: Sequence[str],
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
       next_acting_component_key: str = DEFAULT_NEXT_ACTING_COMPONENT_KEY,
       pre_act_label: str = DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL,
@@ -326,8 +320,7 @@ class NextActionSpec(
     Args:
       model: The language model to use for the component.
       player_names: Names of players to choose from.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the action spec on.
       call_to_next_action_spec: prompt to use for the game master to decide on
         what action spec to use for the next turn. Will be formatted to
         substitute {name} for the name of the player whose turn is next.
@@ -343,7 +336,7 @@ class NextActionSpec(
     super().__init__()
     self._model = model
     self._player_names = player_names
-    self._components = dict(components)
+    self._components = components
     self._call_to_next_action_spec = call_to_next_action_spec
     self._next_acting_component_key = next_acting_component_key
     self._pre_act_label = pre_act_label
@@ -356,6 +349,20 @@ class NextActionSpec(
         ).get_pre_act_value()
     )
 
+  def _get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self._get_component_pre_act_label(key)}:\n'
+        f'{self._get_named_component_pre_act_value(key)}')
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -363,10 +370,9 @@ class NextActionSpec(
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
       prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join([
-          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'{component_states}\n')
       active_player = self.get_entity().get_component(
           self._next_acting_component_key, type_=NextActing
@@ -397,7 +403,7 @@ class NextActionSpecFromSceneSpec(
 
   def __init__(
       self,
-      scenes: Sequence[scene_lib.ExperimentalSceneSpec],
+      scenes: Sequence[scene_lib.SceneSpec],
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
@@ -437,7 +443,7 @@ class NextActionSpecFromSceneSpec(
         ).get_pre_act_value()
     )
 
-  def _get_current_scene_type(self) -> scene_lib.ExperimentalSceneTypeSpec:
+  def _get_current_scene_type(self) -> scene_lib.SceneTypeSpec:
 
     scene_tracker = self.get_entity().get_component(
         self._scene_tracker_component_key,

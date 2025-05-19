@@ -108,12 +108,10 @@ def build_agent(
   person_by_situation = (
       agent_components.question_of_recent_memories.PersonBySituation(
           model=model,
-          components={
-              _get_class_name(self_perception): self_perception_label,
-              _get_class_name(situation_representation): (
-                  situation_representation_label
-              ),
-          },
+          components=[
+              _get_class_name(self_perception),
+              _get_class_name(situation_representation),
+          ],
           clock_now=clock.now,
           pre_act_label=person_by_situation_label,
       )
@@ -122,11 +120,9 @@ def build_agent(
   relevant_memories = (
       agent_components.all_similar_memories.AllSimilarMemories(
           model=model,
-          components={
-              _get_class_name(situation_representation): (
-                  situation_representation_label
-              )
-          },
+          components=[
+              _get_class_name(situation_representation),
+          ],
           num_memories_to_retrieve=10,
           pre_act_label=relevant_memories_label,
       )

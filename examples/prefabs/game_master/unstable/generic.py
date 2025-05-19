@@ -129,9 +129,9 @@ class GameMaster(prefab_lib.Prefab):
     relevant_memories = (
         actor_components.all_similar_memories.AllSimilarMemories(
             model=model,
-            components={
-                display_events_key: display_events.get_pre_act_label(),
-            },
+            components=[
+                display_events_key,
+            ],
             num_memories_to_retrieve=5,
             pre_act_label='Background info',
         )
@@ -143,12 +143,12 @@ class GameMaster(prefab_lib.Prefab):
     make_observation = gm_components.make_observation.MakeObservation(
         model=model,
         player_names=player_names,
-        components={
-            instructions_key: instructions.get_pre_act_label(),
-            player_characters_key: player_characters.get_pre_act_label(),
-            relevant_memories_key: relevant_memories.get_pre_act_label(),
-            display_events_key: display_events.get_pre_act_label(),
-        },
+        components=[
+            instructions_key,
+            player_characters_key,
+            relevant_memories_key,
+            display_events_key,
+        ],
         reformat_observations_in_specified_style=(
             'The format to use when describing the '
             'current situation to a player is: '
@@ -158,12 +158,12 @@ class GameMaster(prefab_lib.Prefab):
 
     next_acting_kwargs = dict(
         model=model,
-        components={
-            instructions_key: instructions.get_pre_act_label(),
-            player_characters_key: player_characters.get_pre_act_label(),
-            relevant_memories_key: relevant_memories.get_pre_act_label(),
-            display_events_key: display_events.get_pre_act_label(),
-        },
+        components=[
+            instructions_key,
+            player_characters_key,
+            relevant_memories_key,
+            display_events_key,
+        ],
     )
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
     next_actor = gm_components.next_acting.NextActing(
@@ -196,12 +196,12 @@ class GameMaster(prefab_lib.Prefab):
         if step:
           event_resolution_steps.append(getattr(thought_chains_lib, step))
 
-    event_resolution_components = {
-        instructions_key: instructions.get_pre_act_label(),
-        player_characters_key: player_characters.get_pre_act_label(),
-        relevant_memories_key: relevant_memories.get_pre_act_label(),
-        display_events_key: display_events.get_pre_act_label(),
-    }
+    event_resolution_components = [
+        instructions_key,
+        player_characters_key,
+        relevant_memories_key,
+        display_events_key,
+    ]
 
     event_resolution_key = (
         gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY

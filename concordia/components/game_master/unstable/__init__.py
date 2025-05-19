@@ -23,4 +23,5 @@ from concordia.components.game_master.unstable import next_game_master
 from concordia.components.game_master.unstable import payoff_matrix
 from concordia.components.game_master.unstable import scene_tracker
 from concordia.components.game_master.unstable import switch_act
+from concordia.components.game_master.unstable import terminate
 from concordia.components.game_master.unstable import world_state

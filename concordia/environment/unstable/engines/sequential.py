@@ -176,6 +176,11 @@ class Sequential(engine_lib.Engine):
                        verbose: bool = False) -> entity_lib.Entity:
     """Select which game master to use for the next step."""
     if len(game_masters) == 1:
+      if verbose:
+        print(termcolor.colored(
+            (f'Only one game master available ({game_masters[0].name}), '
+             'skipping the call to `next_game_master`.'),
+            _PRINT_COLOR))
       return game_masters[0]
     game_masters_by_name = {
         game_master_.name: game_master_ for game_master_ in game_masters

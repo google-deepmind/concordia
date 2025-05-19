@@ -14,9 +14,8 @@
 
 """Agent component for asking questions about the agent's recent memories."""
 
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Collection, Sequence
 import datetime
-import types
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
@@ -69,9 +68,7 @@ class QuestionOfRecentMemories(
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       terminators: Collection[str] = ('\n',),
       clock_now: Callable[[], datetime.datetime] | None = None,
       num_memories_to_retrieve: int = 25,
@@ -88,8 +85,7 @@ class QuestionOfRecentMemories(
       memory_tag: The tag to use when adding the answer to the memory.
       memory_component_key: The name of the memory component from which to
         retrieve recent memories.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the answer on.
       terminators: strings that must not be present in the model's response. If
         emitted by the model the response will be truncated before them.
       clock_now: time callback to use.
@@ -98,7 +94,7 @@ class QuestionOfRecentMemories(
     super().__init__(pre_act_label)
     self._model = model
     self._memory_component_key = memory_component_key
-    self._components = dict(components)
+    self._components = components
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._question = question
@@ -106,6 +102,20 @@ class QuestionOfRecentMemories(
     self._answer_prefix = answer_prefix
     self._add_to_memory = add_to_memory
     self._memory_tag = memory_tag
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'  {self.get_component_pre_act_label(key)}: '
+        f'{self.get_named_component_pre_act_value(key)}')
 
   def _make_pre_act_value(self) -> str:
     agent_name = self.get_entity().name
@@ -124,10 +134,9 @@ class QuestionOfRecentMemories(
     if self._clock_now is not None:
       prompt.statement(f'Current time: {self._clock_now()}.\n')
 
-    component_states = '\n'.join([
-        f' {prefix}: {self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._components.items()
-    ])
+    component_states = '\n'.join(
+        [self._component_pre_act_display(key) for key in self._components]
+    )
     prompt.statement(component_states)
 
     question = self._question.format(agent_name=agent_name)

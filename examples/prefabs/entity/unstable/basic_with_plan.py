@@ -41,7 +41,7 @@ class Entity(prefab_lib.Prefab):
       }
   )
 
-  def build_agent(
+  def build(
       self,
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
@@ -53,7 +53,7 @@ class Entity(prefab_lib.Prefab):
       memory_bank: The agent's memory_bank object.
 
     Returns:
-      An agent.
+      An entity.
     """
     entity_name = self.params.get('name', 'Alice')
     entity_goal = self.params.get('goal', '')
@@ -100,10 +100,10 @@ class Entity(prefab_lib.Prefab):
     person_by_situation_key = 'PersonBySituation'
     person_by_situation = agent_components.question_of_recent_memories.PersonBySituation(
         model=model,
-        components={
-            self_perception_key: self_perception.get_pre_act_label(),
-            situation_perception_key: situation_perception.get_pre_act_label(),
-        },
+        components=[
+            self_perception_key,
+            situation_perception_key,
+        ],
         pre_act_label=(
             f'\nQuestion: What would a person like {entity_name} do in '
             'a situation like this?\nAnswer'
@@ -113,11 +113,9 @@ class Entity(prefab_lib.Prefab):
     relevant_memories = (
         agent_components.all_similar_memories.AllSimilarMemories(
             model=model,
-            components={
-                situation_perception_key: (
-                    situation_perception.get_pre_act_label()
-                ),
-            },
+            components=[
+                situation_perception_key,
+            ],
             num_memories_to_retrieve=10,
             pre_act_label='\nRecalled memories and observations',
         )
@@ -135,11 +133,11 @@ class Entity(prefab_lib.Prefab):
     plan_key = 'Plan'
     plan = agent_components.plan.Plan(
         model=model,
-        components={
-            self_perception_key: self_perception.get_pre_act_label(),
-            situation_perception_key: situation_perception.get_pre_act_label(),
-            observation_key: observation.get_pre_act_label(),
-        },
+        components=[
+            self_perception_key,
+            situation_perception_key,
+            observation_key,
+        ],
         goal_component_key=goal_key,
         force_time_horizon=self.params.get('force_time_horizon', False),
         pre_act_label='\nPlan',

@@ -21,7 +21,6 @@ import types
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.game_master.unstable import make_observation as make_observation_component
-from concordia.components.game_master.unstable import scene_tracker as scene_tracker_component
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.unstable import entity as entity_lib
@@ -46,9 +45,7 @@ class NextGameMaster(
       model: language_model.LanguageModel,
       map_game_master_names_to_choices: Mapping[str, str],
       call_to_action: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
   ):
     """Initializes the component.
@@ -59,8 +56,7 @@ class NextGameMaster(
         choose from, mapped to the multiple choice question option corresponding
         to that game master.
       call_to_action: The question to ask the model to select a game master.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the game master selection on.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
 
@@ -73,7 +69,7 @@ class NextGameMaster(
     self._game_master_names = list(map_game_master_names_to_choices.keys())
     self._game_master_choices = list(map_game_master_names_to_choices.values())
     self._call_to_action = call_to_action
-    self._components = dict(components)
+    self._components = components
     self._pre_act_label = pre_act_label
 
     self._currently_active_game_master = None
@@ -86,6 +82,20 @@ class NextGameMaster(
         ).get_pre_act_value()
     )
 
+  def _get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self._get_component_pre_act_label(key)}:\n'
+        f'{self._get_named_component_pre_act_value(key)}')
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -94,10 +104,9 @@ class NextGameMaster(
     prompt_to_log = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
       prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join([
-          f'{prefix}:\n{self._get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'{component_states}\n')
       idx = prompt.multiple_choice_question(
           question=self._call_to_action,
@@ -109,74 +118,6 @@ class NextGameMaster(
     self._logging_channel({
         'Key': self._pre_act_label,
         'Summary': result,
-        'Value': result,
-        'Prompt': prompt_to_log,
-    })
-    return result
-
-  def get_currently_active_game_master(self) -> str | None:
-    return self._currently_active_game_master
-
-
-class NextGameMasterFromSceneSpec(
-    entity_component.ContextComponent, entity_component.ComponentWithLogging
-):
-  """A component that decides which game master to use next."""
-
-  def __init__(
-      self,
-      model: language_model.LanguageModel,
-      scene_tracker_component_key: str = (
-          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
-      ),
-      pre_act_label: str = DEFAULT_NEXT_GAME_MASTER_PRE_ACT_LABEL,
-  ):
-    """Initializes the component.
-
-    Args:
-      model: The language model to use for the component.
-      scene_tracker_component_key: The name of the SceneTracker component to
-        use to get the current scene type.
-      pre_act_label: Prefix to add to the output of the component when called in
-        `pre_act`.
-
-    Raises:
-      ValueError: If the component order is not None and contains duplicate
-        components.
-    """
-    super().__init__()
-    self._model = model
-    self._scene_tracker_component_key = scene_tracker_component_key
-    self._pre_act_label = pre_act_label
-
-    self._currently_active_game_master = None
-
-  def _get_named_component_pre_act_value(self, component_name: str) -> str:
-    """Returns the pre-act value of a named component of the parent entity."""
-    return (
-        self.get_entity()
-        .get_component(
-            component_name, type_=action_spec_ignored.ActionSpecIgnored
-        )
-        .get_pre_act_value()
-    )
-
-  def pre_act(
-      self,
-      action_spec: entity_lib.ActionSpec,
-  ) -> str:
-    result = ''
-    prompt_to_log = ''
-    if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
-      scene_tracker = self.get_entity().get_component(
-          self._scene_tracker_component_key,
-          type_=scene_tracker_component.SceneTracker,
-      )
-      scene_type = scene_tracker.get_current_scene_type()
-      result = scene_type.game_master_name
-
-    self._logging_channel({
-        'Key': self._pre_act_label,
         'Value': result,
         'Prompt': prompt_to_log,
     })
@@ -202,9 +143,7 @@ class FormativeMemoriesInitializer(
           str, Sequence[str]
       ] = types.MappingProxyType({}),
       player_specific_context: Mapping[str, str] = types.MappingProxyType({}),
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       delimiter_symbol: str = '***',
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
@@ -231,8 +170,7 @@ class FormativeMemoriesInitializer(
         game master.
       player_specific_context: specific context each player needs to know about
         the game master.
-      components: The components to condition on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition on.
       delimiter_symbol: The symbol to use to separate episodes in the generated
         backstory.
       memory_component_key: The name of the game master's memory component.
@@ -250,7 +188,7 @@ class FormativeMemoriesInitializer(
     self._model = model
     self._player_names = player_names
     self._shared_memories = shared_memories
-    self._components = dict(components)
+    self._components = components
     self._delimiter_symbol = delimiter_symbol
     self._memory_component_key = memory_component_key
     self._make_observation_component_key = make_observation_component_key
@@ -268,6 +206,20 @@ class FormativeMemoriesInitializer(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
         ).get_pre_act_value()
     )
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
 
   def pre_act(
       self,
@@ -306,10 +258,9 @@ class FormativeMemoriesInitializer(
   def generate_backstory_episodes(
       self, active_entity_name: str) -> Sequence[str]:
     prompt = interactive_document.InteractiveDocument(self._model)
-    component_states = '\n'.join([
-        f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-        for key, prefix in self._components.items()
-    ])
+    component_states = '\n'.join(
+        [self._component_pre_act_display(key) for key in self._components]
+    )
     prompt.statement(f'{component_states}\n')
     prompt.statement('----- Role Playing Master Class -----\n')
     prompt.statement("Question: What is the protagonist's name?")

@@ -14,8 +14,7 @@
 
 """Component that helps a game master decide whose turn is next."""
 
-from collections.abc import Callable, Mapping, Sequence
-import types
+from collections.abc import Callable, Sequence
 
 from concordia.components.agent.unstable import action_spec_ignored
 from concordia.components.agent.unstable import memory as memory_component
@@ -52,9 +51,7 @@ class EventResolution(
           ]
           | None
       ) = None,
-      components: Mapping[
-          entity_component.ComponentName, str
-      ] = types.MappingProxyType({}),
+      components: Sequence[str] = (),
       notify_observers: bool = False,
       make_observation_component_key: str = (
           make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
@@ -74,8 +71,7 @@ class EventResolution(
       event_resolution_steps: thinking steps for the event resolution component
         to use whenever it converts putative events like action suggestions into
         real events in the simulation.
-      components: The components to condition the answer on. This is a mapping
-        of the component name to a label to use in the prompt.
+      components: Keys of components to condition the event resolution on.
       notify_observers: Whether to explicitly notify observers of the event.
       make_observation_component_key: The name of the MakeObservation component
         to use to notify observers of the event.
@@ -93,7 +89,7 @@ class EventResolution(
     super().__init__()
     self._model = model
     self._event_resolution_steps = event_resolution_steps
-    self._components = dict(components)
+    self._components = components
     self._notify_observers = notify_observers
     self._pre_act_label = pre_act_label
 
@@ -112,6 +108,20 @@ class EventResolution(
         ).get_pre_act_value()
     )
 
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -123,10 +133,9 @@ class EventResolution(
     self._putative_action = None
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
       prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join([
-          f'{prefix}:\n{self.get_named_component_pre_act_value(key)}'
-          for key, prefix in self._components.items()
-      ])
+      component_states = '\n'.join(
+          [self._component_pre_act_display(key) for key in self._components]
+      )
       prompt.statement(f'{component_states}\n')
       self._active_entity_name = self.get_entity().get_component(
           self._next_acting_component_key,
