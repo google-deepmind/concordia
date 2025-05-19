@@ -31,15 +31,19 @@ class Instructions(constant.Constant):
   ):
     state = (
         f'The instructions for how to play the role of {agent_name} are as'
-        ' follows. This is a table-top role-playing game in which you play the'
-        f' role of a character named {agent_name}. The tabletop is Dungeons and'
-        ' Dragons 5th Edition. The goal is to be consistent.It is important to'
-        f' play the role of a person like {agent_name} as accurately as'
-        ' possible, i.e., by responding in ways that you think it is likely a'
-        f' person like {agent_name} would respond, and taking into account all'
-        f' information about {agent_name} that you have. It is important that'
-        ' you collaborate with other adventurers in your group and cooperate'
-        ' with the game master.Always use first-person limited perspective.'
+        ' follows. This is a Dungeons & Dragons 5th Edition game in which you'
+        f' play the role of a character named {agent_name}. The goal is to be'
+        ' consistent with the shared memories of the group and follow the game'
+        ' rules. It is important to play the role of a person like'
+        f' {agent_name} as consistently and accurately as possible, i.e., by'
+        ' responding in ways that you think it is likely a person like'
+        f' {agent_name} would respond, and taking into account all information'
+        f' about {agent_name} that is relevant to the shared memories of the'
+        f' group. If the personal goal of {agent_name} interfere with the group'
+        ' goal based on shared memories, ignore personal goal. It is'
+        ' important that you collaborate with other adventurers in your group'
+        ' and cooperate with the game master. Always use first-person limited'
+        ' perspective.'
     )
     super().__init__(
         state=state,

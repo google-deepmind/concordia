@@ -97,7 +97,8 @@ class PersonBySituation(component.Component):
         f'***\nCurrent time: {self._clock_now()}\n' + component_states)
     question = (
         f'What would a person like {self._agent_name}, given the role playing'
-        ' instructions do in a situation like this?'
+        ' instructions and understanding of D&D 5th Edition game rules, do in'
+        ' a situation like this?'
     )
     if self._clock_now is not None:
       question = f'{question}'

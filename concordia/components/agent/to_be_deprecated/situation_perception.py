@@ -99,8 +99,9 @@ class SituationPerception(component.Component):
     prompt.statement(component_states)
 
     question = (
-        'Given the statements above and the role playing instructions, what'
-        f' kind of situation is {self._agent_name} in right now?'
+        'Given the statements above and the role playing instructions, and the'
+        ' D&D 5th Edition game rules what kind of situation is'
+        f' {self._agent_name} in right now?'
     )
     self._state = prompt.open_question(
         question,
