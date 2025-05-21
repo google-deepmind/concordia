@@ -40,6 +40,7 @@ class ConcatActComponent(
       self,
       model: language_model.LanguageModel,
       component_order: Sequence[str] | None = None,
+      prefix_entity_name: bool = True,
   ):
     """Initializes the agent.
 
@@ -55,6 +56,8 @@ class ConcatActComponent(
         component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
+      prefix_entity_name: Whether to prefix the entity name to the output of
+        `get_action_attempt` when the `action_spec` output type is `FREE`. 
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -62,6 +65,7 @@ class ConcatActComponent(
     """
     super().__init__()
     self._model = model
+    self._prefix_entity_name = prefix_entity_name
     if component_order is None:
       self._component_order = None
     else:
@@ -102,7 +106,9 @@ class ConcatActComponent(
         name=self.get_entity().name
     )
     if action_spec.output_type in entity_lib.FREE_ACTION_TYPES:
-      output = self.get_entity().name + ' '
+      output = ''
+      if self._prefix_entity_name:
+        output = self.get_entity().name + ' '
       output += prompt.open_question(
           call_to_action,
           max_tokens=2200,
@@ -120,7 +126,10 @@ class ConcatActComponent(
       self._log(output, prompt)
       return output
     elif action_spec.output_type == entity_lib.OutputType.FLOAT:
-      prefix = self.get_entity().name + ' '
+      if self._prefix_entity_name:
+        prefix = self.get_entity().name + ' '
+      else:
+        prefix = ''
       sampled_text = prompt.open_question(
           call_to_action,
           max_tokens=2200,

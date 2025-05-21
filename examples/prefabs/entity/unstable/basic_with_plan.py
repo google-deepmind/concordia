@@ -32,6 +32,7 @@ class Entity(prefab_lib.Prefab):
       'An entity that makes decisions by asking "What situation am I in right'
       ' now?", "What kind of person am I?", and "What would a person like me do'
       ' in a situation like this?" and building a plan based on the answers.'
+      ' It then tries to execute the plan.'
   )
   params: Mapping[str, str] = dataclasses.field(
       default_factory=lambda: {
