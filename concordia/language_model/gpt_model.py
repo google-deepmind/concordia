@@ -16,10 +16,11 @@
 """Language Model that uses OpenAI's GPT models."""
 
 import os
-import openai
+
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 from concordia.language_model.base_gpt_model import BaseGPTModel
+from concordia.utils.deprecated import measurements as measurements_lib
+import openai
 
 
 class GptLanguageModel(BaseGPTModel):
@@ -44,7 +45,7 @@ class GptLanguageModel(BaseGPTModel):
       channel: The channel to write the statistics to.
     """
     if api_key is None:
-        api_key = os.environ['OPENAI_API_KEY']
+      api_key = os.environ['OPENAI_API_KEY']
     self._api_key = api_key
     client = openai.OpenAI(api_key=self._api_key)
     super().__init__(model_name=model_name,

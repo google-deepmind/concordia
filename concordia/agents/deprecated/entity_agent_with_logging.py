@@ -23,7 +23,7 @@ from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import formative_memories
 from concordia.typing.deprecated import agent
 from concordia.typing.deprecated import entity_component
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import reactivex as rx
 
 

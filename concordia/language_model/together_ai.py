@@ -27,7 +27,7 @@ import time
 
 from absl import logging
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import together
 from typing_extensions import override

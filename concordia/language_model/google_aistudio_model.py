@@ -20,11 +20,10 @@ import os
 import time
 
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 from concordia.utils import text
+from concordia.utils.deprecated import measurements as measurements_lib
 import google.generativeai as genai
-
 from typing_extensions import override
 
 
@@ -176,7 +175,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     try:
       response = sample.candidates[0].content.parts[0].text
     except ValueError as e:
-      print('An error occured: ', e)
+      print('An error occurred: ', e)
       print(f'prompt: {prompt}')
       print(f'sample: {sample}')
       response = ''

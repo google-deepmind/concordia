@@ -31,7 +31,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import logging
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 
 

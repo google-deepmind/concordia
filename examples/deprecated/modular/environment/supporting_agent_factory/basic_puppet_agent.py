@@ -26,7 +26,7 @@ from concordia.components.agent import deprecated as agent_components
 from concordia.deprecated.memory_bank import legacy_associative_memory
 from concordia.language_model import language_model
 from concordia.typing.deprecated import entity_component
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 
 
 def _get_class_name(object_: object) -> str:

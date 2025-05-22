@@ -20,7 +20,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import clock as game_clock
 from concordia.typing.deprecated import component
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 
 DEFAULT_SCALE = (
     'activity unrelated to the goal',

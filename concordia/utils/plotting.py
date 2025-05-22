@@ -16,7 +16,7 @@
 """Functions for plotting metrics."""
 
 from typing import Collection
-from concordia.utils import measurements
+from concordia.utils.deprecated import measurements
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd

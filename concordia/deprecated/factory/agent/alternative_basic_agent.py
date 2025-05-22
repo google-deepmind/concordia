@@ -28,7 +28,7 @@ from concordia.contrib.components.agent.deprecated import situation_representati
 from concordia.deprecated.memory_bank import legacy_associative_memory
 from concordia.language_model import language_model
 from concordia.typing.deprecated import entity_component
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 
 

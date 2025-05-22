@@ -11,3 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Entity prefabs."""
+
+from concordia.examples.prefabs.entity import basic
+from concordia.examples.prefabs.entity import basic_with_plan
+from concordia.examples.prefabs.entity import minimal

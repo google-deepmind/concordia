@@ -74,7 +74,7 @@ import importlib
 
 from concordia.language_model import call_limit_wrapper
 from concordia.language_model import utils
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
 

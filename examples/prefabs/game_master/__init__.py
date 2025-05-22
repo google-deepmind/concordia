@@ -11,3 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Game Master prefabs."""
+
+from concordia.examples.prefabs.game_master import dialogic
+from concordia.examples.prefabs.game_master import dialogic_and_dramaturgic
+from concordia.examples.prefabs.game_master import formative_memories_initializer
+from concordia.examples.prefabs.game_master import game_theoretic_and_dramaturgic
+from concordia.examples.prefabs.game_master import generic
+from concordia.examples.prefabs.game_master import situated

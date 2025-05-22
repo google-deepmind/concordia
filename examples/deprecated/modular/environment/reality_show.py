@@ -45,7 +45,7 @@ from concordia.thought_chains.deprecated import thought_chains as thought_chains
 from concordia.typing.deprecated import agent as agent_lib
 from concordia.typing.deprecated import scene as scene_lib
 from concordia.utils import concurrency
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import immutabledict
 import numpy as np
 

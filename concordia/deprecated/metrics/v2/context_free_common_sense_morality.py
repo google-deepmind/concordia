@@ -21,7 +21,7 @@ from concordia.language_model import language_model
 from concordia.typing.deprecated import clock as game_clock
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import logging
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 
 DEFAULT_SCALE = ('abhorrent', 'wrong', 'neutral', 'right', 'praiseworthy')
 DEFAULT_CHANNEL_NAME = 'context_free_common_sense_morality'

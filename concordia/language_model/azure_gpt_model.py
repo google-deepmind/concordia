@@ -13,13 +13,14 @@
 # limitations under the License.
 
 
-"""Language Model that uses OpenAI's GPT models using AZURE"""
+"""Language Model that uses OpenAI's GPT models using AZURE."""
 
 import os
-from openai import AzureOpenAI
+
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 from concordia.language_model.base_gpt_model import BaseGPTModel
+from concordia.utils.deprecated import measurements as measurements_lib
+from openai import AzureOpenAI
 
 
 class AzureGptLanguageModel(BaseGPTModel):
@@ -43,18 +44,18 @@ class AzureGptLanguageModel(BaseGPTModel):
       api_key: The API key to use when accessing the OpenAI API. If None, will
         use the OPENAI_API_KEY environment variable.
       azure_endpoint: The Azure endpoint to use when accessing the OpenIA API.
-       If None, will use the AZURE_OPENAI_ENDPOINT environment variable.
+        If None, will use the AZURE_OPENAI_ENDPOINT environment variable.
       api_version: The Azure api version to use when accessing the OpenIA API.
-       If None, will use the AZURE_OPENAI_API_VERSION environment variable.
+        If None, will use the AZURE_OPENAI_API_VERSION environment variable.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
     if api_key is None:
-        api_key = os.environ['AZURE_OPENAI_API_KEY']
+      api_key = os.environ['AZURE_OPENAI_API_KEY']
     if azure_endpoint is None:
-        azure_endpoint = os.environ['AZURE_OPENAI_ENDPOINT']
+      azure_endpoint = os.environ['AZURE_OPENAI_ENDPOINT']
     if api_version is None:
-        api_version = os.environ['AZURE_OPENAI_API_VERSION']
+      api_version = os.environ['AZURE_OPENAI_API_VERSION']
 
     self._api_key = api_key
     self._azure_endpoint = azure_endpoint

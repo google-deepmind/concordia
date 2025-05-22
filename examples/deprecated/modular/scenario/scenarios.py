@@ -28,7 +28,7 @@ from examples.modular.scenario import supporting_agents as bots
 from examples.modular.utils import logging_types as logging_lib
 from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
+from concordia.utils.deprecated import measurements as measurements_lib
 import immutabledict
 import numpy as np
 

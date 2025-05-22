@@ -18,9 +18,10 @@ from collections.abc import Collection, Sequence
 
 import boto3
 from concordia.language_model import language_model
-from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
+from concordia.utils.deprecated import measurements as measurements_lib
 from typing_extensions import override
+
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
