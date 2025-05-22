@@ -132,7 +132,7 @@ class SceneTracker(
 
   def _get_premise(
       self, scene: scene_lib.SceneSpec, participant: str
-  ) -> Sequence[str]:
+  ) -> Sequence[str | Callable[[str], str]]:
     if scene.premise is None:
       premises = scene.scene_type.default_premise[participant]
     else:
