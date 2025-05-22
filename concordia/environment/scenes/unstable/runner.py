@@ -17,12 +17,12 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from concordia.agents import entity_agent
+from concordia.agents.deprecated import entity_agent
 from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.agent.unstable import observation as observation_component
-from concordia.typing import clock as game_clock
-from concordia.typing import logging as logging_lib
-from concordia.typing import scene as scene_lib
+from concordia.typing.deprecated import clock as game_clock
+from concordia.typing.deprecated import logging as logging_lib
+from concordia.typing.deprecated import scene as scene_lib
 from concordia.utils import json as json_lib
 
 _SCENE_TYPE_TAG = '[scene type]'

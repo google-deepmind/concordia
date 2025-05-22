@@ -22,9 +22,9 @@ from concordia.components.agent.unstable import memory as memory_component
 from concordia.components.game_master.unstable import event_resolution as event_resolution_component
 from concordia.components.game_master.unstable import switch_act
 from concordia.environment.scenes.unstable import runner as scene_runner
-from concordia.typing import logging
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import entity_component
+from concordia.typing.unstable import logging
 
 
 @dataclasses.dataclass

@@ -24,12 +24,12 @@ from concordia.agents.unstable import entity_agent_with_logging
 from concordia.associative_memory.unstable import basic_associative_memory as associative_memory
 from concordia.components.agent import unstable as agent_components
 from concordia.environment.unstable.engines import sequential
-from examples.prefabs.game_master.unstable import dialogic
-from examples.prefabs.game_master.unstable import dialogic_and_dramaturgic
-from examples.prefabs.game_master.unstable import formative_memories_initializer
-from examples.prefabs.game_master.unstable import game_theoretic_and_dramaturgic
-from examples.prefabs.game_master.unstable import generic
-from examples.prefabs.game_master.unstable import situated
+from concordia.examples.prefabs.game_master.unstable import dialogic
+from concordia.examples.prefabs.game_master.unstable import dialogic_and_dramaturgic
+from concordia.examples.prefabs.game_master.unstable import formative_memories_initializer
+from concordia.examples.prefabs.game_master.unstable import game_theoretic_and_dramaturgic
+from concordia.examples.prefabs.game_master.unstable import generic
+from concordia.examples.prefabs.game_master.unstable import situated
 from concordia.language_model import no_language_model
 from concordia.typing.unstable import entity as entity_lib
 from concordia.typing.unstable import scene as scene_lib

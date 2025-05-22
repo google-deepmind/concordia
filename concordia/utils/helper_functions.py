@@ -20,7 +20,7 @@ import functools
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
-from concordia.typing import component
+from concordia.typing.deprecated import component
 from concordia.utils import concurrency
 
 

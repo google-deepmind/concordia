@@ -13,4 +13,4 @@
 # limitations under the License.
 
 """Configurator prefabs."""
-from examples.prefabs.configurator.unstable import basic
+from concordia.examples.prefabs.configurator.unstable import basic

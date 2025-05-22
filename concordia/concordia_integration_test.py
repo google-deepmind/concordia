@@ -17,18 +17,18 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from concordia import components
-from concordia.agents import deprecated_agent
-from concordia.associative_memory import associative_memory
-from concordia.associative_memory import blank_memories
-from concordia.associative_memory import importance_function
+from concordia.agents.deprecated import deprecated_agent
+from concordia.associative_memory.deprecated import associative_memory
+from concordia.associative_memory.deprecated import blank_memories
+from concordia.associative_memory.deprecated import importance_function
 from concordia.clocks import game_clock
-from concordia.components import game_master as gm_components
-from concordia.components.agent import to_be_deprecated as agent_components
-from concordia.environment import game_master
-from concordia.metrics import common_sense_morality
-from concordia.metrics import goal_achievement
-from concordia.metrics import opinion_of_others
+from concordia.components import deprecated as components
+from concordia.components.agent.deprecated import to_be_deprecated as agent_components
+from concordia.components.game_master import deprecated as gm_components
+from concordia.deprecated.metrics import common_sense_morality
+from concordia.deprecated.metrics import goal_achievement
+from concordia.deprecated.metrics import opinion_of_others
+from concordia.environment.deprecated import game_master
 from concordia.testing import mock_model
 import numpy as np
 

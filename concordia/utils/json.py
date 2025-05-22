@@ -16,8 +16,8 @@
 
 import json
 
-from concordia.agents import entity_agent_with_logging
-from concordia.typing import entity_component
+from concordia.agents.deprecated import entity_agent_with_logging
+from concordia.typing.deprecated import entity_component
 
 
 def save_to_json(
