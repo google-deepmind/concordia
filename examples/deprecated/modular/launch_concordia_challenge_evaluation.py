@@ -16,26 +16,27 @@ r"""Evaluate the submitted agent on all scenarios.
 
 Usage:
 cd {concordia_root}/
-PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch_one_scenario.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/deprecated/modular/launch_concordia_challenge_evaluation.py \
   --agent=AGENT_NAME \
-  --scenario=SCENARIO_NAME \
   --api_type=API_TYPE \
   --model=MODEL_NAME \
   --embedder=EMBEDDER_NAME \
-  --num_repetitions_per_scenario=NUM_REPETITIONS_PER_SCENARIO
+  --num_repetitions_per_scenario=NUM_REPETITIONS_PER_SCENARIO \
+  --device=DEVICE_NAME
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
-SCENARIO_NAME indicates a key in the SCENARIO_CONFIGS dictionary in
-concordia/examples/modular/scenario/scenarios.py,
+ENVIRONMENT_NAME indicates a file under examples/deprecated/modular/environment,
 API_TYPE is one of the options named in concordia/language_model/utils.py,
 e.g. 'google_aistudio_model', 'openai', 'mistral', 'ollama', 'amazon_bedrock'.
 MODEL_NAME is a specific model under the chosen API_TYPE. See the corresponding
 wrapper in concordia/language_model/ for the link to the website where the
 model names are listed for each type of API.
-and EMBEDDER_NAME specifies a sentence transformers embedding model listed at
+EMBEDDER_NAME specifies a sentence transformers embedding model listed at
 https://huggingface.co/sentence-transformers.
 NUM_REPETITIONS_PER_SCENARIO specifies how many times to repeat each scenario,
 averaging the results to produce a single score per scenario.
+DEVICE_NAME is used for local models to specify computing device (e.g., 'cuda:0'
+for GPU acceleration or 'cpu' for CPU processing).
 
 This script will download the embedder from huggingface and cache it locally.
 
@@ -69,11 +70,15 @@ the same model and embedder.
 """
 
 import argparse
+from collections.abc import Sequence
 import datetime
+import functools
 import importlib
+import os
 
 from concordia.language_model import call_limit_wrapper
 from concordia.language_model import utils
+from concordia.utils import concurrency
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
@@ -93,13 +98,17 @@ parser.add_argument(
     dest='agent_name',
 )
 parser.add_argument(
-    '--scenario',
-    action='store',
-    default='labor_collective_action__fixed_rule_boss_0',
-    dest='scenario_name',
+    '--api_type', action='store', default='mistral', dest='api_type'
 )
 parser.add_argument(
-    '--api_type', action='store', default='mistral', dest='api_type'
+    '--device',
+    action='store',
+    default=None,
+    dest='device',
+    help=(
+        'Device to use for model inference (e.g., "cuda:0" for GPU, "cpu" for '
+        'CPU). Only applies to local models.'
+    ),
 )
 parser.add_argument(
     '--model', action='store', default='codestral-latest', dest='model_name'
@@ -117,17 +126,10 @@ parser.add_argument(
     default=1,
     dest='num_repetitions_per_scenario',
 )
-parser.add_argument('--api_key', action='store', default=None, dest='api_key')
-parser.add_argument(
-    '--device',
-    action='store',
-    default=None,
-    dest='device',
-    help=(
-        'Device to use for model inference (e.g., "cuda:0" for GPU, "cpu" for '
-        'CPU). Only applies to local models.'
-    ),
-)
+parser.add_argument('--api_key',
+                    action='store',
+                    default=None,
+                    dest='api_key')
 parser.add_argument(
     '--disable_language_model',
     action='store_true',
@@ -189,10 +191,27 @@ if not args.disable_language_model:
 else:
   embedder = lambda x: np.ones(5)
 
-print(f'Running scenario: {args.scenario_name}')
-scenario_config = scenarios_lib.SCENARIO_CONFIGS[args.scenario_name]
-# Run several simulations per scenario
-for repetition_idx in range(args.num_repetitions_per_scenario):
+# Create evaluation results directory
+start_time = datetime.datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+results_dir = f'evaluations/evaluation__{args.agent_name}__{start_time}'
+os.makedirs(results_dir, exist_ok=True)
+
+
+def _evaluate_one_repetition(
+    scenario_name: str,
+    scenario_config: scenarios_lib.ScenarioConfig,
+    repetition_idx: int,
+) -> logging_lib.SimulationOutcome:
+  """Evaluates the agent on one scenario, one repetition.
+
+  Args:
+    scenario_name: name of the scenario
+    scenario_config: config for the scenario
+    repetition_idx: index of the repetition
+
+  Returns:
+    SimulationOutcome object with the results of the evaluation.
+  """
   measurements = measurements_lib.Measurements()
   runnable_simulation = scenarios_lib.build_simulation(
       scenario_config=scenario_config,
@@ -205,52 +224,122 @@ for repetition_idx in range(args.num_repetitions_per_scenario):
   )
   # Run the simulation
   outcome, text_results_log = runnable_simulation()
-  if scenario_config.focal_is_resident:
-    focal_scores = list(outcome.resident_scores.values())
-    background_scores = list(outcome.visitor_scores.values())
-  else:
-    focal_scores = list(outcome.visitor_scores.values())
-    background_scores = list(outcome.resident_scores.values())
-  # Ungrouped scores do not differentiate between focal and background.
-  ungrouped_scores = focal_scores + background_scores
-  # Calculate per capita scores.
-  print('\nScores:')
-  focal_per_capita_score = np.mean(focal_scores)
-  print(f'  Focal per capita score: {focal_per_capita_score}')
-  background_per_capita_score = np.mean(background_scores)
-  print(f'  Background per capita score: {background_per_capita_score}')
-  ungrouped_per_capita_score = np.mean(ungrouped_scores)
-  print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
   # Write the full text log as an HTML file in the current working directory.
   html_filename = (
-      f'{args.scenario_name}__{repetition_idx}__'
-      + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+      f'{results_dir}/{scenario_name}__{repetition_idx}__'
+      + datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
       + '.html'
   )
   with open(html_filename, 'a', encoding='utf-8') as f:
     f.write(text_results_log)
+  return outcome
 
-  scenario_result = logging_lib.ScenarioResult(
-      scenario=args.scenario_name,
-      repetition_idx=str(repetition_idx),
-      focal_agent=args.agent_name,
-      background_agent=scenario_config.background_agent_module,
-      focal_per_capita_score=focal_per_capita_score,
-      background_per_capita_score=background_per_capita_score,
-      ungrouped_per_capita_score=ungrouped_per_capita_score,
-      simulation_outcome=outcome,
-      focal_is_resident=scenario_config.focal_is_resident,
-      api_type=args.api_type,
-      model=args.model_name,
-      embedder=args.embedder_name,
-      disable_language_model=args.disable_language_model,
-      exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+
+def _evaluate_all_repetitions_on_one_scenario(
+    scenario_name: str,
+    scenario_config: scenarios_lib.ScenarioConfig,
+) -> Sequence[logging_lib.ScenarioResult]:
+  """Evaluates the agent on one scenario, averaging over repetitions.
+
+  Args:
+    scenario_name: name of the scenario
+    scenario_config: config for the scenario
+  Returns:
+    ScenarioResult object with the results of the evaluation.
+  Raises:
+    ExceptionGroup: if any of the repetitions raised an exception.
+  """
+  print(f'Running scenario: {scenario_name}')
+  # Run several simulations per scenario
+  tasks_this_scenario = {
+      str(i): functools.partial(
+          _evaluate_one_repetition,
+          scenario_name=scenario_name,
+          scenario_config=scenario_config,
+          repetition_idx=i,
+      )
+      for i in range(args.num_repetitions_per_scenario)
+  }
+  outputs_per_repetition, exceptions_per_repetition = (
+      concurrency.run_tasks_in_background(
+          tasks_this_scenario,
+      )
   )
-  scenario_json_filename = (
-      f'{args.agent_name}__{args.model_name}__'
-      f'{args.embedder_name}__only__{args.scenario_name}__{repetition_idx}'
-      '.json'
-  ).replace('/', '_')
-  json_str_ = scenario_result.to_json()
-  with open(scenario_json_filename, 'a', encoding='utf-8') as f:
-    f.write(json_str_)
+  if exceptions_per_repetition:
+    raise ExceptionGroup(
+        'Raised errors', list(exceptions_per_repetition.values())
+    )
+
+  scenario_results = []
+  for repetition_idx, outcome in outputs_per_repetition.items():
+    if scenario_config.focal_is_resident:
+      focal_scores = list(outcome.resident_scores.values())
+      background_scores = list(outcome.visitor_scores.values())
+    else:
+      focal_scores = list(outcome.visitor_scores.values())
+      background_scores = list(outcome.resident_scores.values())
+    # Ungrouped scores do not differentiate between focal and background.
+    ungrouped_scores = focal_scores + background_scores
+    # Calculate per capita scores.
+    print(f'\nScores for repetition {repetition_idx}:')
+    focal_per_capita_score = np.mean(focal_scores)
+    print(f'  Focal per capita score: {focal_per_capita_score}')
+    background_per_capita_score = np.mean(background_scores)
+    print(f'  Background per capita score: {background_per_capita_score}')
+    ungrouped_per_capita_score = np.mean(ungrouped_scores)
+    print(f'  Ungrouped per capita score: {ungrouped_per_capita_score}')
+
+    scenario_result_ = logging_lib.ScenarioResult(
+        scenario=scenario_name,
+        repetition_idx=repetition_idx,
+        focal_agent=args.agent_name,
+        background_agent=scenario_config.background_agent_module,
+        focal_per_capita_score=focal_per_capita_score,
+        background_per_capita_score=background_per_capita_score,
+        ungrouped_per_capita_score=ungrouped_per_capita_score,
+        simulation_outcome=outcome,
+        focal_is_resident=scenario_config.focal_is_resident,
+        api_type=args.api_type,
+        model=args.model_name,
+        embedder=args.embedder_name,
+        disable_language_model=args.disable_language_model,
+        exclude_from_elo_calculation=args.exclude_from_elo_calculation,
+    )
+    scenario_json_filename = (
+        f'{args.agent_name}__{args.model_name}__'
+        f'{args.embedder_name}__only__{scenario_name}__{repetition_idx}.json'
+    ).replace('/', '_')
+    scenario_json_filename = os.path.join(results_dir, scenario_json_filename)
+    json_str_ = scenario_result_.to_json()
+    with open(scenario_json_filename, 'a', encoding='utf-8') as f:
+      f.write(json_str_)
+    scenario_results.append(scenario_result_)
+  return scenario_results
+
+tasks = {
+    name: functools.partial(
+        _evaluate_all_repetitions_on_one_scenario,
+        scenario_name=name,
+        scenario_config=config,
+    )
+    for (name, config) in scenarios_lib.SCENARIO_CONFIGS.items()
+}
+evaluation_results = concurrency.run_tasks(tasks)
+
+# Save evaluation results for all scenarios with this agent to one json file.
+num_expected_results = (len(scenarios_lib.SCENARIO_CONFIGS) *
+                        args.num_repetitions_per_scenario)
+json_filename = (
+    f'{args.agent_name}__{args.model_name}__{args.embedder_name}.json'
+).replace('/', '_')
+idx = 0
+with open(json_filename, 'a', encoding='utf-8') as file_handle:
+  file_handle.write('[\n')
+  for scenario_name_, _ in evaluation_results.items():
+    for scenario_result in evaluation_results[scenario_name_]:
+      json_str = scenario_result.to_json()
+      if idx < num_expected_results - 1:
+        json_str += ',\n'
+      file_handle.write(json_str)
+      idx += 1
+  file_handle.write('\n]')

@@ -15,7 +15,7 @@
 """Settings for a 1950s era american reality show for stag hunt.
 """
 
-from examples.modular.environment.modules import circa_1955_american_reality_show as parent_module
+from examples.deprecated.modular.environment.modules import circa_1955_american_reality_show as parent_module
 
 
 def sample_parameters(seed: int | None = None):

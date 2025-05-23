@@ -19,7 +19,7 @@ import dataclasses
 from typing import Any
 
 from concordia.contrib.components.game_master.deprecated import industrial_action
-from examples.modular.environment.modules import wild_west_railroad_construction_labor
+from examples.deprecated.modular.environment.modules import wild_west_railroad_construction_labor
 import immutabledict
 
 

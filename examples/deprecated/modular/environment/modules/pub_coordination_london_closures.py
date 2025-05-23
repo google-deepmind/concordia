@@ -15,8 +15,8 @@
 """A set of pub names and reasons to like them."""
 
 import random
-from examples.modular.environment import pub_coordination
-from examples.modular.environment.modules import pub_coordination_london
+from examples.deprecated.modular.environment import pub_coordination
+from examples.deprecated.modular.environment.modules import pub_coordination_london
 
 YEAR = pub_coordination_london.YEAR
 MONTH = pub_coordination_london.MONTH

@@ -15,7 +15,7 @@
 """World configuration for the Fruitville haggling scenario."""
 
 import random
-from examples.modular.environment import haggling
+from examples.deprecated.modular.environment import haggling
 
 YEAR = 1895
 MONTH = 9

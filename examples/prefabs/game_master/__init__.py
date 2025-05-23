@@ -14,9 +14,9 @@
 
 """Game Master prefabs."""
 
-from concordia.examples.prefabs.game_master import dialogic
-from concordia.examples.prefabs.game_master import dialogic_and_dramaturgic
-from concordia.examples.prefabs.game_master import formative_memories_initializer
-from concordia.examples.prefabs.game_master import game_theoretic_and_dramaturgic
-from concordia.examples.prefabs.game_master import generic
-from concordia.examples.prefabs.game_master import situated
+from examples.prefabs.game_master import dialogic
+from examples.prefabs.game_master import dialogic_and_dramaturgic
+from examples.prefabs.game_master import formative_memories_initializer
+from examples.prefabs.game_master import game_theoretic_and_dramaturgic
+from examples.prefabs.game_master import generic
+from examples.prefabs.game_master import situated

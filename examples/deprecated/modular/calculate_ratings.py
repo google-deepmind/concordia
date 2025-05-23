@@ -36,11 +36,11 @@ import datetime
 import numpy as np
 
 # pylint: disable=g-bad-import-order
-from examples.modular.scenario import scenarios as scenarios_lib
-from examples.modular.scoring import elo
-from examples.modular.scoring import utils as scoring_utils
-from examples.modular.utils import files as file_utils
-from examples.modular.utils import logging_types as logging_lib
+from examples.deprecated.modular.scenario import scenarios as scenarios_lib
+from examples.deprecated.modular.scoring import elo
+from examples.deprecated.modular.scoring import utils as scoring_utils
+from examples.deprecated.modular.utils import files as file_utils
+from examples.deprecated.modular.utils import logging_types as logging_lib
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(

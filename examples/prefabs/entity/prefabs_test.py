@@ -18,10 +18,10 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent
 from concordia.associative_memory import basic_associative_memory
-from concordia.examples.prefabs.entity import basic
-from concordia.examples.prefabs.entity import basic_with_plan
-from concordia.examples.prefabs.entity import fake_assistant_with_configurable_system_prompt
-from concordia.examples.prefabs.entity import minimal
+from examples.prefabs.entity import basic
+from examples.prefabs.entity import basic_with_plan
+from examples.prefabs.entity import fake_assistant_with_configurable_system_prompt
+from examples.prefabs.entity import minimal
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
 import numpy as np

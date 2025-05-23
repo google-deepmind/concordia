@@ -33,12 +33,12 @@ from concordia.components.game_master import deprecated as gm_components
 from concordia.contrib.components.game_master import deprecated as gm_contrib
 from concordia.deprecated.factory.agent import basic_agent
 from concordia.deprecated.factory.environment import basic_game_master
-from examples.modular.environment.modules import alchemy
-from examples.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
-from examples.modular.environment.modules import player_traits_and_styles
-from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
-from examples.modular.scenario import scenarios as scenarios_lib
-from examples.modular.utils import logging_types as logging_lib
+from examples.deprecated.modular.environment.modules import alchemy
+from examples.deprecated.modular.environment.modules import laudanum_and_mysticism_in_victorian_london
+from examples.deprecated.modular.environment.modules import player_traits_and_styles
+from examples.deprecated.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.deprecated.modular.scenario import scenarios as scenarios_lib
+from examples.deprecated.modular.utils import logging_types as logging_lib
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
 from concordia.typing.deprecated import scene as scene_lib

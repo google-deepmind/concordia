@@ -16,7 +16,7 @@ r"""Launch a simulation, replicating colab workflows in a regular python script.
 
 Usage:
 cd {concordia_root}/
-PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch.py \
+PYTHONPATH=. PYTHONSAFEPATH=1 python examples/deprecated/modular/launch.py \
   --agent=AGENT_NAME \
   --environment=ENVIRONMENT_NAME \
   --api_type=API_TYPE \
@@ -24,7 +24,7 @@ PYTHONPATH=. PYTHONSAFEPATH=1 python examples/modular/launch.py \
   --embedder=EMBEDDER_NAME
 
 Where AGENT_NAME indicates a file under concordia/factory/agent,
-ENVIRONMENT_NAME indicates a file under examples/modular/environment,
+ENVIRONMENT_NAME indicates a file under examples/deprecated/modular/environment,
 API_TYPE is one of the options named in concordia/language_model/utils.py,
 e.g. 'google_aistudio_model', 'openai', 'mistral', 'ollama', 'amazon_bedrock'.
 MODEL_NAME is a specific model under the chosen API_TYPE. See the corresponding

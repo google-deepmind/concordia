@@ -20,7 +20,7 @@ import random
 import types
 from typing import Any
 
-from examples.modular.environment import modules
+from examples.deprecated.modular.environment import modules
 
 
 def load_time_and_place_module(

@@ -22,11 +22,11 @@ import types
 
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.deprecated.factory import agent as agent_lib
-from examples.modular import environment as environment_lib
-from examples.modular.environment import supporting_agent_factory
-from examples.modular.scenario import supporting_agents as bots
-from examples.modular.utils import logging_types as logging_lib
-from examples.modular.utils import supporting_agent_factory_with_overrides as bots_lib
+from examples.deprecated.modular import environment as environment_lib
+from examples.deprecated.modular.environment import supporting_agent_factory
+from examples.deprecated.modular.scenario import supporting_agents as bots
+from examples.deprecated.modular.utils import logging_types as logging_lib
+from examples.deprecated.modular.utils import supporting_agent_factory_with_overrides as bots_lib
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
 import immutabledict

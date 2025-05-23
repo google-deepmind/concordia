@@ -15,7 +15,7 @@
 """Settings for an early 2000s american reality show for the prisoners_dilemma.
 """
 
-from examples.modular.environment.modules import circa_2003_american_reality_show as parent_module
+from examples.deprecated.modular.environment.modules import circa_2003_american_reality_show as parent_module
 
 
 def sample_parameters(seed: int | None = None):

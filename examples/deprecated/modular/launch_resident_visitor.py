@@ -111,7 +111,7 @@ resident_agent_module = importlib.import_module(
 visitor_agent_module = importlib.import_module(
     f'{IMPORT_AGENT_BASE_DIR}.{args.visitor_agent_name}')
 # Load the environment config with importlib
-IMPORT_ENV_BASE_DIR = 'examples.modular.environment'
+IMPORT_ENV_BASE_DIR = 'examples.deprecated.modular.environment'
 simulation = importlib.import_module(
     f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
 

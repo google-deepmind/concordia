@@ -23,8 +23,8 @@ from concordia.agents import entity_agent
 from concordia.associative_memory import basic_associative_memory
 from concordia.associative_memory import formative_memories
 from concordia.clocks import game_clock
-from concordia.examples.environment.supporting_agent_factory import basic
-from concordia.examples.environment.supporting_agent_factory import rational
+from examples.environment.supporting_agent_factory import basic
+from examples.environment.supporting_agent_factory import rational
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
 import numpy as np

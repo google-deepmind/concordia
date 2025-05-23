@@ -14,7 +14,7 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from examples.modular.scoring import elo
+from examples.deprecated.modular.scoring import elo
 import numpy as np
 
 # pylint: disable=g-one-element-tuple

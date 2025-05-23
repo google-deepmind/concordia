@@ -28,7 +28,7 @@ from concordia.clocks import game_clock
 from concordia.components.game_master import deprecated as gm_components
 from concordia.deprecated.factory.agent import basic_agent
 from concordia.deprecated.factory.environment import basic_game_master
-from examples.modular.environment.modules import player_names
+from examples.deprecated.modular.environment.modules import player_names
 from concordia.language_model import language_model
 from concordia.thought_chains.deprecated import thought_chains as thought_chains_lib
 from concordia.typing.deprecated import agent as agent_lib

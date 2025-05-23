@@ -17,7 +17,7 @@
 from collections.abc import Sequence
 import random
 
-from examples.modular.environment import pub_coordination
+from examples.deprecated.modular.environment import pub_coordination
 
 
 YEAR = 2023

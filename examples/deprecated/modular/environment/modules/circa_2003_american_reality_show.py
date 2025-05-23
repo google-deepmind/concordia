@@ -17,7 +17,7 @@
 import random
 
 from concordia.components.game_master import deprecated as gm_components
-from examples.modular.environment import reality_show
+from examples.deprecated.modular.environment import reality_show
 from concordia.typing.deprecated import agent as agent_lib
 import numpy as np
 

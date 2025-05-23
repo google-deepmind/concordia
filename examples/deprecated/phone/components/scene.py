@@ -21,8 +21,8 @@ from concordia.associative_memory.deprecated import blank_memories
 from concordia.clocks import game_clock
 from concordia.document import interactive_document
 from concordia.environment.deprecated import game_master as game_master_lib
-from examples.phone.components import apps
-from examples.phone.components import logging
+from examples.deprecated.phone.components import apps
+from examples.deprecated.phone.components import logging
 from concordia.language_model import language_model
 from concordia.thought_chains.deprecated import thought_chains
 from concordia.typing.deprecated import agent

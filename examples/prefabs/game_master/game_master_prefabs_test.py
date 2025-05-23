@@ -24,12 +24,12 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.components import agent as agent_components
 from concordia.environment.engines import sequential
-from concordia.examples.prefabs.game_master import dialogic
-from concordia.examples.prefabs.game_master import dialogic_and_dramaturgic
-from concordia.examples.prefabs.game_master import formative_memories_initializer
-from concordia.examples.prefabs.game_master import game_theoretic_and_dramaturgic
-from concordia.examples.prefabs.game_master import generic
-from concordia.examples.prefabs.game_master import situated
+from examples.prefabs.game_master import dialogic
+from examples.prefabs.game_master import dialogic_and_dramaturgic
+from examples.prefabs.game_master import formative_memories_initializer
+from examples.prefabs.game_master import game_theoretic_and_dramaturgic
+from examples.prefabs.game_master import generic
+from examples.prefabs.game_master import situated
 from concordia.language_model import no_language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import scene as scene_lib

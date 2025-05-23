@@ -35,11 +35,11 @@ from concordia.deprecated.factory.agent import basic_agent
 from concordia.deprecated.factory.environment import basic_game_master
 from concordia.document import interactive_document
 from concordia.environment.deprecated import game_master
-from examples.modular.environment.modules import player_traits_and_styles
-from examples.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
-from examples.modular.environment.utils import helper_functions
-from examples.modular.scenario import scenarios as scenarios_lib
-from examples.modular.utils import logging_types as logging_lib
+from examples.deprecated.modular.environment.modules import player_traits_and_styles
+from examples.deprecated.modular.environment.supporting_agent_factory import basic_agent as basic_agent_supporting
+from examples.deprecated.modular.environment.utils import helper_functions
+from examples.deprecated.modular.scenario import scenarios as scenarios_lib
+from examples.deprecated.modular.utils import logging_types as logging_lib
 from concordia.language_model import language_model
 from concordia.thought_chains.deprecated import thought_chains as thought_chains_lib
 from concordia.typing.deprecated import agent as agent_lib

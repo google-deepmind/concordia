@@ -14,6 +14,6 @@
 
 """Entity prefabs."""
 
-from concordia.examples.prefabs.entity import basic
-from concordia.examples.prefabs.entity import basic_with_plan
-from concordia.examples.prefabs.entity import minimal
+from examples.prefabs.entity import basic
+from examples.prefabs.entity import basic_with_plan
+from examples.prefabs.entity import minimal
