@@ -12,11 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Game Master prefabs."""
-
-from examples.prefabs.game_master import dialogic
-from examples.prefabs.game_master import dialogic_and_dramaturgic
-from examples.prefabs.game_master import formative_memories_initializer
-from examples.prefabs.game_master import game_theoretic_and_dramaturgic
-from examples.prefabs.game_master import generic
-from examples.prefabs.game_master import situated
+"""Configurator prefabs."""
+from concordia.prefabs.configurator import basic
