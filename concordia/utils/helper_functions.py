@@ -17,6 +17,8 @@
 from collections.abc import Iterable, Sequence
 import datetime
 import functools
+import inspect
+import types
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -165,3 +167,20 @@ def apply_recursively(
     getattr(parent_component, function_name)()
   else:
     getattr(parent_component, function_name)(function_arg)
+
+
+def get_package_classes(module: types.ModuleType):
+  """Load all classes defined in any file within a package."""
+  package_name = module.__package__
+  prefabs = {}
+  submodule_names = [
+      value for value in dir(module) if not value.startswith('__')]
+  for submodule_name in submodule_names:
+    submodule = getattr(module, submodule_name)
+    all_var_names = dir(submodule)
+    for var_name in all_var_names:
+      var = getattr(submodule, var_name)
+      if inspect.isclass(var) and var.__module__.startswith(package_name):
+        key = f'{submodule_name}__{var_name}'
+        prefabs[key] = var()
+  return prefabs
