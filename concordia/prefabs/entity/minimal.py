@@ -102,6 +102,29 @@ class Entity(prefab_lib.Prefab):
 
     component_order = list(components_of_agent.keys())
 
+    # Add the extra components to the end of the component order.
+    extra_components = self.params.get('extra_components', {})
+    extra_components_index = self.params.get('extra_components_index', {})
+
+    # Check that extra_components_index is a dict.
+    if not isinstance(extra_components_index, dict) or not isinstance(
+        extra_components, dict
+    ):
+      raise ValueError(
+          'extra_components_index and extra_components must be dict. Got'
+          f' {type(extra_components_index)} and {type(extra_components)}'
+      )
+
+    if extra_components:
+      if not extra_components_index:
+        extra_components_index = {
+            component_name: -1
+            for component_name in extra_components.keys()
+        }
+      for component_name, index in extra_components_index.items():
+        components_of_agent[component_name] = extra_components[component_name]
+        component_order.insert(index, component_name)
+
     if self.params.get('goal', ''):
       goal_key = DEFAULT_GOAL_COMPONENT_KEY
       goal = agent_components.constant.Constant(
