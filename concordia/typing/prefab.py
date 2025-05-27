@@ -20,9 +20,9 @@ import dataclasses
 import enum
 from typing import ClassVar
 
-from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.language_model import language_model
+from concordia.typing import entity_component
 
 
 class Role(enum.StrEnum):
@@ -38,7 +38,7 @@ class Prefab(abc.ABC):
   description: ClassVar[str]
   params: Mapping[str, str] = dataclasses.field(default_factory=dict)
   entities: (
-      Sequence[entity_agent_with_logging.EntityAgentWithLogging] | None
+      Sequence[entity_component.EntityWithComponents] | None
   ) = None
 
   @abc.abstractmethod
@@ -46,7 +46,7 @@ class Prefab(abc.ABC):
       self,
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
-  ) -> entity_agent_with_logging.EntityAgentWithLogging:
+  ) -> entity_component.EntityWithComponents:
     """Builds a prefab entity."""
     raise NotImplementedError
 

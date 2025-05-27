@@ -21,17 +21,18 @@ import copy
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment.engines import sequential
 from concordia.language_model import language_model
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
+from concordia.typing import simulation as simulation_lib
 from concordia.utils import html as html_lib
 import numpy as np
 
 
-Runnable = Callable[[str, int], str]
 Config = prefab_lib.Config
 Role = prefab_lib.Role
 
 
-class Simulation(Runnable):
+class Simulation(simulation_lib.Simulation):
   """Define the simulation API object."""
 
   def __init__(
@@ -115,7 +116,39 @@ class Simulation(Runnable):
           model=model, memory_bank=self.game_master_memory_bank)
       self.game_masters.append(game_master)
 
-  def __call__(
+  def get_game_masters(self) -> list[entity_component.EntityWithComponents]:
+    """Get the game masters.
+
+    The function returns a copy of the game masters list to avoid modifying the
+    original list. However, the game masters are not deep copied, so changes
+    to the game masters will be reflected in the simulation.
+
+    Returns:
+      A list of game master entities.
+    """
+    return copy.copy(self.game_masters)
+
+  def get_entities(self) -> list[entity_component.EntityWithComponents]:
+    """Get the entities.
+
+    The function returns a copy of the entities list to avoid modifying the
+    original list. However, the entities are not deep copied, so changes
+    to the entities will be reflected in the simulation.
+    
+    Returns:
+      A list of entities.
+    """
+    return copy.copy(self.entities)
+
+  def add_game_master(self, game_master: entity_component.EntityWithComponents):
+    """Add a game master to the simulation."""
+    self.game_masters.append(game_master)
+
+  def add_entity(self, entity: entity_component.EntityWithComponents):
+    """Add an entity to the simulation."""
+    self.entities.append(entity)
+
+  def play(
       self,
       premise: str | None = None,
       max_steps: int | None = None,
