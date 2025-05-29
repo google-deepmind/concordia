@@ -25,7 +25,9 @@ from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
 from concordia.utils import html as html_lib
+
 import numpy as np
+from typing_extensions import override
 
 
 Config = prefab_lib.Config
@@ -116,6 +118,7 @@ class Simulation(simulation_lib.Simulation):
           model=model, memory_bank=self.game_master_memory_bank)
       self.game_masters.append(game_master)
 
+  @override
   def get_game_masters(self) -> list[entity_component.EntityWithComponents]:
     """Get the game masters.
 
@@ -128,6 +131,7 @@ class Simulation(simulation_lib.Simulation):
     """
     return copy.copy(self.game_masters)
 
+  @override
   def get_entities(self) -> list[entity_component.EntityWithComponents]:
     """Get the entities.
 
@@ -140,10 +144,12 @@ class Simulation(simulation_lib.Simulation):
     """
     return copy.copy(self.entities)
 
+  @override
   def add_game_master(self, game_master: entity_component.EntityWithComponents):
     """Add a game master to the simulation."""
     self.game_masters.append(game_master)
 
+  @override
   def add_entity(self, entity: entity_component.EntityWithComponents):
     """Add an entity to the simulation."""
     self.entities.append(entity)
