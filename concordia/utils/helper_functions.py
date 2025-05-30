@@ -18,6 +18,7 @@ from collections.abc import Iterable, Sequence
 import datetime
 import functools
 import inspect
+import re
 import types
 
 from concordia.document import interactive_document
@@ -184,3 +185,87 @@ def get_package_classes(module: types.ModuleType):
         key = f'{submodule_name}__{var_name}'
         prefabs[key] = var()
   return prefabs
+
+
+def print_pretty_prefabs(data_dict):
+  """Generates a Markdown string representation of a dictionary.
+
+  Each object's representation (from its __repr__ method) is formatted
+  to show the class name and its arguments on separate lines,
+  indented, within a Python code block for syntax highlighting.
+  Lines for 'entities=None' or 'entities=()' will be omitted.
+
+  Args:
+      data_dict (dict): The dictionary to format. Values are expected to be
+        objects whose __repr__ produces a string like "ClassName(arg1=value1,
+        arg2=value2, ...)".
+
+  Returns:
+      str: A string formatted as Markdown.
+  """
+  output_lines = []
+
+  if not data_dict:
+    return '(The dictionary is empty)'
+
+  for key, value_obj in data_dict.items():
+    output_lines.append('---')
+
+    value_str = repr(value_obj)
+
+    output_lines.append(f'**`{key}`**:')
+    output_lines.append('```python')
+
+    first_paren_idx = value_str.find('(')
+
+    if first_paren_idx != -1 and value_str.endswith(')'):
+      class_name = value_str[:first_paren_idx]
+      output_lines.append(f'{class_name}(')
+
+      last_paren_idx = value_str.rfind(')')
+
+      if last_paren_idx > first_paren_idx:
+        args_content = value_str[first_paren_idx + 1 : last_paren_idx]
+
+        if args_content.strip():
+          raw_split_args = re.split(
+              r',\s*(?=[_a-zA-Z][_a-zA-Z0-9]*=)', args_content
+          )
+
+          # Filter arguments before printing
+          args_to_print = []
+          for arg_str in raw_split_args:
+            stripped_arg_str = arg_str.strip()
+            if not stripped_arg_str:  # Skip if argument is empty after strip
+              continue
+
+            # Check if the argument is 'entities=None' or 'entities=()'
+            if (
+                stripped_arg_str == 'entities=None'
+                or stripped_arg_str == 'entities=()'
+            ):
+              continue  # Skip this argument
+
+            args_to_print.append(stripped_arg_str)
+
+          if args_to_print:
+            for i, final_arg_str in enumerate(args_to_print):
+              line_to_add = f'    {final_arg_str}'
+
+              if i < len(args_to_print) - 1:  # If it's not the last argument
+                line_to_add += ','
+
+              output_lines.append(line_to_add)
+
+        output_lines.append(')')
+      else:
+        output_lines.append(')')
+    else:
+      output_lines.append(value_str)
+
+    output_lines.append('```')
+
+  if data_dict:
+    output_lines.append('---')
+
+  return '\n'.join(output_lines)
