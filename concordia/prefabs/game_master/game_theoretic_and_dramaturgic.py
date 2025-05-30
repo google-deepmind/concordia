@@ -199,16 +199,18 @@ class GameMaster(prefab_lib.Prefab):
         )
     )
 
+    scene_tracker_key = (
+        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    )
+
     next_actor = gm_components.next_acting.NextActingFromSceneSpec(
         memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
-        scene_tracker_component_key=(
-            gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
-        ),
+        scene_tracker_component_key=scene_tracker_key,
     )
 
     next_action_spec = gm_components.next_acting.NextActionSpecFromSceneSpec(
-        scenes=scenes,
         memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
+        scene_tracker_component_key=scene_tracker_key,
     )
 
     payoff_matrix_key = 'payoff_matrix'
@@ -251,9 +253,7 @@ class GameMaster(prefab_lib.Prefab):
         _get_class_name(instructions): instructions,
         _get_class_name(examples_synchronous): examples_synchronous,
         _get_class_name(player_characters): player_characters,
-        gm_components.scene_tracker.DEFAULT_SCENE_TRACKER_COMPONENT_KEY: (
-            scene_tracker
-        ),
+        scene_tracker_key: scene_tracker,
         terminator_key: terminator,
         _get_class_name(observation_to_memory): observation_to_memory,
         display_events_key: display_events,
@@ -265,7 +265,7 @@ class GameMaster(prefab_lib.Prefab):
         ),
         make_observation_key: make_observation,
         gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: next_actor,
-        gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_PRE_ACT_LABEL: (
+        gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY: (
             next_action_spec
         ),
         payoff_matrix_key: payoff_matrix,

@@ -403,7 +403,6 @@ class NextActionSpecFromSceneSpec(
 
   def __init__(
       self,
-      scenes: Sequence[scene_lib.SceneSpec],
       memory_component_key: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
@@ -415,7 +414,6 @@ class NextActionSpecFromSceneSpec(
     """Initializes the component.
 
     Args:
-      scenes: All scenes to be used in the episode.
       memory_component_key: The name of the memory component.
       scene_tracker_component_key: The name of the scene tracker component.
       pre_act_label: Prefix to add to the output of the component when called in
@@ -429,11 +427,6 @@ class NextActionSpecFromSceneSpec(
     self._memory_component_key = memory_component_key
     self._scene_tracker_component_key = scene_tracker_component_key
     self._pre_act_label = pre_act_label
-
-    # Extract all scene type specs from the provided scenes.
-    self._scene_type_specs = {}
-    for scene in scenes:
-      self._scene_type_specs[scene.scene_type.name] = scene.scene_type
 
   def _get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
@@ -461,6 +454,8 @@ class NextActionSpecFromSceneSpec(
       scene_type_spec = self._get_current_scene_type()
       action_spec = scene_type_spec.action_spec
       action_spec_string = engine_lib.action_spec_to_string(action_spec)
+      self._logging_channel({'Action spec': action_spec_string,
+                             'Scene type spec': scene_type_spec})
     return action_spec_string
 
 

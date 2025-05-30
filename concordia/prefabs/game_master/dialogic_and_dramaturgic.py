@@ -202,7 +202,6 @@ class GameMaster(prefab_lib.Prefab):
         scene_tracker_component_key=scene_tracker_key,
     )
     next_action_spec = gm_components.next_acting.NextActionSpecFromSceneSpec(
-        scenes=scenes,
         scene_tracker_component_key=scene_tracker_key,
     )
 
