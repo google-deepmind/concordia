@@ -71,16 +71,21 @@ _DECISION_SCENE_EXAMPLE = scene_lib.SceneTypeSpec(
 _DIALOGIC_AND_DRAMATURGIC_SCENES = [
     scene_lib.SceneSpec(
         scene_type=DIALOGIC_SCENE_EXAMPLE,
-        participants=['Rakshit'],
+        participants=['Rakshit', 'Samantha'],
         num_rounds=1,
         premise={
             'Rakshit': [
                 (
-                    'Rakshit is willing to sell products that are available'
-                    ' for a low price.'
+                    'Rakshit and Samantha are friends.'
                 ),
-            ]
+            ],
+            'Samantha': [
+                (
+                    'Samantha and Rakshit are friends.'
+                ),
+            ],
         },
+
     ),
 ]
 
@@ -88,7 +93,7 @@ _GAME_THEORETIC_AND_DRAMATURGIC_SCENES = [
     scene_lib.SceneSpec(
         scene_type=_DECISION_SCENE_EXAMPLE,
         participants=['Rakshit', 'Samantha'],
-        num_rounds=1,
+        num_rounds=2,
         premise={
             'Rakshit': [
                 (
@@ -140,8 +145,16 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
         act_component=act_component,
         context_components={},
     )
+    act_component_b = agent_components.concat_act_component.ConcatActComponent(
+        model=model,
+    )
+    player_b = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='Samantha',
+        act_component=act_component_b,
+        context_components={},
+    )
 
-    players = [player_a]
+    players = [player_a, player_b]
 
     environment_config.entities = players
 

@@ -203,6 +203,8 @@ class SceneTracker(
       )
 
       self._logging_channel({
+          'Current scene': current_scene,
+          'Scene type': current_scene.scene_type,
           'Summary': f'Scene: {current_scene.scene_type.name}',
           'Step within scene': step_within_scene,
           'Global step': global_step,
