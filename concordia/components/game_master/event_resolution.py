@@ -29,6 +29,7 @@ from concordia.typing import entity_component
 
 DEFAULT_RESOLUTION_COMPONENT_KEY = '__resolution__'
 DEFAULT_RESOLUTION_PRE_ACT_LABEL = 'Event'
+DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL = ''
 
 PUTATIVE_EVENT_TAG = '[putative_event]'
 EVENT_TAG = '[event]'
@@ -276,3 +277,119 @@ class DisplayEvents(
     })
 
     return events_str
+
+
+class SendEventToRelevantPlayers(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
+  """A component that passes events to relevant players."""
+
+  def __init__(
+      self,
+      model: language_model.LanguageModel,
+      player_names: Sequence[str],
+      make_observation_component_key: str,
+      pre_act_label: str = DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL,
+  ):
+    """Initializes a component that sends component pre-act values to players.
+
+    This component sends the events during the post-act phase to the players
+    that are aware of the event, by queueing them in the MakeObservation
+    component.
+
+    Args:
+      model: The language model to use for the component.
+      player_names: Names of players.
+      make_observation_component_key: he key for a
+        MakeObservation component to add the pre-act values to the queue of
+        events to observe.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
+
+    Raises:
+      ValueError: If the component order is not None and contains duplicate
+        components.
+    """
+    super().__init__()
+    self._model = model
+    self._player_names = player_names
+    self._pre_act_label = pre_act_label
+    self._queue = {}
+    self._last_action_spec = None
+    self._optional_make_observation_component_key = (
+        make_observation_component_key)
+
+    self._map_names_to_previous_observations = {
+        player_name: '' for player_name in player_names
+    }
+
+  def get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_value()
+    )
+
+  def get_component_pre_act_label(self, component_name: str) -> str:
+    """Returns the pre-act label of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_label()
+    )
+
+  def _component_pre_act_display(self, key: str) -> str:
+    """Returns the pre-act label and value of a named component."""
+    return (
+        f'{self.get_component_pre_act_label(key)}:\n'
+        f'{self.get_named_component_pre_act_value(key)}')
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    self._last_action_spec = action_spec
+    return ''
+
+  def post_act(
+      self,
+      action_attempt: str,
+  ) -> str:
+    result = ''
+    prompt_to_log = ''
+    if (
+        self._last_action_spec
+        and self._last_action_spec.output_type == entity_lib.OutputType.RESOLVE
+    ):
+      prompt = interactive_document.InteractiveDocument(self._model)
+      for active_entity_name in self._player_names:
+        prompt.statement(f'{action_attempt}\n')
+        proceed = prompt.yes_no_question(
+            question=f'Is {active_entity_name} aware of the latest event above?'
+        )
+
+        if proceed:
+          # Remove their previous observation since they have already seen it.
+          result = action_attempt.replace(
+              self._map_names_to_previous_observations[active_entity_name], ''
+          )
+        if self._optional_make_observation_component_key:
+          make_observation = self.get_entity().get_component(
+              self._optional_make_observation_component_key,
+              type_=make_observation_component.MakeObservation,
+          )
+          make_observation.add_to_queue(active_entity_name, result)
+
+        self._map_names_to_previous_observations[active_entity_name] += result
+
+      prompt_to_log = prompt.view().text()
+
+    self._logging_channel(
+        {'Key': self._pre_act_label,
+         'Summary': result,
+         'Value': result,
+         'Prompt': prompt_to_log}
+    )
+    return result
+

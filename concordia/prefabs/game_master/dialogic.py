@@ -108,12 +108,24 @@ class GameMaster(prefab_lib.Prefab):
     make_observation_key = (
         gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY)
     make_observation = (
-        gm_components.make_observation.SendComponentPreActValuesToPlayers(
+        gm_components.make_observation.MakeObservation(
             model=model,
             player_names=player_names,
             components=[
+                observation_component_key,
                 display_events_key,
             ],
+        )
+    )
+
+    send_events_to_players_key = (
+        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
+    )
+    send_events_to_players = (
+        gm_components.event_resolution.SendEventToRelevantPlayers(
+            model=model,
+            player_names=player_names,
+            make_observation_component_key=make_observation_key,
         )
     )
 
@@ -190,6 +202,7 @@ class GameMaster(prefab_lib.Prefab):
         display_events_key: display_events,
         memory_component_key: memory_component,
         next_game_master_key: next_game_master,
+        send_events_to_players_key: send_events_to_players,
         make_observation_key: make_observation,
         next_actor_key: next_actor,
         next_action_spec_key: next_action_spec,
