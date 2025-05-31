@@ -20,6 +20,7 @@ import functools
 import inspect
 import re
 import types
+from typing import Any
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -269,3 +270,19 @@ def print_pretty_prefabs(data_dict):
     output_lines.append('---')
 
   return '\n'.join(output_lines)
+
+
+def find_data_in_nested_structure(
+    data: Sequence[Any] | dict[str, Any], key: str
+) -> list[Any]:
+  """Recursively finds all instances of a given key in nested dictionaries/lists."""
+  results = []
+  if isinstance(data, dict):
+    for k, v in data.items():
+      if k == key:
+        results.append(v)
+      results.extend(find_data_in_nested_structure(v, key))
+  elif isinstance(data, list):
+    for item in data:
+      results.extend(find_data_in_nested_structure(item, key))
+  return results
