@@ -79,8 +79,8 @@ import numpy as np
 import sentence_transformers
 
 # pylint: disable=g-bad-import-order
-from examples.modular.scenario import scenarios as scenarios_lib
-from examples.modular.utils import logging_types as logging_lib
+from examples.deprecated.modular.scenario import scenarios as scenarios_lib
+from examples.deprecated.modular.utils import logging_types as logging_lib
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(

@@ -139,7 +139,9 @@ class LaborStrike(entity_component.ContextComponent):
     )
     return scene_runner.get_current_scene_type(memory=memory)
 
-  def _joint_action_is_complete(self, joint_action: Mapping[str, str]) -> bool:
+  def _joint_action_is_complete(
+      self, joint_action: Mapping[str, str | None]
+  ) -> bool:
     for acting_player_name in self._acting_player_names:
       if joint_action[acting_player_name] is None:
         return False
