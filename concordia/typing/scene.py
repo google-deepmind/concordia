@@ -36,8 +36,6 @@ class SceneTypeSpec:
       return strings.
     action_spec: optionally specify an action spec other than the default for
       the game master to ask the agents to produce during steps of this scene.
-    save_after_each_scene: optionally specify whether to save the agent's state
-      after each scene.
     possible_participants: optionally specify a list of possible participants
       for this scene. If specified, the participants field in the
       SceneSpec will be intersected with this list to determine the
@@ -56,7 +54,6 @@ class SceneTypeSpec:
       ]
       | None
   ) = None
-  save_after_each_scene: bool = False
   possible_participants: Sequence[str] | None = None
 
 
