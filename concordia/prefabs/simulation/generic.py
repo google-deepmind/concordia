@@ -22,13 +22,13 @@ from typing import Any
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment.engines import sequential
 from concordia.language_model import language_model
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
 from concordia.utils import helper_functions as helper_functions_lib
 from concordia.utils import html as html_lib
 import numpy as np
-from typing_extensions import override
 
 
 Config = prefab_lib.Config
@@ -119,8 +119,7 @@ class Simulation(simulation_lib.Simulation):
           model=model, memory_bank=self.game_master_memory_bank)
       self.game_masters.append(game_master)
 
-  @override
-  def get_game_masters(self) -> list[entity_component.EntityWithComponents]:
+  def get_game_masters(self) -> list[entity_lib.Entity]:
     """Get the game masters.
 
     The function returns a copy of the game masters list to avoid modifying the
@@ -132,26 +131,23 @@ class Simulation(simulation_lib.Simulation):
     """
     return copy.copy(self.game_masters)
 
-  @override
-  def get_entities(self) -> list[entity_component.EntityWithComponents]:
+  def get_entities(self) -> list[entity_lib.Entity]:
     """Get the entities.
 
     The function returns a copy of the entities list to avoid modifying the
     original list. However, the entities are not deep copied, so changes
     to the entities will be reflected in the simulation.
-    
+
     Returns:
       A list of entities.
     """
     return copy.copy(self.entities)
 
-  @override
-  def add_game_master(self, game_master: entity_component.EntityWithComponents):
+  def add_game_master(self, game_master: entity_lib.Entity):
     """Add a game master to the simulation."""
     self.game_masters.append(game_master)
 
-  @override
-  def add_entity(self, entity: entity_component.EntityWithComponents):
+  def add_entity(self, entity: entity_lib.Entity):
     """Add an entity to the simulation."""
     self.entities.append(entity)
 
@@ -196,7 +192,10 @@ class Simulation(simulation_lib.Simulation):
     )
 
     for player in self.entities:
-      if player.get_component("__memory__") is None:
+      if (
+          not isinstance(player, entity_component.EntityWithComponents)
+          or player.get_component("__memory__") is None
+      ):
         continue
 
       entity_memory_component = player.get_component("__memory__")
