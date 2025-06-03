@@ -44,10 +44,11 @@ DEFAULT_THOUGHTS = (
 
 
 DEFAULT_GAME_MASTER_INSTRUCTIONS = (
-    'This is a tabletop roleplaying game: Dungeons and Dragons. You are the '
+    'This is a tabletop roleplaying game: Dungeons & Dragons. You are the '
     'Dungeon master. You will describe the current situation to the '
     'players in the game and then on the basis of what you '
     'tell them they will suggest actions for the character they control. '
+    'You will then decide if the action is valid based on game rules. '
     'Aside from you, each other player controls just one character. '
     'You are the Dungeon master so you may control any non-player '
     'character. You will track the state of the world and keep it '
