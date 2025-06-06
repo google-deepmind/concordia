@@ -37,6 +37,8 @@ _TERMINATE_SIGNAL = 'Yes'
 DEFAULT_SCENE_TRACKER_COMPONENT_KEY = (
     next_game_master_component_module.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
 
+DEFAULT_NEXT_GAME_MASTER_NAME = 'default_rules'
+
 
 class SceneTracker(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -56,6 +58,7 @@ class SceneTracker(
       terminator_component_key: str = (
           terminate_component_module.DEFAULT_TERMINATE_COMPONENT_KEY
       ),
+      default_next_game_master_name: str = DEFAULT_NEXT_GAME_MASTER_NAME,
       pre_act_label: str = DEFAULT_SCENE_TRACKER_PRE_ACT_LABEL,
       verbose: bool = False,
   ):
@@ -67,6 +70,8 @@ class SceneTracker(
       observation_component_key: The name of the observation component.
       memory_component_key: The name of the memory component.
       terminator_component_key: The name of the terminator component.
+      default_next_game_master_name: The name of the next game master to use in
+        cases where the scene does not specify a game master.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       verbose: Whether to print verbose debug information.
@@ -77,6 +82,7 @@ class SceneTracker(
     self._memory_component_key = memory_component_key
     self._observation_component_key = observation_component_key
     self._terminator_component_key = terminator_component_key
+    self._default_next_game_master_name = default_next_game_master_name
     self._scenes = scenes
     self._verbose = verbose
 
@@ -194,7 +200,7 @@ class SceneTracker(
     if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
       _, next_scene, _ = self._get_scene_step_and_scene()
       if next_scene.scene_type.game_master_name is None:
-        return 'default_rules'
+        return self._default_next_game_master_name
       return next_scene.scene_type.game_master_name
 
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
