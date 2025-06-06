@@ -44,7 +44,9 @@ class GameMaster(prefab_lib.Prefab):
           # in the component order. If not specified, the extra components
           # will be inserted at the end of the component order.
           'extra_components_index': {},
-
+          # If true, the actors will alternate in a round robin fashion.
+          # Otherwise, the actors will be chosen by call to the game master.
+          'acting_order': 'game_master_choice',
       }
   )
   entities: (
@@ -166,10 +168,25 @@ class GameMaster(prefab_lib.Prefab):
         ],
     )
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
-    next_actor = gm_components.next_acting.NextActing(
-        **next_acting_kwargs,
-        player_names=player_names,
+    acting_order = self.params.get(
+        'acting_order', 'game_master_choice'
     )
+    if acting_order == 'fixed':
+      next_actor = gm_components.next_acting.NextActingInFixedOrder(
+          sequence=player_names,
+      )
+    elif acting_order == 'game_master_choice':
+      next_actor = gm_components.next_acting.NextActing(
+          **next_acting_kwargs,
+          player_names=player_names,
+      )
+    elif acting_order == 'random':
+      next_actor = gm_components.next_acting.NextActingInRandomOrder(
+          player_names=player_names,
+      )
+    else:
+      raise ValueError(f'Unsupported acting order: {acting_order}')
+
     next_action_spec_kwargs = copy.copy(next_acting_kwargs)
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
