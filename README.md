@@ -105,7 +105,7 @@ answering three key questions:
 
 The agents used in the following example implement exactly these questions:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/google-deepmind/concordia/blob/main/examples/three_key_questions.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.sandbox.google.com/github/google-deepmind/concordia/blob/main/examples/tutorial.ipynb)
 
 ## Citing Concordia
 
