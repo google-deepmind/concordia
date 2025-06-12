@@ -99,7 +99,7 @@ class BaseComponent:
     Raises:
       RuntimeError: If the entity is already set.
     """
-    if self._entity is not None:
+    if self._entity is not None and self._entity != entity:
       raise RuntimeError("Entity is already set.")
     self._entity = entity
 
