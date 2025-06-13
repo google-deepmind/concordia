@@ -87,9 +87,9 @@ class InstrucitonComplianceMetric(component.Component):
     doc = interactive_document.InteractiveDocument(self._model)
     answer = doc.multiple_choice_question(
         (
-            f'Evaluate if {self._player_name} is acting collaboratively'
-            f'according to the {self._player_instructions}.'
-            f'\n Activity: {action}\n'
+            f'Evaluate if {self._player_name} action is complying with the Game'
+            ' Master event statements according to the'
+            f' {self._player_instructions}.\n Activity: {action}\n'
         ),
         self._scale,
     )
