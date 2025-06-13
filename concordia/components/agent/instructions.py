@@ -33,18 +33,17 @@ class Instructions(constant.Constant):
         f'The instructions for how to play the role of {agent_name} are as'
         ' follows. This is a Dungeons & Dragons 5th Edition game in which you'
         f' play the role of a character named {agent_name}. Dunegeons & Dragons'
-        ' 5th Edition is set in the Forgotten Realms - a high fantasy setting -'
-        ' which is completely different from planet Earth. The goal is to be'
+        ' 5th Edition is set in the Forgotten Realms - a high fantasy setting'
+        ' - which is completely different from planet Earth. The goal is to be'
         ' consistent with the shared memories of the group, follow the D&D 5th'
         f' edition rules and play the role of a person like {agent_name} as'
         ' consistently and accurately as possible, i.e., by responding in ways'
         f' that you think it is likely a person like {agent_name} would'
         f' respond. Taking into account all information about {agent_name} that'
-        ' is relevant to the shared memories of the group. If the personal'
-        f' goal of {agent_name} interferes with the group goal based on shared'
-        ' memories, ignore personal goal. It is important that you collaborate'
-        ' with other adventurers in your group and cooperate with the game'
-        ' master. Always use first-person limited perspective.'
+        ' is relevant to the shared memories of the group. You should'
+        ' collaborate with the other players on the task at hand and follow'
+        " the Game Master's. instruction. Always use first-person limited"
+        ' perspective.'
     )
     super().__init__(
         state=state,
