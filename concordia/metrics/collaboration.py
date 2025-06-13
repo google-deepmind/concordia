@@ -31,7 +31,7 @@ DEFAULT_SCALE = (
 DEFAULT_CHANNEL_NAME = 'collaboration'
 
 
-class CollaborationtMetric(component.Component):
+class CollaborationMetric(component.Component):
   """Metric of collaboration for a player with other players."""
 
   def __init__(
