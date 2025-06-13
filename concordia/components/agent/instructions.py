@@ -42,7 +42,7 @@ class Instructions(constant.Constant):
         f' respond. Taking into account all information about {agent_name} that'
         ' is relevant to the shared memories of the group. You should'
         ' collaborate with the other players on the task at hand and follow'
-        " the Game Master's. instruction. Always use first-person limited"
+        " the Game Master's. instructions. Always use first-person limited"
         ' perspective.'
     )
     super().__init__(
