@@ -31,7 +31,7 @@ DEFAULT_SCALE = (
 DEFAULT_CHANNEL_NAME = 'instruction_compliance'
 
 
-class InstrucitonComplianceMetric(component.Component):
+class InstructionComplianceMetric(component.Component):
   """Metric of instruction compliance for a player and Game Master event statements."""
 
   def __init__(
