@@ -28,11 +28,11 @@ DEFAULT_SCALE = (
     'player is somewhat collaborating',
     'player is actively collaborating',
 )
-DEFAULT_CHANNEL_NAME = 'goal_achievement'
+DEFAULT_CHANNEL_NAME = 'collaboration'
 
 
 class CollaborationtMetric(component.Component):
-  """Metric of goal achievement for a player and its goal."""
+  """Metric of collaboration for a player with other players."""
 
   def __init__(
       self,

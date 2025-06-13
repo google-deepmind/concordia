@@ -28,11 +28,11 @@ DEFAULT_SCALE = (
     'player is somewhat following Game Master\'s instructions.',
     'player is actively following Game Master\'s instructions.',
 )
-DEFAULT_CHANNEL_NAME = 'goal_achievement'
+DEFAULT_CHANNEL_NAME = 'instruction_compliance'
 
 
 class InstrucitonComplianceMetric(component.Component):
-  """Metric of goal achievement for a player and its goal."""
+  """Metric of instruction compliance for a player and Game Master event statements."""
 
   def __init__(
       self,
