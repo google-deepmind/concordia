@@ -40,7 +40,7 @@ class CollaborationtMetric(component.Component):
       player_name: str,
       player_instructions: instructions.Instructions,
       clock: game_clock.GameClock,
-      name: str = 'Collaboration',
+      name: str = 'collaboration',
       scale: Sequence[str] = DEFAULT_SCALE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = DEFAULT_CHANNEL_NAME,
