@@ -1,4 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2025 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Game Master prefabs."""
+"""Questionnaire dictionaries."""
 
-from concordia.prefabs.game_master import dialogic
-from concordia.prefabs.game_master import dialogic_and_dramaturgic
-from concordia.prefabs.game_master import formative_memories_initializer
-from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
-from concordia.prefabs.game_master import generic
-from concordia.prefabs.game_master import interviewer
-from concordia.prefabs.game_master import situated
+from concordia.contrib.data.questionnaires import dass_anxiety
+from concordia.contrib.data.questionnaires import dass_depression
+from concordia.contrib.data.questionnaires import dass_stress
+
+
+DASS_ANXIETY = dass_anxiety.dass_anxiety_questionnaire
+DASS_DEPRESSION = dass_depression.dass_depression_questionnaire
+DASS_STRESS = dass_stress.dass_stress_questionnaire
