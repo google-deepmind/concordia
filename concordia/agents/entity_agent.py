@@ -122,6 +122,10 @@ class EntityAgent(entity_component.EntityWithComponents):
   ) -> entity_component.ComponentContextMapping:
     """Calls the named method in parallel on all components.
 
+    If a component instance is registered under multiple names, its method
+    will only be called once. The result of that call will be mapped to all
+    names under which it was registered.
+
     All calls will be issued with the same payloads.
 
     Args:
@@ -132,11 +136,24 @@ class EntityAgent(entity_component.EntityWithComponents):
       A ComponentsContext, that is, a mapping of component name to the result of
       the method call.
     """
-    tasks = {
-        name: functools.partial(getattr(component, method_name), *args)
-        for name, component in self._context_components.items()
+    # 1. Identify unique component instances.
+    unique_components = list(set(self._context_components.values()))
+
+    # 2. Create and execute tasks for each unique component instance once.
+    tasks_for_unique = {
+        str(id(component)): functools.partial(
+            getattr(component, method_name), *args
+        )
+        for component in unique_components
     }
-    return concurrency.run_tasks(tasks)
+    results_by_component_id = concurrency.run_tasks(tasks_for_unique)
+
+    # 3. Construct the final results dictionary.
+    final_results: dict[str, str] = {}
+    for name, component in self._context_components.items():
+      final_results[name] = results_by_component_id[str(id(component))]
+
+    return types.MappingProxyType(final_results)
 
   @override
   def act(
