@@ -136,3 +136,11 @@ class TriggeredInventoryEffect(entity_component.ContextComponent):
       )
       inventory.apply(update)
     return ''
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the of the component."""
+    pass

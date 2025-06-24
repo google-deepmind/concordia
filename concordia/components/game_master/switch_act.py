@@ -327,8 +327,9 @@ class SwitchAct(
     })
 
   def get_state(self) -> entity_component.ComponentState:
-    """Converts the component to a dictionary."""
+    """Returns the state of the component."""
     return {}
 
   def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
     pass

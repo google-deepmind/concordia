@@ -54,3 +54,13 @@ class Terminate(
 
   def terminate(self):
     self._terminate_now = True
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'terminate_now': self._terminate_now,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._terminate_now = state['terminate_now']

@@ -126,6 +126,14 @@ class NextGameMaster(
   def get_currently_active_game_master(self) -> str | None:
     return self._currently_active_game_master
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {'currently_active_game_master': self._currently_active_game_master}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._currently_active_game_master = state['currently_active_game_master']
+
 
 class FormativeMemoriesInitializer(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -341,3 +349,11 @@ class FormativeMemoriesInitializer(
         'Prompt': prompt.view().text(),
     })
     return episodes
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {'initialized': self._initialized}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass

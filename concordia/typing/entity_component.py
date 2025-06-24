@@ -85,7 +85,7 @@ class Phase(enum.Enum):
       raise ValueError(f"The transition from {self} to {successor} is invalid.")
 
 
-class BaseComponent:
+class BaseComponent(metaclass=abc.ABCMeta):
   """A base class for components."""
 
   _entity: "EntityWithComponents | None" = None
@@ -113,6 +113,7 @@ class BaseComponent:
       raise RuntimeError("Entity is not set.")
     return self._entity
 
+  @abc.abstractmethod
   def get_state(self) -> ComponentState:
     """Returns the state of the component.
     
@@ -121,7 +122,8 @@ class BaseComponent:
     """
     return {}
 
-  def set_state(self, state: ComponentState):
+  @abc.abstractmethod
+  def set_state(self, state: ComponentState) -> None:
     """Sets the state of the component.
     
     This is used to restore the state of the component. The state is assumed to

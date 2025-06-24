@@ -61,12 +61,13 @@ class Questionnaire(entity_component.ContextComponent):
     """
     super().__init__()
     self._pre_act_label = pre_act_label
-    self._questionnaire_idx = 0
-    self._question_idx = -1
     self._player_name_to_question = player_name_to_question
     self._questionnaires = questionnaires
-    self._answers: dict[str, dict[str, dict[str, dict[str, Any]]]] = {}
+
+    self._answers = {}
     self._last_observation: str | None = None
+    self._questionnaire_idx = 0
+    self._question_idx = -1
 
   def is_done(self) -> bool:
     return self._questionnaire_idx >= len(self._questionnaires)
@@ -227,3 +228,19 @@ class Questionnaire(entity_component.ContextComponent):
   def get_answers(self) -> dict[str, dict[str, Any]]:
     """Returns the answers to the questionnaire."""
     return self._answers
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'questionnaire_idx': self._questionnaire_idx,
+        'question_idx': self._question_idx,
+        'answers': self._answers,
+        'last_observation': self._last_observation,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._questionnaire_idx = state['questionnaire_idx']
+    self._question_idx = state['question_idx']
+    self._answers = dict(state['answers'])
+    self._last_observation = None

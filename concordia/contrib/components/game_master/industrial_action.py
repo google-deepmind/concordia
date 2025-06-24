@@ -228,3 +228,11 @@ class LaborStrike(entity_component.ContextComponent):
   def get_scores(self) -> Mapping[str, float]:
     """Return the cumulative score for each player."""
     return self._player_scores
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Converts the component to JSON data."""
+    return {'state': self._state}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the component state from JSON data."""
+    self._state = state['state']

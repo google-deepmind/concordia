@@ -213,3 +213,19 @@ class PayoffMatrix(
   def get_scores(self) -> Mapping[str, float]:
     """Return the cumulative score for each player."""
     return self._player_scores
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'stage_idx': self._stage_idx,
+        'partial_joint_action': self._partial_joint_action,
+        'player_scores': self._player_scores,
+        'history': self._history,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._stage_idx = state['stage_idx']
+    self._partial_joint_action = state['partial_joint_action']
+    self._player_scores = state['player_scores']
+    self._history = state['history']

@@ -136,6 +136,18 @@ class WorldState(
 
     return ''
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'state': self._state,
+        'latest_action_spec': self._latest_action_spec,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._state = state['state']
+    self._latest_action_spec = state['latest_action_spec']
+
 
 class Locations(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -279,6 +291,20 @@ class Locations(
 
     return ''
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'locations': self._locations,
+        'entity_locations': self._entity_locations,
+        'latest_action_spec': self._latest_action_spec,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._locations = state['locations']
+    self._entity_locations = state['entity_locations']
+    self._latest_action_spec = state['latest_action_spec']
+
 
 class GenerativeClock(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -419,3 +445,19 @@ class GenerativeClock(
       self._prompt_to_log = prompt.view().text()
 
     return ''
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'num_steps': self._num_steps,
+        'time': self._time,
+        'prompt_to_log': self._prompt_to_log,
+        'latest_action_spec': self._latest_action_spec,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._num_steps = state['num_steps']
+    self._time = state['time']
+    self._prompt_to_log = state['prompt_to_log']
+    self._latest_action_spec = state['latest_action_spec']

@@ -183,3 +183,11 @@ class MakeObservation(entity_component.ContextComponent,
     if entity_name not in self._queue:
       self._queue[entity_name] = []
     self._queue[entity_name].append(event)
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {'queue': self._queue}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._queue = state['queue']

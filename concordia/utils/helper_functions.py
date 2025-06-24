@@ -26,6 +26,8 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
 from concordia.utils import concurrency
+import numpy as np
+import pandas as pd
 
 
 def extract_text_between_delimiters(text: str, delimiter: str) -> str | None:
@@ -286,3 +288,91 @@ def find_data_in_nested_structure(
     for item in data:
       results.extend(find_data_in_nested_structure(item, key))
   return results
+
+
+def deep_compare_components(comp1, comp2, test_case, skip_keys=None):
+  """Recursively compares attributes of two components."""
+  test_case.assertEqual(type(comp1), type(comp2))
+
+  d1 = comp1.__dict__
+  d2 = comp2.__dict__
+
+  print(f'{comp1.__class__.__name__}-> {d1.keys()=}')
+  print(f'{comp2.__class__.__name__}-> {d2.keys()=}')
+
+  test_case.assertEqual(d1.keys(), d2.keys())
+
+  for key in d1:
+
+    if key in skip_keys:
+      continue
+
+    val1 = d1[key]
+    val2 = d2[key]
+
+    deep_compare_values(
+        val1, val2, test_case, key_path=key, skip_keys=skip_keys
+    )
+
+
+def deep_compare_values(val1, val2, test_case, key_path='', skip_keys=None):
+  """Recursively compares values."""
+  test_case.assertEqual(type(val1), type(val2), f'Type mismatch at {key_path}')
+
+  if isinstance(val1, dict):
+    test_case.assertEqual(
+        val1.keys(), val2.keys(), f'Keys mismatch at {key_path}'
+    )
+    for k in val1:
+      deep_compare_values(
+          val1[k],
+          val2[k],
+          test_case,
+          key_path=f'{key_path}.{k}',
+          skip_keys=skip_keys,
+      )
+  elif isinstance(val1, list) or isinstance(val1, tuple):
+    test_case.assertEqual(
+        len(val1), len(val2), f'Length mismatch at {key_path}'
+    )
+    for i in range(len(val1)):
+      deep_compare_values(
+          val1[i],
+          val2[i],
+          test_case,
+          key_path=f'{key_path}[{i}]',
+          skip_keys=skip_keys,
+      )
+  elif isinstance(val1, set):
+    test_case.assertEqual(val1, val2, f'Set mismatch at {key_path}')
+  elif isinstance(val1, (int, float, str, bool, type(None))):
+    test_case.assertEqual(val1, val2, f'Value mismatch at {key_path}')
+  elif isinstance(val1, pd.DataFrame):
+    pd.testing.assert_frame_equal(val1, val2, check_dtype=False)
+  elif isinstance(val1, np.ndarray):
+    np.testing.assert_array_equal(
+        val1, val2, err_msg=f'Array mismatch at {key_path}'
+    )
+  elif type(val1).__module__ == np.__name__:
+    # Handle other numpy types like dtypes, scalars
+    test_case.assertEqual(val1, val2, f'NumPy type mismatch at {key_path}')
+  elif isinstance(val1, types.MappingProxyType):
+    deep_compare_values(
+        dict(val1),
+        dict(val2),
+        test_case,
+        key_path=key_path,
+        skip_keys=skip_keys,
+    )
+  else:
+    # For other object types, you might need custom logic
+    # or just check if they are the same instance if appropriate.
+    try:
+      # Attempt to compare their __dict__ if they are custom objects
+      deep_compare_components(val1, val2, test_case, skip_keys=skip_keys)
+    except AttributeError as e:
+      test_case.fail(
+          f'Unhandled type for comparison at {key_path}: {type(val1)} - {e}'
+      )
+    except AssertionError as e:
+      test_case.fail(f'Component difference at {key_path}: {type(val1)} - {e}')

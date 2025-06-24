@@ -211,6 +211,18 @@ class EventResolution(
     """Returns the putative action from the entity that just took an action."""
     return self._putative_action
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        '_active_entity_name': self._active_entity_name,
+        '_putative_action': self._putative_action,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._active_entity_name = state['_active_entity_name']
+    self._putative_action = state['_putative_action']
+
   def _log(self, key: str, value: str, prompt: str, observers_prompt: str):
     self._logging_channel({
         'Key': key,
@@ -277,6 +289,14 @@ class DisplayEvents(
     })
 
     return events_str
+
+  def get_state(self) -> dict[str, None]:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: dict[str, None]) -> None:
+    """Sets the state of the component."""
+    pass
 
 
 class SendEventToRelevantPlayers(
@@ -393,3 +413,20 @@ class SendEventToRelevantPlayers(
     )
     return result
 
+  def get_state(self) -> dict[str, object]:
+    """Returns the state of the component."""
+    return {
+        '_queue': self._queue,
+        '_last_action_spec': self._last_action_spec,
+        '_map_names_to_previous_observations': (
+            self._map_names_to_previous_observations
+        ),
+    }
+
+  def set_state(self, state: dict[str, object]) -> None:
+    """Sets the state of the component."""
+    self._queue = state['_queue']
+    self._last_action_spec = state['_last_action_spec']
+    self._map_names_to_previous_observations = state[
+        '_map_names_to_previous_observations'
+    ]

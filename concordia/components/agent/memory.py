@@ -131,13 +131,17 @@ class AssociativeMemory(Memory):
     self._lock = threading.Lock()
     self._buffer = []
 
-  def get_state(self) -> Mapping[str, Any]:
+  def get_state(self) -> entity_component.ComponentState:
     with self._lock:
-      return self._memory_bank.get_state()
+      return {
+          'memory_bank': self._memory_bank.get_state(),
+          'buffer': self._buffer,
+      }
 
-  def set_state(self, state: Mapping[str, Any]) -> None:
+  def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      self._memory_bank.set_state(state)
+      self._memory_bank.set_state(state['memory_bank'])
+      self._buffer = state['buffer']
 
   def retrieve_associative(
       self,

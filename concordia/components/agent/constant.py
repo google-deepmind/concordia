@@ -48,3 +48,11 @@ class Constant(
     self._logging_channel(
         {'Key': self.get_pre_act_label(), 'Value': self._state})
     return self._state
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass

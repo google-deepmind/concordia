@@ -103,6 +103,16 @@ class AllSimilarMemories(
 
     return result + '\n'
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    with self._lock:
+      return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    with self._lock:
+      pass
+
 
 class AllSimilarMemoriesWithoutPreAct(
     action_spec_ignored.ActionSpecIgnored

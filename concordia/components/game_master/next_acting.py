@@ -122,6 +122,16 @@ class NextActing(
   def get_currently_active_player(self) -> str | None:
     return self._currently_active_player
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'currently_active_player': self._currently_active_player,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._currently_active_player = state['currently_active_player']
+
 
 class NextActingInFixedOrder(entity_component.ContextComponent):
   """A component that decides whose turn is next in a fixed sequence.
@@ -170,6 +180,16 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     if self._currently_active_player_idx is None:
       return None
     return self._sequence[self._currently_active_player_idx]
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'currently_active_player_idx': self._currently_active_player_idx,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._currently_active_player_idx = state['currently_active_player_idx']
 
 
 class NextActingInRandomOrder(entity_component.ContextComponent):
@@ -231,6 +251,18 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
     if self._currently_active_player_idx is None:
       return None
     return self._player_names[self._currently_active_player_idx]
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'currently_active_player_idx': self._currently_active_player_idx,
+        'currently_available_indices': self._currently_available_indices,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._currently_active_player_idx = state['currently_active_player_idx']
+    self._currently_available_indices = state['currently_available_indices']
 
 
 class NextActingFromSceneSpec(
@@ -298,6 +330,18 @@ class NextActingFromSceneSpec(
 
   def get_currently_active_player(self) -> str | None:
     return self._currently_active_player
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'currently_active_player': self._currently_active_player,
+        'counter': self._counter,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._currently_active_player = state['currently_active_player']
+    self._counter = state['counter']
 
 
 class NextActionSpec(
@@ -395,6 +439,14 @@ class NextActionSpec(
 
     return result
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass
+
 
 class NextActionSpecFromSceneSpec(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -473,6 +525,14 @@ class NextActionSpecFromSceneSpec(
                              'Scene type spec': scene_type_spec})
     return action_spec_string
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass
+
 
 class FixedActionSpec(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -511,3 +571,11 @@ class FixedActionSpec(
           self._fixed_entity_action_spec)
 
     return entity_action_spec_string
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass

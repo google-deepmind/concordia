@@ -224,3 +224,15 @@ class SceneTracker(
       memory.add(f'{_SCENE_COUNTER_TAG}({global_step})')
 
     return ''
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'round_idx_to_scene': self._round_idx_to_scene,
+        'max_rounds': self._max_rounds,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._round_idx_to_scene = state['round_idx_to_scene']
+    self._max_rounds = state['max_rounds']

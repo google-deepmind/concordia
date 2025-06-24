@@ -390,6 +390,15 @@ class Inventory(
           config.check_valid(new_inventories[key][item_type])
       self._inventories = copy.deepcopy(new_inventories)
 
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    with self._lock:
+      self._inventories = state['inventories']
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {'inventories': self._inventories}
+
 
 class Score(entity_component.ContextComponent,
             entity_component.ComponentWithLogging):
@@ -448,3 +457,11 @@ class Score(entity_component.ContextComponent,
          'Value': self.get_scores()}
     )
     return ''
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    self._inventory.set_state(state['inventory'])
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {'inventory': self._inventory.get_state()}
