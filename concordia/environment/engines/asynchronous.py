@@ -1,4 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2025 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 """
 
 from collections.abc import Mapping, Sequence
+import functools
 from typing import Any
 
 from concordia.components.game_master import event_resolution as event_resolution_components
@@ -24,6 +25,7 @@ from concordia.components.game_master import next_acting as next_acting_componen
 from concordia.components.game_master import switch_act as switch_act_component
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
+from concordia.utils import concurrency
 import termcolor
 from typing_extensions import override
 
@@ -46,6 +48,18 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 _PRINT_COLOR = 'cyan'
 
 
+def _get_empty_log_entry():
+  """Returns a dictionary to store a single log entry."""
+  return {
+      'terminate': {},
+      'next_game_master': {},
+      'make_observation': {},
+      'next_acting': {},
+      'next_action_spec': {},
+      'resolve': {},
+  }
+
+
 class Asynchronous(engine_lib.Engine):
   """Synchronous engine."""
 
@@ -58,7 +72,7 @@ class Asynchronous(engine_lib.Engine):
       call_to_check_termination: str = DEFAULT_CALL_TO_CHECK_TERMINATION,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
   ):
-    """Synchronous engine constructor."""
+    """Asynchronous engine constructor."""
     self._call_to_make_observation = call_to_make_observation
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec
@@ -84,9 +98,11 @@ class Asynchronous(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
+      log_entry: Mapping[str, Any] | None = None,
+      log: list[Mapping[str, Any]] | None = None,
   ) -> tuple[Sequence[entity_lib.Entity],
-             entity_lib.ActionSpec]:  # pytype: disable=signature-mismatch
-    """Return the next entity or entities to act."""
+             Sequence[entity_lib.ActionSpec]]:  # pytype: disable=signature-mismatch
+    """Return the next action spec for an entity."""
     entities_by_name = {
         entity.name: entity for entity in entities
     }
@@ -98,25 +114,40 @@ class Asynchronous(engine_lib.Engine):
         )
     )
     next_entity_names = next_object_names_string.split(',')
-    next_action_spec_string = game_master.act(
-        action_spec=entity_lib.ActionSpec(
-            call_to_action=self._call_to_next_action_spec.format(
-                name=self._call_to_next_action_spec),
-            output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
-            options=[action_type.name for action_type
-                     in entity_lib.PLAYER_ACTION_TYPES],
-        )
-    )
-    next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
+    if log is not None and hasattr(game_master, 'get_last_log'):
+      assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+      log_entry['next_acting'] = game_master.get_last_log()
+
+    action_spec_by_name = {}
+    for next_entity_name in next_entity_names:
+      next_action_spec_string = game_master.act(
+          action_spec=entity_lib.ActionSpec(
+              call_to_action=self._call_to_next_action_spec.format(
+                  name=next_entity_name),
+              output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
+          )
+      )
+      action_spec_by_name[next_entity_name] = engine_lib.action_spec_parser(
+          next_action_spec_string)
+
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['next_action_spec'] = game_master.get_last_log()
+
     return (
         [entities_by_name[entity_name] for entity_name in next_entity_names],
-        next_action_spec,
+        [action_spec_by_name[entity_name] for entity_name in next_entity_names]
     )
 
   def resolve(self,
               game_master: entity_lib.Entity,
-              putative_event: str) -> None:
+              putative_event: str,
+              verbose: bool = False) -> None:
     """Resolve an event."""
+    if verbose:
+      print(termcolor.colored(
+          f'The suggested action or event to resolve was: {putative_event}',
+          _PRINT_COLOR))
     game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -125,6 +156,9 @@ class Asynchronous(engine_lib.Engine):
         )
     )
     game_master.observe(observation=f'{EVENT_TAG} {result}')
+    if verbose:
+      print(termcolor.colored(
+          f'The resolved event was: {result}', _PRINT_COLOR))
 
   def terminate(self,
                 game_master: entity_lib.Entity,
@@ -179,18 +213,126 @@ class Asynchronous(engine_lib.Engine):
       log: list[Mapping[str, Any]] | None = None,
   ):
     """Run a game loop."""
+    if not game_masters:
+      raise ValueError('No game masters provided.')
+
+    log_entry = _get_empty_log_entry()
     game_master = game_masters[0]
     steps = 0
     if premise:
       premise = f'{EVENT_TAG} {premise}'
       game_master.observe(premise)
     while not self.terminate(game_master, verbose) and steps < max_steps:
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['terminate'] = game_master.get_last_log()
+
       game_master = self.next_game_master(game_master, game_masters, verbose)
-      next_entities, next_action_spec = self.next_acting(game_master, entities)
-      # In the future we will make the following loop concurrent
-      for entity in next_entities:
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['next_game_master'] = game_master.get_last_log()
+
+      next_entities, next_action_specs = self.next_acting(
+          game_master, entities, log_entry=log_entry, log=log
+      )
+
+      def _entity_act(
+          entity: entity_lib.Entity, action_spec: entity_lib.ActionSpec
+      ) -> str:
+        """Make observation, get action and resolution for one entity."""
         observation = self.make_observation(game_master, entity)
         entity.observe(observation)
-        action = entity.act(next_action_spec)
-        self.resolve(game_master, action)
+        if log is not None and hasattr(game_master, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+          log_entry['make_observation'][
+              entity.name
+          ] = game_master.get_last_log()
+        if verbose:
+          print(
+              termcolor.colored(
+                  f'Entity {entity.name} observed: {observation}', _PRINT_COLOR
+              )
+          )
+
+        if verbose:
+          print(
+              termcolor.colored(
+                  f'Entity {entity.name} is next to act. They must respond '
+                  f' in the format: "{action_spec}".',
+                  _PRINT_COLOR,
+              )
+          )
+        raw_action = entity.act(action_spec)
+        if entity.name in raw_action:
+          action = raw_action
+        else:
+          action = f'{entity.name}: {raw_action}'
+        if verbose:
+          print(
+              termcolor.colored(
+                  f'Entity {entity.name} chose action: {action}', _PRINT_COLOR
+              )
+          )
+
+        return action
+
+      tasks = {}
+      for i, entity in enumerate(next_entities):
+        action_spec = next_action_specs[i]
+        tasks[entity.name] = functools.partial(_entity_act, entity, action_spec)
+      # Run entity actions concurrently
+      actions = concurrency.run_tasks(tasks)
+      resolve_input = '\n'.join(actions.values())
+      self.resolve(game_master, resolve_input, verbose=verbose)
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+        log_entry['resolve'] = game_master.get_last_log()
+
+      entity_logs = {}
+      for entity_name in actions:
+        entity = next(e for e in entities if e.name == entity_name)
+        if hasattr(entity, 'get_last_log'):
+          assert hasattr(entity, 'get_last_log')  # Assertion for pytype
+          entity_logs[entity.name] = entity.get_last_log()
+
       steps += 1
+      if log is not None:
+        game_master_key = game_master.name
+        self._log(
+            log=log,
+            steps=steps,
+            entity_logs=entity_logs,
+            game_master_key=game_master_key,
+            game_master_log=log_entry,
+        )
+        log_entry = _get_empty_log_entry()
+
+  def _log(
+      self,
+      log: list[Mapping[str, Any]],
+      steps: int,
+      entity_logs: Mapping[str, Any],
+      game_master_key: str,
+      game_master_log: Mapping[str, Any],
+  ):
+    """Modify log in place to append a new entry."""
+    game_master_finalized_log = {}
+    for segment_key, segment_log in game_master_log.items():
+      game_master_finalized_log[segment_key] = {}
+      for component_key, component_value in segment_log.items():
+        if component_value:
+          tmp_log_dict = {
+              key: value for key, value in component_value.items() if value
+          }
+          if len(tmp_log_dict) > 1:
+            # Only log if component logged more than just a key.
+            game_master_finalized_log[segment_key][component_key] = tmp_log_dict
+
+    log_entry = {
+        'Step': steps,
+        game_master_key: game_master_finalized_log,
+        'Summary': f'Step {steps} {game_master_key}',
+    }
+    for entity_name, entity_log in entity_logs.items():
+      log_entry[f'Entity [{entity_name}]'] = entity_log
+    log.append(log_entry)
