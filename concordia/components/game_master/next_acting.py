@@ -133,6 +133,50 @@ class NextActing(
     self._currently_active_player = state['currently_active_player']
 
 
+class NextActingAllEntities(entity_component.ContextComponent):
+  """A component that always selects all entities to act next for async environments."""
+
+  def __init__(
+      self,
+      player_names: Sequence[str],
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
+  ):
+    """Initializes the component.
+
+    Args:
+      player_names: Names of players.
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
+    """
+    super().__init__()
+    self._player_names = player_names
+    self._pre_act_label = pre_act_label
+
+    if not self._player_names:
+      raise ValueError('No player names provided.')
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      result = ','.join(self._player_names)
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    """Not applicable for this component as all players are always active."""
+    return None
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass
+
+
 class NextActingInFixedOrder(entity_component.ContextComponent):
   """A component that decides whose turn is next in a fixed sequence.
   """
