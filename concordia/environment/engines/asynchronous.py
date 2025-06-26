@@ -236,6 +236,22 @@ class Asynchronous(engine_lib.Engine):
           game_master, entities, log_entry=log_entry, log=log
       )
 
+      if (
+          next_action_specs[0].output_type
+          == entity_lib.OutputType.SKIP_THIS_STEP
+      ):
+        # For initialization, it is often useful to have a special game master
+        # that initializes other players and game masters but does not itself
+        # allow players to take actions. In this case, we skip the current
+        # step and continue to the next step.
+        if verbose:
+          print(
+              termcolor.colored(
+                  '\nSkipping the action phase for the current time step.\n'
+              )
+          )
+        continue
+
       def _entity_act(
           entity: entity_lib.Entity, action_spec: entity_lib.ActionSpec
       ) -> str:
@@ -280,6 +296,7 @@ class Asynchronous(engine_lib.Engine):
       for i, entity in enumerate(next_entities):
         action_spec = next_action_specs[i]
         tasks[entity.name] = functools.partial(_entity_act, entity, action_spec)
+
       # Run entity actions concurrently
       actions = concurrency.run_tasks(tasks)
       resolve_input = '\n'.join(actions.values())
