@@ -84,6 +84,7 @@ class SwitchAct(
       ValueError: If the component order is not None and contains duplicate
         components.
     """
+    super().__init__()
     self._model = model
     self._entity_names = entity_names
     if component_order is None:
