@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for asynchronous simulation.
+"""Tests for simultaneous simulation.
 """
 
 import functools
 
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
-from concordia.environment.engines import asynchronous
+from concordia.environment.engines import simultaneous
 from concordia.typing import entity as entity_lib
 from typing_extensions import override
 
@@ -57,10 +57,10 @@ class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
       raise ValueError(f'Unsupported output type: {action_spec.output_type}')
 
 
-class AsynchronousTest(absltest.TestCase):
+class SimultaneousTest(absltest.TestCase):
 
   def test_run_loop(self):
-    env = asynchronous.Asynchronous()
+    env = simultaneous.Simultaneous()
     game_master = MockEntity(name='game_master')
     entities = [
         MockEntity(name=_ENTITY_NAMES[0]),

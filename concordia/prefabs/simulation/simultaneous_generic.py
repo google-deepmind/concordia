@@ -20,7 +20,7 @@ import copy
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment.engines import asynchronous
+from concordia.environment.engines import simultaneous
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -63,7 +63,7 @@ class Simulation(simulation_lib.Simulation):
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._environment = asynchronous.Asynchronous()
+    self._environment = simultaneous.Simultaneous()
 
     self.game_masters = []
     self.entities = []

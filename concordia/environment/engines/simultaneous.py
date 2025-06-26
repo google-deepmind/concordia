@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Asynchronous engine.
+"""Simultaneous engine.
 """
 
 from collections.abc import Mapping, Sequence
@@ -60,8 +60,8 @@ def _get_empty_log_entry():
   }
 
 
-class Asynchronous(engine_lib.Engine):
-  """Synchronous engine."""
+class Simultaneous(engine_lib.Engine):
+  """Engine for simultaneous move games."""
 
   def __init__(
       self,
@@ -72,7 +72,7 @@ class Asynchronous(engine_lib.Engine):
       call_to_check_termination: str = DEFAULT_CALL_TO_CHECK_TERMINATION,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
   ):
-    """Asynchronous engine constructor."""
+    """Simultaneous engine constructor."""
     self._call_to_make_observation = call_to_make_observation
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec
@@ -250,10 +250,13 @@ class Asynchronous(engine_lib.Engine):
                   '\nSkipping the action phase for the current time step.\n'
               )
           )
-        continue
+        skip_actions = True
+      else:
+        skip_actions = False
 
       def _entity_act(
-          entity: entity_lib.Entity, action_spec: entity_lib.ActionSpec
+          entity: entity_lib.Entity, action_spec: entity_lib.ActionSpec,
+          skip_actions: bool = False,
       ) -> str:
         """Make observation, get action and resolution for one entity."""
         observation = self.make_observation(game_master, entity)
@@ -269,6 +272,9 @@ class Asynchronous(engine_lib.Engine):
                   f'Entity {entity.name} observed: {observation}', _PRINT_COLOR
               )
           )
+
+        if skip_actions:
+          return ''
 
         if verbose:
           print(
@@ -293,12 +299,25 @@ class Asynchronous(engine_lib.Engine):
         return action
 
       tasks = {}
-      for i, entity in enumerate(next_entities):
-        action_spec = next_action_specs[i]
-        tasks[entity.name] = functools.partial(_entity_act, entity, action_spec)
+      entities_to_process = entities if skip_actions else next_entities
+      for i, entity in enumerate(entities_to_process):
+        if skip_actions:
+          action_spec = entity_lib.ActionSpec(
+              call_to_action='',
+              output_type=entity_lib.OutputType.SKIP_THIS_STEP,
+          )
+        else:
+          action_spec = next_action_specs[i]
+        tasks[entity.name] = functools.partial(
+            _entity_act, entity, action_spec, skip_actions
+        )
 
       # Run entity actions concurrently
       actions = concurrency.run_tasks(tasks)
+
+      if skip_actions:
+        continue
+
       resolve_input = '\n'.join(actions.values())
       self.resolve(game_master, resolve_input, verbose=verbose)
       if log is not None and hasattr(game_master, 'get_last_log'):
