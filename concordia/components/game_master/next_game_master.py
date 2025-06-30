@@ -15,6 +15,7 @@
 """Component helping a game master pick which game master to use next."""
 
 from collections.abc import Mapping, Sequence
+import functools
 import re
 import types
 
@@ -25,6 +26,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
+from concordia.utils import concurrency
 
 
 DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY = '__next_game_master__'
@@ -246,7 +248,12 @@ class FormativeMemoriesInitializer(
             self._make_observation_component_key,
             type_=make_observation_component.MakeObservation,
         )
-        for player_name in self._player_names:
+
+        def _process_player(
+            player_name: str,
+            memory: memory_component.Memory,
+            make_observation: make_observation_component.MakeObservation,
+        ):
           for shared_memory in self._shared_memories:
             make_observation.add_to_queue(player_name, shared_memory)
           episodes = self.generate_backstory_episodes(player_name)
@@ -258,6 +265,16 @@ class FormativeMemoriesInitializer(
           ):
             make_observation.add_to_queue(player_name, player_memory)
             memory.add(f'{player_name} remembers: "{player_memory}"')
+
+        tasks = {
+            player_name: functools.partial(
+                _process_player, player_name, memory, make_observation
+            )
+            for player_name in self._player_names
+        }
+
+        # Run entity actions concurrently
+        concurrency.run_tasks(tasks)
 
         self._initialized = True
         return self.get_entity().name

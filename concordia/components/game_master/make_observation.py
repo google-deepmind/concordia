@@ -16,6 +16,7 @@
 
 from collections.abc import Sequence
 import copy
+import threading
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
@@ -77,6 +78,7 @@ class MakeObservation(entity_component.ContextComponent,
         reformat_observations_in_specified_style
     )
     self._pre_act_label = pre_act_label
+    self._lock = threading.Lock()
 
     self._queue = {}
 
@@ -124,27 +126,31 @@ class MakeObservation(entity_component.ContextComponent,
       )
       active_entity_name = self._player_names[idx]
       log_entry['Active Entity'] = active_entity_name
-      log_entry['queue'] = copy.deepcopy(self._queue)
+      with self._lock:
+        log_entry['queue'] = copy.deepcopy(self._queue)
 
-      if active_entity_name in self._queue and self._queue[active_entity_name]:
-        log_entry['queue_active_entity'] = copy.deepcopy(
-            self._queue[active_entity_name]
-        )
-        result = ''
-        for event in self._queue[active_entity_name]:
-          result += event + '\n\n\n'
+        if (
+            active_entity_name in self._queue
+            and self._queue[active_entity_name]
+        ):
+          log_entry['queue_active_entity'] = copy.deepcopy(
+              self._queue[active_entity_name]
+          )
+          result = ''
+          for event in self._queue[active_entity_name]:
+            result += event + '\n\n\n'
 
-        self._queue[active_entity_name] = []
-      else:
-        result = prompt.open_question(
-            question=(
-                f'What does {active_entity_name} observe now? Never '
-                'repeat information that was already provided to '
-                f'{active_entity_name} unless absolutely necessary. Keep '
-                'the story moving forward.'
-            ),
-            max_tokens=1200,
-        )
+          self._queue[active_entity_name] = []
+        else:
+          result = prompt.open_question(
+              question=(
+                  f'What does {active_entity_name} observe now? Never '
+                  'repeat information that was already provided to '
+                  f'{active_entity_name} unless absolutely necessary. Keep '
+                  'the story moving forward.'
+              ),
+              max_tokens=1200,
+          )
 
       if self._reformat_observations_in_specified_style:
         prompt.statement(
@@ -180,14 +186,23 @@ class MakeObservation(entity_component.ContextComponent,
 
   def add_to_queue(self, entity_name: str, event: str):
     """Adds an event to the queue of events to observe."""
-    if entity_name not in self._queue:
-      self._queue[entity_name] = []
-    self._queue[entity_name].append(event)
+    with self._lock:
+      if entity_name not in self._queue:
+        self._queue[entity_name] = []
+      self._queue[entity_name].append(event)
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {'queue': self._queue}
+    with self._lock:
+      return {'queue': copy.deepcopy(self._queue)}
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._queue = state['queue']
+    with self._lock:
+      self._queue = copy.deepcopy(state['queue'])
+
+
+
+
+
+
