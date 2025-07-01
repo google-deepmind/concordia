@@ -20,6 +20,7 @@ import copy
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
+from concordia.environment import engine as engine_lib
 from concordia.environment.engines import sequential
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -43,6 +44,7 @@ class Simulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
+      engine: engine_lib.Engine = sequential.Sequential(),
   ):
     """Initialize the simulation object.
 
@@ -59,12 +61,12 @@ class Simulation(simulation_lib.Simulation):
       config: the config to use.
       model: the language model to use.
       embedder: the sentence transformer to use.
+      engine: the engine to use, defaults to sequential.Sequential().
     """
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._environment = sequential.Sequential()
-
+    self._environment = engine
     self.game_masters = []
     self.entities = []
 
