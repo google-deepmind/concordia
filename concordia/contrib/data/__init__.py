@@ -11,9 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Questionnaire dictionaries."""
-
-from concordia.contrib.data.questionnaires import dass
-
-DASS = dass.dass_questionnaire
