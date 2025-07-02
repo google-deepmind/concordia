@@ -19,7 +19,10 @@ from typing import Collection
 from concordia.utils.deprecated import measurements
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import seaborn as sns
+import umap
 
 
 def plot_line_measurement_channel(measurements_obj: measurements.Measurements,
@@ -123,3 +126,259 @@ def plot_metric_pie(metric):
 def plot_metric_line(metric):
   """Plots a line chart of the metric."""
   plot_df_line(pd.DataFrame(metric.state()), metric.name())
+
+
+def plot_umap_from_dataframe(
+    data_df: pd.DataFrame,
+    label_column: str | None = None,
+    n_neighbors: int = 15,
+    min_dist: float = 0.1,
+    n_components: int = 2,
+    metric: str = 'euclidean',
+    **kwargs,
+):
+  """Plots a UMAP from aggregated questionnaire results.
+
+  Args:
+    data_df: DataFrame containing the features to project and optionally the
+      label column.
+    label_column: Name of the column in data_df to use as labels. If None,
+      points will not be colored by label.
+    n_neighbors: UMAP n_neighbors parameter.
+    min_dist: UMAP min_dist parameter.
+    n_components: UMAP n_components parameter.
+    metric: UMAP metric parameter.
+    **kwargs: Additional arguments to pass to umap.UMAP.
+  """
+  if label_column:
+    labels = data_df[label_column]
+    data_matrix = data_df.drop(columns=[label_column])
+  else:
+    labels = None
+    data_matrix = data_df
+
+  num_samples = data_matrix.shape[0]
+  data_values = data_matrix.values
+
+  if num_samples <= n_components:
+    print(
+        f'Cannot plot UMAP with {num_samples} samples and '
+        f'{n_components} components.'
+    )
+    return
+
+  # Ensure n_neighbors is valid
+  actual_n_neighbors = min(n_neighbors, num_samples - 1)
+
+  # Use random initialization if num_samples is too small for spectral
+  init_method = 'spectral'
+  if num_samples <= n_components + 1:
+    init_method = 'random'
+
+  reducer = umap.UMAP(
+      n_neighbors=actual_n_neighbors,
+      min_dist=min_dist,
+      n_components=n_components,
+      metric=metric,
+      init=init_method,
+      random_state=42,  # Add random_state for reproducibility
+      **kwargs,
+  )
+  embedding = reducer.fit_transform(data_values)
+
+  plt.figure(figsize=(12, 10))
+
+  if labels is not None:
+    unique_labels = labels.unique()
+    colors = sns.color_palette('hls', len(unique_labels))
+    label_color_map = dict(zip(unique_labels, colors))
+
+    for label in unique_labels:
+      idx = labels == label
+      plt.scatter(
+          embedding[idx, 0],
+          embedding[idx, 1],
+          s=50,
+          color=label_color_map[label],
+          label=label,
+      )
+
+    if len(unique_labels) > 1:
+      plt.legend()
+
+    # Annotate points if there are not too many
+    if num_samples <= 50 and labels.dtype == 'object':
+      for i, label in enumerate(labels):
+        plt.annotate(
+            label,
+            (embedding[i, 0], embedding[i, 1]),
+            textcoords='offset points',
+            xytext=(0, 5),
+            ha='center',
+        )
+
+  else:
+    plt.scatter(embedding[:, 0], embedding[:, 1], s=50)
+
+  plt.title('UMAP projection')
+  plt.xlabel('UMAP Component 1')
+  plt.ylabel('UMAP Component 2')
+  plt.show()
+
+
+def plot_kde_from_dataframe(
+    data_df: pd.DataFrame,
+    dimensions: list[str] | None = None,
+    label_column: str | None = None,
+    palette: str | list[str] = '',
+):
+  """Plots KDE distributions for each dimension, colored by label_column.
+
+  Args:
+    data_df: DataFrame containing the data.
+    dimensions: List of column names to plot distributions for. If None, plots
+      all columns except label_column.
+    label_column: Column name to group and color the distributions. If None, all
+      data is plotted in a single color.
+    palette: Color palette to use for the different labels.
+  """
+  if dimensions is None:
+    dimensions = data_df.columns.tolist()
+    if label_column and label_column in dimensions:
+      dimensions.remove(label_column)
+
+  num_dims = len(dimensions)
+  if num_dims == 0:
+    print('No dimensions to plot.')
+    return
+
+  plt.figure(figsize=(15, 5 * ((num_dims - 1) // 3 + 1)))
+
+  if label_column and label_column in data_df.columns:
+    unique_labels = data_df[label_column].unique()
+    colors = sns.color_palette(palette, len(unique_labels))
+    label_color_map = dict(zip(unique_labels, colors))
+
+    for i, dim in enumerate(dimensions):
+      if dim not in data_df.columns:
+        print(f"Warning: Dimension '{dim}' not found in DataFrame.")
+        continue
+      plt.subplot((num_dims - 1) // 3 + 1, 3, i + 1)
+      for label in unique_labels:
+        subset = data_df[data_df[label_column] == label]
+        if not subset.empty:
+          sns.kdeplot(
+              data=subset,
+              x=dim,
+              color=label_color_map[label],
+              alpha=0.6,
+              label=label,
+              fill=True,
+          )
+      plt.title(dim)
+      plt.legend()
+  else:
+    for i, dim in enumerate(dimensions):
+      if dim not in data_df.columns:
+        print(f"Warning: Dimension '{dim}' not found in DataFrame.")
+        continue
+      plt.subplot((num_dims - 1) // 3 + 1, 3, i + 1)
+      sns.kdeplot(
+          data=data_df,
+          x=dim,
+          color='blue',
+          alpha=0.6,
+          fill=True,
+      )
+      plt.title(dim)
+
+  plt.tight_layout()
+  plt.show()
+
+
+def plot_correlation_matrix(
+    data_df: pd.DataFrame,
+    dimensions: list[str] | None = None,
+    label_column: str | None = None,
+    title: str = 'Correlation Matrix',
+    cmap: str = 'coolwarm',
+):
+  """Plots the correlation matrix of the specified dimensions in the DataFrame.
+
+  If label_column is provided, a separate correlation matrix is plotted for each
+  unique label in that column.
+
+  Args:
+    data_df: DataFrame containing the data.
+    dimensions: List of column names to include in the correlation matrix. If
+      None, all numerical columns are used.
+    label_column: Column name to group the data by. If None, a single matrix is
+      generated for the entire DataFrame.
+    title: Base title for the plot(s).
+    cmap: Colormap for the heatmap.
+  """
+  if dimensions:
+    if label_column and label_column not in dimensions:
+      dimensions.append(label_column)
+    data_to_use = data_df[dimensions]
+  else:
+    data_to_use = data_df.select_dtypes(include=np.number)
+    if label_column and label_column not in data_to_use.columns:
+      if label_column in data_df.columns:
+        data_to_use = pd.concat([data_to_use, data_df[label_column]], axis=1)
+
+  if label_column and label_column in data_to_use.columns:
+    unique_labels = data_to_use[label_column].unique()
+    for label in unique_labels:
+      subset_df = data_to_use[data_to_use[label_column] == label]
+      plot_dims = [
+          col
+          for col in subset_df.columns
+          if col != label_column
+          and pd.api.types.is_numeric_dtype(subset_df[col])
+      ]
+
+      if not plot_dims:
+        print(f"No numerical dimensions to plot for label '{label}'.")
+        continue
+
+      correlation_matrix = subset_df[plot_dims].corr()
+
+      plt.figure(figsize=(10, 8))
+      sns.heatmap(
+          correlation_matrix,
+          annot=True,
+          fmt='.2f',
+          cmap=cmap,
+          xticklabels=correlation_matrix.columns,
+          yticklabels=correlation_matrix.columns,
+          vmin=-1,
+          vmax=1,
+      )
+      plt.title(f'{title} - {label}')
+      plt.show()
+  else:
+    plot_dims = [
+        col
+        for col in data_to_use.columns
+        if pd.api.types.is_numeric_dtype(data_to_use[col])
+    ]
+    if not plot_dims:
+      print('No numerical dimensions to plot for correlation matrix.')
+      return
+
+    correlation_matrix = data_to_use[plot_dims].corr()
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(
+        correlation_matrix,
+        annot=True,
+        fmt='.2f',
+        cmap=cmap,
+        xticklabels=correlation_matrix.columns,
+        yticklabels=correlation_matrix.columns,
+        vmin=-1,
+        vmax=1,
+    )
+    plt.title(title)
+    plt.show()
