@@ -17,6 +17,7 @@
 from collections.abc import Mapping
 import functools
 import threading
+import traceback
 import types
 from typing import cast
 
@@ -193,3 +194,54 @@ class EntityAgent(entity_component.EntityWithComponents):
       self._parallel_call_('update')
 
       self._set_phase(entity_component.Phase.READY)
+
+  def set_state(
+      self, entity_components_state: entity_component.EntityState
+  ) -> None:
+    """Sets the state of the agent."""
+
+    # Restore context components
+    context_components_state = entity_components_state.get(
+        'context_components', {}
+    )
+    for component_name, component in self._context_components.items():
+      if component_name in context_components_state:
+        try:
+          component.set_state(context_components_state[component_name])
+        except Exception:  # pylint: disable=broad-exception-caught
+          print(
+              f'Error setting state for component {component_name}:'
+              f' {traceback.format_exc()}'
+          )
+
+    # Restore act component
+    act_state = entity_components_state.get('act_component')
+    if act_state:
+      try:
+        self._act_component.set_state(act_state)
+      except Exception:  # pylint: disable=broad-exception-caught
+        print(
+            f'Error setting state for act component: {traceback.format_exc()}'
+        )
+
+    # Restore context processor
+    proc_state = entity_components_state.get('context_processor')
+    if proc_state:
+      try:
+        self._context_processor.set_state(proc_state)
+      except Exception:  # pylint: disable=broad-exception-caught
+        print(
+            'Error setting state for context processor:'
+            f' {traceback.format_exc()}'
+        )
+
+  def get_state(self) -> entity_component.EntityState:
+    """Returns the state of the agent as a dictionary."""
+    return {
+        'act_component': self._act_component.get_state(),
+        'context_processor': self._context_processor.get_state(),
+        'context_components': {
+            component_name: component.get_state()
+            for component_name, component in self._context_components.items()
+        },
+    }

@@ -17,7 +17,7 @@
 
 from collections.abc import Mapping, Sequence
 import functools
-from typing import Any
+from typing import Any, Callable
 
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
@@ -210,6 +210,7 @@ class Sequential(engine_lib.Engine):
       max_steps: int = 100,
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
+      checkpoint_callback: Callable[[int], None] | None = None,
   ):
     """Run a game loop."""
     if not game_masters:
@@ -260,6 +261,9 @@ class Sequential(engine_lib.Engine):
         if verbose:
           print(termcolor.colored(
               '\nSkipping the action phase for the current time step.\n'))
+        if checkpoint_callback is not None:
+          print(f'Calling checkpoint callback at step {steps}')
+          checkpoint_callback(steps)
         continue
 
       if verbose:
@@ -304,6 +308,9 @@ class Sequential(engine_lib.Engine):
             game_master_log=log_entry,
         )
         log_entry = _get_empty_log_entry()
+
+      if checkpoint_callback is not None:
+        checkpoint_callback(steps)
 
   def _log(
       self,

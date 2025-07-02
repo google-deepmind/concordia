@@ -33,6 +33,8 @@ _LeafT = str | int | float | None
 _ValueT = _LeafT | Collection["_ValueT"] | Mapping[str, "_ValueT"]
 ComponentState = Mapping[str, _ValueT]
 
+EntityState = Mapping[str, ComponentState | Mapping[str, ComponentState]]
+
 
 class Phase(enum.Enum):
   """Phases of a component entity lifecycle.
@@ -193,6 +195,16 @@ class EntityWithComponents(entity_lib.Entity):
       name: The name of the component to fetch.
       type_: If passed, the returned component will be cast to this type.
     """
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def get_state(self) -> EntityState:
+    """Returns the state of the entity."""
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def set_state(self, state: EntityState) -> None:
+    """Sets the state of the entity."""
     raise NotImplementedError()
 
 

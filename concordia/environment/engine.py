@@ -16,7 +16,7 @@
 """
 
 import abc
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from concordia.typing import entity as entity_lib
@@ -75,6 +75,7 @@ class Engine(metaclass=abc.ABCMeta):
       max_steps: int,
       verbose: bool,
       log: list[Mapping[str, Any]] | None,
+      checkpoint_callback: Callable[[int], None] | None = None,
   ):
     """Run a game loop."""
 
