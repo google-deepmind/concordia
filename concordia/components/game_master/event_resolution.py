@@ -290,11 +290,11 @@ class DisplayEvents(
 
     return events_str
 
-  def get_state(self) -> dict[str, None]:
+  def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     return {}
 
-  def set_state(self, state: dict[str, None]) -> None:
+  def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     pass
 
@@ -413,7 +413,7 @@ class SendEventToRelevantPlayers(
     )
     return result
 
-  def get_state(self) -> dict[str, object]:
+  def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     return {
         '_queue': self._queue,
@@ -423,7 +423,7 @@ class SendEventToRelevantPlayers(
         ),
     }
 
-  def set_state(self, state: dict[str, object]) -> None:
+  def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._queue = state['_queue']
     self._last_action_spec = state['_last_action_spec']
