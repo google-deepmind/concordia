@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.0.0] - 2025-7-4
+
+### Changed
+
+- Game masters are now entities.
+- Entities and components no longer require clocks.
+- Simplified the way components interact with memory.
+
+### Added
+
+- The concept of a "prefab", this replaces the now-deprecated "factory" concept.
+- The concept of an "engine" to structure the interaction between agent and game
+master.
+- Two specific engines: "sequential", and "simultaneous" for turn-based games
+and simultaneous-move games respectively.
+
 ## [1.8.10] - 2024-12-19
 
 ### Changed
