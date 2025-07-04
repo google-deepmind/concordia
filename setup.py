@@ -87,7 +87,6 @@ setuptools.setup(
         'transformers',
         'typing-extensions',
         'jinja2',
-        'umap-learn',
     ),
     extras_require={
         # Used in development.
