@@ -69,7 +69,7 @@ class Simulation(simulation_lib.Simulation):
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._environment = engine
+    self._engine = engine
     self.game_masters = []
     self.entities = []
     self._entity_to_prefab_config: dict[str, prefab_lib.InstanceConfig] = {}
@@ -240,7 +240,7 @@ class Simulation(simulation_lib.Simulation):
     ]
     sorted_game_masters = initializers + other_gms
 
-    self._environment.run_loop(
+    self._engine.run_loop(
         game_masters=sorted_game_masters,
         entities=self.entities,
         premise=premise,
