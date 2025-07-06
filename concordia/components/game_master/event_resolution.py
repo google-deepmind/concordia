@@ -394,12 +394,12 @@ class SendEventToRelevantPlayers(
           result = action_attempt.replace(
               self._map_names_to_previous_observations[active_entity_name], ''
           )
-        if self._optional_make_observation_component_key:
-          make_observation = self.get_entity().get_component(
-              self._optional_make_observation_component_key,
-              type_=make_observation_component.MakeObservation,
-          )
-          make_observation.add_to_queue(active_entity_name, result)
+          if self._optional_make_observation_component_key:
+            make_observation = self.get_entity().get_component(
+                self._optional_make_observation_component_key,
+                type_=make_observation_component.MakeObservation,
+            )
+            make_observation.add_to_queue(active_entity_name, result)
 
         self._map_names_to_previous_observations[active_entity_name] += result
 
