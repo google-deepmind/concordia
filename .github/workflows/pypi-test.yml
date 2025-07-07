@@ -60,14 +60,15 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install --upgrade setuptools
-          pip install pytest-xdist
 
       - name: Install from PyPI
         run: |
           VERSION="${{github.event.inputs.version}}"
-          pip -vvv install "gdm-concordia${VERSION:+==$VERSION}"
+          pip install "gdm-concordia${VERSION:+==$VERSION}"
           pip list
+          pip check
 
       - name: Test installation
         run: |
+          pip install pytest-xdist
           pytest -n auto --pyargs concordia
