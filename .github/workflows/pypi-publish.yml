@@ -6,19 +6,6 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      run_tests:
-        description: 'Test sdist before upload'
-        type: boolean
-        default: true
-      upload_to_test_pypi:
-        description: 'Upload to Test PyPi'
-        type: boolean
-        default: false
-      upload_to_pypi:
-        description: 'Upload to PyPi'
-        type: boolean
-        default: false
 
 permissions: read-all
 
@@ -54,7 +41,6 @@ jobs:
   test:
     name: Test
     needs: build
-    if: github.event_name == 'release' || inputs.run_tests
     runs-on: ${{ matrix.os }}
     env:
       SYSTEM_VERSION_COMPAT: 0  # See https://github.com/actions/setup-python/issues/279.
@@ -113,14 +99,14 @@ jobs:
           name: dist
           path: ./dist
       - name: Publish to TestPyPI
-        if: github.event_name == 'release' || inputs.upload_to_test_pypi
+        if: github.event_name == 'release'
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
         with:
           attestations: false
           repository-url: https://test.pypi.org/legacy/
           verbose: true
       - name: Publish to PyPI
-        if: github.event_name == 'release' || inputs.upload_to_pypi
+        if: github.event_name == 'release'
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
         with:
           attestations: false
