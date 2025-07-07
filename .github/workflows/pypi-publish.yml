@@ -85,13 +85,14 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install --upgrade setuptools
-          pip install pytest-xdist
       - name: Install source distribution
         run: |
           pip install dist/*.tar.gz
           pip list
+          pip check
       - name: Test source distribution
         run: |
+          pip install pytest-xdist
           pytest -n auto --pyargs concordia
 
   publish:
