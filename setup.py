@@ -70,12 +70,13 @@ setuptools.setup(
         'absl-py',
         'boto3',
         'google-cloud-aiplatform',
-        'google-generativeai',
+        'google-generativeai>=0.8',
         'ipython',
+        'jinja2',
         'langchain-community',
         'matplotlib',
         'mistralai',
-        'numpy',
+        'numpy>=1.26',
         'ollama',
         'openai>=1.3.0',
         'pandas',
@@ -86,7 +87,6 @@ setuptools.setup(
         'together',
         'transformers',
         'typing-extensions',
-        'jinja2',
     ),
     extras_require={
         # Used in development.

@@ -36,8 +36,3 @@ jobs = 'auto'
 # Use the enum overlay for more precise enum checking. This flag is temporary
 # and will be removed once this behavior is enabled by default.
 use_enum_overlay = true
-
-[project]
-dependencies = [
-    "numpy>=1.26.0",
-]
