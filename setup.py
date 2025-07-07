@@ -33,7 +33,7 @@ with open('README.md') as f:
 
 setuptools.setup(
     name='gdm-concordia',
-    version='2.0.0',
+    version='2.0.1',
     license='Apache 2.0',
     license_files=['LICENSE'],
     url='https://github.com/google-deepmind/concordia',

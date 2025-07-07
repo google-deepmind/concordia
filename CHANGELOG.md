@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.0.1] - 2025-7-7
+
+### Changed
+
+- Pinned some dependencies in setup.py to help with pip resolution
+
+### Added
+
+- Add set/get state for LastNObservations component
+
 ## [2.0.0] - 2025-7-4
 
 ### Changed
