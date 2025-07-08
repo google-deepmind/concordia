@@ -355,3 +355,11 @@ class ContextProcessorComponent(BaseComponent, metaclass=abc.ABCMeta):
       contexts: The context from other components.
     """
     del contexts
+
+  def get_state(self) -> ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: ComponentState) -> None:
+    """Sets the state of the component."""
+    return None
