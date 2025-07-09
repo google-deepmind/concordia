@@ -16,11 +16,15 @@
 """An associative memory with basic retrieval methods."""
 
 from collections.abc import Callable, Iterable, Sequence
+import io
 import threading
 
 from concordia.typing import entity_component
 import numpy as np
 import pandas as pd
+
+
+StringIO = io.StringIO
 
 
 class AssociativeMemoryBank:
@@ -58,7 +62,7 @@ class AssociativeMemoryBank:
 
     with self._memory_bank_lock:
       self._stored_hashes = set(state['stored_hashes'])
-      self._memory_bank = pd.read_json(state['memory_bank'])
+      self._memory_bank = pd.read_json(StringIO(state['memory_bank']))
 
   def add(
       self,
