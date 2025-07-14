@@ -282,18 +282,25 @@ class InteractiveDocument(document.Document):
     return response
 
   def multiple_choice_question(
-      self, question: str, answers: Sequence[str]
+      self,
+      question: str,
+      answers: Sequence[str],
+      randomize_choices: bool = True,
   ) -> int:
     """Presents a multiple choice to the agent.
 
     Args:
       question: the question to ask the agent.
       answers: the choice of answers
+      randomize_choices: whether to randomize the order of the choices.
 
     Returns:
       The index of the sampled answer.
     """
-    original_indices = self._rng.permutation(len(answers))
+    if randomize_choices:
+      original_indices = self._rng.permutation(len(answers))
+    else:
+      original_indices = range(len(answers))
     options = {key: answers[i] for key, i in zip(_letters(), original_indices)}
     self._question(f'Question: {question}\n')
     for key, option in options.items():

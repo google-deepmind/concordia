@@ -41,6 +41,7 @@ class ConcatActComponent(
       model: language_model.LanguageModel,
       component_order: Sequence[str] | None = None,
       prefix_entity_name: bool = True,
+      randomize_choices: bool = True,
   ):
     """Initializes the agent.
 
@@ -58,6 +59,8 @@ class ConcatActComponent(
         `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
         `get_action_attempt` when the `action_spec` output type is `FREE`. 
+      randomize_choices: Whether to randomize the choices in the
+        `get_action_attempt` when the `action_spec` output type is `CHOICE`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -66,6 +69,7 @@ class ConcatActComponent(
     super().__init__()
     self._model = model
     self._prefix_entity_name = prefix_entity_name
+    self._randomize_choices = randomize_choices
     if component_order is None:
       self._component_order = None
     else:
@@ -120,7 +124,9 @@ class ConcatActComponent(
       return output
     elif action_spec.output_type in entity_lib.CHOICE_ACTION_TYPES:
       idx = prompt.multiple_choice_question(
-          question=call_to_action, answers=action_spec.options
+          question=call_to_action,
+          answers=action_spec.options,
+          randomize_choices=self._randomize_choices,
       )
       output = action_spec.options[idx]
       self._log(output, prompt)
