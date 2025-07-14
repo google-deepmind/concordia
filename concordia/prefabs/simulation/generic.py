@@ -72,8 +72,10 @@ class Simulation(simulation_lib.Simulation):
     self._engine = engine
     self.game_masters = []
     self.entities = []
+    self._raw_log = []
     self._entity_to_prefab_config: dict[str, prefab_lib.InstanceConfig] = {}
     self._checkpoints_path = None
+    self._checkpoint_counter = 0
 
     # All game masters share the same memory bank.
     self.game_master_memory_bank = associative_memory.AssociativeMemoryBank(
@@ -99,6 +101,10 @@ class Simulation(simulation_lib.Simulation):
 
     for gm_config in initializer_configs + gm_configs:
       self.add_game_master(gm_config)
+
+  def get_raw_log(self) -> list[Mapping[str, Any]]:
+    """Get the raw log of the simulation."""
+    return copy.deepcopy(self._raw_log)
 
   def get_entity_prefab_config(
       self, entity_name: str
@@ -198,6 +204,7 @@ class Simulation(simulation_lib.Simulation):
       premise: str | None = None,
       max_steps: int | None = None,
       raw_log: list[Mapping[str, Any]] | None = None,
+      get_state_callback: Callable[[dict[str, Any]], None] | None = None,
       checkpoint_path: str | None = None,
   ) -> str:
     """Run the simulation.
@@ -208,6 +215,9 @@ class Simulation(simulation_lib.Simulation):
       raw_log: A list to store the raw log of the simulation. This is used to
         generate the HTML log. Data in the supplied raw_log will be appended
         with the log from the simulation. If None, a new list is created.
+      get_state_callback: A callback to be called when saving a checkpoint. This
+        callback is called with a dictionary containing the current state of all
+        entities and game masters.
       checkpoint_path: The path to save the checkpoints. If None, no checkpoints
         are saved.
 
@@ -219,13 +229,12 @@ class Simulation(simulation_lib.Simulation):
     if max_steps is None:
       max_steps = self._config.default_max_steps
 
-    raw_log = raw_log or []
+    self._raw_log = raw_log or self._raw_log
+    self._get_state_callback = get_state_callback
 
-    checkpoint_callback = None
-    if checkpoint_path:
-      checkpoint_callback = functools.partial(
-          self.save_checkpoint, checkpoint_path=checkpoint_path
-      )
+    checkpoint_callback = functools.partial(
+        self.save_checkpoint, checkpoint_path=checkpoint_path
+    )
 
     # Ensure game masters are ordered Initializers first
     initializers = [
@@ -295,14 +304,14 @@ class Simulation(simulation_lib.Simulation):
     html_results_log = html_lib.finalise_html(tabbed_html)
     return html_results_log
 
-  def save_checkpoint(self, step: int, checkpoint_path: str):
-    """Saves the state of all entities at the current step."""
-    if not checkpoint_path:
-      return
+  def make_checkpoint_data(self) -> dict[str, Any]:
+    """Helper to create a checkpoint data dict."""
 
     checkpoint_data = {
         "entities": {},
         "game_masters": {},
+        "raw_log": copy.deepcopy(self._raw_log),
+        "checkpoint_counter": self._checkpoint_counter,
     }
 
     # Save entities
@@ -337,6 +346,20 @@ class Simulation(simulation_lib.Simulation):
           "components": gm_state,
       }
       checkpoint_data["game_masters"][gm.name] = save_data
+
+    self._checkpoint_counter += 1
+
+    return checkpoint_data
+
+  def save_checkpoint(self, step: int, checkpoint_path: str):
+    """Saves the state of all entities at the current step."""
+    checkpoint_data = self.make_checkpoint_data()
+
+    if self._get_state_callback:
+      self._get_state_callback(checkpoint_data)
+
+    if not checkpoint_path:
+      return
 
     os.makedirs(checkpoint_path, exist_ok=True)
     checkpoint_file = os.path.join(
@@ -382,6 +405,11 @@ class Simulation(simulation_lib.Simulation):
     for game_master in self.game_masters:
       if hasattr(game_master, "entities"):
         game_master.entities = self.entities
+
+    self._checkpoint_counter = checkpoint.get("checkpoint_counter", 0)
+
+    # Update raw log
+    self._raw_log = checkpoint.get("raw_log", [])
 
   def _load_entity_from_state(
       self,
