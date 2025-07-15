@@ -229,7 +229,11 @@ class Simulation(simulation_lib.Simulation):
     if max_steps is None:
       max_steps = self._config.default_max_steps
 
-    self._raw_log = raw_log or self._raw_log
+    if raw_log is None:
+      raw_log = self._raw_log
+    else:
+      self._raw_log = raw_log
+
     self._get_state_callback = get_state_callback
 
     checkpoint_callback = functools.partial(
