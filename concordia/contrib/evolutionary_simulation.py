@@ -7,7 +7,7 @@ from concordia.language_model import no_language_model
 from concordia.associative_memory import basic_associative_memory
 from concordia.utils import helper_functions as helper_functions_lib
 from concordia.utils import measurements as measurements_lib
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 import random
 import datetime
 
@@ -25,7 +25,7 @@ SELFISH_GOAL = "Maximize personal reward in the public goods game"
 # === Measurement channels ===
 MEASUREMENT_CHANNELS = {
     'generation_summary': 'evolutionary_generation_summary',
-    'population_dynamics': 'evolutionary_population_dynamics', 
+    'population_dynamics': 'evolutionary_population_dynamics',
     'selection_pressure': 'evolutionary_selection_pressure',
     'individual_scores': 'evolutionary_individual_scores',
     'strategy_distribution': 'evolutionary_strategy_distribution',
@@ -38,11 +38,11 @@ MEASUREMENT_CHANNELS = {
 def setup_measurements() -> measurements_lib.Measurements:
     """Setup measurement channels for evolutionary tracking."""
     measurements = measurements_lib.Measurements()
-    
+
     # Initialize all measurement channels
     for channel_name in MEASUREMENT_CHANNELS.values():
         measurements.get_channel(channel_name)  # Creates channel if it doesn't exist
-    
+
     return measurements
 
 
@@ -73,19 +73,19 @@ def extract_scores_from_simulation(raw_log: list) -> Dict[str, float]:
     """Extract actual scores from simulation raw log."""
     # Find all "Player Scores" entries in the raw log
     score_entries = helper_functions_lib.find_data_in_nested_structure(raw_log, "Player Scores")
-    
+
     if not score_entries:
         # Fallback to zero scores if no scores found
         return {}
-    
+
     # Get the final scores (last entry should have cumulative scores)
     final_scores = score_entries[-1] if score_entries else {}
-    
+
     # Ensure we return a dict with float values
     return {name: float(score) for name, score in final_scores.items()}
 
 
-def run_generation(agent_configs: Dict[str, basic_with_plan.Entity], measurements: measurements_lib.Measurements = None) -> Dict[str, float]:
+def run_generation(agent_configs: Dict[str, basic_with_plan.Entity], measurements: Optional[measurements_lib.Measurements] = None) -> Dict[str, float]:
     """Run a simulation and return agent scores."""
     gm_key = "game_master"
     gm_prefab = PublicGoodsGameMaster(
@@ -100,12 +100,12 @@ def run_generation(agent_configs: Dict[str, basic_with_plan.Entity], measurement
             *[prefab_lib.InstanceConfig(
                 prefab=name,  # Use string key
                 role=prefab_lib.Role.ENTITY,
-                params=agent_config.params,
+                params={k: str(v) for k, v in agent_config.params.items()},
             ) for name, agent_config in agent_configs.items()],
             prefab_lib.InstanceConfig(
                 prefab=gm_key,  # Use string key
                 role=prefab_lib.Role.GAME_MASTER,
-                params=gm_prefab.params,
+                params={k: str(v) for k, v in gm_prefab.params.items()},
             ),
         ],
         default_premise="A public goods game is played among four agents. Each round, agents choose whether to contribute to a common pool. The pool is multiplied and shared.",
@@ -121,20 +121,20 @@ def run_generation(agent_configs: Dict[str, basic_with_plan.Entity], measurement
         embedder=embedder,
         engine=engine,
     )
-    
+
     # Create raw_log to capture simulation data
     raw_log = []
     sim.play(raw_log=raw_log)
-    
+
     # Extract actual scores from the simulation
     scores = extract_scores_from_simulation(raw_log)
-    
+
     # Fallback to agent names with zero scores if extraction fails
     if not scores:
         scores = {name: 0.0 for name in agent_configs}
-    
+
     # Log individual scores to measurements
-    if measurements:
+    if measurements is not None:
         for agent_name, score in scores.items():
             measurements.publish_datum(
                 MEASUREMENT_CHANNELS['individual_scores'],
@@ -145,11 +145,11 @@ def run_generation(agent_configs: Dict[str, basic_with_plan.Entity], measurement
                     'timestamp': datetime.datetime.now().isoformat(),
                 }
             )
-    
+
     return scores
 
 
-def select_survivors(agent_configs: Dict[str, basic_with_plan.Entity], scores: Dict[str, float], method: str, k: int, measurements: measurements_lib.Measurements = None) -> Dict[str, basic_with_plan.Entity]:
+def select_survivors(agent_configs: Dict[str, basic_with_plan.Entity], scores: Dict[str, float], method: str, k: int, measurements: Optional[measurements_lib.Measurements] = None) -> Dict[str, basic_with_plan.Entity]:
     """Select survivors using top-k or probabilistic selection."""
     if method == 'topk':
         sorted_agents = sorted(scores.items(), key=lambda x: x[1], reverse=True)
@@ -171,12 +171,12 @@ def select_survivors(agent_configs: Dict[str, basic_with_plan.Entity], scores: D
             survivors = {name: agent_configs[name] for name in chosen}
     else:
         raise ValueError(f"Unknown selection method: {method}")
-    
+
     # Log selection pressure metrics
-    if measurements:
+    if measurements is not None:
         survivor_scores = [scores[name] for name in survivors.keys()]
         eliminated_scores = [scores[name] for name in agent_configs.keys() if name not in survivors]
-        
+
         measurements.publish_datum(
             MEASUREMENT_CHANNELS['selection_pressure'],
             {
@@ -189,16 +189,16 @@ def select_survivors(agent_configs: Dict[str, basic_with_plan.Entity], scores: D
                 'timestamp': datetime.datetime.now().isoformat(),
             }
         )
-    
+
     return survivors
 
 
-def mutate_agents(survivors: Dict[str, basic_with_plan.Entity], pop_size: int, mutation_rate: float, measurements: measurements_lib.Measurements = None) -> Dict[str, basic_with_plan.Entity]:
+def mutate_agents(survivors: Dict[str, basic_with_plan.Entity], pop_size: int, mutation_rate: float, measurements: Optional[measurements_lib.Measurements] = None) -> Dict[str, basic_with_plan.Entity]:
     """Create next generation by mutating survivors and cloning to fill population."""
     new_agents = {}
     survivor_names = list(survivors.keys())
     mutation_events = []
-    
+
     for i in range(pop_size):
         parent_name = random.choice(survivor_names)
         parent = survivors[parent_name]
@@ -206,14 +206,14 @@ def mutate_agents(survivors: Dict[str, basic_with_plan.Entity], pop_size: int, m
         original_goal = parent.params['goal']
         goal = original_goal
         mutated = False
-        
+
         if random.random() < mutation_rate:
             goal = COOP_GOAL if goal == SELFISH_GOAL else SELFISH_GOAL
             mutated = True
-            
+
         name = f"Agent_{i+1}"
         new_agents[name] = make_agent_config(name, goal)
-        
+
         # Track mutation events
         if mutated:
             mutation_events.append({
@@ -223,12 +223,12 @@ def mutate_agents(survivors: Dict[str, basic_with_plan.Entity], pop_size: int, m
                 'mutated_goal': goal,
                 'timestamp': datetime.datetime.now().isoformat(),
             })
-    
+
     # Log mutation events
-    if measurements:
+    if measurements is not None:
         for event in mutation_events:
             measurements.publish_datum(MEASUREMENT_CHANNELS['mutation_events'], event)
-            
+
         # Log overall mutation statistics
         measurements.publish_datum(
             MEASUREMENT_CHANNELS['population_dynamics'],
@@ -240,39 +240,39 @@ def mutate_agents(survivors: Dict[str, basic_with_plan.Entity], pop_size: int, m
                 'timestamp': datetime.datetime.now().isoformat(),
             }
         )
-    
+
     return new_agents
 
 
-def log_generation(generation: int, agent_configs: Dict[str, basic_with_plan.Entity], scores: Dict[str, float], measurements: measurements_lib.Measurements = None):
+def log_generation(generation: int, agent_configs: Dict[str, basic_with_plan.Entity], scores: Dict[str, float], measurements: Optional[measurements_lib.Measurements] = None):
     """Log generation statistics and publish to measurements."""
     coop = sum(1 for a in agent_configs.values() if a.params['goal'] == COOP_GOAL)
     selfish = sum(1 for a in agent_configs.values() if a.params['goal'] == SELFISH_GOAL)
     total_agents = len(agent_configs)
     cooperation_rate = coop / total_agents
-    
+
     # Calculate fitness statistics
     score_values = list(scores.values())
     avg_score = sum(score_values) / len(score_values) if score_values else 0.0
     max_score = max(score_values) if score_values else 0.0
     min_score = min(score_values) if score_values else 0.0
-    
+
     # Calculate strategy-specific statistics
     coop_scores = [score for name, score in scores.items() if agent_configs[name].params['goal'] == COOP_GOAL]
     selfish_scores = [score for name, score in scores.items() if agent_configs[name].params['goal'] == SELFISH_GOAL]
-    
+
     avg_coop_score = sum(coop_scores) / len(coop_scores) if coop_scores else 0.0
     avg_selfish_score = sum(selfish_scores) / len(selfish_scores) if selfish_scores else 0.0
-    
+
     # Console output
     print(f"\nGeneration {generation}:")
     print(f"  Cooperative: {coop}, Selfish: {selfish}")
     print(f"  Scores: {scores}")
     print(f"  Fraction cooperative: {cooperation_rate:.2f}")
     print(f"  Avg scores - Cooperative: {avg_coop_score:.2f}, Selfish: {avg_selfish_score:.2f}")
-    
+
     # Log to measurements
-    if measurements:
+    if measurements is not None:
         # Generation summary
         measurements.publish_datum(
             MEASUREMENT_CHANNELS['generation_summary'],
@@ -288,7 +288,7 @@ def log_generation(generation: int, agent_configs: Dict[str, basic_with_plan.Ent
                 'timestamp': datetime.datetime.now().isoformat(),
             }
         )
-        
+
         # Strategy distribution
         measurements.publish_datum(
             MEASUREMENT_CHANNELS['strategy_distribution'],
@@ -301,7 +301,7 @@ def log_generation(generation: int, agent_configs: Dict[str, basic_with_plan.Ent
                 'timestamp': datetime.datetime.now().isoformat(),
             }
         )
-        
+
         # Fitness statistics
         measurements.publish_datum(
             MEASUREMENT_CHANNELS['fitness_stats'],
@@ -320,22 +320,22 @@ def evolutionary_main():
     """Run the evolutionary simulation with measurements tracking."""
     # Setup measurements
     measurements = setup_measurements()
-    
+
     # Initialize population
     agent_configs = initialize_population(POP_SIZE)
-    
+
     # Log initial population state
     print("Starting evolutionary simulation...")
     print(f"Population size: {POP_SIZE}, Generations: {NUM_GENERATIONS}")
     print(f"Selection method: {SELECTION_METHOD}, Mutation rate: {MUTATION_RATE}")
-    
+
     # Run evolution
     for generation in range(1, NUM_GENERATIONS + 1):
         scores = run_generation(agent_configs, measurements)
         log_generation(generation, agent_configs, scores, measurements)
         survivors = select_survivors(agent_configs, scores, SELECTION_METHOD, TOP_K, measurements)
         agent_configs = mutate_agents(survivors, POP_SIZE, MUTATION_RATE, measurements)
-    
+
     # Log final convergence metrics
     final_coop_rate = sum(1 for a in agent_configs.values() if a.params['goal'] == COOP_GOAL) / POP_SIZE
     measurements.publish_datum(
@@ -355,18 +355,21 @@ def evolutionary_main():
             'timestamp': datetime.datetime.now().isoformat(),
         }
     )
-    
+
     print("\nEvolutionary simulation complete.")
     print(f"Final cooperation rate: {final_coop_rate:.2f}")
     print(f"Available measurement channels: {list(measurements.available_channels())}")
-    
+
     return measurements
 
 
-def get_measurement_summary(measurements: measurements_lib.Measurements) -> Dict[str, Any]:
+def get_measurement_summary(measurements: Optional[measurements_lib.Measurements]) -> Dict[str, Any]:
     """Get a summary of all measurement data collected during evolution."""
     summary = {}
-    
+
+    if measurements is None:
+        return summary
+
     for channel_key, channel_name in MEASUREMENT_CHANNELS.items():
         channel_data = measurements.get_channel(channel_name)
         summary[channel_key] = {
@@ -375,29 +378,32 @@ def get_measurement_summary(measurements: measurements_lib.Measurements) -> Dict
             'latest_entry': channel_data[-1] if channel_data else None,
             'sample_entries': channel_data[:3] if len(channel_data) > 3 else channel_data,
         }
-    
+
     return summary
 
 
-def export_measurements_to_dict(measurements: measurements_lib.Measurements) -> Dict[str, list]:
+def export_measurements_to_dict(measurements: Optional[measurements_lib.Measurements]) -> Dict[str, list]:
     """Export all measurement data to a dictionary for analysis."""
     export_data = {}
-    
+
+    if measurements is None:
+        return export_data
+
     for channel_key, channel_name in MEASUREMENT_CHANNELS.items():
         export_data[channel_key] = measurements.get_channel(channel_name)
-    
+
     return export_data
 
 
 if __name__ == "__main__":
     measurements = evolutionary_main()
-    
+
     # Print measurement summary
     print("\n=== Measurement Summary ===")
     summary = get_measurement_summary(measurements)
     for channel_key, info in summary.items():
         print(f"{channel_key}: {info['total_entries']} entries")
-    
+
     # Example: Access specific measurements
     print("\n=== Example: Final Generation Data ===")
     final_gen_data = measurements.get_last_datum(MEASUREMENT_CHANNELS['generation_summary'])
