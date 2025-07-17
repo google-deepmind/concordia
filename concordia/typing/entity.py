@@ -23,20 +23,22 @@ from typing import Any
 
 
 @enum.unique
-class OutputType(enum.Enum):
+class OutputType(str, enum.Enum):
   """The type of output that a entity can produce."""
+
   # Common output types
-  FREE = enum.auto()
-  CHOICE = enum.auto()
-  FLOAT = enum.auto()
+  FREE: str = 'free'
+  CHOICE: str = 'choice'
+  FLOAT: str = 'float'
   # Game master output types
-  MAKE_OBSERVATION = enum.auto()
-  NEXT_ACTING = enum.auto()
-  NEXT_ACTION_SPEC = enum.auto()
-  RESOLVE = enum.auto()
-  TERMINATE = enum.auto()
-  NEXT_GAME_MASTER = enum.auto()
-  SKIP_THIS_STEP = enum.auto()
+  MAKE_OBSERVATION: str = 'make_observation'
+  NEXT_ACTING: str = 'next_acting'
+  NEXT_ACTION_SPEC: str = 'next_action_spec'
+  RESOLVE: str = 'resolve'
+  TERMINATE: str = 'terminate'
+  NEXT_GAME_MASTER: str = 'next_game_master'
+  SKIP_THIS_STEP: str = 'skip_this_step'
+
 
 PLAYER_ACTION_TYPES = (
     OutputType.FREE,
@@ -116,6 +118,26 @@ class ActionSpec:
         raise ValueError(f'Action {action!r} is not a valid float.') from None
     else:
       raise NotImplementedError(f'Unsupported output type: {self.output_type}')
+
+  def to_dict(self) -> dict[str, Any]:
+    """Converts the action spec to a dictionary.
+
+    Returns:
+      A dictionary representation of the action spec.
+    """
+    return dataclasses.asdict(self)
+
+
+def action_spec_from_dict(action_spec_dict: dict[str, Any]) -> ActionSpec:
+  """Converts a dictionary to an action spec.
+
+  Args:
+    action_spec_dict: A dictionary representation of an action spec.
+
+  Returns:
+    An action spec.
+  """
+  return ActionSpec(**action_spec_dict)
 
 
 def free_action_spec(**kwargs) -> ActionSpec:
