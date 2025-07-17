@@ -138,15 +138,24 @@ class WorldState(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
+    action_spec_dict = (
+        self._latest_action_spec.to_dict() if self._latest_action_spec else None
+    )
     return {
         'state': self._state,
-        'latest_action_spec': self._latest_action_spec,
+        'latest_action_spec': action_spec_dict,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
+    action_spec_dict = state['latest_action_spec']
+    if action_spec_dict and isinstance(action_spec_dict, dict):
+      self._latest_action_spec = entity_lib.action_spec_from_dict(
+          action_spec_dict
+      )
+    else:
+      self._latest_action_spec = None
     self._state = state['state']
-    self._latest_action_spec = state['latest_action_spec']
 
 
 class Locations(
@@ -293,17 +302,26 @@ class Locations(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
+    action_spec_dict = (
+        self._latest_action_spec.to_dict() if self._latest_action_spec else None
+    )
     return {
         'locations': self._locations,
         'entity_locations': self._entity_locations,
-        'latest_action_spec': self._latest_action_spec,
+        'latest_action_spec': action_spec_dict,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._locations = state['locations']
     self._entity_locations = state['entity_locations']
-    self._latest_action_spec = state['latest_action_spec']
+    action_spec_dict = state['latest_action_spec']
+    if action_spec_dict and isinstance(action_spec_dict, dict):
+      self._latest_action_spec = entity_lib.action_spec_from_dict(
+          action_spec_dict
+      )
+    else:
+      self._latest_action_spec = None
 
 
 class GenerativeClock(
