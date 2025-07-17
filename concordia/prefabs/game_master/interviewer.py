@@ -35,7 +35,7 @@ class GameMaster(prefab_lib.Prefab):
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           "name": "InterviewerGM",
-          "player_name_to_question": "",  # Required: name of the player
+          "player_names": [],  # Required: names of the players
           "questionnaires": [],  # Required: list of questionnaires
           "verbose": False,
       }
@@ -57,11 +57,11 @@ class GameMaster(prefab_lib.Prefab):
       An entity.
     """
     agent_name = self.params["name"]
-    player_name_to_question = self.params["player_name_to_question"]
+    player_names = self.params["player_names"]
     questionnaires = self.params["questionnaires"]
 
-    if not player_name_to_question:
-      raise ValueError("player_name_to_question parameter must be set.")
+    if not player_names:
+      raise ValueError("player_names parameter must be set.")
     if not questionnaires:
       raise ValueError("questionnaires parameter must be set.")
 
@@ -69,12 +69,8 @@ class GameMaster(prefab_lib.Prefab):
     questionnaire_component_instance = (
         gm_components.questionnaire.Questionnaire(
             questionnaires=questionnaires,
-            player_name_to_question=player_name_to_question,
+            player_names=player_names,
         )
-    )
-
-    next_acting_component = gm_components.next_acting.NextActingInFixedOrder(
-        sequence=[player_name_to_question]
     )
 
     next_acting_component_key = (
@@ -92,16 +88,17 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     components_of_game_master = {
-        next_acting_component_key: next_acting_component,
+        next_acting_component_key: questionnaire_component_instance,
         next_action_spec_key: questionnaire_component_instance,
         terminator_key: questionnaire_component_instance,
         make_observation_key: questionnaire_component_instance,
         resolution_key: questionnaire_component_instance,
+        "questionnaire": questionnaire_component_instance,
     }
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,
-        entity_names=[player_name_to_question],
+        entity_names=[player_names],
     )
 
     game_master_agent = entity_agent_with_logging.EntityAgentWithLogging(

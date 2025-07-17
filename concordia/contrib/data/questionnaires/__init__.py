@@ -14,6 +14,4 @@
 
 """Questionnaire dictionaries."""
 
-from concordia.contrib.data.questionnaires import dass
-
-DASS = dass.dass_questionnaire
+from concordia.contrib.data.questionnaires import depression_stress_anxiety_scale
