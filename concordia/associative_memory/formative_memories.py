@@ -197,6 +197,7 @@ class FormativeMemoryFactory:
       self,
       memory: associative_memory.AssociativeMemoryBank,
       agent_config: AgentConfig,
+      sentences_per_episode: int = 3,
   ) -> None:
     """Creates formative memories of the agent at specific ages based on traits.
 
@@ -206,6 +207,7 @@ class FormativeMemoryFactory:
     Args:
       memory: the memory structure to fill
       agent_config: structured description of an agent
+      sentences_per_episode: Max number of sentences per episode
     """
     description = self.make_backstory(agent_config)
     prompt = interactive_document.InteractiveDocument(self._model)
@@ -224,7 +226,8 @@ class FormativeMemoryFactory:
         'perspective and use third-person limited point of view. Each episode '
         'must mention their age at the time the event occurred using language '
         f'such as "When {agent_config.name} was 5 years old, they '
-        'experienced..." . Use past tense. Write no more than three sentences '
+        'experienced..." . Use past tense. Write no more than'
+        f' {sentences_per_episode} sentences '
         'per episode. Separate episodes from one another by the delimiter '
         f'"{self._delimiter_symbol}". Do not apply any other '
         'special formatting besides these delimiters.'
@@ -290,6 +293,7 @@ class FormativeMemoryFactory:
   def make_memories(
       self,
       agent_config: AgentConfig,
+      sentences_per_episode: int = 3,
   ) -> associative_memory.AssociativeMemoryBank:
     """Creates agent memory from the agent config."""
 
@@ -300,9 +304,13 @@ class FormativeMemoryFactory:
 
     context = agent_config.context
     if agent_config.goal:
-      context += '\n' + f'{agent_config.name}\'s goal is: {agent_config.goal}'
+      context += '\n' + f"{agent_config.name}'s goal is: {agent_config.goal}"
 
-    self.add_memories(memory=mem, agent_config=agent_config)
+    self.add_memories(
+        memory=mem,
+        agent_config=agent_config,
+        sentences_per_episode=sentences_per_episode,
+    )
 
     if context:
       context_items = context.split('\n')
