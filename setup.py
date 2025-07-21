@@ -83,6 +83,7 @@ setuptools.setup(
         'python-dateutil',
         'reactivex',
         'retry',
+        'seaborn',
         'termcolor',
         'together',
         'transformers',
