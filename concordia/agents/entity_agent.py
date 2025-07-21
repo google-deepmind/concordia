@@ -15,6 +15,7 @@
 """A modular entity agent using the new component system."""
 
 from collections.abc import Mapping
+from concurrent import futures
 import functools
 import threading
 import traceback
@@ -120,6 +121,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       self,
       method_name: str,
       *args,
+      executor: futures.ThreadPoolExecutor | None = None,
   ) -> entity_component.ComponentContextMapping:
     """Calls the named method in parallel on all components.
 
@@ -132,6 +134,7 @@ class EntityAgent(entity_component.EntityWithComponents):
     Args:
       method_name: The name of the method to call.
       *args: The arguments to pass to the method.
+      executor: An optional existing ThreadPoolExecutor to use.
 
     Returns:
       A ComponentsContext, that is, a mapping of component name to the result of
@@ -147,7 +150,8 @@ class EntityAgent(entity_component.EntityWithComponents):
         )
         for component in unique_components
     }
-    results_by_component_id = concurrency.run_tasks(tasks_for_unique)
+    results_by_component_id = concurrency.run_tasks(
+        tasks_for_unique, executor=executor)
 
     # 3. Construct the final results dictionary.
     final_results: dict[str, str] = {}
@@ -246,63 +250,12 @@ class EntityAgent(entity_component.EntityWithComponents):
         },
     }
 
-  def parallel_stateless_act(
-      self, action_specs: list[entity.ActionSpec]
-  ) -> list[str]:
-    """Performs multiple read-only actions in parallel.
-
-    This method is designed for situations where the agent needs to evaluate
-    multiple potential actions or gather context for them without affecting its
-    internal state. Unlike the regular `act` method, this function is stateless
-    in that it does not transition through all the usual phases
-    (PRE_OBSERVE, POST_OBSERVE, POST_ACT, UPDATE).
-
-    Specifically:
-    1.  The agent's phase is temporarily set to PRE_ACT. This is crucial
-        because component `pre_act` methods are expected to be read-only and
-        thread-safe, making them suitable for parallel execution.
-    2.  It only calls the `pre_act` methods of its components and the
-        `get_action_attempt` of the act component.
-    3.  It does NOT call `post_act` or `update` methods, ensuring that no
-        state changes or memory writes occur within the agent or its
-        components as a result of this call.
-    4.  The original phase of the agent is restored upon completion.
-
-    This allows the agent to process multiple action specifications concurrently
-    without the risk of race conditions or unintended state modifications,
-    effectively making these "dry runs" of the action process. This generally
-    means that the agent will have no memory of having performed these actions.
-
-    Currently used for the questionnaire simulation.
-
-    Args:
-      action_specs: A list of ActionSpec objects to process.
-
-    Returns:
-      A list of action strings, one for each ActionSpec, in the same order.
-    """
-
-    original_phase = self.get_phase()
+  def set_phase(self, phase: entity_component.Phase) -> None:
     with self._phase_lock:
-      self._phase = entity_component.Phase.PRE_ACT
-    try:
-      num_specs = len(action_specs)
-      tasks = {
-          str(i): functools.partial(self._process_single_stateless_act, spec)
-          for i, spec in enumerate(action_specs)
-      }
+      self._phase = phase
 
-      # Use run_tasks to execute all stateless acts in parallel
-      results_map = concurrency.run_tasks(tasks)
-
-      # Order results according to the input action_specs list
-      return [results_map[str(i)] for i in range(num_specs)]
-    finally:
-      with self._phase_lock:
-        self._phase = original_phase
-
-  def _process_single_stateless_act(
-      self, action_spec: entity.ActionSpec
+  def stateless_act(
+      self, action_spec: entity.ActionSpec,
   ) -> str:
     """Helper for single stateless action, used by parallel_stateless_act."""
     if self.get_phase() != entity_component.Phase.PRE_ACT:
@@ -311,7 +264,9 @@ class EntityAgent(entity_component.EntityWithComponents):
       )
 
     # 1. PRE_ACT to gather context
-    contexts = self._parallel_call_('pre_act', action_spec)
+    executor = futures.ThreadPoolExecutor()
+    contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
+    executor.shutdown(wait=True)
     self._context_processor.pre_act(types.MappingProxyType(contexts))
 
     # 2. Get action from ActComponent

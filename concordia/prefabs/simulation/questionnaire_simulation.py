@@ -23,7 +23,6 @@ import os
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment import engine as engine_lib
 from concordia.environment.engines import parallel
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -47,7 +46,8 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: engine_lib.Engine = parallel.ParallelQuestionnaireEngine(),
+      engine: parallel.ParallelQuestionnaireEngine | None = None,
+      max_workers: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -64,12 +64,23 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: the config to use.
       model: the language model to use.
       embedder: the sentence transformer to use.
-      engine: the engine to use, defaults to sequential.Sequential().
+      engine: the engine to use. If None, a new engine is created with
+        parallel.ParallelQuestionnaireEngine.
+      max_workers: the maximum number of workers to use in the engine's
+        ThreadPoolExecutor, if the default engine is used.
     """
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._engine = engine
+    if engine is None:
+      if not max_workers:
+        self._engine = parallel.ParallelQuestionnaireEngine()
+      else:
+        self._engine = parallel.ParallelQuestionnaireEngine(
+            max_workers=max_workers
+        )
+    else:
+      self._engine = engine
     self.game_masters = []
     self.entities = []
     self._entity_to_prefab_config: dict[str, prefab_lib.InstanceConfig] = {}
@@ -238,15 +249,18 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     ]
     sorted_game_masters = initializers + other_gms
 
-    self._engine.run_loop(
-        game_masters=sorted_game_masters,
-        entities=self.entities,
-        premise=premise,
-        max_steps=max_steps,
-        verbose=verbose,
-        log=raw_log,
-        checkpoint_callback=checkpoint_callback,
-    )
+    try:
+      self._engine.run_loop(
+          game_masters=sorted_game_masters,
+          entities=self.entities,
+          premise=premise,
+          max_steps=max_steps,
+          verbose=verbose,
+          log=raw_log,
+          checkpoint_callback=checkpoint_callback,
+      )
+    finally:
+      self._engine.shutdown()
 
     player_logs = []
     player_log_names = []

@@ -87,6 +87,14 @@ class ConcurrencyTest(absltest.TestCase):
     results = concurrency.run_tasks(tasks)
     self.assertEqual(results, {'a': 'a', 'b': 'b', 'c': 'c'})
 
+  def test_run_tasks_max_workers_none(self):
+    tasks = {
+        'a': functools.partial(return_after, 0.1, 'a'),
+        'b': functools.partial(return_after, 0.1, 'b'),
+    }
+    results = concurrency.run_tasks(tasks, max_workers=None)
+    self.assertEqual(results, {'a': 'a', 'b': 'b'})
+
   def test_run_tasks_in_background(self):
     tasks = {
         'a': functools.partial(return_after, 1, 'a'),

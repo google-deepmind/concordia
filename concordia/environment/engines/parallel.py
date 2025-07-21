@@ -15,6 +15,7 @@
 """Engine for running questionnaires in parallel across multiple entities."""
 
 from collections.abc import Mapping, Sequence
+from concurrent import futures
 import functools
 import json
 import threading
@@ -25,6 +26,7 @@ from concordia.components.game_master import event_resolution as event_resolutio
 from concordia.components.game_master import next_acting as next_acting_components
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.utils import concurrency
 import termcolor
 from typing_extensions import override
@@ -53,12 +55,21 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       call_to_next_acting: str = DEFAULT_CALL_TO_NEXT_ACTING,
       call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
+      max_workers: int | None = None,
   ):
     """Constructor."""
     self._call_to_check_termination = call_to_check_termination
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec
     self._call_to_next_game_master = call_to_next_game_master
+    self._max_workers = max_workers
+    if self._max_workers is None:
+      self._executor = None
+    else:
+      self._executor = futures.ThreadPoolExecutor(max_workers=self._max_workers)
+
+  def get_executor(self) -> futures.ThreadPoolExecutor | None:
+    return self._executor
 
   @override
   def next_acting(
@@ -163,42 +174,50 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
     entity_answers = {name: {} for name in entity_map.keys()}
     mutex = threading.Lock()
 
-    def entity_task(player_name: str):
-      entity = entity_map[player_name]
+    executor = self.get_executor()
+    tasks = {}
+    entity_original_phases = {}
 
-      if not isinstance(entity, entity_agent.EntityAgent):
-        raise TypeError(
-            'Entities used with ParallelQuestionnaireEngine must be EntityAgent'
-            ' or a subclass.'
+    for player_name in entity_map:
+      agent = cast(entity_agent.EntityAgent, entity_map[player_name])
+      entity_original_phases[player_name] = agent.get_phase()
+      agent.set_phase(entity_component.Phase.PRE_ACT)
+
+    try:
+      for player_name, q_id, spec_str in player_qid_spec_list:
+        if player_name not in entity_map:
+          continue
+
+        entity = entity_map[player_name]
+        agent = cast(entity_agent.EntityAgent, entity)
+
+        formatted_spec_str = spec_str.replace('{player_name}', player_name)
+        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
+
+        task_key = f'{player_name}_{q_id}'
+
+        def process_question_task(
+            agent: entity_agent.EntityAgent,
+            action_spec: entity_lib.ActionSpec,
+            player_name: str,
+            q_id: str,
+        ):
+          # Executor is passed down to _process_single_stateless_act
+          answer = agent.stateless_act(action_spec)
+          with mutex:
+            entity_answers[player_name][q_id] = answer
+
+        tasks[task_key] = functools.partial(
+            process_question_task, agent, action_spec, player_name, q_id
         )
-      # Now safe to use entity as EntityAgent
-      agent = cast(entity_agent.EntityAgent, entity)
+      if tasks:
+        concurrency.run_tasks(tasks, executor=executor)
 
-      action_specs_for_entity: List[entity_lib.ActionSpec] = []
-      qids_for_entity: List[str] = []
-
-      for p_name, q_id, spec_str in player_qid_spec_list:
-        if p_name == player_name:
-          formatted_spec_str = spec_str.replace('{player_name}', player_name)
-          action_specs_for_entity.append(
-              engine_lib.action_spec_parser(formatted_spec_str)
-          )
-          qids_for_entity.append(q_id)
-
-      if not action_specs_for_entity:
-        return
-
-      answers = agent.parallel_stateless_act(action_specs_for_entity)
-
-      with mutex:
-        entity_answers[player_name] = dict(zip(qids_for_entity, answers))
-
-    tasks = {
-        name: functools.partial(entity_task, name) for name in entity_map.keys()
-    }
-    if tasks:
-      # Run all tasks in parallel
-      concurrency.run_tasks(tasks)
+    finally:
+      # Restore original phases
+      for player_name, phase in entity_original_phases.items():
+        agent = cast(entity_agent.EntityAgent, entity_map[player_name])
+        agent.set_phase(phase)
 
     # Feed back answers to GM
     for player_name, qid_answer_map in entity_answers.items():
@@ -221,6 +240,12 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       self, game_master: entity_lib.Entity, putative_event: str
   ) -> None:
     raise NotImplementedError
+
+  def shutdown(self, wait: bool = True) -> None:
+    """Shuts down any internal resources, like executors."""
+    if hasattr(self, '_executor') and self._executor is not None:
+      self._executor.shutdown(wait=wait)
+      self._executor = None
 
   @override
   def next_game_master(
