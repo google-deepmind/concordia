@@ -188,6 +188,17 @@ class Simulation(simulation_lib.Simulation):
       print(f"Entity {entity.name} already exists.")
       return
 
+    # Check if a pre-loaded memory state was passed in the entity's params.
+    memory_state = instance_config.params.get("memory_state")
+    if memory_state:
+      print(f"Found pre-loaded memory state for {entity.name}. Setting it.")
+      try:
+        memory_component = entity.get_component("__memory__")
+        memory_component.set_state(memory_state)
+        print(f"Successfully set pre-loaded memories for {entity.name}.")
+      except (KeyError, TypeError, ValueError) as e:
+        print(f"Error setting pre-loaded memory for {entity.name}: {e}")
+
     if state:
       entity.set_state(state)
 
