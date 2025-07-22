@@ -83,6 +83,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       self._engine = engine
     self.game_masters = []
     self.entities = []
+    self._raw_log = []
     self._entity_to_prefab_config: dict[str, prefab_lib.InstanceConfig] = {}
     self._checkpoints_path = None
 
@@ -228,7 +229,10 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     if max_steps is None:
       max_steps = self._config.default_max_steps
 
-    raw_log = raw_log or []
+    if raw_log is None:
+      raw_log = self._raw_log
+    else:
+      self._raw_log = raw_log
 
     checkpoint_callback = None
     if checkpoint_path:
@@ -394,6 +398,10 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     for game_master in self.game_masters:
       if hasattr(game_master, "entities"):
         game_master.entities = self.entities
+
+  def get_raw_log(self) -> list[Mapping[str, Any]]:
+    """Get the raw log of the simulation."""
+    return copy.deepcopy(self._raw_log)
 
   def _load_entity_from_state(
       self,
