@@ -6,5 +6,6 @@ IPython
 matplotlib
 ml_collections
 numpy
+seaborn
 sentence-transformers
 termcolor
