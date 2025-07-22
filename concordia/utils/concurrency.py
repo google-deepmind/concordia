@@ -68,6 +68,7 @@ def _as_completed(
     *,
     timeout: float | None = None,
     max_workers: int | None = None,
+    executor: futures.ThreadPoolExecutor | None = None,
 ) -> Iterator[tuple[str, futures.Future[_T]]]:
   """Maps a function to a sequence of values in parallel.
 
@@ -77,7 +78,9 @@ def _as_completed(
     tasks: callables to execute (MUST BE THREADSAFE)
     timeout: the maximum number of seconds to wait for all tasks to complete.
     max_workers: them maximum number of parallel jobs. If None will use as many
-      workers as there are tasks.
+      workers as there are tasks. Ignored if executor is provided.
+    executor: An optional existing ThreadPoolExecutor to use. If None, a new
+      one will be created.
 
   Yields:
     (key, future) as tasks complete.
@@ -87,15 +90,23 @@ def _as_completed(
   """
   if not tasks:
     return
-  if max_workers is None:
-    max_workers = len(tasks)
-  with _executor(max_workers=max_workers) as executor_:
-    key_by_future = {
-        executor_.submit(_run_task, key, task): key
-        for key, task in tasks.items()
+
+  def submit_tasks(exec_):
+    return {
+        exec_.submit(_run_task, key, task): key for key, task in tasks.items()
     }
+
+  if executor is not None:
+    key_by_future = submit_tasks(executor)
     for future in futures.as_completed(key_by_future, timeout=timeout):
       yield key_by_future[future], future
+  else:
+    if max_workers is None or max_workers > len(tasks):
+      max_workers = len(tasks)
+    with _executor(max_workers=max_workers) as executor_:
+      key_by_future = submit_tasks(executor_)
+      for future in futures.as_completed(key_by_future, timeout=timeout):
+        yield key_by_future[future], future
 
 
 def run_tasks(
@@ -103,6 +114,7 @@ def run_tasks(
     *,
     timeout: float | None = None,
     max_workers: int | None = None,
+    executor: futures.ThreadPoolExecutor | None = None,
 ) -> Mapping[str, _T]:
   """Runs the callables in parallel, blocks until first failure.
 
@@ -112,7 +124,8 @@ def run_tasks(
     tasks: callables to execute (MUST BE THREADSAFE)
     timeout: the maximum number of seconds to wait.
     max_workers: them maximum number of parallel jobs. If None will use as many
-      workers as there are tasks.
+      workers as there are tasks. Ignored if executor is provided.
+    executor: An optional existing ThreadPoolExecutor to use.
 
   Returns:
     The results fn(*arg) for arg in args]
@@ -125,7 +138,7 @@ def run_tasks(
   return {
       key: future.result()
       for key, future in _as_completed(
-          tasks, timeout=timeout, max_workers=max_workers
+          tasks, timeout=timeout, max_workers=max_workers, executor=executor
       )
   }
 
@@ -135,6 +148,7 @@ def run_tasks_in_background(
     *,
     timeout: float | None = None,
     max_workers: int | None = None,
+    executor: futures.ThreadPoolExecutor | None = None,
 ) -> tuple[Mapping[str, _T], Mapping[str, BaseException]]:
   """Runs the callables in parallel, blocks until all complete.
 
@@ -144,7 +158,8 @@ def run_tasks_in_background(
     tasks: callables to execute (MUST BE THREADSAFE)
     timeout: the maximum number of seconds to wait.
     max_workers: them maximum number of parallel jobs. If None will use as many
-      workers as there are tasks.
+      workers as there are tasks. Ignored if executor is provided.
+    executor: An optional existing ThreadPoolExecutor to use.
 
   Returns:
     (results, errors): a mappings from key to the result of the callable or the
@@ -154,7 +169,7 @@ def run_tasks_in_background(
   errors = {}
   try:
     for key, future in _as_completed(
-        tasks, timeout=timeout, max_workers=max_workers
+        tasks, timeout=timeout, max_workers=max_workers, executor=executor
     ):
       error = future.exception()
       if error is not None:
@@ -173,6 +188,7 @@ def map_parallel(
     *args: Collection[Any],
     timeout: float | None = None,
     max_workers: int | None = None,
+    executor: futures.ThreadPoolExecutor | None = None,
 ) -> Sequence[_T]:
   """Runs `map(*args)` in parallel.
 
@@ -183,7 +199,8 @@ def map_parallel(
     *args: arguments to pass to function.
     timeout: the maximum number of seconds to wait.
     max_workers: them maximum number of parallel jobs. If None, will use as many
-      workers as there are arguments.
+      workers as there are arguments. Ignored if executor is provided.
+    executor: An optional existing ThreadPoolExecutor to use.
 
   Returns:
     [fn(arg0, arg1, ...) for arg0, arg1, ...  in zip(*args)]
@@ -197,5 +214,7 @@ def map_parallel(
       str(n): functools.partial(fn, *arg)
       for n, arg in enumerate(zip(*args, strict=True))
   }
-  results = run_tasks(tasks, timeout=timeout, max_workers=max_workers)
+  results = run_tasks(
+      tasks, timeout=timeout, max_workers=max_workers, executor=executor
+  )
   return [results[key] for key in tasks]

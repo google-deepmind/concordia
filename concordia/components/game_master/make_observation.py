@@ -187,9 +187,15 @@ class MakeObservation(entity_component.ContextComponent,
   def add_to_queue(self, entity_name: str, event: str):
     """Adds an event to the queue of events to observe."""
     with self._lock:
-      if entity_name not in self._queue:
-        self._queue[entity_name] = []
-      self._queue[entity_name].append(event)
+      if entity_name.lower().strip() == 'all':
+        for player in self._player_names:
+          if player not in self._queue:
+            self._queue[player] = []
+          self._queue[player].append(event)
+      else:
+        if entity_name not in self._queue:
+          self._queue[entity_name] = []
+        self._queue[entity_name].append(event)
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""

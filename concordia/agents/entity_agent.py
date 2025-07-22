@@ -15,6 +15,7 @@
 """A modular entity agent using the new component system."""
 
 from collections.abc import Mapping
+from concurrent import futures
 import functools
 import threading
 import traceback
@@ -120,6 +121,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       self,
       method_name: str,
       *args,
+      executor: futures.ThreadPoolExecutor | None = None,
   ) -> entity_component.ComponentContextMapping:
     """Calls the named method in parallel on all components.
 
@@ -132,6 +134,7 @@ class EntityAgent(entity_component.EntityWithComponents):
     Args:
       method_name: The name of the method to call.
       *args: The arguments to pass to the method.
+      executor: An optional existing ThreadPoolExecutor to use.
 
     Returns:
       A ComponentsContext, that is, a mapping of component name to the result of
@@ -147,7 +150,8 @@ class EntityAgent(entity_component.EntityWithComponents):
         )
         for component in unique_components
     }
-    results_by_component_id = concurrency.run_tasks(tasks_for_unique)
+    results_by_component_id = concurrency.run_tasks(
+        tasks_for_unique, executor=executor)
 
     # 3. Construct the final results dictionary.
     final_results: dict[str, str] = {}
@@ -245,3 +249,28 @@ class EntityAgent(entity_component.EntityWithComponents):
             for component_name, component in self._context_components.items()
         },
     }
+
+  def set_phase(self, phase: entity_component.Phase) -> None:
+    with self._phase_lock:
+      self._phase = phase
+
+  def stateless_act(
+      self, action_spec: entity.ActionSpec,
+  ) -> str:
+    """Helper for single stateless action, used by parallel_stateless_act."""
+    if self.get_phase() != entity_component.Phase.PRE_ACT:
+      raise RuntimeError(
+          'Agent must be in PRE_ACT phase for _process_single_stateless_act'
+      )
+
+    # 1. PRE_ACT to gather context
+    executor = futures.ThreadPoolExecutor()
+    contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
+    executor.shutdown(wait=True)
+    self._context_processor.pre_act(types.MappingProxyType(contexts))
+
+    # 2. Get action from ActComponent
+    action_attempt = self._act_component.get_action_attempt(
+        contexts, action_spec
+    )
+    return action_attempt
