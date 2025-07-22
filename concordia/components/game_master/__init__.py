@@ -23,6 +23,7 @@ from concordia.components.game_master import next_game_master
 from concordia.components.game_master import payoff_matrix
 from concordia.components.game_master import questionnaire
 from concordia.components.game_master import scene_tracker
+from concordia.components.game_master import script
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.components.game_master import world_state

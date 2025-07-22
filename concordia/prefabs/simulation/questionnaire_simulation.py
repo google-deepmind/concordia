@@ -23,8 +23,7 @@ import os
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment import engine as engine_lib
-from concordia.environment.engines import sequential
+from concordia.environment.engines import parallel
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -39,7 +38,7 @@ Config = prefab_lib.Config
 Role = prefab_lib.Role
 
 
-class Simulation(simulation_lib.Simulation):
+class QuestionnaireSimulation(simulation_lib.Simulation):
   """Define the simulation API object."""
 
   def __init__(
@@ -47,7 +46,8 @@ class Simulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: engine_lib.Engine = sequential.Sequential(),
+      engine: parallel.ParallelQuestionnaireEngine | None = None,
+      max_workers: int | None = None,
   ):
     """Initialize the simulation object.
 
@@ -64,18 +64,28 @@ class Simulation(simulation_lib.Simulation):
       config: the config to use.
       model: the language model to use.
       embedder: the sentence transformer to use.
-      engine: the engine to use, defaults to sequential.Sequential().
+      engine: the engine to use. If None, a new engine is created with
+        parallel.ParallelQuestionnaireEngine.
+      max_workers: the maximum number of workers to use in the engine's
+        ThreadPoolExecutor, if the default engine is used.
     """
     self._config = config
     self._model = model
     self._embedder = embedder
-    self._engine = engine
+    if engine is None:
+      if not max_workers:
+        self._engine = parallel.ParallelQuestionnaireEngine()
+      else:
+        self._engine = parallel.ParallelQuestionnaireEngine(
+            max_workers=max_workers
+        )
+    else:
+      self._engine = engine
     self.game_masters = []
     self.entities = []
     self._raw_log = []
     self._entity_to_prefab_config: dict[str, prefab_lib.InstanceConfig] = {}
     self._checkpoints_path = None
-    self._checkpoint_counter = 0
 
     # All game masters share the same memory bank.
     self.game_master_memory_bank = associative_memory.AssociativeMemoryBank(
@@ -90,21 +100,13 @@ class Simulation(simulation_lib.Simulation):
     entities_configs = [
         entity_cfg for entity_cfg in all_data if entity_cfg.role == Role.ENTITY
     ]
-    initializer_configs = [
-        entity_cfg
-        for entity_cfg in all_data
-        if entity_cfg.role == Role.INITIALIZER
-    ]
 
     for entity_config in entities_configs:
       self.add_entity(entity_config)
 
-    for gm_config in initializer_configs + gm_configs:
+    # The questionnaire simulation is not supposed to have any initializers
+    for gm_config in gm_configs:
       self.add_game_master(gm_config)
-
-  def get_raw_log(self) -> list[Mapping[str, Any]]:
-    """Get the raw log of the simulation."""
-    return copy.deepcopy(self._raw_log)
 
   def get_entity_prefab_config(
       self, entity_name: str
@@ -188,17 +190,6 @@ class Simulation(simulation_lib.Simulation):
       print(f"Entity {entity.name} already exists.")
       return
 
-    # Check if a pre-loaded memory state was passed in the entity's params.
-    memory_state = instance_config.params.get("memory_state")
-    if memory_state:
-      print(f"Found pre-loaded memory state for {entity.name}. Setting it.")
-      try:
-        memory_component = entity.get_component("__memory__")
-        memory_component.set_state(memory_state)
-        print(f"Successfully set pre-loaded memories for {entity.name}.")
-      except (KeyError, TypeError, ValueError) as e:
-        print(f"Error setting pre-loaded memory for {entity.name}: {e}")
-
     if state:
       entity.set_state(state)
 
@@ -215,8 +206,8 @@ class Simulation(simulation_lib.Simulation):
       premise: str | None = None,
       max_steps: int | None = None,
       raw_log: list[Mapping[str, Any]] | None = None,
-      get_state_callback: Callable[[dict[str, Any]], None] | None = None,
       checkpoint_path: str | None = None,
+      verbose: bool = False,
   ) -> str:
     """Run the simulation.
 
@@ -226,11 +217,9 @@ class Simulation(simulation_lib.Simulation):
       raw_log: A list to store the raw log of the simulation. This is used to
         generate the HTML log. Data in the supplied raw_log will be appended
         with the log from the simulation. If None, a new list is created.
-      get_state_callback: A callback to be called when saving a checkpoint. This
-        callback is called with a dictionary containing the current state of all
-        entities and game masters.
       checkpoint_path: The path to save the checkpoints. If None, no checkpoints
         are saved.
+      verbose: Whether to print verbose output.
 
     Returns:
       html_results_log: browseable log of the simulation in HTML format
@@ -245,11 +234,11 @@ class Simulation(simulation_lib.Simulation):
     else:
       self._raw_log = raw_log
 
-    self._get_state_callback = get_state_callback
-
-    checkpoint_callback = functools.partial(
-        self.save_checkpoint, checkpoint_path=checkpoint_path
-    )
+    checkpoint_callback = None
+    if checkpoint_path:
+      checkpoint_callback = functools.partial(
+          self.save_checkpoint, checkpoint_path=checkpoint_path
+      )
 
     # Ensure game masters are ordered Initializers first
     initializers = [
@@ -264,15 +253,18 @@ class Simulation(simulation_lib.Simulation):
     ]
     sorted_game_masters = initializers + other_gms
 
-    self._engine.run_loop(
-        game_masters=sorted_game_masters,
-        entities=self.entities,
-        premise=premise,
-        max_steps=max_steps,
-        verbose=True,
-        log=raw_log,
-        checkpoint_callback=checkpoint_callback,
-    )
+    try:
+      self._engine.run_loop(
+          game_masters=sorted_game_masters,
+          entities=self.entities,
+          premise=premise,
+          max_steps=max_steps,
+          verbose=verbose,
+          log=raw_log,
+          checkpoint_callback=checkpoint_callback,
+      )
+    finally:
+      self._engine.shutdown()
 
     player_logs = []
     player_log_names = []
@@ -319,14 +311,14 @@ class Simulation(simulation_lib.Simulation):
     html_results_log = html_lib.finalise_html(tabbed_html)
     return html_results_log
 
-  def make_checkpoint_data(self) -> dict[str, Any]:
-    """Helper to create a checkpoint data dict."""
+  def save_checkpoint(self, step: int, checkpoint_path: str):
+    """Saves the state of all entities at the current step."""
+    if not checkpoint_path:
+      return
 
     checkpoint_data = {
         "entities": {},
         "game_masters": {},
-        "raw_log": copy.deepcopy(self._raw_log),
-        "checkpoint_counter": self._checkpoint_counter,
     }
 
     # Save entities
@@ -361,20 +353,6 @@ class Simulation(simulation_lib.Simulation):
           "components": gm_state,
       }
       checkpoint_data["game_masters"][gm.name] = save_data
-
-    self._checkpoint_counter += 1
-
-    return checkpoint_data
-
-  def save_checkpoint(self, step: int, checkpoint_path: str):
-    """Saves the state of all entities at the current step."""
-    checkpoint_data = self.make_checkpoint_data()
-
-    if self._get_state_callback:
-      self._get_state_callback(checkpoint_data)
-
-    if not checkpoint_path:
-      return
 
     os.makedirs(checkpoint_path, exist_ok=True)
     checkpoint_file = os.path.join(
@@ -421,10 +399,9 @@ class Simulation(simulation_lib.Simulation):
       if hasattr(game_master, "entities"):
         game_master.entities = self.entities
 
-    self._checkpoint_counter = checkpoint.get("checkpoint_counter", 0)
-
-    # Update raw log
-    self._raw_log = checkpoint.get("raw_log", [])
+  def get_raw_log(self) -> list[Mapping[str, Any]]:
+    """Get the raw log of the simulation."""
+    return copy.deepcopy(self._raw_log)
 
   def _load_entity_from_state(
       self,

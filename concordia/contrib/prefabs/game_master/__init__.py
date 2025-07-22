@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entity prefabs."""
+"""Library of components contributed by users."""
 
-from concordia.prefabs.entity import basic
-from concordia.prefabs.entity import basic_scripted
-from concordia.prefabs.entity import basic_with_plan
-from concordia.prefabs.entity import fake_assistant_with_configurable_system_prompt
-from concordia.prefabs.entity import minimal
+from concordia.contrib.prefabs.game_master import space_ship

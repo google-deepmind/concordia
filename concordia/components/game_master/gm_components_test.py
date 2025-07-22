@@ -13,7 +13,9 @@
 # limitations under the License.
 
 """Test game master components."""
+
 import datetime
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.components.game_master import event_resolution
@@ -27,9 +29,11 @@ from concordia.components.game_master import scene_tracker
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.components.game_master import world_state
+from concordia.contrib.data.questionnaires import depression_stress_anxiety_scale
 from concordia.language_model import no_language_model
 from concordia.utils import helper_functions
 import numpy as np
+
 
 DEFAULT_SKIP_KEYS = {"_model", "_lock"}
 
@@ -249,14 +253,15 @@ COMPONENT_FACTORIES = {
     },
     "questionnaire": {
         "component_class": questionnaire.Questionnaire,
-        "kwargs": {"questionnaires": {}},
+        "kwargs": {
+            "questionnaires": [
+                depression_stress_anxiety_scale.DASSQuestionnaire()
+            ],
+            "player_names": ["Alice", "Bob"],
+        },
         "state_example": {
-            "questionnaire_idx": 0,
-            "question_idx": -1,
-            "answers": {
-                "Alice": {"fake_questionnaire": {}},
-            },
-            "last_observation": None,
+            "answers": {},
+            "answered_mask": {},
         },
         "skip_keys": DEFAULT_SKIP_KEYS,
     },

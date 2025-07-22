@@ -25,3 +25,4 @@ from concordia.components.agent import observation
 from concordia.components.agent import plan
 from concordia.components.agent import question_of_recent_memories
 from concordia.components.agent import report_function
+from concordia.components.agent import scripted_act

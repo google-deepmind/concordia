@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A prefab for a game master that administers questionnaires."""
+"""A prefab for a game master plays a script."""
 
 from collections.abc import Mapping, Sequence
 import dataclasses
@@ -27,16 +27,15 @@ from concordia.typing import prefab as prefab_lib
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab entity implementing an interviewer game master."""
+  """A prefab entity implementing a game master that uses a script."""
 
   description: str = (
       "A game master that administers questionnaires to a specified player."
   )
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
-          "name": "InterviewerGM",
-          "player_names": [],  # Required: names of the players
-          "questionnaires": [],  # Required: list of questionnaires
+          "name": "ScriptedGM",
+          "script": [],  # Required: list of dictionaries
           "verbose": False,
       }
   )
@@ -57,20 +56,18 @@ class GameMaster(prefab_lib.Prefab):
       An entity.
     """
     agent_name = self.params["name"]
-    player_names = self.params["player_names"]
-    questionnaires = self.params["questionnaires"]
+    script = self.params["script"]
+    all_entiti_names = set([entity.name for entity in self.entities])
+    # verbose = self.params["verbose"]
 
-    if not player_names:
-      raise ValueError("player_names parameter must be set.")
-    if not questionnaires:
-      raise ValueError("questionnaires parameter must be set.")
+    if not script:
+      raise ValueError("script parameter must be set.")
 
     # Questionnaire component
-    questionnaire_component_instance = (
-        gm_components.questionnaire.Questionnaire(
-            questionnaires=questionnaires,
-            player_names=player_names,
-        )
+    script_component_instance = gm_components.script.Script(script=script)
+
+    next_acting_component = gm_components.next_acting.NextActingInFixedOrder(
+        sequence=[entry["name"] for entry in script]
     )
 
     next_acting_component_key = (
@@ -88,17 +85,16 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     components_of_game_master = {
-        next_acting_component_key: questionnaire_component_instance,
-        next_action_spec_key: questionnaire_component_instance,
-        terminator_key: questionnaire_component_instance,
-        make_observation_key: questionnaire_component_instance,
-        resolution_key: questionnaire_component_instance,
-        "questionnaire": questionnaire_component_instance,
+        next_acting_component_key: next_acting_component,
+        next_action_spec_key: script_component_instance,
+        terminator_key: script_component_instance,
+        make_observation_key: script_component_instance,
+        resolution_key: script_component_instance,
     }
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,
-        entity_names=[player_names],
+        entity_names=list(all_entiti_names),
     )
 
     game_master_agent = entity_agent_with_logging.EntityAgentWithLogging(

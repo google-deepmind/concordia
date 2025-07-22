@@ -22,4 +22,5 @@ from concordia.prefabs.game_master import generic
 from concordia.prefabs.game_master import interviewer
 from concordia.prefabs.game_master import marketplace
 from concordia.prefabs.game_master import psychology_experiment
+from concordia.prefabs.game_master import scripted
 from concordia.prefabs.game_master import situated
