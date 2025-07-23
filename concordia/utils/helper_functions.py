@@ -274,9 +274,26 @@ def print_pretty_prefabs(data_dict):
   return '\n'.join(output_lines)
 
 
+def remove_duplicate_dicts(
+    list_of_dicts: Sequence[dict[str, Any]],
+) -> Sequence[dict[str, Any]]:
+  """Removes duplicate dictionaries from a list of dictionaries."""
+  seen = set()
+  unique_dicts = []
+  for d in list_of_dicts:
+    # Convert the dictionary to a frozenset of its items, which is hashable
+    frozen_items = frozenset(d.items())
+    if frozen_items not in seen:
+      unique_dicts.append(d)
+      seen.add(frozen_items)
+  return unique_dicts
+
+
 def find_data_in_nested_structure(
-    data: Sequence[Any] | dict[str, Any], key: str
-) -> list[Any]:
+    data: Sequence[Any] | dict[str, Any],
+    key: str,
+    remove_duplicates: bool = True,
+) -> Sequence[Any]:
   """Recursively finds all instances of a given key in nested dictionaries/lists."""
   results = []
   if isinstance(data, dict):
@@ -287,6 +304,8 @@ def find_data_in_nested_structure(
   elif isinstance(data, list):
     for item in data:
       results.extend(find_data_in_nested_structure(item, key))
+  if remove_duplicates:
+    return remove_duplicate_dicts(results)
   return results
 
 
