@@ -107,6 +107,68 @@ The agents used in the following example implement exactly these questions:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.sandbox.google.com/github/google-deepmind/concordia/blob/main/examples/tutorial.ipynb)
 
+## Evolutionary Simulation
+
+This repository includes an **evolutionary simulation framework** that models the evolution of cooperation and selfishness in public goods games. The simulation demonstrates how agent strategies evolve over multiple generations through selection, mutation, and environmental pressures.
+
+### Key Features
+
+- 🧬 **Evolutionary Algorithms**: Population-based evolution with configurable selection methods (top-k, probabilistic)
+- 🎮 **Public Goods Game**: Agents choose between cooperative and selfish strategies in multi-round games
+- 📊 **Comprehensive Measurements**: Detailed tracking of population dynamics, fitness statistics, and convergence metrics
+- 🔄 **Checkpointing System**: Save and resume simulations from any generation
+- 🧪 **Modular Architecture**: Type-safe design with separated concerns (typing, checkpointing, algorithms)
+
+### Running the Evolutionary Simulation
+
+The evolutionary simulation is located in `examples/evolutionary_simulation.py`. To run it:
+
+1. **Basic execution:**
+   ```bash
+   python examples/evolutionary_simulation.py
+   ```
+
+2. **With custom configuration:**
+   ```python
+   from examples.evolutionary_simulation import evolutionary_main
+   from concordia.typing.evolutionary import EvolutionConfig
+   
+   config = EvolutionConfig(
+       pop_size=8,           # Population size
+       num_generations=20,   # Number of generations
+       selection_method='topk',  # Selection method
+       top_k=4,             # Number of survivors
+       mutation_rate=0.1,   # Mutation probability
+       num_rounds=15        # Rounds per game
+   )
+   
+   measurements = evolutionary_main(config)
+   ```
+
+3. **With checkpointing:**
+   ```python
+   from pathlib import Path
+   
+   measurements = evolutionary_main(
+       config=config,
+       checkpoint_dir=Path("checkpoints/"),
+       checkpoint_interval=5,
+       resume_from_checkpoint=True
+   )
+   ```
+
+### Automated Testing
+
+The repository includes automated daily synchronization with the upstream Concordia repository and continuous testing of the evolutionary simulation. See [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) for details.
+
+### Research Applications
+
+This evolutionary simulation framework can be used for:
+- **Social Science Research**: Studying cooperation evolution in social dilemmas
+- **Game Theory**: Analyzing strategy emergence in multi-agent environments
+- **AI Ethics**: Understanding emergent behaviors in agent populations
+- **Educational Purposes**: Demonstrating evolutionary principles in computational settings
+
 ## Citing Concordia
 
 If you use Concordia in your work, please cite the accompanying article:
