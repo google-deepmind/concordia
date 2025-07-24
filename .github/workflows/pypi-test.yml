@@ -8,13 +8,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/workflows/pypi-test.yml'
   pull_request:
     branches:
       - main
-    paths:
-      - '.github/workflows/pypi-test.yml'
   workflow_run:
     workflows:
       - pypi-publish
