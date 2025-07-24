@@ -114,7 +114,10 @@ class Questionnaire(entity_component.ContextComponent):
       output_type = entity_lib.OutputType.FREE
       options = ()
 
-    prompt = f'{current_question.preprompt} {current_question.statement}'
+    prompt = (
+        f'{questionnaire.observation_preprompt}\n\n'
+        f'{current_question.preprompt} {current_question.statement}'
+    )
     prompt = prompt.replace('{player_name}', player_name)
     prompt = prompt.replace('"', '\\"').replace('\n', ' ').strip()
     type_str = output_type.name.lower()

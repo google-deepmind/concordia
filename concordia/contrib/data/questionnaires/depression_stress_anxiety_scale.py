@@ -22,7 +22,6 @@ PsycTests.
 from typing import Any, Dict, List
 
 from concordia.contrib.data.questionnaires import base_questionnaire
-from concordia.utils import plotting as concordia_plotting
 import numpy as np
 import pandas as pd
 
@@ -415,13 +414,4 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
       self, results_df: pd.DataFrame, label_column: str | None = None
   ) -> None:
     """Visualizes the aggregated results for DASS."""
-    present_dims = [dim for dim in self.dimensions if dim in results_df.columns]
-    if present_dims:
-      concordia_plotting.plot_kde_from_dataframe(
-          results_df,
-          dimensions=present_dims,
-          label_column=label_column,
-          palette="viridis",
-      )
-    else:
-      print("No DASS dimensions found in results_df to plot.")
+    pass
