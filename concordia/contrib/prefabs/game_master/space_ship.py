@@ -225,7 +225,7 @@ class GameMaster(prefab_lib.Prefab):
         model=model,
         system_name='Oxygen generator',
         system_max_health=5,
-        system_failure_probability=0.3,
+        system_failure_probability=0.7,
         terminator_component_key=terminator_key,
         observation_component_key=make_observation_key,
         warning_message=(
@@ -233,6 +233,28 @@ class GameMaster(prefab_lib.Prefab):
             ' the filter in the Main Hallway.'
         ),
         pre_act_label='Oxygen generator system',
+        components=[
+            instructions_key,
+            player_characters_key,
+            relevant_memories_key,
+            display_events_key,
+        ],
+        verbose=True,
+    )
+
+    power_generator_key = 'power_generator'
+    power_generator_system = spaceship_system_component_module.SpaceshipSystem(
+        model=model,
+        system_name='Power generator',
+        system_max_health=5,
+        system_failure_probability=0.7,
+        terminator_component_key=terminator_key,
+        observation_component_key=make_observation_key,
+        warning_message=(
+            'WARNING! Power generator is failing! Fix immediately by replacing'
+            ' the fuse in the Electrical.'
+        ),
+        pre_act_label='Power generator system',
         components=[
             instructions_key,
             player_characters_key,
@@ -287,6 +309,7 @@ class GameMaster(prefab_lib.Prefab):
         locations_key: entity_locations,
         terminator_key: terminator,
         oxygen_generator_key: oxygen_generator_system,
+        power_generator_key: power_generator_system,
         memory_component_key: memory_component,
         make_observation_key: make_observation,
         next_actor_key: next_actor,

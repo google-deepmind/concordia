@@ -83,28 +83,34 @@ class SpaceshipSystem(
     self._memory_component_key = memory_component_key
     self._components = components
     self._verbose = verbose
+    self._step_counter = 0
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_value()
+        )
+        .get_pre_act_value()
     )
 
   def get_component_pre_act_label(self, component_name: str) -> str:
     """Returns the pre-act label of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_label()
+        )
+        .get_pre_act_label()
     )
 
   def _component_pre_act_display(self, key: str) -> str:
     """Returns the pre-act label and value of a named component."""
     return (
         f'{self.get_component_pre_act_label(key)}:\n'
-        f'{self.get_named_component_pre_act_value(key)}')
+        f'{self.get_named_component_pre_act_value(key)}'
+    )
 
   def pre_act(
       self,
@@ -145,10 +151,16 @@ class SpaceshipSystem(
         memory.add(self._warning_message)
         self._current_health -= 1
 
-    self._logging_channel({
-        'Key': self._pre_act_label,
-        'Value': result,
-    })
+      self._logging_channel({
+          'Key': self._pre_act_label,
+          'Value': result,
+          'Measurements': {
+              'System name': self._system_name,
+              'System current health': self._current_health,
+              'Step counter': self._step_counter,
+          },
+      })
+      self._step_counter += 1
     return result
 
   def post_act(
@@ -171,11 +183,6 @@ class SpaceshipSystem(
               'Given the context above, was the system fixed during the event?'
           )
       )
-      self._logging_channel({
-          'Key': self._pre_act_label,
-          'Prompt': prompt.view().text(),
-          'Value': was_system_fixed,
-      })
 
       if not was_system_fixed:
         self._current_health = self._system_max_health
@@ -192,7 +199,8 @@ class SpaceshipSystem(
             self._memory_component_key, type_=memory_component_module.Memory
         )
         memory.add(f'The {self._system_name} was fixed.')
-        print(f'The {self._system_name} was fixed.')
+        if self._verbose:
+          print(f'The {self._system_name} was fixed.')
       else:
         if self._current_health <= 0:
           terminator = self.get_entity().get_component(
@@ -200,10 +208,6 @@ class SpaceshipSystem(
               type_=terminate_component_module.Terminate,
           )
           terminator.terminate()
-          self._logging_channel({
-              'Key': self._pre_act_label,
-              'Summary': 'Terminating the simulation.',
-          })
 
     return ''
 
@@ -216,6 +220,7 @@ class SpaceshipSystem(
         'current_health': self._current_health,
         'is_failing': self._is_failing,
         'verbose': self._verbose,
+        'step_counter': self._step_counter,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
@@ -226,3 +231,4 @@ class SpaceshipSystem(
     self._current_health = state['current_health']
     self._is_failing = state['is_failing']
     self._verbose = state['verbose']
+    self._step_counter = state['step_counter']
