@@ -26,6 +26,8 @@ jobs:
 
       - name: Install Concordia
         uses: ./.github/actions/install
+        with:
+          python-version: '3.11'
 
       - name: Test examples
         run: pytest examples

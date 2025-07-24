@@ -74,6 +74,8 @@ jobs:
       - name: Install Concordia and dependencies  
         if: steps.check_changes.outputs.changes_detected == 'true'
         uses: ./.github/actions/install
+        with:
+          python-version: '3.11'
         
       - name: Test evolutionary simulation
         if: steps.check_changes.outputs.changes_detected == 'true'
