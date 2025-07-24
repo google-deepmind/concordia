@@ -19,7 +19,7 @@ import json
 import logging
 import random
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from concordia.typing import evolutionary as evolutionary_types
 from concordia.utils import measurements as measurements_lib
@@ -44,7 +44,7 @@ def save_evolutionary_checkpoint(
     checkpoint_dir: Path,
     config: evolutionary_types.EvolutionConfig,
     simulation_state: Optional[Dict[str, Any]] = None,
-    export_measurements_fn: Optional[callable] = None,
+    export_measurements_fn: Optional[Callable[[measurements_lib.Measurements], Dict[str, list]]] = None,
 ) -> Path:
   """Save evolutionary state to checkpoint file.
   
@@ -100,15 +100,15 @@ def save_evolutionary_checkpoint(
     checkpoint_file.write_text(json.dumps(checkpoint_data, indent=2))
     logger.info('Evolutionary checkpoint saved: %s', checkpoint_file)
     return checkpoint_file
-  except (OSError, json.JSONEncodeError) as e:
+  except (OSError, ValueError) as e:
     logger.error('Error saving checkpoint: %s', e)
     return Path()
 
 
 def load_evolutionary_checkpoint(
     checkpoint_file: Path,
-    setup_measurements_fn: Optional[callable] = None,
-    make_agent_config_fn: Optional[callable] = None,
+    setup_measurements_fn: Optional[Callable[[], measurements_lib.Measurements]] = None,
+    make_agent_config_fn: Optional[Callable[[str, Dict[str, Any]], Any]] = None,
     measurement_channels: Optional[evolutionary_types.MeasurementChannels] = None,
 ) -> Dict[str, Any]:
   """Load evolutionary state from checkpoint file.
@@ -174,7 +174,7 @@ def load_evolutionary_checkpoint(
         'simulation_state': simulation_state,
     }
 
-  except (OSError, json.JSONDecodeError, KeyError) as e:
+  except (OSError, ValueError, KeyError) as e:
     logger.error('Error loading checkpoint: %s', e)
     raise
 
