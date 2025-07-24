@@ -6,14 +6,19 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:  # Allow manual triggering
 
-permissions:
-  contents: write
-  pull-requests: write
+# Set minimal default permissions
+permissions: read-all
 
 jobs:
   sync-upstream:
     name: Sync with upstream and test evolutionary simulation
     runs-on: ubuntu-latest
+    
+    # Grant specific permissions only to this job
+    permissions:
+      contents: write        # Need to push sync branches
+      pull-requests: write   # Need to create PRs
+      actions: read         # Need to read workflow info
     
     steps:
       - name: Checkout repository
