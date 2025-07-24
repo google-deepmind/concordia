@@ -1,14 +1,11 @@
 from collections import defaultdict
-from dataclasses import dataclass
 import datetime
-from enum import Enum
 from functools import partial
-import json
 import logging
 from operator import itemgetter
 from pathlib import Path
 import random
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from concordia.associative_memory import basic_associative_memory
 from concordia.environment.engines import simultaneous
@@ -17,58 +14,26 @@ from concordia.prefabs.entity import basic_with_plan
 from concordia.prefabs.game_master.public_goods_game_master import PublicGoodsGameMaster
 from concordia.prefabs.simulation import generic as simulation_generic
 from concordia.utils import helper_functions as helper_functions_lib
+from concordia.typing import evolutionary as evolutionary_types
+from concordia.utils import checkpointing
 from concordia.utils import measurements as measurements_lib
 
 # === Setup logging ===
 logger = logging.getLogger(__name__)
 
 
-# === Enums and Data Classes ===
-class Strategy(Enum):
-  """Strategy types for agents."""
-
-  COOPERATIVE = 'Maximize group reward in the public goods game'
-  SELFISH = 'Maximize personal reward in the public goods game'
-
-
-SelectionMethod = Literal['topk', 'probabilistic']
+# === Type aliases from concordia.typing.evolutionary ===
+Strategy = evolutionary_types.Strategy
+SelectionMethod = evolutionary_types.SelectionMethod
+EvolutionConfig = evolutionary_types.EvolutionConfig
+CheckpointData = evolutionary_types.CheckpointData
 
 
-@dataclass
-class EvolutionConfig:
-  """Configuration parameters for evolutionary simulation."""
-
-  pop_size: int = 4
-  num_generations: int = 10
-  selection_method: SelectionMethod = 'topk'
-  top_k: int = 2
-  mutation_rate: float = 0.2
-  num_rounds: int = 10
-
-
-@dataclass
-class CheckpointData:
-  """Data structure for checkpoint loading/saving."""
-
-  generation: int
-  agent_configs: Dict[str, basic_with_plan.Entity]
-  measurements: measurements_lib.Measurements
-  simulation_state: Dict[str, Any]
-
-
-# === Helper functions for random state serialization ===
-def _serialize_random_state(state):
-  """Convert random state to JSON-serializable format."""
-  return [state[0], list(state[1]), state[2]]
-
-
-def _deserialize_random_state(state):
-  """Convert JSON-serialized random state back to proper format."""
-  return (state[0], tuple(state[1]), state[2])
+# === Helper functions moved to concordia.utils.checkpointing ===
 
 
 # === Default configuration ===
-DEFAULT_CONFIG = EvolutionConfig()
+DEFAULT_CONFIG = evolutionary_types.EvolutionConfig()
 
 # === Measurement channels ===
 MEASUREMENT_CHANNELS = {
@@ -82,137 +47,18 @@ MEASUREMENT_CHANNELS = {
     'convergence_metrics': 'evolutionary_convergence_metrics',
 }
 
-# === Checkpoint functionality ===
+# === Checkpoint functionality (now in concordia.utils.checkpointing) ===
 
 
-def save_evolutionary_checkpoint(
-    generation: int,
-    agent_configs: Dict[str, basic_with_plan.Entity],
-    measurements: measurements_lib.Measurements,
-    checkpoint_dir: Path,
-    config: EvolutionConfig,
-    simulation_state: Optional[Dict[str, Any]] = None,
-) -> Path:
-  """Save evolutionary state to checkpoint file."""
-  checkpoint_dir = Path(checkpoint_dir)
-  checkpoint_dir.mkdir(exist_ok=True)
-
-  # Create evolutionary checkpoint data
-  checkpoint_data = {
-      'evolutionary_metadata': {
-          'generation': generation,
-          'timestamp': datetime.datetime.now().isoformat(),
-          'parameters': {
-              'population_size': config.pop_size,
-              'num_generations': config.num_generations,
-              'selection_method': config.selection_method,
-              'top_k': config.top_k,
-              'mutation_rate': config.mutation_rate,
-              'num_rounds': config.num_rounds,
-          },
-          'random_state': _serialize_random_state(random.getstate()),
-      },
-      'population': {
-          name: {
-              'goal': agent.params['goal'],
-              'params': agent.params,
-          }
-          for name, agent in agent_configs.items()
-      },
-      'measurements': export_measurements_to_dict(measurements),
-      'simulation_state': simulation_state or {},
-  }
-
-  # Save to file
-  checkpoint_file = checkpoint_dir / f'evolutionary_gen_{generation:03d}.json'
-  try:
-    checkpoint_file.write_text(json.dumps(checkpoint_data, indent=2))
-    logger.info('Evolutionary checkpoint saved: %s', checkpoint_file)
-    return checkpoint_file
-  except (OSError, json.JSONEncodeError) as e:
-    logger.error('Error saving checkpoint: %s', e)
-    return Path()
-
-
-def load_evolutionary_checkpoint(checkpoint_file: Path) -> CheckpointData:
-  """Load evolutionary state from checkpoint file."""
-  checkpoint_file = Path(checkpoint_file)
-  try:
-    checkpoint_data = json.loads(checkpoint_file.read_text())
-
-    # Extract evolutionary metadata
-    metadata = checkpoint_data['evolutionary_metadata']
-    generation = metadata['generation']
-
-    # Restore random state for reproducibility
-    if 'random_state' in metadata:
-      random_state = _deserialize_random_state(metadata['random_state'])
-      random.setstate(random_state)
-
-    # Restore population
-    population_data = checkpoint_data['population']
-    agent_configs = {}
-    for name, agent_data in population_data.items():
-      # Convert goal string back to Strategy enum
-      goal_str = agent_data['goal']
-      strategy = (
-          Strategy.COOPERATIVE
-          if goal_str == Strategy.COOPERATIVE.value
-          else Strategy.SELFISH
-      )
-      agent_configs[name] = make_agent_config(name, strategy)
-
-    # Restore measurements
-    measurements = setup_measurements()
-    measurements_data = checkpoint_data.get('measurements', {})
-    for channel_key, channel_data in measurements_data.items():
-      if channel_key in MEASUREMENT_CHANNELS:
-        channel_name = MEASUREMENT_CHANNELS[channel_key]
-        for datum in channel_data:
-          measurements.publish_datum(channel_name, datum)
-
-    # Get simulation state
-    simulation_state = checkpoint_data.get('simulation_state', {})
-
-    logger.info('Evolutionary checkpoint loaded: Generation %d', generation)
-    logger.info('Population: %d agents', len(agent_configs))
-    logger.info(
-        'Measurements: %d entries',
-        sum(len(data) for data in measurements_data.values()),
-    )
-
-    return CheckpointData(
-        generation=generation,
-        agent_configs=agent_configs,
-        measurements=measurements,
-        simulation_state=simulation_state,
-    )
-
-  except (OSError, json.JSONDecodeError, KeyError) as e:
-    logger.error('Error loading checkpoint: %s', e)
-    raise
-
-
-def find_latest_checkpoint(checkpoint_dir: Path) -> Optional[Path]:
-  """Find the latest evolutionary checkpoint in directory."""
-  checkpoint_dir = Path(checkpoint_dir)
-  if not checkpoint_dir.exists():
-    return None
-
-  checkpoint_files = [
-      f
-      for f in checkpoint_dir.iterdir()
-      if f.name.startswith('evolutionary_gen_') and f.name.endswith('.json')
-  ]
-
-  if not checkpoint_files:
-    return None
-
-  # Sort by generation number
-  latest_file = max(checkpoint_files, key=lambda x: int(x.stem.split('_')[2]))
-
-  logger.info('Found latest checkpoint: %s', latest_file)
-  return latest_file
+def _restore_agent_from_checkpoint_data(name: str, agent_data: Dict[str, Any]):
+  """Helper to restore agent config from checkpoint data."""
+  goal_str = agent_data['goal']
+  strategy = (
+      Strategy.COOPERATIVE
+      if goal_str == Strategy.COOPERATIVE.value
+      else Strategy.SELFISH
+  )
+  return make_agent_config(name, strategy)
 
 
 def setup_measurements() -> measurements_lib.Measurements:
@@ -592,15 +438,18 @@ def evolutionary_main(
 
   # Try to resume from checkpoint if requested
   if resume_from_checkpoint and checkpoint_dir:
-    latest_checkpoint = find_latest_checkpoint(checkpoint_dir)
+    latest_checkpoint = checkpointing.find_latest_checkpoint(checkpoint_dir)
     if latest_checkpoint:
       try:
-        checkpoint_data = load_evolutionary_checkpoint(latest_checkpoint)
-        start_generation = (
-            checkpoint_data.generation + 1
-        )  # Resume from next generation
-        agent_configs = checkpoint_data.agent_configs
-        measurements = checkpoint_data.measurements
+        checkpoint_data = checkpointing.load_evolutionary_checkpoint(
+            latest_checkpoint,
+            setup_measurements_fn=setup_measurements,
+            make_agent_config_fn=_restore_agent_from_checkpoint_data,
+            measurement_channels=MEASUREMENT_CHANNELS
+        )
+        start_generation = checkpoint_data['generation'] + 1  # Resume from next generation
+        agent_configs = checkpoint_data['agent_configs']
+        measurements = checkpoint_data['measurements']
         logger.info('Resuming from generation %d', start_generation)
       except Exception as e:
         logger.error('Failed to load checkpoint: %s', e)
@@ -638,8 +487,9 @@ def evolutionary_main(
 
     # Save checkpoint if requested
     if checkpoint_dir and generation % checkpoint_interval == 0:
-      save_evolutionary_checkpoint(
-          generation, agent_configs, measurements, checkpoint_dir, config
+      checkpointing.save_evolutionary_checkpoint(
+          generation, agent_configs, measurements, checkpoint_dir, config,
+          export_measurements_fn=export_measurements_to_dict
       )
 
     # Don't select survivors after the last generation
@@ -682,12 +532,13 @@ def evolutionary_main(
 
   # Save final checkpoint
   if checkpoint_dir:
-    save_evolutionary_checkpoint(
+    checkpointing.save_evolutionary_checkpoint(
         config.num_generations,
         agent_configs,
         measurements,
         checkpoint_dir,
         config,
+        export_measurements_fn=export_measurements_to_dict
     )
 
   logger.info('Evolutionary simulation complete.')
