@@ -11,3 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Library of components contributed by users."""
+
+from concordia.contrib.components import agent
+from concordia.contrib.components import game_master
