@@ -121,41 +121,122 @@ This repository includes an **evolutionary simulation framework** that models th
 
 ### Running the Evolutionary Simulation
 
-The evolutionary simulation is located in `examples/evolutionary_simulation.py`. To run it:
+The evolutionary simulation is located in `examples/evolutionary_simulation.py` and supports multiple language model backends.
 
-1. **Basic execution:**
-   ```bash
-   python examples/evolutionary_simulation.py
-   ```
+#### 1. **Quick Start (Dummy Model)**
+Run with no dependencies - uses a dummy language model for testing:
+```bash
+python examples/evolutionary_simulation.py
+```
 
-2. **With custom configuration:**
-   ```python
-   from examples.evolutionary_simulation import evolutionary_main
-   from concordia.typing.evolutionary import EvolutionConfig
-   
-   config = EvolutionConfig(
-       pop_size=8,           # Population size
-       num_generations=20,   # Number of generations
-       selection_method='topk',  # Selection method
-       top_k=4,             # Number of survivors
-       mutation_rate=0.1,   # Mutation probability
-       num_rounds=15        # Rounds per game
-   )
-   
-   measurements = evolutionary_main(config)
-   ```
+#### 2. **With Language Models**
 
-3. **With checkpointing:**
-   ```python
-   from pathlib import Path
-   
-   measurements = evolutionary_main(
-       config=config,
-       checkpoint_dir=Path("checkpoints/"),
-       checkpoint_interval=5,
-       resume_from_checkpoint=True
-   )
-   ```
+The simulation supports real language models for more sophisticated agent reasoning:
+
+**Setup virtual environment (recommended):**
+```bash
+python -m venv evolutionary_env
+source evolutionary_env/bin/activate  # On Windows: evolutionary_env\Scripts\activate
+pip install sentence-transformers torch
+```
+
+**Using Gemma (Local PyTorch Model):**
+```python
+from examples.evolutionary_simulation import evolutionary_main, GEMMA_CONFIG
+
+# This will download google/gemma-2b-it model locally
+measurements = evolutionary_main(config=GEMMA_CONFIG)
+```
+
+**Using OpenAI GPT Models:**
+```python
+import os
+from examples.evolutionary_simulation import evolutionary_main, OPENAI_CONFIG
+
+# Set your OpenAI API key
+os.environ['OPENAI_API_KEY'] = 'your-api-key-here'
+openai_config = OPENAI_CONFIG
+openai_config.api_key = os.getenv('OPENAI_API_KEY')
+
+measurements = evolutionary_main(config=openai_config)
+```
+
+**Custom Language Model Configuration:**
+```python
+from examples.evolutionary_simulation import evolutionary_main
+from concordia.typing.evolutionary import EvolutionConfig
+
+config = EvolutionConfig(
+    # Evolutionary parameters
+    pop_size=8,
+    num_generations=20,
+    selection_method='topk',
+    top_k=4,
+    mutation_rate=0.1,
+    num_rounds=15,
+    
+    # Language model configuration
+    api_type='pytorch_gemma',        # or 'openai', 'mistral', etc.
+    model_name='google/gemma-7b-it', # Larger model for better reasoning
+    embedder_name='all-mpnet-base-v2',
+    device='cuda:0',                 # Use GPU if available
+    disable_language_model=False
+)
+
+measurements = evolutionary_main(config)
+```
+
+#### 3. **Supported Language Model Types**
+
+| API Type | Example Models | Requirements |
+|----------|----------------|--------------|
+| `pytorch_gemma` | `google/gemma-2b-it`, `google/gemma-7b-it` | `torch`, `transformers` |
+| `openai` | `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo` | API key via `OPENAI_API_KEY` |
+| `mistral` | `mistral-large-latest`, `mistral-medium` | API key |
+| `amazon_bedrock` | Claude, Llama models | AWS credentials |
+| `google_aistudio_model` | Gemini models | Google AI Studio API key |
+
+#### 4. **With Checkpointing and Resumption**
+```python
+from pathlib import Path
+
+measurements = evolutionary_main(
+    config=config,
+    checkpoint_dir=Path("evolutionary_checkpoints/"),
+    checkpoint_interval=5,           # Save every 5 generations
+    resume_from_checkpoint=True      # Resume from latest if available
+)
+```
+
+#### 5. **Environment Setup for Different Models**
+
+**For local models (Gemma, Llama):**
+```bash
+pip install torch transformers sentence-transformers
+```
+
+**For OpenAI models:**
+```bash
+pip install openai sentence-transformers
+export OPENAI_API_KEY="your-api-key"
+```
+
+**For Google AI Studio:**
+```bash
+pip install google-generativeai sentence-transformers
+export GOOGLE_AI_STUDIO_API_KEY="your-api-key"
+```
+
+#### 6. **Performance Considerations**
+
+- **Dummy Model**: Fastest, no LLM dependencies, good for testing algorithms
+- **Local Models**: Slower startup (model download), but no API costs
+- **Cloud APIs**: Fast startup, but incur API costs per generation
+
+**Recommended configurations:**
+- **Development/Testing**: Use dummy model (`disable_language_model=True`)
+- **Research**: Use Gemma 2B for balanced performance and quality
+- **Production**: Use GPT-4o or Gemma 7B for highest quality reasoning
 
 ### Automated Testing
 

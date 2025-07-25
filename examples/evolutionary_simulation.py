@@ -26,7 +26,9 @@ from typing import Any, Dict, Optional
 
 from concordia.associative_memory import basic_associative_memory
 from concordia.environment.engines import simultaneous
+from concordia.language_model import language_model
 from concordia.language_model import no_language_model
+from concordia.language_model import utils as language_model_utils
 from concordia.prefabs.entity import basic_with_plan
 from concordia.prefabs.game_master.public_goods_game_master import PublicGoodsGameMaster
 from concordia.prefabs.simulation import generic as simulation_generic
@@ -34,9 +36,80 @@ from concordia.utils import helper_functions as helper_functions_lib
 from concordia.typing import evolutionary as evolutionary_types
 from concordia.utils import checkpointing
 from concordia.utils import measurements as measurements_lib
+import numpy as np
+import sentence_transformers
 
 # === Setup logging ===
 logger = logging.getLogger(__name__)
+
+
+# === Language Model Setup Functions ===
+
+def setup_language_model(config: evolutionary_types.EvolutionConfig) -> language_model.LanguageModel:
+  """Setup language model based on configuration.
+  
+  Args:
+    config: Evolution configuration containing LLM parameters
+    
+  Returns:
+    Configured language model instance
+  """
+  if config.disable_language_model:
+    logger.info('Using dummy language model (disabled)')
+    return no_language_model.NoLanguageModel()
+  
+  try:
+    logger.info(
+        'Setting up language model: %s with model %s',
+        config.api_type,
+        config.model_name,
+    )
+    model = language_model_utils.language_model_setup(
+        api_type=config.api_type,
+        model_name=config.model_name,
+        api_key=config.api_key,
+        device=config.device,
+        disable_language_model=False,
+    )
+    logger.info('Language model setup successful')
+    return model
+  except Exception as e:
+    logger.warning(
+        'Failed to setup language model (%s), falling back to dummy model: %s',
+        config.api_type,
+        e,
+    )
+    return no_language_model.NoLanguageModel()
+
+
+def setup_embedder(config: evolutionary_types.EvolutionConfig):
+  """Setup sentence embedder based on configuration.
+  
+  Args:
+    config: Evolution configuration containing embedder parameters
+    
+  Returns:
+    Embedder function that takes text and returns numpy array
+  """
+  if config.disable_language_model:
+    logger.info('Using dummy embedder (language model disabled)')
+    return lambda text: np.random.random(16)
+  
+  try:
+    logger.info('Setting up sentence embedder: %s', config.embedder_name)
+    st_model = sentence_transformers.SentenceTransformer(
+        f'sentence-transformers/{config.embedder_name}'
+    )
+    embedder = lambda x: st_model.encode(x, show_progress_bar=False)
+    logger.info('Sentence embedder setup successful')
+    return embedder
+  except Exception as e:
+    logger.warning(
+        'Failed to setup sentence embedder (%s), falling back to dummy: %s',
+        config.embedder_name,
+        e,
+    )
+    return lambda text: np.random.random(16)
 
 
 # === Type aliases from concordia.typing.evolutionary ===
@@ -50,7 +123,31 @@ CheckpointData = evolutionary_types.CheckpointData
 
 
 # === Default configuration ===
-DEFAULT_CONFIG = evolutionary_types.EvolutionConfig()
+DEFAULT_CONFIG = evolutionary_types.EvolutionConfig(
+    # Use dummy model by default for backwards compatibility and testing
+    disable_language_model=True
+)
+
+# === Example LLM configurations ===
+GEMMA_CONFIG = evolutionary_types.EvolutionConfig(
+    pop_size=4,
+    num_generations=5,
+    api_type='pytorch_gemma',
+    model_name='google/gemma-2b-it',
+    embedder_name='all-mpnet-base-v2',
+    device='cpu',
+    disable_language_model=False,
+)
+
+OPENAI_CONFIG = evolutionary_types.EvolutionConfig(
+    pop_size=4,
+    num_generations=5,
+    api_type='openai',
+    model_name='gpt-4o-mini',
+    embedder_name='all-mpnet-base-v2',
+    api_key=None,  # Set via environment variable OPENAI_API_KEY
+    disable_language_model=False,
+)
 
 # === Measurement channels ===
 MEASUREMENT_CHANNELS = {
@@ -102,7 +199,7 @@ def make_agent_config(name: str, strategy: Strategy) -> basic_with_plan.Entity:
 
 
 def initialize_population(
-    config: EvolutionConfig,
+    config: evolutionary_types.EvolutionConfig,
 ) -> Dict[str, basic_with_plan.Entity]:
   """Initialize a population with half cooperative, half selfish agents."""
   strategies = [Strategy.COOPERATIVE] * (config.pop_size // 2) + [
@@ -135,7 +232,7 @@ def extract_scores_from_simulation(raw_log: list) -> Dict[str, float]:
 
 def run_generation(
     agent_configs: Dict[str, basic_with_plan.Entity],
-    config: EvolutionConfig,
+    config: evolutionary_types.EvolutionConfig,
     measurements: Optional[measurements_lib.Measurements] = None,
 ) -> Dict[str, float]:
   """Run a simulation and return agent scores."""
@@ -148,7 +245,11 @@ def run_generation(
   )
   from concordia.typing import prefab as prefab_lib
 
-  config = prefab_lib.Config(
+  # Setup language model and embedder based on configuration
+  model = setup_language_model(config)
+  embedder = setup_embedder(config)
+
+  sim_config = prefab_lib.Config(
       instances=[
           *[
               prefab_lib.InstanceConfig(
@@ -172,11 +273,10 @@ def run_generation(
       default_max_steps=config.num_rounds,
       prefabs={**agent_configs, gm_key: gm_prefab},  # All keys are strings
   )
-  model = no_language_model.NoLanguageModel()  # Use a dummy model for testing
-  embedder = lambda text: [random.random() for _ in range(16)]  # Dummy embedder
+  
   engine = simultaneous.Simultaneous()
   sim = simulation_generic.Simulation(
-      config=config,
+      config=sim_config,
       model=model,
       embedder=embedder,
       engine=engine,
@@ -267,7 +367,7 @@ def select_survivors(
 
 def mutate_agents(
     survivors: Dict[str, basic_with_plan.Entity],
-    config: EvolutionConfig,
+    config: evolutionary_types.EvolutionConfig,
     measurements: Optional[measurements_lib.Measurements] = None,
 ) -> Dict[str, basic_with_plan.Entity]:
   """Create next generation by mutating survivors and cloning to fill population."""
@@ -436,7 +536,7 @@ def log_generation(
 
 
 def evolutionary_main(
-    config: EvolutionConfig = DEFAULT_CONFIG,
+    config: evolutionary_types.EvolutionConfig = DEFAULT_CONFIG,
     checkpoint_dir: Optional[Path] = None,
     checkpoint_interval: int = 5,
     resume_from_checkpoint: bool = False,
@@ -613,8 +713,24 @@ if __name__ == '__main__':
       format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
   )
 
-  # Run with default configuration
-  measurements = evolutionary_main()
+  # Choose configuration - modify this to test different LLM setups
+  logger.info('=== Running Evolutionary Simulation ===')
+  
+  # Example 1: Default dummy model (fast, no LLM dependencies)
+  logger.info('Running with dummy model configuration...')
+  measurements = evolutionary_main(config=DEFAULT_CONFIG)
+  
+  # Example 2: Uncomment to test with Gemma (requires model download)
+  # logger.info('Running with Gemma model configuration...')
+  # measurements = evolutionary_main(config=GEMMA_CONFIG)
+  
+  # Example 3: Uncomment to test with OpenAI (requires API key)
+  # import os
+  # if os.getenv('OPENAI_API_KEY'):
+  #   openai_config = OPENAI_CONFIG
+  #   openai_config.api_key = os.getenv('OPENAI_API_KEY')
+  #   logger.info('Running with OpenAI model configuration...')
+  #   measurements = evolutionary_main(config=openai_config)
 
   # Print measurement summary
   logger.info('=== Measurement Summary ===')
@@ -632,3 +748,9 @@ if __name__ == '__main__':
         'Final cooperation rate: %.2f', final_gen_data['cooperation_rate']
     )
     logger.info('Average score: %.2f', final_gen_data['avg_score'])
+    
+  logger.info('=== LLM Integration Examples ===')
+  logger.info('To use real language models, modify the configuration:')
+  logger.info('  - For Gemma: Use GEMMA_CONFIG')
+  logger.info('  - For OpenAI: Use OPENAI_CONFIG with API key')
+  logger.info('  - Custom: Create your own EvolutionConfig with LLM settings')

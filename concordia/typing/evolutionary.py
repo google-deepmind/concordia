@@ -44,6 +44,12 @@ class EvolutionConfig:
     top_k: Number of survivors for top-k selection
     mutation_rate: Probability of strategy mutation per agent per generation
     num_rounds: Number of rounds per simulation game
+    api_type: Language model API type ('pytorch_gemma', 'openai', etc.)
+    model_name: Language model name (e.g., 'google/gemma-2b-it', 'gpt-4o')
+    embedder_name: Sentence transformer model name (e.g., 'all-mpnet-base-v2')
+    device: Device for local models ('cpu', 'cuda:0', etc.)
+    api_key: Optional API key for cloud-based models
+    disable_language_model: Use dummy model instead of real LLM
   """
 
   pop_size: int = 4
@@ -52,6 +58,14 @@ class EvolutionConfig:
   top_k: int = 2
   mutation_rate: float = 0.2
   num_rounds: int = 10
+  
+  # Language model configuration
+  api_type: str = 'pytorch_gemma'
+  model_name: str = 'google/gemma-2b-it'
+  embedder_name: str = 'all-mpnet-base-v2'
+  device: str = 'cpu'
+  api_key: str | None = None
+  disable_language_model: bool = False
 
 
 @dataclass
