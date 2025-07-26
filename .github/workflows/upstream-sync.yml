@@ -1,0 +1,158 @@
+# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2025 [SoyGema] - Modifications and additions with Claude Code
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Sync with Upstream and Test Evolutionary Simulation
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+# Set minimal default permissions
+permissions: read-all
+
+jobs:
+  sync-upstream:
+    name: Sync with upstream and test evolutionary simulation
+    runs-on: ubuntu-latest
+    
+    # Grant specific permissions only to this job
+    permissions:
+      contents: write        # Need to push sync branches
+      pull-requests: write   # Need to create PRs
+      actions: read         # Need to read workflow info
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/google-deepmind/concordia.git || true
+          git fetch upstream
+          
+      - name: Check for upstream changes
+        id: check_changes
+        run: |
+          # Get the latest commit from upstream main
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          CURRENT_SHA=$(git rev-parse origin/main)
+          
+          echo "upstream_sha=$UPSTREAM_SHA" >> $GITHUB_OUTPUT
+          echo "current_sha=$CURRENT_SHA" >> $GITHUB_OUTPUT
+          
+          if [ "$UPSTREAM_SHA" != "$CURRENT_SHA" ]; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in upstream repository"
+          else
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in upstream repository"
+          fi
+          
+      - name: Create sync branch
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          BRANCH_NAME="sync-upstream-$(date +%Y%m%d-%H%M%S)"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_ENV
+          git checkout -b "$BRANCH_NAME"
+          
+      - name: Merge upstream changes
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          git merge upstream/main --no-edit || {
+            echo "Merge conflicts detected. Manual intervention required."
+            git merge --abort
+            exit 1
+          }
+          
+      - name: Install Concordia and dependencies  
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: ./.github/actions/install
+        with:
+          python-version: '3.11'
+        
+      - name: Test evolutionary simulation
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          echo "Testing evolutionary simulation..."
+          python concordia/testing/test_evolutionary_simulation.py
+          
+      - name: Run additional concordia tests
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          # Run core concordia tests to ensure compatibility
+          python -m pytest concordia/utils/ -v --tb=short
+          
+      - name: Push sync branch
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          git push origin "$branch_name"
+          
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: actions/github-script@e69ef5462fd455e02edcaf4dd7708eda96b9eda0 # v7.0.1
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔄 Sync with upstream (${new Date().toISOString().split('T')[0]})`,
+              head: process.env.branch_name,
+              base: 'main',
+              body: `## 🔄 Automatic Upstream Sync
+              
+              This PR automatically syncs changes from the upstream repository [google-deepmind/concordia](https://github.com/google-deepmind/concordia).
+              
+              ### ✅ Tests Passed
+              - [x] Evolutionary simulation test completed successfully
+              - [x] Core Concordia utilities tests passed
+              - [x] No merge conflicts detected
+              
+              ### 📊 Changes
+              - **Upstream SHA**: \`${process.env.upstream_sha?.substring(0, 7)}\`
+              - **Previous SHA**: \`${process.env.current_sha?.substring(0, 7)}\`
+              
+              ### 🎯 What's Next
+              Review the changes and merge if everything looks good. The evolutionary simulation has been tested and is working correctly with the new upstream changes.
+              
+              ---
+              *This PR was created automatically by the upstream sync workflow.*
+              `,
+              draft: false
+            });
+            
+            console.log(`Created PR #${pr.number}: ${pr.html_url}`);
+            
+            // Add labels
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['automated', 'upstream-sync', 'evolutionary-tested']
+            });
+            
+      - name: Comment on success
+        if: steps.check_changes.outputs.changes_detected == 'false'
+        run: |
+          echo "✅ Repository is up to date with upstream. No action needed."

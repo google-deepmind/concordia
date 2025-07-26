@@ -75,6 +75,7 @@ setuptools.setup(
         'jinja2',
         'langchain-community',
         'matplotlib',
+        'seaborn',
         'mistralai',
         'numpy>=1.26',
         'ollama',

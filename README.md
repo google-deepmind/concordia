@@ -107,6 +107,149 @@ The agents used in the following example implement exactly these questions:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.sandbox.google.com/github/google-deepmind/concordia/blob/main/examples/tutorial.ipynb)
 
+## Evolutionary Simulation
+
+This repository includes an **evolutionary simulation framework** that models the evolution of cooperation and selfishness in public goods games. The simulation demonstrates how agent strategies evolve over multiple generations through selection, mutation, and environmental pressures.
+
+### Key Features
+
+- 🧬 **Evolutionary Algorithms**: Population-based evolution with configurable selection methods (top-k, probabilistic)
+- 🎮 **Public Goods Game**: Agents choose between cooperative and selfish strategies in multi-round games
+- 📊 **Comprehensive Measurements**: Detailed tracking of population dynamics, fitness statistics, and convergence metrics
+- 🔄 **Checkpointing System**: Save and resume simulations from any generation
+- 🧪 **Modular Architecture**: Type-safe design with separated concerns (typing, checkpointing, algorithms)
+
+### Running the Evolutionary Simulation
+
+The evolutionary simulation is located in `examples/evolutionary_simulation.py` and supports multiple language model backends.
+
+#### 1. **Quick Start (Dummy Model)**
+Run with no dependencies - uses a dummy language model for testing:
+```bash
+python examples/evolutionary_simulation.py
+```
+
+#### 2. **With Language Models**
+
+The simulation supports real language models for more sophisticated agent reasoning:
+
+**Setup virtual environment (recommended):**
+```bash
+python -m venv evolutionary_env
+source evolutionary_env/bin/activate  # On Windows: evolutionary_env\Scripts\activate
+pip install sentence-transformers torch
+```
+
+**Using Gemma (Local PyTorch Model):**
+```python
+from examples.evolutionary_simulation import evolutionary_main, GEMMA_CONFIG
+
+# This will download google/gemma-2b-it model locally
+measurements = evolutionary_main(config=GEMMA_CONFIG)
+```
+
+**Using OpenAI GPT Models:**
+```python
+import os
+from examples.evolutionary_simulation import evolutionary_main, OPENAI_CONFIG
+
+# Set your OpenAI API key
+os.environ['OPENAI_API_KEY'] = 'your-api-key-here'
+openai_config = OPENAI_CONFIG
+openai_config.api_key = os.getenv('OPENAI_API_KEY')
+
+measurements = evolutionary_main(config=openai_config)
+```
+
+**Custom Language Model Configuration:**
+```python
+from examples.evolutionary_simulation import evolutionary_main
+from concordia.typing.evolutionary import EvolutionConfig
+
+config = EvolutionConfig(
+    # Evolutionary parameters
+    pop_size=8,
+    num_generations=20,
+    selection_method='topk',
+    top_k=4,
+    mutation_rate=0.1,
+    num_rounds=15,
+    
+    # Language model configuration
+    api_type='pytorch_gemma',        # or 'openai', 'mistral', etc.
+    model_name='google/gemma-7b-it', # Larger model for better reasoning
+    embedder_name='all-mpnet-base-v2',
+    device='cuda:0',                 # Use GPU if available
+    disable_language_model=False
+)
+
+measurements = evolutionary_main(config)
+```
+
+#### 3. **Supported Language Model Types**
+
+| API Type | Example Models | Requirements |
+|----------|----------------|--------------|
+| `pytorch_gemma` | `google/gemma-2b-it`, `google/gemma-7b-it` | `torch`, `transformers` |
+| `openai` | `gpt-4o`, `gpt-4o-mini`, `gpt-3.5-turbo` | API key via `OPENAI_API_KEY` |
+| `mistral` | `mistral-large-latest`, `mistral-medium` | API key |
+| `amazon_bedrock` | Claude, Llama models | AWS credentials |
+| `google_aistudio_model` | Gemini models | Google AI Studio API key |
+
+#### 4. **With Checkpointing and Resumption**
+```python
+from pathlib import Path
+
+measurements = evolutionary_main(
+    config=config,
+    checkpoint_dir=Path("evolutionary_checkpoints/"),
+    checkpoint_interval=5,           # Save every 5 generations
+    resume_from_checkpoint=True      # Resume from latest if available
+)
+```
+
+#### 5. **Environment Setup for Different Models**
+
+**For local models (Gemma, Llama):**
+```bash
+pip install torch transformers sentence-transformers
+```
+
+**For OpenAI models:**
+```bash
+pip install openai sentence-transformers
+export OPENAI_API_KEY="your-api-key"
+```
+
+**For Google AI Studio:**
+```bash
+pip install google-generativeai sentence-transformers
+export GOOGLE_AI_STUDIO_API_KEY="your-api-key"
+```
+
+#### 6. **Performance Considerations**
+
+- **Dummy Model**: Fastest, no LLM dependencies, good for testing algorithms
+- **Local Models**: Slower startup (model download), but no API costs
+- **Cloud APIs**: Fast startup, but incur API costs per generation
+
+**Recommended configurations:**
+- **Development/Testing**: Use dummy model (`disable_language_model=True`)
+- **Research**: Use Gemma 2B for balanced performance and quality
+- **Production**: Use GPT-4o or Gemma 7B for highest quality reasoning
+
+### Automated Testing
+
+The repository includes automated daily synchronization with the upstream Concordia repository and continuous testing of the evolutionary simulation. See [UPSTREAM_SYNC.md](UPSTREAM_SYNC.md) for details.
+
+### Research Applications
+
+This evolutionary simulation framework can be used for:
+- **Social Science Research**: Studying cooperation evolution in social dilemmas
+- **Game Theory**: Analyzing strategy emergence in multi-agent environments
+- **AI Ethics**: Understanding emergent behaviors in agent populations
+- **Educational Purposes**: Demonstrating evolutionary principles in computational settings
+
 ## Citing Concordia
 
 If you use Concordia in your work, please cite the accompanying article:

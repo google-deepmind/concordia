@@ -12,9 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library of components contributed by users."""
+"""Library of deprecated components contributed by users."""
 
+# Make all submodules explicitly available for import resolution
 from concordia.contrib.components.agent.deprecated import affect_reflection
 from concordia.contrib.components.agent.deprecated import dialectical_reflection
 from concordia.contrib.components.agent.deprecated import observations_since_last_update
 from concordia.contrib.components.agent.deprecated import situation_representation_via_narrative
+
+# Explicit exports for pytype
+__all__ = [
+    'affect_reflection',
+    'dialectical_reflection', 
+    'observations_since_last_update',
+    'situation_representation_via_narrative',
+]

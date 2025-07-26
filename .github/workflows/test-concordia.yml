@@ -4,28 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/actions/install/action.yml'
-      - '.github/workflows/test-concordia.yml'
-      - '.pylintrc'
-      - 'bin/install.sh'
-      - 'concordia/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'setup.py'
   pull_request:
     branches:
       - main
-    paths:
-      - '.github/actions/install/action.yml'
-      - '.github/workflows/test-concordia.yml'
-      - '.pylintrc'
-      - '.python-version'
-      - 'bin/install.sh'
-      - 'concordia/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'setup.py'
   workflow_dispatch:
 
 concurrency:
@@ -44,6 +25,8 @@ jobs:
 
       - name: Install Concordia
         uses: ./.github/actions/install
+        with:
+          python-version: '3.11'
 
       - name: Test Concordia
         run: pytest concordia

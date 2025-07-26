@@ -1,4 +1,4 @@
-# MacOS metadata. 
+# MacOS metadata.
 .DS_Store
 
 # Pycharm metadata.
@@ -12,6 +12,7 @@ __pycache__/
 # Common venv names.
 /*venv/
 /venv*/
+evolutionary_env/
 
 # Ignore files created during installation and building.
 *.egg-info

@@ -4,32 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/actions/install/action.yml'
-      - '.github/workflows/test-examples.yml'
-      - '.pylintrc'
-      - 'bin/convert_notebooks.sh'
-      - 'bin/install.sh'
-      - 'concordia/**'
-      - 'examples/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'setup.py'
   pull_request:
     branches:
       - main
-    paths:
-      - '.github/actions/install/action.yml'
-      - '.github/workflows/test-examples.yml'
-      - '.pylintrc'
-      - '.python-version'
-      - 'bin/convert_notebooks.sh'
-      - 'bin/install.sh'
-      - 'concordia/**'
-      - 'examples/**'
-      - 'pyproject.toml'
-      - 'requirements.txt'
-      - 'setup.py'
   workflow_dispatch:
 
 concurrency:
@@ -49,6 +26,8 @@ jobs:
 
       - name: Install Concordia
         uses: ./.github/actions/install
+        with:
+          python-version: '3.11'
 
       - name: Test examples
         run: pytest examples
