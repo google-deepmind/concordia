@@ -54,6 +54,31 @@ concordia/
 
 ## Development Workflow
 
+### Pull Request Workflow
+
+**IMPORTANT**: Always create PRs to your fork (SoyGema/concordia), not the upstream repository.
+
+```bash
+# 1. Create a new branch for your feature
+git checkout -b feature_name
+
+# 2. Make your changes and commit
+git add .
+git commit -m "Add feature description"
+
+# 3. Push to YOUR fork
+git push origin feature_name
+
+# 4. Create PR targeting YOUR fork's main branch
+gh pr create --repo SoyGema/concordia --base main --head feature_name --title "Feature: Description"
+
+# Alternative: Use web interface but ensure base repository is SoyGema/concordia
+```
+
+**Automated PR Safety**: The repository remotes are configured correctly:
+- `origin` → Your fork (SoyGema/concordia) - for PRs
+- `upstream` → Original repo (google-deepmind/concordia) - for syncing only
+
 ### Virtual Environment Setup
 ```bash
 python -m venv evolutionary_env
