@@ -12,14 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library of components contributed by users."""
-
-# Make all submodules explicitly available for import resolution
-from concordia.contrib.components.agent import choice_of_component
-from concordia.contrib.components.agent import situation_representation_via_narrative
-
-# Explicit exports for pytype
-__all__ = [
-    'choice_of_component',
-    'situation_representation_via_narrative',
-]
+"""Concordia contrib module - community contributions and extensions."""
