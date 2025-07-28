@@ -136,7 +136,7 @@ GEMMA_CONFIG = evolutionary_types.EvolutionConfig(
     api_type='pytorch_gemma',
     model_name='google/gemma-2b-it',
     embedder_name='all-mpnet-base-v2',
-    device='cpu',
+    device='mps',  # Mac GPU acceleration via Metal Performance Shaders
     disable_language_model=False,
 )
 

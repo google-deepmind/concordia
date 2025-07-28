@@ -163,7 +163,7 @@ PYTHONPATH=. python -m pytest
   - `api_type`: 'pytorch_gemma', 'openai', 'mistral', etc.
   - `model_name`: Specific model identifier
   - `embedder_name`: Sentence transformer model
-  - `device`: 'cpu', 'cuda:0', etc.
+  - `device`: 'cpu', 'cuda:0', 'mps' (Mac GPU), etc.
   - `disable_language_model`: Use dummy model for testing
 
 ### Measurement Channels
@@ -469,6 +469,12 @@ export CUDA_VISIBLE_DEVICES="0"  # For GPU acceleration
 - **Development**: Use dummy model (`disable_language_model=True`)
 - **Research**: Use Gemma 2B for balanced performance/quality
 - **Production**: Use GPT-4o or Claude for highest quality
+
+### Mac-Specific Optimizations
+- **GPU Acceleration**: Use `device='mps'` for Metal Performance Shaders acceleration
+- **Memory Efficiency**: MPS provides better memory management than CPU-only processing
+- **Model Performance**: Significantly faster inference with Mac GPU vs CPU
+- **Configuration Example**: All Gemma configs now default to `device='mps'` on Mac systems
 
 ## Future Roadmap
 
