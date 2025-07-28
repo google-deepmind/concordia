@@ -1,0 +1,155 @@
+EVOLUTIONARY SIMULATION RESULTS
+Generated: 2025-07-28T20:20:27.860353
+Run ID: default_run
+============================================================
+
+=== SIMULATION CONFIGURATION ===
+Population Size: 4
+Number of Generations: 10
+Number of Rounds per Generation: 10
+Selection Method: topk
+Top K Survivors: 2
+Mutation Rate: 0.200
+
+=== LANGUAGE MODEL CONFIGURATION ===
+API Type: pytorch_gemma
+Model Name: google/gemma-2b-it
+Embedder: all-mpnet-base-v2
+Device: cpu
+Language Model Disabled: True
+
+API Key: [NOT SET]
+=== SIMULATION RESULTS SUMMARY ===
+Final Cooperation Rate: 1.000
+Final Average Score: 2.60
+Cooperative Agents: 4
+Selfish Agents: 0
+Converged to Cooperation: True
+Converged to Selfishness: False
+
+Payoff Analysis:
+Average Cooperative Score: nan
+Average Selfish Score: nan
+Cooperative Advantage: nan
+Payoff Matrix Figure: default_run_payoff_matrix.png
+
+=== DETAILED MEASUREMENT DATA ===
+
+--- GENERATION SUMMARY ---
+Total Entries: 10
+Latest Entry:
+  generation: 10
+  total_agents: 4
+  cooperative_agents: 4
+  selfish_agents: 0
+  cooperation_rate: 1.0
+  avg_score: 2.6
+  max_score: 2.6
+  min_score: 2.6
+  timestamp: 2025-07-28T20:20:26.781159
+
+
+--- POPULATION DYNAMICS ---
+Total Entries: 9
+Latest Entry:
+  mutation_rate: 0.2
+  mutations_occurred: 0
+  mutation_frequency: 0.0
+  parent_distribution: {
+  "Agent_3": 0,
+  "Agent_1": 0
+}
+  timestamp: 2025-07-28T20:20:26.346912
+
+
+--- SELECTION PRESSURE ---
+Total Entries: 9
+Latest Entry:
+  method: topk
+  survivors_count: 2
+  eliminated_count: 2
+  survivor_scores: [
+  3.2,
+  2.2
+]
+  eliminated_scores: [
+  2.2,
+  2.2
+]
+  selection_intensity: 1.0
+  timestamp: 2025-07-28T20:20:26.346896
+
+
+--- INDIVIDUAL SCORES ---
+Total Entries: 40
+Latest Entry:
+  agent_name: Agent_4
+  score: 2.6
+  goal: Maximize group reward in the public goods game
+  timestamp: 2025-07-28T20:20:26.780996
+
+
+--- STRATEGY DISTRIBUTION ---
+Total Entries: 10
+Latest Entry:
+  generation: 10
+  cooperative_count: 4
+  selfish_count: 0
+  cooperative_fraction: 1.0
+  selfish_fraction: 0.0
+  timestamp: 2025-07-28T20:20:26.781162
+
+
+--- FITNESS STATS ---
+Total Entries: 10
+Latest Entry:
+  generation: 10
+  avg_cooperative_score: 2.6
+  avg_selfish_score: 0.0
+  score_differential: 2.6
+  fitness_variance: 0.0
+  timestamp: 2025-07-28T20:20:26.781169
+
+
+--- MUTATION EVENTS ---
+Total Entries: 10
+Latest Entry:
+  agent_name: Agent_1
+  parent_name: Agent_3
+  original_strategy: SELFISH
+  mutated_strategy: COOPERATIVE
+  timestamp: 2025-07-28T20:20:25.525595
+
+
+--- CONVERGENCE METRICS ---
+Total Entries: 1
+Latest Entry:
+  final_generation: 10
+  final_cooperation_rate: 1.0
+  converged_to_cooperation: True
+  converged_to_selfishness: False
+  simulation_parameters: {
+  "population_size": 4,
+  "generations": 10,
+  "selection_method": "topk",
+  "mutation_rate": 0.2,
+  "top_k": 2
+}
+  timestamp: 2025-07-28T20:20:26.781176
+
+=== LANGUAGE MODEL OUTPUTS ===
+No language model reasoning captured (likely using dummy model)
+
+=== EVOLUTION TIMELINE ===
+Generation 1: Cooperation=0.500, Avg Score=2.45
+Generation 2: Cooperation=0.500, Avg Score=2.45
+Generation 3: Cooperation=0.250, Avg Score=2.30
+Generation 4: Cooperation=0.750, Avg Score=2.30
+Generation 5: Cooperation=0.750, Avg Score=2.45
+Generation 6: Cooperation=1.000, Avg Score=2.15
+Generation 7: Cooperation=0.250, Avg Score=2.45
+Generation 8: Cooperation=0.750, Avg Score=2.45
+Generation 9: Cooperation=1.000, Avg Score=2.45
+Generation 10: Cooperation=1.000, Avg Score=2.60
+
+=== END OF REPORT ===
