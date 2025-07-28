@@ -36,6 +36,7 @@ from concordia.utils import helper_functions as helper_functions_lib
 from concordia.typing import evolutionary as evolutionary_types
 from concordia.utils import checkpointing
 from concordia.utils import measurements as measurements_lib
+from concordia.utils import simulation_results_exporter
 import numpy as np
 import sentence_transformers
 
@@ -135,7 +136,7 @@ GEMMA_CONFIG = evolutionary_types.EvolutionConfig(
     api_type='pytorch_gemma',
     model_name='google/gemma-2b-it',
     embedder_name='all-mpnet-base-v2',
-    device='cpu',
+    device='mps',  # Mac GPU acceleration via Metal Performance Shaders
     disable_language_model=False,
 )
 
@@ -720,9 +721,21 @@ if __name__ == '__main__':
   logger.info('Running with dummy model configuration...')
   measurements = evolutionary_main(config=DEFAULT_CONFIG)
   
+  # Generate comprehensive results report
+  logger.info('=== Generating Results Report ===')
+  text_file, figure_file = simulation_results_exporter.save_simulation_results(
+      DEFAULT_CONFIG, measurements, "simulation_results", "default_run"
+  )
+  logger.info('Results saved to: %s', text_file)
+  logger.info('Payoff matrix saved to: %s', figure_file)
+  
   # Example 2: Uncomment to test with Gemma (requires model download)
   # logger.info('Running with Gemma model configuration...')
-  # measurements = evolutionary_main(config=GEMMA_CONFIG)
+  # measurements_gemma = evolutionary_main(config=GEMMA_CONFIG)
+  # text_file, figure_file = simulation_results_exporter.save_simulation_results(
+  #     GEMMA_CONFIG, measurements_gemma, "simulation_results", "gemma_run"
+  # )
+  # logger.info('Gemma results saved to: %s', text_file)
   
   # Example 3: Uncomment to test with OpenAI (requires API key)
   # import os
@@ -730,7 +743,11 @@ if __name__ == '__main__':
   #   openai_config = OPENAI_CONFIG
   #   openai_config.api_key = os.getenv('OPENAI_API_KEY')
   #   logger.info('Running with OpenAI model configuration...')
-  #   measurements = evolutionary_main(config=openai_config)
+  #   measurements_openai = evolutionary_main(config=openai_config)
+  #   text_file, figure_file = simulation_results_exporter.save_simulation_results(
+  #       openai_config, measurements_openai, "simulation_results", "openai_run"
+  #   )
+  #   logger.info('OpenAI results saved to: %s', text_file)
 
   # Print measurement summary
   logger.info('=== Measurement Summary ===')

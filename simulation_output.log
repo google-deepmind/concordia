@@ -1,0 +1,4 @@
+🚀 Starting evolutionary simulation with Gemma 7B...
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:02<00:06,  2.06s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:09<00:10,  5.01s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:21<00:08,  8.35s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.89s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:26<00:00,  6.54s/it]
+/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
