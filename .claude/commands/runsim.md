@@ -16,15 +16,15 @@ from concordia.typing import evolutionary as evolutionary_types
 GEMMA_7B_CONFIG = evolutionary_types.EvolutionConfig(
     pop_size=6,
     num_generations=10,
+    selection_method='topk',
+    top_k=3,
+    mutation_rate=0.1,
+    num_rounds=12,
     api_type='pytorch_gemma',
     model_name='google/gemma-7b-it',
     embedder_name='all-mpnet-base-v2',
     device='mps',  # Mac GPU acceleration via Metal Performance Shaders
     disable_language_model=False,
-    # Optional: Add more configuration parameters
-    tournament_size=3,
-    mutation_rate=0.1,
-    crossover_rate=0.8,
 )
 ```
 
