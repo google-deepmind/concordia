@@ -35,6 +35,7 @@ class Entity(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(default_factory=lambda: {
       'name': 'Alice',
       'goal': '',
+      'randomize_choices': True,
   })
 
   def build(
@@ -53,6 +54,7 @@ class Entity(prefab_lib.Prefab):
     """
     entity_name = self.params.get('name', 'Alice')
     entity_goal = self.params.get('goal', '')
+    randomize_choices = self.params.get('randomize_choices', True)
 
     memory_key = agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
     memory = agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
@@ -150,6 +152,7 @@ class Entity(prefab_lib.Prefab):
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
         component_order=component_order,
+        randomize_choices=randomize_choices,
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(
