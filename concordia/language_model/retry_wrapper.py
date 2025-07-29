@@ -34,6 +34,7 @@ class RetryLanguageModel(language_model.LanguageModel):
       jitter: tuple[float, float] = (0.0, 1.0),
       exponential_backoff: bool = True,
       backoff_factor: float = 2.0,
+      max_delay: float = 300.0,
   ) -> None:
     """Wrap the underlying language model with retries on given exceptions.
 
@@ -45,6 +46,7 @@ class RetryLanguageModel(language_model.LanguageModel):
       jitter: tuple of minimum and maximum jitter to add to the retry.
       exponential_backoff: whether to enable exponential backoff.
       backoff_factor: The factor to use for exponential backoff.
+      max_delay: The maximum delay between retries.
     """
     self._model = model
     self._retry_on_exceptions = tuple(retry_on_exceptions)
@@ -53,6 +55,7 @@ class RetryLanguageModel(language_model.LanguageModel):
     self._jitter = jitter
     self._exponential_backoff = exponential_backoff
     self._backoff_factor = backoff_factor
+    self._max_delay = max_delay
 
   @override
   def sample_text(
@@ -70,7 +73,7 @@ class RetryLanguageModel(language_model.LanguageModel):
         tries=self._retry_tries,
         delay=self._retry_delay,
         backoff=self._backoff_factor if self._exponential_backoff else 1,
-        max_delay=60,
+        max_delay=self._max_delay,
         jitter=self._jitter,
     )
     def _sample_text(
@@ -112,7 +115,7 @@ class RetryLanguageModel(language_model.LanguageModel):
         tries=self._retry_tries,
         delay=self._retry_delay,
         backoff=self._backoff_factor if self._exponential_backoff else 1,
-        max_delay=60,
+        max_delay=self._max_delay,
         jitter=self._jitter,
     )
     def _sample_choice(model, prompt, responses, *, seed):
