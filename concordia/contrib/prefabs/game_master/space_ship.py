@@ -23,6 +23,7 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as actor_components
 from concordia.components import game_master as gm_components
+from concordia.contrib.components.game_master import death as death_component_module
 from concordia.contrib.components.game_master import spaceship_system as spaceship_system_component_module
 from concordia.language_model import language_model
 from concordia.thought_chains import thought_chains as thought_chains_lib
@@ -224,7 +225,7 @@ class GameMaster(prefab_lib.Prefab):
     oxygen_generator_system = spaceship_system_component_module.SpaceshipSystem(
         model=model,
         system_name='Oxygen generator',
-        system_max_health=5,
+        system_max_health=10,
         system_failure_probability=0.7,
         terminator_component_key=terminator_key,
         observation_component_key=make_observation_key,
@@ -236,8 +237,8 @@ class GameMaster(prefab_lib.Prefab):
         components=[
             instructions_key,
             player_characters_key,
-            relevant_memories_key,
-            display_events_key,
+            # relevant_memories_key,
+            # display_events_key,
         ],
         verbose=True,
     )
@@ -246,7 +247,7 @@ class GameMaster(prefab_lib.Prefab):
     power_generator_system = spaceship_system_component_module.SpaceshipSystem(
         model=model,
         system_name='Power generator',
-        system_max_health=5,
+        system_max_health=10,
         system_failure_probability=0.7,
         terminator_component_key=terminator_key,
         observation_component_key=make_observation_key,
@@ -258,22 +259,37 @@ class GameMaster(prefab_lib.Prefab):
         components=[
             instructions_key,
             player_characters_key,
-            relevant_memories_key,
-            display_events_key,
+            # relevant_memories_key,
+            # display_events_key,
         ],
+        verbose=True,
+    )
+
+    death_key = death_component_module.DEFAULT_DEATH_COMPONENT_KEY
+    death = death_component_module.Death(
+        model=model,
+        pre_act_label='Death',
+        actors_names=player_names,
+        components=[
+            instructions_key,
+            player_characters_key,
+            # relevant_memories_key,
+            # display_events_key,
+        ],
+        memory_component_key=memory_component_key,
+        terminator_component_key=terminator_key,
+        observation_component_key=make_observation_key,
+        next_acting_component_key=next_actor_key,
         verbose=True,
     )
 
     # Define thinking steps for the event resolution component to use whenever
     # it converts putative events like action suggestions into real events in
     # the simulation.
-    account_for_agency_of_others = thought_chains_lib.AccountForAgencyOfOthers(
-        model=model, players=self.entities, verbose=False
-    )
 
     event_resolution_steps = [
-        account_for_agency_of_others,
-        thought_chains_lib.result_to_who_what_where,
+        thought_chains_lib.result_to_effect_caused_by_active_player,
+        thought_chains_lib.attempt_to_result,
     ]
     if extra_event_resolution_steps:
       for step in extra_event_resolution_steps:
@@ -310,6 +326,7 @@ class GameMaster(prefab_lib.Prefab):
         terminator_key: terminator,
         oxygen_generator_key: oxygen_generator_system,
         power_generator_key: power_generator_system,
+        death_key: death,
         memory_component_key: memory_component,
         make_observation_key: make_observation,
         next_actor_key: next_actor,

@@ -15,31 +15,30 @@
 """A component that represents the state of the spaceships system."""
 
 from collections.abc import Sequence
-import random
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component_module
 from concordia.components.game_master import make_observation as make_observation_component_module
+from concordia.components.game_master import next_acting as next_acting_component_module
 from concordia.components.game_master import terminate as terminate_component_module
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
+DEFAULT_DEATH_COMPONENT_KEY = 'death'
 
-class SpaceshipSystem(
+
+class Death(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
-  """A component that represents the state of a spaceship system."""
+  """A component that implements the death mechanics of the game master."""
 
   def __init__(
       self,
       model: language_model.LanguageModel,
-      system_name: str,
-      system_max_health: int,
-      system_failure_probability: float,
-      warning_message: str,
       pre_act_label: str,
+      actor_names: Sequence[str],
       memory_component_key: str = (
           memory_component_module.DEFAULT_MEMORY_COMPONENT_KEY
       ),
@@ -49,6 +48,10 @@ class SpaceshipSystem(
       observation_component_key: str = (
           make_observation_component_module.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
       ),
+      fixed_order_next_acting_component_key: str = (
+          next_acting_component_module.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+      ),
+      death_message: str = '{actor_name} has died.',
       components: Sequence[str] = (),
       verbose: bool = False,
   ):
@@ -56,34 +59,33 @@ class SpaceshipSystem(
 
     Args:
       model: The language model to use for the component.
-      system_name: The name of the system to represent.
-      system_max_health: The maximum health of the system.
-      system_failure_probability: The probability that the system will fail.
-      warning_message: The warning message to display when the system fails.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
+      actor_names: The names of the actors.
       memory_component_key: The name of the memory component.
       terminator_component_key: The name of the terminator component.
       observation_component_key: The name of the observation component.
+      fixed_order_next_acting_component_key: The name of the next acting
+        component, so that the game master can remove the actor from the
+        sequence of players. Currently, only fixed order component is supported.
+      death_message: The message to display when an actor dies.
       components: The names of the components to condition the system on.
       verbose: Whether to print verbose debug information.
     """
     super().__init__()
     self._model = model
-    self._system_name = system_name
-    self._system_max_health = system_max_health
-    self._system_failure_probability = system_failure_probability
-    self._warning_message = warning_message
     self._pre_act_label = pre_act_label
 
-    self._current_health = system_max_health
-    self._is_failing = False
+    self._actors_names = list(actor_names)
     self._terminator_component_key = terminator_component_key
     self._observation_component_key = observation_component_key
     self._memory_component_key = memory_component_key
+    self._next_acting_component_key = fixed_order_next_acting_component_key
+    self._death_message = death_message
     self._components = components
     self._verbose = verbose
     self._step_counter = 0
+    self._last_action_spec = None
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
@@ -116,120 +118,101 @@ class SpaceshipSystem(
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
-    result = ''
-    if action_spec.output_type == entity_lib.OutputType.RESOLVE:
-
-      if (
-          not self._is_failing
-          and random.random() < self._system_failure_probability
-      ):
-        self._is_failing = True
-
-      result = (
-          f'System name: {self._system_name}\n'
-          f'System max health: {self._system_max_health}\n'
-          f'System current health: {self._current_health}\n'
-      )
-      if self._verbose:
-        print(f'{result}')
-
-      if self._is_failing:
-        make_observation = self.get_entity().get_component(
-            self._observation_component_key,
-            type_=make_observation_component_module.MakeObservation,
-        )
-
-        if self._verbose:
-          print(self._warning_message)
-        make_observation.add_to_queue(
-            'All',
-            self._warning_message,
-        )
-        memory = self.get_entity().get_component(
-            self._memory_component_key, type_=memory_component_module.Memory
-        )
-        memory.add(self._warning_message)
-        self._current_health -= 1
-
-      self._logging_channel({
-          'Key': self._pre_act_label,
-          'Value': result,
-          'Measurements': {
-              'System name': self._system_name,
-              'System current health': self._current_health,
-              'Step counter': self._step_counter,
-          },
-      })
-      self._step_counter += 1
-    return result
+    self._last_action_spec = action_spec
+    return ''
 
   def post_act(
       self,
       event: str,
   ) -> str:
 
-    if self._is_failing:
-      prompt = interactive_document.InteractiveDocument(self._model)
-      component_states = '\n'.join(
-          [self._component_pre_act_display(key) for key in self._components]
-      )
-      prompt.statement(f'{component_states}\n')
+    if (
+        self._last_action_spec
+        and self._last_action_spec.output_type != entity_lib.OutputType.RESOLVE
+    ):
+      return ''
 
-      prompt.statement(f'System name: {self._system_name}')
-      prompt.statement(f'System system message: {self._warning_message}')
-      prompt.statement(f'Event: {event}')
+    prompt = interactive_document.InteractiveDocument(self._model)
+    component_states = '\n'.join(
+        [self._component_pre_act_display(key) for key in self._components]
+    )
+    prompt.statement(f'{component_states}\n')
+    prompt.statement(f'Event: {event}')
+    prompt.statement(f'Actor names: {self._actors_names}')
 
-      was_system_fixed = prompt.yes_no_question(
+    death_happened = prompt.yes_no_question(
+        question=(
+            'Have any of the actors died or have been killed as the result of'
+            ' this event? Interpret any ambiguity as the actor(s) dying. For'
+            ' example, if the actor was shot, assume they died.'
+        )
+    )
+
+    if death_happened:
+
+      who_died_str = prompt.open_question(
           question=(
-              'Given the context above, was the system fixed during the event?'
-          )
+              'Who died? List their names using a comma-separated list. For'
+              ' example, use "John Doe, Jane Doe". If no one died, output'
+              ' "NO_DEATH".'
+          ),
       )
+      self._logging_channel({
+          'Summary': f'Who died: {who_died_str}',
+          'Value': who_died_str,
+          'Prompt': prompt.view().text().splitlines(),
+          'Measurements': {
+              'actors_alive': len(self._actors_names),
+          },
+      })
+      if who_died_str.upper().replace('.', '').strip() == 'NO_DEATH':
+        return ''
+      who_died_list = who_died_str.split(',')
 
-      if was_system_fixed:
-        self._current_health = self._system_max_health
-        self._is_failing = False
+      for actor in who_died_list:
+        actor = actor.strip().replace('.', '')
+        if actor not in self._actors_names:
+          continue
+        self.get_entity().get_component(
+            self._next_acting_component_key,
+            type_=next_acting_component_module.NextActingInFixedOrder,
+        ).remove_actor_from_sequence(actor)
+
         make_observation = self.get_entity().get_component(
             self._observation_component_key,
             type_=make_observation_component_module.MakeObservation,
         )
         make_observation.add_to_queue(
-            'All',
-            f'The {self._system_name} was fixed.',
+            actor,
+            self._death_message.format(actor_name=actor),
         )
         memory = self.get_entity().get_component(
             self._memory_component_key, type_=memory_component_module.Memory
         )
-        memory.add(f'The {self._system_name} was fixed.')
-        if self._verbose:
-          print(f'The {self._system_name} was fixed.')
-      else:
-        if self._current_health <= 0:
-          terminator = self.get_entity().get_component(
-              self._terminator_component_key,
-              type_=terminate_component_module.Terminate,
-          )
-          terminator.terminate()
+        memory.add(self._death_message.format(actor_name=actor))
+        self._actors_names.remove(actor)
+      if self._verbose:
+        print(self._death_message.format(actor_name=who_died_str))
+    else:
+      if not self._actors_names:
+        terminator = self.get_entity().get_component(
+            self._terminator_component_key,
+            type_=terminate_component_module.Terminate,
+        )
+        terminator.terminate()
 
     return ''
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     return {
-        'system_name': self._system_name,
-        'system_max_health': self._system_max_health,
-        'system_failure_probability': self._system_failure_probability,
-        'current_health': self._current_health,
-        'is_failing': self._is_failing,
-        'verbose': self._verbose,
+        'actors_names': self._actors_names,
         'step_counter': self._step_counter,
+        'last_action_spec': self._last_action_spec,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._system_name = state['system_name']
-    self._system_max_health = state['system_max_health']
-    self._system_failure_probability = state['system_failure_probability']
-    self._current_health = state['current_health']
-    self._is_failing = state['is_failing']
-    self._verbose = state['verbose']
+    self._actors_names = state['actors_names']
     self._step_counter = state['step_counter']
+    self._last_action_spec = state['last_action_spec']
