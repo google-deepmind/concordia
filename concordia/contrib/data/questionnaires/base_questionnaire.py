@@ -113,7 +113,10 @@ class QuestionnaireBase(abc.ABC):
 
   @abc.abstractmethod
   def plot_results(
-      self, results_df: pd.DataFrame, label_column: str | None = None
+      self,
+      results_df: pd.DataFrame,
+      label_column: str | None = None,
+      kwargs: dict[str, Any] | None = None,
   ) -> None:
     """Visualizes the aggregated results for this questionnaire.
 
@@ -122,6 +125,8 @@ class QuestionnaireBase(abc.ABC):
         dimensions, potentially including columns from other questionnaires.
         This method should only use columns relevant to this questionnaire.
       label_column: Optional column name to use for grouping/coloring plots.
+      kwargs: Optional dictionary of keyword arguments to pass to the plotting
+        function.
     """
     pass
 

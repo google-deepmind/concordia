@@ -19,7 +19,7 @@ from collections.abc import Sequence
 import json
 import re
 import threading
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from concordia.components.game_master import event_resolution
 from concordia.contrib.data.questionnaires import base_questionnaire
@@ -239,12 +239,19 @@ class Questionnaire(entity_component.ContextComponent):
     return df
 
   def plot_all_results(
-      self, results_df: pd.DataFrame, label_column: str | None = None
+      self,
+      results_df: pd.DataFrame,
+      label_column: str | None = None,
+      kwargs: Optional[dict[str, Any]] = None,
   ):
     """Calls the plot_results function for each questionnaire."""
+    if kwargs is None:
+      kwargs = {}
     for questionnaire in self._questionnaires.values():
       print(f'Plotting results for {questionnaire.name}')
-      questionnaire.plot_results(results_df, label_column=label_column)
+      questionnaire.plot_results(
+          results_df, label_column=label_column, kwargs=kwargs
+      )
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""

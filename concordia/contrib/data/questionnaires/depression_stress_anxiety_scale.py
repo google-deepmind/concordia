@@ -411,7 +411,10 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
     return aggregated
 
   def plot_results(
-      self, results_df: pd.DataFrame, label_column: str | None = None
+      self,
+      results_df: pd.DataFrame,
+      label_column: str | None = None,
+      kwargs: dict[str, Any] | None = None,
   ) -> None:
     """Visualizes the aggregated results for DASS."""
     pass
