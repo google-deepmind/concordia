@@ -1,5 +1,5 @@
 EVOLUTIONARY SIMULATION RESULTS
-Generated: 2025-07-28T20:20:27.860353
+Generated: 2025-07-29T09:31:13.912263
 Run ID: default_run
 ============================================================
 
@@ -20,11 +20,11 @@ Language Model Disabled: True
 
 API Key: [NOT SET]
 === SIMULATION RESULTS SUMMARY ===
-Final Cooperation Rate: 1.000
-Final Average Score: 2.60
-Cooperative Agents: 4
-Selfish Agents: 0
-Converged to Cooperation: True
+Final Cooperation Rate: 0.500
+Final Average Score: 2.15
+Cooperative Agents: 2
+Selfish Agents: 2
+Converged to Cooperation: False
 Converged to Selfishness: False
 
 Payoff Analysis:
@@ -40,13 +40,13 @@ Total Entries: 10
 Latest Entry:
   generation: 10
   total_agents: 4
-  cooperative_agents: 4
-  selfish_agents: 0
-  cooperation_rate: 1.0
-  avg_score: 2.6
-  max_score: 2.6
-  min_score: 2.6
-  timestamp: 2025-07-28T20:20:26.781159
+  cooperative_agents: 2
+  selfish_agents: 2
+  cooperation_rate: 0.5
+  avg_score: 2.15
+  max_score: 2.4
+  min_score: 1.4
+  timestamp: 2025-07-29T09:31:13.152014
 
 
 --- POPULATION DYNAMICS ---
@@ -56,10 +56,10 @@ Latest Entry:
   mutations_occurred: 0
   mutation_frequency: 0.0
   parent_distribution: {
-  "Agent_3": 0,
-  "Agent_1": 0
+  "Agent_1": 0,
+  "Agent_2": 0
 }
-  timestamp: 2025-07-28T20:20:26.346912
+  timestamp: 2025-07-29T09:31:12.763934
 
 
 --- SELECTION PRESSURE ---
@@ -69,64 +69,64 @@ Latest Entry:
   survivors_count: 2
   eliminated_count: 2
   survivor_scores: [
-  3.2,
-  2.2
+  2.6,
+  2.6
 ]
   eliminated_scores: [
-  2.2,
-  2.2
+  2.6,
+  2.6
 ]
-  selection_intensity: 1.0
-  timestamp: 2025-07-28T20:20:26.346896
+  selection_intensity: 0.0
+  timestamp: 2025-07-29T09:31:12.763917
 
 
 --- INDIVIDUAL SCORES ---
 Total Entries: 40
 Latest Entry:
   agent_name: Agent_4
-  score: 2.6
+  score: 2.4
   goal: Maximize group reward in the public goods game
-  timestamp: 2025-07-28T20:20:26.780996
+  timestamp: 2025-07-29T09:31:13.151860
 
 
 --- STRATEGY DISTRIBUTION ---
 Total Entries: 10
 Latest Entry:
   generation: 10
-  cooperative_count: 4
-  selfish_count: 0
-  cooperative_fraction: 1.0
-  selfish_fraction: 0.0
-  timestamp: 2025-07-28T20:20:26.781162
+  cooperative_count: 2
+  selfish_count: 2
+  cooperative_fraction: 0.5
+  selfish_fraction: 0.5
+  timestamp: 2025-07-29T09:31:13.152016
 
 
 --- FITNESS STATS ---
 Total Entries: 10
 Latest Entry:
   generation: 10
-  avg_cooperative_score: 2.6
-  avg_selfish_score: 0.0
-  score_differential: 2.6
-  fitness_variance: 0.0
-  timestamp: 2025-07-28T20:20:26.781169
+  avg_cooperative_score: 2.4
+  avg_selfish_score: 1.9
+  score_differential: 0.5
+  fitness_variance: 0.1875
+  timestamp: 2025-07-29T09:31:13.152020
 
 
 --- MUTATION EVENTS ---
-Total Entries: 10
+Total Entries: 6
 Latest Entry:
-  agent_name: Agent_1
-  parent_name: Agent_3
+  agent_name: Agent_4
+  parent_name: Agent_2
   original_strategy: SELFISH
   mutated_strategy: COOPERATIVE
-  timestamp: 2025-07-28T20:20:25.525595
+  timestamp: 2025-07-29T09:31:12.371922
 
 
 --- CONVERGENCE METRICS ---
 Total Entries: 1
 Latest Entry:
   final_generation: 10
-  final_cooperation_rate: 1.0
-  converged_to_cooperation: True
+  final_cooperation_rate: 0.5
+  converged_to_cooperation: False
   converged_to_selfishness: False
   simulation_parameters: {
   "population_size": 4,
@@ -135,21 +135,21 @@ Latest Entry:
   "mutation_rate": 0.2,
   "top_k": 2
 }
-  timestamp: 2025-07-28T20:20:26.781176
+  timestamp: 2025-07-29T09:31:13.152028
 
 === LANGUAGE MODEL OUTPUTS ===
 No language model reasoning captured (likely using dummy model)
 
 === EVOLUTION TIMELINE ===
-Generation 1: Cooperation=0.500, Avg Score=2.45
-Generation 2: Cooperation=0.500, Avg Score=2.45
-Generation 3: Cooperation=0.250, Avg Score=2.30
-Generation 4: Cooperation=0.750, Avg Score=2.30
-Generation 5: Cooperation=0.750, Avg Score=2.45
-Generation 6: Cooperation=1.000, Avg Score=2.15
-Generation 7: Cooperation=0.250, Avg Score=2.45
-Generation 8: Cooperation=0.750, Avg Score=2.45
-Generation 9: Cooperation=1.000, Avg Score=2.45
-Generation 10: Cooperation=1.000, Avg Score=2.60
+Generation 1: Cooperation=0.500, Avg Score=2.60
+Generation 2: Cooperation=0.750, Avg Score=2.60
+Generation 3: Cooperation=0.500, Avg Score=2.45
+Generation 4: Cooperation=0.000, Avg Score=2.60
+Generation 5: Cooperation=0.500, Avg Score=2.60
+Generation 6: Cooperation=0.250, Avg Score=2.30
+Generation 7: Cooperation=0.000, Avg Score=2.30
+Generation 8: Cooperation=0.000, Avg Score=2.60
+Generation 9: Cooperation=0.500, Avg Score=2.60
+Generation 10: Cooperation=0.500, Avg Score=2.15
 
 === END OF REPORT ===

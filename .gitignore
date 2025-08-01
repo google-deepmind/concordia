@@ -27,3 +27,6 @@ evolutionary_env/
 
 # Type checking
 .pytype
+
+# Simulation results - keep locally but don't commit
+simulation_results/

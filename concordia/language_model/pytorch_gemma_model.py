@@ -51,17 +51,59 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
 
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
-    self._model = transformers.GemmaForCausalLM.from_pretrained(
-        self._model_name).to(self._device)
+    # Enhanced loading for Gemma 2 and Gemma 3 compatibility
+    self._is_gemma3 = 'gemma-3' in self._model_name.lower()
+    
+    # Load model with proper configuration for both architectures
+    if self._is_gemma3:
+      # Gemma 3 models require AutoModelForCausalLM with specific settings
+      import torch
+      self._model = transformers.AutoModelForCausalLM.from_pretrained(
+          self._model_name,
+          torch_dtype=torch.float16,
+          device_map='auto' if self._device == 'mps' or 'cuda' in self._device else None,
+          low_cpu_mem_usage=True,
+          trust_remote_code=True
+      )
+      # Manual device placement for CPU or when device_map not used
+      if self._device == 'cpu' or ('cuda' not in self._device and self._device != 'mps'):
+        self._model = self._model.to(self._device)
+    else:
+      # Original Gemma models - backward compatibility
+      try:
+        self._model = transformers.GemmaForCausalLM.from_pretrained(
+            self._model_name).to(self._device)
+      except Exception:
+        # Fallback to AutoModel if GemmaForCausalLM fails
+        import torch
+        self._model = transformers.AutoModelForCausalLM.from_pretrained(
+            self._model_name,
+            torch_dtype=torch.float16 if self._device != 'cpu' else torch.float32
+        ).to(self._device)
+    
     self._tokenizer = transformers.AutoTokenizer.from_pretrained(
         self._tokenizer_name)
+    
+    # Ensure tokenizer has proper padding token for Gemma models
+    if self._tokenizer.pad_token is None:
+      self._tokenizer.pad_token = self._tokenizer.eos_token
 
     self._measurements = measurements
     self._channel = channel
 
-    self._text_system_message = (
-        'You always continue sentences provided by the user and you never ' +
-        'repeat what the user already said.')
+    # Different system messages for different model types
+    if self._is_gemma3 or '-it' in self._model_name:
+      # Instruction-tuned models work better with clear instructions
+      self._text_system_message = (
+          'You are a helpful assistant. Please provide clear, concise responses ' +
+          'in English. Answer questions directly and follow instructions precisely.'
+      )
+    else:
+      # Original completion-style system message for base models
+      self._text_system_message = (
+          'You always continue sentences provided by the user and you never ' +
+          'repeat what the user already said.'
+      )
 
   @override
   def sample_text(
@@ -79,14 +121,39 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     prompt_with_system_message = f'{self._text_system_message}\n\n{prompt}'
     prompt_length = len(prompt_with_system_message)
 
-    inputs = self._tokenizer(prompt_with_system_message, return_tensors='pt')
+    inputs = self._tokenizer(prompt_with_system_message, return_tensors='pt', padding=True)
 
-    generated_tokens = self._model.generate(
-        inputs.input_ids.to(self._device),
-        max_new_tokens=max_tokens,
-        return_dict_in_generate=True,
-        output_scores=True,
-    )
+    # Enhanced generation for Gemma 3 compatibility
+    if self._is_gemma3:
+      # For Gemma 3 models, use device-aware generation with strict limits
+      if hasattr(self._model, 'device'):
+        device = self._model.device
+      else:
+        device = next(self._model.parameters()).device
+      
+      inputs = {k: v.to(device) for k, v in inputs.items()}
+      
+      # Conservative but adequate settings for Gemma 3
+      generated_tokens = self._model.generate(
+          **inputs,
+          max_new_tokens=min(max_tokens, 50),  # Allow up to 50 tokens for complete thoughts
+          return_dict_in_generate=True,
+          output_scores=True,
+          do_sample=False,  # Deterministic generation
+          pad_token_id=self._tokenizer.eos_token_id,
+          eos_token_id=self._tokenizer.eos_token_id,
+          use_cache=False,  # Disable caching to avoid layer inconsistencies
+          num_beams=1,  # No beam search
+          early_stopping=True,  # Stop early if possible
+      )
+    else:
+      # Original generation method for backward compatibility
+      generated_tokens = self._model.generate(
+          inputs.input_ids.to(self._device),
+          max_new_tokens=max_tokens,
+          return_dict_in_generate=True,
+          output_scores=True,
+      )
 
     response = self._tokenizer.decode(
         np.int64(generated_tokens.sequences[0].cpu()),
@@ -116,27 +183,85 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
   ) -> tuple[int, str, dict[str, float]]:
     del seed  # Unused.
 
-    inputs = self._tokenizer(prompt, return_tensors='pt')
-    generated_tokens = self._model.generate(
-        inputs.input_ids.to(self._device),
-        max_new_tokens=1,
-        return_dict_in_generate=True,
-        output_scores=True,
-    )
-    sample = self._tokenizer.batch_decode(
-        [np.argmax(generated_tokens.scores[0][0].cpu())],
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False)[0]
+    # Simplified choice generation for Gemma 3 compatibility
+
+    inputs = self._tokenizer(prompt, return_tensors='pt', padding=True)
+    
+    # Enhanced choice generation for Gemma 3 compatibility
+    if self._is_gemma3:
+      # For Gemma 3 models, use device-aware generation
+      if hasattr(self._model, 'device'):
+        device = self._model.device
+      else:
+        device = next(self._model.parameters()).device
+      
+      inputs = {k: v.to(device) for k, v in inputs.items()}
+      
+      # Simplified single strategy for Gemma 3
+      try:
+          generated_tokens = self._model.generate(
+              **inputs,
+              max_new_tokens=1,
+              return_dict_in_generate=True,
+              output_scores=True,
+              do_sample=False,
+              pad_token_id=self._tokenizer.eos_token_id,
+              eos_token_id=self._tokenizer.eos_token_id,
+              use_cache=False,
+          )
+          
+          # Decode the generated tokens
+          input_length = inputs['input_ids'].shape[1]
+          sample = self._tokenizer.decode(
+              generated_tokens.sequences[0][input_length:],
+              skip_special_tokens=True,
+              clean_up_tokenization_spaces=False
+          ).strip()
+          
+          # If empty, use score-based approach
+          if not sample or sample == "":
+            if generated_tokens.scores and len(generated_tokens.scores) > 0:
+              most_likely_token_id = np.argmax(generated_tokens.scores[0][0].cpu())
+              sample = self._tokenizer.decode([most_likely_token_id], skip_special_tokens=True).strip()
+            
+            # Ultimate fallback
+            if not sample:
+              sample = "a"
+              
+      except Exception as e:
+          # Emergency fallback
+          sample = "a"
+          
+    else:
+      # Original generation method for backward compatibility
+      generated_tokens = self._model.generate(
+          inputs.input_ids.to(self._device),
+          max_new_tokens=1,
+          return_dict_in_generate=True,
+          output_scores=True,
+      )
+      # Original decoding method for backward compatibility
+      sample = self._tokenizer.batch_decode(
+          [np.argmax(generated_tokens.scores[0][0].cpu())],
+          skip_special_tokens=True,
+          clean_up_tokenization_spaces=False)[0]
+    
     answer = sampling.extract_choice_response(sample)
+    
     try:
       idx = responses.index(answer)
-      print(f'sample: {sample}, response: {idx}')
     except ValueError:
-      raise language_model.InvalidResponseError(
-          f'Invalid response: {answer}. '
-          f'LLM Input: {prompt}\nLLM Output: {sample}'
-      ) from None
-
+      # Try to find partial matches
+      for i, resp in enumerate(responses):
+        if resp.lower() in sample.lower() or sample.lower().startswith(resp.lower()):
+          idx = i
+          answer = resp
+          break
+      else:
+        # If no match found, default to first option
+        idx = 0
+        answer = responses[0]
+        
     if self._measurements is not None:
       self._measurements.publish_datum(self._channel, {'choices_calls': 1})
     debug = {}

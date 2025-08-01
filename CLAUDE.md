@@ -476,6 +476,155 @@ export CUDA_VISIBLE_DEVICES="0"  # For GPU acceleration
 - **Model Performance**: Significantly faster inference with Mac GPU vs CPU
 - **Configuration Example**: All Gemma configs now default to `device='mps'` on Mac systems
 
+## Testing Organization and Conventions
+
+### Test File Location and Structure
+All test scripts should be placed in the `concordia/testing/` directory following the framework's testing conventions:
+
+```
+concordia/testing/
+├── __init__.py
+├── mock_model.py                    # Mock language model for testing
+├── test_evolutionary_simulation.py  # Core evolutionary simulation tests
+├── test_enhanced_results_exporter.py # Enhanced results export system tests
+├── test_gemma_robust.py            # Robust Gemma 7B testing and validation
+└── [additional test files]
+```
+
+### Testing Convention Guidelines
+
+#### **File Naming**
+- All test files must start with `test_` prefix
+- Use descriptive names: `test_[component]_[functionality].py`
+- Example: `test_enhanced_results_exporter.py`, `test_gemma_robust.py`
+
+#### **Import Standards**
+```python
+#!/usr/bin/env python3
+"""
+Test script description.
+"""
+
+import unittest
+import logging
+from concordia.utils.component_to_test import ComponentClass
+```
+
+#### **Test Execution**
+Run tests from the project root with proper environment setup:
+```bash
+source evolutionary_env/bin/activate
+PYTHONPATH=. python concordia/testing/test_specific_component.py
+```
+
+#### **Test Categories**
+1. **Unit Tests**: Individual component functionality
+2. **Integration Tests**: System component interactions  
+3. **Simulation Tests**: End-to-end simulation validation
+4. **Performance Tests**: Memory usage, GPU acceleration, timeout handling
+
+### Available Test Scripts
+
+#### **test_enhanced_results_exporter.py**
+- Tests enhanced results export system
+- Validates structured folder creation
+- Verifies file generation (payoff_matrix.txt, generation_log.txt, etc.)
+- Confirms metadata handling
+
+#### **test_gemma_robust.py** 
+- Comprehensive Gemma 7B model testing
+- MPS (Mac GPU) compatibility validation
+- Memory management verification
+- Fallback to dummy model testing
+- Evolutionary simulation execution
+
+#### **test_evolutionary_simulation.py**
+- Core evolutionary simulation framework tests
+- Population initialization and evolution
+- Selection and mutation algorithm validation
+- Measurement system verification
+
+### Test Development Guidelines
+
+#### **When to Create New Tests**
+- Adding new utility functions or classes
+- Implementing new language model integrations
+- Creating new measurement or export systems  
+- Fixing bugs (add regression tests)
+
+#### **Test File Template**
+```python
+#!/usr/bin/env python3
+"""
+Test script for [component name].
+"""
+
+import unittest
+import logging
+from concordia.utils.component import ComponentClass
+
+class Test[ComponentName](unittest.TestCase):
+    """Test cases for [ComponentName]."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        pass
+    
+    def test_basic_functionality(self):
+        """Test basic component functionality."""
+        pass
+    
+    def tearDown(self):
+        """Clean up after tests."""
+        pass
+
+if __name__ == '__main__':
+    unittest.main()
+```
+
+#### **Test Consistency Requirements**
+- ✅ All tests must work with `evolutionary_env` activated
+- ✅ Use proper import paths without `sys.path` modifications
+- ✅ Include proper error handling and cleanup
+- ✅ Follow framework logging conventions
+- ✅ Document test purpose and expected outcomes
+
+### Running Test Suites
+
+#### **Individual Test**
+```bash
+source evolutionary_env/bin/activate
+PYTHONPATH=. python concordia/testing/test_enhanced_results_exporter.py
+```
+
+#### **All Tests** 
+```bash
+source evolutionary_env/bin/activate
+PYTHONPATH=. python -m pytest concordia/testing/
+```
+
+#### **Specific Test Pattern**
+```bash
+source evolutionary_env/bin/activate  
+PYTHONPATH=. python -m pytest concordia/testing/test_*_exporter.py
+```
+
+### Test Maintenance
+
+#### **Regular Test Updates**
+- Update tests when modifying underlying components
+- Add new test cases for edge cases discovered during development
+- Ensure tests remain compatible with timeout configurations
+- Verify Mac GPU (MPS) compatibility in relevant tests
+
+#### **Test Documentation**
+- Document complex test scenarios in docstrings
+- Include expected outcomes and failure conditions
+- Provide examples of proper test data and configurations
+- Update CLAUDE.md when adding new test categories
+
+**This testing organization ensures consistent, maintainable, and comprehensive test coverage across the evolutionary simulation framework.**
+
 ## Future Roadmap
 
 ### Planned Features

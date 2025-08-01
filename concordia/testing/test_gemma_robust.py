@@ -6,12 +6,12 @@ Addresses memory, MPS, and generation issues systematically.
 
 import gc
 import logging
-import sys
+import unittest
 import torch
 import warnings
 from typing import Optional, Dict, Any
 
-# Configure logging
+# Configure logging for tests
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 

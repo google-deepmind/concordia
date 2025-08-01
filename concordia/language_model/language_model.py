@@ -21,7 +21,7 @@ from typing import Any
 
 DEFAULT_TEMPERATURE = 0.5
 DEFAULT_TERMINATORS = ()
-DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_TIMEOUT_SECONDS = 1800  # 30 minutes for long simulations
 DEFAULT_MAX_TOKENS = 256
 
 DEFAULT_STATS_CHANNEL = 'language_model_stats'
