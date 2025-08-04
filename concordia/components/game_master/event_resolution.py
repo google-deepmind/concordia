@@ -38,8 +38,7 @@ EVENT_TAG = '[event]'
 class EventResolution(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
-  """A component that resolves events.
-  """
+  """A component that resolves events."""
 
   def __init__(
       self,
@@ -78,10 +77,10 @@ class EventResolution(
         to use to notify observers of the event.
       memory_component_key: The name of the Memory component to use to retrieve
         memories.
-      next_acting_component_key: The name of the NextActing component to use
-        to get the name of the player whose turn it is.
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      next_acting_component_key: The name of the NextActing component to use to
+        get the name of the player whose turn it is.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -104,24 +103,29 @@ class EventResolution(
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_value()
+        )
+        .get_pre_act_value()
     )
 
   def get_component_pre_act_label(self, component_name: str) -> str:
     """Returns the pre-act label of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_label()
+        )
+        .get_pre_act_label()
     )
 
   def _component_pre_act_display(self, key: str) -> str:
     """Returns the pre-act label and value of a named component."""
     return (
         f'{self.get_component_pre_act_label(key)}:\n'
-        f'{self.get_named_component_pre_act_value(key)}')
+        f'{self.get_named_component_pre_act_value(key)}'
+    )
 
   def pre_act(
       self,
@@ -138,10 +142,14 @@ class EventResolution(
           [self._component_pre_act_display(key) for key in self._components]
       )
       prompt.statement(f'{component_states}\n')
-      self._active_entity_name = self.get_entity().get_component(
-          self._next_acting_component_key,
-          type_=next_acting_components.NextActing
-      ).get_currently_active_player()
+      self._active_entity_name = (
+          self.get_entity()
+          .get_component(
+              self._next_acting_component_key,
+              type_=next_acting_components.NextActing,
+          )
+          .get_currently_active_player()
+      )
       memory = self.get_entity().get_component(
           self._memory_component_key, type_=memory_component.Memory
       )
@@ -159,9 +167,7 @@ class EventResolution(
       # remove it if present, and strip leading whitespace.
       prefix_to_remove = f' {self._active_entity_name}:'
       if putative_action.startswith(prefix_to_remove):
-        self._putative_action = putative_action[
-            len(prefix_to_remove) :
-        ].strip()
+        self._putative_action = putative_action[len(prefix_to_remove) :].strip()
       else:
         self._putative_action = putative_action
 
@@ -183,8 +189,10 @@ class EventResolution(
         observers_prompt = prompt.copy()
         observers_prompt.statement(f'Event that occurred: {event_statement}')
         observer_names_str = observers_prompt.open_question(
-            question=('Which entities are aware of the event? Answer with a '
-                      'comma-separated list of entity names.')
+            question=(
+                'Which entities are aware of the event? Answer with a '
+                'comma-separated list of entity names.'
+            )
         )
         observer_names = observer_names_str.split(',')
         for name in observer_names:
@@ -229,15 +237,16 @@ class EventResolution(
         'Summary': value,
         'Value': value,
         'Prompt': prompt,
-        'Details': {'Observers prompt': observers_prompt,},
+        'Details': {
+            'Observers prompt': observers_prompt,
+        },
     })
 
 
 class DisplayEvents(
     action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
 ):
-  """A component that displays recent events in `pre_act` loaded from memory.
-  """
+  """A component that displays recent events in `pre_act` loaded from memory."""
 
   def __init__(
       self,
@@ -255,8 +264,8 @@ class DisplayEvents(
       memory_component_key: The name of the memory component in which to write
         records of events.
       num_events_to_retrieve: The number of events to retrieve.
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -277,8 +286,9 @@ class DisplayEvents(
     if limit > len(events):
       limit = len(events)
     events = events[-limit:]
-    events = [f'{i}). {event.split(EVENT_TAG)[-1]}'
-              for i, event in enumerate(events)]
+    events = [
+        f'{i}). {event.split(EVENT_TAG)[-1]}' for i, event in enumerate(events)
+    ]
 
     events_str = '\n'.join(events)
 
@@ -309,6 +319,7 @@ class SendEventToRelevantPlayers(
       model: language_model.LanguageModel,
       player_names: Sequence[str],
       make_observation_component_key: str,
+      components: Sequence[str] = (),
       pre_act_label: str = DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL,
   ):
     """Initializes a component that sends component pre-act values to players.
@@ -320,9 +331,10 @@ class SendEventToRelevantPlayers(
     Args:
       model: The language model to use for the component.
       player_names: Names of players.
-      make_observation_component_key: he key for a
-        MakeObservation component to add the pre-act values to the queue of
-        events to observe.
+      make_observation_component_key: the key for a MakeObservation component to
+        add the pre-act values to the queue of events to observe.
+      components: Keys of components to condition whether the event is relevant.
+        If empty, all events are relevant.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
 
@@ -334,10 +346,12 @@ class SendEventToRelevantPlayers(
     self._model = model
     self._player_names = player_names
     self._pre_act_label = pre_act_label
+    self._components = components
     self._queue = {}
     self._last_action_spec = None
     self._optional_make_observation_component_key = (
-        make_observation_component_key)
+        make_observation_component_key
+    )
 
     self._map_names_to_previous_observations = {
         player_name: '' for player_name in player_names
@@ -346,24 +360,29 @@ class SendEventToRelevantPlayers(
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_value()
+        )
+        .get_pre_act_value()
     )
 
   def get_component_pre_act_label(self, component_name: str) -> str:
     """Returns the pre-act label of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_label()
+        )
+        .get_pre_act_label()
     )
 
   def _component_pre_act_display(self, key: str) -> str:
     """Returns the pre-act label and value of a named component."""
     return (
         f'{self.get_component_pre_act_label(key)}:\n'
-        f'{self.get_named_component_pre_act_value(key)}')
+        f'{self.get_named_component_pre_act_value(key)}'
+    )
 
   def pre_act(
       self,
@@ -377,17 +396,28 @@ class SendEventToRelevantPlayers(
       action_attempt: str,
   ) -> str:
     result = ''
-    prompt_to_log = ''
+    prompts_to_log = {}
     if (
         self._last_action_spec
         and self._last_action_spec.output_type == entity_lib.OutputType.RESOLVE
     ):
       prompt = interactive_document.InteractiveDocument(self._model)
+      proceed = True
+
       for active_entity_name in self._player_names:
-        prompt.statement(f'{action_attempt}\n')
-        proceed = prompt.yes_no_question(
-            question=f'Is {active_entity_name} aware of the latest event above?'
-        )
+        if self._components:
+          component_states = '\n'.join(
+              [self._component_pre_act_display(key) for key in self._components]
+          )
+          prompt.statement(f'{component_states}\n')
+          prompt.statement(f'{action_attempt}\n')
+          proceed = prompt.yes_no_question(
+              question=(
+                  f'Is {active_entity_name} aware of the latest event above?'
+              )
+          )
+
+        prompts_to_log[active_entity_name] = (prompt.view().text())
 
         if proceed:
           # Remove their previous observation since they have already seen it.
@@ -403,14 +433,12 @@ class SendEventToRelevantPlayers(
 
         self._map_names_to_previous_observations[active_entity_name] += result
 
-      prompt_to_log = prompt.view().text()
-
-    self._logging_channel(
-        {'Key': self._pre_act_label,
-         'Summary': result,
-         'Value': result,
-         'Prompt': prompt_to_log}
-    )
+    self._logging_channel({
+        'Key': self._pre_act_label,
+        'Summary': result,
+        'Value': result,
+        'Prompts': prompts_to_log,
+    })
     return result
 
   def get_state(self) -> entity_component.ComponentState:

@@ -46,6 +46,7 @@ class MakeObservation(entity_component.ContextComponent,
       model: language_model.LanguageModel,
       player_names: Sequence[str],
       components: Sequence[str] = (),
+      call_to_make_observation: str = DEFAULT_CALL_TO_MAKE_OBSERVATION,
       reformat_observations_in_specified_style: str = '',
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
   ):
@@ -55,6 +56,8 @@ class MakeObservation(entity_component.ContextComponent,
       model: The language model to use for the component.
       player_names: Names of players.
       components: Keys of components to condition the observation on.
+      call_to_make_observation: The call to action to make the observation. 
+        Needed to extract the name of the active entity.
       reformat_observations_in_specified_style: If non-empty, the component will
         ask the model to reformat the observation to fit the style specified in
         this string. By default, the component does not reformat the
@@ -77,6 +80,7 @@ class MakeObservation(entity_component.ContextComponent,
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
     )
+    self._call_to_make_observation = call_to_make_observation
     self._pre_act_label = pre_act_label
     self._lock = threading.Lock()
 
@@ -104,6 +108,23 @@ class MakeObservation(entity_component.ContextComponent,
         f'{self.get_component_pre_act_label(key)}:\n'
         f'{self.get_named_component_pre_act_value(key)}')
 
+  def _get_active_entity_name_from_call_to_action(
+      self, call_to_action: str
+  ) -> str:
+    """Returns the name of the active entity."""
+    prefix, suffix = self._call_to_make_observation.split('{name}')
+    if not call_to_action.startswith(prefix):
+      raise ValueError(
+          f'Call to action {call_to_action} does not start with prefix'
+          f' {prefix}. Check that call_to_make_observation is set correctly.'
+      )
+    if not call_to_action.endswith(suffix):
+      raise ValueError(
+          f'Call to action {call_to_action} does not end with suffix {suffix}.'
+          ' Check that call_to_make_observation is set correctly.'
+      )
+    return call_to_action.removeprefix(prefix).removesuffix(suffix)
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
@@ -120,11 +141,11 @@ class MakeObservation(entity_component.ContextComponent,
       prompt.statement(
           f'Working out the answer to: "{action_spec.call_to_action}"'
       )
-      idx = prompt.multiple_choice_question(
-          question=GET_ACTIVE_ENTITY_QUERY,
-          answers=self._player_names,
+
+      active_entity_name = self._get_active_entity_name_from_call_to_action(
+          action_spec.call_to_action
       )
-      active_entity_name = self._player_names[idx]
+
       log_entry['Active Entity'] = active_entity_name
       with self._lock:
         log_entry['queue'] = copy.deepcopy(self._queue)
@@ -206,9 +227,3 @@ class MakeObservation(entity_component.ContextComponent,
     """Sets the state of the component."""
     with self._lock:
       self._queue = copy.deepcopy(state['queue'])
-
-
-
-
-
-

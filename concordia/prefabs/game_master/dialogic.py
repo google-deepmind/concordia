@@ -119,7 +119,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     send_events_to_players_key = (
-        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
+        '__send_events_to_players__'
     )
     send_events_to_players = (
         gm_components.event_resolution.SendEventToRelevantPlayers(
