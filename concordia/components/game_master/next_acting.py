@@ -233,7 +233,8 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
       idx = self._currently_active_player_idx
       if idx is None:
         idx = 0
-      idx = (idx + 1) % len(self._sequence)
+      else:
+        idx = (idx + 1) % len(self._sequence)
       result = self._sequence[idx]
       self._currently_active_player_idx = idx
 
