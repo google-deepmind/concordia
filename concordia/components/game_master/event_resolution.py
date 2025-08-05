@@ -443,9 +443,11 @@ class SendEventToRelevantPlayers(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
+    action_spec_dict = (self._last_action_spec.to_dict()
+                        if self._last_action_spec else None)
     return {
         '_queue': self._queue,
-        '_last_action_spec': self._last_action_spec,
+        '_last_action_spec': action_spec_dict,
         '_map_names_to_previous_observations': (
             self._map_names_to_previous_observations
         ),
@@ -454,7 +456,13 @@ class SendEventToRelevantPlayers(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._queue = state['_queue']
-    self._last_action_spec = state['_last_action_spec']
+    action_spec_dict = state['_last_action_spec']
+    if action_spec_dict and isinstance(action_spec_dict, dict):
+      self._last_action_spec = entity_lib.action_spec_from_dict(
+          action_spec_dict
+      )
+    else:
+      self._last_action_spec = None
     self._map_names_to_previous_observations = state[
         '_map_names_to_previous_observations'
     ]
