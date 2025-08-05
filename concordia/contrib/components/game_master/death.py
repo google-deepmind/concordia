@@ -205,14 +205,23 @@ class Death(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
+    action_spec_dict = (self._last_action_spec.to_dict()
+                        if self._last_action_spec else None)
     return {
         'actors_names': self._actors_names,
         'step_counter': self._step_counter,
-        'last_action_spec': self._last_action_spec,
+        'last_action_spec': action_spec_dict,
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._actors_names = state['actors_names']
     self._step_counter = state['step_counter']
+    action_spec_dict = state['last_action_spec']
+    if action_spec_dict and isinstance(action_spec_dict, dict):
+      self._last_action_spec = entity_lib.action_spec_from_dict(
+          action_spec_dict
+      )
+    else:
+      self._last_action_spec = None
     self._last_action_spec = state['last_action_spec']
