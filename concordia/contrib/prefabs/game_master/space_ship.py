@@ -259,8 +259,6 @@ class GameMaster(prefab_lib.Prefab):
         components=[
             instructions_key,
             player_characters_key,
-            # relevant_memories_key,
-            # display_events_key,
         ],
         verbose=True,
     )
@@ -269,17 +267,15 @@ class GameMaster(prefab_lib.Prefab):
     death = death_component_module.Death(
         model=model,
         pre_act_label='Death',
-        actors_names=player_names,
+        actor_names=player_names,
         components=[
             instructions_key,
             player_characters_key,
-            # relevant_memories_key,
-            # display_events_key,
         ],
         memory_component_key=memory_component_key,
         terminator_component_key=terminator_key,
         observation_component_key=make_observation_key,
-        next_acting_component_key=next_actor_key,
+        fixed_order_next_acting_component_key=next_actor_key,
         verbose=True,
     )
 
