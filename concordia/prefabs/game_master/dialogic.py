@@ -37,6 +37,7 @@ class GameMaster(prefab_lib.Prefab):
       default_factory=lambda: {
           'name': 'conversation rules',
           'next_game_master_name': 'default rules',
+          'acting_order': 'game_master_choice',
       }
   )
   entities: (
@@ -138,12 +139,26 @@ class GameMaster(prefab_lib.Prefab):
             display_events_key,
         ],
     )
-    next_actor_key = (
-        gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY)
-    next_actor = gm_components.next_acting.NextActing(
-        **next_acting_kwargs,
-        player_names=player_names,
+    next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+    acting_order = self.params.get(
+        'acting_order', 'game_master_choice'
     )
+    if acting_order == 'fixed':
+      next_actor = gm_components.next_acting.NextActingInFixedOrder(
+          sequence=player_names,
+      )
+    elif acting_order == 'game_master_choice':
+      next_actor = gm_components.next_acting.NextActing(
+          **next_acting_kwargs,
+          player_names=player_names,
+      )
+    elif acting_order == 'random':
+      next_actor = gm_components.next_acting.NextActingInRandomOrder(
+          player_names=player_names,
+      )
+    else:
+      raise ValueError(f'Unsupported acting order: {acting_order}')
+
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY)
     next_action_spec = gm_components.next_acting.FixedActionSpec(
