@@ -557,11 +557,15 @@ class MarketPlace(
     )
 
     if action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
-      # get agent name from action spec
+      # get agent name from action spec, taking the longest name if there are
+      # multiple matches.
       agent_name = None
+      max_len = 0
       for name in self._acting_player_names:
         if name in action_spec.call_to_action:
-          agent_name = name
+          if len(name) > max_len:
+            agent_name = name
+            max_len = len(name)
 
       # raise error is agent_name is none
       if agent_name is None:
