@@ -25,3 +25,4 @@ from concordia.prefabs.game_master import open_ended_interviewer
 from concordia.prefabs.game_master import psychology_experiment
 from concordia.prefabs.game_master import scripted
 from concordia.prefabs.game_master import situated
+from concordia.prefabs.game_master import situated_in_time_and_place
