@@ -105,10 +105,7 @@ class Script(entity_component.ContextComponent):
       return f'{current_line["name"]} : {current_line["line"]}'
 
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
-      entity_name = self.get_current_line()['name']
-      call_to_speech = entity_lib.DEFAULT_CALL_TO_SPEECH.format(
-          name=entity_name
-      )
+      call_to_speech = entity_lib.DEFAULT_CALL_TO_SPEECH
       return f'prompt: "{call_to_speech}";;type: free'
 
     return ''
