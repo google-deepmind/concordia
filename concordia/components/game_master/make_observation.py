@@ -171,6 +171,7 @@ class MakeObservation(entity_component.ContextComponent,
                   'the story moving forward.'
               ),
               max_tokens=1200,
+              terminators=(),
           )
 
       if self._reformat_observations_in_specified_style:
