@@ -453,7 +453,9 @@ class GenerativeClock(
           question=(
               'Given the context above, and after the event, what is the new '
               'time? Never respond with a sentence like "the time is unchanged"'
-              ' or anything to that effect. Also never respond with "unknown". '
+              ' or anything to that effect, never respond with "unknown", and '
+              'never mention the number of simulation steps. Always convert '
+              'from simulation steps to the requested format. '
               'Correct responses always follow the '
               f'{self._format_description_key} above.'
           ),
