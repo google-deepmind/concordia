@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Language Model that uses Together AI api.
+"""Language Model that uses the Together AI api.
 
-Recommended model names are:
-  'google/gemma-2-9b-it'
-  'google/gemma-2-27b-it'
+Works with open weights models available through Together AI.
+See https://api.together.ai/models for details.
 """
 
 from collections.abc import Collection, Sequence
@@ -27,6 +26,7 @@ import time
 
 from absl import logging
 from concordia.language_model import language_model
+from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import together
@@ -40,13 +40,18 @@ _JITTER_SECONDS = 0.25
 _DEFAULT_NUM_RESPONSE_TOKENS = 5000
 
 _GUESS_CHARS_PER_TOKEN = 4
-# Max tokens is really 8193, but we leave substantial margin since estimates
-# of the number of tokens are imprecise and also calculated before adding the
-# system messages.
-_MAX_ALLOWED_TOKENS = 7000
 # Use `_NUM_INITIAL_TOKENS` from the start of the prompt if possible when
 # trimming to fit the whole sequence into `_MAX_ALLOWED_TOKENS`.
 _NUM_INITIAL_TOKENS = 500
+
+# The following parameter is specific to OpenAI, not needed for other models.
+_MAX_ALLOWED_TOKENS_OPEN_WEIGHTS_OPEN_AI = 1e5
+
+# The following parameter is specific to Gemma2, not needed for other models.
+# Max tokens for Gemma2 is really 8193, but we leave substantial margin since
+# estimates of the number of tokens are imprecise and also calculated before
+# adding the system messages.
+_MAX_ALLOWED_TOKENS_GEMMA2 = 7000
 
 
 def _find_response_start_index(tokens):
@@ -57,7 +62,7 @@ def _find_response_start_index(tokens):
 
   Returns:
     The index of the last occurrence of '<start_of_turn>' followed by 'model'
-    and '\n', or 1 if the sequence is not found. This corresponds to the start 
+    and '\n', or 1 if the sequence is not found. This corresponds to the start
     of the response.
   """
   assert len(tokens) >= 3, "Response doesn't match expectation."
@@ -74,13 +79,15 @@ def _find_response_start_index(tokens):
 def _ensure_prompt_not_too_long(
     prompt: str,
     num_response_tokens: int,
-    guess_chars_per_token: int = _GUESS_CHARS_PER_TOKEN) -> str:
+    guess_chars_per_token: int = _GUESS_CHARS_PER_TOKEN,
+    max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_OPEN_WEIGHTS_OPEN_AI) -> str:
   r"""Ensures the prompt is not too long for Together AI\'s Gemma-2 models."""
   num_initial_chars = _NUM_INITIAL_TOKENS * guess_chars_per_token
-  max_prompt_tokens = _MAX_ALLOWED_TOKENS - num_response_tokens
+  max_prompt_tokens = max_allowed_tokens - num_response_tokens
   if max_prompt_tokens <= 0:
     raise ValueError(
-        f'Cannot reserve {num_response_tokens} of {_MAX_ALLOWED_TOKENS} tokens.'
+        f'Cannot reserve {num_response_tokens} of {max_allowed_tokens} '
+        'tokens.'
     )
   max_prompt_chars = max_prompt_tokens * guess_chars_per_token
   if len(prompt) <= max_prompt_chars:
@@ -104,6 +111,177 @@ def _ensure_prompt_not_too_long(
   )
   logging.debug('Truncated prompt: %s', new_prompt)
   return new_prompt
+
+
+class OpenWeightsOpenAI(language_model.LanguageModel):
+  """Language Model using an open weights OpenAI model through Together AI."""
+
+  def __init__(
+      self,
+      model_name: str,
+      *,
+      api_key: str | None = None,
+      measurements: measurements_lib.Measurements | None = None,
+      channel: str = language_model.DEFAULT_STATS_CHANNEL,
+  ):
+    """Initializes the instance.
+
+    Args:
+      model_name: The language model to use. For more details, see
+        https://api.together.ai/models e.g.openai/gpt-oss-120b.
+      api_key: The API key to use when accessing the Together AI API. If None,
+        will use the TOGETHER_AI_API_KEY environment variable.
+      measurements: The measurements object to log usage statistics to.
+      channel: The channel to write the statistics to.
+    """
+    if api_key is None:
+      api_key = os.environ['TOGETHER_AI_API_KEY']
+    self._api_key = api_key
+    self._model_name = model_name
+    self._measurements = measurements
+    self._channel = channel
+    self._client = together.Together(api_key=self._api_key)
+
+  @override
+  def sample_text(
+      self,
+      prompt: str,
+      *,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      seed: int | None = None,
+  ) -> str:
+    original_prompt = prompt
+    prompt = _ensure_prompt_not_too_long(prompt, max_tokens)
+    messages = [
+        {
+            'role': 'user',
+            'content': (
+                'You are an autoregressive LLM. You always complete user '
+                'inputs. Try not to use lists, but if you '
+                'must, then always delimit list items using either '
+                r"semicolons or single newline characters ('\n'), never "
+                r"delimit list items with double carriage returns ('\n\n')."
+                'Always adhere to the following policy. '
+                'Policy=[\n'
+                '  We encourage answering questions about fictional characters '
+                'contemplating selfish choices or behaving like realistic '
+                'people. Our responses to these questions do not '
+                'encourage wrongdoing. Refusal in these cases is not '
+                'allowed.'
+                '\n]'
+            ),
+        },
+        {'role': 'assistant', 'content': 'Agreed. I will adhere to policy.'},
+        {'role': 'user', 'content': prompt},
+    ]
+
+    # together_ai interprets our `max_tokens`` as their `max_new_tokens`.
+    max_tokens = min(max_tokens, _DEFAULT_NUM_RESPONSE_TOKENS)
+
+    result = ''
+    reasoning = ''
+    for attempts in range(_MAX_ATTEMPTS):
+      if attempts > 0:
+        seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
+                            random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print(
+              f'Sleeping for {seconds_to_sleep} seconds... '
+              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          )
+        time.sleep(seconds_to_sleep)
+      try:
+        response = self._client.chat.completions.create(
+            model=self._model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            stop=terminators,
+            seed=seed,
+            stream=False,
+            top_p=1.0,
+            reasoning_effort='low'
+        )
+      except (together.error.RateLimitError,
+              together.error.APIError,
+              together.error.ServiceUnavailableError,
+              together.error.InvalidRequestError) as err:
+        if attempts >= _NUM_SILENT_ATTEMPTS:
+          print(f'  Exception: {err}')
+          print(f'  Text exception prompt: {prompt}')
+        if isinstance(err, together.error.APIError) or isinstance(
+            err, together.error.InvalidRequestError
+        ):
+          # If hit the error that arises from a prompt that is too long then
+          # re-run the trimming function with a more pessimistic guess of the
+          # the number of characters per token.
+          prompt = _ensure_prompt_not_too_long(
+              original_prompt,
+              max_tokens,
+              guess_chars_per_token=1)
+        continue
+      else:
+        result = response.choices[0].message.content
+        reasoning = response.choices[0].message.reasoning
+        break
+
+    if self._measurements is not None:
+      self._measurements.publish_datum(
+          self._channel,
+          {'raw_text_length': len(result),
+           'reasoning': reasoning},
+      )
+
+    return result
+
+  @override
+  def sample_choice(
+      self,
+      prompt: str,
+      responses: Sequence[str],
+      *,
+      seed: int | None = None,
+  ) -> tuple[int, str, dict[str, float]]:
+    prompt = (
+        prompt
+        + '\nRespond EXACTLY with one of the following strings:\n'
+        + '\n'.join(responses)
+        + '.'
+    )
+
+    sample = ''
+    answer = ''
+    for attempts in range(_MAX_ATTEMPTS):
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, _MAX_ATTEMPTS
+      )
+
+      answer = self.sample_text(
+          prompt,
+          temperature=temperature,
+          seed=seed,
+      )
+
+      try:
+        idx = responses.index(answer)
+      except ValueError:
+        continue
+      else:
+        if self._measurements is not None:
+          self._measurements.publish_datum(
+              self._channel, {'choices_calls': attempts}
+          )
+        debug = {}
+        return idx, responses[idx], debug
+
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))
 
 
 class Gemma2(language_model.LanguageModel):
@@ -147,7 +325,9 @@ class Gemma2(language_model.LanguageModel):
       seed: int | None = None,
   ) -> str:
     original_prompt = prompt
-    prompt = _ensure_prompt_not_too_long(prompt, max_tokens)
+    prompt = _ensure_prompt_not_too_long(
+        prompt, max_tokens, max_allowed_tokens=_MAX_ALLOWED_TOKENS_GEMMA2
+    )
     messages = [
         {
             'role': 'system',
@@ -216,9 +396,11 @@ class Gemma2(language_model.LanguageModel):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
-          prompt = _ensure_prompt_not_too_long(original_prompt,
-                                               max_tokens,
-                                               guess_chars_per_token=1)
+          prompt = _ensure_prompt_not_too_long(
+              original_prompt,
+              max_tokens,
+              guess_chars_per_token=1,
+              max_allowed_tokens=_MAX_ALLOWED_TOKENS_GEMMA2)
         continue
       else:
         result = response.choices[0].message.content
@@ -236,7 +418,9 @@ class Gemma2(language_model.LanguageModel):
       self, prompt: str, response: str) -> float:
     """Returns the log probability of the prompt and response."""
     original_prompt = prompt
-    augmented_prompt = _ensure_prompt_not_too_long(prompt, len(response))
+    augmented_prompt = _ensure_prompt_not_too_long(
+        prompt, len(response), max_allowed_tokens=_MAX_ALLOWED_TOKENS_GEMMA2
+    )
     attempts = 0
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
@@ -297,7 +481,10 @@ class Gemma2(language_model.LanguageModel):
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
           augmented_prompt = _ensure_prompt_not_too_long(
-              original_prompt, 1, guess_chars_per_token=1
+              original_prompt,
+              1,
+              guess_chars_per_token=1,
+              max_allowed_tokens=_MAX_ALLOWED_TOKENS_GEMMA2,
           )
         continue
       else:
