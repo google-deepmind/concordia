@@ -45,7 +45,7 @@ _GUESS_CHARS_PER_TOKEN = 4
 _NUM_INITIAL_TOKENS = 500
 
 # The following parameter is specific to OpenAI, not needed for other models.
-_MAX_ALLOWED_TOKENS_OPEN_WEIGHTS_OPEN_AI = 1e5
+_MAX_ALLOWED_TOKENS_OPEN_WEIGHTS_OPEN_AI = int(1e5)
 
 # The following parameter is specific to Gemma2, not needed for other models.
 # Max tokens for Gemma2 is really 8193, but we leave substantial margin since
