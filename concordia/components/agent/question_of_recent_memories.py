@@ -129,15 +129,16 @@ class QuestionOfRecentMemories(
     ])
 
     prompt = interactive_document.InteractiveDocument(self._model)
-    prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
-
-    if self._clock_now is not None:
-      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     component_states = '\n'.join(
         [self._component_pre_act_display(key) for key in self._components]
     )
     prompt.statement(component_states)
+
+    prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
+
+    if self._clock_now is not None:
+      prompt.statement(f'Current time: {self._clock_now()}.\n')
 
     question = self._question.format(agent_name=agent_name)
     result = prompt.open_question(
