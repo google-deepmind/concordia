@@ -16,13 +16,13 @@
 """
 
 import abc
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 import numpy as np
-
 
 Config = prefab_lib.Config
 Role = prefab_lib.Role
@@ -75,7 +75,7 @@ class Simulation(abc.ABC):
       self,
       premise: str | None = None,
       max_steps: int | None = None,
-  ) -> str:
+  ) -> str | list[Mapping[str, Any]]:
     """Run the simulation.
 
     Args:
