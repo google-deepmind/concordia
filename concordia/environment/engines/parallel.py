@@ -23,6 +23,7 @@ from typing import Any, Callable, List, Tuple, cast
 
 from concordia.agents import entity_agent
 from concordia.components.game_master import event_resolution as event_resolution_components
+from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
@@ -42,6 +43,9 @@ DEFAULT_CALL_TO_NEXT_ACTING = next_acting_components.DEFAULT_CALL_TO_NEXT_ACTING
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
     next_acting_components.DEFAULT_CALL_TO_NEXT_ACTION_SPEC
 )
+DEFAULT_CALL_TO_MAKE_OBSERVATION = (
+    make_observation_component.DEFAULT_CALL_TO_MAKE_OBSERVATION
+)
 
 _PRINT_COLOR = 'cyan'
 
@@ -52,6 +56,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
   def __init__(
       self,
       call_to_check_termination: str = DEFAULT_CALL_TO_CHECK_TERMINATION,
+      call_to_make_observation: str = DEFAULT_CALL_TO_MAKE_OBSERVATION,
       call_to_next_acting: str = DEFAULT_CALL_TO_NEXT_ACTING,
       call_to_next_action_spec: str = DEFAULT_CALL_TO_NEXT_ACTION_SPEC,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
@@ -62,6 +67,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec
     self._call_to_next_game_master = call_to_next_game_master
+    self._call_to_make_observation = call_to_make_observation
     self._max_workers = max_workers
     if self._max_workers is None:
       self._executor = None
@@ -143,6 +149,21 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       )
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
+  def make_observation(
+      self, game_master: entity_lib.Entity, entity: entity_lib.Entity
+  ) -> str:
+    """Make an observation for a game object."""
+    observation = game_master.act(
+        action_spec=entity_lib.ActionSpec(
+            call_to_action=self._call_to_make_observation.format(
+                name=entity.name
+            ),
+            output_type=entity_lib.OutputType.MAKE_OBSERVATION,
+        )
+    )
+    print(f'Observation: {observation} for {entity.name}')
+    return observation
+
   @override
   def run_loop(
       self,
@@ -158,82 +179,102 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       raise ValueError('No game masters provided.')
     game_master = game_masters[0]
 
-    if self.terminate(game_master, verbose):
-      return
-
-    next_entities = self.next_acting(game_master, entities)
-
-    if not next_entities:
-      if verbose:
-        print(termcolor.colored('No entities to act.', _PRINT_COLOR))
-      return
-
-    player_qid_spec_list = self.next_action_spec(game_master, next_entities)
-
-    entity_map = {e.name: e for e in next_entities}
-    entity_answers = {name: {} for name in entity_map.keys()}
+    if premise:
+      # run observe on all game masters in parallel using concurrency
+      tasks = {}
+      for entity in game_masters:
+        tasks[entity.name] = functools.partial(entity.observe, premise)
+      concurrency.run_tasks(tasks)
     mutex = threading.Lock()
 
-    executor = self.get_executor()
-    tasks = {}
-    entity_original_phases = {}
+    for step in range(max_steps):
+      if verbose:
+        print(f'Step {step}')
 
-    for player_name in entity_map:
-      agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-      entity_original_phases[player_name] = agent.get_phase()
-      agent.set_phase(entity_component.Phase.PRE_ACT)
+      if self.terminate(game_master, verbose):
+        return
 
-    try:
-      for player_name, q_id, spec_str in player_qid_spec_list:
-        if player_name not in entity_map:
-          continue
-
-        entity = entity_map[player_name]
-        agent = cast(entity_agent.EntityAgent, entity)
-
-        formatted_spec_str = spec_str.replace('{player_name}', player_name)
-        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
-
-        task_key = f'{player_name}_{q_id}'
-
-        def process_question_task(
-            agent: entity_agent.EntityAgent,
-            action_spec: entity_lib.ActionSpec,
-            player_name: str,
-            q_id: str,
-        ):
-          # Executor is passed down to _process_single_stateless_act
-          answer = agent.stateless_act(action_spec)
-          with mutex:
-            entity_answers[player_name][q_id] = answer
-
-        tasks[task_key] = functools.partial(
-            process_question_task, agent, action_spec, player_name, q_id
+      # run observe on all entities in parallel using concurrency
+      tasks = {}
+      for entity in entities:
+        tasks[entity.name] = functools.partial(
+            entity.observe, self.make_observation(game_master, entity)
         )
-      if tasks:
-        concurrency.run_tasks(tasks, executor=executor)
+      concurrency.run_tasks(tasks)
 
-    finally:
-      # Restore original phases
-      for player_name, phase in entity_original_phases.items():
+      next_entities = self.next_acting(game_master, entities)
+
+      if not next_entities:
+        if verbose:
+          print(termcolor.colored('No entities to act.', _PRINT_COLOR))
+        return
+
+      player_qid_spec_list = self.next_action_spec(game_master, next_entities)
+
+      entity_map = {e.name: e for e in next_entities}
+      entity_answers = {name: {} for name in entity_map.keys()}
+
+      executor = self.get_executor()
+      tasks = {}
+      entity_original_phases = {}
+
+      for player_name in entity_map:
         agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-        agent.set_phase(phase)
+        entity_original_phases[player_name] = agent.get_phase()
+        agent.set_phase(entity_component.Phase.PRE_ACT)
 
-    # Feed back answers to GM
-    for player_name, qid_answer_map in entity_answers.items():
-      for q_id, answer in qid_answer_map.items():
-        observation = f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
-        game_master.observe(observation)
+      try:
+        for player_name, q_id, spec_str in player_qid_spec_list:
+          if player_name not in entity_map:
+            continue
 
-    if verbose:
-      print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
+          entity = entity_map[player_name]
+          agent = cast(entity_agent.EntityAgent, entity)
 
-  # Methods not needed for this engine
-  @override
-  def make_observation(
-      self, game_master: entity_lib.Entity, entity: entity_lib.Entity
-  ) -> str:
-    raise NotImplementedError
+          formatted_spec_str = spec_str.replace('{player_name}', player_name)
+          action_spec = engine_lib.action_spec_parser(formatted_spec_str)
+
+          task_key = f'{player_name}_{q_id}'
+
+          def process_question_task(
+              agent: entity_agent.EntityAgent,
+              action_spec: entity_lib.ActionSpec,
+              player_name: str,
+              q_id: str,
+              mutex: threading.Lock,
+              entity_answers: dict[str, dict[str, Any]],
+          ):
+            # Executor is passed down to _process_single_stateless_act
+            answer = agent.stateless_act(action_spec)
+            with mutex:
+              entity_answers[player_name][q_id] = answer
+
+          tasks[task_key] = functools.partial(
+              process_question_task,
+              agent,
+              action_spec,
+              player_name,
+              q_id,
+              mutex,
+              entity_answers,
+          )
+        if tasks:
+          concurrency.run_tasks(tasks, executor=executor)
+
+      finally:
+        # Restore original phases
+        for player_name, phase in entity_original_phases.items():
+          agent = cast(entity_agent.EntityAgent, entity_map[player_name])
+          agent.set_phase(phase)
+
+      # Feed back answers to GM
+      for player_name, qid_answer_map in entity_answers.items():
+        for q_id, answer in qid_answer_map.items():
+          observation = f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
+          game_master.observe(observation)
+
+      if verbose:
+        print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
 
   @override
   def resolve(
