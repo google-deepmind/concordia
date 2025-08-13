@@ -244,6 +244,7 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
           'text': answer_text,
           'dimension': dimension,
           'value': choice_similarities,
+          'embedding': answer_embedding,
       }
     elif questionnaire.questionnaire_type == 'multiple_choice':
       # make value 1 for the selected choice, 0 for the rest
