@@ -168,7 +168,12 @@ class NextActingAllEntities(entity_component.ContextComponent):
 
   def get_currently_active_player(self) -> str | None:
     """Not applicable for this component as all players are always active."""
-    return None
+    raise RuntimeError(
+        'Error in NextActingAllEntities: Call get_currently_active_player() is'
+        ' not applicable for this component as all players are always active. ',
+        'You might be using NextActionSpec component in a simultaneous'
+        ' environment.',
+    )
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
