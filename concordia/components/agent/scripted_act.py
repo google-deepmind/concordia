@@ -121,9 +121,8 @@ class ScriptedActComponent(
     if self._prefix_entity_name:
       output = self.get_entity().name + ' '
     if self._line_index < len(self._lines):
-      training_context = prompt.view().text() + output
       training_target = self._lines[self._line_index]
-      output += prompt.open_question(
+      llm_output = prompt.open_question(
           call_to_action,
           max_tokens=2200,
           answer_prefix=output,
@@ -131,6 +130,8 @@ class ScriptedActComponent(
           question_label='Exercise',
           forced_response=self._lines[self._line_index],
       )
+      training_context = prompt.view().text().removesuffix(llm_output + '\n')
+      output += llm_output
       self._line_index += 1
       self._log(output, prompt, training_context, training_target)
       return output
