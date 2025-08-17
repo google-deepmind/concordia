@@ -197,6 +197,27 @@ class FormativeMemoriesInitializer(
         components.
     """
     super().__init__()
+
+    if isinstance(shared_memories, str) or isinstance(shared_memories, bytes):
+      raise ValueError(
+          'shared_memories must be a sequence of strings, not a single string.'
+          f' Got {shared_memories}.'
+      )
+    for player_name in player_specific_memories:
+      if isinstance(player_specific_memories[player_name], str) or isinstance(
+          player_specific_memories[player_name], bytes
+      ):
+        raise ValueError(
+            'player_specific_memories must be a sequence of strings, not a'
+            f' single string. Got {player_specific_memories[player_name]}.'
+        )
+    for player_name in player_specific_context:
+      if not isinstance(player_specific_context[player_name], str):
+        raise ValueError(
+            'player_specific_context must be a string. '
+            f'Got {player_specific_context[player_name]}.'
+        )
+
     self._next_game_master_name = next_game_master_name
     self._model = model
     self._player_names = player_names
@@ -298,9 +319,8 @@ class FormativeMemoriesInitializer(
     shared_memories = '\n'.join(self._shared_memories)
     prompt.statement(f'Answer: {shared_memories}\n')
 
-    player_specific_context = '\n'.join(
-        self._player_specific_context.get(active_entity_name, [])
-    )
+    player_specific_context = self._player_specific_context.get(
+        active_entity_name, '')
     if player_specific_context:
       prompt.statement(
           'Question: Describe the personal context of the protagonist.'
