@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A modular entity agent that supports logging from components."""
+"""A modular entity agent using the new component system with side logging."""
 
 from collections.abc import Mapping
+import copy
 import types
 from typing import Any
 
 from concordia.agents import entity_agent
+from concordia.associative_memory.deprecated import factory_formative_memories as formative_memories
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.utils import measurements as measurements_lib
@@ -38,6 +40,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
+      config: formative_memories.AgentConfig | None = None,
   ):
     """Initializes the agent.
 
@@ -54,6 +57,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_processor: The component that will be used to process contexts. If
         None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
+      config: The agent configuration, used for checkpointing and debug.
     """
     super().__init__(agent_name=agent_name,
                      act_component=act_component,
@@ -75,6 +79,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_processor.set_logging_channel(
           self._component_logging.get_channel('__context_processor__').append
       )
+    self._config = copy.deepcopy(config)
 
   def get_all_logs(self):
     return self._component_logging.get_all_channels()
@@ -84,3 +89,6 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
     for channel_name in sorted(self._component_logging.available_channels()):
       log[channel_name] = self._component_logging.get_last_datum(channel_name)
     return log
+
+  def get_config(self) -> formative_memories.AgentConfig | None:
+    return copy.deepcopy(self._config)
