@@ -179,8 +179,8 @@ class FormativeMemoriesInitializer(
       shared_memories: specific memories all players and the game master share.
       player_specific_memories: specific memories each player shares with the
         game master.
-      player_specific_context: specific context each player needs to know about
-        the game master.
+      player_specific_context: specific context the game master needs to know 
+        about each player.
       components: Keys of components to condition on.
       delimiter_symbol: The symbol to use to separate episodes in the generated
         backstory.
