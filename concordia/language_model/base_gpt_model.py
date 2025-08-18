@@ -50,7 +50,7 @@ class BaseGPTModel(language_model.LanguageModel):
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
-      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      temperature: float = 1.0,  # GPT-5 only supports temperature 1.0
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -117,13 +117,9 @@ class BaseGPTModel(language_model.LanguageModel):
     sample = ''
     answer = ''
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
-      temperature = sampling.dynamically_adjust_temperature(
-          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS
-      )
-
       sample = self.sample_text(
           prompt,
-          temperature=temperature,
+          temperature=1.0,
           seed=seed,
       )
       answer = sampling.extract_choice_response(sample)
