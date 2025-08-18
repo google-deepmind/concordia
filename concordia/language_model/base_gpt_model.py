@@ -17,7 +17,6 @@
 from collections.abc import Collection, Sequence
 
 from concordia.language_model import language_model
-from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 from openai import AzureOpenAI
 from openai import OpenAI
@@ -28,7 +27,10 @@ _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
 
 class BaseGPTModel(language_model.LanguageModel):
-  """Base class for GPT models (OpenAI and Azure)."""
+  """Base class for GPT models (OpenAI and Azure).
+
+  Supports "thinking" models like GPT-5.
+  """
 
   def __init__(
       self,
@@ -43,10 +45,11 @@ class BaseGPTModel(language_model.LanguageModel):
     self._channel = channel
     self._client = client
 
-  @override
-  def sample_text(
+  def _sample_text(
       self,
       prompt: str,
+      reasoning_effort: str,
+      verbosity: str,
       *,
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
@@ -88,6 +91,8 @@ class BaseGPTModel(language_model.LanguageModel):
         max_completion_tokens=max_tokens,
         timeout=timeout,
         seed=seed,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
     )
 
     if self._measurements is not None:
@@ -95,7 +100,30 @@ class BaseGPTModel(language_model.LanguageModel):
           self._channel,
           {'raw_text_length': len(response.choices[0].message.content)},
       )
+
     return response.choices[0].message.content
+
+  @override
+  def sample_text(
+      self,
+      prompt: str,
+      *,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = 1.0,  # GPT-5 only supports temperature 1.0
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      seed: int | None = None,
+  ) -> str:
+    return self._sample_text(
+        prompt=prompt,
+        reasoning_effort='minimal',
+        verbosity='low',
+        max_tokens=max_tokens,
+        terminators=terminators,
+        temperature=temperature,
+        timeout=timeout,
+        seed=seed,
+    )
 
   @override
   def sample_choice(
@@ -115,12 +143,13 @@ class BaseGPTModel(language_model.LanguageModel):
     sample = ''
     answer = ''
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
-      sample = self.sample_text(
+      answer = self._sample_text(
           prompt,
+          reasoning_effort='medium',
+          verbosity='low',
           temperature=1.0,
           seed=seed,
       )
-      answer = sampling.extract_choice_response(sample)
       try:
         idx = responses.index(answer)
       except ValueError:
