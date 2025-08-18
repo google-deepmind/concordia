@@ -54,8 +54,7 @@ class BaseGPTModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    # Limit tokens to 4000 for GPT models
-    max_tokens = min(max_tokens, 4000)
+    del terminators  # Unused for OpenAI models.
 
     messages = [
         {
@@ -88,7 +87,6 @@ class BaseGPTModel(language_model.LanguageModel):
         temperature=temperature,
         max_completion_tokens=max_tokens,
         timeout=timeout,
-        stop=terminators,
         seed=seed,
     )
 
