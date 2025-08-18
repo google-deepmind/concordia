@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.1.0] - 2025-08-18
+
+### Changed
+
+- Set randomize choices to false in questionnaires
+- Added configurable number of sentences per episode in formative memory generators
+- added exponential backoff in retry wrapper
+- Increase DEFAULT_MAX_TOKENS.
+- Adding fixed acting order to dialogic GM
+- Move configurable component preact values above recent observations in
+question_of_recent_memories prompt so the former can contextualize the latter
+e.g. this is the sensible ordering if you pass instructions.
+- small improvement to a prompt in the GenerativeClock component
+- Modernize the situation_representation_via_narrative component.
+- use verbosity and reasoning_effort parameters inside the OpenAI wrapper
+- Make formative memories generator throw an error if passed wrong shape parameters
+
+### Added
+
+- Add option to remove duplicates, when extracting data from the logs
+- Add acting component flag to randomize choices
+- Create non-deprecated no_op_context_processor
+- An actor and a game master prefabs and required components for running a simulation that follows a strict script. This can be used for generating fine tuning data.
+- Parallel stateless questionnaire
+- Adding a callback to get the state of the simulation after every step, which can be used to implement custom checkpointing
+- Enable loading presaved memory states from agent config
+- Marketplace component that handles logic for buyers and sellers trading goods
+- questionnaire simulation load memories
+- Added a death component
+- Add situated_in_time_and_place game master prefab
+- Add support for open weights OpenAI models via Together AI.
+- Implementing multi-step questionnaire that can handle both open-ended and multiple-choice questions.
+- Add option to return raw log from simulation.play
+
+### Fixed
+
+- Dummy language model options
+- create game_master module in contrib to fix typecheck error
+- making OutputTypes explicit strings and adding conversion to and from dictionaries. This enables serialisation.
+- fix serialisation to handle action_spec correctly
+- Fix action_spec serialization for death gm component
+- fix SendEventToRelevantPlayers serialisation to handle action_spec correctly
+- Fixing and improving MakeObservation and SendEventToRelevantPlayers by replacing certain llm calls with simple string editing and fixing logic.
+- prevent premature termination in default make_observation component
+- Minor fix of next acting component, which makes sure the fixed random order starts with the first actor
+- OpenAI models no longer support terminators, and remove their hardcoded output limit.
+- always use temperature 1.0 for OpenAI since GPT-5 crashes for all other values.
+- use `max_completion_tokens` instead of `max_tokens` in base_gpt_model.
+- Make it so that calling get_currently_active_player on NextActingAllEntities throws a legible error.
+
 ## [2.0.1] - 2025-7-7
 
 ### Changed
