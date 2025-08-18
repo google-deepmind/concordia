@@ -86,7 +86,7 @@ class BaseGPTModel(language_model.LanguageModel):
         model=self._model_name,
         messages=messages,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_completion_tokens=max_tokens,
         timeout=timeout,
         stop=terminators,
         seed=seed,
