@@ -75,7 +75,10 @@ def language_model_setup(
   elif api_type == 'pytorch_gemma':
     cls = pytorch_gemma_model.PyTorchGemmaLanguageModel
   elif api_type == 'together_ai':
-    cls = together_ai.Gemma2
+    if 'llama' in model_name.lower():
+       cls = together_ai.Llama3
+    else:
+       cls = together_ai.Gemma2
   else:
     raise ValueError(f'Unrecognized api type: {api_type}')
 
