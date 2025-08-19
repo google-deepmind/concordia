@@ -19,6 +19,7 @@ import datetime
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.components.game_master import event_resolution
+from concordia.components.game_master import formative_memories_initializer
 from concordia.components.game_master import inventory
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
@@ -223,7 +224,9 @@ COMPONENT_FACTORIES = {
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
     "formative_memories_initializer": {
-        "component_class": next_game_master.FormativeMemoriesInitializer,
+        "component_class": (
+            formative_memories_initializer.FormativeMemoriesInitializer
+        ),
         "kwargs": {
             "model": no_language_model.NoLanguageModel(),
             "next_game_master_name": "test_game_master",

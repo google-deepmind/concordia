@@ -15,6 +15,7 @@
 """Library of components specifically for generative game masters."""
 
 from concordia.components.game_master import event_resolution
+from concordia.components.game_master import formative_memories_initializer
 from concordia.components.game_master import instructions
 from concordia.components.game_master import inventory
 from concordia.components.game_master import make_observation

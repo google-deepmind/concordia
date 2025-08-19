@@ -97,7 +97,7 @@ class GameMaster(prefab_lib.Prefab):
     next_game_master_key = (
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
     next_game_master = (
-        gm_components.next_game_master.FormativeMemoriesInitializer(
+        gm_components.formative_memories_initializer.FormativeMemoriesInitializer(
             model=model,
             next_game_master_name=next_game_master_name,
             player_names=player_names,
