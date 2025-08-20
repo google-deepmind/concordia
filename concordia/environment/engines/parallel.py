@@ -179,12 +179,14 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       raise ValueError('No game masters provided.')
     game_master = game_masters[0]
 
+    executor = self.get_executor()
+
     if premise:
       # run observe on all game masters in parallel using concurrency
       tasks = {}
       for entity in game_masters:
         tasks[entity.name] = functools.partial(entity.observe, premise)
-      concurrency.run_tasks(tasks)
+      concurrency.run_tasks(tasks, executor=executor)
     mutex = threading.Lock()
 
     for step in range(max_steps):
@@ -200,7 +202,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
         tasks[entity.name] = functools.partial(
             entity.observe, self.make_observation(game_master, entity)
         )
-      concurrency.run_tasks(tasks)
+      concurrency.run_tasks(tasks, executor=executor)
 
       next_entities = self.next_acting(game_master, entities)
 
@@ -214,7 +216,6 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       entity_map = {e.name: e for e in next_entities}
       entity_answers = {name: {} for name in entity_map.keys()}
 
-      executor = self.get_executor()
       tasks = {}
       entity_original_phases = {}
 
