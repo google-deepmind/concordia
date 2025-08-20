@@ -260,7 +260,7 @@ class EntityAgent(entity_component.EntityWithComponents):
     """Helper for single stateless action, used by parallel_stateless_act."""
     if self.get_phase() != entity_component.Phase.PRE_ACT:
       raise RuntimeError(
-          'Agent must be in PRE_ACT phase for _process_single_stateless_act'
+          'Agent must be in PRE_ACT phase for stateless_act'
       )
 
     # 1. PRE_ACT to gather context
