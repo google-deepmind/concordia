@@ -381,7 +381,7 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
 
   def __init__(self):
     super().__init__(
-        name="DASS",
+        name="Depression_Anxiety_Stress_Scale",
         description=(
             "A questionnaire to measure Depression Anxiety and Stress (DASS)"
             " scores."

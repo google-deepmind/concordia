@@ -30,7 +30,7 @@ from concordia.components.game_master import scene_tracker
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.components.game_master import world_state
-from concordia.contrib.data.questionnaires import depression_stress_anxiety_scale
+from concordia.contrib.data.questionnaires import depression_anxiety_stress_scale
 from concordia.language_model import no_language_model
 from concordia.utils import helper_functions
 import numpy as np
@@ -259,7 +259,7 @@ COMPONENT_FACTORIES = {
         "component_class": questionnaire.Questionnaire,
         "kwargs": {
             "questionnaires": [
-                depression_stress_anxiety_scale.DASSQuestionnaire()
+                depression_anxiety_stress_scale.DASSQuestionnaire()
             ],
             "player_names": ["Alice", "Bob"],
         },
