@@ -465,7 +465,7 @@ class Gemma2(language_model.LanguageModel):
             seed=None,
             logprobs=1,
             stream=False,
-            echo=True,
+            # echo=True,  # Not supported by Mixtral models
         )
       except (together.error.RateLimitError,
               together.error.APIError,
