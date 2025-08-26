@@ -150,7 +150,10 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def make_observation(
-      self, game_master: entity_lib.Entity, entity: entity_lib.Entity
+      self,
+      game_master: entity_lib.Entity,
+      entity: entity_lib.Entity,
+      verbose: bool = False,
   ) -> str:
     """Make an observation for a game object."""
     observation = game_master.act(
@@ -161,7 +164,12 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
             output_type=entity_lib.OutputType.MAKE_OBSERVATION,
         )
     )
-    print(f'Observation: {observation} for {entity.name}')
+    if verbose:
+      print(
+          termcolor.colored(
+              f'Observation: {observation} for {entity.name}', _PRINT_COLOR
+          )
+      )
     return observation
 
   @override
@@ -200,7 +208,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       tasks = {}
       for entity in entities:
         tasks[entity.name] = functools.partial(
-            entity.observe, self.make_observation(game_master, entity)
+            entity.observe, self.make_observation(game_master, entity, verbose)
         )
       concurrency.run_tasks(tasks, executor=executor)
 
