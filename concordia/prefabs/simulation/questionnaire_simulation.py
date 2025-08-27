@@ -23,7 +23,7 @@ import os
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment.engines import parallel
+from concordia.environment.engines import parallel_questionnaire
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -46,7 +46,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: parallel.ParallelQuestionnaireEngine | None = None,
+      engine: parallel_questionnaire.ParallelQuestionnaireEngine | None = None,
       max_workers: int | None = None,
       verbose: bool = False,
   ):
@@ -66,7 +66,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       model: the language model to use.
       embedder: the sentence transformer to use.
       engine: the engine to use. If None, a new engine is created with
-        parallel.ParallelQuestionnaireEngine.
+        parallel_questionnaire.ParallelQuestionnaireEngine.
       max_workers: the maximum number of workers to use in the engine's
         ThreadPoolExecutor, if the default engine is used.
       verbose: Whether to print verbose output.
@@ -77,9 +77,9 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     self._verbose = verbose
     if engine is None:
       if not max_workers:
-        self._engine = parallel.ParallelQuestionnaireEngine()
+        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine()
       else:
-        self._engine = parallel.ParallelQuestionnaireEngine(
+        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine(
             max_workers=max_workers
         )
     else:
