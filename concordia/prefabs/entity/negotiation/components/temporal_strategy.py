@@ -375,3 +375,75 @@ Format: name|outcome|indicators"""
                 self._relationships[name] = RelationshipRecord(name)
             self._relationships[name].trust_score = data.get('trust_score', 0.5)
             self._relationships[name].interaction_count = data.get('interaction_count', 0)
+
+    def get_action_attempt(
+        self,
+        context: Any,  # ComponentContextMapping
+        action_spec: entity_lib.ActionSpec,
+    ) -> str:
+        """Generate time-aware negotiation action considering multiple horizons."""
+        situation_context = action_spec.call_to_action
+        
+        # Analyze temporal context
+        temporal_analysis = self._analyze_temporal_context(situation_context)
+        
+        # Update phase tracking
+        current_phase = temporal_analysis['current_phase']
+        if current_phase != self._current_phase:
+            self._phase_history.append(self._current_phase)
+            self._current_phase = current_phase
+        
+        # Determine if we should invest in relationship
+        counterpart_name = "counterpart"  # Default name
+        should_invest = self._should_invest_in_relationship(counterpart_name)
+        
+        # Calculate temporal value for different action types
+        base_value = 1000  # Base negotiation value
+        concession_value = self._calculate_temporal_value(base_value, counterpart_name, "concession")
+        aggressive_value = self._calculate_temporal_value(base_value, counterpart_name, "aggressive")
+        
+        # Generate action based on temporal strategy
+        prompt = f"""Based on temporal strategy and multi-horizon thinking, generate a negotiation action:
+
+Situation: {situation_context}
+
+Temporal Analysis:
+- Current Phase: {temporal_analysis['current_phase']}
+- Interaction Type: {temporal_analysis['interaction_type']}
+- Future Potential: {temporal_analysis['future_potential']}
+- Time Horizon: {temporal_analysis['time_horizon']}
+
+Strategic Considerations:
+- Should invest in relationship: {should_invest}
+- Concession approach value: {concession_value:.1f}
+- Aggressive approach value: {aggressive_value:.1f}
+- Global reputation level: {self._global_reputation:.2f}
+
+Phase-Specific Guidance:
+{self._generate_temporal_strategy(situation_context)}
+
+Generate a negotiation action that:
+1. Aligns with the {temporal_analysis['current_phase']} phase requirements
+2. Considers {temporal_analysis['time_horizon']}-term value optimization  
+3. {'Invests in relationship building' if should_invest else 'Focuses on immediate value'}
+4. Balances short-term gains with long-term reputation
+5. Adapts to the {temporal_analysis['interaction_type']} interaction context
+
+Action:"""
+
+        response = self._model.sample_text(prompt)
+        
+        # Clean up response
+        action = response.strip()
+        if action.lower().startswith('action:'):
+            action = action[7:].strip()
+        
+        # Add temporal framing based on analysis
+        if temporal_analysis['time_horizon'] == 'long' and should_invest:
+            action = f"Looking at our long-term partnership potential, {action.lower()}"
+        elif temporal_analysis['future_potential'] == 'high':
+            action = f"Given the promising future opportunities, {action.lower()}"
+        elif temporal_analysis['current_phase'] == 'closing':
+            action = f"As we move toward closure, {action.lower()}"
+        
+        return action

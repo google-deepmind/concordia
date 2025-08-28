@@ -355,7 +355,7 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
         if not self._strategy_population:
             return self._current_strategy
 
-        strategy_scores = {}
+        strategy_scores = []  # Use list of tuples instead of dict
 
         for strategy in self._strategy_population:
             # Calculate fitness based on context match and historical performance
@@ -368,13 +368,13 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
                 0.4 * context_match
             )
 
-            strategy_scores[strategy] = combined_score
+            strategy_scores.append((strategy, combined_score))
 
         # Select best strategy with some exploration
         if random.random() < 0.1:  # 10% exploration
             return random.choice(self._strategy_population)
         else:  # 90% exploitation
-            return max(strategy_scores, key=strategy_scores.get)
+            return max(strategy_scores, key=lambda x: x[1])[0]
 
     def _calculate_context_match(self, strategy: StrategyGenome, context_features: Dict[str, float]) -> float:
         """Calculate how well a strategy matches the current context."""
@@ -504,6 +504,104 @@ Format: stakes:X.X relationship:X.X time_pressure:X.X competitive:X.X complexity
         """Select strategy using tournament selection."""
         tournament = random.sample(list(fitness_dict.keys()), min(tournament_size, len(fitness_dict)))
         return max(tournament, key=lambda s: fitness_dict[s])
+
+    def get_action_attempt(
+        self,
+        context: Any,  # ComponentContextMapping
+        action_spec: entity_lib.ActionSpec,
+    ) -> str:
+        """Generate evolved negotiation action based on adaptive strategies."""
+        situation_context = action_spec.call_to_action
+        
+        # Analyze context for strategy selection
+        context_features = self._analyze_negotiation_context(situation_context)
+        
+        # Select best strategy for current context
+        selected_strategy = self._select_strategy_for_context(context_features)
+        
+        # Update current strategy
+        if selected_strategy != self._current_strategy:
+            self._current_strategy = selected_strategy
+        
+        # Start episode tracking
+        self._current_episode = NegotiationEpisode(
+            context=situation_context,
+            strategy_used=self._current_strategy.strategy_id,
+            actions_taken=[],
+            counterpart_responses=[],
+            outcome_value=0.0,
+            relationship_impact=0.0,
+            duration=0,
+            success_metrics={},
+            lessons_learned=[]
+        )
+        
+        # Generate action based on evolved strategy
+        strategy = self._current_strategy
+        prompt = f"""Based on evolved strategy and meta-learning, generate a negotiation action:
+
+Situation: {situation_context}
+
+Current Strategy: {strategy.strategy_id} (Generation {strategy.generation})
+
+Strategy Profile:
+- Core Tactics: {', '.join(strategy.tactics)}
+- Aggressiveness: {strategy.parameters.get('aggressiveness', 0.5):.2f}
+- Flexibility: {strategy.parameters.get('flexibility', 0.5):.2f}  
+- Risk Tolerance: {strategy.parameters.get('risk_tolerance', 0.5):.2f}
+- Patience Level: {strategy.parameters.get('patience', 0.5):.2f}
+- Creativity: {strategy.parameters.get('creativity', 0.5):.2f}
+
+Context Analysis:
+- Stakes Level: {context_features['stakes']:.2f}
+- Relationship Importance: {context_features['relationship']:.2f}
+- Time Pressure: {context_features['time_pressure']:.2f}
+- Competitive Intensity: {context_features['competitive']:.2f}
+- Uncertainty Level: {context_features['uncertainty']:.2f}
+
+Historical Performance: {np.mean(strategy.fitness_history) if strategy.fitness_history else 'New strategy'}
+
+Meta-Learning Insights:
+- Total Negotiations: {self._total_negotiations}
+- Generation: {self._generation_count}
+- Learning Rate: {self._learning_rate:.4f}
+
+Generate a negotiation action that:
+1. Applies the primary tactic: {strategy.tactics[0] if strategy.tactics else 'balanced_approach'}
+2. Matches aggressiveness level of {strategy.parameters.get('aggressiveness', 0.5):.2f}
+3. Shows flexibility level of {strategy.parameters.get('flexibility', 0.5):.2f}
+4. Adapts to context features (stakes: {context_features['stakes']:.1f}, competitive: {context_features['competitive']:.1f})
+5. Demonstrates learning from {len(strategy.fitness_history)} previous experiences
+
+Action:"""
+
+        response = self._model.sample_text(prompt)
+        
+        # Clean up response
+        action = response.strip()
+        if action.lower().startswith('action:'):
+            action = action[7:].strip()
+        
+        # Apply strategy-specific modifications
+        aggressiveness = strategy.parameters.get('aggressiveness', 0.5)
+        flexibility = strategy.parameters.get('flexibility', 0.5)
+        
+        # Modify action based on strategy parameters
+        if aggressiveness > 0.7:
+            action = f"Let me be direct: {action.lower()}"
+        elif aggressiveness < 0.3 and flexibility > 0.6:
+            action = f"I'm open to exploring options here - {action.lower()}"
+        
+        # Add strategy evolution context if this is an evolved strategy
+        if strategy.generation > 2:
+            action = f"Based on our refined approach, {action.lower()}"
+        
+        # Track action for learning
+        if self._current_episode:
+            self._current_episode.actions_taken.append(action)
+            self._current_episode.duration += 1
+        
+        return action
 
     def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
         """Provide evolution-based guidance before action."""

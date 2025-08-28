@@ -550,6 +550,64 @@ Format: openness:X.X conscientiousness:X.X extraversion:X.X agreeableness:X.X ne
         self._max_recursion_depth = state.get('recursion_depth', 3)
         self._empathy_level = state.get('empathy_level', 0.8)
 
+    def get_action_attempt(
+        self,
+        context: Any,  # ComponentContextMapping
+        action_spec: entity_lib.ActionSpec,
+    ) -> str:
+        """Generate emotionally intelligent negotiation action based on theory of mind analysis."""
+        # Get the context from call_to_action
+        situation_context = action_spec.call_to_action
+        
+        # Analyze emotional state of the situation
+        emotional_state = self._detect_emotions(situation_context)
+        
+        # Generate empathic response if emotions are intense
+        empathic_response = ""
+        if emotional_state.emotional_intensity() > 0.4:
+            empathic_response = self._generate_empathic_response(emotional_state)
+        
+        # Build recursive reasoning about the situation
+        self._belief_hierarchy = self._build_recursive_beliefs(situation_context, min(2, self._max_recursion_depth))
+        
+        # Generate action based on emotional intelligence
+        prompt = f"""Based on theory of mind and emotional intelligence analysis, generate a negotiation action:
+
+Situation: {situation_context}
+
+Emotional Analysis:
+- Dominant emotion: {emotional_state.dominant_emotion()[0]} (intensity: {emotional_state.dominant_emotion()[1]:.2f})
+- Emotional valence: {emotional_state.valence:.2f}
+- Triggers detected: {', '.join(emotional_state.triggers) if emotional_state.triggers else 'None'}
+
+Empathic Response Strategy: {empathic_response if empathic_response else 'Maintain neutral professional tone'}
+
+Theory of Mind Insights:
+- Level 1 (What they likely believe): They may think I am focused primarily on my own interests
+- Level 2 (What they think I think): They might believe I'm trying to read their emotional state
+
+Generate a negotiation action that:
+1. Acknowledges any strong emotions detected
+2. Demonstrates understanding of their perspective
+3. Builds trust through emotional validation
+4. Moves the negotiation forward constructively
+5. Uses emotionally intelligent language
+
+Action:"""
+
+        response = self._model.sample_text(prompt)
+        
+        # Clean up the response to extract just the action
+        action = response.strip()
+        if action.lower().startswith('action:'):
+            action = action[7:].strip()
+        
+        # Add empathic framing if strong emotions detected
+        if emotional_state.emotional_intensity() > 0.6 and empathic_response:
+            action = f"{empathic_response} {action}"
+        
+        return action
+
     def update(self) -> None:
         """Update theory of mind component."""
         # Decay old emotional assessments
