@@ -24,6 +24,7 @@ from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment.engines import parallel_questionnaire
+from concordia.environment.engines import sequential_questionnaire
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -46,7 +47,11 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: parallel_questionnaire.ParallelQuestionnaireEngine | None = None,
+      engine: (
+          parallel_questionnaire.ParallelQuestionnaireEngine
+          | sequential_questionnaire.SequentialQuestionnaireEngine
+          | None
+      ) = None,
       max_workers: int | None = None,
       verbose: bool = False,
   ):
