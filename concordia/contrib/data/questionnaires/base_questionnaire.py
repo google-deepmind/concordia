@@ -45,6 +45,7 @@ class QuestionnaireBase(abc.ABC):
       questions: List[Question],
       preprompt: str = "",
       dimensions: List[str] | None = None,
+      context: str = "",
   ):
     self.name = name
     self.description = description
@@ -53,6 +54,7 @@ class QuestionnaireBase(abc.ABC):
     self.default_preprompt = preprompt
     self.questions = questions
     self.dimensions = dimensions
+    self.context = context
 
   def get_config(self) -> Dict[str, Any]:
     """Returns the questionnaire config dictionary."""
