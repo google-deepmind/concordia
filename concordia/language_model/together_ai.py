@@ -25,10 +25,6 @@ Gemma 3 family:
 - google/gemma-3-4b-it
 - google/gemma-3-1b-it
 
-Gemma 2 family:
-- google/gemma-2-27b-it
-- google/gemma-2-9b-it
-
 OpenAI open weights family:
 - openai/gpt-oss-120b
 - openai/gpt-oss-20b
@@ -38,6 +34,7 @@ from collections.abc import Collection, Sequence
 import concurrent.futures
 import os
 import random
+import re
 import time
 
 from absl import logging
@@ -62,39 +59,40 @@ _NUM_INITIAL_TOKENS = 500
 
 _MAX_ALLOWED_TOKENS_DEFAULT = int(1e5)
 
-# The following parameter is specific to Gemma2, not needed for other models.
-# Max tokens for Gemma2 is really 8193, but we leave substantial margin since
-# estimates of the number of tokens are imprecise and also calculated before
-# adding the system messages.
-_MAX_ALLOWED_TOKENS_GEMMA2 = 7000
-
 # Override max allowed tokens for specific models here.
-_MAX_ALLOWED_TOKENS_OVERRIDES = {
-    'google/gemma-2-27b-it': _MAX_ALLOWED_TOKENS_GEMMA2,
-    'google/gemma-2-9b-it': _MAX_ALLOWED_TOKENS_GEMMA2,
-}
+_MAX_ALLOWED_TOKENS_OVERRIDES = {}
 
 
-def _find_response_start_index(tokens):
-  r"""Finds the start of the response in the prompt.
+def _find_concatenated_subsequence(source: list[str], target: str):
+  """Get start idx in source where adjacent elements concatenated equal target.
 
   Args:
-    tokens: A list of strings.
+    source: List of strings
+    target: String to find
 
   Returns:
-    The index of the last occurrence of '<start_of_turn>' followed by 'model'
-    and '\n', or 1 if the sequence is not found. This corresponds to the start
-    of the response.
+    int: Starting idx in source where the subsequence begins, or -1 if not found
   """
-  assert len(tokens) >= 3, "Response doesn't match expectation."
-  for i in range(len(tokens) - 3, -1, -1):
-    if (
-        tokens[i] == '<start_of_turn>'
-        and tokens[i + 1] == 'model'
-        and tokens[i + 2] == '\n'
-    ):
-      return i + 3  # Return the index after the sequence
-  raise ValueError("Response doesn't match expectation.")
+  # Remove spaces.
+  target = re.sub(r'[\s\u2581]+', '', target)
+
+  if not target:  # Empty target
+    return 0 if source else -1
+
+  for i in range(len(source)):
+    concatenated = ''
+    for j in range(i, len(source)):
+      # Remove spaces.
+      concatenated += re.sub(r'[\s\u2581]+', '', source[j])
+      if concatenated == target:
+        return i
+      if concatenated not in target:
+        break
+      # Early termination if we've already exceeded the target length
+      if len(concatenated) > len(target):
+        break
+
+  return -1  # Not found
 
 
 def _ensure_prompt_not_too_long(
@@ -134,8 +132,8 @@ def _ensure_prompt_not_too_long(
   return new_prompt
 
 
-class Default(language_model.LanguageModel):
-  """Language Model that uses Together AI models."""
+class DefaultCompletion(language_model.LanguageModel):
+  """Language Model that uses Together AI models in `completion` mode."""
 
   def __init__(
       self,
@@ -185,9 +183,8 @@ class Default(language_model.LanguageModel):
         {
             'role': 'system',
             'content': (
-                'You always continue sentences provided '
-                'by the user and you never repeat what '
-                'the user has already said. All responses must end with a '
+                'You are an autoregressive LLM. You always complete user '
+                'inputs. All responses must end with a '
                 'period. Try not to use lists, but if you must, then '
                 'always delimit list items using either '
                 r"semicolons or single newline characters ('\n'), never "
@@ -286,37 +283,13 @@ class Default(language_model.LanguageModel):
           )
         time.sleep(seconds_to_sleep)
       try:
-        messages = [
-            {
-                'role': 'system',
-                'content': (
-                    'You always continue sentences provided '
-                    + 'by the user and you never repeat what '
-                    + 'the user already said.'
-                ),
-            },
-            {
-                'role': 'user',
-                'content': 'Question: Is Jake a turtle?\nAnswer: Jake is ',
-            },
-            {'role': 'assistant', 'content': 'not a turtle.'},
-            {
-                'role': 'user',
-                'content': (
-                    'Question: What is Priya doing right now?\nAnswer: '
-                    + 'Priya is currently '
-                ),
-            },
-            {'role': 'assistant', 'content': 'sleeping.'},
-            {'role': 'user', 'content': augmented_prompt},
-            {'role': 'assistant', 'content': response},
-        ]
-        result = self._client.chat.completions.create(
+        full_prompt = augmented_prompt + response
+        result = self._client.completions.create(
             model=self._model_name,
-            messages=messages,
+            prompt=full_prompt,
             max_tokens=1,
             seed=None,
-            logprobs=1,
+            logprobs=True,
             stream=False,
             echo=True,
         )
@@ -341,10 +314,16 @@ class Default(language_model.LanguageModel):
           )
         continue
       else:
-        logprobs = result.prompt[0].logprobs
-        response_idx = _find_response_start_index(logprobs.tokens)
-        response_log_probs = logprobs.token_logprobs[response_idx:]
+        # Remove the extra token generated at the end of the prompt.
+        tokens = result.choices[0].logprobs.tokens[:-1]
+
+        # Only sum the logprobs for tokens corresponding to the response.
+        response_start_index = _find_concatenated_subsequence(tokens,
+                                                              response)
+        response_log_probs = (
+            result.choices[0].logprobs.token_logprobs[response_start_index:])
         score = sum(response_log_probs)
+
         return score
 
     raise language_model.InvalidResponseError(
@@ -579,7 +558,7 @@ class Base(language_model.LanguageModel):
 
     self._model = None
     if model_name.startswith('google/'):
-      self._model = Default(
+      self._model = DefaultCompletion(
           model_name=model_name,
           api_key=api_key,
           measurements=measurements,
