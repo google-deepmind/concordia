@@ -381,7 +381,7 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
 
   def __init__(self):
     super().__init__(
-        name="DASS",
+        name="Depression_Anxiety_Stress_Scale",
         description=(
             "A questionnaire to measure Depression Anxiety and Stress (DASS)"
             " scores."
@@ -390,6 +390,11 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
         observation_preprompt="{player_name} is taking a questionnaire.",
         questions=QUESTIONS,
         dimensions=DASS_DIMENSIONS,
+        context=(
+            "This questionnaire assesses mental well-being, focusing on"
+            " symptoms experienced over the last week. It is a general measure"
+            " not specific to any particular event or environment."
+        ),
     )
 
   def aggregate_results(

@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Engine for running questionnaires in parallel across multiple entities."""
+"""Engine for running questionnaires sequentially across multiple entities."""
 
 from collections.abc import Mapping, Sequence
 from concurrent import futures
 import functools
 import json
-import threading
 from typing import Any, Callable, List, Tuple, cast
 
 from concordia.agents import entity_agent
@@ -27,7 +26,6 @@ from concordia.components.game_master import make_observation as make_observatio
 from concordia.components.game_master import next_acting as next_acting_components
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
-from concordia.typing import entity_component
 from concordia.utils import concurrency
 import termcolor
 from typing_extensions import override
@@ -50,8 +48,8 @@ DEFAULT_CALL_TO_MAKE_OBSERVATION = (
 _PRINT_COLOR = 'cyan'
 
 
-class ParallelQuestionnaireEngine(engine_lib.Engine):
-  """Engine for asking all questions to all entities in parallel."""
+class SequentialQuestionnaireEngine(engine_lib.Engine):
+  """Engine for asking questions to all entities sequentially."""
 
   def __init__(
       self,
@@ -150,7 +148,10 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def make_observation(
-      self, game_master: entity_lib.Entity, entity: entity_lib.Entity
+      self,
+      game_master: entity_lib.Entity,
+      entity: entity_lib.Entity,
+      verbose: bool = False,
   ) -> str:
     """Make an observation for a game object."""
     observation = game_master.act(
@@ -161,7 +162,12 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
             output_type=entity_lib.OutputType.MAKE_OBSERVATION,
         )
     )
-    print(f'Observation: {observation} for {entity.name}')
+    if verbose:
+      print(
+          termcolor.colored(
+              f'Observation: {observation} for {entity.name}', _PRINT_COLOR
+          )
+      )
     return observation
 
   @override
@@ -187,7 +193,6 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       for entity in game_masters:
         tasks[entity.name] = functools.partial(entity.observe, premise)
       concurrency.run_tasks(tasks, executor=executor)
-    mutex = threading.Lock()
 
     for step in range(max_steps):
       if verbose:
@@ -200,7 +205,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       tasks = {}
       for entity in entities:
         tasks[entity.name] = functools.partial(
-            entity.observe, self.make_observation(game_master, entity)
+            entity.observe, self.make_observation(game_master, entity, verbose)
         )
       concurrency.run_tasks(tasks, executor=executor)
 
@@ -216,57 +221,24 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       entity_map = {e.name: e for e in next_entities}
       entity_answers = {name: {} for name in entity_map.keys()}
 
-      tasks = {}
-      entity_original_phases = {}
+      for player_name, q_id, spec_str in player_qid_spec_list:
+        if player_name not in entity_map:
+          continue
 
-      for player_name in entity_map:
-        agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-        entity_original_phases[player_name] = agent.get_phase()
-        agent.set_phase(entity_component.Phase.PRE_ACT)
+        entity = entity_map[player_name]
+        agent = cast(entity_agent.EntityAgent, entity)
 
-      try:
-        for player_name, q_id, spec_str in player_qid_spec_list:
-          if player_name not in entity_map:
-            continue
+        # We give the question and action spec and options as observation to
+        # the entity agent and we later give only the action spec and
+        # options for it to act.
 
-          entity = entity_map[player_name]
-          agent = cast(entity_agent.EntityAgent, entity)
+        observation = spec_str.replace('prompt: ', '')
+        agent.observe(observation)
 
-          formatted_spec_str = spec_str.replace('{player_name}', player_name)
-          action_spec = engine_lib.action_spec_parser(formatted_spec_str)
-
-          task_key = f'{player_name}_{q_id}'
-
-          def process_question_task(
-              agent: entity_agent.EntityAgent,
-              action_spec: entity_lib.ActionSpec,
-              player_name: str,
-              q_id: str,
-              mutex: threading.Lock,
-              entity_answers: dict[str, dict[str, Any]],
-          ):
-            # Executor is passed down to _process_single_stateless_act
-            answer = agent.stateless_act(action_spec)
-            with mutex:
-              entity_answers[player_name][q_id] = answer
-
-          tasks[task_key] = functools.partial(
-              process_question_task,
-              agent,
-              action_spec,
-              player_name,
-              q_id,
-              mutex,
-              entity_answers,
-          )
-        if tasks:
-          concurrency.run_tasks(tasks, executor=executor)
-
-      finally:
-        # Restore original phases
-        for player_name, phase in entity_original_phases.items():
-          agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-          agent.set_phase(phase)
+        formatted_spec_str = spec_str.replace('{player_name}', player_name)
+        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
+        answer = agent.act(action_spec)
+        entity_answers[player_name][q_id] = answer
 
       # Feed back answers to GM
       for player_name, qid_answer_map in entity_answers.items():
@@ -276,6 +248,8 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
       if verbose:
         print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
+
+    self.shutdown()
 
   @override
   def resolve(

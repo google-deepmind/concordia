@@ -23,7 +23,8 @@ import os
 from typing import Any
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment.engines import parallel
+from concordia.environment.engines import parallel_questionnaire
+from concordia.environment.engines import sequential_questionnaire
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -46,8 +47,13 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: parallel.ParallelQuestionnaireEngine | None = None,
+      engine: (
+          parallel_questionnaire.ParallelQuestionnaireEngine
+          | sequential_questionnaire.SequentialQuestionnaireEngine
+          | None
+      ) = None,
       max_workers: int | None = None,
+      verbose: bool = False,
   ):
     """Initialize the simulation object.
 
@@ -65,18 +71,20 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       model: the language model to use.
       embedder: the sentence transformer to use.
       engine: the engine to use. If None, a new engine is created with
-        parallel.ParallelQuestionnaireEngine.
+        parallel_questionnaire.ParallelQuestionnaireEngine.
       max_workers: the maximum number of workers to use in the engine's
         ThreadPoolExecutor, if the default engine is used.
+      verbose: Whether to print verbose output.
     """
     self._config = config
     self._model = model
     self._embedder = embedder
+    self._verbose = verbose
     if engine is None:
       if not max_workers:
-        self._engine = parallel.ParallelQuestionnaireEngine()
+        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine()
       else:
-        self._engine = parallel.ParallelQuestionnaireEngine(
+        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine(
             max_workers=max_workers
         )
     else:
@@ -193,11 +201,13 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     # Check if a pre-loaded memory state was passed in the entity's params.
     memory_state = instance_config.params.get("memory_state")
     if memory_state:
-      print(f"Found pre-loaded memory state for {entity.name}. Setting it.")
+      if self._verbose:
+        print(f"Found pre-loaded memory state for {entity.name}. Setting it.")
       try:
         memory_component = entity.get_component("__memory__")
         memory_component.set_state(memory_state)
-        print(f"Successfully set pre-loaded memories for {entity.name}.")
+        if self._verbose:
+          print(f"Successfully set pre-loaded memories for {entity.name}.")
       except (KeyError, TypeError, ValueError) as e:
         print(f"Error setting pre-loaded memory for {entity.name}: {e}")
 
@@ -372,7 +382,8 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     try:
       with open(checkpoint_file, "w") as f:
         json.dump(checkpoint_data, f, indent=2)
-      print(f"Step {step}: Saved checkpoint to {checkpoint_file}")
+      if self._verbose:
+        print(f"Step {step}: Saved checkpoint to {checkpoint_file}")
     except IOError as e:
       print(f"Error saving checkpoint at step {step}: {e}")
 
