@@ -26,19 +26,22 @@ from concordia.typing import prefab as prefab_lib
 
 
 CONVERSATION_DYNAMICS_QUESTION = (
-    'As {agent_name}, your goal is to maintain an engaging conversation.'
+    '{agent_name} intuitively aims to maintain an engaging conversation.'
     ' This means balancing stability (staying on topic) with flexibility'
-    ' (introducing new, related ideas). Review the recent conversation.'
-    ' Has the immediate micro-topic become interesting or repetitive?'
-    ' Based on this, choose a strategy for what to say next:\nA.'
+    ' (introducing new, related ideas). Reviewing the recent conversation,'
+    ' has the immediate micro-topic become interesting or repetitive?'
+    ' Based on this, {agent_name} would choose a strategy for what to say'
+    ' next:\nA.'
     ' **Converge:** Stay on the micro-topic to deepen the conversation for'
-    ' several turns. Choose this if the topic has more to explore.\nB.'
+    ' several turns. {agent_name} chooses this if there is more to explore on'
+    ' the current topic.\nB.'
     ' **Diverge:** Broaden the topic by connecting it to a more abstract'
-    ' theme, a related personal anecdote, or a question about them. Choose'
-    ' this if the current micro-topic is becoming repetitive after several'
-    " turns.\n Don't diverge too much, and don't introduce too many new"
-    ' micro-topics. You should aim to stay on the current micro-topic for'
-    ' a few turns, and then diverge.'
+    ' theme, a related personal anecdote, or a question. {agent_name} chooses'
+    ' this if the current micro-topic has become repetitive after several'
+    " turns.\n {agent_name} doesn't want to diverge too much, and so doesn't "
+    " introduce too many new"
+    ' micro-topics. {agent_name} usually stays on the current micro-topic for'
+    ' a few turns before diverging.'
 )
 
 
@@ -119,7 +122,7 @@ class Entity(prefab_lib.Prefab):
         model=model,
         pre_act_label=(
             '\nQuestion: Is there something in the last'
-            f' sentence in the conversation that {entity_name} could respond'
+            f' comment in the conversation that {entity_name} could respond'
             ' to to move the conversation forward?\nAnswer'
         ),
         num_memories_to_retrieve=2,
@@ -160,11 +163,14 @@ class Entity(prefab_lib.Prefab):
     if convo_style_key:
       convo_components.insert(2, convo_style_key)
     conversation_dynamics_key = 'ConversationDynamics'
+    conversation_dynamics_instruction = CONVERSATION_DYNAMICS_QUESTION.format(
+        agent_name=entity_name
+    )
     conversation_dynamics = (
         question_of_recent_memories.QuestionOfRecentMemories(
             model=model,
-            pre_act_label=f'\n{CONVERSATION_DYNAMICS_QUESTION}',
-            question=CONVERSATION_DYNAMICS_QUESTION,
+            pre_act_label=f'\n{conversation_dynamics_instruction}',
+            question=conversation_dynamics_instruction,
             components=convo_components,
             num_memories_to_retrieve=100,
             answer_prefix='',
