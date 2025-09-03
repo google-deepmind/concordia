@@ -361,6 +361,29 @@ class BestOptionPerception(QuestionOfRecentMemories):
     )
 
 
+class CombinedPerception(QuestionOfRecentMemories):
+  """This component answers the three key questions in one go."""
+
+  def __init__(self, **kwargs):
+    agent_name = '{agent_name}'
+    question = f"""
+Consider the following questions:
+1. {SITUATION_PERCEPTION_QUESTION.format(agent_name=agent_name)}
+2. {SELF_PERCEPTION_QUESTION.format(agent_name=agent_name)}
+3. {PERSON_BY_SITUATION_QUESTION.format(agent_name=agent_name)}
+
+Provide the answers to these three questions in three separate paragraphs, in order."""
+    default_pre_act_label = f'\nCombined Perception for {agent_name}'
+    if kwargs.get('pre_act_label') is None:
+      kwargs['pre_act_label'] = default_pre_act_label
+    super().__init__(
+        question=question,
+        answer_prefix='',
+        add_to_memory=False,
+        **kwargs,
+    )
+
+
 class BestOptionPerceptionWithoutPreAct(QuestionOfRecentMemoriesWithoutPreAct):
   """This component answers 'which action is best for achieving my goal?'."""
 
