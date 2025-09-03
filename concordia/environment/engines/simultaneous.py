@@ -320,6 +320,7 @@ class Simultaneous(engine_lib.Engine):
       actions = concurrency.run_tasks(tasks)
 
       if skip_actions:
+        steps += 1
         continue
 
       resolve_input = '\n'.join(actions.values())

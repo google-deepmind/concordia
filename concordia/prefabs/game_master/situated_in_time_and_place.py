@@ -60,11 +60,11 @@ class GameMaster(prefab_lib.Prefab):
           # component and a constant available at all times for the game master.
           'clock_description': _DEFAULT_CLOCK_DESCRIPTION,
           # The clock's initial setting.
-          'start_time': None,
+          'start_time': '',
           # Describe locations where entities may be located at any time. This
           # string will be used as a prompt for the location representation
           # component and a constant available at all times for the game master.
-          'locations': None,
+          'locations': '',
           'extra_components': {},
           # A mapping from component name to the index at which to insert it
           # in the component order. If not specified, the extra components

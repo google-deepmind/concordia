@@ -138,7 +138,7 @@ class Entity(prefab_lib.Prefab):
             model=model,
             components=relevant_memories_components,
             num_memories_to_retrieve=5,
-            pre_act_label='\nRecalled relevantmemories and observations',
+            pre_act_label='\nRecalled relevant memories and observations',
         )
     )
 

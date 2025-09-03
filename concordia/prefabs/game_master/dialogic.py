@@ -33,11 +33,19 @@ class GameMaster(prefab_lib.Prefab):
   """
 
   description: str = 'A game master specialized for handling conversation.'
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str | bool] = dataclasses.field(
       default_factory=lambda: {
+          # `name`: the name of this game master.
           'name': 'conversation rules',
+          # `next_game_master_name`: pass control to this game master once
+          #  the conversation is finished.
           'next_game_master_name': 'default rules',
+          # `acting_order`: how to determine whose turn is next. Choose from:
+          # 'fixed', 'random', or 'game_master_choice'.
           'acting_order': 'game_master_choice',
+          # `can_terminate_simulation`: controls whether or not this game master
+          # can decide to trigger the end of the simulation.
+          'can_terminate_simulation': True,
       }
   )
   entities: (
@@ -61,6 +69,11 @@ class GameMaster(prefab_lib.Prefab):
     name = self.params.get('name', 'conversation rules')
     next_game_master_name = self.params.get('next_game_master_name',
                                             'default rules')
+    acting_order = self.params.get(
+        'acting_order', 'game_master_choice'
+    )
+    can_terminate_simulation = self.params.get(
+        'can_terminate_simulation', True)
 
     player_names = [entity.name for entity in self.entities]
 
@@ -140,9 +153,6 @@ class GameMaster(prefab_lib.Prefab):
         ],
     )
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
-    acting_order = self.params.get(
-        'acting_order', 'game_master_choice'
-    )
     if acting_order == 'fixed':
       next_actor = gm_components.next_acting.NextActingInFixedOrder(
           sequence=player_names,
@@ -223,6 +233,11 @@ class GameMaster(prefab_lib.Prefab):
         next_action_spec_key: next_action_spec,
         event_resolution_key: event_resolution,
     }
+
+    if not can_terminate_simulation:
+      terminate_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
+      terminate = gm_components.terminate.NeverTerminate()
+      components_of_game_master[terminate_key] = terminate
 
     component_order = list(components_of_game_master.keys())
 

@@ -264,6 +264,7 @@ class Sequential(engine_lib.Engine):
         if checkpoint_callback is not None:
           print(f'Calling checkpoint callback at step {steps}')
           checkpoint_callback(steps)
+        steps += 1
         continue
 
       if verbose:

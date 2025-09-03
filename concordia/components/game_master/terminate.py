@@ -25,7 +25,7 @@ DEFAULT_TERMINATE_PRE_ACT_LABEL = '\nTerminate'
 class Terminate(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
-  """A component that decides whether to terminate the simulation.
+  """A component with a function to decides whether to terminate the simulation.
   """
 
   def __init__(
@@ -64,3 +64,41 @@ class Terminate(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._terminate_now = state['terminate_now']
+
+
+class NeverTerminate(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
+  """A component that never terminates the simulation.
+  """
+
+  def __init__(
+      self,
+      pre_act_label: str = DEFAULT_TERMINATE_PRE_ACT_LABEL,
+  ):
+    """Initializes the component.
+
+    Args:
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
+    """
+    super().__init__()
+    self._pre_act_label = pre_act_label
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.TERMINATE:
+      return 'No'
+
+    return result
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass

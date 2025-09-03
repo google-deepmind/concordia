@@ -30,7 +30,9 @@ from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import formative_memories_initializer
 from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
 from concordia.prefabs.game_master import generic
+from concordia.prefabs.game_master import scripted
 from concordia.prefabs.game_master import situated
+from concordia.prefabs.game_master import situated_in_time_and_place
 from concordia.typing import entity as entity_lib
 from concordia.typing import scene as scene_lib
 import numpy as np
@@ -42,15 +44,19 @@ ENVIRONMENT_PREFABS = {
     'formative_memories_initializer': formative_memories_initializer,
     'game_theoretic_and_dramaturgic': game_theoretic_and_dramaturgic,
     'generic': generic,
+    'scripted': scripted,
     'situated': situated,
+    'situated_in_time_and_place': situated_in_time_and_place,
 }
 
 
 def _embedder(text: str):
   del text
-  return np.random.rand(16)
+  return np.random.rand(3)
 
-DIALOGIC_SCENE_EXAMPLE = scene_lib.SceneTypeSpec(
+_PLAYERS = ['Rakshit', 'Samantha']
+
+_DIALOGIC_SCENE_EXAMPLE = scene_lib.SceneTypeSpec(
     name='dialogic',
     game_master_name='dialogic',
     action_spec=entity_lib.free_action_spec(
@@ -70,18 +76,18 @@ _DECISION_SCENE_EXAMPLE = scene_lib.SceneTypeSpec(
 
 _DIALOGIC_AND_DRAMATURGIC_SCENES = [
     scene_lib.SceneSpec(
-        scene_type=DIALOGIC_SCENE_EXAMPLE,
-        participants=['Rakshit', 'Samantha'],
+        scene_type=_DIALOGIC_SCENE_EXAMPLE,
+        participants=_PLAYERS,
         num_rounds=1,
         premise={
-            'Rakshit': [
+            _PLAYERS[0]: [
                 (
-                    'Rakshit and Samantha are friends.'
+                    f'{_PLAYERS[0]} and {_PLAYERS[1]} are friends.'
                 ),
             ],
-            'Samantha': [
+            _PLAYERS[1]: [
                 (
-                    'Samantha and Rakshit are friends.'
+                    f'{_PLAYERS[1]} and {_PLAYERS[0]} are friends.'
                 ),
             ],
         },
@@ -92,21 +98,30 @@ _DIALOGIC_AND_DRAMATURGIC_SCENES = [
 _GAME_THEORETIC_AND_DRAMATURGIC_SCENES = [
     scene_lib.SceneSpec(
         scene_type=_DECISION_SCENE_EXAMPLE,
-        participants=['Rakshit', 'Samantha'],
+        participants=_PLAYERS,
         num_rounds=2,
         premise={
-            'Rakshit': [
+            _PLAYERS[0]: [
                 (
-                    'Rakshit and Samantha are friends.'
+                    f'{_PLAYERS[0]} and {_PLAYERS[1]} are friends.'
                 ),
             ],
-            'Samantha': [
+            _PLAYERS[1]: [
                 (
-                    'Samantha and Rakshit are friends.'
+                    f'{_PLAYERS[1]} and {_PLAYERS[0]} are friends.'
                 ),
             ],
         },
     ),
+]
+
+_CONSTANT_SCRIPT = script = [
+    {'name': _PLAYERS[0],
+     'line': 'foo!'},
+    {'name': _PLAYERS[1],
+     'line': 'bar!'},
+    {'name': _PLAYERS[0],
+     'line': 'baz!'},
 ]
 
 
@@ -123,7 +138,10 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
            prefab_name='game_theoretic_and_dramaturgic',
            scenes=_GAME_THEORETIC_AND_DRAMATURGIC_SCENES),
       dict(testcase_name='generic', prefab_name='generic', scenes=None),
+      dict(testcase_name='scripted', prefab_name='scripted', scenes=None),
       dict(testcase_name='situated', prefab_name='situated', scenes=None),
+      dict(testcase_name='situated_in_time_and_place',
+           prefab_name='situated_in_time_and_place', scenes=None),
   )
   def test_simulation_factory(
       self, prefab_name: str, scenes: Sequence[scene_lib.SceneSpec] | None):
@@ -137,11 +155,16 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
       params['scenes'] = scenes
       environment_config.params = params
 
+    if prefab_name == 'scripted':
+      params = dict(copy.copy(environment_config.params))
+      params['script'] = _CONSTANT_SCRIPT
+      environment_config.params = params
+
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
     )
     player_a = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name='Rakshit',
+        agent_name=_PLAYERS[0],
         act_component=act_component,
         context_components={},
     )
@@ -149,7 +172,7 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
         model=model,
     )
     player_b = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name='Samantha',
+        agent_name=_PLAYERS[1],
         act_component=act_component_b,
         context_components={},
     )
@@ -185,6 +208,7 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
       environment.run_loop(
           game_masters=[game_master],
           entities=players,
+          max_steps=1,
       )
 
       self.assertIsInstance(game_master,
