@@ -26,3 +26,37 @@ __pycache__/
 
 # Type checking
 .pytype
+
+# Claude Code documentation files
+CLAUDE.md
+**/CLAUDE.md
+
+# Environment variables and API keys
+.env
+*.env
+.env.*
+**/api_keys.py
+**/secrets.py
+*.key
+*.pem
+
+# Vulnerability testing outputs
+vulnerability_testing/outputs/
+vulnerability_testing/results/
+vulnerability_testing/reports/
+*.json.backup
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
