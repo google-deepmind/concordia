@@ -293,7 +293,7 @@ class SwitchAct(
       try:
         return str(float(sampled_text))
       except ValueError:
-        return '0.0'
+        return 'nan'
     elif action_spec.output_type == entity_lib.OutputType.TERMINATE:
       return self._terminate(contexts, action_spec)
     elif action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
