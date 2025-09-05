@@ -145,7 +145,7 @@ class ConcatActComponent(
       try:
         return str(float(sampled_text))
       except ValueError:
-        return '0.0'
+        return 'nan'
     else:
       raise NotImplementedError(
           f'Unsupported output type: {action_spec.output_type}. '
