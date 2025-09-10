@@ -415,6 +415,10 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
       aggregated[dim] = np.mean(values) if values else np.nan
     return aggregated
 
+  def get_dimension_ranges(self) -> Dict[str, tuple[float, float]]:
+    """Returns the ranges for each dimension."""
+    return {dim: (0, 3) for dim in self.dimensions}
+
   def plot_results(
       self,
       results_df: pd.DataFrame,

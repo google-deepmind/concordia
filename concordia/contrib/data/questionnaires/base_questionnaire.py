@@ -132,6 +132,11 @@ class QuestionnaireBase(abc.ABC):
     """
     pass
 
+  @abc.abstractmethod
+  def get_dimension_ranges(self) -> Dict[str, tuple[float, float]]:
+    """Returns the possible ranges for each dimension."""
+    return {}
+
   def _default_aggregate_results(
       self, player_answers: Dict[str, Dict[str, Any]]
   ) -> Dict[str, Any]:
