@@ -327,6 +327,17 @@ class SwitchAct(
         'Prompt': prompt,
     })
 
+  def get_context_concat_order(self) -> Sequence[str] | None:
+    """Get order to concatenate pre_act values of context components.
+
+    Returns:
+      A sequence of component names in order they will be concatenated. If
+      the component order is not specified, then the order will be the iteration
+      order of the `ComponentContextMapping` passed to `get_action_attempt` but
+      this function will return None.
+    """
+    return self._component_order
+
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     return {}
