@@ -57,51 +57,42 @@ class BaseGPTModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del terminators  # Unused for OpenAI models.
+    del terminators   # Unused for OpenAI models.
+    del max_tokens    # Unused for GPT-5 Responses API
+    del temperature   # Unused for GPT-5 Responses API
+    del timeout       # Unused for GPT-5 Responses API
+    del seed          # Unused for GPT-5 Responses API
 
-    messages = [
-        {
-            'role': 'system',
-            'content': (
-                'You always continue sentences provided '
-                + 'by the user and you never repeat what '
-                + 'the user already said.'
-            ),
-        },
-        {
-            'role': 'user',
-            'content': 'Question: Is Jake a turtle?\nAnswer: Jake is ',
-        },
-        {'role': 'assistant', 'content': 'not a turtle.'},
-        {
-            'role': 'user',
-            'content': (
-                'Question: What is Priya doing right now?\nAnswer: '
-                + 'Priya is currently '
-            ),
-        },
-        {'role': 'assistant', 'content': 'sleeping.'},
-        {'role': 'user', 'content': prompt},
-    ]
+    # Convert messages array to single input string for GPT-5 Responses API
+    system_instruction = (
+        'You always continue sentences provided '
+        + 'by the user and you never repeat what '
+        + 'the user already said.'
+    )
+    
+    # Create context with examples
+    context_examples = (
+        'Question: Is Jake a turtle?\nAnswer: Jake is not a turtle.\n\n'
+        'Question: What is Priya doing right now?\nAnswer: Priya is currently sleeping.\n\n'
+    )
+    
+    # Combine system instruction, examples, and user prompt
+    full_input = f"{system_instruction}\n\n{context_examples}{prompt}"
 
-    response = self._client.chat.completions.create(
+    response = self._client.responses.create(
         model=self._model_name,
-        messages=messages,
-        temperature=temperature,
-        max_completion_tokens=max_tokens,
-        timeout=timeout,
-        seed=seed,
-        reasoning_effort=reasoning_effort,
-        verbosity=verbosity,
+        input=full_input,
+        reasoning={"effort": reasoning_effort},
+        text={"verbosity": verbosity},
     )
 
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel,
-          {'raw_text_length': len(response.choices[0].message.content)},
+          {'raw_text_length': len(response.output_text)},
       )
 
-    return response.choices[0].message.content
+    return response.output_text
 
   @override
   def sample_text(
