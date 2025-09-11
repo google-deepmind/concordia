@@ -198,6 +198,7 @@ class Simulation(simulation_lib.Simulation):
         print(f"Successfully set pre-loaded memories for {entity.name}.")
       except (KeyError, TypeError, ValueError) as e:
         print(f"Error setting pre-loaded memory for {entity.name}: {e}")
+        raise
 
     if state:
       entity.set_state(state)
