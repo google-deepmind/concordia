@@ -19,7 +19,7 @@ import abc
 from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
-DEFAULT_TEMPERATURE = 0.5
+DEFAULT_TEMPERATURE = 1.0
 DEFAULT_TOP_P = 0.95
 DEFAULT_TOP_K = 64
 DEFAULT_TERMINATORS = ()
