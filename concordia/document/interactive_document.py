@@ -149,6 +149,9 @@ class InteractiveDocument(document.Document):
       answer_suffix: str = '',
       max_tokens: int = DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = ('\n',),
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       question_label: str = 'Question',
       answer_label: str = 'Answer',
   ) -> str:
@@ -164,6 +167,10 @@ class InteractiveDocument(document.Document):
       max_tokens: the maximum number of tokens to sample from the model.
       terminators: strings that must not be present in the model's response. If
         emitted by the model the response will be truncated before them.
+      temperature: the temperature to use for sampling.
+      top_p: filters tokens based on cumulative probability, considering the
+        most probable tokens until the sum of their probabilities reaches top_p.
+      top_k: filters tokens by selecting the top_k most probable tokens.
       question_label: the label to use for the question, typically "Question".
       answer_label: the label to use for the answer, typically "Answer".
 
@@ -177,6 +184,9 @@ class InteractiveDocument(document.Document):
           prompt=self._model_view.text(),
           max_tokens=max_tokens,
           terminators=terminators,
+          temperature=temperature,
+          top_p=top_p,
+          top_k=top_k,
       )
     else:
       response = forced_response
@@ -192,6 +202,9 @@ class InteractiveDocument(document.Document):
       forced_response: str | None = None,
       num_samples: int = 10,
       max_tokens: int = DEFAULT_MAX_TOKENS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       terminators: Collection[str] = (),
       question_label: str = 'Question',
       answer_label: str = 'Answer',
@@ -208,6 +221,10 @@ class InteractiveDocument(document.Document):
         remove it.
       num_samples: how many samples to generate.
       max_tokens: the maximum number of tokens to sample from the model.
+      temperature: the temperature to use for sampling.
+      top_p: filters tokens based on cumulative probability, considering the
+        most probable tokens until the sum of their probabilities reaches top_p.
+      top_k: filters tokens by selecting the top_k most probable tokens.
       terminators: strings that must not be present in the model's response. If
         emitted by the model the response will be truncated before them.
         Importantly, the truncation is done on the final sample only and does
@@ -257,6 +274,9 @@ class InteractiveDocument(document.Document):
           prompt=self._model_view.text(),
           max_tokens=max_tokens * num_samples,
           terminators=[],
+          temperature=temperature,
+          top_p=top_p,
+          top_k=top_k,
       )
       self.statement(candidates)
 

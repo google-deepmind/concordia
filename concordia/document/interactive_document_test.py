@@ -61,6 +61,9 @@ Answer: Well..."""
           prompt=prompt,
           max_tokens=mock.sentinel.max_tokens,
           terminators=mock.sentinel.terminators,
+          temperature=language_model.DEFAULT_TEMPERATURE,
+          top_p=language_model.DEFAULT_TOP_P,
+          top_k=language_model.DEFAULT_TOP_K,
       )
 
     with self.subTest('text'):

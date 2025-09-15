@@ -20,6 +20,8 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any
 
 DEFAULT_TEMPERATURE = 0.5
+DEFAULT_TOP_P = 0.95
+DEFAULT_TOP_K = 64
 DEFAULT_TERMINATORS = ()
 DEFAULT_TIMEOUT_SECONDS = 60
 DEFAULT_MAX_TOKENS = 5000
@@ -43,6 +45,8 @@ class LanguageModel(metaclass=abc.ABCMeta):
       max_tokens: int = DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = DEFAULT_TERMINATORS,
       temperature: float = DEFAULT_TEMPERATURE,
+      top_p: float = DEFAULT_TOP_P,
+      top_k: int = DEFAULT_TOP_K,
       timeout: float = DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -57,6 +61,9 @@ class LanguageModel(metaclass=abc.ABCMeta):
       terminators: the response will be terminated before any of these
         characters.
       temperature: temperature for the model.
+      top_p: filters tokens based on cumulative probability, considering the
+        most probable tokens until the sum of their probabilities reaches top_p.
+      top_k: filters tokens by selecting the top_k most probable tokens.
       timeout: timeout for the request.
       seed: optional seed for the sampling. If None a random seed will be used.
 

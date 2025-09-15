@@ -172,6 +172,8 @@ class DefaultCompletion(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -394,6 +396,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -448,8 +452,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             stop=terminators,
             seed=seed,
             stream=False,
-            top_p=1.0,
-            reasoning_effort='low'
+            top_p=top_p,
+            top_k=top_k,
+            reasoning_effort='low',
         )
       except (together.error.RateLimitError,
               together.error.APIError,

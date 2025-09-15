@@ -53,6 +53,8 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -71,6 +73,8 @@ class CallLimitLanguageModel(language_model.LanguageModel):
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
         timeout=timeout,
         seed=seed,
     )
