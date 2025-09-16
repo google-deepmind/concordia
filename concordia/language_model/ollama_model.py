@@ -76,10 +76,12 @@ class OllamaLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = _DEFAULT_TERMINATORS,
       temperature: float = _DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed, temperature  # Unused.
+    del max_tokens, timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -88,6 +90,9 @@ class OllamaLanguageModel(language_model.LanguageModel):
     response = self._client.generate(
         model=self._model_name,
         prompt=prompt_with_system_message,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
         options={'stop': terminators},
         keep_alive='10m',
     )

@@ -71,10 +71,12 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del temperature, timeout, seed  # Unused.
+    del timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._text_system_message}\n\n{prompt}'
     prompt_length = len(prompt_with_system_message)
@@ -84,6 +86,9 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     generated_tokens = self._model.generate(
         inputs.input_ids.to(self._device),
         max_new_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
         return_dict_in_generate=True,
         output_scores=True,
     )

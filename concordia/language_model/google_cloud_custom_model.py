@@ -121,12 +121,16 @@ class VertexAI(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
     max_tokens = min(max_tokens, _DEFAULT_MAX_TOKENS)
     self._parameters["temperature"] = temperature
     self._parameters["max_output_tokens"] = max_tokens
+    self._parameters["top_k"] = top_k
+    self._parameters["top_p"] = top_p
 
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:

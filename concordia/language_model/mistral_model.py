@@ -90,6 +90,7 @@ class MistralLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
       seed: int | None = None,
   ) -> str:
     if not terminators:
@@ -110,6 +111,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             prompt=prompt,
             suffix=suffix,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             stop=terminators,
             random_seed=seed,
@@ -137,6 +139,7 @@ class MistralLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
       seed: int | None = None,
   ) -> str:
     del terminators
@@ -174,6 +177,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             model=self._text_model_name,
             messages=messages,
             temperature=temperature,
+            top_p=top_p,
             max_tokens=max_tokens,
             random_seed=seed,
         )
@@ -196,6 +200,8 @@ class MistralLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -208,6 +214,7 @@ class MistralLanguageModel(language_model.LanguageModel):
           max_tokens=max_tokens,
           terminators=terminators,
           temperature=temperature,
+          top_p=top_p,
           seed=seed,
       )
     else:
@@ -216,6 +223,7 @@ class MistralLanguageModel(language_model.LanguageModel):
           max_tokens=max_tokens,
           terminators=terminators,
           temperature=temperature,
+          top_p=top_p,
           seed=seed,
       )
 

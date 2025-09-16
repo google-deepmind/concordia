@@ -103,6 +103,8 @@ class VertexLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -120,6 +122,8 @@ class VertexLanguageModel(language_model.LanguageModel):
         content=prompt,
         generation_config={
             'temperature': temperature,
+            'topP': top_p,
+            'topK': top_k,
             'max_output_tokens': max_tokens,
             'stop_sequences': terminators,
             'candidate_count': 1,

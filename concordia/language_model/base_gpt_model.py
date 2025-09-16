@@ -54,6 +54,7 @@ class BaseGPTModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = 1.0,  # GPT-5 only supports temperature 1.0
+      top_p: float = language_model.DEFAULT_TOP_P,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
@@ -89,6 +90,7 @@ class BaseGPTModel(language_model.LanguageModel):
         messages=messages,
         temperature=temperature,
         max_completion_tokens=max_tokens,
+        top_p=top_p,
         timeout=timeout,
         seed=seed,
         reasoning_effort=reasoning_effort,
@@ -111,9 +113,12 @@ class BaseGPTModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = 1.0,  # GPT-5 only supports temperature 1.0
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
+    del top_k  # Unused
     return self._sample_text(
         prompt=prompt,
         reasoning_effort='minimal',
@@ -121,6 +126,7 @@ class BaseGPTModel(language_model.LanguageModel):
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
+        top_p=top_p,
         timeout=timeout,
         seed=seed,
     )

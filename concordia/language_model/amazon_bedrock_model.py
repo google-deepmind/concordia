@@ -95,10 +95,12 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
       temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del timeout, seed  # Unused
+    del timeout, seed, top_k  # Unused
 
     # Use the minimum of max_tokens_limit and the provided max_tokens
     max_tokens = min(self._max_tokens_limit, max_tokens)
@@ -143,6 +145,7 @@ class AmazonBedrockLanguageModel(language_model.LanguageModel):
         'maxTokens': max_tokens,
         'temperature': temperature,
         'stopSequences': terminators,
+        'topP': top_p,
     }
 
     if not terminators:

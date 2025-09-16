@@ -77,10 +77,12 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
       max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
       terminators: Collection[str] = _DEFAULT_TERMINATORS,
       temperature: float = _DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del max_tokens, timeout, seed, top_k  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -91,6 +93,7 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
         prompt_with_system_message,
         stop=terminators,
         temperature=temperature,
+        top_p=top_p,
     )
 
     if self._measurements is not None:
