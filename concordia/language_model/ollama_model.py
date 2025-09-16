@@ -90,10 +90,10 @@ class OllamaLanguageModel(language_model.LanguageModel):
     response = self._client.generate(
         model=self._model_name,
         prompt=prompt_with_system_message,
-        temperature=temperature,
-        top_p=top_p,
-        top_k=top_k,
-        options={'stop': terminators},
+        options={'stop': terminators,
+                 'temperature': temperature,
+                 'top_p': top_p,
+                 'top_k': top_k},
         keep_alive='10m',
     )
     result = response['response']
