@@ -145,7 +145,7 @@ class QuestionnaireBase(abc.ABC):
     for _, question_data in player_answers.items():
       dimension = question_data["dimension"]
       value = question_data["value"]
-      if isinstance(value, (int, float)):
+      if dimension in self.dimensions and isinstance(value, (int, float)):
         if dimension not in dimension_values:
           dimension_values[dimension] = []
         dimension_values[dimension].append(value)
