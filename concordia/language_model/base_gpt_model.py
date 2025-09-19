@@ -24,6 +24,7 @@ from typing_extensions import override
 
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
+_DEFAULT_VERBOSITY = 'low'
 
 
 class BaseGPTModel(language_model.LanguageModel):
@@ -44,6 +45,10 @@ class BaseGPTModel(language_model.LanguageModel):
     self._measurements = measurements
     self._channel = channel
     self._client = client
+
+    self._verbosity = _DEFAULT_VERBOSITY
+    if 'gpt-4o' in self._model_name:
+      self._verbosity = 'medium'  # GPT-4o only supports verbosity 'medium'
 
   def _sample_text(
       self,
@@ -121,7 +126,7 @@ class BaseGPTModel(language_model.LanguageModel):
     return self._sample_text(
         prompt=prompt,
         reasoning_effort='minimal',
-        verbosity='low',
+        verbosity=self._verbosity,
         max_tokens=max_tokens,
         terminators=terminators,
         temperature=temperature,
@@ -151,7 +156,7 @@ class BaseGPTModel(language_model.LanguageModel):
       answer = self._sample_text(
           prompt,
           reasoning_effort='medium',
-          verbosity='low',
+          verbosity=self._verbosity,
           temperature=1.0,
           seed=seed,
       )
