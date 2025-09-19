@@ -25,6 +25,7 @@ from concordia.language_model import no_language_model
 from concordia.language_model import ollama_model
 from concordia.language_model import pytorch_gemma_model
 from concordia.language_model import together_ai
+from concordia.language_model import vllm_model
 
 
 def language_model_setup(
@@ -76,6 +77,8 @@ def language_model_setup(
     cls = pytorch_gemma_model.PyTorchGemmaLanguageModel
   elif api_type == 'together_ai':
     cls = together_ai.Base
+  elif api_type == 'vllm':
+    cls = vllm_model.VllmLanguageModel
   else:
     raise ValueError(f'Unrecognized api type: {api_type}')
 
