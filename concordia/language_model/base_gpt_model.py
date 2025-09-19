@@ -58,7 +58,7 @@ class BaseGPTModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del terminators  # Unused for OpenAI models.
+    del terminators, top_p  # Unused for OpenAI models.
 
     messages = [
         {
@@ -90,7 +90,6 @@ class BaseGPTModel(language_model.LanguageModel):
         messages=messages,
         temperature=temperature,
         max_completion_tokens=max_tokens,
-        top_p=top_p,
         timeout=timeout,
         seed=seed,
         reasoning_effort=reasoning_effort,
