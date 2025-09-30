@@ -19,23 +19,28 @@ import collections
 import dataclasses
 import json
 import math
+import random
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from concordia.components.agent import action_spec_ignored
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
+
 DefaultDict = collections.defaultdict
 dataclass = dataclasses.dataclass
 
 
-@dataclass(frozen=True)
+@dataclass
 class Good:
   category: str
   quality: str
   id: str
+  price: Optional[float] = None
+  inventory: Optional[int] = None
+  advert: Optional[str] = None
 
 
 @dataclass
@@ -68,25 +73,32 @@ class MarketPlace(
       self,
       acting_player_names: Sequence[str],
       agents: Sequence[MarketplaceAgent],
-      goods: Sequence[Good],  # Add goods here
+      goods: Sequence[Good],
+      market_type: str = "clearing_house",
+      # Possible values: "clearing_house", "fixed_prices",
+      # "first_price_auction", "second_price_auction"
+      show_advert: bool = False,
       components: Sequence[str] = (),
       pre_act_label: str = "\nMarketplace",
+      history: Optional[List[Dict[str, float]]] = None,
   ):
     super().__init__()
     self._acting_player_names = acting_player_names
     self._current_player_index = 0
     self._start_of_round = True
+    self._market_type = market_type
+    self._show_advert = show_advert
+    if history is None:
+      self.history = []
+    else:
+      self.history = history
 
-    self._agents = {}
-    for i, n in enumerate(acting_player_names):
-      self._agents[n] = agents[i]
-
+    self._agents = {agent.name: agent for agent in agents}
     self._state = {"round": 0}
     self._components = components
     self._pre_act_label = pre_act_label
     self._goods = {g.id: g for g in goods}
     self._orderbooks: Dict[str, List[Order]] = {g.id: [] for g in goods}
-    self.history: List[Dict[str, float]] = []
     self.curve_history: Dict[int, Dict[str, Any]] = {}
     self.trade_history: List[Dict[str, Any]] = []
     self._processed_actions = set()
@@ -149,28 +161,58 @@ class MarketPlace(
       last_action_obs = (
           agent_name + "'s recent outcomes:\n" + "\n".join(agent.queue) + "\n"
       )
-      agent.queue.clear()  # Empty the queue after reading
-    common_obs = (
-        f"{last_action_obs}"
-        f"Day: {self._state['round']} is starting\n"
-        f"Prices yesterday: {prices}\n"
-        f"Cash: {agent.cash:.2f}\n"
-        f"Inventory: {agent.inventory}\n"
-    )
+      agent.queue.clear()
 
-    if agent.role == "producer":
-      obs = f"{common_obs}Submit your order."
+    if self._market_type == "clearing_house":
+      common_obs = (
+          f"{last_action_obs}"
+          f"Round: {self._state['round']+1} is starting\n"
+          f"Prices last round: {prices}\n"
+          f"Cash: {agent.cash:.2f}\n"
+          f"{agent_name}'s Inventory: {agent.inventory}\n"
+      )
+    elif self._market_type == "fixed_prices":
+      common_obs = (
+          f"{last_action_obs}"
+          f"Round: {self._state['round']} is starting\n"
+          f"Cash: {agent.cash:.2f}\n"
+          f"{agent_name}'s Inventory: {agent.inventory}\n"
+      )
     else:
-      items_available = [
-          other_agent.inventory
-          for other_agent in self._agents.values()
-          if other_agent.role == "producer"
-      ]
+      raise ValueError(f"Unknown market type: {self._market_type}")
+
+    if self._market_type == "clearing_house":
+      if agent.role == "producer":
+        obs = f"{common_obs}Submit your order."
+      else:
+        items_available = [
+            other_agent.inventory
+            for other_agent in self._agents.values()
+            if other_agent.role == "producer"
+        ]
+        obs = (
+            f"{common_obs}"
+            f"Items available from producers: {items_available}\n"
+            "Submit your bid."
+        )
+    elif self._market_type == "fixed_prices":
+      items_available = []
+      for g in self._goods.values():
+        if g.price is not None:
+          if self._show_advert:
+            item_string = (
+                f"{g.id}: ${g.price}, {g.inventory} units available. {g.advert}"
+            )
+          else:
+            item_string = f"{g.id}: ${g.price}, {g.inventory} units available"
+          items_available.append(item_string)
       obs = (
           f"{common_obs}"
           f"Items available from producers: {items_available}\n"
-          "Submit your bid."
+          "Submit your order."
       )
+    else:
+      obs = f"{common_obs}"
 
     self._log_self(
         "pre_act_return",
@@ -219,43 +261,29 @@ class MarketPlace(
       self,
       good_id: str,
       orders: List[Order],
-      # original_quantities uses float for qty assuming Order.qty is float
       original_quantities: Dict[int, float],
       order_fulfillment: Dict[int, Dict[str, Any]],
   ):
     """Logs the outcome of orders for a specific good in the current round."""
     current_round = self._state["round"]
-
     for order in orders:
       order_id = id(order)
-      # Get the original quantity submitted by the agent.
       original_qty = original_quantities.get(order_id)
-
-      # Safety check
       if original_qty is None:
         continue
 
       fulfillment = order_fulfillment.get(order_id)
       transaction_occurred = False
-
       if fulfillment and fulfillment["filled_qty"] > 0:
         filled_qty = fulfillment["filled_qty"]
         total_value = fulfillment["total_value"]
         # Calculate average price (VWAP)
         avg_price = total_value / filled_qty
         transaction_occurred = True
-
-        if filled_qty >= original_qty:
-          status = "Filled"
-        else:
-          status = "Partial"
+        status = "Partial" if filled_qty < original_qty else "Filled"
       else:
-        filled_qty = 0
-        total_value = 0.0
-        avg_price = math.nan
-        status = "Failed"
+        filled_qty, total_value, avg_price, status = 0, 0.0, math.nan, "Failed"
 
-      # This dictionary format is optimized for CSV export.
       log_entry = {
           "round": current_round,
           "agent": order.agent_id,
@@ -271,7 +299,7 @@ class MarketPlace(
       }
       self.trade_history.append(log_entry)
 
-  def _clear_auction(self, good_id: str) -> tuple[float, list[str]]:
+  def _clear_auction(self, good_id: str) -> tuple[float, list[str], bool]:
     bids = [o for o in self._orderbooks[good_id] if o.side == "bid"]
     asks = [o for o in self._orderbooks[good_id] if o.side == "ask"]
     completed_orders = []
@@ -315,7 +343,11 @@ class MarketPlace(
       self._logtrade_history(
           good_id, bids + asks, original_quantities, order_fulfillment
       )
-      return float("nan"), completed_orders
+      if asks:
+        lowest_ask_price = min(order.price for order in asks)
+        return (lowest_ask_price, completed_orders, False)
+      else:
+        return float("nan"), completed_orders, False
 
     bids.sort(key=lambda o: o.price, reverse=True)
     asks.sort(key=lambda o: o.price)
@@ -416,10 +448,114 @@ class MarketPlace(
         # if they had multiple unsuccessful orders for the same good.
         successful_traders.add(order.agent_id)
 
-    return (
-        trade_price if trade_price is not None else float("nan"),
-        completed_orders,
+    if trade_price is not None:
+      return (trade_price, completed_orders, True)
+    else:
+      # trade_price is None, find the lowest ask price
+      if asks:  # asks is a list of ask Order objects
+        lowest_ask_price = min(order.price for order in asks)
+        return (lowest_ask_price, completed_orders, False)
+      else:
+        # No asks were placed
+        raise ValueError("No asks were placed.")
+        # return (float("nan"), completed_orders, False)
+
+  def _clear_at_fixed_prices(self, good_id: str) -> tuple[float, list[str]]:
+    """Clears the market at a pre-determined fixed price for each good."""
+    good_item = self._goods[good_id]
+    if good_item.price is None:
+      raise ValueError(
+          f"Good '{good_id}' has no price for fixed_prices market."
+      )
+
+    if good_item.inventory is None:
+      return float("nan"), []
+
+    fixed_price = good_item.price
+    completed_orders = []
+
+    # Only consider bids from consumers.
+    bids = [
+        o
+        for o in self._orderbooks[good_id]
+        if o.side == "bid" and o.price >= fixed_price
+    ]
+
+    original_quantities = {id(o): o.qty for o in bids}
+    order_fulfillment = DefaultDict(
+        lambda: {"filled_qty": 0, "total_value": 0.0}
     )
+
+    if not bids or good_item.inventory == 0:
+      for order in bids:
+        self._agents[order.agent_id].queue.append(
+            f"Your bid for {order.qty} {good_id} did not trade."
+        )
+      self._logtrade_history(
+          good_id, bids, original_quantities, order_fulfillment
+      )
+      return float("nan"), []
+
+    random.shuffle(bids)  # Randomize who gets to buy if supply is limited
+
+    for bid in bids:
+      if good_item.inventory == 0:
+        break  # Market is out of stock
+
+      buyer = self._agents[bid.agent_id]
+      qty_to_buy = min(bid.qty, good_item.inventory)
+      trade_value = fixed_price * qty_to_buy
+
+      if buyer.cash < trade_value:
+        buyer.queue.append(
+            f"You attempted to BUY {qty_to_buy} {good_id}, but do not have"
+            " enough cash."
+        )
+        continue
+
+      if qty_to_buy > 0:
+        # Decrement market inventory and agent cash
+        good_item.inventory -= qty_to_buy
+        buyer.cash -= trade_value
+        buyer.inventory[good_id] = buyer.inventory.get(good_id, 0) + qty_to_buy
+
+        # Log fulfillment
+        order_fulfillment[id(bid)]["filled_qty"] += qty_to_buy
+        order_fulfillment[id(bid)]["total_value"] += trade_value
+
+        buyer.queue.append(
+            f"You successfully BOUGHT {qty_to_buy} {good_id} at the fixed price"
+            f" of ${fixed_price:.2f}."
+        )
+        completed_orders.append(
+            f"Buyer {buyer.name} bought {qty_to_buy} of {good_id} from the"
+            " market."
+        )
+
+    self._logtrade_history(
+        good_id, bids, original_quantities, order_fulfillment
+    )
+    return fixed_price, completed_orders
+
+  def _clear_highest_bid_auction(
+      self, good_id: str, price_number: int
+  ) -> tuple[float, list[str]]:
+    """Placeholder for a first-price sealed-bid auction.
+
+    Price number 0 is the first price, 1 is the second price.
+
+    Args:
+      good_id: The id of the good to clear the auction for.
+      price_number: The price number to use for the auction.
+
+    Returns:
+      A tuple containing the trade price and a list of completed orders.
+    """
+    self._log_self(
+        "placeholder_warning",
+        f"First-price auction for {good_id} is not yet implemented.",
+    )
+    return float("nan"), []
 
   def _resolve(
       self,
@@ -453,7 +589,10 @@ class MarketPlace(
       # Create a regex pattern to find the agent's name, followed by
       # any characters (non-greedy), and then capture the first JSON block.
       # This handles the narrative text between the name and the JSON.
-      pattern = re.compile(rf"{re.escape(agent_name)}.*?(?P<json>\{{.*?\}})")
+      # pattern = re.compile(rf"{re.escape(agent_name)}.*?(?P<json>\{{.*?\}})")
+      pattern = re.compile(
+          rf"\b{re.escape(agent_name)}\b.*?(?P<json>\{{.*?\}})", re.DOTALL
+      )
       match = pattern.search(putative_event_string)
 
       if not match:
@@ -467,24 +606,17 @@ class MarketPlace(
 
       try:
         action_json = json.loads(json_string)
-
-        # --- Create and add the order ---
-        good_id = action_json.get("good")
-        price = action_json.get("price")
-        qty = action_json.get("qty")
-        action_type = action_json.get("action")
+        good_id, price, qty, side = (
+            action_json.get(k) for k in ["good", "price", "qty", "action"]
+        )
 
         if not all([
             good_id,
             good_id in self._goods,
             price is not None,
             qty is not None,
-            action_type,
+            side,
         ]):
-          self._log_self(
-              "resolve_error",
-              f"Invalid action from {agent_name}: {action_json}",
-          )
           continue
 
         order = Order(
@@ -492,7 +624,7 @@ class MarketPlace(
             good=self._goods[good_id],
             price=price,
             qty=qty,
-            side=action_type,
+            side=side,
             round=self._state["round"],
         )
         self._orderbooks[good_id].append(order)
@@ -501,7 +633,6 @@ class MarketPlace(
             f"Correctly parsed and placed order for {agent_name}:"
             f" {action_json}",
         )
-
       except json.JSONDecodeError as e:
         self._log_self(
             "resolve_error",
@@ -510,14 +641,40 @@ class MarketPlace(
         )
 
     # --- CLEAR THE MARKET ---
-    events = ["All agents bid"]
+    events = ["All agents placed orders"]
     clearing: Dict[str, float] = {}
     all_completed_orders: List[str] = []
     sales_made = False
     for good_id in self._goods:
-      trade_price, completed_orders = self._clear_auction(good_id)
-      if not math.isnan(trade_price):
-        sales_made = True
+      if self._market_type == "clearing_house":
+        trade_price, completed_orders, trade = self._clear_auction(good_id)
+        if trade:
+          sales_made = True
+      elif self._market_type == "fixed_prices":
+        trade_price, completed_orders = self._clear_at_fixed_prices(good_id)
+        if completed_orders:
+          sales_made = True
+      elif self._market_type == "first_price_auction":
+        trade_price, completed_orders = self._clear_highest_bid_auction(
+            good_id, price_number=0
+        )
+      elif self._market_type == "second_price_auction":
+        trade_price, completed_orders = self._clear_highest_bid_auction(
+            good_id, price_number=1
+        )
+      else:
+        self._log_self(
+            "clear_warning",
+            f"Unknown market type: {self._market_type}",
+        )
+        continue
+
+      if math.isnan(trade_price) and self.history:
+        # use the last known clearing price
+        if good_id in self.history[-1]:
+          trade_price = self.history[-1][good_id]
+        else:
+          trade_price = float("nan")
       clearing[good_id] = trade_price
       all_completed_orders.extend(completed_orders)
     self.history.append(clearing)
