@@ -254,6 +254,19 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
         # options for it to act.
 
         observation = spec_str.replace('prompt: ', '')
+
+        # Improve formatting of the observation for choice questions.
+        if ';;type: choice;;' in observation:
+          parts = observation.split(';;')
+          question = parts[0]
+          options_list = []
+          for part in parts:
+            if part.startswith('options:'):
+              options_part = part.removeprefix('options:').strip()
+              options_list = [opt.strip() for opt in options_part.split(',')]
+              break
+          observation = question + '\nOptions: ' + ', '.join(options_list)
+
         agent.observe(observation)
         logging.info(
             '[SequentialQuestionnaireEngine] Player %s observed %s with: %s',
