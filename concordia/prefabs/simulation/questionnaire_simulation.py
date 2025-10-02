@@ -21,7 +21,7 @@ import functools
 import json
 import os
 from typing import Any
-
+from absl import logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment.engines import parallel_questionnaire
 from concordia.environment.engines import sequential_questionnaire
@@ -76,6 +76,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
         ThreadPoolExecutor, if the default engine is used.
       verbose: Whether to print verbose output.
     """
+    logging.info("[QuestionnaireSimulation] Initializing simulation.")
     self._config = config
     self._model = model
     self._embedder = embedder
@@ -152,6 +153,10 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       state: entity_component.EntityState | None = None,
   ):
     """Add a game master to the simulation."""
+    logging.info(
+        "[QuestionnaireSimulation] Adding game master: %s",
+        instance_config.prefab,
+    )
     if instance_config.role not in [Role.GAME_MASTER, Role.INITIALIZER]:
       raise ValueError(
           "Instance config role must be GAME_MASTER or INITIALIZER"
@@ -183,6 +188,9 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       state: entity_component.EntityState | None = None,
   ):
     """Add an entity to the simulation."""
+    logging.info(
+        "[QuestionnaireSimulation] Adding entity: %s", instance_config.prefab
+    )
     if instance_config.role != Role.ENTITY:
       raise ValueError("Instance config role must be ENTITY")
 
@@ -245,6 +253,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     Returns:
       html_results_log: browseable log of the simulation in HTML format
     """
+    logging.info("[QuestionnaireSimulation] Starting simulation.")
     if premise is None:
       premise = self._config.default_premise
     if max_steps is None:
@@ -286,6 +295,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       )
     finally:
       self._engine.shutdown()
+    logging.info("[QuestionnaireSimulation] Simulation finished.")
 
     player_logs = []
     player_log_names = []

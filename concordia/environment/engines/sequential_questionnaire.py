@@ -20,6 +20,7 @@ import functools
 import json
 from typing import Any, Callable, List, Tuple, cast
 
+from absl import logging
 from concordia.agents import entity_agent
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
@@ -181,6 +182,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
   ):
+    logging.info('[SequentialQuestionnaireEngine] Starting run_loop.')
     if not game_masters:
       raise ValueError('No game masters provided.')
     game_master = game_masters[0]
@@ -188,6 +190,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
     executor = self.get_executor()
 
     if premise:
+      logging.info('[SequentialQuestionnaireEngine] Premise: %s', premise)
       # run observe on all game masters in parallel using concurrency
       tasks = {}
       for entity in game_masters:
@@ -195,10 +198,14 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       concurrency.run_tasks(tasks, executor=executor)
 
     for step in range(max_steps):
+      logging.info('[SequentialQuestionnaireEngine] Step %d', step)
       if verbose:
         print(f'Step {step}')
 
       if self.terminate(game_master, verbose):
+        logging.info(
+            '[SequentialQuestionnaireEngine] Termination condition met.'
+        )
         return
 
       # run observe on all entities in parallel using concurrency
@@ -210,19 +217,33 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       concurrency.run_tasks(tasks, executor=executor)
 
       next_entities = self.next_acting(game_master, entities)
+      logging.info(
+          '[SequentialQuestionnaireEngine] Next acting entities: %s',
+          [e.name for e in next_entities],
+      )
 
       if not next_entities:
+        logging.warning('[SequentialQuestionnaireEngine] No entities to act.')
         if verbose:
           print(termcolor.colored('No entities to act.', _PRINT_COLOR))
         return
 
       player_qid_spec_list = self.next_action_spec(game_master, next_entities)
+      logging.info(
+          '[SequentialQuestionnaireEngine] Got %d specs in'
+          ' player_qid_spec_list',
+          len(player_qid_spec_list),
+      )
 
       entity_map = {e.name: e for e in next_entities}
       entity_answers = {name: {} for name in entity_map.keys()}
 
       for player_name, q_id, spec_str in player_qid_spec_list:
         if player_name not in entity_map:
+          logging.warning(
+              '[SequentialQuestionnaireEngine] Player %s not in entity map.',
+              player_name,
+          )
           continue
 
         entity = entity_map[player_name]
@@ -234,10 +255,24 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
 
         observation = spec_str.replace('prompt: ', '')
         agent.observe(observation)
+        logging.info(
+            '[SequentialQuestionnaireEngine] Player %s observed %s with: %s',
+            player_name,
+            q_id,
+            observation,
+        )
 
         formatted_spec_str = spec_str.replace('{player_name}', player_name)
         action_spec = engine_lib.action_spec_parser(formatted_spec_str)
         answer = agent.act(action_spec)
+        logging.info(
+            '[SequentialQuestionnaireEngine] Player %s got action spec %s and'
+            ' answered %s with: %s',
+            player_name,
+            action_spec,
+            q_id,
+            answer,
+        )
         entity_answers[player_name][q_id] = answer
 
       # Feed back answers to GM
@@ -249,6 +284,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       if verbose:
         print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
 
+    logging.info('[SequentialQuestionnaireEngine] run_loop finished.')
     self.shutdown()
 
   @override
