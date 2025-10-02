@@ -228,7 +228,10 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
     ):
       self._answers[self._event_counter][player_name][questionnaire_name] = {}
 
-    if questionnaire.questionnaire_type == 'free':
+    if (
+        questionnaire.questionnaire_type == 'free'
+        or questionnaire.questionnaire_type == 'open-ended'
+    ):
       # Embedd answer and choices, computer their cosine similarity
       answer_embedding = self._embedder(answer_text)
       choice_similarities = []
@@ -246,7 +249,10 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
           'value': choice_similarities,
           'embedding': answer_embedding,
       }
-    elif questionnaire.questionnaire_type == 'multiple_choice':
+    elif (
+        questionnaire.questionnaire_type == 'multiple_choice'
+        or questionnaire.questionnaire_type == 'multiple-choice'
+    ):
       # make value 1 for the selected choice, 0 for the rest
       choice_similarities = [
           {'choice': choice, 'similarity': 1 if choice == answer_text else 0}

@@ -107,12 +107,22 @@ class Questionnaire(entity_component.ContextComponent):
     questionnaire_name, current_question = self._questions_by_id[question_id]
     questionnaire = self._questionnaires[questionnaire_name]
 
-    if questionnaire.questionnaire_type == 'multiple_choice':
+    if (
+        questionnaire.questionnaire_type == 'multiple_choice'
+        or questionnaire.questionnaire_type == 'multiple-choice'
+    ):
       output_type = entity_lib.OutputType.CHOICE
       options = current_question.choices
-    else:
+    elif (
+        questionnaire.questionnaire_type == 'open-ended'
+        or questionnaire.questionnaire_type == 'free'
+    ):
       output_type = entity_lib.OutputType.FREE
       options = ()
+    else:
+      raise ValueError(
+          f'Unsupported questionnaire type: {questionnaire.questionnaire_type}'
+      )
 
     prompt = (
         f'{questionnaire.observation_preprompt}\n\n'
