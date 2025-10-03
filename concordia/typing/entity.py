@@ -27,17 +27,17 @@ class OutputType(str, enum.Enum):
   """The type of output that a entity can produce."""
 
   # Common output types
-  FREE: str = 'free'
-  CHOICE: str = 'choice'
-  FLOAT: str = 'float'
+  FREE = 'free'
+  CHOICE = 'choice'
+  FLOAT = 'float'
   # Game master output types
-  MAKE_OBSERVATION: str = 'make_observation'
-  NEXT_ACTING: str = 'next_acting'
-  NEXT_ACTION_SPEC: str = 'next_action_spec'
-  RESOLVE: str = 'resolve'
-  TERMINATE: str = 'terminate'
-  NEXT_GAME_MASTER: str = 'next_game_master'
-  SKIP_THIS_STEP: str = 'skip_this_step'
+  MAKE_OBSERVATION = 'make_observation'
+  NEXT_ACTING = 'next_acting'
+  NEXT_ACTION_SPEC = 'next_action_spec'
+  RESOLVE = 'resolve'
+  TERMINATE = 'terminate'
+  NEXT_GAME_MASTER = 'next_game_master'
+  SKIP_THIS_STEP = 'skip_this_step'
 
 
 PLAYER_ACTION_TYPES = (
