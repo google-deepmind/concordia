@@ -239,10 +239,16 @@ class Sequential(engine_lib.Engine):
           assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
           log_entry['make_observation'][entity.name] = (
               game_master.get_last_log())
-        if verbose:
-          print(termcolor.colored(
-              f'Entity {entity.name} observed: {observation}', _PRINT_COLOR))
-        entity.observe(observation)
+        # Only observe if the observation is not an empty or whitespace string
+        if observation and observation.strip():
+          if verbose:
+            print(
+                termcolor.colored(
+                    f'Entity {entity.name} observed: {observation}',
+                    _PRINT_COLOR,
+                )
+            )
+          entity.observe(observation)
 
       tasks = {
           entity.name: functools.partial(_entity_observation, entity)
@@ -254,10 +260,10 @@ class Sequential(engine_lib.Engine):
           game_master, entities, log_entry=log_entry, log=log)
 
       if entity_spec_to_use.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
-        # For initialization, it is often useful to have a special game master
-        # that initializes other players and game masters but does not itself
-        # allow players to take actions. In this case, we skip the current
-        # step and continue to the next step.
+        # It is often useful to have a game master that does not allow players
+        # to take actions. For example, the game master may
+        # initialize other players and game masters. In this case, we skip the
+        # current step and continue to the next step.
         if verbose:
           print(termcolor.colored(
               '\nSkipping the action phase for the current time step.\n'))
