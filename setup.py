@@ -87,6 +87,7 @@ setuptools.setup(
         'together',
         'transformers',
         'typing-extensions',
+        'vllm',
     ),
     extras_require={
         # Used in development.
