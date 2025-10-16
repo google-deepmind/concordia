@@ -25,7 +25,6 @@ try:
 except ImportError:
   LLM = None
   SamplingParams = None
-  LoRARequest = None
   VLLM_AVAILABLE = False
 
 _DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
@@ -43,7 +42,6 @@ class VLLMLanguageModel(language_model.LanguageModel):
       tensor_parallel_size: int = _DEFAULT_TENSOR_PARALLEL_SIZE,
       gpu_memory_utilization: float = _DEFAULT_GPU_MEMORY_UTILIZATION,
       enable_lora: bool = False,
-      lora_path: str | None = None,
       max_model_len: int | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
@@ -78,11 +76,6 @@ class VLLMLanguageModel(language_model.LanguageModel):
     self._measurements = measurements
     self._channel = channel
     self._enable_lora = enable_lora
-    self._lora_path = lora_path
-
-    # Validate LoRA configuration
-    if enable_lora and not lora_path:
-      raise ValueError("lora_path must be provided when enable_lora is True")
 
     # Initialize vLLM model
     llm_kwargs = {
@@ -100,11 +93,6 @@ class VLLMLanguageModel(language_model.LanguageModel):
 
     self._llm = LLM(**llm_kwargs)
 
-    # Setup LoRA request if enabled
-    self._lora_request = None
-    if enable_lora and lora_path:
-      self._lora_request = LoRARequest("lora_adapter", 1, lora_path)
-
   @override
   def sample_text(
       self,
@@ -117,6 +105,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
       top_k: int = language_model.DEFAULT_TOP_K,
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
+      lora_request: LoRARequest | None = None,
   ) -> str:
     """Sample text from the vLLM model."""
     del timeout  # vLLM doesn't support timeout in SamplingParams
@@ -135,7 +124,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
     outputs = self._llm.generate(
         [prompt],
         sampling_params=sampling_params,
-        lora_request=self._lora_request,
+        lora_request=lora_request,
     )
 
     # Extract generated text
@@ -157,6 +146,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
       responses: Sequence[str],
       *,
       seed: int | None = None,
+      lora_request: LoRARequest | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
     """Sample a choice from the available responses using log probabilities."""
     
@@ -178,7 +168,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
     outputs = self._llm.generate(
         prompts,
         sampling_params=sampling_params,
-        lora_request=self._lora_request,
+        lora_request=lora_request,
     )
     
     logprobs = []
@@ -224,4 +214,107 @@ class VLLMLanguageModel(language_model.LanguageModel):
         )
     
     return best_idx, responses[best_idx], debug_info
+
+class VLLMLora(language_model.LanguageModel):
+  """Language model wrapper for vLLM local inference with LoRA."""
+
+  def __init__(
+      self,
+      model_name: str,
+      *,
+      lora_path: str | None = None,
+      vllm_language_model: VLLMLanguageModel | None = None,
+      tensor_parallel_size: int = _DEFAULT_TENSOR_PARALLEL_SIZE,
+      gpu_memory_utilization: float = _DEFAULT_GPU_MEMORY_UTILIZATION,
+      enable_lora: bool = False,
+      max_model_len: int | None = None,
+      measurements: measurements_lib.Measurements | None = None,
+      channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      enable_prefix_caching: bool = _DEFAULT_ENABLE_PREFIX_CACHING,
+      max_lora_rank: int = _DEFAULT_MAX_LORA_RANK,
+      **kwargs: Any,
+  ):
+    
+    """Initialize the vLLM language model with LoRA.
+
+    Args:
+      model_name: The name or path of the model to load.
+      lora_path: Path to LoRA adapter weights (must be provided).
+      vllm_language_model: An existing VLLMLanguageModel instance to use.
+        If None, a new one is created. If provided, other vLLM parameters are
+        ignored.
+      tensor_parallel_size: Number of GPUs to use for tensor parallelism.
+      gpu_memory_utilization: Fraction of GPU memory to use.
+      enable_lora: Whether to enable LoRA adapters.
+      max_model_len: Maximum model context length.
+      measurements: Measurements object for logging statistics.
+      channel: Channel name for measurements.
+      enable_prefix_caching: Whether to enable prefix caching in vLLM.
+      max_lora_rank: Maximum rank for LoRA adapters.
+      **kwargs: Additional arguments passed to vLLM LLM constructor.
+    """
+
+    if vllm_language_model is not None:
+      self._vllm_model = vllm_language_model
+    else:
+      self._vllm_model = VLLMLanguageModel(
+          model_name=model_name,
+          tensor_parallel_size=tensor_parallel_size,
+          gpu_memory_utilization=gpu_memory_utilization,
+          enable_lora=enable_lora,
+          max_model_len=max_model_len,
+          measurements=measurements,
+          channel=channel,
+          enable_prefix_caching=enable_prefix_caching,
+          max_lora_rank=max_lora_rank,
+          **kwargs
+      )
+
+    if lora_path is None:
+      raise ValueError("lora_path must be provided to initialize VLLMLora.")
+    
+    # Setup LoRA request
+    self._lora_request = LoRARequest("lora_adapter", 1, lora_path)
+  
+  @override
+  def sample_text(
+      self,
+      prompt: str,
+      *,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      seed: int | None = None,
+  ) -> str:
+    """Sample text from the vLLM model with LoRA."""
+    return self._vllm_model.sample_text(
+        prompt,
+        max_tokens=max_tokens,
+        terminators=terminators,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        timeout=timeout,
+        seed=seed,
+        lora_request=self._lora_request,
+    )
+
+  @override
+  def sample_choice(
+      self,
+      prompt: str,
+      responses: Sequence[str],
+      *,
+      seed: int | None = None,
+  ) -> tuple[int, str, Mapping[str, Any]]:
+    """Sample a choice from the available responses using log probabilities."""
+    return self._vllm_model.sample_choice(
+        prompt,
+        responses,
+        seed=seed,
+        lora_request=self._lora_request,
+    )
   
