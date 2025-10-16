@@ -9,6 +9,26 @@ Example usage:
       tensor_parallel_size=1,
       gpu_memory_utilization=0.8,
   )
+  
+  # Only load the base model once, then create multiple LoRA adapters.
+  lora1 = vllm_model.VLLMLora(
+      model_name="microsoft/DialoGPT-medium",
+      lora_path="/path/to/lora1",
+      vllm_language_model=model,
+  )
+  lora2 = vllm_model.VLLMLora(
+      model_name="microsoft/DialoGPT-medium",
+      lora_path="/path/to/lora2",
+      vllm_language_model=model,
+  )
+  
+  # Load another model with its own LoRA adapter.
+  lora3 = vllm_model.VLLMLora(
+      model_name="Qwen/Qwen2.5-7B-Instruct",
+      lora_path="/path/to/lora3",
+      tensor_parallel_size=1,
+      gpu_memory_utilization=0.8,
+  )
 """
 
 from collections.abc import Collection, Sequence
@@ -76,6 +96,8 @@ class VLLMLanguageModel(language_model.LanguageModel):
     self._measurements = measurements
     self._channel = channel
     self._enable_lora = enable_lora
+    self._nbr_lora_adapters = 0 # Number of LoRA adapters used with this model.
+    # Each adapter needs a unique ID which is why we keep count.
 
     # Initialize vLLM model
     llm_kwargs = {
@@ -92,6 +114,13 @@ class VLLMLanguageModel(language_model.LanguageModel):
       llm_kwargs['max_model_len'] = max_model_len
 
     self._llm = LLM(**llm_kwargs)
+  
+  def increment_lora_adapters(self) -> int:
+    """Increment the count of LoRA adapters used."""
+    if not self._enable_lora:
+      raise ValueError("LoRA is not enabled for this model.")
+    self._nbr_lora_adapters += 1
+    return self._nbr_lora_adapters
 
   @override
   def sample_text(
@@ -236,6 +265,9 @@ class VLLMLora(language_model.LanguageModel):
   ):
     
     """Initialize the vLLM language model with LoRA.
+    
+    This is a wrapper around VLLMLanguageModel that passes the LoRA request
+    along each sampling call.
 
     Args:
       model_name: The name or path of the model to load.
@@ -256,6 +288,7 @@ class VLLMLora(language_model.LanguageModel):
 
     if vllm_language_model is not None:
       self._vllm_model = vllm_language_model
+      id = self._vllm_model.increment_lora_adapters()
     else:
       self._vllm_model = VLLMLanguageModel(
           model_name=model_name,
@@ -269,12 +302,13 @@ class VLLMLora(language_model.LanguageModel):
           max_lora_rank=max_lora_rank,
           **kwargs
       )
+      id = self._vllm_model.increment_lora_adapters()
 
     if lora_path is None:
       raise ValueError("lora_path must be provided to initialize VLLMLora.")
     
     # Setup LoRA request
-    self._lora_request = LoRARequest("lora_adapter", 1, lora_path)
+    self._lora_request = LoRARequest(f"lora_adapter_{id}", id, lora_path)
   
   @override
   def sample_text(
