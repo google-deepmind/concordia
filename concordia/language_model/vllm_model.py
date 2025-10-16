@@ -28,8 +28,6 @@ except ImportError:
   LoRARequest = None
   VLLM_AVAILABLE = False
 
-
-_DEFAULT_MAX_TOKENS = 1000
 _DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
 _DEFAULT_TENSOR_PARALLEL_SIZE = 1
 _DEFAULT_ENABLE_PREFIX_CACHING = False
@@ -128,7 +126,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
-        max_tokens=min(max_tokens, _DEFAULT_MAX_TOKENS),
+        max_tokens=max_tokens,
         seed=seed,
         stop=list(terminators) if terminators else None,
     )
@@ -169,7 +167,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
     sampling_params = SamplingParams(
         max_tokens=1,  # We only need logprobs, not generation
         temperature=0.0,
-        prompt_logprobs=20,  # Request top 20 logprobs (max allowed)
+        prompt_logprobs=0,  # Only get logprob of tokens in the prompt
     )
     
     prompts = []
