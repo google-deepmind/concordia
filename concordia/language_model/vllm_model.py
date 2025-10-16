@@ -32,6 +32,8 @@ except ImportError:
 _DEFAULT_MAX_TOKENS = 1000
 _DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
 _DEFAULT_TENSOR_PARALLEL_SIZE = 1
+_DEFAULT_ENABLE_PREFIX_CACHING = False
+_DEFAULT_MAX_LORA_RANK = 16
 
 class VLLMLanguageModel(language_model.LanguageModel):
   """Language model wrapper for vLLM local inference."""
@@ -47,6 +49,8 @@ class VLLMLanguageModel(language_model.LanguageModel):
       max_model_len: int | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      enable_prefix_caching: bool = _DEFAULT_ENABLE_PREFIX_CACHING,
+      max_lora_rank: int = _DEFAULT_MAX_LORA_RANK,
       **kwargs: Any,
   ):
     """Initialize the vLLM language model.
@@ -88,9 +92,11 @@ class VLLMLanguageModel(language_model.LanguageModel):
         'tensor_parallel_size': tensor_parallel_size,
         'gpu_memory_utilization': gpu_memory_utilization,
         'enable_lora': enable_lora,
+        'enable_prefix_caching': enable_prefix_caching,
+        'max_lora_rank': max_lora_rank,
         **kwargs
     }
-    
+
     if max_model_len is not None:
       llm_kwargs['max_model_len'] = max_model_len
 
