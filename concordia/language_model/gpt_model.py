@@ -31,6 +31,7 @@ class GptLanguageModel(BaseGPTModel):
       model_name: str,
       *,
       api_key: str | None = None,
+      api_base: str | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):
@@ -41,13 +42,18 @@ class GptLanguageModel(BaseGPTModel):
         https://platform.openai.com/docs/guides/text-generation/which-model-should-i-use.
       api_key: The API key to use when accessing the OpenAI API. If None, will
         use the OPENAI_API_KEY environment variable.
+      api_base: The API url to use if using a different OpenAI-compatible endpoint. If None,
+        requests sent to default OpenAI endpoint.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
     if api_key is None:
       api_key = os.environ['OPENAI_API_KEY']
     self._api_key = api_key
-    client = openai.OpenAI(api_key=self._api_key)
+    if api_base is None:
+      client = openai.OpenAI(api_key=self._api_key)
+    else:
+      client = openai.OpenAI(api_key=self._api_key, base_url=api_base)
     super().__init__(model_name=model_name,
                      client=client,
                      measurements=measurements,
