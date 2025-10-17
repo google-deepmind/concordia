@@ -102,5 +102,8 @@ setuptools.setup(
             'pytype',
             'twine',
         ],
+        'vllm': [
+            'vllm',
+        ]
     },
 )
