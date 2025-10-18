@@ -102,6 +102,10 @@ setuptools.setup(
             'pytype',
             'twine',
         ],
+        'huggingface': [
+            'torch',
+            'accelerate',
+        ],
         'vllm': [
             'vllm',
         ]
