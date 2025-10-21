@@ -50,10 +50,7 @@ class GptLanguageModel(BaseGPTModel):
     if api_key is None:
       api_key = os.environ['OPENAI_API_KEY']
     self._api_key = api_key
-    if api_base is None:
-      client = openai.OpenAI(api_key=self._api_key)
-    else:
-      client = openai.OpenAI(api_key=self._api_key, base_url=api_base)
+    client = openai.OpenAI(api_key=self._api_key, base_url=api_base)
     super().__init__(model_name=model_name,
                      client=client,
                      measurements=measurements,
