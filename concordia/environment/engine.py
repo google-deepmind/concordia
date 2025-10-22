@@ -104,7 +104,7 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
     return entity_lib.ActionSpec(
         call_to_action=call_to_action,
         output_type=entity_lib.OutputType.CHOICE,
-        options=tuple(next_action_spec_string.split('options: ')[1].split(',')),
+        options=tuple(next_action_spec_string.split('options: ')[1].split('|')),
     )
   elif _TYPE_SKIP_THIS_STEP in next_action_spec_string:
     return entity_lib.skip_this_step_action_spec()
@@ -121,7 +121,7 @@ def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
   elif action_spec.output_type == entity_lib.OutputType.CHOICE:
     return (
         f'prompt: {action_spec.call_to_action};;type: choice options: '
-        + ', '.join(action_spec.options)
+        + '|'.join(action_spec.options)
     )
   elif action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
     return f'prompt: {action_spec.call_to_action};;{_TYPE_SKIP_THIS_STEP}'
