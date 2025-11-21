@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Prefab for a generic psychology experiment Game Master."""
+"""Prefab for a marketplace Game Master."""
 
 from collections.abc import Mapping, Sequence
 import dataclasses
@@ -33,15 +33,14 @@ def _get_class_name(object_: object) -> str:
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A generic Game Master prefab for psychology experiments.
+  """A generic Game Master prefab for marketplace experiments.
 
   This GM is configured by providing custom classes for experiment-specific
   observation generation and action specification.
   """
 
   description: str = (
-      "A generic Game Master that administers a psychology experiment defined "
-      "by custom observation and action specification components."
+      "A generic Game Master that administers a marketplace."
   )
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
