@@ -43,6 +43,8 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
       model_name: str,
       api_key: str,
       *,
+      trust_remote_code: bool = True,
+      dtype: torch.dtype = torch.float16,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ):
@@ -51,6 +53,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     Args:
       model_name: The name of the HuggingFace model to use.
       api_key: The API key to use when accessing the HuggingFace API.
+      trust_remote_code: Whether to trust remote code.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
     """
@@ -59,7 +62,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     self._channel = channel
 
     self._tokenizer = AutoTokenizer.from_pretrained(
-        model_name, token=api_key, trust_remote_code=True
+        model_name, token=api_key, trust_remote_code=trust_remote_code
     )
     if self._tokenizer.pad_token is None:
       self._tokenizer.pad_token = self._tokenizer.eos_token
@@ -69,9 +72,9 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     self._model = AutoModelForCausalLM.from_pretrained(
         model_name,
         token=api_key,
-        trust_remote_code=True,
+        trust_remote_code=trust_remote_code,
         device_map="auto",
-        dtype=torch.float16,
+        dtype=dtype,
     )
 
   @property
@@ -82,7 +85,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
   @property
   def device(self) -> torch.device:
     """Returns the device the model is on."""
-    return self._model.device
+    return next(iter(self._model.parameters())).device
 
   @override
   def sample_text(
@@ -97,17 +100,11 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del top_p, top_k, timeout
-
     if temperature <= 0:
       temperature = 0.1
 
     messages = [
         {'role': 'system', 'content': _DEFAULT_SYSTEM_MESSAGE},
-        {'role': 'user', 'content': 'Question: Is Jake a turtle?\nAnswer: Jake is '},
-        {'role': 'assistant', 'content': 'not a turtle.'},
-        {'role': 'user', 'content': 'Question: What is Priya doing right now?\nAnswer: Priya is currently '},
-        {'role': 'assistant', 'content': 'sleeping.'},
         {'role': 'user', 'content': prompt},
     ]
 
@@ -118,12 +115,13 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     else:
       formatted_prompt = f"{_DEFAULT_SYSTEM_MESSAGE}\n\n{prompt}"
 
-    inputs = self._tokenizer(formatted_prompt, return_tensors='pt')
-    inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
+    inputs = self._tokenizer(formatted_prompt, return_tensors='pt').to(self.device)
 
     generation_args = {
         'max_new_tokens': max_tokens,
-        'temperature': min(temperature, 0.5),
+        'temperature': temperature,
+        'top_p': top_p,
+        'top_k': top_k,
         'do_sample': True,
         'pad_token_id': self._tokenizer.pad_token_id,
         'eos_token_id': self._tokenizer.eos_token_id,
@@ -155,14 +153,13 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
   def _compute_log_probability(self, prompt: str, response: str) -> float:
     """Computes the log probability of generating the response given the prompt."""
     full_text = prompt + response
-    inputs = self._tokenizer(full_text, return_tensors='pt')
-    inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
+    inputs = self._tokenizer(full_text, return_tensors='pt').to(self.device)
 
     with torch.no_grad():
       outputs = self._model(**inputs)
       logits = outputs.logits
 
-    prompt_inputs = self._tokenizer(prompt, return_tensors='pt')
+    prompt_inputs = self._tokenizer(prompt, return_tensors='pt').to(self.device)
     prompt_length = prompt_inputs['input_ids'].shape[1]
 
     log_probs = torch.nn.functional.log_softmax(logits, dim=-1)

@@ -105,6 +105,7 @@ setuptools.setup(
         'huggingface': [
             'torch',
             'accelerate',
+            'sentence-transformers',
         ],
         'vllm': [
             'vllm',
