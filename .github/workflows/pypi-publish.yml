@@ -56,7 +56,6 @@ jobs:
           - ubuntu-24.04
           - ubuntu-24.04-arm
         python-version:
-          - '3.11'
           - '3.12'
           - '3.13'
           - '3.14'
