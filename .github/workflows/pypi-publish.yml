@@ -49,14 +49,17 @@ jobs:
       fail-fast: ${{ github.event_name == 'release' }}
       matrix:
         os:
-          - macos-13
           - macos-14
+          - macos-15
           - ubuntu-22.04
+          - ubuntu-22.04-arm
           - ubuntu-24.04
+          - ubuntu-24.04-arm
         python-version:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
     steps:
       - name: Load artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
