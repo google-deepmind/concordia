@@ -101,8 +101,13 @@ setuptools.setup(
             'pytype',
             'twine',
         ],
+        'huggingface': [
+            'torch',
+            'accelerate',
+            'sentence-transformers',
+        ],
         'vllm': [
             'vllm',
-        ]
+        ],
     },
 )

@@ -18,6 +18,7 @@ from concordia.language_model import amazon_bedrock_model
 from concordia.language_model import google_aistudio_model
 from concordia.language_model import google_cloud_custom_model
 from concordia.language_model import gpt_model
+from concordia.language_model import huggingface_model
 from concordia.language_model import langchain_ollama_model
 from concordia.language_model import language_model
 from concordia.language_model import mistral_model
@@ -43,9 +44,9 @@ def language_model_setup(
     model_name: The name of the specific model to use.
     api_key: The API key to use (if supported).
     device: The device to use for model processing (if supported).
-    disable_language_model: If True then disable the language model.
-      This uses a model that returns an empty string whenever asked for a free
-      text response and a randome option when asked for a choice.
+    disable_language_model: If True then disable the language model. This uses a
+      model that returns an empty string whenever asked for a free text response
+      and a randome option when asked for a choice.
 
   Returns:
     The wrapped language model.
@@ -65,6 +66,8 @@ def language_model_setup(
     cls = google_aistudio_model.GoogleAIStudioLanguageModel
   elif api_type == 'google_cloud_custom_model':
     cls = google_cloud_custom_model.VertexAI
+  elif api_type == 'huggingface':
+    cls = huggingface_model.HuggingFaceLanguageModel
   elif api_type == 'langchain_ollama':
     cls = langchain_ollama_model.LangchainOllamaLanguageModel
   elif api_type == 'mistral':
