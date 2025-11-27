@@ -54,6 +54,15 @@ runs:
       run: |
         echo "${PWD}/venv/bin" >> $GITHUB_PATH
 
+    - name: Free up disk space
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # See https://github.com/actions/runner-images/issues/9344 for context.
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/share/boost
+
     - name: Install
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
