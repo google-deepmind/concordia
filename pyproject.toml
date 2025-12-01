@@ -6,6 +6,13 @@ build-backend = "setuptools.build_meta"
 profile = "google"
 known_thirdparty = ["concordia"]
 
+[tool.pip-tools]
+allow_unsafe = true
+generate_hashes = true
+reuse_hashes = true
+strip_extras = true
+all_extras = true
+
 [tool.pyink]
 line-length = 80
 unstable = true
@@ -32,7 +39,7 @@ inputs = ["concordia", "examples"]
 keep_going = true
 # Run N jobs in parallel. When 'auto' is used, this will be equivalent to the
 # number of CPUs on the host system.
-jobs = 'auto'
+jobs = "auto"
 # Use the enum overlay for more precise enum checking. This flag is temporary
 # and will be removed once this behavior is enabled by default.
 use_enum_overlay = true
