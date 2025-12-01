@@ -87,6 +87,7 @@ class RetryLanguageModel(language_model.LanguageModel):
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
+        timeout=timeout,
         seed=seed,
     ):
       return model.sample_text(
@@ -96,6 +97,7 @@ class RetryLanguageModel(language_model.LanguageModel):
           temperature=temperature,
           top_p=top_p,
           top_k=top_k,
+          timeout=timeout,
           seed=seed,
       )
 
@@ -107,6 +109,7 @@ class RetryLanguageModel(language_model.LanguageModel):
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
+        timeout=timeout,
         seed=seed,
     )
 
