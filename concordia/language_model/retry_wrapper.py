@@ -18,7 +18,7 @@ from collections.abc import Collection, Mapping, Sequence
 from typing import Any, Type, override
 
 from concordia.language_model import language_model
-import retry
+import tenacity
 
 
 class RetryLanguageModel(language_model.LanguageModel):
@@ -27,6 +27,7 @@ class RetryLanguageModel(language_model.LanguageModel):
   def __init__(
       self,
       model: language_model.LanguageModel,
+      *,
       retry_on_exceptions: Collection[Type[Exception]] = (Exception,),
       retry_tries: int = 3,
       retry_delay: float = 2.0,
@@ -48,13 +49,18 @@ class RetryLanguageModel(language_model.LanguageModel):
       max_delay: The maximum delay between retries.
     """
     self._model = model
-    self._retry_on_exceptions = tuple(retry_on_exceptions)
-    self._retry_tries = retry_tries
-    self._retry_delay = retry_delay
-    self._jitter = jitter
-    self._exponential_backoff = exponential_backoff
-    self._backoff_factor = backoff_factor
-    self._max_delay = max_delay
+    if not exponential_backoff:
+      wait = tenacity.wait_fixed(retry_delay)
+    else:
+      wait = tenacity.wait_exponential(
+          multiplier=backoff_factor, min=retry_delay, max=max_delay
+      )
+    wait += tenacity.wait_random(*jitter)
+    self._retry_decorator = tenacity.retry(
+        retry=tenacity.retry_if_exception_type(tuple(retry_on_exceptions)),
+        wait=wait,
+        stop=tenacity.stop_after_attempt(retry_tries),
+    )
 
   @override
   def sample_text(
@@ -69,14 +75,8 @@ class RetryLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    @retry.retry(
-        self._retry_on_exceptions,
-        tries=self._retry_tries,
-        delay=self._retry_delay,
-        backoff=self._backoff_factor if self._exponential_backoff else 1,
-        max_delay=self._max_delay,
-        jitter=self._jitter,
-    )
+
+    @self._retry_decorator
     def _sample_text(
         model,
         prompt,
@@ -120,14 +120,7 @@ class RetryLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
-    @retry.retry(
-        self._retry_on_exceptions,
-        tries=self._retry_tries,
-        delay=self._retry_delay,
-        backoff=self._backoff_factor if self._exponential_backoff else 1,
-        max_delay=self._max_delay,
-        jitter=self._jitter,
-    )
+    @self._retry_decorator
     def _sample_choice(model, prompt, responses, *, seed):
       return model.sample_choice(prompt, responses, seed=seed)
 

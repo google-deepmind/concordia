@@ -74,7 +74,7 @@ setuptools.setup(
         'pandas',
         'python-dateutil',
         'reactivex',
-        'retry',
+        'tenacity',
         'termcolor',
     ),
     extras_require={
