@@ -46,7 +46,7 @@ def _import_model(model_path: str) -> type(language_model.LanguageModel):
   """Imports a model from this package."""
   module_path, class_name = f'{__name__}.{model_path}'.rsplit('.', 1)
   try:
-    module = importlib.importlib(module_path)
+    module = importlib.import_module(module_path)
   except ImportError as error:
     required_dependency, _ = model_path.split('.', 1)
     raise ImportError(

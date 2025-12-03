@@ -17,8 +17,8 @@
 
 import os
 
+from concordia.contrib.language_models.openai.base_gpt_model import BaseGPTModel
 from concordia.language_model import language_model
-from concordia.language_model.base_gpt_model import BaseGPTModel
 from concordia.utils.deprecated import measurements as measurements_lib
 from openai import AzureOpenAI
 
