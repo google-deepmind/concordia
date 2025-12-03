@@ -6,7 +6,7 @@ evolving, we rely on the community to help us keep these wrappers up-to-date and
 to expand our support for a wider variety of models. Your contributions are
 crucial for the continued success and utility of this project.
 
----
+--------------------------------------------------------------------------------
 
 ## Why We Need Your Help
 
@@ -18,14 +18,16 @@ need your help in maintaining these wrappers and adding new ones.
 
 By contributing to this effort, you can:
 
-* **Ensure continued access** to your preferred language models within
-Concordia.
-* **Expand the capabilities** of Concordia by adding support for new and
-emerging models.
-* **Become an active member** of the Concordia community and collaborate with
-other researchers and developers.
+*   **Ensure continued access** to your preferred language models within
+    Concordia.
 
----
+*   **Expand the capabilities** of Concordia by adding support for new and
+    emerging models.
+
+*   **Become an active member** of the Concordia community and collaborate with
+    other researchers and developers.
+
+--------------------------------------------------------------------------------
 
 ## How to Contribute
 
@@ -37,17 +39,37 @@ fix existing ones. Here’s how you can get started:
 If you want to add a wrapper for a new language model, please follow these
 steps:
 
-1.  **Create a new file** in the `concordia/language_model/` directory. You can
-use the existing wrappers as a template.
-2.  **Implement the two main functions**:
-    * `sample_text(prompt)`: This function should take a prompt string and
-    return a text completion from the language model.
-    * `sample_choice(prompt, choices)`: This function should take a prompt and a
-    list of choices, and return one of the choices.
-3.  **Add a new case** to the `switch` statement in the `setup` utility located
-at `concordia/language_model/utils.py` to integrate your new wrapper.
-4.  **Submit a pull request** with your changes. We will review it and merge it
-as soon as possible.
+1.  **Identify the appropriate package for your model**
+
+    *   Each `concordia.contrib.language_models.<package>` has a corresponding
+        `extras_requires` in `setup.py`.
+    *   So if you will need the existing `gdm-concordia[huggingface]`
+        dependencies you should add your file to
+        `concordia.contrib.language_models.huggingface`.
+    *   If you add a new model, create a new package, and add a new set of
+        `extras_requires` in `setup.py`.
+
+1.  **Create a new file** in the appropriate package.
+
+    *   You can use the existing wrappers as a template.
+
+1.  **Implement the two main functions**:
+
+    *   `sample_text(prompt)`: This function should take a prompt string and
+        return a text completion from the language model.
+    *   `sample_choice(prompt, choices)`: This function should take a prompt and
+        a list of choices, and return one of the choices.
+
+1.  **Add a `_REGISTRY` entry** in
+    `concordia/contrib/language_models/__init__.py` to integrate your new
+    wrapper.
+
+1.  **Prepare a pull request** with your changes.
+
+    *   If you have added any new dependencies rebuild `requirements.txt` using
+        `pip-compile setup.py examples/requirements.in`.
+    *   Check that the tests pass using `./bin/test.sh`
+    *   Submit your PR and we will review and merge it as soon as possible.
 
 When implementing `sample_choice`, the approach often depends on whether you
 have access to the model's internal states (i.e., weights and tokenwise
