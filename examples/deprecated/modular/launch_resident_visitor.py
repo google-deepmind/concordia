@@ -47,8 +47,8 @@ import argparse
 import datetime
 import importlib
 
+from concordia.contrib import language_models as utils
 from concordia.language_model import call_limit_wrapper
-from concordia.language_model import utils
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import sentence_transformers
@@ -56,34 +56,37 @@ import sentence_transformers
 
 # Setup for command line arguments
 parser = argparse.ArgumentParser(description='Run a GDM-Concordia simulation.')
-parser.add_argument('--agent_resident',
-                    action='store',
-                    default='basic_agent',
-                    dest='resident_agent_name')
-parser.add_argument('--agent_visitor',
-                    action='store',
-                    default='rational_agent',
-                    dest='visitor_agent_name')
-parser.add_argument('--environment',
-                    action='store',
-                    default='reality_show',
-                    dest='environment_name')
-parser.add_argument('--api_type',
-                    action='store',
-                    default='mistral',
-                    dest='api_type')
-parser.add_argument('--model',
-                    action='store',
-                    default='codestral-latest',
-                    dest='model_name')
-parser.add_argument('--embedder',
-                    action='store',
-                    default='all-mpnet-base-v2',
-                    dest='embedder_name')
-parser.add_argument('--api_key',
-                    action='store',
-                    default=None,
-                    dest='api_key')
+parser.add_argument(
+    '--agent_resident',
+    action='store',
+    default='basic_agent',
+    dest='resident_agent_name',
+)
+parser.add_argument(
+    '--agent_visitor',
+    action='store',
+    default='rational_agent',
+    dest='visitor_agent_name',
+)
+parser.add_argument(
+    '--environment',
+    action='store',
+    default='reality_show',
+    dest='environment_name',
+)
+parser.add_argument(
+    '--api_type', action='store', default='mistral', dest='api_type'
+)
+parser.add_argument(
+    '--model', action='store', default='codestral-latest', dest='model_name'
+)
+parser.add_argument(
+    '--embedder',
+    action='store',
+    default='all-mpnet-base-v2',
+    dest='embedder_name',
+)
+parser.add_argument('--api_key', action='store', default=None, dest='api_key')
 parser.add_argument(
     '--device',
     action='store',
@@ -94,26 +97,33 @@ parser.add_argument(
         'GPU, "cpu" for CPU). Only applies to local models.'
     ),
 )
-parser.add_argument('--disable_language_model',
-                    action='store_true',
-                    help=('replace the language model with a null model. This '
-                          'makes it possible to debug without spending money '
-                          'on api calls.'),
-                    default=False,
-                    dest='disable_language_model')
+parser.add_argument(
+    '--disable_language_model',
+    action='store_true',
+    help=(
+        'replace the language model with a null model. This '
+        'makes it possible to debug without spending money '
+        'on api calls.'
+    ),
+    default=False,
+    dest='disable_language_model',
+)
 # Parse command line arguments
 args = parser.parse_args()
 
 # Load the agent config with importlib
 IMPORT_AGENT_BASE_DIR = 'concordia.factory.agent'
 resident_agent_module = importlib.import_module(
-    f'{IMPORT_AGENT_BASE_DIR}.{args.resident_agent_name}')
+    f'{IMPORT_AGENT_BASE_DIR}.{args.resident_agent_name}'
+)
 visitor_agent_module = importlib.import_module(
-    f'{IMPORT_AGENT_BASE_DIR}.{args.visitor_agent_name}')
+    f'{IMPORT_AGENT_BASE_DIR}.{args.visitor_agent_name}'
+)
 # Load the environment config with importlib
 IMPORT_ENV_BASE_DIR = 'examples.deprecated.modular.environment'
 simulation = importlib.import_module(
-    f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}')
+    f'{IMPORT_ENV_BASE_DIR}.{args.environment_name}'
+)
 
 # Language Model setup
 model = utils.language_model_setup(

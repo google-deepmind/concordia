@@ -68,29 +68,23 @@ setuptools.setup(
     python_requires='>=3.12',
     install_requires=(
         'absl-py',
-        'boto3',
-        'google-cloud-aiplatform',
-        'google-generativeai>=0.8',
         'ipython',
-        'jinja2',
-        'langchain-community',
         'matplotlib',
-        'mistralai',
         'numpy>=1.26',
-        'ollama',
-        'openai>=1.3.0',
         'pandas',
         'python-dateutil',
         'reactivex',
         'retry',
         'termcolor',
-        'together',
-        'transformers',
         'typing-extensions',
     ),
     extras_require={
-        # Used in development.
+        'amazon': [
+            # Used in contrib.language_models.amazon
+            'boto3',
+        ],
         'dev': [
+            # Used in development
             'build',
             'isort',
             'jupyter',
@@ -102,12 +96,38 @@ setuptools.setup(
             'pytype',
             'twine',
         ],
+        'google': [
+            # Used in concordia.contrib.language_models.google
+            'google-cloud-aiplatform',
+        ],
         'huggingface': [
-            'torch',
+            # Used in concordia.contrib.language_models.huggingface
             'accelerate',
-            'sentence-transformers',
+            'torch',
+            'transformers',
+        ],
+        'langchain': [
+            # Used in concordia.contrib.language_models.langchain
+            'langchain-community',
+        ],
+        'mistralai': [
+            # Used in concordia.contrib.language_models.mistralai
+            'mistralai',
+        ],
+        'ollama': [
+            # Used in concordia.contrib.language_models.ollama
+            'ollama',
+        ],
+        'openai': [
+            # Used in concordia.contrib.language_models.openai
+            'openai>=1.3.0',
+        ],
+        'together': [
+            # Used in concordia.contrib.language_models.together
+            'together',
         ],
         'vllm': [
+            # Used in concordia.contrib.language_models.vllm
             'vllm',
         ],
     },

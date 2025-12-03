@@ -51,18 +51,9 @@ from typing import Any, Mapping
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
 from typing_extensions import override
-
-try:
-  from vllm import LLM  # pylint: disable=g-import-not-at-top
-  from vllm import SamplingParams  # pylint: disable=g-import-not-at-top
-  from vllm.lora.request import LoRARequest  # pylint: disable=g-import-not-at-top
-
-  VLLM_AVAILABLE = True
-except ImportError:
-  LLM = Any
-  SamplingParams = Any
-  LoRARequest = Any
-  VLLM_AVAILABLE = False
+from vllm import LLM
+from vllm import SamplingParams
+from vllm.lora.request import LoRARequest
 
 _DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
 _DEFAULT_TENSOR_PARALLEL_SIZE = 1
@@ -105,17 +96,6 @@ class VLLMLanguageModel(language_model.LanguageModel):
       ImportError: If vLLM is not installed.
       ValueError: If LoRA is enabled but no path is provided.
     """
-    if not VLLM_AVAILABLE:
-      raise ImportError(
-          'vLLM is required but not installed. '
-          'Install it with: pip install vllm'
-      )
-    if LLM is Any:
-      raise ImportError(
-          'vLLM is required but not installed. '
-          'Install it with: pip install vllm'
-      )
-
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel

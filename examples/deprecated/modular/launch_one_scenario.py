@@ -72,8 +72,8 @@ import argparse
 import datetime
 import importlib
 
+from concordia.contrib import language_models as utils
 from concordia.language_model import call_limit_wrapper
-from concordia.language_model import utils
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import sentence_transformers

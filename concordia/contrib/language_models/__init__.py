@@ -14,19 +14,47 @@
 
 """Utilities for loading language models."""
 
-from concordia.language_model import amazon_bedrock_model
-from concordia.language_model import google_aistudio_model
-from concordia.language_model import google_cloud_custom_model
-from concordia.language_model import gpt_model
-from concordia.language_model import huggingface_model
-from concordia.language_model import langchain_ollama_model
+import importlib
+import types
+
 from concordia.language_model import language_model
-from concordia.language_model import mistral_model
 from concordia.language_model import no_language_model
-from concordia.language_model import ollama_model
-from concordia.language_model import pytorch_gemma_model
-from concordia.language_model import together_ai
-from concordia.language_model import vllm_model
+
+
+_REGISTRY = types.MappingProxyType({
+    'amazon_bedrock': 'amazon.amazon_bedrock_model.AmazonBedrockLanguageModel',
+    'google_aistudio_model': (
+        'google.google_aistudio_model.GoogleAIStudioLanguageModel'
+    ),
+    'google_cloud_custom_model': 'google.google_cloud_custom_model.VertexAI',
+    'huggingface': 'huggingface.huggingface_model.HuggingFaceLanguageModel',
+    'langchain_ollama': (
+        'langchain.langchain_ollama_model.LangchainOllamaLanguageModel'
+    ),
+    'mistral': 'mistral.mistral_model.MistralLanguageModel',
+    'ollama': 'ollama.ollama_model.OllamaLanguageModel',
+    'openai': 'openai.gpt_model.GptLanguageModel',
+    'pytorch_gemma': (
+        'huggingface.pytorch_gemma_model.PyTorchGemmaLanguageModel'
+    ),
+    'together_ai': 'together.together_ai.Base',
+    'vllm': 'vllm.vllm_model.VLLMLanguageModel',
+})
+
+
+def _import_model(model_path: str) -> type(language_model.LanguageModel):
+  """Imports a model from this package."""
+  module_path, class_name = f'{__name__}.{model_path}'.rsplit('.', 1)
+  try:
+    module = importlib.importlib(module_path)
+  except ImportError as error:
+    required_dependency, _ = model_path.split('.', 1)
+    raise ImportError(
+        f'Failed to import {module_path}. Please ensure you have installed the '
+        'necessary dependencies: pip install '
+        f'gdm-concordia[{required_dependency}].'
+    ) from error
+  return getattr(module, class_name)
 
 
 def language_model_setup(
@@ -60,29 +88,9 @@ def language_model_setup(
   if device is not None:
     kwargs['device'] = device
 
-  if api_type == 'amazon_bedrock':
-    cls = amazon_bedrock_model.AmazonBedrockLanguageModel
-  elif api_type == 'google_aistudio_model':
-    cls = google_aistudio_model.GoogleAIStudioLanguageModel
-  elif api_type == 'google_cloud_custom_model':
-    cls = google_cloud_custom_model.VertexAI
-  elif api_type == 'huggingface':
-    cls = huggingface_model.HuggingFaceLanguageModel
-  elif api_type == 'langchain_ollama':
-    cls = langchain_ollama_model.LangchainOllamaLanguageModel
-  elif api_type == 'mistral':
-    cls = mistral_model.MistralLanguageModel
-  elif api_type == 'ollama':
-    cls = ollama_model.OllamaLanguageModel
-  elif api_type == 'openai':
-    cls = gpt_model.GptLanguageModel
-  elif api_type == 'pytorch_gemma':
-    cls = pytorch_gemma_model.PyTorchGemmaLanguageModel
-  elif api_type == 'together_ai':
-    cls = together_ai.Base
-  elif api_type == 'vllm':
-    cls = vllm_model.VLLMLanguageModel
-  else:
-    raise ValueError(f'Unrecognized api type: {api_type}')
-
+  try:
+    model_path = _REGISTRY[api_type]
+  except KeyError as error:
+    raise ValueError(f'Unrecognized api_type: {api_type}') from error
+  cls = _import_model(model_path)
   return cls(**kwargs)  # pytype: disable=wrong-keyword-args
