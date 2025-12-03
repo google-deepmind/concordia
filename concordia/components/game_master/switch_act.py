@@ -15,6 +15,7 @@
 """A game master acting component with specific calls per action type."""
 
 from collections.abc import Sequence
+from typing import override
 
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
@@ -25,24 +26,29 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
-from typing_extensions import override
 
 
 DEFAULT_ACT_COMPONENT_KEY = '__act__'
 DEFAULT_PRE_ACT_LABEL = 'Act'
 
 DEFAULT_TERMINATE_COMPONENT_KEY = (
-    terminate_components.DEFAULT_TERMINATE_COMPONENT_KEY)
+    terminate_components.DEFAULT_TERMINATE_COMPONENT_KEY
+)
 DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY = (
-    next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
+    next_game_master_components.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+)
 DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY = (
-    make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY)
+    make_observation_component.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
+)
 DEFAULT_NEXT_ACTING_COMPONENT_KEY = (
-    next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_KEY)
+    next_acting_components.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+)
 DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY = (
-    next_acting_components.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY)
+    next_acting_components.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
+)
 DEFAULT_RESOLUTION_COMPONENT_KEY = (
-    event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_KEY)
+    event_resolution_components.DEFAULT_RESOLUTION_COMPONENT_KEY
+)
 
 
 class SwitchAct(
@@ -103,21 +109,19 @@ class SwitchAct(
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
-      result = '\n'.join(
-          context for context in contexts.values() if context
-      )
+      result = '\n'.join(context for context in contexts.values() if context)
     else:
-      order = self._component_order + tuple(sorted(
-          set(contexts.keys()) - set(self._component_order)))
-      result = '\n'.join(
-          contexts[name] for name in order if contexts[name]
+      order = self._component_order + tuple(
+          sorted(set(contexts.keys()) - set(self._component_order))
       )
+      result = '\n'.join(contexts[name] for name in order if contexts[name])
     return result.replace('\n\n\n', '\n\n')
 
   def _terminate(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_TERMINATE_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_TERMINATE_COMPONENT_KEY])
@@ -127,7 +131,8 @@ class SwitchAct(
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       termination_bool = chain_of_thought.yes_no_question(
-          question=action_spec.call_to_action)
+          question=action_spec.call_to_action
+      )
       if termination_bool:
         result = 'Yes'
       else:
@@ -139,7 +144,8 @@ class SwitchAct(
   def _make_observation(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY])
@@ -149,8 +155,8 @@ class SwitchAct(
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       result = chain_of_thought.open_question(
-          question=action_spec.call_to_action,
-          max_tokens=1000)
+          question=action_spec.call_to_action, max_tokens=1000
+      )
       self._log(result, chain_of_thought, action_spec)
 
     return result
@@ -158,7 +164,8 @@ class SwitchAct(
   def _next_acting(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_ACTING_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_NEXT_ACTING_COMPONENT_KEY])
@@ -168,8 +175,8 @@ class SwitchAct(
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       next_entity_index = chain_of_thought.multiple_choice_question(
-          question=action_spec.call_to_action,
-          answers=self._entity_names)
+          question=action_spec.call_to_action, answers=self._entity_names
+      )
       result = self._entity_names[next_entity_index]
       self._log(result, chain_of_thought, action_spec)
 
@@ -178,7 +185,8 @@ class SwitchAct(
   def _next_entity_action_spec(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY])
@@ -199,12 +207,15 @@ class SwitchAct(
           'multiple choice answer responses. For instance, a valid format '
           'could be indicated as '
           'prompt: Where will Edgar go?;;type: choice;;'
-          'options: home, London, Narnia, the third moon of Jupiter')
+          'options: home, London, Narnia, the third moon of Jupiter'
+      )
       next_action_spec_string = chain_of_thought.open_question(
-          question='In what action spec format should the next player respond?')
+          question='In what action spec format should the next player respond?'
+      )
       if 'type:' not in next_action_spec_string:
         next_action_spec_string = (
-            f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free')
+            f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
+        )
 
       result = next_action_spec_string
       self._log(result, chain_of_thought, action_spec)
@@ -214,7 +225,8 @@ class SwitchAct(
   def _resolve(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_RESOLUTION_COMPONENT_KEY in contexts:
       result = contexts[DEFAULT_RESOLUTION_COMPONENT_KEY]
@@ -223,7 +235,8 @@ class SwitchAct(
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       result = chain_of_thought.open_question(
-          question=action_spec.call_to_action)
+          question=action_spec.call_to_action
+      )
       self._log(result, chain_of_thought, action_spec)
 
     return result
@@ -231,7 +244,8 @@ class SwitchAct(
   def _next_game_master(
       self,
       contexts: entity_component.ComponentContextMapping,
-      action_spec: entity_lib.ActionSpec) -> str:
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
     context = self._context_for_action(contexts)
     if DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY in contexts:
       game_master = str(contexts[DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY])
@@ -241,8 +255,8 @@ class SwitchAct(
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       game_master_idx = chain_of_thought.multiple_choice_question(
-          question=action_spec.call_to_action,
-          answers=action_spec.options)
+          question=action_spec.call_to_action, answers=action_spec.options
+      )
       game_master = action_spec.options[game_master_idx]
       self._log(game_master, chain_of_thought, action_spec)
 
@@ -307,17 +321,19 @@ class SwitchAct(
     elif action_spec.output_type == entity_lib.OutputType.RESOLVE:
       return self._resolve(contexts, action_spec)
     else:
-      raise NotImplementedError(
-          (f'Unsupported output type: {action_spec.output_type}. '
-           'Supported output types are: FREE, CHOICE, FLOAT, TERMINATE, '
-           'MAKE_OBSERVATION, NEXT_ACTING, NEXT_ACTION_SPEC, NEXT_GAME_MASTER, '
-           'and RESOLVE.')
-      )
+      raise NotImplementedError((
+          f'Unsupported output type: {action_spec.output_type}. '
+          'Supported output types are: FREE, CHOICE, FLOAT, TERMINATE, '
+          'MAKE_OBSERVATION, NEXT_ACTING, NEXT_ACTION_SPEC, NEXT_GAME_MASTER, '
+          'and RESOLVE.'
+      ))
 
-  def _log(self,
-           result: str,
-           prompt: str | interactive_document.InteractiveDocument,
-           action_spec: entity_lib.ActionSpec):
+  def _log(
+      self,
+      result: str,
+      prompt: str | interactive_document.InteractiveDocument,
+      action_spec: entity_lib.ActionSpec,
+  ):
     if isinstance(prompt, interactive_document.InteractiveDocument):
       prompt = prompt.view().text().splitlines()
     self._logging_channel({

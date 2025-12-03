@@ -14,20 +14,20 @@
 
 """A simple acting component that aggregates contexts from components."""
 
-from collections.abc import Sequence, Mapping
+from collections.abc import Mapping, Sequence
+from typing import override
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
-from typing_extensions import override
 
 
 class ScriptedActComponent(
     entity_component.ActingComponent, entity_component.ComponentWithLogging
 ):
   """A an acting component that uses a script to generate actions.
-  
+
   This component is used to generate actions from a script. The script is a list
   of dictionaries, where each entry is a dictionary containing the name of the
   entity and the action to be performed.
@@ -58,7 +58,7 @@ class ScriptedActComponent(
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
-        `get_action_attempt` when the `action_spec` output type is `FREE`. 
+        `get_action_attempt` when the `action_spec` output type is `FREE`.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -89,15 +89,12 @@ class ScriptedActComponent(
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
-      return '\n'.join(
-          context for context in contexts.values() if context
-      )
+      return '\n'.join(context for context in contexts.values() if context)
     else:
-      order = self._component_order + tuple(sorted(
-          set(contexts.keys()) - set(self._component_order)))
-      return '\n'.join(
-          contexts[name] for name in order if contexts[name]
+      order = self._component_order + tuple(
+          sorted(set(contexts.keys()) - set(self._component_order))
       )
+      return '\n'.join(contexts[name] for name in order if contexts[name])
 
   @override
   def get_action_attempt(
@@ -138,11 +135,13 @@ class ScriptedActComponent(
     else:
       return ''
 
-  def _log(self,
-           result: str,
-           prompt: interactive_document.InteractiveDocument,
-           training_context: str,
-           training_target: str):
+  def _log(
+      self,
+      result: str,
+      prompt: interactive_document.InteractiveDocument,
+      training_context: str,
+      training_target: str,
+  ):
     self._logging_channel({
         'Summary': f'Action: {result}',
         'Value': result,

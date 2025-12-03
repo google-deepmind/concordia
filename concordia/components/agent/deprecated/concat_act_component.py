@@ -16,6 +16,7 @@
 
 
 from collections.abc import Sequence
+from typing import override
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -24,7 +25,6 @@ from concordia.typing.deprecated import entity as entity_lib
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import logging
 from concordia.utils import helper_functions
-from typing_extensions import override
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 
@@ -91,15 +91,12 @@ class ConcatActComponent(entity_component.ActingComponent):
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
     if self._component_order is None:
-      return '\n'.join(
-          context for context in contexts.values() if context
-      )
+      return '\n'.join(context for context in contexts.values() if context)
     else:
-      order = self._component_order + tuple(sorted(
-          set(contexts.keys()) - set(self._component_order)))
-      return '\n'.join(
-          contexts[name] for name in order if contexts[name]
+      order = self._component_order + tuple(
+          sorted(set(contexts.keys()) - set(self._component_order))
       )
+      return '\n'.join(contexts[name] for name in order if contexts[name])
 
   @override
   def get_action_attempt(
@@ -156,9 +153,7 @@ class ConcatActComponent(entity_component.ActingComponent):
           'Supported output types are: FREE, CHOICE, and FLOAT.'
       )
 
-  def _log(self,
-           result: str,
-           prompt: interactive_document.InteractiveDocument):
+  def _log(self, result: str, prompt: interactive_document.InteractiveDocument):
     self._logging_channel({
         'Key': self._pre_act_key,
         'Value': result,
@@ -171,4 +166,3 @@ class ConcatActComponent(entity_component.ActingComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     pass
-

@@ -16,12 +16,12 @@
 from collections.abc import Collection, Sequence
 import copy
 import time
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils import text
 from concordia.utils.deprecated import measurements as measurements_lib
-from typing_extensions import override
 from vertexai.preview.generative_models import Content
 from vertexai.preview.generative_models import GenerativeModel
 from vertexai.preview.generative_models import HarmBlockThreshold
@@ -33,30 +33,44 @@ MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 DEFAULT_HISTORY = (
     Content(
         role='user',
-        parts=[Part.from_dict({
-            'text': 'Continue my sentences. Never repeat their starts.'})]),
+        parts=[
+            Part.from_dict(
+                {'text': 'Continue my sentences. Never repeat their starts.'}
+            )
+        ],
+    ),
     Content(
         role='model',
-        parts=[Part.from_dict({
-            'text': ('I always continue user-provided text and never repeat ' +
-                     'what the user already said.')})]),
+        parts=[
+            Part.from_dict({
+                'text': (
+                    'I always continue user-provided text and never repeat '
+                    + 'what the user already said.'
+                )
+            })
+        ],
+    ),
     Content(
         role='user',
-        parts=[Part.from_dict({
-            'text': 'Question: Is Jake a turtle?\nAnswer: Jake is '})]),
-    Content(
-        role='model',
-        parts=[Part.from_dict({
-            'text': 'not a turtle.'})]),
+        parts=[
+            Part.from_dict(
+                {'text': 'Question: Is Jake a turtle?\nAnswer: Jake is '}
+            )
+        ],
+    ),
+    Content(role='model', parts=[Part.from_dict({'text': 'not a turtle.'})]),
     Content(
         role='user',
-        parts=[Part.from_dict({
-            'text': ('Question: What is Priya doing right now?\nAnswer: ' +
-                     'Priya is currently ')})]),
-    Content(
-        role='model',
-        parts=[Part.from_dict({
-            'text': 'sleeping.'})]),
+        parts=[
+            Part.from_dict({
+                'text': (
+                    'Question: What is Priya doing right now?\nAnswer: '
+                    + 'Priya is currently '
+                )
+            })
+        ],
+    ),
+    Content(role='model', parts=[Part.from_dict({'text': 'sleeping.'})]),
 )
 
 
@@ -113,7 +127,8 @@ class VertexLanguageModel(language_model.LanguageModel):
       raise NotImplementedError('Unclear how to set seed for cloud models.')
     self._n_calls += 1
     if self._sleep_periodically and (
-        self._n_calls % self._calls_between_sleeping == 0):
+        self._n_calls % self._calls_between_sleeping == 0
+    ):
       print('Sleeping for 10 seconds...')
       time.sleep(10)
 
@@ -129,7 +144,7 @@ class VertexLanguageModel(language_model.LanguageModel):
             'candidate_count': 1,
         },
         safety_settings=self._safety_settings,
-        stream=False
+        stream=False,
     )
     try:
       response = sample.candidates[0].content.parts[0].text
@@ -140,8 +155,8 @@ class VertexLanguageModel(language_model.LanguageModel):
       response = ''
     if self._measurements is not None:
       self._measurements.publish_datum(
-          self._channel,
-          {'raw_text_length': len(response)})
+          self._channel, {'raw_text_length': len(response)}
+      )
     return text.truncate(response, delimiters=terminators)
 
   @override
@@ -157,12 +172,14 @@ class VertexLanguageModel(language_model.LanguageModel):
     for attempts in range(MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
       temperature = sampling.dynamically_adjust_temperature(
-          attempts, MAX_MULTIPLE_CHOICE_ATTEMPTS)
+          attempts, MAX_MULTIPLE_CHOICE_ATTEMPTS
+      )
 
       question = (
-          'The following is a multiple choice question. Respond ' +
-          'with one of the possible choices, such as (a) or (b). ' +
-          f'Do not include reasoning.\n{prompt}')
+          'The following is a multiple choice question. Respond '
+          + 'with one of the possible choices, such as (a) or (b). '
+          + f'Do not include reasoning.\n{prompt}'
+      )
       sample = self.sample_text(
           question,
           max_tokens=256,  # This is wasteful, but Gemini blocks lower values.
@@ -178,12 +195,12 @@ class VertexLanguageModel(language_model.LanguageModel):
       else:
         if self._measurements is not None:
           self._measurements.publish_datum(
-              self._channel,
-              {'choices_calls': attempts})
+              self._channel, {'choices_calls': attempts}
+          )
         debug = {}
         return idx, responses[idx], debug
 
-    raise language_model.InvalidResponseError(
-        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
-         f'extracted: {answer}')
-    )
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))

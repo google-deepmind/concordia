@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for sequential (turn-based) simulation.
-"""
+"""Tests for sequential (turn-based) simulation."""
 
 import functools
+from typing import override
 
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.environment.engines import sequential
 from concordia.typing import entity as entity_lib
-from typing_extensions import override
 
 
 _ENTITY_NAMES = ('entity_0', 'entity_1')

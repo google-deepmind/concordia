@@ -16,25 +16,25 @@
 
 from collections.abc import Collection, Sequence
 import json
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 import ollama
-from typing_extensions import override
 
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
 _DEFAULT_TERMINATORS = ()
 _DEFAULT_SYSTEM_MESSAGE = (
-    'Continue the user\'s sentences. Never repeat their starts. For example, '
-    'when you see \'Bob is\', you should continue the sentence after '
-    'the word \'is\'. Here are some more examples: \'Question: Is Jake a '
-    'turtle?\nAnswer: Jake is \' should be completed as \'not a turtle.\' and '
-    '\'Question: What is Priya doing right now?\nAnswer: Priya is currently \' '
-    'should be completed as \'working on repairing the sink.\'. Notice that '
-    'it is OK to be creative with how you finish the user\'s sentences. The '
+    "Continue the user's sentences. Never repeat their starts. For example, "
+    "when you see 'Bob is', you should continue the sentence after "
+    "the word 'is'. Here are some more examples: 'Question: Is Jake a "
+    "turtle?\nAnswer: Jake is ' should be completed as 'not a turtle.' and "
+    "'Question: What is Priya doing right now?\nAnswer: Priya is currently ' "
+    "should be completed as 'working on repairing the sink.'. Notice that "
+    "it is OK to be creative with how you finish the user's sentences. The "
     'most important thing is to always continue in the same style as the user.'
 )
 
@@ -90,18 +90,20 @@ class OllamaLanguageModel(language_model.LanguageModel):
     response = self._client.generate(
         model=self._model_name,
         prompt=prompt_with_system_message,
-        options={'stop': terminators,
-                 'temperature': temperature,
-                 'top_p': top_p,
-                 'top_k': top_k},
+        options={
+            'stop': terminators,
+            'temperature': temperature,
+            'top_p': top_p,
+            'top_k': top_k,
+        },
         keep_alive='10m',
     )
     result = response['response']
 
     if self._measurements is not None:
       self._measurements.publish_datum(
-          self._channel,
-          {'raw_text_length': len(result)})
+          self._channel, {'raw_text_length': len(result)}
+      )
 
     return result
 
@@ -121,12 +123,15 @@ class OllamaLanguageModel(language_model.LanguageModel):
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
       temperature = sampling.dynamically_adjust_temperature(
-          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS)
+          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS
+      )
 
       response = self._client.generate(
           model=self._model_name,
-          prompt=(f'{prompt_with_system_message}.\n'
-                  f'Use the following json template: {json.dumps(template)}.'),
+          prompt=(
+              f'{prompt_with_system_message}.\n'
+              f'Use the following json template: {json.dumps(template)}.'
+          ),
           options={'stop': (), 'temperature': temperature},
           format='json',
           keep_alive='10m',
@@ -161,7 +166,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
         debug = {}
         return idx, responses[idx], debug
 
-    raise language_model.InvalidResponseError(
-        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
-         f'extracted: {answer}')
-    )
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))

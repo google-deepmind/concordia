@@ -19,14 +19,13 @@ To use this model, install concordia with the huggingface extra:
 """
 
 from collections.abc import Collection, Sequence
-from typing import Any
+from typing import Any, override
 
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-from typing_extensions import override
 
 
 _DEFAULT_SYSTEM_MESSAGE = (

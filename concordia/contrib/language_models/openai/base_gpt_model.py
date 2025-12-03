@@ -15,12 +15,12 @@
 """Base class for GPT models (OpenAI and Azure)."""
 
 from collections.abc import Collection, Sequence
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
 from openai import AzureOpenAI
 from openai import OpenAI
-from typing_extensions import override
 
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20

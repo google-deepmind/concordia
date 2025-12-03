@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Simultaneous engine.
-"""
+"""Simultaneous engine."""
 
 from collections.abc import Mapping, Sequence
 import functools
-from typing import Any, Callable
+from typing import Any, Callable, override
 
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
@@ -27,18 +26,20 @@ from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
 import termcolor
-from typing_extensions import override
 
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
-    make_observation_component.DEFAULT_CALL_TO_MAKE_OBSERVATION)
+    make_observation_component.DEFAULT_CALL_TO_MAKE_OBSERVATION
+)
 DEFAULT_CALL_TO_NEXT_ACTING = 'Which entities act next?'
 DEFAULT_CALL_TO_NEXT_ACTION_SPEC = (
-    next_acting_components.DEFAULT_CALL_TO_NEXT_ACTION_SPEC)
+    next_acting_components.DEFAULT_CALL_TO_NEXT_ACTION_SPEC
+)
 DEFAULT_CALL_TO_RESOLVE = 'Because of all that came before, what happens next?'
 DEFAULT_CALL_TO_CHECK_TERMINATION = 'Is the game/simulation finished?'
 DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
-    'Which rule set should we use for the next step?')
+    'Which rule set should we use for the next step?'
+)
 
 DEFAULT_ACT_COMPONENT_KEY = switch_act_component.DEFAULT_ACT_COMPONENT_KEY
 
@@ -80,14 +81,15 @@ class Simultaneous(engine_lib.Engine):
     self._call_to_check_termination = call_to_check_termination
     self._call_to_next_game_master = call_to_next_game_master
 
-  def make_observation(self,
-                       game_master: entity_lib.Entity,
-                       entity: entity_lib.Entity) -> str:
+  def make_observation(
+      self, game_master: entity_lib.Entity, entity: entity_lib.Entity
+  ) -> str:
     """Make an observation for a game object."""
     observation = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_make_observation.format(
-                name=entity.name),
+                name=entity.name
+            ),
             output_type=entity_lib.OutputType.MAKE_OBSERVATION,
         )
     )
@@ -100,12 +102,11 @@ class Simultaneous(engine_lib.Engine):
       entities: Sequence[entity_lib.Entity],
       log_entry: Mapping[str, Any] | None = None,
       log: list[Mapping[str, Any]] | None = None,
-  ) -> tuple[Sequence[entity_lib.Entity],
-             Sequence[entity_lib.ActionSpec]]:  # pytype: disable=signature-mismatch
+  ) -> tuple[
+      Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
+  ]:  # pytype: disable=signature-mismatch
     """Return the next action spec for an entity."""
-    entities_by_name = {
-        entity.name: entity for entity in entities
-    }
+    entities_by_name = {entity.name: entity for entity in entities}
     next_object_names_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_next_acting,
@@ -123,12 +124,14 @@ class Simultaneous(engine_lib.Engine):
       next_action_spec_string = game_master.act(
           action_spec=entity_lib.ActionSpec(
               call_to_action=self._call_to_next_action_spec.format(
-                  name=next_entity_name),
+                  name=next_entity_name
+              ),
               output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
           )
       )
       action_spec_by_name[next_entity_name] = engine_lib.action_spec_parser(
-          next_action_spec_string)
+          next_action_spec_string
+      )
 
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
@@ -136,18 +139,23 @@ class Simultaneous(engine_lib.Engine):
 
     return (
         [entities_by_name[entity_name] for entity_name in next_entity_names],
-        [action_spec_by_name[entity_name] for entity_name in next_entity_names]
+        [action_spec_by_name[entity_name] for entity_name in next_entity_names],
     )
 
-  def resolve(self,
-              game_master: entity_lib.Entity,
-              putative_event: str,
-              verbose: bool = False) -> None:
+  def resolve(
+      self,
+      game_master: entity_lib.Entity,
+      putative_event: str,
+      verbose: bool = False,
+  ) -> None:
     """Resolve an event."""
     if verbose:
-      print(termcolor.colored(
-          f'The suggested action or event to resolve was: {putative_event}',
-          _PRINT_COLOR))
+      print(
+          termcolor.colored(
+              f'The suggested action or event to resolve was: {putative_event}',
+              _PRINT_COLOR,
+          )
+      )
     game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -157,12 +165,13 @@ class Simultaneous(engine_lib.Engine):
     )
     game_master.observe(observation=f'{EVENT_TAG} {result}')
     if verbose:
-      print(termcolor.colored(
-          f'The resolved event was: {result}', _PRINT_COLOR))
+      print(
+          termcolor.colored(f'The resolved event was: {result}', _PRINT_COLOR)
+      )
 
-  def terminate(self,
-                game_master: entity_lib.Entity,
-                verbose: bool = False) -> bool:
+  def terminate(
+      self, game_master: entity_lib.Entity, verbose: bool = False
+  ) -> bool:
     """Decide if the episode should terminate."""
     should_terminate_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -172,14 +181,19 @@ class Simultaneous(engine_lib.Engine):
         )
     )
     if verbose:
-      print(termcolor.colored(
-          f'Terminate? {should_terminate_string}', _PRINT_COLOR))
+      print(
+          termcolor.colored(
+              f'Terminate? {should_terminate_string}', _PRINT_COLOR
+          )
+      )
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
-  def next_game_master(self,
-                       game_master: entity_lib.Entity,
-                       game_masters: Sequence[entity_lib.Entity],
-                       verbose: bool = False) -> entity_lib.Entity:
+  def next_game_master(
+      self,
+      game_master: entity_lib.Entity,
+      game_masters: Sequence[entity_lib.Entity],
+      verbose: bool = False,
+  ) -> entity_lib.Entity:
     """Select which game master to use for the next step."""
     if len(game_masters) == 1:
       return game_masters[0]
@@ -194,8 +208,11 @@ class Simultaneous(engine_lib.Engine):
         )
     )
     if verbose:
-      print(termcolor.colored(
-          f'Game master: {next_game_master_name}', _PRINT_COLOR))
+      print(
+          termcolor.colored(
+              f'Game master: {next_game_master_name}', _PRINT_COLOR
+          )
+      )
     if next_game_master_name not in game_masters_by_name:
       raise ValueError(
           f'Selected game master {next_game_master_name} not found in:'
@@ -259,7 +276,8 @@ class Simultaneous(engine_lib.Engine):
         skip_actions = False
 
       def _entity_act(
-          entity: entity_lib.Entity, action_spec: entity_lib.ActionSpec,
+          entity: entity_lib.Entity,
+          action_spec: entity_lib.ActionSpec,
           skip_actions: bool = False,
       ) -> str:
         """Make observation, get action and resolution for one entity."""

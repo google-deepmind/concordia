@@ -17,12 +17,12 @@
 from collections.abc import Collection, Sequence
 import random
 import time
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 from google.cloud import aiplatform
-from typing_extensions import override
 
 
 _MAX_ATTEMPTS = 20
@@ -51,24 +51,14 @@ def _wrap_prompt(prompt: str) -> str:
       "<start_of_turn>user Question: Is Jake a turtle?\n"
       "Answer: Jake is <end_of_turn>"
   )
-  turns.append(
-      "<start_of_turn>model not a turtle.<end_of_turn>"
-  )
+  turns.append("<start_of_turn>model not a turtle.<end_of_turn>")
   turns.append(
       "<start_of_turn>user Question: What is Priya doing right now?\n"
       "Answer: Priya is currently <end_of_turn>"
   )
-  turns.append(
-      "<start_of_turn>model sleeping.<end_of_turn>"
-  )
-  turns.append(
-      "<start_of_turn>user Question:\n"
-      + prompt
-      + "<end_of_turn>"
-  )
-  turns.append(
-      "<start_of_turn>model "
-  )
+  turns.append("<start_of_turn>model sleeping.<end_of_turn>")
+  turns.append("<start_of_turn>user Question:\n" + prompt + "<end_of_turn>")
+  turns.append("<start_of_turn>model ")
   return "\n".join(turns)
 
 
@@ -147,9 +137,7 @@ class VertexAI(language_model.LanguageModel):
       try:
         response = self._client.predict(
             endpoint=self._endpoint_name,
-            instances=[{
-                "inputs": _wrap_prompt(prompt)
-            }],
+            instances=[{"inputs": _wrap_prompt(prompt)}],
             parameters=self._parameters,
         ).predictions[0]
 

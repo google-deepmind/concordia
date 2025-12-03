@@ -19,7 +19,7 @@ from concurrent import futures
 import functools
 import json
 import threading
-from typing import Any, Callable, List, Tuple, cast
+from typing import Any, Callable, List, Tuple, cast, override
 
 from concordia.agents import entity_agent
 from concordia.components.game_master import event_resolution as event_resolution_components
@@ -30,7 +30,6 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.utils import concurrency
 import termcolor
-from typing_extensions import override
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG

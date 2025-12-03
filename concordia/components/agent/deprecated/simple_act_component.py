@@ -16,11 +16,11 @@
 
 
 from collections.abc import Sequence
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.typing.deprecated import entity as entity_lib
 from concordia.typing.deprecated import entity_component
-from typing_extensions import override
 
 
 class SimpleActComponent(entity_component.ActingComponent):
@@ -81,9 +81,7 @@ class SimpleActComponent(entity_component.ActingComponent):
       order = self._component_order + tuple(
           set(contexts.keys()) - set(self._component_order)
       )
-      return "\n".join(
-          f"{name}: {contexts[name]}" for name in order
-      )
+      return "\n".join(f"{name}: {contexts[name]}" for name in order)
 
   @override
   def get_action_attempt(
@@ -94,8 +92,8 @@ class SimpleActComponent(entity_component.ActingComponent):
     context = self._context_for_action(contexts)
     if action_spec.output_type == entity_lib.OutputType.CHOICE:
       _, response, _ = self._model.sample_choice(
-          f"{context}\n\n{action_spec.call_to_action}\n",
-          action_spec.options)
+          f"{context}\n\n{action_spec.call_to_action}\n", action_spec.options
+      )
       return response
     sampled_text = self._model.sample_text(
         f"{context}\n\n{action_spec.call_to_action}\n",

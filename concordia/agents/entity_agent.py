@@ -20,13 +20,12 @@ import functools
 import threading
 import traceback
 import types
-from typing import cast
+from typing import cast, override
 
 from concordia.components.agent import no_op_context_processor
 from concordia.typing import entity
 from concordia.typing import entity_component
 from concordia.utils import concurrency
-from typing_extensions import override
 
 # TODO: b/313715068 - remove disable once pytype bug is fixed.
 # pytype: disable=override-error
@@ -151,7 +150,8 @@ class EntityAgent(entity_component.EntityWithComponents):
         for component in unique_components
     }
     results_by_component_id = concurrency.run_tasks(
-        tasks_for_unique, executor=executor)
+        tasks_for_unique, executor=executor
+    )
 
     # 3. Construct the final results dictionary.
     final_results: dict[str, str] = {}
@@ -255,13 +255,12 @@ class EntityAgent(entity_component.EntityWithComponents):
       self._phase = phase
 
   def stateless_act(
-      self, action_spec: entity.ActionSpec,
+      self,
+      action_spec: entity.ActionSpec,
   ) -> str:
     """Helper for single stateless action, used by parallel_stateless_act."""
     if self.get_phase() != entity_component.Phase.PRE_ACT:
-      raise RuntimeError(
-          'Agent must be in PRE_ACT phase for stateless_act'
-      )
+      raise RuntimeError('Agent must be in PRE_ACT phase for stateless_act')
 
     # 1. PRE_ACT to gather context
     executor = futures.ThreadPoolExecutor()

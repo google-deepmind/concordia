@@ -16,6 +16,7 @@
 
 
 from collections.abc import Sequence
+from typing import override
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -24,7 +25,6 @@ from concordia.typing.deprecated import entity as entity_lib
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import logging
 from concordia.utils import helper_functions
-from typing_extensions import override
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 
@@ -157,9 +157,7 @@ class ActComponent(entity_component.ActingComponent):
           'Supported output types are: FREE, CHOICE, and FLOAT.'
       )
 
-  def _log(self,
-           result: str,
-           prompt: interactive_document.InteractiveDocument):
+  def _log(self, result: str, prompt: interactive_document.InteractiveDocument):
     self._logging_channel({
         'Key': self._pre_act_key,
         'Value': result,

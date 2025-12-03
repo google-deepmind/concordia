@@ -17,13 +17,13 @@
 from collections.abc import Collection, Sequence
 import os
 import time
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 import mistralai
 from mistralai import models
-from typing_extensions import override
 
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
@@ -102,8 +102,10 @@ class MistralLanguageModel(language_model.LanguageModel):
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print('Sleeping for 10 seconds... ' +
-                f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
+          print(
+              'Sleeping for 10 seconds... '
+              + f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}'
+          )
         time.sleep(10)
       try:
         response = self._client.fim.complete(
@@ -149,7 +151,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             content=(
                 'You always continue sentences provided by the user and you '
                 'never repeat what the user already said.'
-            )
+            ),
         ),
         models.UserMessage(
             role='user',
@@ -169,8 +171,10 @@ class MistralLanguageModel(language_model.LanguageModel):
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print('Sleeping for 10 seconds... ' +
-                f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}')
+          print(
+              'Sleeping for 10 seconds... '
+              + f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}'
+          )
         time.sleep(10)
       try:
         response = self._client.chat.complete(
@@ -189,7 +193,7 @@ class MistralLanguageModel(language_model.LanguageModel):
         return response.choices[0].message.content
 
     raise language_model.InvalidResponseError(
-        (f'Too many chat attempts.\n Prompt: {prompt}')
+        f'Too many chat attempts.\n Prompt: {prompt}'
     )
 
   @override
@@ -242,19 +246,15 @@ class MistralLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    prompt = (
-        prompt
-        + '\nChoose one:\n'
-        + '\n'.join(responses)
-        + '\nchoice=('
-    )
+    prompt = prompt + '\nChoose one:\n' + '\n'.join(responses) + '\nchoice=('
 
     sample = ''
     answer = ''
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
       temperature = sampling.dynamically_adjust_temperature(
-          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS)
+          attempts, _MAX_MULTIPLE_CHOICE_ATTEMPTS
+      )
 
       if self._completion_for_choice:
         sample = self._complete_text(
@@ -285,7 +285,7 @@ class MistralLanguageModel(language_model.LanguageModel):
         debug = {}
         return idx, responses[idx], debug
 
-    raise language_model.InvalidResponseError(
-        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
-         f'extracted: {answer}')
-    )
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))

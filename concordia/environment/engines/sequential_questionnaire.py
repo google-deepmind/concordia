@@ -18,7 +18,7 @@ from collections.abc import Mapping, Sequence
 from concurrent import futures
 import functools
 import json
-from typing import Any, Callable, List, Tuple, cast
+from typing import Any, Callable, List, Tuple, cast, override
 
 from absl import logging
 from concordia.agents import entity_agent
@@ -29,7 +29,6 @@ from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
 import termcolor
-from typing_extensions import override
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG

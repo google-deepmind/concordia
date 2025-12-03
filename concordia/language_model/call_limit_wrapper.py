@@ -15,10 +15,9 @@
 """Wrapper to limit calls to an underlying language model."""
 
 from collections.abc import Collection, Mapping, Sequence
-from typing import Any
+from typing import Any, override
 
 from concordia.language_model import language_model
-from typing_extensions import override
 
 
 class CallLimitLanguageModel(language_model.LanguageModel):

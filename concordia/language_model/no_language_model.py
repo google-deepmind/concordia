@@ -16,11 +16,10 @@
 
 from collections.abc import Collection, Mapping, Sequence
 import random
-from typing import Any
+from typing import Any, override
 
 from concordia.language_model import language_model
 import numpy as np
-from typing_extensions import override
 
 
 class NoLanguageModel(language_model.LanguageModel):
@@ -30,6 +29,7 @@ class NoLanguageModel(language_model.LanguageModel):
       self,
   ) -> None:
     """Debuging model that always returns empty strings and choice 0."""
+
   pass
 
   @override

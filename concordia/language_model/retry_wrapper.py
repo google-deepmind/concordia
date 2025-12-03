@@ -14,12 +14,11 @@
 
 """Wrapper to retry calls to an underlying language model."""
 
-from collections.abc import Collection, Sequence, Mapping
-from typing import Any, Type
+from collections.abc import Collection, Mapping, Sequence
+from typing import Any, Type, override
 
 from concordia.language_model import language_model
 import retry
-from typing_extensions import override
 
 
 class RetryLanguageModel(language_model.LanguageModel):

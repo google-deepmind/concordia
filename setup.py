@@ -76,7 +76,6 @@ setuptools.setup(
         'reactivex',
         'retry',
         'termcolor',
-        'typing-extensions',
     ),
     extras_require={
         'amazon': [

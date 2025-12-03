@@ -16,13 +16,13 @@
 
 from collections.abc import Collection, Sequence
 import os
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import transformers
-from typing_extensions import override
 
 
 class PyTorchGemmaLanguageModel(language_model.LanguageModel):
@@ -34,13 +34,13 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
       *,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
-      device: str = 'cpu'
+      device: str = 'cpu',
   ) -> None:
     """Initializes the instance.
 
     Args:
-        model_name: The local language model to use. For more details,
-          see transformers.AutoModelForCausalLM at huggingface.
+        model_name: The local language model to use. For more details, see
+          transformers.AutoModelForCausalLM at huggingface.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
         device: Specifies whether to use cpu or cuda for model processing.
@@ -52,16 +52,19 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
     self._model = transformers.GemmaForCausalLM.from_pretrained(
-        self._model_name).to(self._device)
+        self._model_name
+    ).to(self._device)
     self._tokenizer = transformers.AutoTokenizer.from_pretrained(
-        self._tokenizer_name)
+        self._tokenizer_name
+    )
 
     self._measurements = measurements
     self._channel = channel
 
     self._text_system_message = (
-        'You always continue sentences provided by the user and you never ' +
-        'repeat what the user already said.')
+        'You always continue sentences provided by the user and you never '
+        + 'repeat what the user already said.'
+    )
 
   @override
   def sample_text(
@@ -103,7 +106,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     # It would be better to implement terminators in the model generation, but
     # this is a quick way to implement our API for now.
     for terminator in terminators:
-      response = response[:response.find(terminator)]
+      response = response[: response.find(terminator)]
 
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -131,7 +134,8 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     sample = self._tokenizer.batch_decode(
         [np.argmax(generated_tokens.scores[0][0].cpu())],
         skip_special_tokens=True,
-        clean_up_tokenization_spaces=False)[0]
+        clean_up_tokenization_spaces=False,
+    )[0]
     answer = sampling.extract_choice_response(sample)
     try:
       idx = responses.index(answer)

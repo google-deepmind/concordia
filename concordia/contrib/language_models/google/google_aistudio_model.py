@@ -18,13 +18,13 @@ from collections.abc import Collection, Mapping, Sequence
 import copy
 import os
 import time
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils import text
 from concordia.utils.deprecated import measurements as measurements_lib
 import google.generativeai as genai
-from typing_extensions import override
 
 
 MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
@@ -33,15 +33,20 @@ DEFAULT_HISTORY = [
     {
         'role': 'user',
         'parts': [
-            ('You always continue sentences provided by the user, and you ' +
-             'never repeat what the user already said.'),
+            (
+                'You always continue sentences provided by the user, and you '
+                + 'never repeat what the user already said.'
+            ),
         ],
     },
     {
         'role': 'model',
         'parts': [
-            ('I always continue user-provided text and never repeat what the ' +
-             'user already said.'),
+            (
+                'I always continue user-provided text and never repeat what'
+                ' the '
+                + 'user already said.'
+            ),
         ],
     },
     {
@@ -59,8 +64,10 @@ DEFAULT_HISTORY = [
     {
         'role': 'user',
         'parts': [
-            ('Question: What is Priya doing right now?\n'
-             'Answer: Priya is currently '),
+            (
+                'Question: What is Priya doing right now?\n'
+                'Answer: Priya is currently '
+            ),
         ],
     },
     {
@@ -155,7 +162,8 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
 
     self._n_calls += 1
     if self._sleep_periodically and (
-        self._n_calls % self._calls_between_sleeping == 0):
+        self._n_calls % self._calls_between_sleeping == 0
+    ):
       print('Sleeping for 10 seconds...')
       time.sleep(10)
 
@@ -172,7 +180,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
             'response_mime_type': 'text/plain',
         },
         safety_settings=self._safety_settings,
-        stream=False
+        stream=False,
     )
     try:
       response = sample.candidates[0].content.parts[0].text
@@ -183,8 +191,8 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
       response = ''
     if self._measurements is not None:
       self._measurements.publish_datum(
-          self._channel,
-          {'raw_text_length': len(response)})
+          self._channel, {'raw_text_length': len(response)}
+      )
     return text.truncate(response, delimiters=terminators)
 
   @override
@@ -200,12 +208,14 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     for attempts in range(MAX_MULTIPLE_CHOICE_ATTEMPTS):
       # Increase temperature after the first failed attempt.
       temperature = sampling.dynamically_adjust_temperature(
-          attempts, MAX_MULTIPLE_CHOICE_ATTEMPTS)
+          attempts, MAX_MULTIPLE_CHOICE_ATTEMPTS
+      )
 
       question = (
-          'The following is a multiple choice question. Respond ' +
-          'with one of the possible choices, such as (a) or (b). ' +
-          f'Do not include reasoning.\n{prompt}')
+          'The following is a multiple choice question. Respond '
+          + 'with one of the possible choices, such as (a) or (b). '
+          + f'Do not include reasoning.\n{prompt}'
+      )
       sample = self.sample_text(
           question,
           max_tokens=256,  # This is wasteful, but Gemini blocks lower values.
@@ -221,12 +231,12 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
       else:
         if self._measurements is not None:
           self._measurements.publish_datum(
-              self._channel,
-              {'choices_calls': attempts})
+              self._channel, {'choices_calls': attempts}
+          )
         debug = {}
         return idx, responses[idx], debug
 
-    raise language_model.InvalidResponseError(
-        (f'Too many multiple choice attempts.\nLast attempt: {sample}, ' +
-         f'extracted: {answer}')
-    )
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))

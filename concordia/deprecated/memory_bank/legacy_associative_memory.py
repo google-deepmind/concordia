@@ -17,13 +17,12 @@
 from collections.abc import Sequence
 import dataclasses
 import datetime
-from typing import Any, Mapping
+from typing import Any, Mapping, override
 
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import memory as memory_lib
 import pandas as pd
-from typing_extensions import override
 
 
 # These are dummy scoring functions that will be used to know the appropriate
@@ -116,13 +115,14 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       sort_by_time: bool = True,
   ) -> Sequence[str]:
     """Returns all memories in the memory bank as a sequence of strings."""
-    return self._memory.get_all_memories_as_text(add_time=add_time,
-                                                 sort_by_time=sort_by_time)
+    return self._memory.get_all_memories_as_text(
+        add_time=add_time, sort_by_time=sort_by_time
+    )
 
   @override
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the memory bank.
-    
+
     See `set_state` for details. The default implementation returns an empty
     dictionary.
     """
@@ -131,12 +131,12 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
   @override
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the memory bank.
-    
-    This is used to restore the state of the memory bank. The state is assumed 
+
+    This is used to restore the state of the memory bank. The state is assumed
     to be the one returned by `get_state`.
-    The state does not need to contain any information that is passed in the 
+    The state does not need to contain any information that is passed in the
     initialization of the memory bank (e.g. embedder, clock, imporance etc.)
-    It is assumed that set_state is called on the memory bank after it was 
+    It is assumed that set_state is called on the memory bank after it was
     initialized with the same parameters as the one used to restore it.
     The default implementation does nothing, which implies that the memory bank
     does not have any state.
@@ -154,7 +154,7 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       # do more with obj
       obj.set_state(state)
       # obj will now behave the same as it did before.
-    
+
     Note that the state does not need to contain any information that is passed
     in __init__ (e.g. the embedder, clock, imporance etc.)
 
@@ -165,7 +165,8 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
     self._memory.set_state(state)
 
   def _texts_with_constant_score(
-      self, texts: Sequence[str]) -> Sequence[memory_lib.MemoryResult]:
+      self, texts: Sequence[str]
+  ) -> Sequence[memory_lib.MemoryResult]:
     return [memory_lib.MemoryResult(text=t, score=0.0) for t in texts]
 
   def retrieve(
@@ -175,30 +176,36 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
       limit: int,
   ) -> Sequence[memory_lib.MemoryResult]:
     if isinstance(scoring_fn, RetrieveAssociative):
-      return self._texts_with_constant_score(self._memory.retrieve_associative(
-          query=query,
-          k=limit,
-          use_recency=scoring_fn.use_recency,
-          use_importance=scoring_fn.use_importance,
-          add_time=scoring_fn.add_time,
-          sort_by_time=scoring_fn.sort_by_time,
-      ))
+      return self._texts_with_constant_score(
+          self._memory.retrieve_associative(
+              query=query,
+              k=limit,
+              use_recency=scoring_fn.use_recency,
+              use_importance=scoring_fn.use_importance,
+              add_time=scoring_fn.add_time,
+              sort_by_time=scoring_fn.sort_by_time,
+          )
+      )
     elif isinstance(scoring_fn, RetrieveAssociativeWithoutRecencyOrImportance):
-      return self._texts_with_constant_score(self._memory.retrieve_associative(
-          query=query,
-          k=limit,
-          use_recency=scoring_fn.use_recency,
-          use_importance=scoring_fn.use_importance,
-          add_time=scoring_fn.add_time,
-          sort_by_time=scoring_fn.sort_by_time,
-      ))
+      return self._texts_with_constant_score(
+          self._memory.retrieve_associative(
+              query=query,
+              k=limit,
+              use_recency=scoring_fn.use_recency,
+              use_importance=scoring_fn.use_importance,
+              add_time=scoring_fn.add_time,
+              sort_by_time=scoring_fn.sort_by_time,
+          )
+      )
     elif isinstance(scoring_fn, RetrieveRegex):
       del limit
-      return self._texts_with_constant_score(self._memory.retrieve_by_regex(
-          regex=query,
-          add_time=scoring_fn.add_time,
-          sort_by_time=scoring_fn.sort_by_time,
-      ))
+      return self._texts_with_constant_score(
+          self._memory.retrieve_by_regex(
+              regex=query,
+              add_time=scoring_fn.add_time,
+              sort_by_time=scoring_fn.sort_by_time,
+          )
+      )
     elif isinstance(scoring_fn, RetrieveTimeInterval):
       del query, limit
       return self._texts_with_constant_score(
@@ -206,22 +213,30 @@ class AssociativeMemoryBank(memory_lib.MemoryBank):
               time_from=scoring_fn.time_from,
               time_until=scoring_fn.time_until,
               add_time=scoring_fn.add_time,
-          ))
+          )
+      )
     elif isinstance(scoring_fn, RetrieveRecent):
       del query
-      return self._texts_with_constant_score(self._memory.retrieve_recent(
-          k=limit,
-          add_time=scoring_fn.add_time,
-      ))
+      return self._texts_with_constant_score(
+          self._memory.retrieve_recent(
+              k=limit,
+              add_time=scoring_fn.add_time,
+          )
+      )
     elif isinstance(scoring_fn, RetrieveRecentWithImportance):
       del query
       return [
-          memory_lib.MemoryResult(text=t, score=s) for t, s in zip(
+          memory_lib.MemoryResult(text=t, score=s)
+          for t, s in zip(
               *self._memory.retrieve_recent_with_importance(
-                  k=limit, add_time=scoring_fn.add_time))]
+                  k=limit, add_time=scoring_fn.add_time
+              )
+          )
+      ]
     else:
       raise ValueError(
           'Unknown scoring function. Only instances of RetrieveAssociative, '
           'RetrieveAssociativeWithoutRecencyOrImportance, '
           'RetrieveRegex, RetrieveTimeInterval, RetrieveRecent, and '
-          'RetrieveRecentWithImportance are supported.')
+          'RetrieveRecentWithImportance are supported.'
+      )

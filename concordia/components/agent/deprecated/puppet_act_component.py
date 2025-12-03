@@ -16,6 +16,7 @@
 
 
 from collections.abc import Mapping, Sequence
+from typing import override
 
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -24,7 +25,6 @@ from concordia.typing.deprecated import entity as entity_lib
 from concordia.typing.deprecated import entity_component
 from concordia.typing.deprecated import logging
 from concordia.utils import helper_functions
-from typing_extensions import override
 
 DEFAULT_PRE_ACT_KEY = 'Act'
 
@@ -108,8 +108,7 @@ class PuppetActComponent(entity_component.ActingComponent):
       return '\n'.join(contexts[name] for name in order if contexts[name])
 
   def _format_call_to_action(self, call_to_action: str) -> str:
-    """Fill agent name {name} and time interval {timedelta} in call to action.
-    """
+    """Fill agent name {name} and time interval {timedelta} in call to action."""
     return call_to_action.format(
         name=self.get_entity().name,
         timedelta=helper_functions.timedelta_to_readable_str(
@@ -141,13 +140,17 @@ class PuppetActComponent(entity_component.ActingComponent):
       )
       output = formatted_fixed_responses[call_to_action]
       if action_spec.output_type == entity_lib.OutputType.FREE:
-        _ = prompt.open_question(question=call_to_action,
-                                 forced_response=output,
-                                 question_label='Exercise',)
+        _ = prompt.open_question(
+            question=call_to_action,
+            forced_response=output,
+            question_label='Exercise',
+        )
         self._log(output, prompt)
       else:
-        _ = prompt.open_question(question=call_to_action,
-                                 forced_response=output,)
+        _ = prompt.open_question(
+            question=call_to_action,
+            forced_response=output,
+        )
         self._log(output, prompt)
       if (
           action_spec.output_type == entity_lib.OutputType.CHOICE
@@ -174,13 +177,17 @@ class PuppetActComponent(entity_component.ActingComponent):
           )
           output = formatted_fixed_responses[target]
           if action_spec.output_type == entity_lib.OutputType.FREE:
-            _ = prompt.open_question(question=target,
-                                     forced_response=output,
-                                     question_label='Exercise',)
+            _ = prompt.open_question(
+                question=target,
+                forced_response=output,
+                question_label='Exercise',
+            )
             self._log(output, prompt)
           else:
-            _ = prompt.open_question(question=target,
-                                     forced_response=output,)
+            _ = prompt.open_question(
+                question=target,
+                forced_response=output,
+            )
             self._log(output, prompt)
           if (
               action_spec.output_type == entity_lib.OutputType.CHOICE

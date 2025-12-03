@@ -46,11 +46,10 @@ Example usage:
 """
 
 from collections.abc import Collection, Sequence
-from typing import Any, Mapping
+from typing import Any, Mapping, override
 
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
-from typing_extensions import override
 from vllm import LLM
 from vllm import SamplingParams
 from vllm.lora.request import LoRARequest

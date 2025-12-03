@@ -14,9 +14,9 @@
 """A mock Language Model."""
 
 from collections.abc import Collection, Sequence
+from typing import override
 
 from concordia.language_model import language_model
-from typing_extensions import override
 
 
 class MockModel(language_model.LanguageModel):

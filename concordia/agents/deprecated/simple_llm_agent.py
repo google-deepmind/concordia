@@ -15,11 +15,11 @@
 """A simple LLM agent."""
 import collections
 import functools
+from typing import override
 
 from concordia.language_model import language_model
 from concordia.typing.deprecated import agent
 from concordia.typing.deprecated import entity
-from typing_extensions import override
 
 # TODO: b/313715068 - remove disable once pytype bug is fixed.
 # pytype: disable=override-error
@@ -45,11 +45,11 @@ class SimpleLLMAgent(agent.GenerativeAgent):
       memories_length: int = 10,
   ):
     """Initializes the agent.
-    
+
     Args:
       agent_name: The name of the agent.
-      agent_background: The background intormation of the agent. This is used
-        to prompt the model to engage in the roleplaying aspect of Concordia. It
+      agent_background: The background intormation of the agent. This is used to
+        prompt the model to engage in the roleplaying aspect of Concordia. It
         will be passed to the model at the top of the prompt when requesting an
         action.
       model: The language model to use for the agent.
@@ -77,13 +77,15 @@ class SimpleLLMAgent(agent.GenerativeAgent):
           f"Your name is {self.name}\n"
           f"Your last observations are:\n{previous_observations}\n"
           f"{action_spec.call_to_action}\n",
-          action_spec.options)
+          action_spec.options,
+      )
       return response
     sampled_text = self._model.sample_text(
         f"{self._agent_background}\n"
         f"Your name is {self.name}\n"
         f"Your last observations are:\n{previous_observations}\n"
-        f"{action_spec.call_to_action}\n")
+        f"{action_spec.call_to_action}\n"
+    )
     if action_spec.output_type == entity.OutputType.FREE:
       return sampled_text
     elif action_spec.output_type == entity.OutputType.FLOAT:

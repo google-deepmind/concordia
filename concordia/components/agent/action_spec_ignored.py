@@ -16,11 +16,10 @@
 
 import abc
 import threading
-from typing import Final, Any
+from typing import Any, Final, override
 
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
-from typing_extensions import override
 
 
 class ActionSpecIgnored(
@@ -64,7 +63,8 @@ class ActionSpecIgnored(
       raise ValueError(
           "You can only access the pre-act value in the `PRE_ACT` or "
           "`POST_ACT` phase. The entity is currently in the "
-          f"{self.get_entity().get_phase()} phase.")
+          f"{self.get_entity().get_phase()} phase."
+      )
 
     with self._lock:
       if self._pre_act_value is None:
@@ -88,8 +88,11 @@ class ActionSpecIgnored(
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
-    return self.get_entity().get_component(
-        component_name, type_=ActionSpecIgnored).get_pre_act_value()
+    return (
+        self.get_entity()
+        .get_component(component_name, type_=ActionSpecIgnored)
+        .get_pre_act_value()
+    )
 
   @override
   def set_state(self, state: entity_component.ComponentState) -> Any:

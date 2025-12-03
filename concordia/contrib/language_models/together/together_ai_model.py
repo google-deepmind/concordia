@@ -36,6 +36,7 @@ import os
 import random
 import re
 import time
+from typing import override
 
 from absl import logging
 from concordia.language_model import language_model
@@ -43,7 +44,6 @@ from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
 import numpy as np
 import together
-from typing_extensions import override
 
 
 _MAX_ATTEMPTS = 20
@@ -99,14 +99,14 @@ def _ensure_prompt_not_too_long(
     prompt: str,
     num_response_tokens: int,
     guess_chars_per_token: int = _GUESS_CHARS_PER_TOKEN,
-    max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_DEFAULT) -> str:
+    max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_DEFAULT,
+) -> str:
   r"""Ensures the prompt is not too long for Together AI\'s Gemma-2 models."""
   num_initial_chars = _NUM_INITIAL_TOKENS * guess_chars_per_token
   max_prompt_tokens = max_allowed_tokens - num_response_tokens
   if max_prompt_tokens <= 0:
     raise ValueError(
-        f'Cannot reserve {num_response_tokens} of {max_allowed_tokens} '
-        'tokens.'
+        f'Cannot reserve {num_response_tokens} of {max_allowed_tokens} tokens.'
     )
   max_prompt_chars = max_prompt_tokens * guess_chars_per_token
   if len(prompt) <= max_prompt_chars:
@@ -117,16 +117,18 @@ def _ensure_prompt_not_too_long(
   if max_prompt_chars > num_initial_chars:
     num_final_chars = max_prompt_chars - num_initial_chars
     new_prompt = prompt[:num_initial_chars] + prompt[-num_final_chars:]
-    logging.info('Prompt too long, trimmed it down, while keeping start and '
-                 'end, resulting in %d characters', len(new_prompt))
+    logging.info(
+        'Prompt too long, trimmed it down, while keeping start and '
+        'end, resulting in %d characters',
+        len(new_prompt),
+    )
     logging.debug('Trimmed prompt: %s', new_prompt)
     return new_prompt
 
   # This happens if len(prompt) > max_prompt_chars <= num_initial_chars.
   new_prompt = prompt[-max_prompt_chars:]
   logging.info(
-      'Prompt too long, truncated it to last %d characters.',
-      max_prompt_chars
+      'Prompt too long, truncated it to last %d characters.', max_prompt_chars
   )
   logging.debug('Truncated prompt: %s', new_prompt)
   return new_prompt
@@ -214,8 +216,9 @@ class DefaultCompletion(language_model.LanguageModel):
     result = ''
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
-        seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
-                            random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
+        seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
+            -_JITTER_SECONDS, _JITTER_SECONDS
+        )
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
               f'Sleeping for {seconds_to_sleep} seconds... '
@@ -235,10 +238,12 @@ class DefaultCompletion(language_model.LanguageModel):
             seed=seed,
             stream=False,
         )
-      except (together.error.RateLimitError,
-              together.error.APIError,
-              together.error.ServiceUnavailableError,
-              together.error.InvalidRequestError) as err:
+      except (
+          together.error.RateLimitError,
+          together.error.APIError,
+          together.error.ServiceUnavailableError,
+          together.error.InvalidRequestError,
+      ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Text exception prompt: {prompt}')
@@ -252,7 +257,8 @@ class DefaultCompletion(language_model.LanguageModel):
               original_prompt,
               max_tokens,
               guess_chars_per_token=1,
-              max_allowed_tokens=self._max_allowed_tokens)
+              max_allowed_tokens=self._max_allowed_tokens,
+          )
         continue
       else:
         result = response.choices[0].message.content
@@ -266,8 +272,7 @@ class DefaultCompletion(language_model.LanguageModel):
 
     return result
 
-  def _sample_choice(
-      self, prompt: str, response: str) -> float:
+  def _sample_choice(self, prompt: str, response: str) -> float:
     """Returns the log probability of the prompt and response."""
     original_prompt = prompt
     augmented_prompt = _ensure_prompt_not_too_long(
@@ -278,8 +283,9 @@ class DefaultCompletion(language_model.LanguageModel):
     attempts = 0
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
-        seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
-                            random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
+        seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
+            -_JITTER_SECONDS, _JITTER_SECONDS
+        )
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
               f'Sleeping for {seconds_to_sleep} seconds.. '
@@ -297,10 +303,12 @@ class DefaultCompletion(language_model.LanguageModel):
             stream=False,
             echo=True,
         )
-      except (together.error.RateLimitError,
-              together.error.APIError,
-              together.error.ServiceUnavailableError,
-              together.error.InvalidRequestError) as err:
+      except (
+          together.error.RateLimitError,
+          together.error.APIError,
+          together.error.ServiceUnavailableError,
+          together.error.InvalidRequestError,
+      ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Choice exception prompt: {augmented_prompt}')
@@ -322,10 +330,10 @@ class DefaultCompletion(language_model.LanguageModel):
         tokens = result.choices[0].logprobs.tokens[:-1]
 
         # Only sum the logprobs for tokens corresponding to the response.
-        response_start_index = _find_concatenated_subsequence(tokens,
-                                                              response)
-        response_log_probs = (
-            result.choices[0].logprobs.token_logprobs[response_start_index:])
+        response_start_index = _find_concatenated_subsequence(tokens, response)
+        response_log_probs = result.choices[0].logprobs.token_logprobs[
+            response_start_index:
+        ]
         score = sum(response_log_probs)
 
         return score
@@ -405,7 +413,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
   ) -> str:
     original_prompt = prompt
     prompt = _ensure_prompt_not_too_long(
-        prompt, max_tokens, max_allowed_tokens=self._max_allowed_tokens)
+        prompt, max_tokens, max_allowed_tokens=self._max_allowed_tokens
+    )
     messages = [
         {
             'role': 'user',
@@ -436,8 +445,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
     reasoning = ''
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
-        seconds_to_sleep = (_SECONDS_TO_SLEEP_WHEN_RATE_LIMITED +
-                            random.uniform(-_JITTER_SECONDS, _JITTER_SECONDS))
+        seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
+            -_JITTER_SECONDS, _JITTER_SECONDS
+        )
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
               f'Sleeping for {seconds_to_sleep} seconds... '
@@ -458,10 +468,12 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             top_k=top_k,
             reasoning_effort='low',
         )
-      except (together.error.RateLimitError,
-              together.error.APIError,
-              together.error.ServiceUnavailableError,
-              together.error.InvalidRequestError) as err:
+      except (
+          together.error.RateLimitError,
+          together.error.APIError,
+          together.error.ServiceUnavailableError,
+          together.error.InvalidRequestError,
+      ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Text exception prompt: {prompt}')
@@ -475,7 +487,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
               original_prompt,
               max_tokens,
               guess_chars_per_token=1,
-              max_allowed_tokens=self._max_allowed_tokens)
+              max_allowed_tokens=self._max_allowed_tokens,
+          )
         continue
       else:
         result = response.choices[0].message.content
@@ -485,8 +498,7 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel,
-          {'raw_text_length': len(result),
-           'reasoning': reasoning},
+          {'raw_text_length': len(result), 'reasoning': reasoning},
       )
 
     return result
@@ -561,7 +573,8 @@ class Base(language_model.LanguageModel):
     # Use model-specific max_allowed_tokens if available, otherwise use the
     # default.
     max_allowed_tokens = _MAX_ALLOWED_TOKENS_OVERRIDES.get(
-        model_name, _MAX_ALLOWED_TOKENS_DEFAULT)
+        model_name, _MAX_ALLOWED_TOKENS_DEFAULT
+    )
 
     self._model = None
     if model_name.startswith('google/'):
