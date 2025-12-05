@@ -221,16 +221,14 @@ class Questionnaire(entity_component.ContextComponent):
     """Returns the answers."""
     return self._answers
 
-  def get_questionnaires_results(self) -> pd.DataFrame | None:
-    """Aggregates questionnaires results by player and dimension.
+  def get_aggregated_results(self) -> dict[str, dict[str, float]]:
+    """Returns the aggregated results by player and dimension.
 
     Returns:
-      A DataFrame with players as rows and aggregated dimension scores as
-      columns,
-      or None if no results are found.
+      A dictionary mapping player names to a dictionary of dimension scores.
     """
     player_names = list(self._answers)
-    all_player_results = []
+    all_player_results = {}
 
     for player in player_names:
       player_results = {}
@@ -239,13 +237,30 @@ class Questionnaire(entity_component.ContextComponent):
           player_q_answers = self._answers[player][q_name]
           aggregated = questionnaire.aggregate_results(player_q_answers)
           player_results.update(aggregated)
-      all_player_results.append(player_results)
+      all_player_results[player] = player_results
 
-    if not all_player_results:
+    return all_player_results
+
+  def get_questionnaires_results(self) -> pd.DataFrame | None:
+    """Aggregates questionnaires results by player and dimension.
+
+    Returns:
+      A DataFrame with players as rows and aggregated dimension scores as
+      columns,
+      or None if no results are found.
+    """
+    all_player_results_dict = self.get_aggregated_results()
+
+    if not all_player_results_dict:
       print('No questionnaire results found to aggregate.')
       return None
 
-    df = pd.DataFrame(all_player_results, index=player_names)
+    player_names = list(self._answers)
+    all_player_results_list = [
+        all_player_results_dict[name] for name in player_names
+    ]
+
+    df = pd.DataFrame(all_player_results_list, index=player_names)
     return df
 
   def plot_all_results(

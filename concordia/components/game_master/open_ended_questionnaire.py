@@ -276,13 +276,11 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
     """Returns the answers."""
     return self._answers
 
-  def get_questionnaires_results(self) -> pd.DataFrame | None:
-    """Aggregates questionnaires results by player and dimension.
+  def get_aggregated_results(self) -> list[dict[str, Any]]:
+    """Returns the aggregated results by player and dimension.
 
     Returns:
-      A DataFrame with players as rows and aggregated dimension scores as
-      columns,
-      or None if no results are found.
+      A list of dictionaries, each representing a single answer/result row.
     """
     data = []
     for step_index, step_answers in enumerate(self._answers):
@@ -303,7 +301,17 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
                 ),  # This is a list of dictionaries
             }
             data.append(row)
+    return data
 
+  def get_questionnaires_results(self) -> pd.DataFrame | None:
+    """Aggregates questionnaires results by player and dimension.
+
+    Returns:
+      A DataFrame with players as rows and aggregated dimension scores as
+      columns,
+      or None if no results are found.
+    """
+    data = self.get_aggregated_results()
     df = pd.DataFrame(data)
 
     # Flatten the choices list into separate columns if the 'choices' exists
