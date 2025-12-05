@@ -71,6 +71,27 @@ installation as follows:
     pytest --pyargs concordia
     ```
 
+### macOS and Windows Installation
+
+The default `requirements.txt` includes GPU-specific dependencies (vLLM, CUDA)
+that are only available on Linux. For macOS and Windows, use the provided
+`requirements_nolinux.txt` which contains all dependencies except the vLLM extra:
+
+```shell
+./bin/install_nolinux.sh
+```
+
+Or manually:
+
+```shell
+pip install --no-deps --require-hashes -r requirements_nolinux.txt
+pip install --no-deps --editable .
+```
+
+> **Note**: `requirements_nolinux.txt` includes all language model connectors
+> (OpenAI, Google, Ollama, etc.) except vLLM. Examples and dev tools are included.
+
+
 ### Devcontainer
 
 This project includes a pre-configured development environment
