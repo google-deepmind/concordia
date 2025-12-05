@@ -71,6 +71,15 @@ installation as follows:
     pytest --pyargs concordia
     ```
 
+### macOS Installation
+
+The default `requirements.txt` includes CUDA dependencies for GPU support which are not compatible with macOS.
+To install on macOS, use the provided helper script:
+
+```shell
+./bin/install_mac.sh
+```
+
 ### Devcontainer
 
 This project includes a pre-configured development environment
