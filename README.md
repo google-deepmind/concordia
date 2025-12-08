@@ -3,6 +3,7 @@
 *A library for generative social simulation*
 
 <!-- GITHUB -->
+<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
 [![Python](https://img.shields.io/pypi/pyversions/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI version](https://img.shields.io/pypi/v/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI tests](../../actions/workflows/pypi-test.yml/badge.svg)](../../actions/workflows/pypi-test.yml)
@@ -10,7 +11,7 @@
 [![Examples](../../actions/workflows/test-examples.yml/badge.svg)](../../actions/workflows/test-examples.yml)
 <!-- /GITHUB -->
 
-[Concordia Tech Report](https://arxiv.org/abs/2312.03664)
+[Concordia Tech Report](https://arxiv.org/abs/2312.03664) | [Concordia Design Pattern](https://arxiv.org/abs/2507.08892) | [Code Cheat Sheet](docs/concordia_cheat_sheet.md)
 
 ## About
 
@@ -134,6 +135,7 @@ The agents used in the following example implement exactly these questions:
 
 If you use Concordia in your work, please cite the accompanying article:
 
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
 ```bibtex
 @article{vezhnevets2023generative,
   title={Generative agent-based modeling with actions grounded in physical,
