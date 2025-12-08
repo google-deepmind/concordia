@@ -18,4 +18,4 @@
 set -euxo pipefail
 cd "$(dirname "$0")/.."
 
-pip-compile --upgrade setup.py examples/requirements.in
+pip-compile --upgrade --all-extras setup.py examples/requirements.in

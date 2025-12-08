@@ -11,7 +11,6 @@ allow_unsafe = true
 generate_hashes = true
 reuse_hashes = true
 strip_extras = true
-all_extras = true
 
 [tool.pyink]
 line-length = 80
