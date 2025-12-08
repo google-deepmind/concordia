@@ -93,6 +93,17 @@ For example, you can perform an editable installation as follows:
     pytest --pyargs concordia
     ```
 
+5.  Install any additional language model dependencies you will need, e.g.:
+
+    ```shell
+    pip install .[google]
+    pip install --requirement=examples/requirements.in
+    ```
+
+    Note that at this stage you may find that your development environment is
+    not supported by some underlying dependencies and you will need to do some
+    dependency management.
+
 ## Bring your own LLM
 
 Concordia requires a access to an LLM API. Any LLM API that supports sampling
