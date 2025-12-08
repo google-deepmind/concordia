@@ -38,8 +38,6 @@ integrate with real applications and services.
 
 ## Installation
 
-### `pip` install
-
 [Concordia is available on PyPI](https://pypi.python.org/pypi/gdm-concordia)
 and can be installed using:
 
@@ -47,10 +45,27 @@ and can be installed using:
 pip install gdm-concordia
 ```
 
-### Manual install
+After doing this you can then `import concordia` in your own code.
 
-If you want to work on the Concordia source code, you can perform an editable
-installation as follows:
+## Development
+
+### Codespace
+
+The easiest way to work on the Concordia source code, is to use our
+pre-configured development environment via a
+[Github CodeSpace](https://github.com/features/codespaces).
+
+This provides a tested development workflow that allows for reproducible builds,
+and minimizes dependency management. We strongly advise preparing all Pull
+Requests for Concordia via this workflow.
+
+### Manual setup
+
+If you want to work on the Concordia source code within your own development
+environment you will have to handle installation and dependency management
+yourself.
+
+For example, you can perform an editable installation as follows:
 
 1.  Clone Concordia:
 
@@ -59,27 +74,24 @@ installation as follows:
     cd concordia
     ```
 
-2.  Install Concordia:
+2.  Create and activate a virtual environment:
+
+    ```shell
+    python -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  Install Concordia:
 
     ```shell
     pip install --editable .[dev]
     ```
 
-3.  (Optional) Test the installation:
+4.  Test the installation:
 
     ```shell
     pytest --pyargs concordia
     ```
-
-### Devcontainer
-
-This project includes a pre-configured development environment
-([devcontainer](https://containers.dev)).
-
-You can launch a working development environment with one click, using e.g.
-[Github Codespaces](https://github.com/features/codespaces) or the
-[VSCode Containers](https://code.visualstudio.com/docs/remote/containers-tutorial)
-extension.
 
 ## Bring your own LLM
 
