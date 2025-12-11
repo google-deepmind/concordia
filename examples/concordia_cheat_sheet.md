@@ -549,6 +549,205 @@ def set_state(self, state: entity_component.ComponentState) -> None:
 
 ---
 
+## Questionnaires
+
+This section covers running questionnaire simulations: defining questions,
+configuring agents and the interviewer, and running the simulation.
+
+## Step 1: Define Your Questionnaire
+
+### Using a Pre-defined Questionnaire
+Concordia includes an example standard questionnaire, the Depression Anxiety
+Stress Scales (DASS).
+
+```python
+from concordia.contrib.data.questionnaires import depression_anxiety_stress_scale
+
+questionnaire = depression_anxiety_stress_scale.DASSQuestionnaire()
+```
+
+### Creating a Custom Questionnaire
+Subclass `QuestionnaireBase` for custom polls. Define questions with a
+`statement`, `choices`, and an optional `dimension` for aggregation.
+
+```python
+from typing import Any, Dict, List
+from concordia.contrib.data.questionnaires import base_questionnaire
+import numpy as np
+import pandas as pd
+
+AGREEMENT_SCALE = ["Strongly disagree", "Disagree", "Agree", "Strongly agree"]
+
+class CommunityWellbeingQuestionnaire(base_questionnaire.QuestionnaireBase):
+  """4-question survey measuring community and safety dimensions."""
+
+  def __init__(self):
+    super().__init__(
+        name="CommunityWellbeing",
+        description="Measures community connectedness and safety.",
+        questionnaire_type="multiple_choice",
+        observation_preprompt="{player_name} is completing a survey.",
+        questions=[
+            base_questionnaire.Question(
+                statement="I feel connected to my community.",
+                choices=AGREEMENT_SCALE,
+                dimension="community",
+            ),
+            base_questionnaire.Question(
+                statement="My neighbors are supportive.",
+                choices=AGREEMENT_SCALE,
+                dimension="community",
+            ),
+            base_questionnaire.Question(
+                statement="I feel safe in my neighborhood.",
+                choices=AGREEMENT_SCALE,
+                dimension="safety",
+            ),
+            base_questionnaire.Question(
+                statement="I trust the people around me.",
+                choices=AGREEMENT_SCALE,
+                dimension="safety",
+            ),
+        ],
+        dimensions=["community", "safety"],
+    )
+
+  def aggregate_results(
+      self, player_answers: Dict[str, Dict[str, Any]]
+  ) -> Dict[str, Any]:
+    """Compute mean score for each dimension."""
+    dimension_values: Dict[str, List[float]] = {}
+    for question_data in player_answers.values():
+      dim = question_data["dimension"]
+      val = question_data["value"]
+      if val is not None:
+        dimension_values.setdefault(dim, []).append(val)
+    return {dim: np.mean(vals) for dim, vals in dimension_values.items()}
+
+  def get_dimension_ranges(self) -> Dict[str, tuple[float, float]]:
+    """Range 0-3 for 4-point scale (indexed 0, 1, 2, 3)."""
+    return {"community": (0, 3), "safety": (0, 3)}
+
+  def plot_results(self, results_df: pd.DataFrame, **kwargs) -> None:
+    pass
+```
+
+---
+
+## Step 2: Configure Entities and Interviewer
+
+### Create Entity (Agent) Instances
+
+```python
+persona_names = ['Alice', 'Bob', 'Charlie']
+
+persona_instances = []
+for name in persona_names:
+  persona_instances.append(prefab_lib.InstanceConfig(
+      prefab='basic__Entity',
+      role=prefab_lib.Role.ENTITY,
+      params={'name': name},
+  ))
+```
+
+### Configure the Interviewer Game Master
+Use `interviewer__GameMaster` for **multiple-choice** questionnaires.
+
+```python
+interviewer_config = prefab_lib.InstanceConfig(
+    prefab='interviewer__GameMaster',
+    role=prefab_lib.Role.GAME_MASTER,
+    params={
+        'name': 'interviewer',
+        'player_names': persona_names,
+        'questionnaires': [questionnaire],  # Your questionnaire object(s)
+    },
+)
+```
+
+Use `open_ended_interviewer__GameMaster` for **open-ended** questionnaires
+(requires an embedder).
+
+```python
+oe_interviewer_config = prefab_lib.InstanceConfig(
+    prefab='open_ended_interviewer__GameMaster',
+    role=prefab_lib.Role.GAME_MASTER,
+    params={
+        'name': 'interviewer',
+        'player_names': persona_names,
+        'questionnaires': [open_ended_questionnaire],
+        'embedder': embedder,  # Required for open-ended questions
+    },
+)
+```
+
+---
+
+## Step 3: Run the Simulation
+
+### Build the Config
+Combine prefabs and instances into a single `Config` object.
+
+```python
+config = prefab_lib.Config(
+    default_premise='',
+    prefabs=prefabs,
+    instances=persona_instances + [interviewer_config],  # or oe_interviewer_config
+)
+```
+
+### Instantiate and Run
+
+```python
+from concordia.prefabs.simulation import questionnaire_simulation
+
+simulation = questionnaire_simulation.QuestionnaireSimulation(
+    config=config,
+    model=model,
+    embedder=embedder,
+)
+
+results_log = simulation.play()
+```
+
+---
+
+### Execution Modes
+Choose between parallel (faster) or sequential (context-dependent) execution.
+
+| Mode | Engine | Best For |
+|------|--------|----------|
+| **Parallel** (Default) | `ParallelQuestionnaireEngine` | Speed, independent answers |
+| **Sequential** | `SequentialQuestionnaireEngine` | Answers that depend on prior context |
+
+```python
+from concordia.environment.engines import parallel_questionnaire
+
+simulation = questionnaire_simulation.QuestionnaireSimulation(
+    config=config,
+    model=model,
+    embedder=embedder,
+    engine=parallel_questionnaire.ParallelQuestionnaireEngine(max_workers=4),
+)
+```
+
+### Agent Options: Randomize Choices
+To avoid positional bias, enable `randomize_choices` (default: `True`) in
+agent prefabs.
+
+```python
+prefab_lib.InstanceConfig(
+    prefab='basic__Entity',
+    role=prefab_lib.Role.ENTITY,
+    params={
+        'name': 'Alice',
+        'randomize_choices': False,  # Disable for deterministic testing or to maintain order
+    },
+)
+```
+
+---
+
 ## Common Patterns
 
 | Pattern | Implementation |
