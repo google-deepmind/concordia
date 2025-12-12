@@ -89,7 +89,8 @@ class Inventory(
       player_initial_endowments: dict[str, dict[str, float]],
       clock_now: Callable[[], datetime.datetime],
       observations_component_name: str = (
-          observation_component.DEFAULT_OBSERVATION_COMPONENT_KEY),
+          observation_component.DEFAULT_OBSERVATION_COMPONENT_KEY
+      ),
       memory_component_name: str = (
           memory_component.DEFAULT_MEMORY_COMPONENT_KEY
       ),
@@ -119,8 +120,8 @@ class Inventory(
         amount of any item. Events where an item would have been gained lead to
         no change in the inventory and the game master instead invents a reason
         for why the item was not gained.
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
       verbose: whether to print the full update chain of thought or not
     """
     self._pre_act_label = pre_act_label
@@ -181,13 +182,16 @@ class Inventory(
     if action_spec.output_type == entity_lib.OutputType.RESOLVE:
       with self._lock:
         memory = self.get_entity().get_component(
-            self._memory_component_name, type_=memory_component.Memory)
+            self._memory_component_name, type_=memory_component.Memory
+        )
 
         observations = (
-            self.get_entity().get_component(
+            self.get_entity()
+            .get_component(
                 self._observations_component_name,
                 type_=action_spec_ignored.ActionSpecIgnored,
-            ).get_pre_act_value()
+            )
+            .get_pre_act_value()
         )
 
         chain_of_thought = interactive_document.InteractiveDocument(self._model)
@@ -311,9 +315,7 @@ class Inventory(
                         # Add 's' to the end of the noun if it is a count noun.
                         effect = effect + 's'
                       inventory_effects.append(effect)
-                      self._add_to_game_master_memory(
-                          message=effect
-                      )
+                      self._add_to_game_master_memory(message=effect)
                       if self._verbose:
                         print(termcolor.colored(effect, 'yellow'))
                   else:
@@ -400,8 +402,6 @@ class Inventory(
     """Returns the state of the component."""
     return {'inventories': self._inventories}
 
-  ############### NEW FUNCTIONS ################
-
   def get_pre_act_label(self) -> str:
     """Returns the pre act label of the component."""
     return self._pre_act_label
@@ -412,11 +412,9 @@ class Inventory(
       return str(self._inventories)
 
 
-################################################
-
-
-class Score(entity_component.ContextComponent,
-            entity_component.ComponentWithLogging):
+class Score(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
   """This component assigns score based on possession of items in inventory."""
 
   def __init__(
@@ -451,9 +449,12 @@ class Score(entity_component.ContextComponent,
       targets = self._targets[name]
       for target in targets:
         if self._verbose:
-          print(termcolor.colored(
-              f'{name} -- target = {target}, inventory = {inventory}',
-              'yellow'))
+          print(
+              termcolor.colored(
+                  f'{name} -- target = {target}, inventory = {inventory}',
+                  'yellow',
+              )
+          )
         if target in list(inventory.keys()) and inventory[target] > 0:
           if self._verbose:
             print(termcolor.colored('    target found in inventory.', 'yellow'))
@@ -468,8 +469,7 @@ class Score(entity_component.ContextComponent,
   ) -> str:
     del unused_action_spec
     self._logging_channel(
-        {'Key': 'score based on inventory',
-         'Value': self.get_scores()}
+        {'Key': 'score based on inventory', 'Value': self.get_scores()}
     )
     return ''
 
