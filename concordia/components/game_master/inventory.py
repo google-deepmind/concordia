@@ -14,7 +14,9 @@
 
 """A game master component to represent each player's inventory."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
+from collections.abc import Mapping
+from collections.abc import Sequence
 import copy
 import dataclasses
 import datetime
@@ -32,7 +34,6 @@ from concordia.utils import concurrency
 from concordia.utils import helper_functions
 import numpy as np
 import termcolor
-
 
 _DEFAULT_CHAIN_OF_THOUGHT_PREFIX = (
     'This is a social science experiment. It is structured as a '
@@ -398,6 +399,20 @@ class Inventory(
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     return {'inventories': self._inventories}
+
+  ############### NEW FUNCTIONS ################
+
+  def get_pre_act_label(self) -> str:
+    """Returns the pre act label of the component."""
+    return self._pre_act_label
+
+  def get_pre_act_value(self) -> str:
+    """Returns the pre act value of the component."""
+    with self._lock:
+      return str(self._inventories)
+
+
+################################################
 
 
 class Score(entity_component.ContextComponent,
