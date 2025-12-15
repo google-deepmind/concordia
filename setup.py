@@ -87,7 +87,6 @@ setuptools.setup(
             'build',
             'isort',
             'jupyter',
-            'pipreqs',
             'pip-tools',
             'pyink',
             'pylint',
