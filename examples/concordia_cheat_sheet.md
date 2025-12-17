@@ -148,6 +148,166 @@ prefab_lib.Role.INITIALIZER  # Runs once to set up initial state
 
 ---
 
+## Simulation Examples
+
+While the "Minimal Simulation Setup" shows the code structure, here are two
+common *types* of simulations you might build, with the specific prefabs and
+logic required.
+
+### 1. Narrative Simulation (e.g., Alice in Wonderland)
+**Best for:** Storytelling, role-playing, and open-ended interactions where the
+outcome is unknown.
+
+**Key Components:**
+
+*   **Entities:** `basic__Entity` (standard agents) with optional `goals`.
+*   **Game Master:** `generic__GameMaster` (manages turn-taking and observations).
+*   **Premise:** Sets the initial scene (e.g., "Alice sees a White Rabbit...").
+
+In this scenario, agents act based on their character descriptions and the
+`default_premise`. There are no strict "game rules" or scores, just interaction.
+
+```python
+# 1. Define Entities
+alice = prefab_lib.InstanceConfig(
+    prefab='basic__Entity',
+    role=prefab_lib.Role.ENTITY,
+    params={'name': 'Alice'},
+)
+rabbit = prefab_lib.InstanceConfig(
+    prefab='basic__Entity',
+    role=prefab_lib.Role.ENTITY,
+    params={
+        'name': 'White Rabbit',
+        'goal': 'Get to the queen on time',
+    },
+)
+
+# 2. Generic Game Master (Fixed Order)
+gm = prefab_lib.InstanceConfig(
+    prefab='generic__GameMaster',
+    role=prefab_lib.Role.GAME_MASTER,
+    params={
+        'name': 'default rules',
+        'acting_order': 'fixed', # options: 'fixed', 'random', or 'u-go-i-go' (mostly 2 players)
+    },
+)
+
+# 3. Use generic Simulation
+config = prefab_lib.Config(
+    default_premise="Alice sees a White Rabbit running with a pocket watch.",
+    default_max_steps=10,
+    prefabs=prefabs,
+    instances=[alice, rabbit, gm],
+)
+```
+
+### 2. Game Theoretic Simulation (e.g., Selling Cookies)
+**Best for:** Games (Prisoner's Dilemma), and scenarios with specific "moves"
+and "payoffs".
+
+**Key Components:**
+
+*   **Entities:** `basic__Entity` or custom agents.
+*   **Game Master:** `game_theoretic_and_dramaturgic__GameMaster`. This GM is crucial because it can:
+    *   Enforce structured **Scenes** (e.g., specific rounds for discussion vs. decision).
+    *   Calculate **Payoffs** using `action_to_scores`.
+    *   Provide feedback via `scores_to_observation`.
+
+In this scenario, we often have a "Conversation" phase (free text) followed by
+a "Decision" phase (restricted choice).
+
+```python
+from concordia.typing import scene as scene_lib
+
+# 1. Define Scenes
+# Conversation Scene (Free speech)
+conversation_scene = scene_lib.SceneTypeSpec(
+    name='conversation',
+    game_master_name='conversation rules',
+    action_spec=entity_lib.free_action_spec(
+        call_to_action=entity_lib.DEFAULT_CALL_TO_SPEECH
+    ),
+)
+
+# Decision Scene (Binary Choice)
+decision_scene = scene_lib.SceneTypeSpec(
+    name='decision',
+    game_master_name='decision rules',
+    action_spec={
+        'Alice': entity_lib.choice_action_spec(
+            call_to_action='Buy cookies?',
+            options=['Yes', 'No'],
+        ),
+    },
+)
+
+# Scene Sequence
+scenes = [
+    scene_lib.SceneSpec(
+        scene_type=conversation_scene,
+        participants=['Alice', 'Bob'],
+        num_rounds=4,
+        premise={'Alice': ['Bob approaches you.'], 'Bob': ['You approach Alice.']},
+    ),
+    scene_lib.SceneSpec(
+        scene_type=decision_scene,
+        participants=['Alice'],
+        num_rounds=1,
+        premise={'Alice': ['Decide whether to buy cookies.']},
+    ),
+]
+
+# 2. Define Payoffs (Game Theory)
+def action_to_scores(joint_action):
+    # If Alice buys (Yes), she loses money (-1), Bob gains (1)
+    if joint_action['Alice'] == 'Yes':
+        return {'Alice': -1, 'Bob': 1}
+    return {'Alice': 0, 'Bob': 0}
+
+def scores_to_observation(scores):
+    return {p: f"Resulting Score: {s}" for p, s in scores.items()}
+
+# 3. Configure Game Masters
+instances = [
+    # ... Entities Alice and Bob ...
+    prefab_lib.InstanceConfig(
+        prefab='game_theoretic_and_dramaturgic__GameMaster',
+        role=prefab_lib.Role.GAME_MASTER,
+        params={
+            'name': 'decision rules',
+            'scenes': scenes,
+            'action_to_scores': action_to_scores,
+            'scores_to_observation': scores_to_observation,
+        },
+    ),
+    prefab_lib.InstanceConfig(
+        prefab='dialogic_and_dramaturgic__GameMaster',
+        role=prefab_lib.Role.GAME_MASTER,
+        params={
+            'name': 'conversation rules',
+            'scenes': scenes,
+        },
+    ),
+    # Optional: Initializer to set initial memories/context
+    prefab_lib.InstanceConfig(
+        prefab='formative_memories_initializer__GameMaster',
+        role=prefab_lib.Role.INITIALIZER,
+        params={
+            'name': 'initial setup rules',
+            'next_game_master_name': 'conversation rules',
+            'shared_memories': ["Alice and Bob are neighbors."],
+            'player_specific_context': {
+                'Alice': "You don't like cookies.",
+                'Bob': "You are a cookie salesman."
+            },
+        },
+    ),
+]
+```
+
+---
+
 ## Creating a Custom Prefab
 
 ```python
@@ -192,7 +352,118 @@ prefabs["my_custom__Entity"] = MyCustomAgent()
 
 ---
 
-## Agent Memory Management
+## Advanced Agent Architecture
+
+For more complex behaviors, you can chain components together where the output
+of one component becomes the input/context for another. This allows agents to
+"think" before they act.
+
+### Key Components for Reasoning
+
+*   **`SituationRepresentation`**: Summarizes the current situation based on
+recent observations + relevant memories.
+*   **`QuestionOfRecentMemories`**: Asks a specific question to the model based on memory. Useful for "Guiding Principles" or "Internal Monologue".
+
+### Example: The "Reflective" Agent
+This agent first builds a representation of the situation, then asks itself how
+to exploit it, and *then* decides on an action.
+
+```python
+from concordia.contrib.components.agent import situation_representation_via_narrative
+from concordia.components import agent as agent_components
+
+@dataclasses.dataclass
+class ReflectiveAgent(prefab_lib.Prefab):
+    def build(self, model, memory_bank):
+        name = self.params.get("name", "Agent")
+        
+        # 1. Base Components
+        instructions = agent_components.instructions.Instructions(agent_name=name)
+        observation = agent_components.observation.LastNObservations(history_length=100)
+        memory = agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
+        
+        # 2. Advanced Components (Chain of Thought)
+        
+        # Step A: Summarize the situation
+        situation = situation_representation_via_narrative.SituationRepresentation(
+            model=model,
+            observation_component_key=agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY,
+            declare_entity_as_protagonist=True,
+        )
+        
+        # Step B: Apply a Guiding Principle (uses Step A context)
+        principle = agent_components.question_of_recent_memories.QuestionOfRecentMemories(
+            model=model,
+            pre_act_label=f"{name}'s Internal Monologue",
+            question=f"How can {name} best achieve their goals in this situation?",
+            answer_prefix=f"{name} thinks: ",
+            add_to_memory=False, # Don't clutter memory with every thought
+            components=[
+                "Instructions",
+                "situation_representation" # <--- Depends on Step A
+            ],
+        )
+
+        # 3. Assemble Components (Order matters!)
+        components = {
+            "Instructions": instructions,
+            agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: memory,
+            agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: observation,
+            "situation_representation": situation,
+            "guiding_principle": principle,
+        }
+        
+        # The Act Component sees everything in 'components'
+        act_component = agent_components.concat_act_component.ConcatActComponent(
+            model=model,
+            component_order=list(components.keys()),
+        )
+        
+        return entity_agent_with_logging.EntityAgentWithLogging(
+            agent_name=name,
+            act_component=act_component,
+            context_components=components,
+        )
+```
+
+---
+
+## Initializing Agent Memories
+
+The recommended way to generate agent backstories and shared context is using
+the `formative_memories_initializer__GameMaster`. This prefab runs once at the
+start of the simulation to inject memories into agents.
+
+```python
+# Define shared facts (world building)
+shared_memories = [
+    "Riverbend is an idyllic rural town.",
+    "The year is 2024.",
+]
+
+# Define player-specific context (backstories)
+player_specific_context = {
+    "Alice": "Alice is a baker who loves experiments. She is optimistic.",
+    "Bob": "Bob is a skeptical journalist investigating local corruption.",
+}
+
+# Add the Initializer to your instances list
+initializer = prefab_lib.InstanceConfig(
+    prefab='formative_memories_initializer__GameMaster',
+    role=prefab_lib.Role.INITIALIZER,
+    params={
+        'name': 'initial setup rules',
+        # crucial: where to hand off control after initialization
+        'next_game_master_name': 'conversation rules',
+        'shared_memories': shared_memories,
+        'player_specific_context': player_specific_context,
+    },
+)
+
+# Assuming 'instances' is defined elsewhere and you want to add this to it.
+# For this example, we'll just show the config.
+# instances.append(initializer)
+```
 
 ### Pre-loading Memories
 ```python
@@ -333,6 +604,9 @@ from concordia.utils import concurrency
 
 # Engines
 from concordia.environment.engines import sequential, simultaneous
+
+# Scene management
+from concordia.typing import scene as scene_lib
 ```
 
 ---
@@ -745,6 +1019,8 @@ prefab_lib.InstanceConfig(
     },
 )
 ```
+
+---
 
 ---
 
