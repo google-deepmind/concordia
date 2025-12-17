@@ -39,7 +39,7 @@ integrate with real applications and services.
 
 ## Installation
 
-[Concordia is available on PyPI](https://pypi.python.org/pypi/gdm-concordia)
+[Concordia available on PyPI](https://pypi.python.org/pypi/gdm-concordia)
 and can be installed using:
 
 ```shell
