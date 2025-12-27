@@ -8,6 +8,9 @@ Concordia agents don’t have a global “language” toggle. The recommended wa
 - wrapping/templating the prompt used by your prefab.
 
 Below is a minimal example that sets one agent to Spanish and another to French.
+## Scope note (user-facing vs internal prompts)
+
+This pattern is intended to control **user-facing outputs** (e.g., agent dialog/actions). Intermediate/internal prompts may not automatically inherit the language directive if only `goal` is modified, since only prompt components that include `goal` in their prefix will see the directive. If you need internal prompts in the target language too, apply the directive across all relevant prompt components or enforce it via a prefab-level prompt template.
 
 ```python
 from concordia.utils import prefab_lib
@@ -62,4 +65,3 @@ config = prefab_lib.Config(
 
 
 
-eof
