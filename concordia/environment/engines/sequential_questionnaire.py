@@ -262,9 +262,11 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
           for part in parts:
             if part.startswith('options:'):
               options_part = part.removeprefix('options:').strip()
-              options_list = [opt.strip() for opt in options_part.split(',')]
+              options_list = engine_lib.split_options(options_part)
               break
-          observation = question + '\nOptions: ' + ', '.join(options_list)
+          # We escape the options again for display to avoid ambiguity.
+          escaped_options = [opt.replace(',', r'\,') for opt in options_list]
+          observation = question + '\nOptions: ' + ', '.join(escaped_options)
 
         agent.observe(observation)
         logging.info(
