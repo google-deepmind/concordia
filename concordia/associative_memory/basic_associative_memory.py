@@ -203,6 +203,7 @@ class AssociativeMemoryBank:
       List of strings corresponding to memories, sorted by recency
     """
     with self._memory_bank_lock:
+      self._flush_pending()
       if self._memory_bank.empty:
         return []
       is_selected = self._memory_bank['text'].apply(selector_fn)
@@ -225,6 +226,7 @@ class AssociativeMemoryBank:
       raise ValueError('Limit must be positive.')
 
     with self._memory_bank_lock:
+      self._flush_pending()
       if self._memory_bank.empty:
         return []
       return self._pd_to_text(self._memory_bank.iloc[-k:])
@@ -236,6 +238,7 @@ class AssociativeMemoryBank:
     used to check if the contents of the memory bank have changed.
     """
     with self._memory_bank_lock:
+      self._flush_pending()
       return len(self._memory_bank)
 
   def get_all_memories_as_text(
