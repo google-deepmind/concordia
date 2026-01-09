@@ -51,11 +51,29 @@ class AzureGptLanguageModel(BaseGPTModel):
       channel: The channel to write the statistics to.
     """
     if api_key is None:
-      api_key = os.environ['AZURE_OPENAI_API_KEY']
+      api_key = os.getenv('AZURE_OPENAI_API_KEY')
+      if not api_key:
+        raise ValueError(
+            'AZURE_OPENAI_API_KEY not found. Please provide it via the '
+            'api_key parameter or set the AZURE_OPENAI_API_KEY environment '
+            'variable.'
+        )
     if azure_endpoint is None:
-      azure_endpoint = os.environ['AZURE_OPENAI_ENDPOINT']
+      azure_endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
+      if not azure_endpoint:
+        raise ValueError(
+            'AZURE_OPENAI_ENDPOINT not found. Please provide it via the '
+            'azure_endpoint parameter or set the AZURE_OPENAI_ENDPOINT '
+            'environment variable.'
+        )
     if api_version is None:
-      api_version = os.environ['AZURE_OPENAI_API_VERSION']
+      api_version = os.getenv('AZURE_OPENAI_API_VERSION')
+      if not api_version:
+        raise ValueError(
+            'AZURE_OPENAI_API_VERSION not found. Please provide it via the '
+            'api_version parameter or set the AZURE_OPENAI_API_VERSION '
+            'environment variable.'
+        )
 
     self._api_key = api_key
     self._azure_endpoint = azure_endpoint
