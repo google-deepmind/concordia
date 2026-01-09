@@ -46,11 +46,13 @@ class AssociativeMemoryBank:
 
     self._memory_bank = pd.DataFrame(columns=['text', 'embedding'])
     self._stored_hashes = set()
+    self._pending_memories = []  # Batch accumulator for performance
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the AssociativeMemory to a dictionary."""
 
     with self._memory_bank_lock:
+      self._flush_pending()
       output = {
           'stored_hashes': list(self._stored_hashes),
           'memory_bank': self._memory_bank.to_json(),
@@ -63,6 +65,19 @@ class AssociativeMemoryBank:
     with self._memory_bank_lock:
       self._stored_hashes = set(state['stored_hashes'])
       self._memory_bank = pd.read_json(StringIO(state['memory_bank']))
+      self._pending_memories.clear()  # Clear any pending on state restore
+
+  def _flush_pending(self) -> None:
+    """Flushes pending memories to the DataFrame.
+
+    This method should be called with _memory_bank_lock held.
+    """
+    if self._pending_memories:
+      new_df = pd.DataFrame(self._pending_memories)
+      self._memory_bank = pd.concat(
+          [self._memory_bank, new_df], ignore_index=True
+      )
+      self._pending_memories.clear()
 
   def add(
       self,
@@ -83,15 +98,14 @@ class AssociativeMemoryBank:
         'text': text,
     }
     hashed_contents = hash(tuple(contents.values()))
-    derived = {'embedding': self._embedder(text)}
-    new_df = pd.Series(contents | derived).to_frame().T.infer_objects()
 
     with self._memory_bank_lock:
       if hashed_contents in self._stored_hashes:
         return
-      self._memory_bank = pd.concat(
-          [self._memory_bank, new_df], ignore_index=True
-      )
+
+      derived = {'embedding': self._embedder(text)}
+      memory_row = contents | derived
+      self._pending_memories.append(memory_row)
       self._stored_hashes.add(hashed_contents)
 
   def extend(
@@ -108,6 +122,7 @@ class AssociativeMemoryBank:
 
   def get_data_frame(self) -> pd.DataFrame:
     with self._memory_bank_lock:
+      self._flush_pending()
       return self._memory_bank.copy()
 
   def _get_top_k_cosine(self, x: np.ndarray, k: int):
@@ -121,6 +136,7 @@ class AssociativeMemoryBank:
       Rows, sorted by cosine similarity in descending order.
     """
     with self._memory_bank_lock:
+      self._flush_pending()
       cosine_similarities = self._memory_bank['embedding'].apply(
           lambda y: np.dot(x, y)
       )
@@ -187,6 +203,7 @@ class AssociativeMemoryBank:
       List of strings corresponding to memories, sorted by recency
     """
     with self._memory_bank_lock:
+      self._flush_pending()
       if self._memory_bank.empty:
         return []
       is_selected = self._memory_bank['text'].apply(selector_fn)
@@ -209,6 +226,7 @@ class AssociativeMemoryBank:
       raise ValueError('Limit must be positive.')
 
     with self._memory_bank_lock:
+      self._flush_pending()
       if self._memory_bank.empty:
         return []
       return self._pd_to_text(self._memory_bank.iloc[-k:])
@@ -220,6 +238,7 @@ class AssociativeMemoryBank:
     used to check if the contents of the memory bank have changed.
     """
     with self._memory_bank_lock:
+      self._flush_pending()
       return len(self._memory_bank)
 
   def get_all_memories_as_text(
