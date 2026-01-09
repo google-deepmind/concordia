@@ -17,6 +17,7 @@
 
 import abc
 from collections.abc import Callable, Mapping, Sequence
+import re
 from typing import Any
 
 from concordia.typing import entity as entity_lib
@@ -80,6 +81,15 @@ class Engine(metaclass=abc.ABCMeta):
     """Run a game loop."""
 
 
+def split_options(options_str: str) -> tuple[str, ...]:
+  """Splits options string by comma, respecting escaped commas."""
+  # Split by comma that is NOT preceded by a backslash.
+  # This regex uses a negative lookbehind.
+  parts = re.split(r'(?<!\\),', options_str)
+  # Remove the escape character from the result parts and strip whitespace.
+  return tuple(part.replace(r'\,', ',').strip() for part in parts)
+
+
 def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
   """Parse the next action spec string into an action spec."""
   if 'type: free' in next_action_spec_string:
@@ -101,10 +111,12 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
       call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
     else:
       call_to_action = splits[0].split('prompt: ')[1]
+
+    options_str = next_action_spec_string.split('options: ')[1]
     return entity_lib.ActionSpec(
         call_to_action=call_to_action,
         output_type=entity_lib.OutputType.CHOICE,
-        options=tuple(next_action_spec_string.split('options: ')[1].split(',')),
+        options=split_options(options_str),
     )
   elif _TYPE_SKIP_THIS_STEP in next_action_spec_string:
     return entity_lib.skip_this_step_action_spec()
@@ -119,9 +131,11 @@ def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
   if action_spec.output_type == entity_lib.OutputType.FREE:
     return f'prompt: {action_spec.call_to_action};;type: free'
   elif action_spec.output_type == entity_lib.OutputType.CHOICE:
+    # Escape commas in options before joining.
+    escaped_options = [opt.replace(',', r'\,') for opt in action_spec.options]
     return (
         f'prompt: {action_spec.call_to_action};;type: choice options: '
-        + ', '.join(action_spec.options)
+        + ', '.join(escaped_options)
     )
   elif action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
     return f'prompt: {action_spec.call_to_action};;{_TYPE_SKIP_THIS_STEP}'
