@@ -129,6 +129,7 @@ class GameMaster(prefab_lib.Prefab):
           'scenes': (),
           'action_to_scores': _default_action_to_scores,
           'scores_to_observation': _default_scores_to_observation,
+          'acting_order': 'sequential',
       }
   )
   entities: (
@@ -211,10 +212,19 @@ class GameMaster(prefab_lib.Prefab):
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
     )
 
-    next_actor = gm_components.next_acting.NextActingFromSceneSpec(
-        memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
-        scene_tracker_component_key=scene_tracker_key,
-    )
+    acting_order = self.params.get('acting_order', 'sequential')
+    if acting_order == 'simultaneous':
+      next_actor = gm_components.next_acting.NextActingAllEntitiesFromSceneSpec(
+          memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
+          scene_tracker_component_key=scene_tracker_key,
+      )
+    elif acting_order == 'sequential':
+      next_actor = gm_components.next_acting.NextActingFromSceneSpec(
+          memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
+          scene_tracker_component_key=scene_tracker_key,
+      )
+    else:
+      raise ValueError(f'Unsupported acting order: {acting_order}')
 
     next_action_spec = gm_components.next_acting.NextActionSpecFromSceneSpec(
         memory_component_key=actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY,
@@ -227,6 +237,7 @@ class GameMaster(prefab_lib.Prefab):
         acting_player_names=player_names,
         action_to_scores=action_to_scores,
         scores_to_observation=scores_to_observation,
+        acting_order=acting_order,
         scene_tracker_component_key=scene_tracker_key,
         verbose=True,
     )
@@ -242,11 +253,15 @@ class GameMaster(prefab_lib.Prefab):
         actor_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY,
     ]
 
-    event_resolution = gm_components.event_resolution.EventResolution(
-        model=model,
-        event_resolution_steps=event_resolution_steps,
-        components=event_resolution_components,
-    )
+    # Only create event resolution for sequential acting
+    # (simultaneous acting has no single active player to attribute events to)
+    event_resolution = None
+    if acting_order == 'sequential':
+      event_resolution = gm_components.event_resolution.EventResolution(
+          model=model,
+          event_resolution_steps=event_resolution_steps,
+          components=event_resolution_components,
+      )
     scene_tracker = gm_components.scene_tracker.SceneTracker(
         model=model,
         scenes=scenes,
@@ -276,10 +291,13 @@ class GameMaster(prefab_lib.Prefab):
             next_action_spec
         ),
         payoff_matrix_key: payoff_matrix,
-        gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY: (
-            event_resolution
-        ),
     }
+
+    # Only add event resolution for sequential acting
+    if event_resolution is not None:
+      components_of_game_master[gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY] = (
+          event_resolution
+      )
 
     component_order = list(components_of_game_master.keys())
 

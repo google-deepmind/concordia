@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import copy
+import re
 
 from concordia.agents import entity_agent
 from concordia.components.agent import memory as memory_component
@@ -33,6 +34,8 @@ import termcolor
 CollectiveActionProductionFunction = Callable[[int], float]
 PlayersT = Sequence[entity_agent.EntityAgent]
 
+PUTATIVE_EVENT_TAG = event_resolution_component.PUTATIVE_EVENT_TAG
+
 
 class PayoffMatrix(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
@@ -45,6 +48,7 @@ class PayoffMatrix(
       acting_player_names: Sequence[str],
       action_to_scores: Callable[[Mapping[str, str]], Mapping[str, float]],
       scores_to_observation: Callable[[Mapping[str, float]], Mapping[str, str]],
+      acting_order: str = 'sequential',
       event_resolution_component_key: str = (
           switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
       ),
@@ -70,6 +74,9 @@ class PayoffMatrix(
         a dictionary of scores for each player
       scores_to_observation: function that maps a dictionary of scores for each
         player to a dictionary of observations for each player.
+      acting_order: Order in which players act. Options are 'sequential'
+        (default, actions extracted from EventResolution component) or
+        'simultaneous' (actions collected from memory).
       event_resolution_component_key: The key of the event resolution component.
       observation_component_key: The key of the observation component to send
         observations to players. If None, no observations will be sent.
@@ -80,8 +87,15 @@ class PayoffMatrix(
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
       verbose: whether to print the full update chain of thought or not
+
+    Raises:
+      ValueError: If acting_order is not 'sequential' or 'simultaneous'.
     """
+    if acting_order not in ('sequential', 'simultaneous'):
+      raise ValueError(f'Unsupported acting order: {acting_order}')
+
     self._pre_act_label = pre_act_label
+    self._acting_order = acting_order
 
     self._model = model
     self._observation_component_key = observation_component_key
@@ -116,6 +130,39 @@ class PayoffMatrix(
       return scene_tracker_component.get_participants()
     return self._acting_player_names
 
+  def _extract_actions_from_memory(self) -> None:
+    """Extract the last action for each scene participant from memory.
+
+    Used in simultaneous mode to collect all players' actions at once.
+    """
+    if not self._memory_component_key:
+      return
+
+    memory = self.get_entity().get_component(
+        self._memory_component_key,
+        type_=memory_component.Memory,
+    )
+
+    # Scan for the most recent putative event
+    suggestions = memory.scan(selector_fn=lambda x: PUTATIVE_EVENT_TAG in x)
+    if not suggestions:
+      return
+
+    # Extract the action string from the most recent suggestion
+    putative_action = suggestions[-1][
+        suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+    ]
+
+    # Extract all "PlayerName: Action" pairs using regex
+    # Pattern matches "word: text" up to next word: or end of string
+    # pattern = r'(\w+):\s+(.+?)(?=\s+\w+:|$)'
+    all_players = self._get_current_scene_participants()
+    pattern = rf'({"|".join(map(re.escape, all_players))}):\s*(.*?)\s*(?=(?:{"|".join(map(re.escape, all_players))}):|$)'
+    found_actions = dict(re.findall(pattern, putative_action))
+
+    for player_name in found_actions:
+      self._partial_joint_action[player_name] = found_actions[player_name]
+
   def _joint_action_is_complete(self, joint_action: Mapping[str, str]) -> bool:
     for acting_player_name in self._get_current_scene_participants():
       if joint_action[acting_player_name] is None:
@@ -139,15 +186,19 @@ class PayoffMatrix(
     is_action_complete = False
     if self._latest_action_spec_output_type == entity_lib.OutputType.RESOLVE:
 
-      event_resolution = self.get_entity().get_component(
-          self._event_resolution_component_key,
-          type_=event_resolution_component.EventResolution,
-      )
-
-      player_name = event_resolution.get_active_entity_name()
-      choice = event_resolution.get_putative_action()
-      if player_name in self._acting_player_names and choice:
-        self._partial_joint_action[player_name] = choice
+      if self._acting_order == 'simultaneous':
+        # Simultaneous mode: extract all players' actions from memory
+        self._extract_actions_from_memory()
+      elif self._acting_order == 'sequential':
+        # Sequential mode: extract single player action from EventResolution
+        event_resolution = self.get_entity().get_component(
+            self._event_resolution_component_key,
+            type_=event_resolution_component.EventResolution,
+        )
+        player_name = event_resolution.get_active_entity_name()
+        choice = event_resolution.get_putative_action()
+        if player_name in self._acting_player_names and choice:
+          self._partial_joint_action[player_name] = choice
 
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()
