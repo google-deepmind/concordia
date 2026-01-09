@@ -14,7 +14,7 @@
 
 """Wrapper to profile calls to an underlying language model."""
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 import time
 from typing import Any, override
 
@@ -73,15 +73,24 @@ class ProfiledLanguageModel(language_model.LanguageModel):
       self,
       model: language_model.LanguageModel,
       model_name: str = 'unknown',
+      token_calculator: Callable[[str], int] | None = None,
+      profiler_instance: profiler.ProfilerContext | None = None,
   ) -> None:
     """Wrap the underlying language model with profiling.
 
     Args:
       model: A language model to wrap with profiling.
       model_name: Optional name for the model (for reporting purposes).
+      token_calculator: Optional custom token counting function. If None,
+        uses estimate_tokens (1 token ≈ 4 characters).
+      profiler_instance: Optional profiler instance to use. If None, uses
+        the global profiler. Useful for parallel simulations to avoid stat
+        bleeding between simulations.
     """
     self._model = model
     self._model_name = model_name
+    self._token_calculator = token_calculator or estimate_tokens
+    self._profiler = profiler_instance or profiler._global_profiler
 
   @override
   def sample_text(
@@ -115,7 +124,7 @@ class ProfiledLanguageModel(language_model.LanguageModel):
     Raises:
       TimeoutError: if the operation times out.
     """
-    if not profiler.is_enabled():
+    if not self._profiler.is_enabled():
       # Fast path: profiling disabled, just call the model
       return self._model.sample_text(
           prompt,
@@ -130,7 +139,6 @@ class ProfiledLanguageModel(language_model.LanguageModel):
 
     # Track profiling data
     start_time = time.perf_counter()
-    error_occurred = False
 
     try:
       response = self._model.sample_text(
@@ -146,33 +154,32 @@ class ProfiledLanguageModel(language_model.LanguageModel):
 
       # Record successful call metrics
       duration = time.perf_counter() - start_time
-      profiler.record_time('llm_sample_text', duration)
-      profiler.increment_counter('llm_calls_total')
-      profiler.increment_counter('llm_calls_sample_text')
-      profiler.increment_counter('llm_calls_success')
+      self._profiler.record_time('llm_sample_text', duration)
+      self._profiler.increment_counter('llm_calls_total')
+      self._profiler.increment_counter('llm_calls_sample_text')
+      self._profiler.increment_counter('llm_calls_success')
 
       # Estimate tokens
-      prompt_tokens = estimate_tokens(prompt)
-      completion_tokens = estimate_tokens(response)
+      prompt_tokens = self._token_calculator(prompt)
+      completion_tokens = self._token_calculator(response)
       total_tokens = prompt_tokens + completion_tokens
 
-      profiler.record_value('llm_prompt_tokens', prompt_tokens)
-      profiler.record_value('llm_completion_tokens', completion_tokens)
-      profiler.record_value('llm_total_tokens', total_tokens)
-      profiler.record_value('llm_latency_seconds', duration)
+      self._profiler.record_value('llm_prompt_tokens', prompt_tokens)
+      self._profiler.record_value('llm_completion_tokens', completion_tokens)
+      self._profiler.record_value('llm_total_tokens', total_tokens)
+      self._profiler.record_value('llm_latency_seconds', duration)
 
       return response
 
     except Exception as e:
-      error_occurred = True
       duration = time.perf_counter() - start_time
 
       # Record failed call
-      profiler.record_time('llm_sample_text', duration)
-      profiler.increment_counter('llm_calls_total')
-      profiler.increment_counter('llm_calls_sample_text')
-      profiler.increment_counter('llm_calls_failed')
-      profiler.record_value('llm_latency_seconds', duration)
+      self._profiler.record_time('llm_sample_text', duration)
+      self._profiler.increment_counter('llm_calls_total')
+      self._profiler.increment_counter('llm_calls_sample_text')
+      self._profiler.increment_counter('llm_calls_failed')
+      self._profiler.record_value('llm_latency_seconds', duration)
 
       # Re-raise the exception
       raise
@@ -198,13 +205,12 @@ class ProfiledLanguageModel(language_model.LanguageModel):
     Raises:
       InvalidResponseError: if unable to produce a valid choice.
     """
-    if not profiler.is_enabled():
+    if not self._profiler.is_enabled():
       # Fast path: profiling disabled, just call the model
       return self._model.sample_choice(prompt, responses, seed=seed)
 
     # Track profiling data
     start_time = time.perf_counter()
-    error_occurred = False
 
     try:
       index, response, info = self._model.sample_choice(
@@ -213,32 +219,31 @@ class ProfiledLanguageModel(language_model.LanguageModel):
 
       # Record successful call metrics
       duration = time.perf_counter() - start_time
-      profiler.record_time('llm_sample_choice', duration)
-      profiler.increment_counter('llm_calls_total')
-      profiler.increment_counter('llm_calls_sample_choice')
-      profiler.increment_counter('llm_calls_success')
+      self._profiler.record_time('llm_sample_choice', duration)
+      self._profiler.increment_counter('llm_calls_total')
+      self._profiler.increment_counter('llm_calls_sample_choice')
+      self._profiler.increment_counter('llm_calls_success')
 
       # Estimate tokens (prompt + all possible responses)
-      prompt_tokens = estimate_tokens(prompt)
-      responses_tokens = sum(estimate_tokens(r) for r in responses)
+      prompt_tokens = self._token_calculator(prompt)
+      responses_tokens = sum(self._token_calculator(r) for r in responses)
       total_tokens = prompt_tokens + responses_tokens
 
-      profiler.record_value('llm_prompt_tokens', prompt_tokens)
-      profiler.record_value('llm_total_tokens', total_tokens)
-      profiler.record_value('llm_latency_seconds', duration)
+      self._profiler.record_value('llm_prompt_tokens', prompt_tokens)
+      self._profiler.record_value('llm_total_tokens', total_tokens)
+      self._profiler.record_value('llm_latency_seconds', duration)
 
       return index, response, info
 
     except Exception as e:
-      error_occurred = True
       duration = time.perf_counter() - start_time
 
       # Record failed call
-      profiler.record_time('llm_sample_choice', duration)
-      profiler.increment_counter('llm_calls_total')
-      profiler.increment_counter('llm_calls_sample_choice')
-      profiler.increment_counter('llm_calls_failed')
-      profiler.record_value('llm_latency_seconds', duration)
+      self._profiler.record_time('llm_sample_choice', duration)
+      self._profiler.increment_counter('llm_calls_total')
+      self._profiler.increment_counter('llm_calls_sample_choice')
+      self._profiler.increment_counter('llm_calls_failed')
+      self._profiler.record_value('llm_latency_seconds', duration)
 
       # Re-raise the exception
       raise

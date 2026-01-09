@@ -75,9 +75,6 @@ class ProfilerContext:
     # Values: name -> list of values
     self._values: dict[str, list[float]] = {}
 
-    # Track nested contexts for proper accounting
-    self._context_stack: threading.local = threading.local()
-
   def enable(self) -> None:
     """Enable profiling."""
     self._enabled = True
@@ -98,8 +95,6 @@ class ProfilerContext:
       self._timings.clear()
       self._counters.clear()
       self._values.clear()
-      if hasattr(self._context_stack, 'stack'):
-        self._context_stack.stack = []
     logging.info('Profiler reset')
 
   def record_time(self, category: str, duration: float) -> None:
