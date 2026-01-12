@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Engine base class.
-"""
+"""Engine base class."""
 
 import abc
 from collections.abc import Callable, Mapping, Sequence
@@ -94,25 +93,35 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
   """Parse the next action spec string into an action spec."""
   if 'type: free' in next_action_spec_string:
     splits = next_action_spec_string.split(';;')
-    if len(splits) != 2:
-      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
+
+    # Safely extract call_to_action
+    if splits and 'prompt: ' in splits[0]:
+      call_to_action = splits[0].split('prompt: ', 1)[1]
     else:
-      call_to_action = splits[0].split('prompt: ')[1]
+      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
+
     return entity_lib.ActionSpec(
         call_to_action=call_to_action,
         output_type=entity_lib.OutputType.FREE,
     )
-  elif (
-      'type: choice' in next_action_spec_string
-      and 'options: ' in next_action_spec_string
-  ):
-    splits = next_action_spec_string.split(';;')
-    if 'prompt: ' not in next_action_spec_string:
-      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
-    else:
-      call_to_action = splits[0].split('prompt: ')[1]
 
-    options_str = next_action_spec_string.split('options: ')[1]
+  elif 'type: choice' in next_action_spec_string:
+    splits = next_action_spec_string.split(';;')
+
+    # Safely extract call_to_action
+    if 'prompt: ' in splits[0]:
+      call_to_action = splits[0].split('prompt: ', 1)[1]
+    else:
+      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
+
+    # If options are missing, gracefully fall back
+    if 'options: ' not in next_action_spec_string:
+      return entity_lib.ActionSpec(
+          call_to_action=call_to_action,
+          output_type=entity_lib.OutputType.FREE,
+      )
+
+    options_str = next_action_spec_string.split('options: ', 1)[1]
     return entity_lib.ActionSpec(
         call_to_action=call_to_action,
         output_type=entity_lib.OutputType.CHOICE,
@@ -122,8 +131,8 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
     return entity_lib.skip_this_step_action_spec()
   else:
     raise RuntimeError(
-        'Invalid next action spec string: \"{}\"'.format(
-            next_action_spec_string))
+        'Invalid next action spec string: "{}"'.format(next_action_spec_string)
+    )
 
 
 def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
@@ -141,5 +150,5 @@ def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
     return f'prompt: {action_spec.call_to_action};;{_TYPE_SKIP_THIS_STEP}'
   else:
     raise RuntimeError(
-        'Invalid action spec output type: \"{}\"'.format(
-            action_spec.output_type))
+        'Invalid action spec output type: "{}"'.format(action_spec.output_type)
+    )
