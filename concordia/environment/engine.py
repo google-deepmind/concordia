@@ -94,14 +94,18 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
   """Parse the next action spec string into an action spec."""
   if 'type: free' in next_action_spec_string:
     splits = next_action_spec_string.split(';;')
-    if len(splits) != 2:
-      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
+
+    # Safely extract call_to_action (same pattern as choice)
+    if splits and 'prompt: ' in splits[0]:
+      call_to_action = splits[0].split('prompt: ', 1)[1]
     else:
-      call_to_action = splits[0].split('prompt: ')[1]
+      call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
+
     return entity_lib.ActionSpec(
-        call_to_action=call_to_action,
-        output_type=entity_lib.OutputType.FREE,
+      call_to_action=call_to_action,
+      output_type=entity_lib.OutputType.FREE,
     )
+
   elif 'type: choice' in next_action_spec_string:
     splits = next_action_spec_string.split(';;')
 
