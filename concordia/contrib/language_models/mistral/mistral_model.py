@@ -63,7 +63,12 @@ class MistralLanguageModel(language_model.LanguageModel):
       channel: The channel to write the statistics to.
     """
     if api_key is None:
-      api_key = os.environ['MISTRAL_API_KEY']
+      api_key = os.getenv('MISTRAL_API_KEY')
+      if not api_key:
+        raise ValueError(
+            'MISTRAL_API_KEY not found. Please provide it via the api_key '
+            'parameter or set the MISTRAL_API_KEY environment variable.'
+        )
     self._api_key = api_key
     self._text_model_name = model_name
     self._measurements = measurements
