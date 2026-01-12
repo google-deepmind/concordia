@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.2.0] - 2026-01-12
+
+### Changed
+
+- Allowing commas in the options of the multiple-choice action_spec by using "\,"
+- move prefix_entity_name to config parameters
+- refactor questionnaire components logging
+- Update README.md with concordia.contrib.language_models changes
+- Replace unmaintained `retry` dependency with `tenacity`
+- Remove dependency on typing_extensions
+- Move language models to concordia.contrib.language_models
+- Require Python >= 3.12
+- For simultaneous engine, skip entity.observe if make observation emits an
+empty observation
+- Skip entity.observe if make observation emits an empty observation
+- Improve typing of OutputType
+- Improved formatting of multiple-choice questionnaire observations
+- Add absl logging in the questionnaire simulation and engine
+- More explicitly check questionnaire type. Raise error if type not found.
+- Change GPT model verbosity to 'medium' for GPT-4o, since 'low' is apparently
+no longer allowed for it. Otherwise use the specified verbosity.
+- Remove top_p from gpt models (deprecated from GPT-5)
+- improve base questionnaire default aggregate robustness
+- Fix ollama client temperature, top_p and top_k args
+- add top_p and top_k parameters to clients to fix build errors
+- Update default sampling temperature from 0.5 to 1.0
+- Expose temperature, add top_p and top_k args
+- Raise error when preloading memories fails
+- Update switch_act default for invalid float response to match concat_act
+- Return 'nan' instead of '0.0' on float conversion error for float_action_spec
+in ConcatActComponent
+- small changes to prompts in the conversational entity prefab.
+- prevent YOLO termination during formative memories init GM and optionally
+prevent the same thing in the dialogic GM (default behavior remains unchanged).
+Also update dialog example to set the conversation GM to avoid stopping in this
+way. Note: the reason for this change is just that we noticed some language
+models are more prone to deciding they want to terminate in YOLO mode than
+others. This lets the user have finer control in such cases.
+- Correct name for Depression Anxiety Stress Scale questionnaire
+- move FormativeMemoriesInitializer to its own py file for clarity
+
+### Added
+
+- Add HuggingFace language model wrapper
+- Add DayInTheLifeInitializer component that generates "day in the life"
+observations for two agents to set up a conversation scenario. It generates
+personal daily events for each agent and a shared event to bring them together.
+- add `get_context_concat_order` function on ConcatAct and SwitchAct
+- Add dimension ranges abstract method to questionnaires
+- Add CombinedPerception component
+- Add README to language_models page encouraging users to add language model
+wrappers for additional models and APIs, and to help maintain them. This
+README also explains how to implement the two necessary functions on each
+language model wrapper.
+- adding context argument in questionnaires
+- Questionnaire component
+- Generalize the together_ai language model wrapper to allow more models.
+
+### Fixed
+
+- Fix bugs in contrib.language_models
+- Fixes bug where ActionSpec choice options containing commas were incorrectly
+split by the parser. Replaced with |
+
 ## [2.1.0] - 2025-08-18
 
 ### Changed
