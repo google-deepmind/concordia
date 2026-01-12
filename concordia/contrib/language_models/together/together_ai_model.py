@@ -158,7 +158,12 @@ class DefaultCompletion(language_model.LanguageModel):
       max_allowed_tokens: Max number of tokens allowed in prompt and response.
     """
     if api_key is None:
-      api_key = os.environ['TOGETHER_AI_API_KEY']
+      api_key = os.getenv('TOGETHER_AI_API_KEY')
+      if not api_key:
+        raise ValueError(
+            'TOGETHER_AI_API_KEY not found. Please provide it via the api_key '
+            'parameter or set the TOGETHER_AI_API_KEY environment variable.'
+        )
     self._api_key = api_key
     self._model_name = model_name
     self._measurements = measurements
@@ -390,7 +395,12 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
       max_allowed_tokens: Max number of tokens allowed in prompt and response.
     """
     if api_key is None:
-      api_key = os.environ['TOGETHER_AI_API_KEY']
+      api_key = os.getenv('TOGETHER_AI_API_KEY')
+      if not api_key:
+        raise ValueError(
+            'TOGETHER_AI_API_KEY not found. Please provide it via the api_key '
+            'parameter or set the TOGETHER_AI_API_KEY environment variable.'
+        )
     self._api_key = api_key
     self._model_name = model_name
     self._measurements = measurements

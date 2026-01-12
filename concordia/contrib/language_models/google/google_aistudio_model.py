@@ -125,7 +125,12 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
       sleep_periodically: Whether to sleep between API calls to avoid rate limit
     """
     if api_key is None:
-      api_key = os.environ['GOOGLE_API_KEY']
+      api_key = os.getenv('GOOGLE_API_KEY')
+      if not api_key:
+        raise ValueError(
+            'GOOGLE_API_KEY not found. Please provide it via the api_key '
+            'parameter or set the GOOGLE_API_KEY environment variable.'
+        )
     self._api_key = api_key
     self._model_name = model_name
     self._safety_settings = safety_settings
