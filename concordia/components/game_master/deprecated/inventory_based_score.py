@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.components.game_master.deprecated import inventory as inventory_gm_component
@@ -68,12 +69,12 @@ class Score(component.Component):
       targets = self._targets[player.name]
       for target in targets:
         if self._verbose:
-          print(termcolor.colored(
+          logging.info(termcolor.colored(
               f'{player.name} -- target = {target}, inventory = {inventory}',
               'yellow'))
         if target in list(inventory.keys()) and inventory[target] > 0:
           if self._verbose:
-            print(termcolor.colored('    target found in inventory.', 'yellow'))
+            logging.info(termcolor.colored('    target found in inventory.', 'yellow'))
           num_on_target = inventory[target]
           player_scores[player.name] += num_on_target
 

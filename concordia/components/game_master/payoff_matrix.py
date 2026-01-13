@@ -14,6 +14,7 @@
 
 """A component for computing pressure created through labor collective action."""
 
+from absl import logging
 from collections.abc import Callable, Mapping, Sequence
 import copy
 
@@ -154,7 +155,8 @@ class PayoffMatrix(
       is_action_complete = self._joint_action_is_complete(joint_action)
       if is_action_complete:
         if self._verbose:
-          print(
+          logging.debug(
+              '%s',
               termcolor.colored(
                   f'Joint action is complete: {joint_action}', 'yellow'
               )
@@ -188,7 +190,7 @@ class PayoffMatrix(
             memory.add(f'{player_name} learned that {observation}')
 
         if self._verbose:
-          print(termcolor.colored(self._player_scores, 'yellow'))
+          logging.debug('%s', termcolor.colored(self._player_scores, 'yellow'))
 
     self._logging_channel(copy.deepcopy({
         'Joint Action': self._partial_joint_action,
@@ -205,7 +207,8 @@ class PayoffMatrix(
           name: None for name in self._acting_player_names
       }
       if self._verbose:
-        print(
+        logging.debug(
+            '%s',
             termcolor.colored(f'Stage {self._stage_idx} is complete.', 'yellow')
         )
     return ''

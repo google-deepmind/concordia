@@ -14,6 +14,7 @@
 
 """Component that helps a game master decide whose turn is next."""
 
+from absl import logging
 from collections.abc import Mapping, Sequence
 import copy
 import random
@@ -217,12 +218,12 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   def remove_actor_from_sequence(self, actor_name: str) -> None:
     """Removes an actor from the sequence."""
     with self._lock:
-      print(f'Removing {actor_name} from sequence: {self._sequence}')
+      logging.info('Removing %s from sequence: %s', actor_name, self._sequence)
       if actor_name in self._sequence:
         self._sequence.remove(actor_name)
       else:
         raise ValueError(f'Actor {actor_name} not found in sequence.')
-      print(f'Sequence after removal: {self._sequence}')
+      logging.info('Sequence after removal: %s', self._sequence)
 
   def add_actor_to_sequence(self, actor_name: str) -> None:
     """Adds an actor to the sequence."""

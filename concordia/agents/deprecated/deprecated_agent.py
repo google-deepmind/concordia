@@ -27,6 +27,7 @@ import copy
 import datetime
 import threading
 
+from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import agent
@@ -110,7 +111,7 @@ class BasicAgent(
     return new_sim
 
   def _print(self, entry: str):
-    print(termcolor.colored(entry, self._print_colour), end='')
+    logging.info(termcolor.colored(entry, self._print_colour))
 
   def add_component(self, comp: component.Component) -> None:
     """Add a component."""
@@ -128,7 +129,7 @@ class BasicAgent(
 
   def _ask_for_input(self, context: str, prompt: str) -> str:
     display.clear_output()
-    print(context, flush=True)
+    logging.info(context)
     result = input(prompt)
     return result
 

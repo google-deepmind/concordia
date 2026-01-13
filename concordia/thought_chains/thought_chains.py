@@ -18,6 +18,7 @@
 from collections.abc import Callable, Sequence
 import random
 
+from absl import logging
 from concordia.agents import entity_agent
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -394,9 +395,9 @@ class AccountForAgencyOfOthers:
           would_they_do_it = self._player_by_name[player_].act(action_spec)
           action_spec.validate(would_they_do_it)
           if self._verbose:
-            print(termcolor.colored(
+            logging.info(termcolor.colored(
                 tmp_chain_of_thought_per_player.view().text(), 'yellow'))
-            print(termcolor.colored(f'Would they do it? {would_they_do_it}',
+            logging.info(termcolor.colored(f'Would they do it? {would_they_do_it}',
                                     'yellow'))
           if would_they_do_it == 'No':
             players_who_would_not.append(player_)
@@ -415,7 +416,7 @@ class AccountForAgencyOfOthers:
             )
             possible_outcomes.append(outcome)
             if self._verbose:
-              print(termcolor.colored(
+              logging.info(termcolor.colored(
                   no_chain_of_thought.view().text(), 'yellow'))
 
     if players_who_would_not:
@@ -436,7 +437,7 @@ class AccountForAgencyOfOthers:
           max_tokens=1500,
       )
       if self._verbose:
-        print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
+        logging.info(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
     return candidate_event
 
 
@@ -518,7 +519,7 @@ class Conversation:
         self._player_by_name[name].observe(conversation)
 
     if self._verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           (f'Contributions:\n{contributions_str}\n\n'
            f'Conversation:\n{conversation}'),
           'yellow'))

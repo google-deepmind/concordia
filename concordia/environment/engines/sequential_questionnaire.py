@@ -140,11 +140,8 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
         )
     )
     if verbose:
-      print(
-          termcolor.colored(
-              f'Terminate? {should_terminate_string}', _PRINT_COLOR
-          )
-      )
+      logging.info(termcolor.colored(
+          f'Terminate? {should_terminate_string}', _PRINT_COLOR))
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def make_observation(
@@ -163,11 +160,8 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
         )
     )
     if verbose:
-      print(
-          termcolor.colored(
-              f'Observation: {observation} for {entity.name}', _PRINT_COLOR
-          )
-      )
+      logging.info(termcolor.colored(
+          f'Observation: {observation} for {entity.name}', _PRINT_COLOR))
     return observation
 
   @override
@@ -199,7 +193,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
     for step in range(max_steps):
       logging.info('[SequentialQuestionnaireEngine] Step %d', step)
       if verbose:
-        print(f'Step {step}')
+        logging.info('Step %s', step)
 
       if self.terminate(game_master, verbose):
         logging.info(
@@ -224,7 +218,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       if not next_entities:
         logging.warning('[SequentialQuestionnaireEngine] No entities to act.')
         if verbose:
-          print(termcolor.colored('No entities to act.', _PRINT_COLOR))
+          logging.info(termcolor.colored('No entities to act.', _PRINT_COLOR))
         return
 
       player_qid_spec_list = self.next_action_spec(game_master, next_entities)
@@ -296,7 +290,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
           game_master.observe(observation)
 
       if verbose:
-        print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
+        logging.info(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
 
     logging.info('[SequentialQuestionnaireEngine] run_loop finished.')
     self.shutdown()
@@ -334,11 +328,8 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
         )
     )
     if verbose:
-      print(
-          termcolor.colored(
-              f'Game master: {next_game_master_name}', _PRINT_COLOR
-          )
-      )
+      logging.info(termcolor.colored(
+          f'Game master: {next_game_master_name}', _PRINT_COLOR))
     if next_game_master_name not in game_masters_by_name:
       raise ValueError(
           f'Selected game master "{next_game_master_name}" not found in:'

@@ -21,6 +21,7 @@ import datetime
 import functools
 import threading
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
@@ -325,7 +326,7 @@ class Inventory(component.Component):
                         player_name=formatted_player, message=effect
                     )
                     if self._verbose:
-                      print(termcolor.colored(effect, 'yellow'))
+                      logging.info(termcolor.colored(effect, 'yellow'))
                 else:
                   chain_of_thought.statement(
                       f'So {formatted_player} would have gained '
@@ -360,15 +361,15 @@ class Inventory(component.Component):
                   )
                   inventory_effects.append(reason_for_no_change)
                   if self._verbose:
-                    print(termcolor.colored(reason_for_no_change, 'yellow'))
+                    logging.info(termcolor.colored(reason_for_no_change, 'yellow'))
         self._inventories = new_inventories
 
     # Update the string representation of all inventories.
     self.update()
 
     if self._verbose:
-      print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
-      print(termcolor.colored(self.state(), 'yellow'))
+      logging.info(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
+      logging.info(termcolor.colored(self.state(), 'yellow'))
 
     self._latest_update_log = {
         'date': self._clock_now(),

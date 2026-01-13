@@ -19,6 +19,7 @@ from collections.abc import Mapping, Sequence
 import functools
 from typing import Any, Callable
 
+from absl import logging
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
@@ -139,7 +140,7 @@ class Sequential(engine_lib.Engine):
               verbose: bool = False) -> None:
     """Resolve an event."""
     if verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           f'The suggested action or event to resolve was: {putative_event}',
           _PRINT_COLOR))
     game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
@@ -151,7 +152,7 @@ class Sequential(engine_lib.Engine):
     )
     game_master.observe(observation=f'{EVENT_TAG} {result}')
     if verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           f'The resolved event was: {result}', _PRINT_COLOR))
 
   def terminate(self,
@@ -166,7 +167,7 @@ class Sequential(engine_lib.Engine):
         )
     )
     if verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           f'Terminate? {should_terminate_string}', _PRINT_COLOR))
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
@@ -177,7 +178,7 @@ class Sequential(engine_lib.Engine):
     """Select which game master to use for the next step."""
     if len(game_masters) == 1:
       if verbose:
-        print(termcolor.colored(
+        logging.info(termcolor.colored(
             (f'Only one game master available ({game_masters[0].name}), '
              'skipping the call to `next_game_master`.'),
             _PRINT_COLOR))
@@ -193,7 +194,7 @@ class Sequential(engine_lib.Engine):
         )
     )
     if verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           f'Game master: {next_game_master_name}', _PRINT_COLOR))
     if next_game_master_name not in game_masters_by_name:
       raise ValueError(
@@ -242,7 +243,7 @@ class Sequential(engine_lib.Engine):
         # Only observe if the observation is not an empty or whitespace string
         if observation and observation.strip():
           if verbose:
-            print(
+            logging.info(
                 termcolor.colored(
                     f'Entity {entity.name} observed: {observation}',
                     _PRINT_COLOR,
@@ -265,16 +266,16 @@ class Sequential(engine_lib.Engine):
         # initialize other players and game masters. In this case, we skip the
         # current step and continue to the next step.
         if verbose:
-          print(termcolor.colored(
+          logging.info(termcolor.colored(
               '\nSkipping the action phase for the current time step.\n'))
         if checkpoint_callback is not None:
-          print(f'Calling checkpoint callback at step {steps}')
+          logging.info('Calling checkpoint callback at step %d', steps)
           checkpoint_callback(steps)
         steps += 1
         continue
 
       if verbose:
-        print(termcolor.colored(
+        logging.info(termcolor.colored(
             f'Entity {next_entity.name} is next to act. They must respond '
             f' in the format: "{entity_spec_to_use}".', _PRINT_COLOR))
       raw_action = next_entity.act(entity_spec_to_use)
@@ -283,7 +284,7 @@ class Sequential(engine_lib.Engine):
       else:
         action = f'{next_entity.name}: {raw_action}'
       if verbose:
-        print(termcolor.colored(
+        logging.info(termcolor.colored(
             f'Entity {next_entity.name} chose action: {action}', _PRINT_COLOR))
 
       self.resolve(game_master=game_master,

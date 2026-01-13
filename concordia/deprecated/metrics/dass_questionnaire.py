@@ -28,6 +28,7 @@ from collections.abc import Callable
 import concurrent
 from typing import Any
 
+from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import clock as game_clock
@@ -107,7 +108,7 @@ class Questionnaire(component.Component):
     return self._name
 
   def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
+    logging.info(termcolor.colored(entry, self._log_color))
 
   def update(self) -> None:
     """See base class."""

@@ -18,6 +18,7 @@ from collections.abc import Mapping, Sequence
 import functools
 from typing import Any, Callable, override
 
+from absl import logging
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
@@ -150,12 +151,9 @@ class Simultaneous(engine_lib.Engine):
   ) -> None:
     """Resolve an event."""
     if verbose:
-      print(
-          termcolor.colored(
-              f'The suggested action or event to resolve was: {putative_event}',
-              _PRINT_COLOR,
-          )
-      )
+      logging.info(termcolor.colored(
+          f'The suggested action or event to resolve was: {putative_event}',
+          _PRINT_COLOR))
     game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -165,9 +163,8 @@ class Simultaneous(engine_lib.Engine):
     )
     game_master.observe(observation=f'{EVENT_TAG} {result}')
     if verbose:
-      print(
-          termcolor.colored(f'The resolved event was: {result}', _PRINT_COLOR)
-      )
+      logging.info(termcolor.colored(
+          f'The resolved event was: {result}', _PRINT_COLOR))
 
   def terminate(
       self, game_master: entity_lib.Entity, verbose: bool = False
@@ -181,11 +178,8 @@ class Simultaneous(engine_lib.Engine):
         )
     )
     if verbose:
-      print(
-          termcolor.colored(
-              f'Terminate? {should_terminate_string}', _PRINT_COLOR
-          )
-      )
+      logging.info(termcolor.colored(
+          f'Terminate? {should_terminate_string}', _PRINT_COLOR))
     return should_terminate_string == entity_lib.BINARY_OPTIONS['affirmative']
 
   def next_game_master(
@@ -208,11 +202,8 @@ class Simultaneous(engine_lib.Engine):
         )
     )
     if verbose:
-      print(
-          termcolor.colored(
-              f'Game master: {next_game_master_name}', _PRINT_COLOR
-          )
-      )
+      logging.info(termcolor.colored(
+          f'Game master: {next_game_master_name}', _PRINT_COLOR))
     if next_game_master_name not in game_masters_by_name:
       raise ValueError(
           f'Selected game master {next_game_master_name} not found in:'
@@ -263,14 +254,11 @@ class Simultaneous(engine_lib.Engine):
         # initialize other players and game masters. In this case, we skip the
         # current step and continue to the next step.
         if verbose:
-          print(
-              termcolor.colored(
-                  '\nSkipping the action phase for the current time step.\n'
-              )
-          )
+          logging.info(termcolor.colored(
+              '\nSkipping the action phase for the current time step.\n'))
         skip_actions = True
         if checkpoint_callback is not None:
-          print(f'Calling checkpoint callback at step {steps}')
+          logging.info('Calling checkpoint callback at step %s', steps)
           checkpoint_callback(steps)
       else:
         skip_actions = False
@@ -290,7 +278,7 @@ class Simultaneous(engine_lib.Engine):
         # Only observe if the observation is not an empty or whitespace string
         if observation and observation.strip():
           if verbose:
-            print(
+            logging.info(
                 termcolor.colored(
                     f'Entity {entity.name} observed: {observation}',
                     _PRINT_COLOR,
@@ -302,7 +290,7 @@ class Simultaneous(engine_lib.Engine):
           return ''
 
         if verbose:
-          print(
+          logging.info(
               termcolor.colored(
                   f'Entity {entity.name} is next to act. They must respond '
                   f' in the format: "{action_spec}".',
@@ -315,7 +303,7 @@ class Simultaneous(engine_lib.Engine):
         else:
           action = f'{entity.name}: {raw_action}'
         if verbose:
-          print(
+          logging.info(
               termcolor.colored(
                   f'Entity {entity.name} chose action: {action}', _PRINT_COLOR
               )
