@@ -225,9 +225,9 @@ class DefaultCompletion(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds... '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds... attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -250,8 +250,8 @@ class DefaultCompletion(language_model.LanguageModel):
           together.error.InvalidRequestError,
       ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Text exception prompt: {prompt}')
+          logging.error('  Exception: %s', err)
+          logging.error('  Text exception prompt: %s', prompt)
         if isinstance(err, together.error.APIError) or isinstance(
             err, together.error.InvalidRequestError
         ):
@@ -292,9 +292,9 @@ class DefaultCompletion(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds.. '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds.. attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -315,8 +315,8 @@ class DefaultCompletion(language_model.LanguageModel):
           together.error.InvalidRequestError,
       ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Choice exception prompt: {augmented_prompt}')
+          logging.error('  Exception: %s', err)
+          logging.error('  Choice exception prompt: %s', augmented_prompt)
         if isinstance(err, together.error.APIError) or isinstance(
             err, together.error.InvalidRequestError
         ):
@@ -459,9 +459,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds... '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds... attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -485,8 +485,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
           together.error.InvalidRequestError,
       ) as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Text exception prompt: {prompt}')
+          logging.error('  Exception: %s', err)
+          logging.error('  Text exception prompt: %s', prompt)
         if isinstance(err, together.error.APIError) or isinstance(
             err, together.error.InvalidRequestError
         ):

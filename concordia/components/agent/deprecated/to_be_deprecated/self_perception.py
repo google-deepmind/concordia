@@ -17,6 +17,7 @@ import datetime
 from typing import Callable, Sequence
 
 from concordia.associative_memory.deprecated import associative_memory
+from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
@@ -120,7 +121,7 @@ class SelfPerception(component.Component):
 
     self._last_chain = prompt
     if self._verbose:
-      print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
+      logging.info(termcolor.colored(self._last_chain.view().text(), 'green'))
 
     update_log = {
         'date': self._clock_now(),

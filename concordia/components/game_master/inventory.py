@@ -14,6 +14,7 @@
 
 """A game master component to represent each player's inventory."""
 
+from absl import logging
 from collections.abc import Callable
 from collections.abc import Mapping
 from collections.abc import Sequence
@@ -317,7 +318,7 @@ class Inventory(
                       inventory_effects.append(effect)
                       self._add_to_game_master_memory(message=effect)
                       if self._verbose:
-                        print(termcolor.colored(effect, 'yellow'))
+                        logging.debug('%s', termcolor.colored(effect, 'yellow'))
                   else:
                     chain_of_thought.statement(
                         f'So {formatted_player} would have gained '
@@ -352,14 +353,14 @@ class Inventory(
                     )
                     inventory_effects.append(reason_for_no_change)
                     if self._verbose:
-                      print(termcolor.colored(reason_for_no_change, 'yellow'))
+                      logging.debug('%s', termcolor.colored(reason_for_no_change, 'yellow'))
           self._inventories = new_inventories
 
         memory.extend(inventory_effects)
 
       display_chain_of_thought = chain_of_thought.view().text().splitlines()
       if self._verbose:
-        print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
+        logging.debug('%s', termcolor.colored(chain_of_thought.view().text(), 'yellow'))
 
     self._logging_channel({
         'Key': self._pre_act_label,
@@ -449,7 +450,8 @@ class Score(
       targets = self._targets[name]
       for target in targets:
         if self._verbose:
-          print(
+          logging.debug(
+              '%s',
               termcolor.colored(
                   f'{name} -- target = {target}, inventory = {inventory}',
                   'yellow',
@@ -457,7 +459,7 @@ class Score(
           )
         if target in list(inventory.keys()) and inventory[target] > 0:
           if self._verbose:
-            print(termcolor.colored('    target found in inventory.', 'yellow'))
+            logging.debug('%s', termcolor.colored('    target found in inventory.', 'yellow'))
           num_on_target = inventory[target]
           player_scores[name] += num_on_target
 

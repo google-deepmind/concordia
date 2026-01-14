@@ -18,6 +18,7 @@
 from collections.abc import Mapping, Sequence
 from typing import override
 
+from absl import logging as absl_logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import clock as game_clock
@@ -134,9 +135,9 @@ class PuppetActComponent(entity_component.ActingComponent):
     }
 
     if call_to_action in formatted_fixed_responses:
-      print(
-          f'Using fixed response:  "{call_to_action}" |->'
-          f' "{formatted_fixed_responses[call_to_action]}"'
+      absl_logging.info(
+          'Using fixed response:  "%s" |-> "%s"',
+          call_to_action, formatted_fixed_responses[call_to_action]
       )
       output = formatted_fixed_responses[call_to_action]
       if action_spec.output_type == entity_lib.OutputType.FREE:
@@ -171,9 +172,9 @@ class PuppetActComponent(entity_component.ActingComponent):
       context_str = prompt.view().text()
       for target in formatted_fixed_responses:
         if target in context_str:
-          print(
-              f'Using fixed response:  "{target}" |->'
-              f' "{formatted_fixed_responses[target]}"'
+          absl_logging.info(
+              'Using fixed response:  "%s" |-> "%s"',
+              target, formatted_fixed_responses[target]
           )
           output = formatted_fixed_responses[target]
           if action_spec.output_type == entity_lib.OutputType.FREE:

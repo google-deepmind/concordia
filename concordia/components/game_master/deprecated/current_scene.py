@@ -16,6 +16,7 @@
 import datetime
 from typing import Callable
 
+from absl import logging
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.typing.deprecated import component
 
@@ -61,7 +62,7 @@ class CurrentScene(component.Component):
           result.find('[scene type]') + len('[scene type]') + 1:]
 
     if self._verbose:
-      print(termcolor.colored(
+      logging.info(termcolor.colored(
           'The current scene type is: ' + self._current_scene_type, 'red'))
 
     update_log = {

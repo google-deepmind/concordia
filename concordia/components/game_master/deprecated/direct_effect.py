@@ -19,6 +19,7 @@ from collections.abc import Callable, Sequence
 import concurrent.futures
 import datetime
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
@@ -59,7 +60,7 @@ class DirectEffect(component.Component):
     return 'Direct effects of the event on others'
 
   def _print(self, entry: str):
-    print(termcolor.colored(entry, self._print_colour), end='')
+    logging.info(termcolor.colored(entry, self._print_colour))
 
   def get_player_names(self):
     return [player.name for player in self._players]

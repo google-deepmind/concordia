@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.environment.deprecated import game_master
@@ -90,7 +91,7 @@ def run_scenes(
 
     participant_names = [config.name for config in scene.participant_configs]
     if verbose:
-      print(f'\n\n    Scene {scene_idx}    Participants: {participant_names}\n')
+      logging.info('\n\n    Scene %s    Participants: %s\n', scene_idx, participant_names)
     participants = [players_by_name[name] for name in participant_names]
 
     # Prepare to run the scene
@@ -106,7 +107,7 @@ def run_scenes(
       for message in premise_messages:
         all_premises += f'{participant.name} -- premise: {message}      \n'  # pytype: disable=attribute-error
         if verbose:
-          print(f'{participant.name} -- premise: {message}')  # pytype: disable=attribute-error
+          logging.info('%s -- premise: %s', participant.name, message)  # pytype: disable=attribute-error
         participant.observe(message)  # pytype: disable=attribute-error
         this_scene_game_master_memory.add(message)
 
@@ -137,7 +138,7 @@ def run_scenes(
       )
       for message in conclusion_messages:
         if verbose:
-          print(f'{participant.name} -- conclusion: {message}')  # pytype: disable=attribute-error
+          logging.info('%s -- conclusion: %s', participant.name, message)  # pytype: disable=attribute-error
         participant.observe(message)  # pytype: disable=attribute-error
         this_scene_game_master_memory.add(message)
 

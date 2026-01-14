@@ -22,6 +22,7 @@ conversation at each step through the ConversationTracker component.
 from collections.abc import Sequence
 import random
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
@@ -134,7 +135,7 @@ class ConversationTracker(component.Component):
     return did_conclude
 
   def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_colour), end='')
+    logging.info(termcolor.colored(entry, self._log_colour))
 
   def update_after_event(self, event_statement: str):
     # The event_statement contains the last utterence in the conversation

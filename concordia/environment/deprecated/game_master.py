@@ -21,6 +21,7 @@ import functools
 import random
 from typing import Any
 
+from absl import logging
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.components import deprecated as generic_components
 from concordia.document import interactive_document
@@ -191,7 +192,7 @@ class GameMaster:
     return self._memory
 
   def _print(self, entry, color=None):
-    print(termcolor.colored(entry, color or self._log_color))
+    logging.info(termcolor.colored(entry, color or self._log_color))
 
   def get_player_names(self):
     return list(self._players_by_name.keys())

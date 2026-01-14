@@ -14,6 +14,7 @@
 
 """Component helping a game master pick which game master to use next."""
 
+from absl import logging
 from collections.abc import Callable, Sequence
 from concordia.components.agent import memory as memory_component_module
 from concordia.components.game_master import make_observation as make_observation_component_module
@@ -167,8 +168,8 @@ class SceneTracker(
       step_within_scene, current_scene, _ = self._get_scene_step_and_scene()
 
       if self._verbose:
-        print(f'Scene game master: {current_scene.scene_type.game_master_name}')
-        print(f'Step counter: {step_within_scene}')
+        logging.debug('Scene game master: %s', current_scene.scene_type.game_master_name)
+        logging.debug('Step counter: %s', step_within_scene)
 
       if self.is_done():
         terminator = self.get_entity().get_component(

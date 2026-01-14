@@ -14,6 +14,7 @@
 
 """Agent components for planning."""
 from collections.abc import Sequence
+from absl import logging
 import datetime
 from typing import Callable
 from concordia.associative_memory.deprecated import associative_memory
@@ -87,7 +88,7 @@ class SimPlan(component.Component):
       return self._history[-1].copy()
 
   def _log(self, entry: str):
-    print(termcolor.colored(entry, self._log_color), end='')
+    logging.info(termcolor.colored(entry, self._log_color))
 
   def observe(self, observation: str):
     self._last_observation.append(observation)

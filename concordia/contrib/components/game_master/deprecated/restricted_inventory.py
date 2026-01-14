@@ -15,6 +15,7 @@
 """A component to represent each agent's physical inventory or possessions."""
 
 from collections.abc import Callable, Mapping, Sequence
+from absl import logging
 import concurrent
 import copy
 import datetime
@@ -336,7 +337,7 @@ class RestrictedInventory(gm_components.inventory.Inventory):
                   effect = effect + 's'
                 inventory_effects.append(effect)
                 if self._verbose:
-                  print(termcolor.colored(effect, 'yellow'))
+                  logging.info(termcolor.colored(effect, 'yellow'))
 
     final_item_counts = self._get_num_each_item()
     for name, _ in initial_item_counts.items():
@@ -352,8 +353,8 @@ class RestrictedInventory(gm_components.inventory.Inventory):
     self.update()
 
     if self._verbose:
-      print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
-      print(termcolor.colored(self.state(), 'yellow'))
+      logging.info(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
+      logging.info(termcolor.colored(self.state(), 'yellow'))
 
     update_log = {
         'date': self._clock_now(),

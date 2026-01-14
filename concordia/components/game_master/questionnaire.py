@@ -14,6 +14,7 @@
 
 """Component helping a game master ask a questionnaire."""
 
+from absl import logging
 import collections
 from collections.abc import Sequence
 import json
@@ -186,13 +187,13 @@ class Questionnaire(entity_component.ContextComponent):
           self._process_answer(player_name, q_id, answer_text)
           self._answered_mask[player_name][q_id] = True
         else:
-          print(
-              f'Warning: No match or already answered for {player_name}, {q_id}'
+          logging.warning(
+              'No match or already answered for %s, %s', player_name, q_id
           )
       else:
-        print(f'Warning: No regex match for observation: {observation}')
+        logging.warning('No regex match for observation: %s', observation)
     except re.error as e:
-      print(f'Error processing observation: {e} on {observation}')
+      logging.error('Error processing observation: %s on %s', e, observation)
     return ''
 
   def _process_answer(
@@ -252,7 +253,7 @@ class Questionnaire(entity_component.ContextComponent):
     all_player_results_dict = self.get_aggregated_results()
 
     if not all_player_results_dict:
-      print('No questionnaire results found to aggregate.')
+      logging.info('No questionnaire results found to aggregate.')
       return None
 
     player_names = list(self._answers)
@@ -273,7 +274,7 @@ class Questionnaire(entity_component.ContextComponent):
     if kwargs is None:
       kwargs = {}
     for questionnaire in self._questionnaires.values():
-      print(f'Plotting results for {questionnaire.name}')
+      logging.info('Plotting results for %s', questionnaire.name)
       questionnaire.plot_results(
           results_df, label_column=label_column, kwargs=kwargs
       )

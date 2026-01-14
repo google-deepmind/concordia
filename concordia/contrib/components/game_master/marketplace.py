@@ -23,6 +23,7 @@ import random
 import re
 from typing import Any, Dict, List, Optional, Sequence
 
+from absl import logging
 from concordia.components.agent import action_spec_ignored
 from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
@@ -118,7 +119,7 @@ class MarketPlace(
     if hasattr(self, "_logging_channel") and self._logging_channel is not None:
       self._logging_channel(log_entry)
     else:
-      print(f"{self.__class__.__name__} LOG: {log_entry}", flush=True)
+      logging.info("%s LOG: %s", self.__class__.__name__, log_entry)
 
   def get_pre_act_label(self) -> str:
     return self._pre_act_label

@@ -19,6 +19,7 @@ from collections.abc import Callable, Sequence
 import datetime
 import threading
 
+from absl import logging
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -109,7 +110,7 @@ class PlayerStatus(component.Component):
         )
         per_player_prompt[player_name] = prompt.view().text().splitlines()
         if self._verbose:
-          print(prompt.view().text())
+          logging.info(prompt.view().text())
 
         # Indent player status outputs.
         player_state_string = f'  {player_name} is ' + player_loc

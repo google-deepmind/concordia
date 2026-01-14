@@ -19,6 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import datetime
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
@@ -279,7 +280,7 @@ class SchellingPayoffs(component.Component):
         finished = True
 
         if self._verbose:
-          print(termcolor.colored(self.state(), 'yellow'))
+          logging.info(termcolor.colored(self.state(), 'yellow'))
 
     num_players_already_acted = np.sum(
         [value is not None for value in self._partial_joint_action.values()])

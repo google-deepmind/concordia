@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import datetime
 import random
 
+from absl import logging
 from concordia.agents.deprecated import deprecated_agent
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
@@ -162,7 +163,7 @@ class Conversation(component.Component):
     return [player.name for player in self._players]
 
   def _log(self, entry):
-    print(termcolor.colored(entry, self._log_color))
+    logging.info(termcolor.colored(entry, self._log_color))
 
   def _make_npc(
       self, name: str, scene_clock: clock_lib.GameClock
