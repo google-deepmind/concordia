@@ -17,6 +17,7 @@
 
 from collections.abc import Callable, Sequence
 import datetime
+from absl import logging
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.document import interactive_document
 from concordia.language_model import language_model
@@ -122,10 +123,10 @@ class AllSimilarMemories(component.Component):
     )
 
     if self._verbose:
-      print(termcolor.colored(prompt.view().text(), 'green'), end='')
-      print(termcolor.colored(f'Query: {query}\n', 'green'), end='')
-      print(termcolor.colored(new_prompt.view().text(), 'green'), end='')
-      print(termcolor.colored(self._state, 'green'), end='')
+      logging.info(termcolor.colored(prompt.view().text(), 'green'))
+      logging.info(termcolor.colored(f'Query: {query}\n', 'green'))
+      logging.info(termcolor.colored(new_prompt.view().text(), 'green'))
+      logging.info(termcolor.colored(self._state, 'green'))
 
     update_log = {
         'date': self._clock_now(),

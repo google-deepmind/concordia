@@ -16,6 +16,7 @@
 """
 
 from collections.abc import Callable, Mapping, Sequence
+from absl import logging
 import datetime
 
 from concordia.agents.deprecated import deprecated_agent
@@ -202,7 +203,7 @@ class LaborStrike(component.Component):
         finished = True
 
         if self._verbose:
-          print(termcolor.colored(self.state(), 'yellow'))
+          logging.info(termcolor.colored(self.state(), 'yellow'))
 
     num_players_already_acted = np.sum(
         [value is not None for value in self._partial_joint_action.values()])

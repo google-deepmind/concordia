@@ -16,6 +16,7 @@
 """
 
 from collections.abc import Callable, Mapping, Sequence
+from absl import logging
 import datetime
 
 from concordia.agents.deprecated import deprecated_agent
@@ -184,7 +185,7 @@ class AgreementTracker(component.Component):
         chain_of_thought_str = chain_of_thought.view().text()
 
         if self._verbose:
-          print(termcolor.colored(chain_of_thought_str, 'yellow'))
+          logging.info(termcolor.colored(chain_of_thought_str, 'yellow'))
 
     num_players_already_acted = np.sum(
         [value is not None for value in self._partial_joint_action.values()])

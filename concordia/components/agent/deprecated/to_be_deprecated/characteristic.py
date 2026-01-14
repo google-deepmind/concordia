@@ -18,6 +18,7 @@ import datetime
 from typing import Callable
 
 from concordia.associative_memory.deprecated import associative_memory
+from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
@@ -121,7 +122,7 @@ class Characteristic(component.Component):
 
     self._last_chain = prompt
     if self._verbose:
-      print(termcolor.colored(self._last_chain.view().text(), 'red'), end='')
+      logging.info(termcolor.colored(self._last_chain.view().text(), 'red'))
 
     update_log = {
         'Summary': question,

@@ -17,6 +17,7 @@
 import concurrent
 import datetime
 from typing import Callable
+from absl import logging
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.components.agent.deprecated.to_be_deprecated import characteristic
 from concordia.language_model import language_model
@@ -138,4 +139,4 @@ class SomaticState(component.Component):
       )
 
     if self._verbose:
-      print(termcolor.colored(self._state, 'green'), end='')
+      logging.info(termcolor.colored(self._state, 'green'))

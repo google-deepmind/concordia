@@ -16,6 +16,7 @@
 
 from collections.abc import Sequence
 
+from absl import logging
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component_module
 from concordia.components.game_master import make_observation as make_observation_component_module
@@ -192,7 +193,7 @@ class Death(
         memory.add(self._death_message.format(actor_name=actor))
         self._actors_names.remove(actor)
       if self._verbose:
-        print(self._death_message.format(actor_name=who_died_str))
+        logging.info(self._death_message.format(actor_name=who_died_str))
     else:
       if not self._actors_names:
         terminator = self.get_entity().get_component(

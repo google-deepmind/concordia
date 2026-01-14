@@ -15,6 +15,7 @@
 """Represents each agent's daily activities over a period of time."""
 
 from collections.abc import Callable, Mapping, Sequence
+from absl import logging
 import copy
 import dataclasses
 import datetime
@@ -251,7 +252,7 @@ class DailyActivities(component.Component):
                   'time hunting, and 60% of the time dancing.')
           )
           if self._verbose:
-            print(termcolor.colored(cloned_thought_chain.view().text(), 'red'))
+            logging.info(termcolor.colored(cloned_thought_chain.view().text(), 'red'))
           can_parse = True
           if fractions_string:
             fractions_list = fractions_string.strip().replace(
@@ -277,8 +278,8 @@ class DailyActivities(component.Component):
 
     if current_scene_type == self._resolution_scene:
       if self._verbose:
-        print(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
-        print(termcolor.colored(self.state(), 'yellow'))
+        logging.info(termcolor.colored(chain_of_thought.view().text(), 'yellow'))
+        logging.info(termcolor.colored(self.state(), 'yellow'))
 
       self._latest_update_log = {
           'date': self._clock_now(),
