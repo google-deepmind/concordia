@@ -20,7 +20,6 @@ import random
 from typing import Callable, Sequence
 
 from concordia.agents.deprecated import deprecated_agent
-from absl import logging
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.document import interactive_document
