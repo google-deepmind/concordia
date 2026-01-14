@@ -20,6 +20,7 @@ import random
 from typing import Callable, Sequence
 
 from concordia.agents.deprecated import deprecated_agent
+from absl import logging
 from concordia.agents.deprecated import entity_agent
 from concordia.associative_memory.deprecated import associative_memory
 from concordia.document import interactive_document
@@ -191,7 +192,7 @@ class WorldBackgroundAndRelevance(component.Component):
       self._memory.add(factoid, tags=['world fact'])
 
     if self._verbose:
-      print(termcolor.colored(chain_of_thought.view().text(), 'red'))
+      logging.info(termcolor.colored(chain_of_thought.view().text(), 'red'))
 
   def name(self) -> str:
     return self._name
@@ -274,10 +275,10 @@ class WorldBackgroundAndRelevance(component.Component):
       )
 
     if self._verbose:
-      print(termcolor.colored(prompt.view().text(), 'red'), end='')
-      print(termcolor.colored(f'Query: {query}\n', 'red'), end='')
-      print(termcolor.colored(new_prompt.view().text(), 'red'), end='')
-      print(termcolor.colored(self._state, 'red'), end='')
+      logging.info(termcolor.colored(prompt.view().text(), 'red'))
+      logging.info(termcolor.colored(f'Query: {query}\n', 'red'))
+      logging.info(termcolor.colored(new_prompt.view().text(), 'red'))
+      logging.info(termcolor.colored(self._state, 'red'))
 
     update_log = {
         'date': self._clock_now(),

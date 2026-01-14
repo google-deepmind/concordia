@@ -215,7 +215,7 @@ class LaborStrike(entity_component.ContextComponent):
         finished = True
 
         if self._verbose:
-          print(termcolor.colored(self._state, 'yellow'))
+          logging.info(termcolor.colored(self._state, 'yellow'))
 
     if finished:
       # Advance to the next stage.
