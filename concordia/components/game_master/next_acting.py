@@ -418,6 +418,81 @@ class NextActingFromSceneSpec(
     self._counter = state['counter']
 
 
+class NextActingAllEntitiesFromSceneSpec(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
+  """A component that makes all scene participants act simultaneously.
+
+  Unlike NextActingFromSceneSpec which cycles through participants one at a time,
+  this component returns all participants to act at once. Designed for use with
+  simultaneous engines.
+  """
+
+  def __init__(
+      self,
+      memory_component_key: str = (
+          memory_component.DEFAULT_MEMORY_COMPONENT_KEY
+      ),
+      scene_tracker_component_key: str = (
+          scene_tracker_component.DEFAULT_SCENE_TRACKER_COMPONENT_KEY
+      ),
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
+  ):
+    """Initializes the component.
+
+    Args:
+      scene_tracker_component_key: The name of the scene tracker component.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
+    """
+    super().__init__()
+    self._memory_component_key = memory_component_key
+    self._scene_tracker_component_key = scene_tracker_component_key
+    self._pre_act_label = pre_act_label
+
+  def _get_named_component_pre_act_value(self, component_name: str) -> str:
+    """Returns the pre-act value of a named component of the parent entity."""
+    return (
+        self.get_entity().get_component(
+            component_name, type_=action_spec_ignored.ActionSpecIgnored
+        ).get_pre_act_value()
+    )
+
+  def _get_current_scene_participants(self) -> Sequence[str]:
+    scene_tracker = self.get_entity().get_component(
+        self._scene_tracker_component_key,
+        type_=scene_tracker_component.SceneTracker,
+    )
+    return scene_tracker.get_participants()
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      scene_participants = self._get_current_scene_participants()
+      result = ','.join(scene_participants)  # All participants at once
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    """Not applicable for this component as all players are always active."""
+    raise RuntimeError(
+        'Error in NextActingAllEntitiesFromSceneSpec: '
+        'get_currently_active_player() is not applicable for this component '
+        'as all players are always active. You might be using a component '
+        'that calls this method in a simultaneous environment.'
+    )
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass
+
+
 class NextActionSpec(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
