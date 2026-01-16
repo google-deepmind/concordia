@@ -19,31 +19,27 @@ See https://api.together.xyz/models for the full list of models available.
 
 The list of models we have tested with this implementation is as follows:
 
-Gemma 3 family:
-- google/gemma-3-27b-it
-- google/gemma-3-12b-it
-- google/gemma-3-4b-it
-- google/gemma-3-1b-it
+Gemma 3N family:
+- google/gemma-3n-E4B-it
 
 OpenAI open weights family:
 - openai/gpt-oss-120b
 - openai/gpt-oss-20b
+
+DeepSeek family:
+- deepseek-ai/DeepSeek-V3
 """
 
 from collections.abc import Collection, Sequence
-import concurrent.futures
 import os
 import random
-import re
 import time
-from typing import override
+from typing import Protocol, override
 
 from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
-import numpy as np
-import together
 
 
 _MAX_ATTEMPTS = 20
@@ -63,36 +59,27 @@ _MAX_ALLOWED_TOKENS_DEFAULT = int(1e5)
 _MAX_ALLOWED_TOKENS_OVERRIDES = {}
 
 
-def _find_concatenated_subsequence(source: list[str], target: str):
-  """Get start idx in source where adjacent elements concatenated equal target.
+class TogetherClient(Protocol):
+  """Protocol for Together AI client to allow mocking."""
 
-  Args:
-    source: List of strings
-    target: String to find
+  @property
+  def chat(self) -> 'ChatCompletions':
+    ...
 
-  Returns:
-    int: Starting idx in source where the subsequence begins, or -1 if not found
-  """
-  # Remove spaces.
-  target = re.sub(r'[\s\u2581]+', '', target)
 
-  if not target:  # Empty target
-    return 0 if source else -1
+class ChatCompletions(Protocol):
+  """Protocol for chat completions."""
 
-  for i in range(len(source)):
-    concatenated = ''
-    for j in range(i, len(source)):
-      # Remove spaces.
-      concatenated += re.sub(r'[\s\u2581]+', '', source[j])
-      if concatenated == target:
-        return i
-      if concatenated not in target:
-        break
-      # Early termination if we've already exceeded the target length
-      if len(concatenated) > len(target):
-        break
+  @property
+  def completions(self) -> 'CompletionsCreate':
+    ...
 
-  return -1  # Not found
+
+class CompletionsCreate(Protocol):
+  """Protocol for completions create method."""
+
+  def create(self, **kwargs) -> object:
+    ...
 
 
 def _ensure_prompt_not_too_long(
@@ -134,8 +121,42 @@ def _ensure_prompt_not_too_long(
   return new_prompt
 
 
-class DefaultCompletion(language_model.LanguageModel):
-  """Language Model that uses Together AI models in `completion` mode."""
+def _create_together_client(api_key: str) -> TogetherClient:
+  """Create a Together AI client.
+
+  Args:
+    api_key: The API key to use when accessing the Together AI API.
+
+  Returns:
+    A Together AI client.
+  """
+  import together  # pylint: disable=g-import-not-at-top
+  return together.Together(api_key=api_key)
+
+
+def _get_together_errors():
+  """Get Together AI error classes for exception handling."""
+  import together  # pylint: disable=g-import-not-at-top
+  return (
+      together.error.RateLimitError,
+      together.error.APIError,
+      together.error.ServiceUnavailableError,
+      together.error.InvalidRequestError,
+  )
+
+
+def _is_retriable_api_error(err) -> bool:
+  """Check if error is a retriable API or InvalidRequest error."""
+  import together  # pylint: disable=g-import-not-at-top
+  return isinstance(err, (together.error.APIError,
+                          together.error.InvalidRequestError))
+
+
+class GemmaChat(language_model.LanguageModel):
+  """Language Model for Gemma models using Together AI chat API.
+
+  It is specifically designed for Gemma 3N and Gemma 3 models.
+  """
 
   def __init__(
       self,
@@ -145,6 +166,7 @@ class DefaultCompletion(language_model.LanguageModel):
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
       max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_DEFAULT,
+      client: TogetherClient | None = None,
   ):
     """Initializes the instance.
 
@@ -156,10 +178,11 @@ class DefaultCompletion(language_model.LanguageModel):
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
       max_allowed_tokens: Max number of tokens allowed in prompt and response.
+      client: Optional Together AI client. If None, one will be created.
     """
     if api_key is None:
       api_key = os.getenv('TOGETHER_AI_API_KEY')
-      if not api_key:
+      if not api_key and client is None:
         raise ValueError(
             'TOGETHER_AI_API_KEY not found. Please provide it via the api_key '
             'parameter or set the TOGETHER_AI_API_KEY environment variable.'
@@ -168,7 +191,7 @@ class DefaultCompletion(language_model.LanguageModel):
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
-    self._client = together.Together(api_key=self._api_key)
+    self._client = client or _create_together_client(api_key)
     self._max_allowed_tokens = max_allowed_tokens
 
   @override
@@ -192,27 +215,10 @@ class DefaultCompletion(language_model.LanguageModel):
         {
             'role': 'system',
             'content': (
-                'You are an autoregressive LLM. You always complete user '
-                'inputs. All responses must end with a '
-                'period. Try not to use lists, but if you must, then '
-                'always delimit list items using either '
-                r"semicolons or single newline characters ('\n'), never "
-                r"delimit list items with double carriage returns ('\n\n')."
+                'You are a helpful assistant. Follow the user instructions '
+                'exactly.'
             ),
         },
-        {
-            'role': 'user',
-            'content': 'Question: Is Jake a turtle?\nAnswer: Jake is ',
-        },
-        {'role': 'assistant', 'content': 'not a turtle.'},
-        {
-            'role': 'user',
-            'content': (
-                'Question: What is Priya doing right now?\nAnswer: '
-                + 'Priya is currently '
-            ),
-        },
-        {'role': 'assistant', 'content': 'sleeping.'},
         {'role': 'user', 'content': prompt},
     ]
 
@@ -239,22 +245,15 @@ class DefaultCompletion(language_model.LanguageModel):
             top_k=top_k,
             max_tokens=max_tokens,
             timeout=timeout,
-            stop=terminators,
+            stop=list(terminators) if terminators else None,
             seed=seed,
             stream=False,
         )
-      except (
-          together.error.RateLimitError,
-          together.error.APIError,
-          together.error.ServiceUnavailableError,
-          together.error.InvalidRequestError,
-      ) as err:
+      except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Text exception prompt: {prompt}')
-        if isinstance(err, together.error.APIError) or isinstance(
-            err, together.error.InvalidRequestError
-        ):
+        if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
@@ -266,7 +265,7 @@ class DefaultCompletion(language_model.LanguageModel):
           )
         continue
       else:
-        result = response.choices[0].message.content
+        result = response.choices[0].message.content  # pytype: disable=attribute-error
         break
 
     if self._measurements is not None:
@@ -277,15 +276,149 @@ class DefaultCompletion(language_model.LanguageModel):
 
     return result
 
-  def _sample_choice(self, prompt: str, response: str) -> float:
-    """Returns the log probability of the prompt and response."""
-    original_prompt = prompt
-    augmented_prompt = _ensure_prompt_not_too_long(
-        prompt,
-        len(response),
-        max_allowed_tokens=self._max_allowed_tokens,
+  @override
+  def sample_choice(
+      self,
+      prompt: str,
+      responses: Sequence[str],
+      *,
+      seed: int | None = None,
+  ) -> tuple[int, str, dict[str, float]]:
+    """Samples a choice from the available responses using direct prompting.
+
+    Uses dynamic temperature adjustment to increase chances of getting a valid
+    response. If the model's response matches one of the options, returns it.
+
+    Args:
+      prompt: The prompt to send to the model.
+      responses: The possible responses to choose from.
+      seed: The seed to use for the model.
+
+    Returns:
+      A tuple of (index, response, metadata).
+      index: The index of the chosen response.
+      response: The chosen response.
+      metadata: A dictionary of metadata about the sampling process.
+    """
+    prompt = (
+        prompt
+        + '\nRespond EXACTLY with one of the following strings:\n'
+        + '\n'.join(responses)
+        + '.'
     )
-    attempts = 0
+
+    sample = ''
+    answer = ''
+    for attempts in range(_MAX_ATTEMPTS):
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, _MAX_ATTEMPTS
+      )
+
+      answer = self.sample_text(
+          prompt,
+          temperature=temperature,
+          seed=seed,
+      )
+
+      try:
+        idx = responses.index(answer.strip())
+      except ValueError:
+        # Check if the answer contains one of the responses
+        for i, resp in enumerate(responses):
+          if resp in answer:
+            if self._measurements is not None:
+              self._measurements.publish_datum(
+                  self._channel, {'choices_calls': attempts}
+              )
+            return i, responses[i], {}
+        continue
+      else:
+        if self._measurements is not None:
+          self._measurements.publish_datum(
+              self._channel, {'choices_calls': attempts}
+          )
+        return idx, responses[idx], {}
+
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))
+
+
+class DeepSeekModel(language_model.LanguageModel):
+  """Language Model for DeepSeek models using Together AI chat API.
+
+  This implementation uses the chat completions API.
+  """
+
+  def __init__(
+      self,
+      model_name: str,
+      *,
+      api_key: str | None = None,
+      measurements: measurements_lib.Measurements | None = None,
+      channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_DEFAULT,
+      client: TogetherClient | None = None,
+  ):
+    """Initializes the instance.
+
+    Args:
+      model_name: The language model to use. For more details, see
+        https://api.together.xyz/models.
+      api_key: The API key to use when accessing the Together AI API. If None,
+        will use the TOGETHER_AI_API_KEY environment variable.
+      measurements: The measurements object to log usage statistics to.
+      channel: The channel to write the statistics to.
+      max_allowed_tokens: Max number of tokens allowed in prompt and response.
+      client: Optional Together AI client. If None, one will be created.
+    """
+    if api_key is None:
+      api_key = os.getenv('TOGETHER_AI_API_KEY')
+      if not api_key and client is None:
+        raise ValueError(
+            'TOGETHER_AI_API_KEY not found. Please provide it via the api_key '
+            'parameter or set the TOGETHER_AI_API_KEY environment variable.'
+        )
+    self._api_key = api_key
+    self._model_name = model_name
+    self._measurements = measurements
+    self._channel = channel
+    self._client = client or _create_together_client(api_key)
+    self._max_allowed_tokens = max_allowed_tokens
+
+  @override
+  def sample_text(
+      self,
+      prompt: str,
+      *,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      seed: int | None = None,
+  ) -> str:
+    original_prompt = prompt
+    prompt = _ensure_prompt_not_too_long(
+        prompt, max_tokens, max_allowed_tokens=self._max_allowed_tokens
+    )
+    messages = [
+        {
+            'role': 'system',
+            'content': (
+                'You are a helpful assistant. Follow the user instructions '
+                'exactly. Be concise and never provide meta-commentary, '
+                'wordcount, section headers, or any other summary.'
+            ),
+        },
+        {'role': 'user', 'content': prompt},
+    ]
+
+    max_tokens = min(max_tokens, _DEFAULT_NUM_RESPONSE_TOKENS)
+
+    result = ''
     for attempts in range(_MAX_ATTEMPTS):
       if attempts > 0:
         seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
@@ -293,60 +426,49 @@ class DefaultCompletion(language_model.LanguageModel):
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(
-              f'Sleeping for {seconds_to_sleep} seconds.. '
+              f'Sleeping for {seconds_to_sleep} seconds... '
               + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
           )
         time.sleep(seconds_to_sleep)
       try:
-        full_prompt = augmented_prompt + response
-        result = self._client.completions.create(
+        response = self._client.chat.completions.create(
             model=self._model_name,
-            prompt=full_prompt,
-            max_tokens=1,
-            seed=None,
-            logprobs=True,
+            messages=messages,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            stop=list(terminators) if terminators else None,
+            seed=seed,
             stream=False,
-            echo=True,
         )
-      except (
-          together.error.RateLimitError,
-          together.error.APIError,
-          together.error.ServiceUnavailableError,
-          together.error.InvalidRequestError,
-      ) as err:
+      except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
-          print(f'  Choice exception prompt: {augmented_prompt}')
-        if isinstance(err, together.error.APIError) or isinstance(
-            err, together.error.InvalidRequestError
-        ):
+          print(f'  Text exception prompt: {prompt}')
+        if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
-          augmented_prompt = _ensure_prompt_not_too_long(
+          prompt = _ensure_prompt_not_too_long(
               original_prompt,
-              1,
+              max_tokens,
               guess_chars_per_token=1,
               max_allowed_tokens=self._max_allowed_tokens,
           )
         continue
       else:
-        # Remove the extra token generated at the end of the prompt.
-        tokens = result.choices[0].logprobs.tokens[:-1]
+        result = response.choices[0].message.content  # pytype: disable=attribute-error
+        break
 
-        # Only sum the logprobs for tokens corresponding to the response.
-        response_start_index = _find_concatenated_subsequence(tokens, response)
-        response_log_probs = result.choices[0].logprobs.token_logprobs[
-            response_start_index:
-        ]
-        score = sum(response_log_probs)
+    if self._measurements is not None:
+      self._measurements.publish_datum(
+          self._channel,
+          {'raw_text_length': len(result)},
+      )
 
-        return score
-
-    raise language_model.InvalidResponseError(
-        f'Failed to get logprobs after {attempts+1} attempts.\n Exception'
-        f' prompt: {augmented_prompt}'
-    )
+    return result
 
   @override
   def sample_choice(
@@ -356,19 +478,65 @@ class DefaultCompletion(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
+    """Samples a choice from the available responses using direct prompting.
 
-    sample_choice_for_prompt = lambda x: self._sample_choice(prompt, x)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-      logprobs_np = np.array(
-          list(executor.map(sample_choice_for_prompt, responses))
-      ).reshape(-1)
+    Uses dynamic temperature adjustment to increase chances of getting a valid
+    response. If the model's response matches one of the options, returns it.
 
-    idx = np.argmax(logprobs_np)
+    Args:
+      prompt: The prompt to send to the model.
+      responses: The possible responses to choose from.
+      seed: The seed to use for the model.
 
-    # Get the corresponding response string
-    max_str = responses[idx]
+    Returns:
+      A tuple of (index, response, metadata).
+      index: The index of the chosen response.
+      response: The chosen response.
+      metadata: A dictionary of metadata about the sampling process.
+    """
+    prompt = (
+        prompt
+        + '\nRespond EXACTLY with one of the following strings:\n'
+        + '\n'.join(responses)
+        + '.'
+    )
 
-    return idx, max_str, {r: logprobs_np[i] for i, r in enumerate(responses)}
+    sample = ''
+    answer = ''
+    for attempts in range(_MAX_ATTEMPTS):
+      temperature = sampling.dynamically_adjust_temperature(
+          attempts, _MAX_ATTEMPTS
+      )
+
+      answer = self.sample_text(
+          prompt,
+          temperature=temperature,
+          seed=seed,
+      )
+
+      try:
+        idx = responses.index(answer.strip())
+      except ValueError:
+        # Check if the answer contains one of the responses
+        for i, resp in enumerate(responses):
+          if resp in answer:
+            if self._measurements is not None:
+              self._measurements.publish_datum(
+                  self._channel, {'choices_calls': attempts}
+              )
+            return i, responses[i], {}
+        continue
+      else:
+        if self._measurements is not None:
+          self._measurements.publish_datum(
+              self._channel, {'choices_calls': attempts}
+          )
+        return idx, responses[idx], {}
+
+    raise language_model.InvalidResponseError((
+        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
+        + f'extracted: {answer}'
+    ))
 
 
 class OpenWeightsOpenAI(language_model.LanguageModel):
@@ -382,6 +550,7 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
       max_allowed_tokens: int = _MAX_ALLOWED_TOKENS_DEFAULT,
+      client: TogetherClient | None = None,
   ):
     """Initializes the instance.
 
@@ -393,10 +562,11 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
       max_allowed_tokens: Max number of tokens allowed in prompt and response.
+      client: Optional Together AI client. If None, one will be created.
     """
     if api_key is None:
       api_key = os.getenv('TOGETHER_AI_API_KEY')
-      if not api_key:
+      if not api_key and client is None:
         raise ValueError(
             'TOGETHER_AI_API_KEY not found. Please provide it via the api_key '
             'parameter or set the TOGETHER_AI_API_KEY environment variable.'
@@ -406,7 +576,7 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
     self._measurements = measurements
     self._max_allowed_tokens = max_allowed_tokens
     self._channel = channel
-    self._client = together.Together(api_key=self._api_key)
+    self._client = client or _create_together_client(api_key)
 
   @override
   def sample_text(
@@ -471,25 +641,18 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             temperature=temperature,
             max_tokens=max_tokens,
             timeout=timeout,
-            stop=terminators,
+            stop=list(terminators) if terminators else None,
             seed=seed,
             stream=False,
             top_p=top_p,
             top_k=top_k,
             reasoning_effort='low',
         )
-      except (
-          together.error.RateLimitError,
-          together.error.APIError,
-          together.error.ServiceUnavailableError,
-          together.error.InvalidRequestError,
-      ) as err:
+      except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           print(f'  Exception: {err}')
           print(f'  Text exception prompt: {prompt}')
-        if isinstance(err, together.error.APIError) or isinstance(
-            err, together.error.InvalidRequestError
-        ):
+        if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
           # the number of characters per token.
@@ -501,8 +664,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
           )
         continue
       else:
-        result = response.choices[0].message.content
-        reasoning = response.choices[0].message.reasoning
+        result = response.choices[0].message.content  # pytype: disable=attribute-error
+        reasoning = getattr(response.choices[0].message, 'reasoning', '')  # pytype: disable=attribute-error
         break
 
     if self._measurements is not None:
@@ -569,6 +732,7 @@ class Base(language_model.LanguageModel):
       api_key: str | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      client: TogetherClient | None = None,
   ):
     """Initializes the instance.
 
@@ -579,6 +743,7 @@ class Base(language_model.LanguageModel):
         will use the TOGETHER_AI_API_KEY environment variable.
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
+      client: Optional Together AI client. If None, one will be created.
     """
     # Use model-specific max_allowed_tokens if available, otherwise use the
     # default.
@@ -588,12 +753,23 @@ class Base(language_model.LanguageModel):
 
     self._model = None
     if model_name.startswith('google/'):
-      self._model = DefaultCompletion(
+      # Use GemmaChat for all Google models (Gemma 3N, Gemma 3, etc.)
+      self._model = GemmaChat(
           model_name=model_name,
           api_key=api_key,
           measurements=measurements,
           channel=channel,
           max_allowed_tokens=max_allowed_tokens,
+          client=client,
+      )
+    elif model_name.startswith('deepseek-ai/'):
+      self._model = DeepSeekModel(
+          model_name=model_name,
+          api_key=api_key,
+          measurements=measurements,
+          channel=channel,
+          max_allowed_tokens=max_allowed_tokens,
+          client=client,
       )
     elif model_name.startswith('openai/'):
       self._model = OpenWeightsOpenAI(
@@ -602,6 +778,7 @@ class Base(language_model.LanguageModel):
           measurements=measurements,
           channel=channel,
           max_allowed_tokens=max_allowed_tokens,
+          client=client,
       )
     else:
       raise ValueError(
