@@ -123,9 +123,16 @@ class ActionSpec:
     """Converts the action spec to a dictionary.
 
     Returns:
-      A dictionary representation of the action spec.
+      A dictionary representation of the action spec suitable for JSON
+      serialization.
     """
-    return dataclasses.asdict(self)
+
+    return {
+        'call_to_action': self.call_to_action,
+        'output_type': self.output_type.value,
+        'options': list(self.options),
+        'tag': self.tag,
+    }
 
 
 def action_spec_from_dict(action_spec_dict: dict[str, Any]) -> ActionSpec:
@@ -137,7 +144,12 @@ def action_spec_from_dict(action_spec_dict: dict[str, Any]) -> ActionSpec:
   Returns:
     An action spec.
   """
-  return ActionSpec(**action_spec_dict)
+  spec_dict = dict(action_spec_dict)
+  if 'output_type' in spec_dict and isinstance(spec_dict['output_type'], str):
+    spec_dict['output_type'] = OutputType(spec_dict['output_type'])
+  if 'options' in spec_dict:
+    spec_dict['options'] = tuple(spec_dict['options'])
+  return ActionSpec(**spec_dict)
 
 
 def free_action_spec(**kwargs) -> ActionSpec:

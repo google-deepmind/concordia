@@ -248,25 +248,17 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
         entity = entity_map[player_name]
         agent = cast(entity_agent.EntityAgent, entity)
 
-        # We give the question and action spec and options as observation to
-        # the entity agent and we later give only the action spec and
-        # options for it to act.
+        # Parse the action spec to extract the question for observation
+        formatted_spec_str = spec_str.replace('{player_name}', player_name)
+        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
 
-        observation = spec_str.replace('prompt: ', '')
-
-        # Improve formatting of the observation for choice questions.
-        if ';;type: choice;;' in observation:
-          parts = observation.split(';;')
-          question = parts[0]
-          options_list = []
-          for part in parts:
-            if part.startswith('options:'):
-              options_part = part.removeprefix('options:').strip()
-              options_list = engine_lib.split_options(options_part)
-              break
-          # We escape the options again for display to avoid ambiguity.
-          escaped_options = [opt.replace(',', r'\,') for opt in options_list]
-          observation = question + '\nOptions: ' + ', '.join(escaped_options)
+        # Build observation from the parsed action spec
+        observation = action_spec.call_to_action
+        if action_spec.output_type == entity_lib.OutputType.CHOICE:
+          escaped_options = [
+              opt.replace(',', r'\,') for opt in action_spec.options
+          ]
+          observation = observation + '\nOptions: ' + ', '.join(escaped_options)
 
         agent.observe(observation)
         logging.info(
@@ -276,8 +268,6 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
             observation,
         )
 
-        formatted_spec_str = spec_str.replace('{player_name}', player_name)
-        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
         answer = agent.act(action_spec)
         logging.info(
             '[SequentialQuestionnaireEngine] Player %s got action spec %s and'

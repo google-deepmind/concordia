@@ -103,8 +103,8 @@ class ConcatActComponent(
     context = self._context_for_action(contexts)
     prompt.statement(context + '\n')
 
-    call_to_action = action_spec.call_to_action.format(
-        name=self.get_entity().name
+    call_to_action = action_spec.call_to_action.replace(
+        '{name}', self.get_entity().name
     )
     if action_spec.output_type in entity_lib.FREE_ACTION_TYPES:
       output = ''

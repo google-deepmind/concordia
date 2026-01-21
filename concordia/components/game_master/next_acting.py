@@ -496,18 +496,21 @@ class NextActionSpec(
           self._next_acting_component_key, type_=NextActing
       ).get_currently_active_player()
       prompt.statement(
-          'Example formatted action specs:\n'
-          f'1). "prompt: what does {active_player} do?;;type: free"\n'
-          f'2). "prompt: what does {active_player} say?;;type: free"\n'
-          f'3). "prompt: Where will {active_player} go?;;type: choice;;'
-          'options: home, London, Narnia, the third moon of Jupiter"\n'
-          f'4). "prompt: Where will {active_player} go?;;type: choice;;'
-          'options: stay here, go elsewhere"\n'
-          'Note that prompts can be of any length, they are typically '
-          'questions, and multiple choice answer responses must be '
-          'provided in the form of a comma-separated list of options. '
-          'If an option contains a comma, it must be escaped with a '
-          'backslash, e.g., "option 1, option 2\\, with comma".'
+          'Example formatted action specs (respond with valid JSON):\n'
+          f'1). {{"call_to_action": "What does {active_player} do?", '
+          '"output_type": "free", "options": [], "tag": null}\n'
+          f'2). {{"call_to_action": "What does {active_player} say?", '
+          '"output_type": "free", "options": [], "tag": null}\n'
+          f'3). {{"call_to_action": "Where will {active_player} go?", '
+          '"output_type": "choice", "options": ["home", "London", "Narnia", '
+          '"the third moon of Jupiter"], "tag": null}\n'
+          f'4). {{"call_to_action": "Where will {active_player} go?", '
+          '"output_type": "choice", "options": ["stay here", "go elsewhere"], '
+          '"tag": null}\n'
+          'Note: prompts (call_to_action) can be any length. For choice type, '
+          'provide options as a JSON array. Use "free" for open-ended '
+          'responses and "choice" for multiple choice. Respond with only the '
+          'JSON object.'
       )
       result = prompt.open_question(
           question=self._call_to_next_action_spec.format(name=active_player),
