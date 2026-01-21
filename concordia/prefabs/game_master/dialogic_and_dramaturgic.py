@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 import dataclasses
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
@@ -31,7 +32,8 @@ DEFAULT_NAME = 'conversation rules'
 
 
 def _configure_default_scenes(
-    names: Sequence[str]) -> Sequence[scene_lib.SceneSpec]:
+    names: Sequence[str],
+) -> Sequence[scene_lib.SceneSpec]:
   """Configure default scenes for a simulation based on Oedipus Rex."""
   prologue = scene_lib.SceneTypeSpec(
       name='prologue',
@@ -44,8 +46,10 @@ def _configure_default_scenes(
       name='episode',
       game_master_name=DEFAULT_NAME,
       action_spec=entity_lib.free_action_spec(
-          call_to_action=('Has {name} come to understand the prophecy? '
-                          'If so, what is their reaction?'),
+          call_to_action=(
+              'Has {name} come to understand the prophecy? '
+              'If so, what is their reaction?'
+          ),
       ),
   )
 
@@ -92,20 +96,24 @@ def _configure_default_scenes(
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab game master specialized for handling conversation.
-  """
+  """A prefab game master specialized for handling conversation."""
 
-  description: str = ('A game master specialized for handling conversation. '
-                      'This game master is designed to be used with scenes.')
-  params: Mapping[str, str] = dataclasses.field(
+  description: str = (
+      'A game master specialized for handling conversation. '
+      'This game master is designed to be used with scenes.'
+  )
+  params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': DEFAULT_NAME,
-          'scenes': ()
+          'scenes': (),
+          'extra_components': {},
+          # A mapping from component name to the index at which to insert it
+          # in the component order. If not specified, the extra components
+          # will be inserted at the end of the component order.
+          'extra_components_index': {},
       }
   )
-  entities: (
-      Sequence[entity_agent_with_logging.EntityAgentWithLogging]
-  ) = ()
+  entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
 
   def build(
       self,
@@ -123,14 +131,24 @@ class GameMaster(prefab_lib.Prefab):
     """
     name = self.params.get('name', DEFAULT_NAME)
 
+    extra_components = self.params.get('extra_components', {})
+    extra_components_index = self.params.get('extra_components_index', {})
+
+    if extra_components_index and extra_components:
+      if extra_components_index.keys() != extra_components.keys():
+        raise ValueError(
+            'extra_components_index must have the same keys as'
+            ' extra_components.'
+        )
+
     player_names = [entity.name for entity in self.entities]
 
     scenes = self.params.get('scenes', _configure_default_scenes(player_names))
-    assert isinstance(scenes, Sequence), (
-        'scenes must be a sequence.')
+    assert isinstance(scenes, Sequence), 'scenes must be a sequence.'
     if scenes:
-      assert isinstance(scenes[0], scene_lib.SceneSpec), (
-          'scenes must be a sequence of SceneSpecs.')
+      assert isinstance(
+          scenes[0], scene_lib.SceneSpec
+      ), 'scenes must be a sequence of SceneSpecs.'
 
     instructions_key = 'instructions'
     instructions = gm_components.instructions.Instructions()
@@ -157,21 +175,18 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
-    memory = actor_components.memory.AssociativeMemory(
-        memory_bank=memory_bank
-    )
+    memory = actor_components.memory.AssociativeMemory(memory_bank=memory_bank)
 
     make_observation_key = (
-        gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY)
-    make_observation = (
-        gm_components.make_observation.MakeObservation(
-            model=model,
-            player_names=player_names,
-            components=[
-                observation_component_key,
-                display_events_key,
-            ],
-        )
+        gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
+    )
+    make_observation = gm_components.make_observation.MakeObservation(
+        model=model,
+        player_names=player_names,
+        components=[
+            observation_component_key,
+            display_events_key,
+        ],
     )
 
     send_events_to_players_key = (
@@ -217,7 +232,8 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     event_resolution_key = (
-        gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY)
+        gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
+    )
     event_resolution = gm_components.event_resolution.EventResolution(
         model=model,
         event_resolution_steps=(identity_without_prefix,),
@@ -244,6 +260,17 @@ class GameMaster(prefab_lib.Prefab):
     }
 
     component_order = list(components_of_game_master.keys())
+
+    if extra_components:
+      components_of_game_master.update(extra_components)
+      if extra_components_index:
+        for component_name in extra_components.keys():
+          component_order.insert(
+              extra_components_index[component_name],
+              component_name,
+          )
+      else:
+        component_order = list(components_of_game_master.keys())
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,
