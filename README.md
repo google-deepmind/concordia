@@ -37,6 +37,44 @@ usage.
 Concordia requires access to a standard LLM API, and optionally may also
 integrate with real applications and services.
 
+## How it Works
+
+Concordia operates like a **Game Engine** for generative agents.
+
+*   **Entities**: The actors in the simulation. These can be player characters
+    (Agents) or system controllers (Game Masters).
+*   **Components**: The building blocks of an Entity. Just as a game object
+    might have a "coorindates" component, a Concordia agent has components for
+    **Memory**, **Observation**, **Planning**, and **Actuation**.
+*   **Engine**: The loop that drives the simulation. It asks agents for
+    actions and asks the Game Master to resolve them.
+
+This modular architecture allows you to assemble complex behaviors from simple,
+reusable parts.
+
+## Folder Structure
+
+*   **[`concordia/prefabs`](concordia/prefabs/README.md)**: Pre-assembled
+    recipes for common agents and Game Masters.
+*   **[`concordia/components`](concordia/components/README.md)**: Modular
+    building blocks for agents, including memory systems, reasoning chains, and
+    sensory modules.
+*   **[`concordia/environment`](concordia/environment/README.md)**: The "engine"
+    of the simulation, containing the Game Master and the turn-taking loop.
+*   **[`concordia/thought_chains`](concordia/thought_chains/README.md)**: Logic
+    for internal reasoning steps (e.g., Chain of Thought).
+*   **[`concordia/document`](concordia/document/README.md)**: Utilities for
+    managing LLM prompts and context.
+*   **[`concordia/language_model`](concordia/language_model/README.md)**: LLM
+    integration and API wrappers.
+*   **[`examples/`](examples/)**: Tutorials and example simulations to help you
+    get started.
+
+> [!TIP]
+> The best way to learn is to run the
+> **[`examples/tutorial.ipynb`](examples/tutorial.ipynb)** and then try
+> modifying the **Prefabs** to see how agent behavior changes.
+
 ## Installation
 
 [Concordia is available on PyPI](https://pypi.python.org/pypi/gdm-concordia)
