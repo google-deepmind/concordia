@@ -58,7 +58,7 @@ def _run_task(key: str, fn: Callable[[], _T]) -> Callable[[], _T]:
   """Returns fn() and logs any error."""
   try:
     return fn()
-  except:
+  except Exception:
     logging.exception('Error in task %s', key)
     raise
 
