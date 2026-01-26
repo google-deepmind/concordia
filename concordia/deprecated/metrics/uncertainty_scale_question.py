@@ -18,6 +18,7 @@
 from collections.abc import Sequence
 from typing import Callable
 
+from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import clock as game_clock
@@ -128,8 +129,8 @@ class Question(component.Component):
 
     datum['time'] = self._clock.now()
     if self._verbose:
-      print(termcolor.colored(prompt.view().text(), 'green'), end='')
-      print(f'{question}\n{self._player_name}: {answer_str}')
+      logging.info(termcolor.colored(prompt.view().text(), 'green'))
+      logging.info('%s\n%s: %s', question, self._player_name, answer_str)
     self._timestep += 1
 
   def state(
