@@ -25,7 +25,6 @@ class Entity(prefab_lib.Prefab):
     - Basic negotiation strategies (cooperative, competitive, integrative)
     - Ethical guidelines for fair negotiation
     """
-    role: prefab_lib.Role = prefab_lib.Role.ENTITY
 
     description: str = (
         'A negotiation agent with core capabilities for engaging in '
