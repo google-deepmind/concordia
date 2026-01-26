@@ -175,28 +175,33 @@ def apply_recursively(
 
 
 def get_package_classes(module: types.ModuleType):
-  """Load all classes defined in any file within a package."""
-  package_name = module.__package__
-  prefabs = {}
-  submodule_names = [
-      value for value in dir(module) if not value.startswith('__')]
-  for submodule_name in submodule_names:
-    submodule = getattr(module, submodule_name)
-    all_var_names = dir(submodule)
-    for var_name in all_var_names:
-      submodule = getattr(module, submodule_name)
-
-      if inspect.isclass(submodule):
-          var = submodule
-          if (
-              not issubclass(var, enum.Enum)
-              and var.__module__.startswith(package_name)
-          ):
-              key = f"{var.__module__[len(package_name)+1:].replace('.', '__')}__{var.__name__}"
-              prefabs[key] = var()
-          continue
-  return prefabs
-
+    """Load all classes defined in any file within a package."""
+    package_name = module.__package__ or module.__name__
+    prefabs = {}
+    
+    def process_module(mod):
+        var_names = dir(mod)
+        for var_name in var_names:
+            if var_name.startswith('__'):
+                continue
+            var = getattr(mod, var_name)
+            
+            # If it's a submodule/subpackage, recurse into it
+            if inspect.ismodule(var) and hasattr(var, '__name__') and var.__name__.startswith(package_name):
+                process_module(var)
+            # If it's a class from our package, add it
+            elif (inspect.isclass(var) and 
+                  not issubclass(var, enum.Enum) and 
+                  hasattr(var, '__module__') and 
+                  var.__module__.startswith(package_name)):
+                full_path = var.__module__
+                relative_path = full_path[len(package_name)+1:] if len(package_name) < len(full_path) else ''
+                key_prefix = relative_path.replace('.', '__') if relative_path else ''
+                key = f"{key_prefix}__{var_name}" if key_prefix else var_name
+                prefabs[key] = var()
+    
+    process_module(module)
+    return prefabs
 
 def print_pretty_prefabs(data_dict):
   """Generates a Markdown string representation of a dictionary.
