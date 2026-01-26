@@ -20,6 +20,7 @@ import dataclasses
 import enum
 import functools
 from typing import Any
+from concordia.typing.prefab import Role
 
 
 @enum.unique
@@ -215,7 +216,8 @@ class Entity(metaclass=abc.ABCMeta):
   keeping track of their own state, which might change upon receiving
   observations or acting.
   """
-
+  role: str = Role.ENTITY
+  
   @functools.cached_property
   @abc.abstractmethod
   def name(self) -> str:
