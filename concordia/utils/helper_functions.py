@@ -186,7 +186,10 @@ def get_package_classes(module: types.ModuleType):
     for var_name in all_var_names:
       var = getattr(submodule, var_name)
       if (inspect.isclass(var) and not issubclass(var, enum.Enum)) and var.__module__.startswith(package_name):
-        key = f'{submodule_name}__{var_name}'
+        full_path = var.__module__
+        relative_path = full_path[len(package_name)+1:]
+        key_prefix = relative_path.replace('.', '__')
+        key = f"{key_prefix}__{var_name}"
         prefabs[key] = var()
   return prefabs
 
