@@ -241,7 +241,9 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     terminator_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
-    terminator = gm_components.terminate.Terminate()
+    terminator = gm_components.terminate.SceneBasedTerminator(
+        scene_tracker_component_key=scene_tracker_key
+    )
 
     components_of_game_master = {
         terminator_key: terminator,

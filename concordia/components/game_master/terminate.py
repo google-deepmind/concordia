@@ -14,9 +14,9 @@
 
 """Component that helps a game master terminate the simulation."""
 
+from concordia.components.game_master import scene_tracker as scene_tracker_lib
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
-
 
 DEFAULT_TERMINATE_COMPONENT_KEY = '__terminate__'
 DEFAULT_TERMINATE_PRE_ACT_LABEL = '\nTerminate'
@@ -94,6 +94,45 @@ class NeverTerminate(
       return 'No'
 
     return result
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    pass
+
+
+class SceneBasedTerminator(
+    entity_component.ContextComponent, entity_component.ComponentWithLogging
+):
+  """Terminates the simulation when the SceneTracker is done."""
+
+  def __init__(self, scene_tracker_component_key: str):
+    """Initializes the terminator.
+
+    Args:
+      scene_tracker_component_key: The component key for the scene tracker.
+    """
+    super().__init__()
+    self._scene_tracker_component_key = scene_tracker_component_key
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    """Returns 'Yes' if the termination scene is done, else 'No'."""
+    if action_spec.output_type == entity_lib.OutputType.TERMINATE:
+
+      scene_tracker = self.get_entity().get_component(
+          self._scene_tracker_component_key,
+          type_=scene_tracker_lib.SceneTracker,
+      )
+      if scene_tracker.is_done():
+        return 'Yes'
+    return 'No'
+
+  def terminate(self) -> None:
+    """Terminates the component."""
+    pass
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
