@@ -20,5 +20,4 @@ from . import basic_with_plan
 from . import conversational
 from . import fake_assistant_with_configurable_system_prompt
 from . import minimal
-from .negotiation import advanced_negotiator
-from .negotiation import base_negotiator
+from . import negotiation
