@@ -32,8 +32,9 @@ Available Modules:
     - strategy_evolution: Meta-learning across negotiations
 """
 
-from concordia.prefabs.entity.negotiation import advanced_negotiator
-from concordia.prefabs.entity.negotiation import base_negotiator
+from . import advanced_negotiator
+from . import base_negotiator
+
 from concordia.prefabs.entity.negotiation.constants import (
     DEFAULT_MODULE_CONFIGS,
     MODULE_COMPONENT_NAMES,
