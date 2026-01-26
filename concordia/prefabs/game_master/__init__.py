@@ -14,15 +14,15 @@
 
 """Game Master prefabs."""
 
-from concordia.prefabs.game_master import dialogic
-from concordia.prefabs.game_master import dialogic_and_dramaturgic
-from concordia.prefabs.game_master import formative_memories_initializer
-from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
-from concordia.prefabs.game_master import generic
-from concordia.prefabs.game_master import interviewer
-from concordia.prefabs.game_master import marketplace
-from concordia.prefabs.game_master import open_ended_interviewer
-from concordia.prefabs.game_master import psychology_experiment
-from concordia.prefabs.game_master import scripted
-from concordia.prefabs.game_master import situated
-from concordia.prefabs.game_master import situated_in_time_and_place
+from . import dialogic
+from . import dialogic_and_dramaturgic
+from . import formative_memories_initializer
+from . import game_theoretic_and_dramaturgic
+from . import generic
+from . import interviewer
+from . import marketplace
+from . import open_ended_interviewer
+from . import psychology_experiment
+from . import scripted
+from . import situated
+from . import situated_in_time_and_place
