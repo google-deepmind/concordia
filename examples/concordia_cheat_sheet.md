@@ -248,8 +248,7 @@ scenes = [
         scene_type=conversation_scene,
         participants=['Alice', 'Bob'],
         num_rounds=4,
-        premise={'Alice': ['Bob approaches you.'],
-                 'Bob': ['You approach Alice.']},
+        premise={'Alice': ['Bob approaches you.'], 'Bob': ['You approach Alice.']},
     ),
     scene_lib.SceneSpec(
         scene_type=decision_scene,
@@ -320,30 +319,27 @@ from concordia.components import agent as agent_components
 @dataclasses.dataclass
 class MyCustomAgent(prefab_lib.Prefab):
     description: str = "A custom agent for my simulation"
-
+    
     def build(self, model, memory_bank):
         name = self.params.get("name", "Agent")
         goal = self.params.get("goal", "")
-
+        
         # Create components
-        memory = agent_components.memory.AssociativeMemory(
-            memory_bank=memory_bank)
-        instructions = agent_components.instructions.Instructions(
-            agent_name=name)
-        observation = agent_components.observation.LastNObservations(
-            history_length=50)
-
+        memory = agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
+        instructions = agent_components.instructions.Instructions(agent_name=name)
+        observation = agent_components.observation.LastNObservations(history_length=50)
+        
         components = {
             agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: memory,
             "Instructions": instructions,
             agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: observation,
         }
-
+        
         act_component = agent_components.concat_act_component.ConcatActComponent(
             model=model,
             component_order=list(components.keys()),
         )
-
+        
         return entity_agent_with_logging.EntityAgentWithLogging(
             agent_name=name,
             act_component=act_component,
@@ -366,8 +362,7 @@ of one component becomes the input/context for another. This allows agents to
 
 *   **`SituationRepresentation`**: Summarizes the current situation based on
 recent observations + relevant memories.
-*   **`QuestionOfRecentMemories`**: Asks a specific question to the model based
-on memory. Useful for "Guiding Principles" or "Internal Monologue".
+*   **`QuestionOfRecentMemories`**: Asks a specific question to the model based on memory. Useful for "Guiding Principles" or "Internal Monologue".
 
 ### Example: The "Reflective" Agent
 This agent first builds a representation of the situation, then asks itself how
@@ -383,12 +378,9 @@ class ReflectiveAgent(prefab_lib.Prefab):
         name = self.params.get("name", "Agent")
         
         # 1. Base Components
-        instructions = agent_components.instructions.Instructions(
-            agent_name=name)
-        observation = agent_components.observation.LastNObservations(
-            history_length=100)
-        memory = agent_components.memory.AssociativeMemory(
-            memory_bank=memory_bank)
+        instructions = agent_components.instructions.Instructions(agent_name=name)
+        observation = agent_components.observation.LastNObservations(history_length=100)
+        memory = agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
         
         # 2. Advanced Components (Chain of Thought)
         
@@ -749,10 +741,7 @@ For one-time initialization that hands off to another GM:
 
 ```python
 class MyInitializer(entity_component.ContextComponent):
-    def __init__(self,
-                 model,
-                 next_game_master_name: str,
-                 player_names: list[str]):
+    def __init__(self, model, next_game_master_name: str, player_names: list[str]):
         super().__init__()
         self._model = model
         self._next_game_master_name = next_game_master_name
@@ -800,8 +789,7 @@ def _resolve(self, action_spec: entity_lib.ActionSpec) -> str:
     events = []
     for agent_name in self._acting_player_names:
         # Find JSON action in the event string
-        pattern = re.compile(
-            rf"\b{re.escape(agent_name)}\b.*?(?P<JSON>\{{.*?\}})", re.DOTALL)
+        pattern = re.compile(rf"\b{re.escape(agent_name)}\b.*?(?P<JSON>\{{.*?\}})", re.DOTALL)
         match = pattern.search(component_states)
         
         if match:
@@ -824,9 +812,7 @@ def get_state(self) -> entity_component.ComponentState:
     return {
         "round": self._state["round"],
         "initialized": self._initialized,
-        "agents": {
-            name: dataclasses.asdict(a) for name, a in self._agents.items()
-        },
+        "agents": {name: dataclasses.asdict(a) for name, a in self._agents.items()},
     }
 
 def set_state(self, state: entity_component.ComponentState) -> None:
