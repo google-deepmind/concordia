@@ -18,7 +18,6 @@ from typing import Callable
 from typing import Sequence
 
 from concordia.associative_memory.deprecated import associative_memory
-from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
@@ -136,7 +135,7 @@ class CreativeReflection(component.Component):
         abstraction_chain, application_chain
     )
     if self._verbose:
-      logging.info(termcolor.colored(self._last_chain.view().text(), 'green'))
+      print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
 
     update_log = {
         'date': self._clock_now(),

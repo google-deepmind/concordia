@@ -16,7 +16,6 @@
 """This construct track the status and location of players."""
 
 from collections.abc import Callable, Sequence
-from absl import logging
 import datetime
 
 from concordia.associative_memory.deprecated import associative_memory
@@ -106,7 +105,7 @@ class Relationships(component.Component):
       )
       per_player_prompt[player_name] = prompt.view().text().splitlines()
       if self._verbose:
-        logging.info(prompt.view().text())
+        print(prompt.view().text())
 
       # Indent player status outputs.
       player_state_string = (

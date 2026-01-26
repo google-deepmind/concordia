@@ -16,7 +16,6 @@
 """Agent characteristic component."""
 
 from concordia.associative_memory.deprecated import associative_memory
-from absl import logging
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing.deprecated import component
@@ -67,10 +66,11 @@ class Reflection(component.Component):
     if total_importance < self._importance_threshold:
       self._state = ''
       if self._verbose:
-        logging.info(
+        print(
             termcolor.colored(
                 f'Importance {total_importance} below threshold', 'green'
-            )
+            ),
+            end='',
         )
 
       return
@@ -116,7 +116,7 @@ class Reflection(component.Component):
     self._memory.extend(self._state.splitlines())
     self._last_chain = prompt_insights
     if self._verbose:
-      logging.info(termcolor.colored(self._last_chain.view().text(), 'green'))
+      print(termcolor.colored(self._last_chain.view().text(), 'green'), end='')
 
     update_log = {
         'Summary': 'reflection and insights',
