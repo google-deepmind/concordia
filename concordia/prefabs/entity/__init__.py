@@ -20,3 +20,5 @@ from concordia.prefabs.entity import basic_with_plan
 from concordia.prefabs.entity import conversational
 from concordia.prefabs.entity import fake_assistant_with_configurable_system_prompt
 from concordia.prefabs.entity import minimal
+from concordia.prefabs.entity.negotiation import advanced_negotiator
+from concordia.prefabs.entity.negotiation import base_negotiator
