@@ -117,11 +117,15 @@ class SceneBasedTerminator(
     """
     super().__init__()
     self._scene_tracker_component_key = scene_tracker_component_key
+    self._terminate_now = False
 
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     """Returns 'Yes' if the termination scene is done, else 'No'."""
     if action_spec.output_type == entity_lib.OutputType.TERMINATE:
-
+      # If terminate() has been called, terminate immediately.
+      if self._terminate_now:
+        return 'Yes'
+      # Otherwise, check if the scene tracker is done.
       scene_tracker = self.get_entity().get_component(
           self._scene_tracker_component_key,
           type_=scene_tracker_lib.SceneTracker,
@@ -132,12 +136,14 @@ class SceneBasedTerminator(
 
   def terminate(self) -> None:
     """Terminates the component."""
-    pass
+    self._terminate_now = True
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'terminate_now': self._terminate_now,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    self._terminate_now = state['terminate_now']
