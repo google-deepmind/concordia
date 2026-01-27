@@ -159,8 +159,35 @@ class EventResolution(
       if self._active_entity_name is None:
         raise RuntimeError('No active entity suggesting an event to resolve.')
 
-      putative_action = suggestions[-1][
-          suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+      # Filter suggestions to only those from the active player.
+      # This is necessary because memory.scan() returns all matching items, and
+      # without filtering we might pick up another player's action.
+      #
+      # NOTE: memory.scan() returns items in insertion order (recency), so after
+      # filtering by player, [-1] gives the most recent action from that player.
+      # If memory.scan() behavior ever changes to not preserve insertion order,
+      # this code would need to be updated to use timestamps or sequence
+      # numbers.
+      active_player_prefix = f' {self._active_entity_name}:'
+      filtered_suggestions = [
+          s
+          for s in suggestions
+          if (
+              s[
+                  s.find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+              ].startswith(active_player_prefix)
+          )
+      ]
+      if filtered_suggestions:
+        # Take the most recent (last) suggestion from this player.
+        selected_suggestion = filtered_suggestions[-1]
+      else:
+        # Fallback: if no player-specific match found, use the last suggestion.
+        selected_suggestion = suggestions[-1]
+
+      putative_action = selected_suggestion[
+          selected_suggestion.find(PUTATIVE_EVENT_TAG)
+          + len(PUTATIVE_EVENT_TAG) :
       ]
 
       # Check if the action starts with the active entity name and a colon,
