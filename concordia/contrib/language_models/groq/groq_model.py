@@ -103,7 +103,70 @@ class GroqModel(language_model.LanguageModel):
 
         if self._measurements is not None:
             self._measurements.publish_datum(
-                self._channel, {"raw_text_length": len(text)}
+                self._channel,
+                {"raw_text_length": len(text)},
+
             )
 
+
         return text
+
+    @override
+    def sample_text(
+        self,
+        prompt: str,
+        *,
+        max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+        terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+        temperature: float = language_model.DEFAULT_TEMPERATURE,
+        top_p: float = language_model.DEFAULT_TOP_P,
+        top_k: int = language_model.DEFAULT_TOP_K,
+        timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+        seed: int | None = None,
+    ) -> str:
+        del top_k  # unused
+
+        return self._sample_text(
+            prompt=prompt,
+            max_tokens=max_tokens,
+            terminators=terminators,
+            temperature=temperature,
+            top_p=top_p,
+            timeout=timeout,
+            seed=seed,
+        )
+
+    @override
+    def sample_choice(
+        self,
+        prompt: str,
+        responses: Sequence[str],
+        *,
+        seed: int | None = None,
+    ) -> tuple[int, str, dict[str, Any]]:
+
+        prompt = (
+            prompt
+            + "\nRespond EXACTLY with one of the following strings:\n"
+            + "\n".join(responses)
+            + "."
+        )
+
+        answer = ""
+        for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
+            answer = self._sample_text(
+                prompt,
+                temperature=language_model.DEFAULT_TEMPERATURE,
+                seed=seed,
+            ).strip()
+
+            try:
+                idx = responses.index(answer)
+            except ValueError:
+                continue
+            else:
+                return idx, responses[idx], {}
+
+        raise language_model.InvalidResponseError(
+            f"Too many multiple choice attempts. Last answer: {answer}"
+        )     
