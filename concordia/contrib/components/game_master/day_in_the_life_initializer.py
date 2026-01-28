@@ -34,6 +34,7 @@ from collections.abc import Mapping, Sequence
 import random
 import types
 
+from absl import logging
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component
 from concordia.components.game_master import make_observation as make_observation_component
@@ -509,9 +510,9 @@ class DayInTheLifeInitializer(
         if event.strip()
     ]
     if self._verbose and len(episodes) != self._num_personal_events:
-      print(
-          f'Warning [DITL]: Generated {len(episodes)} events for'
-          f' {player_name}, expected {self._num_personal_events}.'
+      logging.warning(
+          'Warning [DITL]: Generated %d events for %s, expected %d.',
+          len(episodes), player_name, self._num_personal_events
       )
     self._logging_channel({
         'Key': f'{self._pre_act_label} Personal Events ({player_name})',

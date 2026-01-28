@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from concordia.components.game_master import event_resolution
 from concordia.contrib.data.questionnaires import base_questionnaire
-from concordia.environment import engine as engine_lib
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 import pandas as pd
@@ -113,10 +112,7 @@ class Questionnaire(entity_component.ContextComponent):
         or questionnaire.questionnaire_type == 'multiple-choice'
     ):
       output_type = entity_lib.OutputType.CHOICE
-      options = tuple(
-          opt.replace('{player_name}', player_name)
-          for opt in current_question.choices
-      )
+      options = current_question.choices
     elif (
         questionnaire.questionnaire_type == 'open-ended'
         or questionnaire.questionnaire_type == 'free'
@@ -132,14 +128,14 @@ class Questionnaire(entity_component.ContextComponent):
         f'{questionnaire.observation_preprompt}\n\n'
         f'{current_question.preprompt} {current_question.statement}'
     )
-    prompt = prompt.replace('{player_name}', player_name).strip()
-
-    action_spec = entity_lib.ActionSpec(
-        call_to_action=prompt,
-        output_type=output_type,
-        options=options,
-    )
-    return engine_lib.action_spec_to_string(action_spec)
+    prompt = prompt.replace('{player_name}', player_name)
+    prompt = prompt.replace('"', '\\"').replace('\n', ' ').strip()
+    type_str = output_type.name.lower()
+    options_str = ','.join(options).replace('{player_name}', player_name)
+    action_str = f'prompt: "{prompt}";;type: {type_str}'
+    if options_str:
+      action_str += f';;options: {options_str}'
+    return action_str
 
   def pre_act(
       self,

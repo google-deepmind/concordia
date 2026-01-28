@@ -15,6 +15,7 @@
 """A component for computing and delivering payoffs in a bargaining game."""
 
 from collections.abc import Callable, Mapping, Sequence
+from absl import logging
 import datetime
 import re
 
@@ -310,7 +311,7 @@ class MultiItemBargainPayoffs(component.Component):
         finished = True
 
         if self._verbose:
-          print(termcolor.colored(self.state(), 'yellow'))
+          logging.info(termcolor.colored(self.state(), 'yellow'))
 
     for player in self._players:
       player.observe(event_statement)

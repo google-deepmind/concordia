@@ -16,11 +16,9 @@
 
 import abc
 from collections.abc import Callable, Mapping, Sequence
-import json
 import re
 from typing import Any
 
-from absl import logging
 from concordia.typing import entity as entity_lib
 
 _TYPE_SKIP_THIS_STEP = 'type: __SKIP_THIS_STEP__'
@@ -82,26 +80,21 @@ class Engine(metaclass=abc.ABCMeta):
     """Run a game loop."""
 
 
-def _legacy_action_spec_parser(
-    next_action_spec_string: str,
-) -> entity_lib.ActionSpec:
-  """Parse the next action spec string using the legacy format.
+def split_options(options_str: str) -> tuple[str, ...]:
+  """Splits options string by comma, respecting escaped commas."""
+  # Split by comma that is NOT preceded by a backslash.
+  # This regex uses a negative lookbehind.
+  parts = re.split(r'(?<!\\),', options_str)
+  # Remove the escape character from the result parts and strip whitespace.
+  return tuple(part.replace(r'\,', ',').strip() for part in parts)
 
-  This exists for backward compatibility with the old string format:
-  "prompt: <call_to_action>;;type: <free|choice> [options: opt1, opt2, ...]"
 
-  Args:
-    next_action_spec_string: The string representation of the next action spec.
-
-  Returns:
-    The parsed action spec.
-
-  Raises:
-    RuntimeError: If the next action spec string is invalid.
-  """
+def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
+  """Parse the next action spec string into an action spec."""
   if 'type: free' in next_action_spec_string:
     splits = next_action_spec_string.split(';;')
 
+    # Safely extract call_to_action
     if splits and 'prompt: ' in splits[0]:
       call_to_action = splits[0].split('prompt: ', 1)[1]
     else:
@@ -115,11 +108,13 @@ def _legacy_action_spec_parser(
   elif 'type: choice' in next_action_spec_string:
     splits = next_action_spec_string.split(';;')
 
+    # Safely extract call_to_action
     if 'prompt: ' in splits[0]:
       call_to_action = splits[0].split('prompt: ', 1)[1]
     else:
       call_to_action = entity_lib.DEFAULT_CALL_TO_ACTION
 
+    # If options are missing, gracefully fall back
     if 'options: ' not in next_action_spec_string:
       return entity_lib.ActionSpec(
           call_to_action=call_to_action,
@@ -127,16 +122,10 @@ def _legacy_action_spec_parser(
       )
 
     options_str = next_action_spec_string.split('options: ', 1)[1]
-    parts = re.split(r'(?<!\\),', options_str)
-    options = tuple(
-        dict.fromkeys(
-            part.replace(r'\,', ',').strip() for part in parts if part.strip()
-        )
-    )
     return entity_lib.ActionSpec(
         call_to_action=call_to_action,
         output_type=entity_lib.OutputType.CHOICE,
-        options=options,
+        options=split_options(options_str),
     )
   elif _TYPE_SKIP_THIS_STEP in next_action_spec_string:
     return entity_lib.skip_this_step_action_spec()
@@ -146,30 +135,20 @@ def _legacy_action_spec_parser(
     )
 
 
-def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
-  """Parse the next action spec string into an action spec.
-
-  Supports both JSON format (preferred) and legacy string format (for backward
-  compatibility).
-
-  Args:
-    next_action_spec_string: The string representation of the next action spec.
-
-  Returns:
-    The parsed action spec.
-  """
-  try:
-    spec_dict = json.loads(next_action_spec_string)
-    return entity_lib.action_spec_from_dict(spec_dict)
-  except json.JSONDecodeError:
-    logging.warning(
-        'Using legacy action spec parser. Please migrate to JSON format. '
-        'Input was: %s...',
-        next_action_spec_string[:100],
-    )
-    return _legacy_action_spec_parser(next_action_spec_string)
-
-
 def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
-  """Convert an action spec to a JSON string."""
-  return json.dumps(action_spec.to_dict())
+  """Convert an action spec to a string."""
+  if action_spec.output_type == entity_lib.OutputType.FREE:
+    return f'prompt: {action_spec.call_to_action};;type: free'
+  elif action_spec.output_type == entity_lib.OutputType.CHOICE:
+    # Escape commas in options before joining.
+    escaped_options = [opt.replace(',', r'\,') for opt in action_spec.options]
+    return (
+        f'prompt: {action_spec.call_to_action};;type: choice options: '
+        + ', '.join(escaped_options)
+    )
+  elif action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
+    return f'prompt: {action_spec.call_to_action};;{_TYPE_SKIP_THIS_STEP}'
+  else:
+    raise RuntimeError(
+        'Invalid action spec output type: "{}"'.format(action_spec.output_type)
+    )
