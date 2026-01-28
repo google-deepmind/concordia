@@ -129,5 +129,9 @@ setuptools.setup(
             # Used in concordia.contrib.language_models.vllm
             'vllm',
         ],
+        'groq': [
+            # Used in concordia.contrib.language_models.groq
+            'groq',
+        ],
     },
 )
