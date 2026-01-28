@@ -15,16 +15,24 @@
 
 """Groq language model wrapper following BaseGPTModel style."""
 
-try:
-    from groq import Groq
-except ImportError:
-    Groq = None  
+ 
 
 from collections.abc import Collection, Sequence
-from typing import Any, override
+from typing import Any, override,TYPE_CHECKING
 
 from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
+
+if TYPE_CHECKING:
+    
+    from groq import Groq
+
+try:
+    from groq import Groq as _Groq
+except ImportError:
+    _Groq = None
+
+Groq = _Groq
 
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
