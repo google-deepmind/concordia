@@ -15,12 +15,16 @@
 
 """Groq language model wrapper following BaseGPTModel style."""
 
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None 
+
 from collections.abc import Collection, Sequence
 from typing import Any
 from typing import override
+ 
 
-
-from groq import Groq
 
 from concordia.language_model import language_model
 
@@ -36,6 +40,11 @@ class GroqModel(language_model.LanguageModel):
         model_name: str,
         api_key: str,
     ):
+    if Groq is None:
+    raise ImportError(
+        "Groq dependency not installed. Install with: pip install gdm-concordia[groq]"
+    )
+
         self._model_name = model_name
         self._client = Groq(api_key=api_key)
 
