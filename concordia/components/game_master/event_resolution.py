@@ -168,7 +168,7 @@ class EventResolution(
       # If memory.scan() behavior ever changes to not preserve insertion order,
       # this code would need to be updated to use timestamps or sequence
       # numbers.
-      active_player_prefix = f' {self._active_entity_name}:'
+      active_player_prefix = f' {self._active_entity_name}'
       filtered_suggestions = [
           s
           for s in suggestions
@@ -190,11 +190,17 @@ class EventResolution(
           + len(PUTATIVE_EVENT_TAG) :
       ]
 
-      # Check if the action starts with the active entity name and a colon,
-      # remove it if present, and strip leading whitespace.
-      prefix_to_remove = f' {self._active_entity_name}:'
+      # Check if the action starts with the active entity name,
+      # remove it along with any common separator (: or --) if present.
+      prefix_to_remove = f' {self._active_entity_name}'
       if putative_action.startswith(prefix_to_remove):
-        self._putative_action = putative_action[len(prefix_to_remove) :].strip()
+        remainder = putative_action[len(prefix_to_remove) :]
+        # Strip leading colon or dashes separator if present
+        if remainder.startswith(':'):
+          remainder = remainder[1:]
+        elif remainder.startswith(' --'):
+          remainder = remainder[3:]
+        self._putative_action = remainder.strip()
       else:
         self._putative_action = putative_action
 

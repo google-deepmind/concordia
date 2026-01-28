@@ -68,6 +68,43 @@ class EventResolutionFilteringTest(parameterized.TestCase):
           active_player='Alice',
           expected_action='Action A',
       ),
+      # Tests for conversation action format (with dashes)
+      dict(
+          testcase_name='conversation_action_with_dashes',
+          memory_contents=[
+              f'{PUTATIVE_EVENT_TAG} Alice -- "Hello there!"',
+          ],
+          active_player='Alice',
+          expected_action='"Hello there!"',
+      ),
+      dict(
+          testcase_name='conversation_action_mixed_with_decision',
+          memory_contents=[
+              f'{PUTATIVE_EVENT_TAG} Bob: 3 coins',
+              f'{PUTATIVE_EVENT_TAG} Alice -- "That seems fair."',
+          ],
+          active_player='Alice',
+          expected_action='"That seems fair."',
+      ),
+      dict(
+          testcase_name='decision_action_after_conversation',
+          memory_contents=[
+              f'{PUTATIVE_EVENT_TAG} Alice -- "I propose 3 coins."',
+              f'{PUTATIVE_EVENT_TAG} Bob: accept',
+          ],
+          active_player='Bob',
+          expected_action='accept',
+      ),
+      dict(
+          testcase_name='multiple_conversation_actions',
+          memory_contents=[
+              f'{PUTATIVE_EVENT_TAG} Alice -- "First message"',
+              f'{PUTATIVE_EVENT_TAG} Bob -- "Reply to Alice"',
+              f'{PUTATIVE_EVENT_TAG} Alice -- "Second message"',
+          ],
+          active_player='Alice',
+          expected_action='"Second message"',
+      ),
   )
   def test_filters_by_active_player(
       self, memory_contents, active_player, expected_action
