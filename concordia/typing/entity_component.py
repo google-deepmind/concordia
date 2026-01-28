@@ -21,7 +21,7 @@ import functools
 from typing import TypeVar
 
 from concordia.typing import entity as entity_lib
-from concordia.typing.deprecated import logging as logging_lib
+from concordia.typing import logging as logging_lib
 
 
 ComponentName = str
