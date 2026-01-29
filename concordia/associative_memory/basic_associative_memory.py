@@ -33,6 +33,7 @@ class AssociativeMemoryBank:
   def __init__(
       self,
       sentence_embedder: Callable[[str], np.ndarray] | None = None,
+      allow_duplicates: bool = False,
   ):
     """Constructor.
 
@@ -40,9 +41,13 @@ class AssociativeMemoryBank:
       sentence_embedder: text embedding model, if None then skip setting the
         embedder on initialization of the object. It still must be set before
         calling `add` or `retrieve` methods.
+      allow_duplicates: if True, allow adding duplicate entries to the memory.
+        This is useful for Game Master memories where the same action may recur
+        across different rounds.
     """
     self._memory_bank_lock = threading.Lock()
     self._embedder = sentence_embedder
+    self._allow_duplicates = allow_duplicates
 
     self._memory_bank = pd.DataFrame(columns=['text', 'embedding'])
     self._stored_hashes = set()
@@ -100,7 +105,7 @@ class AssociativeMemoryBank:
     hashed_contents = hash(tuple(contents.values()))
 
     with self._memory_bank_lock:
-      if hashed_contents in self._stored_hashes:
+      if not self._allow_duplicates and hashed_contents in self._stored_hashes:
         return
 
       derived = {'embedding': self._embedder(text)}

@@ -78,8 +78,11 @@ class Simulation(simulation_lib.Simulation):
     self._checkpoint_counter = 0
 
     # All game masters share the same memory bank.
+    # allow_duplicates=True because the same action (e.g., "Bob: defect") may
+    # recur across different rounds and should not be deduplicated.
     self.game_master_memory_bank = associative_memory.AssociativeMemoryBank(
         sentence_embedder=embedder,
+        allow_duplicates=True,
     )
     all_data = self._config.instances
     gm_configs = [
