@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 # Update requirements.txt.
+# Add --upgrade flag to upgrade pinned versions.
+
 set -euxo pipefail
 cd "$(dirname "$0")/.."
 
-pip-compile --upgrade --all-extras setup.py examples/requirements.in
+pip-compile $@ --all-extras setup.py examples/requirements.in
