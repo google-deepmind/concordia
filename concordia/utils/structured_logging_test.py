@@ -519,8 +519,8 @@ class SimulationLogTest(absltest.TestCase):
     self.assertEqual(reconstructed['long_text'], 'A' * 100)
 
 
-class RawLogAdapterTest(absltest.TestCase):
-  """Tests for raw_log adapter methods."""
+class FromRawLogTest(absltest.TestCase):
+  """Tests for from_raw_log method."""
 
   def test_from_raw_log_empty(self):
     """from_raw_log handles empty list."""
@@ -556,119 +556,6 @@ class RawLogAdapterTest(absltest.TestCase):
     ]
     log = structured_logging.SimulationLog.from_raw_log(raw_log)
     self.assertIn('Alice', log.get_entity_names())
-
-  def test_to_raw_log_empty(self):
-    """to_raw_log returns empty list for empty log."""
-    log = structured_logging.SimulationLog()
-    self.assertEqual(log.to_raw_log(), [])
-
-  def test_to_raw_log_preserves_step(self):
-    """to_raw_log preserves step numbers."""
-    log = structured_logging.SimulationLog()
-    log.add_entry(
-        step=3,
-        timestamp='t',
-        entity_name='A',
-        component_name='C',
-        entry_type='step',
-        summary='Test',
-    )
-
-    raw = log.to_raw_log()
-    self.assertLen(raw, 1)
-    self.assertEqual(raw[0]['Step'], 3)
-
-  def test_to_raw_log_includes_summary(self):
-    """to_raw_log includes summary."""
-    log = structured_logging.SimulationLog()
-    log.add_entry(
-        step=1,
-        timestamp='t',
-        entity_name='A',
-        component_name='C',
-        entry_type='step',
-        summary='Important event',
-    )
-
-    raw = log.to_raw_log()
-    self.assertEqual(raw[0]['Summary'], 'Important event')
-
-  def test_round_trip_from_to_raw_log(self):
-    """Converting from and to raw_log preserves step counts."""
-    original_raw = [
-        {'Step': 1, 'Summary': 'Step 1', 'Entity [Alice]': {'x': 1}},
-        {'Step': 2, 'Summary': 'Step 2', 'Entity [Bob]': {'y': 2}},
-    ]
-
-    log = structured_logging.SimulationLog.from_raw_log(original_raw)
-    restored_raw = log.to_raw_log()
-
-    # Should have same number of steps
-    self.assertLen(restored_raw, 2)
-
-
-class HtmlRenderTest(absltest.TestCase):
-  """Tests for render_simulation_log_to_html function."""
-
-  def test_render_empty_log(self):
-    """Rendering empty log produces valid HTML."""
-    log = structured_logging.SimulationLog()
-    html = structured_logging.render_simulation_log_to_html(log)
-
-    self.assertIn('<!DOCTYPE html>', html)
-    self.assertIn('Game Master log', html)
-
-  def test_render_includes_custom_title(self):
-    """Custom title appears in HTML."""
-    log = structured_logging.SimulationLog()
-    html = structured_logging.render_simulation_log_to_html(
-        log, title='Custom Title'
-    )
-    self.assertIn('Custom Title', html)
-
-  def test_render_includes_entity_memories(self):
-    """Entity memories create tabs."""
-    log = structured_logging.SimulationLog()
-    html = structured_logging.render_simulation_log_to_html(
-        log,
-        entity_memories={'Alice': ['Memory 1', 'Memory 2']},
-    )
-    self.assertIn('Alice</button>', html)
-    self.assertIn('Memory 1', html)
-
-  def test_render_includes_gm_memories(self):
-    """Game master memories create tab."""
-    log = structured_logging.SimulationLog()
-    html = structured_logging.render_simulation_log_to_html(
-        log,
-        game_master_memories=['GM Memory 1'],
-    )
-    self.assertIn('Game Master Memories</button>', html)
-    self.assertIn('GM Memory 1', html)
-
-  def test_render_includes_player_scores(self):
-    """Player scores appear in summary."""
-    log = structured_logging.SimulationLog()
-    html = structured_logging.render_simulation_log_to_html(
-        log,
-        player_scores={'Alice': 10, 'Bob': 5},
-    )
-    self.assertIn('Player Scores', html)
-
-  def test_render_with_entries(self):
-    """Log entries are rendered to HTML."""
-    log = structured_logging.SimulationLog()
-    log.add_entry(
-        step=1,
-        timestamp='t',
-        entity_name='Alice',
-        component_name='C',
-        entry_type='entity',
-        summary='Alice acted',
-    )
-
-    html = structured_logging.render_simulation_log_to_html(log)
-    self.assertIn('tabcontent', html)
 
 
 class AIAgentLogInterfaceTest(absltest.TestCase):

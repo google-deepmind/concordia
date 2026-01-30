@@ -31,8 +31,6 @@ import json
 import threading
 from typing import Any
 
-from concordia.utils import html as html_lib
-
 _DEFAULT_MIN_CHUNK_LENGTH = 50
 
 
@@ -554,62 +552,7 @@ class SimulationLog:
 
     return log
 
-  def to_raw_log(self) -> list[dict[str, Any]]:
-    """Export the log in the old raw_log format for backward compatibility.
-
-    This produces a list of dicts matching the format used by the old
-    logging system, enabling gradual migration.
-
-    Returns:
-      List of log entries in the existing format.
-    """
-    raw_log: list[dict[str, Any]] = []
-
-    for step in self.get_steps():
-      entries = self.get_entries_by_step(step)
-      if not entries:
-        continue
-
-      entry_dict: dict[str, Any] = {'Step': step}
-      summaries = []
-
-      for entry in entries:
-        summaries.append(entry.summary)
-
-        if entry.entry_type == 'entity':
-          key = f'Entity [{entry.entity_name}]'
-        else:
-          key = entry.entity_name
-
-        reconstructed = self.reconstruct_value(entry.deduplicated_data)
-        if reconstructed.get('value'):
-          entry_dict[key] = reconstructed['value']
-
-      entry_dict['Summary'] = next((s for s in summaries if s), f'Step {step}')
-      raw_log.append(entry_dict)
-
-    return raw_log
-
   def to_html(self, title: str = 'Simulation Log') -> str:
-    """Render the log to HTML matching the existing format.
-
-    Uses entity memories and game master memories if they were attached
-    when the log was created from Simulation.play().
-
-    Args:
-      title: Title for the HTML page.
-
-    Returns:
-      Complete HTML string with tabs for GM log, entities, and memories.
-    """
-    return render_simulation_log_to_html(
-        simulation_log=self,
-        entity_memories=self._entity_memories or None,
-        game_master_memories=self._game_master_memories or None,
-        title=title,
-    )
-
-  def to_dynamic_html(self, title: str = 'Simulation Log') -> str:
     """Render the log to HTML with dynamic JavaScript-based deduplication.
 
     This method generates HTML that stores content once in a JavaScript
@@ -631,68 +574,6 @@ class SimulationLog:
     )
 
 
-def render_simulation_log_to_html(
-    simulation_log: SimulationLog,
-    entity_memories: dict[str, list[str]] | None = None,
-    game_master_memories: list[str] | None = None,
-    player_scores: dict[str, Any] | None = None,
-    title: str = 'Simulation Log',
-) -> str:
-  """Render a SimulationLog to HTML matching the existing format.
-
-  This function produces HTML output that is visually identical to the
-  existing logging system, ensuring a seamless transition.
-
-  Args:
-    simulation_log: The structured log to render.
-    entity_memories: Optional dict of entity_name -> list of memory strings.
-    game_master_memories: Optional list of GM memory strings.
-    player_scores: Optional dict of player scores to show in summary.
-    title: Title for the HTML page.
-
-  Returns:
-    Complete HTML string with tabs for GM log, entities, and memories.
-  """
-  # Convert to raw_log format for HTML rendering
-  raw_log = simulation_log.to_raw_log()
-
-  # Render main log
-  results_log = html_lib.PythonObjectToHTMLConverter(raw_log).convert()
-
-  # Render entity memories
-  player_logs = []
-  player_log_names = []
-
-  if entity_memories:
-    for entity_name, memories in entity_memories.items():
-      player_html = html_lib.PythonObjectToHTMLConverter(memories).convert()
-      player_logs.append(player_html)
-      player_log_names.append(entity_name)
-
-  # Render game master memories
-  if game_master_memories:
-    gm_html = html_lib.PythonObjectToHTMLConverter(
-        game_master_memories
-    ).convert()
-    player_logs.append(gm_html)
-    player_log_names.append('Game Master Memories')
-
-  # Build summary
-  summary = ''
-  if player_scores:
-    summary = f'Player Scores: {player_scores}'
-
-  # Combine all pages
-  tabbed_html = html_lib.combine_html_pages(
-      [results_log, *player_logs],
-      ['Game Master log', *player_log_names],
-      summary=summary,
-      title=title,
-  )
-
-  return html_lib.finalise_html(tabbed_html)
-
-
 def render_dynamic_html(
     simulation_log: SimulationLog,
     entity_memories: dict[str, list[str]] | None = None,
@@ -702,9 +583,9 @@ def render_dynamic_html(
 ) -> str:
   """Render the log to HTML with dynamic JavaScript-based content composition.
 
-  Unlike render_simulation_log_to_html, this function stores all unique content
-  once in a JavaScript data block and uses JavaScript to dynamically compose
-  the views. This achieves true deduplication in the HTML output.
+  This function stores all unique content once in a JavaScript data block
+  and uses JavaScript to dynamically compose the views. This achieves true
+  deduplication in the HTML output.
 
   Args:
     simulation_log: The log to render.
@@ -716,6 +597,7 @@ def render_dynamic_html(
   Returns:
     Complete HTML string with embedded data and dynamic rendering.
   """
+
   # Build the content store data for JavaScript
   content_store_data = simulation_log.content_store.to_dict()
 
@@ -772,6 +654,12 @@ body { font-family: Arial, sans-serif; margin: 20px; background: linear-gradient
 details { margin: 5px 0; }
 details summary { cursor: pointer; font-weight: bold; padding: 5px; background: #f0f0f0; border-radius: 4px; }
 details[open] summary { background: #e0e0e0; }
+/* Step-level details get special styling with a colored left border */
+details.step-details { margin: 10px 0; border-left: 3px solid #667eea; padding-left: 10px; }
+details.step-details > summary { background: #e8e8ff; font-size: 14px; }
+details.step-details[open] > summary { background: #d8d8ff; }
+/* Content inside steps is indented */
+details.step-details > details { margin-left: 15px; }
 .summary { padding: 10px; background: #e8f4f8; border-radius: 4px; margin-bottom: 15px; }
 h1 { color: #333; margin-bottom: 5px; }
 .subtitle { color: #666; margin-bottom: 20px; }
@@ -850,6 +738,7 @@ function escapeHtml(text) {
 
 // Recursively render any Python object as collapsible HTML
 // Mirrors PythonObjectToHTMLConverter logic
+// Handles _ref references by looking up content in CONTENT_STORE
 function renderObject(obj) {
   if (obj === null || obj === undefined) {
     return '';
@@ -872,6 +761,15 @@ function renderObject(obj) {
   }
 
   if (typeof obj === 'object') {
+    // Handle _ref references - lookup in CONTENT_STORE
+    if (obj._ref && Object.keys(obj).length === 1) {
+      const content = CONTENT_STORE[obj._ref];
+      if (content !== undefined) {
+        return escapeHtml(content);
+      }
+      return '[ref:' + obj._ref + ']';
+    }
+
     // Determine summary from special keys (like PythonObjectToHTMLConverter)
     let summary = '';
     if (obj.date) {
@@ -885,12 +783,12 @@ function renderObject(obj) {
       summary = escapeHtml(obj.Name);
     } else if (obj.Key) {
       summary = escapeHtml(obj.Key);
+    } else if (obj.Value !== undefined || obj.value !== undefined) {
+      // Entity data with a "Value" key - use "Details" as summary
+      summary = 'Details';
     } else {
-      // Use first key as summary
-      const keys = Object.keys(obj);
-      if (keys.length > 0) {
-        summary = escapeHtml(keys[0]);
-      }
+      // For all other objects, use "Details" as a generic summary
+      summary = 'Details';
     }
 
     let html = '<details>';
@@ -946,50 +844,43 @@ function renderGMLog() {
 
   steps.forEach(step => {
     const entries = stepMap[step];
-    html += '<details open>';
-    html += '<summary><b>Step ' + step + '</b>';
-    // Add summary from first entry if available
+    
+    // Build step summary from entries
+    let stepSummary = 'Step ' + step;
     if (entries.length > 0 && entries[0].summary) {
-      html += ' --- ' + escapeHtml(entries[0].summary);
+      stepSummary += ' --- ' + entries[0].summary;
     }
-    html += '</summary>';
+    
+    html += '<details class="step-details" open>';
+    html += '<summary><b>' + escapeHtml(stepSummary) + '</b></summary>';
 
     entries.forEach(entry => {
-      html += '<div class="entry">';
-
-      // If there's raw_value in metadata, render it recursively
-      if (entry.metadata && entry.metadata.raw_value) {
+      // Create a label for this entry (like "Entity [name]" or component name)
+      let entryLabel = entry.entity_name;
+      if (entry.entry_type === 'entity') {
+        entryLabel = 'Entity [' + entry.entity_name + ']';
+      }
+      
+      // If entry has deduplicated_data, render it as collapsible content
+      if (entry.deduplicated_data && Object.keys(entry.deduplicated_data).length > 0) {
         html += '<details>';
-        html += '<summary><b>' + escapeHtml(entry.metadata.raw_key || entry.entity_name) + '</b></summary>';
-        html += renderObjectChildren(entry.metadata.raw_value);
+        html += '<summary>' + escapeHtml(entryLabel) + '</summary>';
+        // Render all the data in deduplicated_data recursively
+        for (const [key, value] of Object.entries(entry.deduplicated_data)) {
+          html += '<b><ul>' + escapeHtml(key) + '</b>';
+          html += '<li>' + renderObject(value) + '</li></ul>';
+        }
         html += '</details>';
       } else {
-        // Simple entry without nested data
-        html += '<span class="entry-entity">' + escapeHtml(entry.entity_name) + '</span>';
+        // Simple entry with no data
+        html += '<div class="entry">';
+        html += '<span class="entry-entity">' + escapeHtml(entryLabel) + '</span>';
         html += ' <span class="entry-component">(' + escapeHtml(entry.component_name) + ')</span>';
         if (entry.summary) {
           html += '<div class="entry-summary">' + escapeHtml(entry.summary) + '</div>';
         }
-
-        // Show prompt/response if available
-        const prompt = getContent(entry.prompt_id);
-        const response = getContent(entry.response_id);
-
-        if (prompt || response) {
-          html += '<details><summary>Details</summary>';
-          if (prompt) {
-            html += '<div class="content-label">Prompt</div>';
-            html += '<div class="content-block">' + escapeHtml(prompt) + '</div>';
-          }
-          if (response) {
-            html += '<div class="content-label">Response</div>';
-            html += '<div class="content-block">' + escapeHtml(response) + '</div>';
-          }
-          html += '</details>';
-        }
+        html += '</div>';
       }
-
-      html += '</div>';
     });
 
     html += '</details>';
