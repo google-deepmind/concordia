@@ -18,6 +18,7 @@
 from collections.abc import Callable, Mapping, Sequence
 import datetime
 
+from absl import logging as absl_logging
 from concordia.agents import entity_agent
 from concordia.components.agent import memory as memory_component
 from concordia.components.game_master import event_resolution as event_resolution_component
@@ -215,7 +216,7 @@ class LaborStrike(entity_component.ContextComponent):
         finished = True
 
         if self._verbose:
-          print(termcolor.colored(self._state, 'yellow'))
+          absl_logging.info(termcolor.colored(self._state, 'yellow'))
 
     if finished:
       # Advance to the next stage.

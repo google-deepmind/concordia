@@ -21,6 +21,7 @@ import json
 import threading
 from typing import Any, Callable, List, Tuple, cast, override
 
+from absl import logging
 from concordia.agents import entity_agent
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
@@ -198,7 +199,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
     for step in range(max_steps):
       if verbose:
-        print(f'Step {step}')
+        logging.info('Step %s', step)
 
       if self.terminate(game_master, verbose):
         return
