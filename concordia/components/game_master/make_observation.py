@@ -17,6 +17,7 @@
 from collections.abc import Sequence
 import copy
 import threading
+from typing import Any
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
@@ -37,6 +38,50 @@ GET_ACTIVE_ENTITY_QUERY = (
 )
 
 
+class ObservationQueue:
+  """A shared queue for observations that can be used across multiple GMs.
+
+  This allows observations queued in one GM to be delivered by another GM,
+  preventing observation loss during GM transitions.
+  """
+
+  def __init__(self):
+    self._queue = {}
+    self._lock = threading.Lock()
+
+  def add(self, entity_name: str, event: str, player_names: Sequence[str]):
+    """Adds an event to the queue for the given entity."""
+    with self._lock:
+      if entity_name.lower().strip() == 'all':
+        for player in player_names:
+          if player not in self._queue:
+            self._queue[player] = []
+          self._queue[player].append(event)
+      else:
+        if entity_name not in self._queue:
+          self._queue[entity_name] = []
+        self._queue[entity_name].append(event)
+
+  def get_and_clear(self, entity_name: str) -> list[str]:
+    """Gets and clears the queue for the given entity."""
+    with self._lock:
+      if entity_name in self._queue and self._queue[entity_name]:
+        events = self._queue[entity_name]
+        self._queue[entity_name] = []
+        return events
+      return []
+
+  def get_all(self) -> dict[str, list[str]]:
+    """Returns a deep copy of the entire queue state."""
+    with self._lock:
+      return copy.deepcopy(self._queue)
+
+  def set_all(self, queue_state: Any):
+    """Sets the entire queue state from a deep copy."""
+    with self._lock:
+      self._queue = copy.deepcopy(queue_state)
+
+
 class MakeObservation(entity_component.ContextComponent,
                       entity_component.ComponentWithLogging):
   """A component that generates observations to send to players."""
@@ -49,6 +94,8 @@ class MakeObservation(entity_component.ContextComponent,
       call_to_make_observation: str = DEFAULT_CALL_TO_MAKE_OBSERVATION,
       reformat_observations_in_specified_style: str = '',
       pre_act_label: str = DEFAULT_MAKE_OBSERVATION_PRE_ACT_LABEL,
+      external_queue: ObservationQueue | None = None,
+      allow_llm_fallback: bool = True,
   ):
     """Initializes the component.
 
@@ -56,7 +103,7 @@ class MakeObservation(entity_component.ContextComponent,
       model: The language model to use for the component.
       player_names: Names of players.
       components: Keys of components to condition the observation on.
-      call_to_make_observation: The call to action to make the observation. 
+      call_to_make_observation: The call to action to make the observation.
         Needed to extract the name of the active entity.
       reformat_observations_in_specified_style: If non-empty, the component will
         ask the model to reformat the observation to fit the style specified in
@@ -68,6 +115,12 @@ class MakeObservation(entity_component.ContextComponent,
         description"."
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
+      external_queue: Optional shared ObservationQueue. If provided, this
+        component will use the external queue instead of creating its own. This
+        allows observations to persist across GM transitions.
+      allow_llm_fallback: If True, when the queue is empty, the LLM will be used
+        to generate an observation. If False, an empty observation will be
+        returned when the queue is empty. Defaults to True.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -82,9 +135,10 @@ class MakeObservation(entity_component.ContextComponent,
     )
     self._call_to_make_observation = call_to_make_observation
     self._pre_act_label = pre_act_label
-    self._lock = threading.Lock()
+    self._allow_llm_fallback = allow_llm_fallback
 
-    self._queue = {}
+    # Use external queue if provided, otherwise create one internally
+    self._queue = external_queue if external_queue else ObservationQueue()
 
   def get_named_component_pre_act_value(self, component_name: str) -> str:
     """Returns the pre-act value of a named component of the parent entity."""
@@ -147,32 +201,25 @@ class MakeObservation(entity_component.ContextComponent,
       )
 
       log_entry['Active Entity'] = active_entity_name
-      with self._lock:
-        log_entry['queue'] = copy.deepcopy(self._queue)
 
-        if (
-            active_entity_name in self._queue
-            and self._queue[active_entity_name]
-        ):
-          log_entry['queue_active_entity'] = copy.deepcopy(
-              self._queue[active_entity_name]
-          )
-          result = ''
-          for event in self._queue[active_entity_name]:
-            result += event + '\n\n\n'
-
-          self._queue[active_entity_name] = []
-        else:
-          result = prompt.open_question(
-              question=(
-                  f'What does {active_entity_name} observe now? Never '
-                  'repeat information that was already provided to '
-                  f'{active_entity_name} unless absolutely necessary. Keep '
-                  'the story moving forward.'
-              ),
-              max_tokens=1200,
-              terminators=(),
-          )
+      events = self._queue.get_and_clear(active_entity_name)
+      log_entry['queue'] = self._queue.get_all()
+      if events:
+        log_entry['queue_active_entity'] = events
+        result = '\n\n\n'.join(events) + '\n\n\n'
+      elif self._allow_llm_fallback:
+        result = prompt.open_question(
+            question=(
+                f'What does {active_entity_name} observe now? Never '
+                'repeat information that was already provided to '
+                f'{active_entity_name} unless absolutely necessary. Keep '
+                'the story moving forward.'
+            ),
+            max_tokens=1200,
+            terminators=(),
+        )
+      else:
+        result = ''
 
       if self._reformat_observations_in_specified_style:
         prompt.statement(
@@ -208,23 +255,12 @@ class MakeObservation(entity_component.ContextComponent,
 
   def add_to_queue(self, entity_name: str, event: str):
     """Adds an event to the queue of events to observe."""
-    with self._lock:
-      if entity_name.lower().strip() == 'all':
-        for player in self._player_names:
-          if player not in self._queue:
-            self._queue[player] = []
-          self._queue[player].append(event)
-      else:
-        if entity_name not in self._queue:
-          self._queue[entity_name] = []
-        self._queue[entity_name].append(event)
+    self._queue.add(entity_name, event, self._player_names)
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    with self._lock:
-      return {'queue': copy.deepcopy(self._queue)}
+    return {'queue': self._queue.get_all()}
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    with self._lock:
-      self._queue = copy.deepcopy(state['queue'])
+    self._queue.set_all(state['queue'])

@@ -129,6 +129,9 @@ class GameMaster(prefab_lib.Prefab):
           'scenes': (),
           'action_to_scores': _default_action_to_scores,
           'scores_to_observation': _default_scores_to_observation,
+          # Optional shared ObservationQueue for cross-GM observation
+          # persistence.
+          'external_queue': None,
       }
   )
   entities: (
@@ -152,6 +155,7 @@ class GameMaster(prefab_lib.Prefab):
     name = self.params.get('name', DEFAULT_NAME)
 
     player_names = [entity.name for entity in self.entities]
+    external_queue = self.params.get('external_queue', None)
 
     scenes = self.params.get('scenes', _configure_default_scenes(player_names))
     assert isinstance(scenes, Sequence), 'scenes must be a sequence.'
@@ -196,15 +200,15 @@ class GameMaster(prefab_lib.Prefab):
 
     make_observation_key = (
         gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY)
-    make_observation = (
-        gm_components.make_observation.MakeObservation(
-            model=model,
-            player_names=player_names,
-            components=[
-                observation_component_key,
-                display_events_key,
-            ],
-        )
+    make_observation = gm_components.make_observation.MakeObservation(
+        model=model,
+        player_names=player_names,
+        components=[
+            observation_component_key,
+            display_events_key,
+        ],
+        external_queue=external_queue,
+        allow_llm_fallback=False,
     )
 
     scene_tracker_key = (

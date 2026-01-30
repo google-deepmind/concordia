@@ -85,6 +85,10 @@ class GameMaster(prefab_lib.Prefab):
           'locations': '',
           'extra_components': {},
           'extra_components_index': {},
+          # Optional shared ObservationQueue for cross-GM observation
+          # persistence. When provided, observations queued by one GM
+          # persist across GM switches.
+          'external_queue': None,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -126,6 +130,7 @@ class GameMaster(prefab_lib.Prefab):
         )
 
     player_names = [entity.name for entity in self.entities]
+    external_queue = self.params.get('external_queue', None)
 
     # Get scenes for scene tracking
     scenes = self.params.get('scenes', ())
@@ -275,17 +280,7 @@ class GameMaster(prefab_lib.Prefab):
             'current situation to a player is: '
             '"// date or time // situation description".'
         ),
-    )
-
-    send_events_to_players_key = (
-        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
-    )
-    send_events_to_players = (
-        gm_components.event_resolution.SendEventToRelevantPlayers(
-            model=model,
-            player_names=player_names,
-            make_observation_component_key=make_observation_key,
-        )
+        external_queue=external_queue,
     )
 
     scene_tracker_key = (
@@ -297,6 +292,20 @@ class GameMaster(prefab_lib.Prefab):
         observation_component_key=(
             gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
         ),
+    )
+
+    # SendEventToRelevantPlayers handles notifying players about events.
+    # Use scene tracker's get_participants as a filter to limit notifications.
+    send_events_to_players_key = (
+        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
+    )
+    send_events_to_players = (
+        gm_components.event_resolution.SendEventToRelevantPlayers(
+            model=model,
+            player_names=player_names,
+            make_observation_component_key=make_observation_key,
+            player_filter=scene_tracker.get_participants,
+        )
     )
 
     # Use scene-based actor selection

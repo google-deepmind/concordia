@@ -353,6 +353,7 @@ class SendEventToRelevantPlayers(
       player_names: Sequence[str],
       make_observation_component_key: str,
       components: Sequence[str] = (),
+      player_filter: Callable[[], Sequence[str]] | None = None,
       pre_act_label: str = DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL,
   ):
     """Initializes a component that sends component pre-act values to players.
@@ -363,11 +364,15 @@ class SendEventToRelevantPlayers(
 
     Args:
       model: The language model to use for the component.
-      player_names: Names of players.
+      player_names: Names of players (used if no player_filter is supplied).
       make_observation_component_key: the key for a MakeObservation component to
         add the pre-act values to the queue of events to observe.
       components: Keys of components to condition whether the event is relevant.
         If empty, all events are relevant.
+      player_filter: Optional callback that returns the list of player names
+        that should receive observations. When provided, this function is called
+        during post_act to determine which players get the event. This can be
+        used to filter by scene participants or any other criteria.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
 
@@ -380,6 +385,7 @@ class SendEventToRelevantPlayers(
     self._player_names = player_names
     self._pre_act_label = pre_act_label
     self._components = components
+    self._player_filter = player_filter
     self._queue = {}
     self._last_action_spec = None
     self._optional_make_observation_component_key = (
@@ -437,7 +443,12 @@ class SendEventToRelevantPlayers(
       prompt = interactive_document.InteractiveDocument(self._model)
       proceed = True
 
-      for active_entity_name in self._player_names:
+      # Use player_filter if provided, otherwise all players
+      relevant_players = self._player_names
+      if self._player_filter:
+        relevant_players = self._player_filter()
+
+      for active_entity_name in relevant_players:
         if self._components:
           component_states = '\n'.join(
               [self._component_pre_act_display(key) for key in self._components]
