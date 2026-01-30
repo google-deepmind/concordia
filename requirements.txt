@@ -166,6 +166,7 @@ anyio==4.12.0 \
     # via
     #   anthropic
     #   google-genai
+    #   groq
     #   httpx
     #   jupyter-server
     #   openai
@@ -981,6 +982,7 @@ distro==1.9.0 \
     --hash=sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2
     # via
     #   anthropic
+    #   groq
     #   openai
 dnspython==2.8.0 \
     --hash=sha256:01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af \
@@ -1669,6 +1671,10 @@ greenlet==3.2.4 \
     --hash=sha256:f28588772bb5fb869a8eb331374ec06f24a83a9c25bfa1f38b6993afe9c1e968 \
     --hash=sha256:f47617f698838ba98f4ff4189aef02e7343952df3a615f847bb575c3feb177a7
     # via sqlalchemy
+groq==1.0.0 \
+    --hash=sha256:66cb7bb729e6eb644daac7ce8efe945e99e4eb33657f733ee6f13059ef0c25a9 \
+    --hash=sha256:6e22bf92ffad988f01d2d4df7729add66b8fd5dbfb2154b5bbf3af245b72c731
+    # via gdm-concordia (setup.py)
 grpc-google-iam-v1==0.14.3 \
     --hash=sha256:7a7f697e017a067206a3dfef44e4c634a34d3dee135fe7d7a4613fe3e59217e6 \
     --hash=sha256:879ac4ef33136c5491a6300e27575a9ec760f6cdf9a2518798c1b8977a5dc389
@@ -1838,6 +1844,7 @@ httpx==0.28.1 \
     #   fastapi
     #   fastapi-cloud-cli
     #   google-genai
+    #   groq
     #   jupyterlab
     #   langsmith
     #   mistralai
@@ -4072,6 +4079,7 @@ pydantic==2.12.5 \
     #   google-cloud-aiplatform
     #   google-genai
     #   google-generativeai
+    #   groq
     #   langchain-classic
     #   langchain-core
     #   langsmith
@@ -5376,6 +5384,7 @@ sniffio==1.3.1 \
     --hash=sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
     # via
     #   anthropic
+    #   groq
     #   openai
 soupsieve==2.8 \
     --hash=sha256:0cc76456a30e20f5d7f2e14a98a4ae2ee4e5abdc7c5ea0aafe795f344bc7984c \
@@ -5788,6 +5797,7 @@ typing-extensions==4.15.0 \
     #   google-cloud-aiplatform
     #   google-genai
     #   google-generativeai
+    #   groq
     #   grpcio
     #   huggingface-hub
     #   langchain-core
