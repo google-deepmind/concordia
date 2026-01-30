@@ -22,6 +22,7 @@ import re
 import threading
 from typing import Any, Dict, List, Tuple
 
+from absl import logging
 from concordia.components.game_master import event_resolution
 from concordia.contrib.data.questionnaires import base_questionnaire
 from concordia.environment import engine as engine_lib
@@ -207,13 +208,13 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
           self._process_answer(player_name, q_id, answer_text)
           self._answered_mask[self._event_counter][player_name][q_id] = True
         else:
-          print(
-              f'Warning: No match or already answered for {player_name}, {q_id}'
+          logging.warning(
+              'No match or already answered for %s, %s', player_name, q_id
           )
       else:
-        print(f'Warning: No regex match for observation: {observation}')
+        logging.warning('No regex match for observation: %s', observation)
     except re.error as e:
-      print(f'Error processing observation: {e} on {observation}')
+      logging.error('Error processing observation: %s on %s', e, observation)
     return ''
 
   def _process_answer(
@@ -343,7 +344,7 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
   ):
     """Calls the plot_results function for each questionnaire."""
     for questionnaire in self._questionnaires.values():
-      print(f'Plotting results for {questionnaire.name}')
+      logging.info('Plotting results for %s', questionnaire.name)
       questionnaire.plot_results(results_df, label_column=label_column)
 
   def get_state(self) -> entity_component.ComponentState:

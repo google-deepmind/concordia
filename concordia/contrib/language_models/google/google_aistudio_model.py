@@ -20,6 +20,7 @@ import os
 import time
 from typing import override
 
+from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils import text
@@ -169,7 +170,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     if self._sleep_periodically and (
         self._n_calls % self._calls_between_sleeping == 0
     ):
-      print('Sleeping for 10 seconds...')
+      logging.info('Sleeping for 10 seconds...')
       time.sleep(10)
 
     chat = self._model.start_chat(history=copy.deepcopy(DEFAULT_HISTORY))
@@ -190,9 +191,9 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     try:
       response = sample.candidates[0].content.parts[0].text
     except ValueError as e:
-      print('An error occurred: ', e)
-      print(f'prompt: {prompt}')
-      print(f'sample: {sample}')
+      logging.error('An error occurred: %s', e)
+      logging.debug('prompt: %s', prompt)
+      logging.debug('sample: %s', sample)
       response = ''
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -231,7 +232,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
       try:
         idx = responses.index(answer)
       except ValueError:
-        print(f'Sample choice fail: {answer} extracted from {sample}.')
+        logging.debug('Sample choice fail: %s extracted from %s.', answer, sample)
         continue
       else:
         if self._measurements is not None:

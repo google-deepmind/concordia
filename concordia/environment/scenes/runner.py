@@ -17,6 +17,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from absl import logging
 from concordia.agents.deprecated import entity_agent
 from concordia.components.agent import memory as memory_component
 from concordia.components.agent import observation as observation_component
@@ -106,7 +107,9 @@ def run_scenes(
     participants = [players_by_name[name] for name in participant_names]
 
     if verbose:
-      print(f'\n\n    Scene {scene_idx}    Participants: {participants_str}\n')
+      logging.info(
+          '\n\n    Scene %s    Participants: %s\n', scene_idx, participants_str
+      )
 
     # Prepare to run the scene
     clock.set(scene.start_time)
@@ -121,7 +124,7 @@ def run_scenes(
       for message in premise_messages:
         all_premises += f'{participant.name} -- premise: {message}      \n'
         if verbose:
-          print(f'{participant.name} -- premise: {message}')
+          logging.info('%s -- premise: %s', participant.name, message)
         participant.observe(message)
         game_master.observe(message)
 
@@ -147,7 +150,7 @@ def run_scenes(
       )
       for message in conclusion_messages:
         if verbose:
-          print(f'{participant.name} -- conclusion: {message}')
+          logging.info('%s -- conclusion: %s', participant.name, message)
         participant.observe(message)
         game_master.observe(message)
 

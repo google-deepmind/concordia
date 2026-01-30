@@ -18,6 +18,7 @@ from collections.abc import Mapping, Sequence
 import functools
 from typing import Any, Callable, override
 
+from absl import logging
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
@@ -270,7 +271,7 @@ class Simultaneous(engine_lib.Engine):
           )
         skip_actions = True
         if checkpoint_callback is not None:
-          print(f'Calling checkpoint callback at step {steps}')
+          logging.debug('Calling checkpoint callback at step %s', steps)
           checkpoint_callback(steps)
       else:
         skip_actions = False

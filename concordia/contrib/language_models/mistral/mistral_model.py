@@ -19,6 +19,7 @@ import os
 import time
 from typing import override
 
+from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
@@ -107,9 +108,10 @@ class MistralLanguageModel(language_model.LanguageModel):
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              'Sleeping for 10 seconds... '
-              + f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}'
+          logging.info(
+              'Sleeping for 10 seconds... attempt: %s / %s',
+              attempts,
+              _MAX_CHAT_ATTEMPTS,
           )
         time.sleep(10)
       try:
@@ -125,7 +127,7 @@ class MistralLanguageModel(language_model.LanguageModel):
         )
       except mistralai.models.sdkerror.SDKError as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
+          logging.warning('  Exception: %s', err)
         continue
       else:
         result = response.choices[0].message.content
@@ -176,9 +178,10 @@ class MistralLanguageModel(language_model.LanguageModel):
     for attempts in range(_MAX_CHAT_ATTEMPTS):
       if attempts > 0:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              'Sleeping for 10 seconds... '
-              + f'attempt: {attempts} / {_MAX_CHAT_ATTEMPTS}'
+          logging.info(
+              'Sleeping for 10 seconds... attempt: %s / %s',
+              attempts,
+              _MAX_CHAT_ATTEMPTS,
           )
         time.sleep(10)
       try:
@@ -192,7 +195,7 @@ class MistralLanguageModel(language_model.LanguageModel):
         )
       except mistralai.models.sdkerror.SDKError as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
+          logging.warning('  Exception: %s', err)
         continue
       else:
         return response.choices[0].message.content

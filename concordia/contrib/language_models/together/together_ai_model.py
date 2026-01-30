@@ -231,9 +231,9 @@ class GemmaChat(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds... '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds... attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -251,8 +251,8 @@ class GemmaChat(language_model.LanguageModel):
         )
       except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Text exception prompt: {prompt}')
+          logging.warning('  Exception: %s', err)
+          logging.debug('  Text exception prompt: %s', prompt)
         if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
@@ -425,9 +425,9 @@ class DeepSeekModel(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds... '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds... attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -445,8 +445,8 @@ class DeepSeekModel(language_model.LanguageModel):
         )
       except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Text exception prompt: {prompt}')
+          logging.warning('  Exception: %s', err)
+          logging.debug('  Text exception prompt: %s', prompt)
         if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
@@ -629,9 +629,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f'Sleeping for {seconds_to_sleep} seconds... '
-              + f'attempt: {attempts} / {_MAX_ATTEMPTS}'
+          logging.info(
+              'Sleeping for %s seconds... attempt: %s / %s',
+              seconds_to_sleep, attempts, _MAX_ATTEMPTS
           )
         time.sleep(seconds_to_sleep)
       try:
@@ -650,8 +650,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
         )
       except _get_together_errors() as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f'  Exception: {err}')
-          print(f'  Text exception prompt: {prompt}')
+          logging.warning('  Exception: %s', err)
+          logging.debug('  Text exception prompt: %s', prompt)
         if _is_retriable_api_error(err):
           # If hit the error that arises from a prompt that is too long then
           # re-run the trimming function with a more pessimistic guess of the
