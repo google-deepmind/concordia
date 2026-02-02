@@ -17,6 +17,8 @@ from concordia.prefabs.entity.negotiation.components import swarm_intelligence
 from concordia.prefabs.entity.negotiation.components import uncertainty_aware
 from concordia.prefabs.entity.negotiation.components import strategy_evolution
 from concordia.prefabs.entity.negotiation.components import theory_of_mind
+from concordia.prefabs.entity.negotiation.components import uncertain_buyer
+from concordia.prefabs.entity.negotiation.components import uncertain_seller
 
 
 @dataclasses.dataclass
@@ -142,6 +144,38 @@ class Entity(prefab_lib.Prefab):
             )
             extra_components['TheoryOfMind'] = tom
 
+        if 'uncertain_buyer' in modules:
+            config = module_configs.get('uncertain_buyer', {})
+            uncertain_buyer_comp = uncertain_buyer.UncertainBuyer(
+                model=model,
+                confidence_threshold=config.get('confidence_threshold', 0.7),
+                risk_tolerance=config.get('risk_tolerance', 0.3),
+                preferences=config.get('preferences', {}),
+                information_gathering_budget=config.get('information_gathering_budget', 0.1),
+                own_reservation_=config.get('own_reservation_', 500000),
+                own_reservation_std=config.get('own_reservation_std', 5000),
+                mu=config.get('mu', 0),
+                lambda_=config.get('lambda_', 1),
+                a=config.get('a', 1),
+                b=config.get('b', 1),
+            )
+            extra_components['UncertainBuyer'] = uncertain_buyer_comp
+
+        if 'uncertain_seller' in modules:
+            config = module_configs.get('uncertain_seller', {})
+            uncertain_seller_comp = uncertain_seller.UncertainSeller(
+                model=model,
+                confidence_threshold=config.get('confidence_threshold', 0.7),
+                risk_tolerance=config.get('risk_tolerance', 0.3),
+                information_gathering_budget=config.get('information_gathering_budget', 0.1),
+                own_reservation_=config.get('own_reservation_', 600000),
+                mu=config.get('mu', 0),
+                lambda_=config.get('lambda_', 1),
+                a=config.get('a', 1),
+                b=config.get('b', 1),
+            )
+            extra_components['UncertainSeller'] = uncertain_seller_comp
+
         # Update params to include extra components
         enhanced_params = dict(self.params)
         enhanced_params['extra_components'] = extra_components
@@ -172,7 +206,7 @@ def build_agent(
         memory_bank: Memory bank for storing experiences
         name: Name of the negotiation agent
         goal: Primary negotiation goal
-        negotiation_style: Style of negotiation ('cooperative', 'competitive', 'integrative')
+        negotiation_style: Style of negotiation ('coopenegotrative', 'competitive', 'integrative')
         reservation_value: Minimum acceptable value
         ethical_constraints: Ethical guidelines for negotiation
         modules: List of module names to enable (e.g., ['cultural_adaptation', 'theory_of_mind'])

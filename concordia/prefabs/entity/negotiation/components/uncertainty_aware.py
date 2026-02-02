@@ -84,6 +84,7 @@ class UncertaintyAware(entity_component.ContextComponent):
         confidence_threshold: float = 0.7,
         risk_tolerance: float = 0.3,
         information_gathering_budget: float = 0.1,
+        
     ):
         """Initialize uncertainty-aware component.
 
@@ -112,12 +113,13 @@ class UncertaintyAware(entity_component.ContextComponent):
         # Counterpart's reservation value (start with high uncertainty)
         self._beliefs['counterpart_reservation'] = BeliefDistribution(
             name='Counterpart Reservation Value',
-            mean=50000,  # Will be adjusted based on context
+            mean=50000,  # Will be adjusted based on context #TODO: this 
             std=25000,   # High initial uncertainty
             confidence=0.3
         )
 
         # Counterpart's flexibility
+        # TODO: to determine based on initial logs before initialisation of negotiation
         self._beliefs['counterpart_flexibility'] = BeliefDistribution(
             name='Counterpart Flexibility',
             mean=0.5,   # Neutral assumption
@@ -126,6 +128,7 @@ class UncertaintyAware(entity_component.ContextComponent):
         )
 
         # Deal success probability
+        # TODO: to determine based on initial logs before initialisation of negotiation
         self._beliefs['deal_probability'] = BeliefDistribution(
             name='Deal Success Probability',
             mean=0.6,   # Moderately optimistic
@@ -134,6 +137,7 @@ class UncertaintyAware(entity_component.ContextComponent):
         )
 
         # Market conditions impact
+        # TODO: do i just need market conditions?
         self._beliefs['market_conditions'] = BeliefDistribution(
             name='Market Conditions Impact',
             mean=0.0,   # Neutral market

@@ -52,6 +52,7 @@ from concordia.language_model import language_model
 from concordia.utils.deprecated import measurements as measurements_lib
 from vllm import LLM
 from vllm import SamplingParams
+from vllm.sampling_params import StructuredOutputParams
 from vllm.lora.request import LoRARequest
 
 _DEFAULT_GPU_MEMORY_UTILIZATION = 0.9
@@ -138,12 +139,20 @@ class VLLMLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
       lora_request: LoRARequest | None = None,
+      json_schema: dict[str, Any] | None = None,
   ) -> str:
     """Sample text from the vLLM model."""
     del timeout  # vLLM doesn't support timeout in SamplingParams
 
+    # Create structured output params if JSON schema is provided
+    structured_outputs = None
+    if json_schema is not None:
+      structured_outputs = StructuredOutputParams(
+        json=json_schema
+      )
     # Create sampling parameters
     sampling_params = SamplingParams(
+        structured_outputs=structured_outputs,
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
