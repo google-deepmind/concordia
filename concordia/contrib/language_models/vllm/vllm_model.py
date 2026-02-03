@@ -147,7 +147,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
     # Create structured output params if JSON schema is provided
     structured_outputs = None
     if json_schema is not None:
-      structured_outputs = StructuredOutputParams(
+      structured_outputs = StructuredOutputsParams(
         json=json_schema
       )
     # Create sampling parameters
