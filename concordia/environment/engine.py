@@ -158,6 +158,9 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
   Returns:
     The parsed action spec.
   """
+  idx = next_action_spec_string.find('{')
+  if idx != -1:
+      next_action_spec_string = next_action_spec_string[idx:]
   try:
     spec_dict = json.loads(next_action_spec_string)
     return entity_lib.action_spec_from_dict(spec_dict)
