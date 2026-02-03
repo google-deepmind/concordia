@@ -158,9 +158,27 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
   Returns:
     The parsed action spec.
   """
-  idx = next_action_spec_string.find('{')
-  if idx != -1:
-      next_action_spec_string = next_action_spec_string[idx:]
+  start_idx = next_action_spec_string.find('{')
+    
+  if start_idx != -1:
+      balance = 0
+      end_idx = -1
+      
+      # Walk through the string to find the matching closing brace
+      for i, char in enumerate(next_action_spec_string[start_idx:], start=start_idx):
+          if char == '{':
+              balance += 1
+          elif char == '}':
+              balance -= 1
+              
+          # When balance hits zero, we found the end of the first object
+          if balance == 0:
+              end_idx = i
+              break
+      
+      # Cut the string to keep ONLY the first valid JSON object
+      if end_idx != -1:
+          next_action_spec_string = next_action_spec_string[start_idx : end_idx + 1]
   try:
     spec_dict = json.loads(next_action_spec_string)
     return entity_lib.action_spec_from_dict(spec_dict)
