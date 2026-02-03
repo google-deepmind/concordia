@@ -140,5 +140,73 @@ class EventResolutionFilteringTest(parameterized.TestCase):
     self.assertEqual(component.get_active_entity_name(), active_player)
 
 
+class SendEventToRelevantPlayersTest(absltest.TestCase):
+  """Tests for SendEventToRelevantPlayers component."""
+
+  def test_player_filter_limits_recipients(self):
+    """Test that player_filter callback correctly limits event recipients."""
+    mock_model = mock.MagicMock()
+    all_players = ['Alice', 'Bob', 'Charlie']
+    filtered_players = ['Alice', 'Charlie']
+
+    mock_make_obs = mock.MagicMock()
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.return_value = mock_make_obs
+
+    component = event_resolution.SendEventToRelevantPlayers(
+        model=mock_model,
+        player_names=all_players,
+        make_observation_component_key='make_observation',
+        player_filter=lambda: filtered_players,
+    )
+    component.set_entity(mock_entity)
+
+    action_spec = entity_lib.ActionSpec(
+        call_to_action='test',
+        output_type=entity_lib.OutputType.RESOLVE,
+    )
+    component.pre_act(action_spec)
+    component.post_act('Event: Something happened')
+
+    called_players = [
+        call.args[0] for call in mock_make_obs.add_to_queue.call_args_list
+    ]
+    self.assertIn('Alice', called_players)
+    self.assertIn('Charlie', called_players)
+    self.assertNotIn('Bob', called_players)
+
+  def test_no_player_filter_sends_to_all(self):
+    """Test that without player_filter, all players receive events."""
+    mock_model = mock.MagicMock()
+    all_players = ['Alice', 'Bob', 'Charlie']
+
+    mock_make_obs = mock.MagicMock()
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.return_value = mock_make_obs
+
+    component = event_resolution.SendEventToRelevantPlayers(
+        model=mock_model,
+        player_names=all_players,
+        make_observation_component_key='make_observation',
+    )
+    component.set_entity(mock_entity)
+
+    action_spec = entity_lib.ActionSpec(
+        call_to_action='test',
+        output_type=entity_lib.OutputType.RESOLVE,
+    )
+    component.pre_act(action_spec)
+    component.post_act('Event: Something happened')
+
+    called_players = [
+        call.args[0] for call in mock_make_obs.add_to_queue.call_args_list
+    ]
+    self.assertIn('Alice', called_players)
+    self.assertIn('Bob', called_players)
+    self.assertIn('Charlie', called_players)
+
+
 if __name__ == '__main__':
   absltest.main()
