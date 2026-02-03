@@ -111,6 +111,10 @@ class GameMaster(prefab_lib.Prefab):
           # in the component order. If not specified, the extra components
           # will be inserted at the end of the component order.
           'extra_components_index': {},
+          # Optional shared ObservationQueue for cross-GM observation
+          # persistence. When provided, observations queued by one GM
+          # persist across GM switches.
+          'external_queue': None,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -142,6 +146,7 @@ class GameMaster(prefab_lib.Prefab):
         )
 
     player_names = [entity.name for entity in self.entities]
+    external_queue = self.params.get('external_queue', None)
 
     scenes = self.params.get('scenes', _configure_default_scenes(player_names))
     assert isinstance(scenes, Sequence), 'scenes must be a sequence.'
@@ -187,28 +192,32 @@ class GameMaster(prefab_lib.Prefab):
             observation_component_key,
             display_events_key,
         ],
+        external_queue=external_queue,
     )
 
-    send_events_to_players_key = (
-        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
-    )
-    send_events_to_players = (
-        gm_components.event_resolution.SendEventToRelevantPlayers(
-            model=model,
-            player_names=player_names,
-            make_observation_component_key=make_observation_key,
-        )
-    )
-
-    scene_tracker_key = (
-        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
-    )
     scene_tracker = gm_components.scene_tracker.SceneTracker(
         model=model,
         scenes=scenes,
         observation_component_key=(
             gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
         ),
+    )
+
+    # SendEventToRelevantPlayers handles notifying players about events.
+    # Use scene tracker's get_participants as a filter to limit notifications.
+    send_events_to_players_key = (
+        gm_components.event_resolution.DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL
+    )
+    scene_tracker_key = (
+        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    )
+    send_events_to_players = (
+        gm_components.event_resolution.SendEventToRelevantPlayers(
+            model=model,
+            player_names=player_names,
+            make_observation_component_key=make_observation_key,
+            player_filter=scene_tracker.get_participants,
+        )
     )
 
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
@@ -237,11 +246,12 @@ class GameMaster(prefab_lib.Prefab):
     event_resolution = gm_components.event_resolution.EventResolution(
         model=model,
         event_resolution_steps=(identity_without_prefix,),
-        notify_observers=False,
     )
 
     terminator_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
-    terminator = gm_components.terminate.Terminate()
+    terminator = gm_components.terminate.SceneBasedTerminator(
+        scene_tracker_component_key=scene_tracker_key
+    )
 
     components_of_game_master = {
         terminator_key: terminator,
@@ -250,7 +260,6 @@ class GameMaster(prefab_lib.Prefab):
         observation_component_key: observation,
         observation_to_memory_key: observation_to_memory,
         display_events_key: display_events,
-        send_events_to_players_key: send_events_to_players,
         make_observation_key: make_observation,
         memory_component_key: memory,
         scene_tracker_key: scene_tracker,
@@ -258,6 +267,11 @@ class GameMaster(prefab_lib.Prefab):
         next_action_spec_key: next_action_spec,
         event_resolution_key: event_resolution,
     }
+    # Only add SendEventToRelevantPlayers when notify_observers is False.
+    if send_events_to_players is not None:
+      components_of_game_master[send_events_to_players_key] = (
+          send_events_to_players
+      )
 
     component_order = list(components_of_game_master.keys())
 

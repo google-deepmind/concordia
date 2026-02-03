@@ -15,6 +15,7 @@
 """A game master acting component with specific calls per action type."""
 
 from collections.abc import Sequence
+import json
 from typing import override
 
 from concordia.components.game_master import event_resolution as event_resolution_components
@@ -191,31 +192,39 @@ class SwitchAct(
     if DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY in contexts:
       result = str(contexts[DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY])
       if not result:
-        result = f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
+        result = json.dumps({
+            'call_to_action': entity_lib.DEFAULT_CALL_TO_ACTION,
+            'output_type': 'free',
+            'options': [],
+            'tag': None,
+        })
       self._log(result, context, action_spec)
     else:
       # YOLO case
       chain_of_thought = interactive_document.InteractiveDocument(self._model)
       chain_of_thought.statement(context)
       _ = chain_of_thought.open_question(question=action_spec.call_to_action)
-      # Then ask the GM to reformat their answer in whatever string format can
-      # be used by the engine and its parser.
+      # Then ask the GM to reformat their answer in JSON format for the parser.
       chain_of_thought.statement(
-          'Example formatted action specs:\n1). "prompt: p;;type: free"\n'
-          '2). "prompt: p;;type: choice;;options: x, y, z".\nNote that p is a '
-          'string of any length, typically a question, and x, y, z, etc are '
-          'multiple choice answer responses. For instance, a valid format '
-          'could be indicated as '
-          'prompt: Where will Edgar go?;;type: choice;;'
-          'options: home, London, Narnia, the third moon of Jupiter'
+          'Example formatted action specs (respond with valid JSON):\n1).'
+          ' {"call_to_action": "What would Alice do?", "output_type": "free",'
+          ' "options": [], "tag": null}\n2). {"call_to_action": "Where will'
+          ' Edgar go?", "output_type": "choice", "options": ["home", "London",'
+          ' "Narnia", "the third moon of Jupiter"], "tag": null}\nNote:'
+          ' call_to_action is the prompt (any length). Use "free" for'
+          ' open-ended responses and "choice" for multiple choice with options'
+          ' array.'
       )
       next_action_spec_string = chain_of_thought.open_question(
           question='In what action spec format should the next player respond?'
       )
-      if 'type:' not in next_action_spec_string:
-        next_action_spec_string = (
-            f'prompt: {entity_lib.DEFAULT_CALL_TO_ACTION};;type: free'
-        )
+      if '"output_type"' not in next_action_spec_string:
+        next_action_spec_string = json.dumps({
+            'call_to_action': entity_lib.DEFAULT_CALL_TO_ACTION,
+            'output_type': 'free',
+            'options': [],
+            'tag': None,
+        })
 
       result = next_action_spec_string
       self._log(result, chain_of_thought, action_spec)

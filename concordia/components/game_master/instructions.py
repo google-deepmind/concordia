@@ -48,11 +48,13 @@ MAKE_OBS_RESPONSE_EXAMPLE = (
 )
 NEXT_ACTING_RESPONSE_EXAMPLE = '{name}'
 NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_1 = (
-    'prompt: What would {name} do?;;type: choice;;options: '
-    'open the door, bar the door, flee'
+    '{{"call_to_action": "What would {name} do?", "output_type": "choice", '
+    '"options": ["open the door", "bar the door", "flee"], "tag": null}}'
 )
 NEXT_ACTION_SPEC_RESPONSE_EXAMPLE_2 = (
-    'prompt: What would {name} say?;;type: free')
+    '{{"call_to_action": "What would {name} say?", "output_type": "free", '
+    '"options": [], "tag": null}}'
+)
 RESOLVE_RESPONSE_PUTATIVE_ACTION_EXAMPLE = (
     'What is {name} attempting to do?\n'
     '{name} opens the enchanted storybook.')

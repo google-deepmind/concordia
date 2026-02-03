@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json
 {
   "name": "Concordia",
-  "image": "mcr.microsoft.com/devcontainers/python:0-3.12",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
   "postCreateCommand": "bin/install.sh",
   "customizations": {
     "vscode": {

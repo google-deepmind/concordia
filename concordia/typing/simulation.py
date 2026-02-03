@@ -22,6 +22,7 @@ from typing import Any
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import structured_logging
 import numpy as np
 
 Config = prefab_lib.Config
@@ -75,7 +76,7 @@ class Simulation(abc.ABC):
       self,
       premise: str | None = None,
       max_steps: int | None = None,
-  ) -> str | list[Mapping[str, Any]]:
+  ) -> str | list[Mapping[str, Any]] | structured_logging.SimulationLog:
     """Run the simulation.
 
     Args:
@@ -83,6 +84,8 @@ class Simulation(abc.ABC):
       max_steps: The maximum number of steps to run the simulation for.
 
     Returns:
-      html_results_log: browseable log of the simulation in HTML format
+      If return_structured_log: SimulationLog object with structured data.
+      Elif return_html_log: browseable log of the simulation in HTML format.
+      Else: raw_log list of the simulation.
     """
     raise NotImplementedError

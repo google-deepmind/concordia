@@ -159,15 +159,48 @@ class EventResolution(
       if self._active_entity_name is None:
         raise RuntimeError('No active entity suggesting an event to resolve.')
 
-      putative_action = suggestions[-1][
-          suggestions[-1].find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+      # Filter suggestions to only those from the active player.
+      # This is necessary because memory.scan() returns all matching items, and
+      # without filtering we might pick up another player's action.
+      #
+      # NOTE: memory.scan() returns items in insertion order (recency), so after
+      # filtering by player, [-1] gives the most recent action from that player.
+      # If memory.scan() behavior ever changes to not preserve insertion order,
+      # this code would need to be updated to use timestamps or sequence
+      # numbers.
+      active_player_prefix = f' {self._active_entity_name}'
+      filtered_suggestions = [
+          s
+          for s in suggestions
+          if (
+              s[
+                  s.find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+              ].startswith(active_player_prefix)
+          )
+      ]
+      if filtered_suggestions:
+        # Take the most recent (last) suggestion from this player.
+        selected_suggestion = filtered_suggestions[-1]
+      else:
+        # Fallback: if no player-specific match found, use the last suggestion.
+        selected_suggestion = suggestions[-1]
+
+      putative_action = selected_suggestion[
+          selected_suggestion.find(PUTATIVE_EVENT_TAG)
+          + len(PUTATIVE_EVENT_TAG) :
       ]
 
-      # Check if the action starts with the active entity name and a colon,
-      # remove it if present, and strip leading whitespace.
-      prefix_to_remove = f' {self._active_entity_name}:'
+      # Check if the action starts with the active entity name,
+      # remove it along with any common separator (: or --) if present.
+      prefix_to_remove = f' {self._active_entity_name}'
       if putative_action.startswith(prefix_to_remove):
-        self._putative_action = putative_action[len(prefix_to_remove) :].strip()
+        remainder = putative_action[len(prefix_to_remove) :]
+        # Strip leading colon or dashes separator if present
+        if remainder.startswith(':'):
+          remainder = remainder[1:]
+        elif remainder.startswith(' --'):
+          remainder = remainder[3:]
+        self._putative_action = remainder.strip()
       else:
         self._putative_action = putative_action
 
@@ -320,6 +353,7 @@ class SendEventToRelevantPlayers(
       player_names: Sequence[str],
       make_observation_component_key: str,
       components: Sequence[str] = (),
+      player_filter: Callable[[], Sequence[str]] | None = None,
       pre_act_label: str = DEFAULT_SEND_PRE_ACT_VALUES_TO_PLAYERS_PRE_ACT_LABEL,
   ):
     """Initializes a component that sends component pre-act values to players.
@@ -330,11 +364,15 @@ class SendEventToRelevantPlayers(
 
     Args:
       model: The language model to use for the component.
-      player_names: Names of players.
+      player_names: Names of players (used if no player_filter is supplied).
       make_observation_component_key: the key for a MakeObservation component to
         add the pre-act values to the queue of events to observe.
       components: Keys of components to condition whether the event is relevant.
         If empty, all events are relevant.
+      player_filter: Optional callback that returns the list of player names
+        that should receive observations. When provided, this function is called
+        during post_act to determine which players get the event. This can be
+        used to filter by scene participants or any other criteria.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
 
@@ -347,6 +385,7 @@ class SendEventToRelevantPlayers(
     self._player_names = player_names
     self._pre_act_label = pre_act_label
     self._components = components
+    self._player_filter = player_filter
     self._queue = {}
     self._last_action_spec = None
     self._optional_make_observation_component_key = (
@@ -404,7 +443,12 @@ class SendEventToRelevantPlayers(
       prompt = interactive_document.InteractiveDocument(self._model)
       proceed = True
 
-      for active_entity_name in self._player_names:
+      # Use player_filter if provided, otherwise all players
+      relevant_players = self._player_names
+      if self._player_filter:
+        relevant_players = self._player_filter()
+
+      for active_entity_name in relevant_players:
         if self._components:
           component_states = '\n'.join(
               [self._component_pre_act_display(key) for key in self._components]
