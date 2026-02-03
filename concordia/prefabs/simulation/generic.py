@@ -49,6 +49,8 @@ class Simulation(simulation_lib.Simulation):
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
       engine: engine_lib.Engine = sequential.Sequential(),
+      override_agent_model: language_model.LanguageModel | None = None,
+      override_game_master_model: language_model.LanguageModel | None = None,
   ):
     """Initialize the simulation object.
 
@@ -63,12 +65,20 @@ class Simulation(simulation_lib.Simulation):
 
     Args:
       config: the config to use.
-      model: the language model to use.
+      model: the default language model to use.
       embedder: the sentence transformer to use.
       engine: the engine to use, defaults to sequential.Sequential().
+      override_agent_model: optional model to use for agents/entities instead of
+        the default model. Useful for using pretrained models for agents.
+      override_game_master_model: optional model to use for game masters instead
+        of the default model.
     """
     self._config = config
     self._model = model
+    self._agent_model = override_agent_model if override_agent_model else model
+    self._game_master_model = (
+        override_game_master_model if override_game_master_model else model
+    )
     self._embedder = embedder
     self._engine = engine
     self.game_masters = []
@@ -157,7 +167,7 @@ class Simulation(simulation_lib.Simulation):
     game_master_prefab.params = instance_config.params
     game_master_prefab.entities = self.entities
     game_master = game_master_prefab.build(
-        model=self._model, memory_bank=self.game_master_memory_bank
+        model=self._game_master_model, memory_bank=self.game_master_memory_bank
     )
 
     if any(gm.name == game_master.name for gm in self.game_masters):
@@ -186,7 +196,9 @@ class Simulation(simulation_lib.Simulation):
     memory_bank = associative_memory.AssociativeMemoryBank(
         sentence_embedder=self._embedder,
     )
-    entity = entity_prefab.build(model=self._model, memory_bank=memory_bank)
+    entity = entity_prefab.build(
+        model=self._agent_model, memory_bank=memory_bank
+    )
 
     if any(e.name == entity.name for e in self.entities):
       logging.info("Entity %s already exists.", entity.name)
