@@ -163,7 +163,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
 
     # Generate response
     outputs = self._llm.generate(
-        [prompt],
+        prompts=[prompt],
         sampling_params=sampling_params,
         lora_request=lora_request,
     )
@@ -207,7 +207,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
 
     # Generate to get logprobs (we'll use prompt_logprobs)
     outputs = self._llm.generate(
-        prompts,
+        prompts=prompts,
         sampling_params=sampling_params,
         lora_request=lora_request,
     )
