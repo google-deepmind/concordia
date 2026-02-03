@@ -17,6 +17,7 @@
 from collections.abc import Mapping
 from typing import Any
 
+from absl import logging
 from concordia.components.game_master import event_resolution as event_resolution_components
 from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
@@ -163,7 +164,7 @@ class Configuration:
       configurator.observe(f'The actor number {i} will be named {entity_name}')
       self._log.append(configurator.get_last_log())
       if verbose:
-        print(f'Entity name: {entity_name}')
+        logging.info('Entity name: %s', entity_name)
       entity_goal = configurator.act(
           action_spec=entity_lib.ActionSpec(
               call_to_action=(
@@ -173,7 +174,7 @@ class Configuration:
           )
       )
       if verbose:
-        print(f'Entity goal: {entity_goal}')
+        logging.info('Entity goal: %s', entity_goal)
 
       entity_instance_config = prefab_lib.InstanceConfig(
           prefab='basic_with_plan__Entity',
@@ -200,7 +201,7 @@ class Configuration:
         )
     )
     if verbose:
-      print(f'Shared memories: {shared_memories}')
+      logging.info('Shared memories: %s', shared_memories)
 
     return prefab_lib.InstanceConfig(
         prefab='formative_memories_initializer__GameMaster',
@@ -255,8 +256,8 @@ class Configuration:
 
     how_many_entities_to_create = int(how_many_entities_to_create)
     if verbose:
-      print(
-          f'The simulation will contain {how_many_entities_to_create} actors.'
+      logging.info(
+          'The simulation will contain %s actors.', how_many_entities_to_create
       )
     instances.extend(
         self.make_entity_instances(

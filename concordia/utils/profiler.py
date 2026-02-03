@@ -327,9 +327,9 @@ def print_report() -> None:
   """Print a formatted profiling report to the console."""
   stats = get_stats()
 
-  print('\n' + '=' * 70)
-  print('Concordia Simulation Performance Report')
-  print('=' * 70)
+  logging.info('\n%s', '=' * 70)
+  logging.info('Concordia Simulation Performance Report')
+  logging.info('%s', '=' * 70)
 
   timings = stats['timings']
   counters = stats['counters']
@@ -339,12 +339,12 @@ def print_report() -> None:
   total_time = sum(sum(durations) for durations in timings.values())
 
   if total_time > 0:
-    print(f'\nTotal simulation time: {total_time:.2f}s')
+    logging.info('\nTotal simulation time: %.2fs', total_time)
 
   # Timing breakdown
   if timings:
-    print('\nTime breakdown:')
-    print('-' * 70)
+    logging.info('\nTime breakdown:')
+    logging.info('-' * 70)
 
     # Print all timings sorted by total time
     all_items = sorted(timings.items(), key=lambda x: sum(x[1]), reverse=True)
@@ -355,9 +355,13 @@ def print_report() -> None:
       avg = total / count if count > 0 else 0
       percentage = (total / total_time * 100) if total_time > 0 else 0
 
-      print(
-          f'  {category:30s} {total:8.2f}s ({percentage:5.1f}%) '
-          f'- {count:4d} calls, avg {avg:.3f}s/call'
+      logging.info(
+          '  %s %s (%s) - %s calls, avg %s',
+          f'{category:30s}',
+          f'{total:8.2f}s',
+          f'{percentage:5.1f}%',
+          f'{count:4d}',
+          f'{avg:.3f}s/call',
       )
 
   # LLM-specific statistics
@@ -365,8 +369,8 @@ def print_report() -> None:
   has_llm_data |= any(k.startswith('llm_') for k in values.keys())
 
   if has_llm_data:
-    print('\nLLM Statistics:')
-    print('-' * 70)
+    logging.info('\nLLM Statistics:')
+    logging.info('-' * 70)
 
     # Call counts
     total_calls = counters.get('llm_calls_total', 0)
@@ -376,18 +380,20 @@ def print_report() -> None:
     failed_calls = counters.get('llm_calls_failed', 0)
 
     if total_calls > 0:
-      print(f'  Total LLM calls: {total_calls}')
+      logging.info('  Total LLM calls: %s', total_calls)
       if sample_text_calls > 0:
-        print(f'    sample_text: {sample_text_calls}')
+        logging.info('    sample_text: %s', sample_text_calls)
       if sample_choice_calls > 0:
-        print(f'    sample_choice: {sample_choice_calls}')
+        logging.info('    sample_choice: %s', sample_choice_calls)
       if success_calls > 0 or failed_calls > 0:
         success_rate = (
             success_calls / total_calls * 100 if total_calls > 0 else 0
         )
-        print(
-            f'  Success rate: {success_rate:.1f}% '
-            f'({success_calls} succeeded, {failed_calls} failed)'
+        logging.info(
+            '  Success rate: %s (%s succeeded, %s failed)',
+            f'{success_rate:.1f}%',
+            success_calls,
+            failed_calls,
         )
 
     # Token statistics
@@ -397,11 +403,13 @@ def print_report() -> None:
 
     if total_tokens:
       total_sum = sum(total_tokens)
-      print(f'  Estimated tokens: ~{total_sum:,}')
+      logging.info('  Estimated tokens: ~%s', f'{total_sum:,}')
       if prompt_tokens:
-        print(f'    Prompt tokens: ~{sum(prompt_tokens):,}')
+        logging.info('    Prompt tokens: ~%s', f'{sum(prompt_tokens):,}')
       if completion_tokens:
-        print(f'    Completion tokens: ~{sum(completion_tokens):,}')
+        logging.info(
+            '    Completion tokens: ~%s', f'{sum(completion_tokens):,}'
+        )
 
     # Latency statistics
     latencies = values.get('llm_latency_seconds', [])
@@ -409,22 +417,24 @@ def print_report() -> None:
       avg_latency = sum(latencies) / len(latencies)
       min_latency = min(latencies)
       max_latency = max(latencies)
-      print(
-          f'  Latency: avg {avg_latency:.3f}s, '
-          f'min {min_latency:.3f}s, max {max_latency:.3f}s'
+      logging.info(
+          '  Latency: avg %s, min %s, max %s',
+          f'{avg_latency:.3f}s',
+          f'{min_latency:.3f}s',
+          f'{max_latency:.3f}s',
       )
 
   # Memory statistics (if present)
   memory_queries = counters.get('memory_queries', 0)
   if memory_queries > 0:
-    print('\nMemory Statistics:')
-    print('-' * 70)
-    print(f'  Total queries: {memory_queries}')
+    logging.info('\nMemory Statistics:')
+    logging.info('-' * 70)
+    logging.info('  Total queries: %s', memory_queries)
 
     memory_result_sizes = values.get('memory_result_size', [])
     if memory_result_sizes:
       avg_results = sum(memory_result_sizes) / len(memory_result_sizes)
-      print(f'  Avg results per query: {avg_results:.1f}')
+      logging.info('  Avg results per query: %s', f'{avg_results:.1f}')
 
   # Other counters
   other_counters = {
@@ -433,10 +443,10 @@ def print_report() -> None:
       if not k.startswith('llm_') and k != 'memory_queries'
   }
   if other_counters:
-    print('\nOther Counters:')
-    print('-' * 70)
+    logging.info('\nOther Counters:')
+    logging.info('-' * 70)
     for name, count in sorted(other_counters.items()):
-      print(f'  {name:40s} {count:10d}')
+      logging.info('  %s %s', f'{name:40s}', f'{count:10d}')
 
   # Other values
   other_values = {
@@ -445,23 +455,27 @@ def print_report() -> None:
       if not k.startswith('llm_') and k != 'memory_result_size'
   }
   if other_values:
-    print('\nOther Metrics:')
-    print('-' * 70)
+    logging.info('\nOther Metrics:')
+    logging.info('-' * 70)
     for name, vals in sorted(other_values.items()):
       count = len(vals)
       total = sum(vals)
       avg = total / count if count > 0 else 0
       min_val = min(vals)
       max_val = max(vals)
-      print(
-          f'  {name:30s} count={count}, '
-          f'avg={avg:.2f}, min={min_val:.2f}, max={max_val:.2f}'
+      logging.info(
+          '  %s count=%s, avg=%s, min=%s, max=%s',
+          f'{name:30s}',
+          count,
+          f'{avg:.2f}',
+          f'{min_val:.2f}',
+          f'{max_val:.2f}',
       )
 
   # Recommendations
   if total_time > 0 and timings:
-    print('\nRecommendations:')
-    print('-' * 70)
+    logging.info('\nRecommendations:')
+    logging.info('-' * 70)
 
     # Check if LLM calls dominate
     llm_time = sum(
@@ -470,12 +484,13 @@ def print_report() -> None:
         if cat.startswith('llm_')
     )
     if llm_time / total_time > 0.6:
-      print(
-          f'  [!] LLM calls dominate runtime ({llm_time/total_time*100:.0f}%)'
+      logging.info(
+          '  [!] LLM calls dominate runtime (%.0f%%)',
+          llm_time / total_time * 100,
       )
-      print('      - Consider caching similar queries')
-      print('      - Review if all LLM calls are necessary')
-      print('      - Try using faster/smaller models for simple tasks')
+      logging.info('      - Consider caching similar queries')
+      logging.info('      - Review if all LLM calls are necessary')
+      logging.info('      - Try using faster/smaller models for simple tasks')
 
     # Check for high failure rate
     llm_failed = counters.get('llm_calls_failed', 0)
@@ -483,9 +498,11 @@ def print_report() -> None:
     if llm_failed > 0 and llm_total > 0:
       failure_rate = llm_failed / llm_total
       if failure_rate > 0.1:
-        print(f'  [!] High LLM failure rate ({failure_rate*100:.0f}%)')
-        print('      - Check API limits and rate limiting')
-        print('      - Review timeout settings')
+        logging.info(
+            '  [!] High LLM failure rate (%.0f%%)', failure_rate * 100
+        )
+        logging.info('      - Check API limits and rate limiting')
+        logging.info('      - Review timeout settings')
 
     # Check memory efficiency
     memory_time = sum(
@@ -494,6 +511,6 @@ def print_report() -> None:
         if 'memory' in cat.lower()
     )
     if memory_time / total_time < 0.05 and memory_time > 0:
-      print('  [OK] Memory retrieval is efficient')
+      logging.info('  [OK] Memory retrieval is efficient')
 
-  print('=' * 70 + '\n')
+  logging.info('%s\n', '=' * 70)

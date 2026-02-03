@@ -22,6 +22,7 @@ import traceback
 import types
 from typing import cast, override
 
+from absl import logging
 from concordia.components.agent import no_op_context_processor
 from concordia.typing import entity
 from concordia.typing import entity_component
@@ -213,9 +214,9 @@ class EntityAgent(entity_component.EntityWithComponents):
         try:
           component.set_state(context_components_state[component_name])
         except Exception:  # pylint: disable=broad-exception-caught
-          print(
-              f'Error setting state for component {component_name}:'
-              f' {traceback.format_exc()}'
+          logging.error(
+              'Error setting state for component %s: %s',
+              component_name, traceback.format_exc()
           )
 
     # Restore act component
@@ -224,8 +225,8 @@ class EntityAgent(entity_component.EntityWithComponents):
       try:
         self._act_component.set_state(act_state)
       except Exception:  # pylint: disable=broad-exception-caught
-        print(
-            f'Error setting state for act component: {traceback.format_exc()}'
+        logging.error(
+            'Error setting state for act component: %s', traceback.format_exc()
         )
 
     # Restore context processor
@@ -234,9 +235,9 @@ class EntityAgent(entity_component.EntityWithComponents):
       try:
         self._context_processor.set_state(proc_state)
       except Exception:  # pylint: disable=broad-exception-caught
-        print(
-            'Error setting state for context processor:'
-            f' {traceback.format_exc()}'
+        logging.error(
+            'Error setting state for context processor: %s',
+            traceback.format_exc()
         )
 
   def get_state(self) -> entity_component.EntityState:

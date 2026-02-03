@@ -18,6 +18,7 @@ from collections.abc import Collection, Sequence
 import os
 from typing import override
 
+from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
@@ -139,7 +140,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     answer = sampling.extract_choice_response(sample)
     try:
       idx = responses.index(answer)
-      print(f'sample: {sample}, response: {idx}')
+      logging.debug('sample: %s, response: %s', sample, idx)
     except ValueError:
       raise language_model.InvalidResponseError(
           f'Invalid response: {answer}. '

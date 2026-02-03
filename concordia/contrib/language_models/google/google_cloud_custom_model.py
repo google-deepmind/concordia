@@ -19,6 +19,7 @@ import random
 import time
 from typing import override
 
+from absl import logging
 from concordia.language_model import language_model
 from concordia.utils import sampling
 from concordia.utils.deprecated import measurements as measurements_lib
@@ -128,9 +129,11 @@ class VertexAI(language_model.LanguageModel):
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(
-              f"Sleeping for {seconds_to_sleep} seconds... attempt:"
-              f" {attempts} / {_MAX_ATTEMPTS}"
+          logging.info(
+              "Sleeping for %s seconds... attempt: %s / %s",
+              seconds_to_sleep,
+              attempts,
+              _MAX_ATTEMPTS,
           )
         time.sleep(seconds_to_sleep)
 
@@ -159,7 +162,7 @@ class VertexAI(language_model.LanguageModel):
 
       except Exception as err:  # pylint: disable=broad-exception-caught
         if attempts >= _NUM_SILENT_ATTEMPTS:
-          print(f"  Exception: {err}")
+          logging.warning("  Exception: %s", err)
 
     raise RuntimeError(
         f"Failed to get a response after {_MAX_ATTEMPTS} attempts."

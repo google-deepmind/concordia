@@ -17,6 +17,7 @@
 from collections.abc import Sequence
 import random
 
+from absl import logging
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component_module
 from concordia.components.game_master import make_observation as make_observation_component_module
@@ -131,7 +132,7 @@ class SpaceshipSystem(
           f'System current health: {self._current_health}\n'
       )
       if self._verbose:
-        print(f'{result}')
+        logging.info('%s', result)
 
       if self._is_failing:
         make_observation = self.get_entity().get_component(
@@ -140,7 +141,7 @@ class SpaceshipSystem(
         )
 
         if self._verbose:
-          print(self._warning_message)
+          logging.info('%s', self._warning_message)
         make_observation.add_to_queue(
             'All',
             self._warning_message,
@@ -201,7 +202,7 @@ class SpaceshipSystem(
         )
         memory.add(f'The {self._system_name} was fixed.')
         if self._verbose:
-          print(f'The {self._system_name} was fixed.')
+          logging.info('The %s was fixed.', self._system_name)
       else:
         if self._current_health <= 0:
           terminator = self.get_entity().get_component(
