@@ -80,7 +80,7 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-  ) -> Sequence[entity_lib.Entity]:  # pytype: disable=signature-mismatch
+  ) -> Sequence[entity_lib.Entity]:
     """Returns entities that should act next."""
     entities_by_name = {entity.name: entity for entity in entities}
 
