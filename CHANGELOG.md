@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.3.1] - 2026-02-04
+
+### Fixed
+
+- Remove a flaky profiler test.
+
 ## [2.3.0] - 2026-02-04
 
 ### Changed
