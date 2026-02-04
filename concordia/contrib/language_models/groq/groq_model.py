@@ -19,7 +19,7 @@ from collections.abc import Collection, Sequence
 from typing import Any, override
 
 from concordia.language_model import language_model
-from concordia.utils.deprecated import measurements as measurements_lib
+from concordia.utils import measurements as measurements_lib
 from groq import Groq
 
 
