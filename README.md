@@ -71,7 +71,7 @@ reusable parts.
     get started.
 
 > [!TIP]
-> The best way to learn is to run the
+> The best way to learn is to watch the [Concordia: Building Generative Agent-Based Models](https://youtu.be/2FO5g65mu2I?si=TSk7XTk4gCaadEDs) tutorial on YouTube, run the
 > **[`examples/tutorial.ipynb`](examples/tutorial.ipynb)** and then try
 > modifying the **Prefabs** to see how agent behavior changes.
 
