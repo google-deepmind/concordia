@@ -21,8 +21,7 @@ from concordia.language_model import language_model
 from concordia.typing.deprecated import agent
 from concordia.typing.deprecated import entity
 
-# TODO: b/313715068 - remove disable once pytype bug is fixed.
-# pytype: disable=override-error
+
 
 
 class SimpleLLMAgent(agent.GenerativeAgent):
