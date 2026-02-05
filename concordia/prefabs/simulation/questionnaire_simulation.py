@@ -20,6 +20,7 @@ import functools
 import json
 import os
 from typing import Any
+
 from absl import logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment.engines import parallel_questionnaire
@@ -29,8 +30,6 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
-from concordia.utils import helper_functions as helper_functions_lib
-from concordia.utils import html as html_lib
 import numpy as np
 
 
@@ -248,16 +247,17 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     Args:
       premise: A string to use as the initial premise of the simulation.
       max_steps: The maximum number of steps to run the simulation for.
-      raw_log: A list to store the raw log of the simulation. This is used to
-        generate the HTML log. Data in the supplied raw_log will be appended
-        with the log from the simulation. If None, a new list is created.
+      raw_log: A list to store the raw log of the simulation. Data in the
+        supplied raw_log will be appended with the log from the simulation. If
+        None, a new list is created.
       checkpoint_path: The path to save the checkpoints. If None, no checkpoints
         are saved.
       verbose: Whether to print verbose output.
 
     Returns:
-      html_results_log: browseable log of the simulation in HTML format
+      JSON string of the raw simulation log.
     """
+
     logging.info("[QuestionnaireSimulation] Starting simulation.")
     if premise is None:
       premise = self._config.default_premise
@@ -301,51 +301,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     finally:
       self._engine.shutdown()
     logging.info("[QuestionnaireSimulation] Simulation finished.")
-
-    player_logs = []
-    player_log_names = []
-
-    scores = helper_functions_lib.find_data_in_nested_structure(
-        raw_log, "Player Scores"
-    )
-
-    for player in self.entities:
-      if (
-          not isinstance(player, entity_component.EntityWithComponents)
-          or player.get_component("__memory__") is None
-      ):
-        continue
-
-      entity_memory_component = player.get_component("__memory__")
-      entity_memories = entity_memory_component.get_all_memories_as_text()
-      player_html = html_lib.PythonObjectToHTMLConverter(
-          entity_memories
-      ).convert()
-      player_logs.append(player_html)
-      player_log_names.append(f"{player.name}")
-
-    game_master_memories = (
-        self.game_master_memory_bank.get_all_memories_as_text()
-    )
-    game_master_html = html_lib.PythonObjectToHTMLConverter(
-        game_master_memories
-    ).convert()
-    player_logs.append(game_master_html)
-    player_log_names.append("Game Master Memories")
-    summary = ""
-    if scores:
-      summary = f"Player Scores: {scores[-1]}"
-    results_log = html_lib.PythonObjectToHTMLConverter(
-        copy.deepcopy(raw_log)
-    ).convert()
-    tabbed_html = html_lib.combine_html_pages(
-        [results_log, *player_logs],
-        ["Game Master log", *player_log_names],
-        summary=summary,
-        title="Simulation Log",
-    )
-    html_results_log = html_lib.finalise_html(tabbed_html)
-    return html_results_log
+    return json.dumps(raw_log, indent=2)
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
     """Saves the state of all entities at the current step."""
