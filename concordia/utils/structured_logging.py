@@ -430,13 +430,20 @@ class SimulationLog:
     """Export the full log as a serializable dictionary.
 
     Returns:
-      Dictionary with 'content_store' and 'entries' keys.
+      Dictionary with 'content_store', 'entries', 'entity_memories', and
+      'game_master_memories' keys.
     """
+
     with self._lock:
-      return {
+      result = {
           'content_store': self._content_store.to_dict(),
           'entries': [e.to_dict() for e in self._entries],
       }
+      if self._entity_memories:
+        result['entity_memories'] = self._entity_memories
+      if self._game_master_memories:
+        result['game_master_memories'] = self._game_master_memories
+      return result
 
   @classmethod
   def from_dict(cls, data: Mapping[str, Any]) -> SimulationLog:
@@ -461,6 +468,12 @@ class SimulationLog:
       if entry.component_name not in log._component_index:
         log._component_index[entry.component_name] = []
       log._component_index[entry.component_name].append(idx)
+
+    # Load attached memories if present
+    if 'entity_memories' in data:
+      log._entity_memories = data['entity_memories']
+    if 'game_master_memories' in data:
+      log._game_master_memories = data['game_master_memories']
 
     return log
 
@@ -553,12 +566,7 @@ class SimulationLog:
     return log
 
   def to_html(self, title: str = 'Simulation Log') -> str:
-    """Render the log to HTML with dynamic JavaScript-based deduplication.
-
-    This method generates HTML that stores content once in a JavaScript
-    data block and renders views dynamically. This achieves true content
-    deduplication in the HTML output, resulting in smaller file sizes
-    when content is repeated.
+    """Render the log to HTML with JavaScript-based deduplication.
 
     Args:
       title: Title for the HTML page.
@@ -581,11 +589,7 @@ def render_dynamic_html(
     player_scores: dict[str, Any] | None = None,
     title: str = 'Simulation Log',
 ) -> str:
-  """Render the log to HTML with dynamic JavaScript-based content composition.
-
-  This function stores all unique content once in a JavaScript data block
-  and uses JavaScript to dynamically compose the views. This achieves true
-  deduplication in the HTML output.
+  """Render the log to HTML with JavaScript-based content composition.
 
   Args:
     simulation_log: The log to render.

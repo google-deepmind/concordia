@@ -30,8 +30,6 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
-from concordia.utils import helper_functions as helper_functions_lib
-from concordia.utils import html as html_lib
 from concordia.utils import structured_logging
 import numpy as np
 
@@ -240,9 +238,7 @@ class Simulation(simulation_lib.Simulation):
       raw_log: list[Mapping[str, Any]] | None = None,
       get_state_callback: Callable[[dict[str, Any]], None] | None = None,
       checkpoint_path: str | None = None,
-      return_html_log: bool = True,
-      return_structured_log: bool = False,
-  ) -> str | list[Mapping[str, Any]] | structured_logging.SimulationLog:
+  ) -> structured_logging.SimulationLog:
     """Run the simulation.
 
     Args:
@@ -256,16 +252,10 @@ class Simulation(simulation_lib.Simulation):
         entities and game masters.
       checkpoint_path: The path to save the checkpoints. If None, no checkpoints
         are saved.
-      return_html_log: If True, returns the HTML log. If False, returns raw log.
-        Ignored if return_structured_log is True.
-      return_structured_log: If True, returns a SimulationLog object instead of
-        raw log or HTML. This is the new structured format with deduplication
-        and better AI agent access.
 
     Returns:
-      If return_structured_log: SimulationLog object with structured data.
-      Elif return_html_log: browseable log of the simulation in HTML format.
-      Else: raw_log list of the simulation.
+      SimulationLog object with structured data. Use .to_html() for HTML output
+      or .to_json() for JSON serialization.
     """
     if premise is None:
       premise = self._config.default_premise
@@ -306,79 +296,30 @@ class Simulation(simulation_lib.Simulation):
         checkpoint_callback=checkpoint_callback,
     )
 
-    # Return structured log if requested
-    if return_structured_log:
-      simulation_log = structured_logging.SimulationLog.from_raw_log(raw_log)
-      entity_memories: dict[str, list[str]] = {}
-      for player in self.entities:
-        if (
-            not isinstance(player, entity_component.EntityWithComponents)
-            or player.get_component("__memory__") is None
-        ):
-          continue
-        entity_memory_component = player.get_component("__memory__")
-        entity_memories[player.name] = (
-            entity_memory_component.get_all_memories_as_text()
-        )
-
-      game_master_memories = (
-          self.game_master_memory_bank.get_all_memories_as_text()
-      )
-
-      simulation_log.attach_memories(
-          entity_memories=entity_memories,
-          game_master_memories=game_master_memories,
-      )
-
-      return simulation_log
-
-    if not return_html_log:
-      return copy.deepcopy(raw_log)
-
-    player_logs = []
-    player_log_names = []
-
-    scores = helper_functions_lib.find_data_in_nested_structure(
-        raw_log, "Player Scores"
-    )
-
+    # Build and return structured log
+    simulation_log = structured_logging.SimulationLog.from_raw_log(raw_log)
+    entity_memories: dict[str, list[str]] = {}
     for player in self.entities:
       if (
           not isinstance(player, entity_component.EntityWithComponents)
           or player.get_component("__memory__") is None
       ):
         continue
-
       entity_memory_component = player.get_component("__memory__")
-      entity_memories = entity_memory_component.get_all_memories_as_text()
-      player_html = html_lib.PythonObjectToHTMLConverter(
-          entity_memories
-      ).convert()
-      player_logs.append(player_html)
-      player_log_names.append(f"{player.name}")
+      entity_memories[player.name] = (
+          entity_memory_component.get_all_memories_as_text()
+      )
 
     game_master_memories = (
         self.game_master_memory_bank.get_all_memories_as_text()
     )
-    game_master_html = html_lib.PythonObjectToHTMLConverter(
-        game_master_memories
-    ).convert()
-    player_logs.append(game_master_html)
-    player_log_names.append("Game Master Memories")
-    summary = ""
-    if scores:
-      summary = f"Player Scores: {scores[-1]}"
-    results_log = html_lib.PythonObjectToHTMLConverter(
-        copy.deepcopy(raw_log)
-    ).convert()
-    tabbed_html = html_lib.combine_html_pages(
-        [results_log, *player_logs],
-        ["Game Master log", *player_log_names],
-        summary=summary,
-        title="Simulation Log",
+
+    simulation_log.attach_memories(
+        entity_memories=entity_memories,
+        game_master_memories=game_master_memories,
     )
-    html_results_log = html_lib.finalise_html(tabbed_html)
-    return html_results_log
+
+    return simulation_log
 
   def make_checkpoint_data(self) -> dict[str, Any]:
     """Helper to create a checkpoint data dict."""
