@@ -30,6 +30,7 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
+from concordia.utils import structured_logging
 import numpy as np
 
 
@@ -241,7 +242,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       raw_log: list[Mapping[str, Any]] | None = None,
       checkpoint_path: str | None = None,
       verbose: bool = False,
-  ) -> str:
+  ) -> structured_logging.SimulationLog:
     """Run the simulation.
 
     Args:
@@ -255,7 +256,8 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       verbose: Whether to print verbose output.
 
     Returns:
-      JSON string of the raw simulation log.
+      SimulationLog object with structured data. Use .to_html() for HTML output
+      or .to_json() for JSON serialization.
     """
 
     logging.info("[QuestionnaireSimulation] Starting simulation.")
@@ -301,7 +303,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     finally:
       self._engine.shutdown()
     logging.info("[QuestionnaireSimulation] Simulation finished.")
-    return json.dumps(raw_log, indent=2)
+    return structured_logging.SimulationLog.from_raw_log(raw_log)
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
     """Saves the state of all entities at the current step."""
