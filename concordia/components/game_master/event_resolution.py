@@ -89,7 +89,7 @@ class EventResolution(
     super().__init__()
     self._model = model
     self._event_resolution_steps = event_resolution_steps
-    self._components = components
+    self._components = tuple(components)
     self._notify_observers = notify_observers
     self._pre_act_label = pre_act_label
 
@@ -335,11 +335,18 @@ class DisplayEvents(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'memory_component_key': self._memory_component_key,
+        'num_events_to_retrieve': self._num_events_to_retrieve,
+        'pre_act_label': self.get_pre_act_label(),
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'memory_component_key' in state:
+      self._memory_component_key = state['memory_component_key']
+    if 'num_events_to_retrieve' in state:
+      self._num_events_to_retrieve = state['num_events_to_retrieve']
 
 
 class SendEventToRelevantPlayers(
@@ -384,7 +391,7 @@ class SendEventToRelevantPlayers(
     self._model = model
     self._player_names = player_names
     self._pre_act_label = pre_act_label
-    self._components = components
+    self._components = tuple(components)
     self._player_filter = player_filter
     self._queue = {}
     self._last_action_spec = None

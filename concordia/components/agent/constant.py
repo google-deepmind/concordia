@@ -51,8 +51,12 @@ class Constant(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'state': self._state,
+        'pre_act_label': self.get_pre_act_label(),
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'state' in state:
+      self._state = state['state']

@@ -62,7 +62,9 @@ class ReportFunction(
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""
     with self._lock:
-      return {}
+      return {
+          'pre_act_label': self.get_pre_act_label(),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
