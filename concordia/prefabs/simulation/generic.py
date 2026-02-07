@@ -344,6 +344,7 @@ class Simulation(simulation_lib.Simulation):
           "prefab_type": prefab_config.prefab,
           "entity_params": prefab_config.params,
           "components": entity_state,
+          "component_info": self._extract_component_info(entity),
       }
       checkpoint_data["entities"][entity.name] = save_data
 
@@ -361,12 +362,87 @@ class Simulation(simulation_lib.Simulation):
           "entity_params": prefab_config.params,
           "role": self._entity_to_prefab_config[gm.name].role.name,
           "components": gm_state,
+          "component_info": self._extract_component_info(gm),
       }
       checkpoint_data["game_masters"][gm.name] = save_data
 
     self._checkpoint_counter += 1
 
     return checkpoint_data
+
+  def _make_json_serializable(self, obj: Any) -> Any:
+    """Recursively convert an object to be JSON serializable.
+
+    Non-serializable values are skipped rather than converted.
+
+    Args:
+      obj: The object to convert.
+
+    Returns:
+      A JSON-serializable version of the object, or None if not serializable.
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+      return obj
+    if isinstance(obj, dict):
+      result = {}
+      for k, v in obj.items():
+        serialized = self._make_json_serializable(v)
+        if serialized is not None or v is None:
+          result[k] = serialized
+      return result
+    if isinstance(obj, (list, tuple)):
+      return [self._make_json_serializable(item) for item in obj]
+    return None
+
+  def _extract_component_info(
+      self, entity: entity_component.EntityWithComponents
+  ) -> dict[str, Any]:
+    """Extract component class names and metadata from an entity.
+
+    This provides structural information about the entity's components
+    that can be used by visualization tools.
+
+    Args:
+      entity: The entity to extract component info from.
+
+    Returns:
+      A dictionary with component metadata including class names.
+    """
+    info: dict[str, Any] = {}
+
+    # Try to access EntityAgent internals if available
+    # These are implementation details but useful for visualization
+    if hasattr(entity, "_act_component"):
+      act_comp = getattr(entity, "_act_component")
+      info["act_component"] = {
+          "class_name": type(act_comp).__name__,
+          "module": type(act_comp).__module__,
+      }
+
+    if hasattr(entity, "_context_processor"):
+      ctx_proc = getattr(entity, "_context_processor")
+      info["context_processor"] = {
+          "class_name": type(ctx_proc).__name__,
+          "module": type(ctx_proc).__module__,
+      }
+
+    if hasattr(entity, "_context_components"):
+      ctx_comps = getattr(entity, "_context_components")
+      info["context_components"] = {}
+      for comp_name, comp in ctx_comps.items():
+        comp_info = {
+            "class_name": type(comp).__name__,
+            "module": type(comp).__module__,
+        }
+        if hasattr(comp, "get_state"):
+          try:
+            raw_state = comp.get_state()
+            comp_info["state"] = self._make_json_serializable(raw_state)
+          except Exception:  # pylint: disable=broad-exception-caught
+            comp_info["state"] = {}
+        info["context_components"][comp_name] = comp_info
+
+    return info
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
     """Saves the state of all entities at the current step."""
