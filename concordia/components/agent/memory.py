@@ -268,7 +268,6 @@ class ListMemory(Memory):
         value = json.loads(value)
       self._memory_bank = value
 
-
   def retrieve_recent(
       self,
       limit: int = 1,
