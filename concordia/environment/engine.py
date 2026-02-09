@@ -78,6 +78,8 @@ class Engine(metaclass=abc.ABCMeta):
       verbose: bool,
       log: list[Mapping[str, Any]] | None,
       checkpoint_callback: Callable[[int], None] | None = None,
+      step_controller: Any = None,
+      step_callback: Callable[[Any], None] | None = None,
   ):
     """Run a game loop."""
 

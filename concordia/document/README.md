@@ -6,7 +6,7 @@ models as a process of building and refining a "document" of context.
 
 ## Core Concepts
 
-The module is built around two main classes:
+The module is built around three main classes:
 
 1.  **`Document`** (`document.py`): A structural container for text content
     using a list of `Content` objects (text + tags). It supports branching
@@ -14,6 +14,10 @@ The module is built around two main classes:
 2.  **`InteractiveDocument`** (`interactive_document.py`): Extends `Document`
     to support direct interaction with a `LanguageModel`. It provides methods to
     ask questions, generate responses, and maintain the dialogue history.
+3.  **`InteractiveDocumentWithTools`** (`interactive_document_tools.py`):
+    Extends `InteractiveDocument` to support LLM tool use. The LLM can call
+    tools (e.g., web search) during question answering, with results
+    automatically integrated into the document.
 
 This abstraction allows for complex narrative logic, branching reasoning
 (thought chains), and component-isolated views of the world.
@@ -61,6 +65,8 @@ from the model or other observers. This is handled via **Tags** and **Views**.
     *   `'debug'`: Internal logs not meant for the model.
     *   `'memory'`: Retrieved memories relevant to the context.
     *   `'private'`: Thoughts or information known only to the agent.
+    *   `'tool_call'`: Tool invocation requests (for tool-enabled docs).
+    *   `'tool_result'`: Results from tool execution.
 *   **View**: Create a dynamic window into the document that includes or
     excludes specific tags.
 
@@ -141,3 +147,72 @@ doc.open_question(
     filtering.
 *   **Scoped Edits**: Use the `with doc.edit() as branch:` context manager for
     all temporary reasoning or thought chains.
+*   **Tool Isolation**: When using tools, consider filtering `tool_call` and
+    `tool_result` tags from views shown to other components that don't need
+    to see the internal tool mechanics.
+
+## Tool Use
+
+The `InteractiveDocumentWithTools` class enables LLMs to invoke external tools
+during interactive sessions. This is useful for tasks requiring current
+information (web search), calculations, or other external capabilities.
+
+### Tool Protocol
+
+Tools implement the `Tool` protocol (`tool.py`):
+
+```python
+from concordia.document.tool import Tool
+
+class WebSearchTool:
+    @property
+    def name(self) -> str:
+        return "web_search"
+
+    @property
+    def description(self) -> str:
+        return "Search the web. Args: query (str)"
+
+    def execute(self, *, query: str) -> str:
+        return search_web(query)
+```
+
+### Using Tools with Documents
+
+```python
+from concordia.document import interactive_document_tools
+
+# Create document with tools
+doc = interactive_document_tools.InteractiveDocumentWithTools(
+    model=model,
+    tools=[web_search_tool, calculator_tool],
+    max_tool_calls_per_question=3,  # Budget per question
+    max_tool_result_length=1000,    # Truncation limit
+)
+
+# Build context
+doc.statement("You are a helpful research assistant.")
+
+# Ask a question - LLM may call tools automatically
+answer = doc.open_question("What is the current price of Bitcoin?")
+
+# Tool calls and results are recorded in the document
+print(doc.text())
+# Output includes:
+# Question: What is the current price of Bitcoin?
+# Answer: {"tool": "web_search", "args": {"query": "bitcoin price"}}
+# [Tool Call: web_search({"query": "bitcoin price"})]
+# [Tool Result: Bitcoin is currently trading at $45,000...]
+# Answer: Bitcoin is currently trading at approximately $45,000.
+```
+
+### Tool Call Format
+
+The LLM uses JSON to request tool calls:
+
+```json
+{"tool": "tool_name", "args": {"arg1": "value1", "arg2": "value2"}}
+```
+
+Results are truncated to `max_tool_result_length` and recorded with
+`tool_call` and `tool_result` tags for filtering.
