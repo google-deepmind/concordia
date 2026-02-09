@@ -15,6 +15,7 @@
 """Test agent components."""
 from absl.testing import absltest
 from absl.testing import parameterized
+import json
 from concordia.associative_memory import basic_associative_memory
 from concordia.components.agent import all_similar_memories
 from concordia.components.agent import concat_act_component
@@ -115,6 +116,16 @@ COMPONENT_FACTORIES = {
         "state_example": {"num_since_last_pre_act": 10},
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
+    "list_memory": {
+        "component_class": memory.ListMemory,
+        "kwargs": {
+            "memory_bank": ["memory1", "memory2"],
+        },
+        "state_example": {
+            "memory_bank": json.dumps(["memory1", "memory2"]),
+        },
+        "skip_keys": {"_model", "_lock"},
+    },
 }
 
 
@@ -150,6 +161,10 @@ class AgentComponentTest(parameterized.TestCase):
       dict(
           testcase_name="observation",
           component_name="observation",
+      ),
+      dict(
+          testcase_name="list_memory",
+          component_name="list_memory",
       ),
   )
   def test_get_and_set_state(self, component_name: str):

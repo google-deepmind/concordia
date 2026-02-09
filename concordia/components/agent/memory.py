@@ -263,7 +263,7 @@ class ListMemory(Memory):
 
   def set_state(self, state: Mapping[str, Any]) -> None:
     with self._lock:
-      self._memory_bank = state['memory_bank']
+      self._memory_bank = json.loads(state['memory_bank'])
 
   def retrieve_recent(
       self,
