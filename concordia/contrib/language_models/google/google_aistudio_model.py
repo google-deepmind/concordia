@@ -105,7 +105,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      model_name: str = 'gemini-1.5-pro-latest',
+      model_name: str = 'gemini-2.5-pro',
       *,
       api_key: str | None = None,
       safety_settings: Sequence[Mapping[str, str]] = DEFAULT_SAFETY_SETTINGS,
@@ -116,8 +116,10 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     """Initializes a model API instance using Google AI Studio.
 
     Args:
-      model_name: which language model to use. For more details, see
-        https://aistudio.google.com/
+      model_name: which language model to use. 
+        To see all available models, you can run:
+        `for m in genai.list_models(): print(m.name)`
+        For more details, see https://aistudio.google.com/
       api_key: The API key to use when accessing the Google AI Studio API, if
         None will use the GOOGLE_API_KEY environment variable.
       safety_settings: See https://ai.google.dev/gemini-api/docs/safety-guidance
