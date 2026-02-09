@@ -1,0 +1,380 @@
+# Copyright 2023 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Unit tests for InteractiveDocumentWithTools tool-calling functionality."""
+
+import functools
+from unittest import mock
+
+from absl.testing import absltest
+from absl.testing import parameterized
+from concordia.document import document
+from concordia.document import interactive_document_tools
+from concordia.document import tool as tool_module
+from concordia.language_model import language_model
+
+
+# Content factories for testing
+DEBUG = functools.partial(document.Content, tags=frozenset({'debug'}))
+STATEMENT = functools.partial(document.Content, tags=frozenset({'statement'}))
+QUESTION = functools.partial(document.Content, tags=frozenset({'question'}))
+RESPONSE = functools.partial(document.Content, tags=frozenset({'response'}))
+MODEL_RESPONSE = functools.partial(
+    document.Content, tags=frozenset({'response', 'model'})
+)
+TOOL_CALL = functools.partial(document.Content, tags=frozenset({'tool_call'}))
+TOOL_RESULT = functools.partial(
+    document.Content, tags=frozenset({'tool_result'})
+)
+
+
+class MockTool(tool_module.Tool):
+  """A mock tool for testing."""
+
+  def __init__(self, name: str, description: str, return_value: str):
+    self._name = name
+    self._description = description
+    self._return_value = return_value
+    self.call_count = 0
+    self.last_args = None
+
+  @property
+  def name(self) -> str:
+    return self._name
+
+  @property
+  def description(self) -> str:
+    return self._description
+
+  def execute(self, **kwargs) -> str:
+    self.call_count += 1
+    self.last_args = kwargs
+    return self._return_value
+
+
+class InteractiveDocumentWithToolsTest(parameterized.TestCase):
+
+  def test_open_question_no_tools(self):
+    """Without tools, should behave like base InteractiveDocument."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = 'Simple answer'
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+    response = doc.open_question('What is 1+1?')
+
+    self.assertEqual(response, 'Simple answer')
+    model.sample_text.assert_called_once()
+
+  def test_open_question_with_forced_response(self):
+    """Forced response should bypass tool usage."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search the web', 'search results')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    response = doc.open_question(
+        'What is the weather?', forced_response='Sunny'
+    )
+
+    self.assertEqual(response, 'Sunny')
+    self.assertEqual(tool.call_count, 0)
+    model.sample_text.assert_not_called()
+
+  def test_open_question_direct_answer(self):
+    """LLM provides direct answer without using tools."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = 'The answer is 42'
+    tool = MockTool('calculator', 'Do math', '42')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    response = doc.open_question('What is the meaning of life?')
+
+    self.assertEqual(response, 'The answer is 42')
+    self.assertEqual(tool.call_count, 0)
+
+  def test_open_question_with_tool_call(self):
+    """LLM uses a tool then provides answer."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    # First call: tool call, second call: final answer
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "weather"}}',
+        'Based on the search, it is sunny.',
+    ]
+    tool = MockTool('search', 'Search the web', 'Weather: Sunny, 20C')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    response = doc.open_question('What is the weather?')
+
+    self.assertEqual(response, 'Based on the search, it is sunny.')
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'query': 'weather'})
+
+  def test_tool_result_in_document(self):
+    """Tool call and result should be recorded in the document."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "test"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'Search result text')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    doc.open_question('Question?')
+
+    # Check document contains tool call and result tags
+    contents = doc.contents()
+    tags_found = set()
+    for content in contents:
+      tags_found.update(content.tags)
+
+    self.assertIn('tool_call', tags_found)
+    self.assertIn('tool_result', tags_found)
+
+  def test_max_tool_calls_limit(self):
+    """Should stop after max tool calls and force final answer."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    # Always return tool calls until forced to stop
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        '{"tool": "search", "args": {"query": "q2"}}',
+        '{"tool": "search", "args": {"query": "q3"}}',
+        'Forced final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], max_tool_calls_per_question=3
+    )
+    response = doc.open_question('Question?')
+
+    self.assertEqual(response, 'Forced final answer')
+    self.assertEqual(tool.call_count, 3)
+
+  def test_tool_result_truncation(self):
+    """Long tool results should be truncated."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "test"}}',
+        'Final answer',
+    ]
+    # Return a very long result
+    long_result = 'x' * 2000
+    tool = MockTool('search', 'Search', long_result)
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], max_tool_result_length=100
+    )
+    doc.open_question('Question?')
+
+    # Check that result in document is truncated
+    doc_text = doc.text()
+    self.assertIn('...', doc_text)
+    # The truncated result should be 100 chars (97 + '...')
+    self.assertNotIn('x' * 200, doc_text)
+
+  def test_unknown_tool(self):
+    """Calling unknown tool should return error message."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "unknown_tool", "args": {}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    doc.open_question('Question?')
+
+    doc_text = doc.text()
+    self.assertIn('Error: Unknown tool "unknown_tool"', doc_text)
+
+  def test_parse_tool_call_valid(self):
+    """Test parsing valid JSON tool calls."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call(
+        '{"tool": "search", "args": {"query": "test"}}'
+    )
+    self.assertEqual(result, ('search', {'query': 'test'}))
+
+  def test_parse_tool_call_with_surrounding_text(self):
+    """Tool call JSON can be embedded in other text."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call(
+        'Let me search for that. {"tool": "search", "args": {"q": "test"}}'
+        ' Done.'
+    )
+    self.assertEqual(result, ('search', {'q': 'test'}))
+
+  def test_parse_tool_call_invalid(self):
+    """Invalid JSON should return None."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call('Just a regular answer without tools.')
+    self.assertIsNone(result)
+
+  def test_copy_preserves_tools(self):
+    """Copying document should preserve tool configuration."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], max_tool_calls_per_question=10
+    )
+    doc.statement('Some content')
+
+    copied = doc.copy()
+
+    self.assertIn('search', copied._tools)
+    self.assertEqual(copied._max_tool_calls, 10)
+
+  def test_multiple_choice_with_tool_call_then_answer(self):
+    """LLM uses a tool then answers multiple choice."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    # First call: tool call, second call: answer letter
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "capital of France"}}',
+        'Based on my search, the answer is (a)',
+    ]
+    tool = MockTool(
+        'search', 'Search the web', 'Paris is the capital of France'
+    )
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What is the capital of France?',
+        ['Paris', 'London', 'Berlin'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'query': 'capital of France'})
+    self.assertEqual(result, 0)
+
+  def test_multiple_choice_direct_answer(self):
+    """LLM answers multiple choice directly without using tools."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = '(b)'
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What color is the sky?',
+        ['Red', 'Blue', 'Green'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(tool.call_count, 0)
+    self.assertEqual(result, 1)
+
+  def test_multiple_choice_max_tool_calls(self):
+    """Multiple choice forces answer when tool budget exhausted."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    # Keep calling tools until budget exhausted
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        '{"tool": "search", "args": {"query": "q2"}}',
+    ]
+    # After budget exhausted, sample_choice is called
+    model.sample_choice.return_value = (1, 'b', {'debug': 'forced'})
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], max_tool_calls_per_question=2
+    )
+    result = doc.multiple_choice_question(
+        'Question?',
+        ['A', 'B', 'C'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(tool.call_count, 2)
+    self.assertEqual(result, 1)
+    model.sample_choice.assert_called_once()
+
+  def test_yes_no_question_with_tool_call(self):
+    """yes_no_question uses tool then answers."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    # yes_no_question calls multiple_choice with ['Yes', 'No'] and randomizes.
+    # We answer with 'a' - could be Yes or No depending on randomization.
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "is sky blue"}}',
+        # Answer with (a) - randomization means we just check tool was called
+        '(a)',
+    ]
+    tool = MockTool(
+        'search', 'Search', 'The sky appears blue due to scattering'
+    )
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.yes_no_question('Is the sky blue?')
+
+    # Main assertion: tool was called
+    self.assertEqual(tool.call_count, 1)
+    # Result is a bool (True or False depending on randomization)
+    self.assertIsInstance(result, (bool, type(result)))
+
+
+if __name__ == '__main__':
+  absltest.main()

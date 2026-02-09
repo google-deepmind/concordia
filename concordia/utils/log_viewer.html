@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concordia Structured Log Viewer</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+.container { max-width: 1400px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+h1 { color: #333; margin-bottom: 5px; }
+.subtitle { color: #666; margin-bottom: 20px; }
+.file-loader { margin-bottom: 20px; padding: 20px; background: #e8f4f8; border-radius: 8px; text-align: center; }
+.file-loader.drag-over { background: #d0e8f0; border: 2px dashed #667eea; }
+.file-loader input[type="file"] { display: none; }
+.file-loader label { display: inline-block; padding: 12px 24px; background: #667eea; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.file-loader label:hover { background: #5a6fd6; }
+.file-info { margin-top: 10px; color: #555; font-size: 14px; }
+.tab { overflow: hidden; border-bottom: 2px solid #ddd; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 2px; }
+.tab button { background: #f1f1f1; border: none; padding: 10px 16px; cursor: pointer; transition: 0.3s; font-size: 13px; border-radius: 4px 4px 0 0; }
+.tab button:hover { background-color: #ddd; }
+.tab button.active { background-color: #667eea; color: white; }
+.tabcontent { display: none; padding: 15px; animation: fadeIn 0.3s; }
+.tabcontent.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Nested structure styling */
+details { margin: 4px 0; }
+details summary { cursor: pointer; padding: 6px 10px; background: #f5f5f5; border-radius: 4px; user-select: none; font-size: 13px; }
+details summary:hover { background: #e8e8e8; }
+details[open] > summary { background: #e0e0e0; font-weight: bold; }
+
+/* Step level */
+details.step-level { margin: 10px 0; border-left: 3px solid #667eea; }
+details.step-level > summary { background: #e8e8ff; font-size: 14px; padding: 10px; }
+details.step-level[open] > summary { background: #d8d8ff; }
+
+/* Entity level */
+details.entity-level { margin-left: 15px; border-left: 2px solid #8899ee; }
+details.entity-level > summary { background: #f0f0ff; }
+details.entity-level[open] > summary { background: #e0e0ff; }
+
+/* Component level */
+details.component-level { margin-left: 15px; border-left: 2px solid #aabbff; }
+details.component-level > summary { background: #f8f8ff; font-size: 12px; }
+details.component-level[open] > summary { background: #f0f0ff; }
+
+/* Leaf content */
+.content-block { margin: 5px 0 5px 15px; padding: 8px; background: #fafafa; border-radius: 4px; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 11px; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; border: 1px solid #eee; line-height: 1.4; }
+.content-label { color: #666; font-size: 11px; font-weight: bold; margin: 5px 0 2px 15px; text-transform: uppercase; }
+.memory-item { margin: 5px 0; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 2px solid #667eea; font-size: 13px; }
+.ref-placeholder { color: #888; font-style: italic; }
+
+.stats { display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap; }
+.stat { background: #f0f0f0; padding: 10px 15px; border-radius: 6px; }
+.stat-value { font-size: 24px; font-weight: bold; color: #667eea; }
+.stat-label { font-size: 12px; color: #666; }
+.placeholder { color: #999; font-style: italic; padding: 20px; text-align: center; }
+.loading { color: #667eea; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔍 Concordia Structured Log Viewer</h1>
+  <p class="subtitle">Load a <code>*_structured.json</code> file to view simulation logs with lazy rendering.</p>
+  
+  <div class="file-loader" id="dropZone">
+    <input type="file" id="fileInput" accept=".json">
+    <label for="fileInput">📁 Choose JSON File</label>
+    <p style="margin: 10px 0; color: #888;">or drag and drop a file here</p>
+    <div class="file-info" id="fileInfo"></div>
+  </div>
+  
+  <div id="stats" class="stats" style="display: none;"></div>
+  
+  <div id="tabContainer" style="display: none;">
+    <div class="tab" id="tabButtons"></div>
+    <div id="tabContents"></div>
+  </div>
+  
+  <div id="placeholder" class="placeholder">
+    No log loaded. Select a structured JSON file to begin.
+  </div>
+</div>
+
+<script>
+// Global state
+let LOG_DATA = null;
+
+// Utility functions
+function escapeHtml(text) {
+  if (text == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
+function getContent(id) {
+  if (!LOG_DATA || !LOG_DATA.content_store) return null;
+  return LOG_DATA.content_store[id];
+}
+
+function resolveRef(value) {
+  if (value && typeof value === 'object' && value._ref) {
+    const content = getContent(value._ref);
+    return content !== null ? content : `[ref: ${value._ref}]`;
+  }
+  return value;
+}
+
+// File handling
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) loadFile(files[0]);
+});
+
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  const fileInfo = document.getElementById('fileInfo');
+  fileInfo.innerHTML = '<span class="loading">Loading...</span>';
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      LOG_DATA = JSON.parse(e.target.result);
+      fileInfo.textContent = `Loaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      renderViewer();
+    } catch (err) {
+      fileInfo.textContent = `Error: ${err.message}`;
+    }
+  };
+  reader.onerror = () => fileInfo.textContent = 'Error reading file';
+  reader.readAsText(file);
+}
+
+// Recursive rendering of nested structures
+function renderValue(value, depth = 0) {
+  if (value === null || value === undefined) return '';
+  
+  // Check for reference
+  if (typeof value === 'object' && value._ref) {
+    const content = getContent(value._ref);
+    if (content !== null) {
+      return `<div class="content-block">${escapeHtml(String(content))}</div>`;
+    }
+    return `<span class="ref-placeholder">[ref: ${escapeHtml(value._ref)}]</span>`;
+  }
+  
+  // Array
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '<span class="ref-placeholder">[empty]</span>';
+    let html = '';
+    value.forEach((item, i) => {
+      const resolved = resolveRef(item);
+      if (typeof resolved === 'string') {
+        if (resolved.trim()) {
+          html += `<div class="content-block">${escapeHtml(resolved)}</div>`;
+        }
+      } else if (typeof resolved === 'object') {
+        html += renderValue(resolved, depth + 1);
+      } else {
+        html += `<div class="content-block">${escapeHtml(String(resolved))}</div>`;
+      }
+    });
+    return html;
+  }
+  
+  // Object with nested keys
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) return '<span class="ref-placeholder">[empty]</span>';
+    
+    let html = '';
+    keys.forEach(key => {
+      const subValue = value[key];
+      const resolved = resolveRef(subValue);
+      
+      // Skip internal keys that are redundant
+      if (key === '_ref') return;
+      
+      // Simple string/number value - render inline
+      if (typeof resolved === 'string' || typeof resolved === 'number') {
+        if (String(resolved).trim()) {
+          html += `<div class="content-label">${escapeHtml(key)}</div>`;
+          html += `<div class="content-block">${escapeHtml(String(resolved))}</div>`;
+        }
+      } else if (typeof resolved === 'object') {
+        // Nested object/array - make collapsible
+        const preview = getObjectPreview(resolved);
+        html += `<details class="component-level">`;
+        html += `<summary>${escapeHtml(key)} ${preview}</summary>`;
+        html += renderValue(resolved, depth + 1);
+        html += `</details>`;
+      }
+    });
+    return html;
+  }
+  
+  // Primitive
+  return `<div class="content-block">${escapeHtml(String(value))}</div>`;
+}
+
+function getObjectPreview(obj) {
+  if (Array.isArray(obj)) {
+    return `<span style="color:#888;font-size:11px">(${obj.length} items)</span>`;
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const keys = Object.keys(obj);
+    if (keys.length <= 3) {
+      return `<span style="color:#888;font-size:11px">{${keys.join(', ')}}</span>`;
+    }
+    return `<span style="color:#888;font-size:11px">(${keys.length} fields)</span>`;
+  }
+  return '';
+}
+
+// Main rendering
+function renderViewer() {
+  if (!LOG_DATA) return;
+  
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('tabContainer').style.display = 'block';
+  
+  renderStats();
+  renderTabs();
+}
+
+function renderStats() {
+  const stats = document.getElementById('stats');
+  const entryCount = LOG_DATA.entries ? LOG_DATA.entries.length : 0;
+  const entityCount = LOG_DATA.entity_memories ? Object.keys(LOG_DATA.entity_memories).length : 0;
+  const contentItems = LOG_DATA.content_store ? Object.keys(LOG_DATA.content_store).length : 0;
+  
+  stats.innerHTML = `
+    <div class="stat"><div class="stat-value">${entryCount}</div><div class="stat-label">Log Entries</div></div>
+    <div class="stat"><div class="stat-value">${entityCount}</div><div class="stat-label">Entities</div></div>
+    <div class="stat"><div class="stat-value">${contentItems}</div><div class="stat-label">Content Items</div></div>
+  `;
+  stats.style.display = 'flex';
+}
+
+function renderTabs() {
+  const tabButtons = document.getElementById('tabButtons');
+  const tabContents = document.getElementById('tabContents');
+  
+  tabButtons.innerHTML = '';
+  tabContents.innerHTML = '';
+  
+  // Game Log tab
+  const gameLogBtn = document.createElement('button');
+  gameLogBtn.textContent = 'Game Master Log';
+  gameLogBtn.className = 'active';
+  gameLogBtn.onclick = () => switchTab('gameLog', gameLogBtn);
+  tabButtons.appendChild(gameLogBtn);
+  
+  const gameLogContent = document.createElement('div');
+  gameLogContent.id = 'gameLog';
+  gameLogContent.className = 'tabcontent active';
+  gameLogContent.innerHTML = '<p class="loading">Rendering...</p>';
+  tabContents.appendChild(gameLogContent);
+  
+  setTimeout(() => renderGameLog(), 10);
+  
+  // Entity memory tabs
+  if (LOG_DATA.entity_memories) {
+    for (const entityName of Object.keys(LOG_DATA.entity_memories)) {
+      const tabId = 'entity_' + entityName.replace(/\s+/g, '_');
+      
+      const btn = document.createElement('button');
+      btn.textContent = entityName;
+      btn.onclick = () => switchTab(tabId, btn);
+      tabButtons.appendChild(btn);
+      
+      const content = document.createElement('div');
+      content.id = tabId;
+      content.className = 'tabcontent';
+      content.dataset.entityName = entityName;
+      content.dataset.loaded = 'false';
+      content.innerHTML = '<p class="placeholder">Click to load...</p>';
+      tabContents.appendChild(content);
+    }
+  }
+  
+  // GM Memories tab
+  if (LOG_DATA.game_master_memories && LOG_DATA.game_master_memories.length > 0) {
+    const gmBtn = document.createElement('button');
+    gmBtn.textContent = 'GM Memories';
+    gmBtn.onclick = () => switchTab('gmMemories', gmBtn);
+    tabButtons.appendChild(gmBtn);
+    
+    const gmContent = document.createElement('div');
+    gmContent.id = 'gmMemories';
+    gmContent.className = 'tabcontent';
+    gmContent.dataset.loaded = 'false';
+    gmContent.innerHTML = '<p class="placeholder">Click to load...</p>';
+    tabContents.appendChild(gmContent);
+  }
+}
+
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  
+  document.querySelectorAll('.tabcontent').forEach(c => c.classList.remove('active'));
+  const content = document.getElementById(tabId);
+  content.classList.add('active');
+  
+  if (content.dataset.loaded === 'false') {
+    if (content.dataset.entityName) {
+      renderEntityMemories(content.dataset.entityName, tabId);
+    } else if (tabId === 'gmMemories') {
+      renderGMMemories();
+    }
+    content.dataset.loaded = 'true';
+  }
+}
+
+function renderGameLog() {
+  const container = document.getElementById('gameLog');
+  if (!LOG_DATA.entries || LOG_DATA.entries.length === 0) {
+    container.innerHTML = '<p class="placeholder">No log entries.</p>';
+    return;
+  }
+  
+  // Group by step
+  const steps = {};
+  LOG_DATA.entries.forEach(entry => {
+    const step = entry.step ?? 'unknown';
+    if (!steps[step]) steps[step] = [];
+    steps[step].push(entry);
+  });
+  
+  let html = '';
+  const stepKeys = Object.keys(steps).sort((a, b) => Number(a) - Number(b));
+  
+  stepKeys.forEach(stepIdx => {
+    const entries = steps[stepIdx];
+    html += `<details class="step-level" open>`;
+    html += `<summary>Step ${stepIdx} (${entries.length} entries)</summary>`;
+    
+    entries.forEach(entry => {
+      const entityName = entry.entity_name || 'Unknown';
+      const component = entry.component_name || '';
+      const summary = entry.summary || '';
+      
+      html += `<details class="entity-level">`;
+      html += `<summary><strong>${escapeHtml(entityName)}</strong>`;
+      if (component) html += ` <span style="color:#888">[${escapeHtml(component)}]</span>`;
+      if (summary) html += ` - ${escapeHtml(summary.substring(0, 80))}${summary.length > 80 ? '...' : ''}`;
+      html += `</summary>`;
+      
+      // Render the summary if present
+      if (summary) {
+        html += `<div class="content-label">Summary</div>`;
+        html += `<div class="content-block">${escapeHtml(summary)}</div>`;
+      }
+      
+      // Render deduplicated_data recursively
+      if (entry.deduplicated_data) {
+        const dd = entry.deduplicated_data;
+        if (dd.key) {
+          html += `<div class="content-label">Key</div>`;
+          html += `<div class="content-block">${escapeHtml(dd.key)}</div>`;
+        }
+        if (dd.value) {
+          html += `<details class="component-level" open>`;
+          html += `<summary>Value ${getObjectPreview(dd.value)}</summary>`;
+          html += renderValue(dd.value, 0);
+          html += `</details>`;
+        }
+      }
+      
+      html += `</details>`;
+    });
+    
+    html += `</details>`;
+  });
+  
+  container.innerHTML = html || '<p class="placeholder">No entries.</p>';
+}
+
+function renderEntityMemories(entityName, containerId) {
+  const container = document.getElementById(containerId);
+  const memories = LOG_DATA.entity_memories[entityName] || [];
+  
+  if (memories.length === 0) {
+    container.innerHTML = `<p class="placeholder">No memories for ${escapeHtml(entityName)}.</p>`;
+    return;
+  }
+  
+  let html = `<p><strong>${memories.length}</strong> memories</p>`;
+  memories.forEach(mem => {
+    html += `<div class="memory-item">${escapeHtml(mem)}</div>`;
+  });
+  container.innerHTML = html;
+}
+
+function renderGMMemories() {
+  const container = document.getElementById('gmMemories');
+  const memories = LOG_DATA.game_master_memories || [];
+  
+  if (memories.length === 0) {
+    container.innerHTML = '<p class="placeholder">No game master memories.</p>';
+    return;
+  }
+  
+  let html = `<p><strong>${memories.length}</strong> memories</p>`;
+  memories.forEach(mem => {
+    html += `<div class="memory-item">${escapeHtml(mem)}</div>`;
+  });
+  container.innerHTML = html;
+}
+</script>
+</body>
+</html>

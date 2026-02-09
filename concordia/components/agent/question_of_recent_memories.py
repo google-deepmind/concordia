@@ -94,7 +94,7 @@ class QuestionOfRecentMemories(
     super().__init__(pre_act_label)
     self._model = model
     self._memory_component_key = memory_component_key
-    self._components = components
+    self._components = tuple(components)
     self._clock_now = clock_now
     self._num_memories_to_retrieve = num_memories_to_retrieve
     self._question = question
@@ -169,10 +169,37 @@ class QuestionOfRecentMemories(
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""
     with self._lock:
-      return {}
+      return {
+          'question': self._question,
+          'answer_prefix': self._answer_prefix,
+          'add_to_memory': self._add_to_memory,
+          'memory_tag': self._memory_tag,
+          'memory_component_key': self._memory_component_key,
+          'components': list(self._components),
+          'terminators': list(self._terminators),
+          'num_memories_to_retrieve': self._num_memories_to_retrieve,
+          'pre_act_label': self.get_pre_act_label(),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
+    with self._lock:
+      if 'question' in state:
+        self._question = str(state['question'])
+      if 'answer_prefix' in state:
+        self._answer_prefix = str(state['answer_prefix'])
+      if 'add_to_memory' in state:
+        self._add_to_memory = bool(state['add_to_memory'])
+      if 'memory_tag' in state:
+        self._memory_tag = str(state['memory_tag'])
+      if 'memory_component_key' in state:
+        self._memory_component_key = str(state['memory_component_key'])
+      if 'components' in state:
+        self._components = tuple(state['components'])
+      if 'terminators' in state:
+        self._terminators = tuple(state['terminators'])
+      if 'num_memories_to_retrieve' in state:
+        self._num_memories_to_retrieve = state['num_memories_to_retrieve']
 
 
 class QuestionOfRecentMemoriesWithoutPreAct(

@@ -157,6 +157,7 @@ class ScriptedActComponent(
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    self._script = state['script']
-    self._line_index = state['line_index']
-    pass
+    if 'script' in state:
+      self._script = list(state['script'])  # type: ignore
+    if 'line_index' in state:
+      self._line_index = int(state['line_index'])  # type: ignore

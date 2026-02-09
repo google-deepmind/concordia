@@ -114,7 +114,7 @@ class FormativeMemoriesInitializer(
     self._model = model
     self._player_names = player_names
     self._shared_memories = shared_memories
-    self._components = components
+    self._components = tuple(components)
     self._delimiter_symbol = delimiter_symbol
     self._memory_component_key = memory_component_key
     self._make_observation_component_key = make_observation_component_key
@@ -290,4 +290,5 @@ class FormativeMemoriesInitializer(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'initialized' in state:
+      self._initialized = state['initialized']

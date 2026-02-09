@@ -15,17 +15,35 @@
 
 """A clock for synchronising simulacra."""
 
+import abc
 from collections.abc import Sequence
 import contextlib
 import datetime
 import threading
 
-from concordia.typing.deprecated import clock
-
 _DEFAULT_STEP_SIZE = datetime.timedelta(minutes=1)
 
 
-class FixedIntervalClock(clock.GameClock):
+class GameClock(abc.ABC):
+  """Abstract base class for game clocks."""
+
+  @abc.abstractmethod
+  def advance(self) -> None:
+    """Advances the clock."""
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def set(self, time: datetime.datetime) -> None:
+    """Sets the clock to a specific time."""
+    raise NotImplementedError()
+
+  @abc.abstractmethod
+  def now(self) -> datetime.datetime:
+    """Returns the current time."""
+    raise NotImplementedError()
+
+
+class FixedIntervalClock(GameClock):
   """A fixed-interval clock for synchronising simulacra."""
 
   def __init__(
@@ -78,7 +96,7 @@ class FixedIntervalClock(clock.GameClock):
     return time_string
 
 
-class MultiIntervalClock(clock.GameClock):
+class MultiIntervalClock(GameClock):
   """A multi-interval clock for synchronising simulacra.
 
   This clock takes in multiple step sizes, which can be switched between using

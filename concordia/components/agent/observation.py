@@ -60,6 +60,17 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
   def _make_pre_act_value(self) -> str:
     return ''
 
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'memory_component_key': self._memory_component_key,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    if 'memory_component_key' in state:
+      self._memory_component_key = state['memory_component_key']
+
 
 class LastNObservations(
     action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
@@ -106,11 +117,18 @@ class LastNObservations(
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""
-    return {}
+    return {
+        'memory_component_key': self._memory_component_key,
+        'history_length': self._history_length,
+        'pre_act_label': self.get_pre_act_label(),
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
-    pass
+    if 'memory_component_key' in state:
+      self._memory_component_key = state['memory_component_key']
+    if 'history_length' in state:
+      self._history_length = state['history_length']
 
 
 class ObservationsSinceLastPreAct(

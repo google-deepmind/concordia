@@ -20,9 +20,9 @@ from typing import override
 
 from absl import logging
 from concordia.language_model import language_model
+from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 from concordia.utils import text
-from concordia.utils.deprecated import measurements as measurements_lib
 from vertexai.preview.generative_models import Content
 from vertexai.preview.generative_models import GenerativeModel
 from vertexai.preview.generative_models import HarmBlockThreshold

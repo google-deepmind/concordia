@@ -33,6 +33,228 @@ log = simulation.play(return_structured_log=True)
 interface = AIAgentLogInterface(log)
 ```
 
+## Understanding the Log Data Structure
+
+> **IMPORTANT:** The structured log uses content deduplication. Long strings in
+> log entries are replaced with `{'_ref': content_id}` references that point
+> into a separate `content_store`. You **must** resolve these references to
+> read the actual content.
+
+### How Deduplication Works
+
+When you load a structured log from JSON:
+
+```python
+from concordia.utils.structured_logging import SimulationLog
+
+with open('path/to/structured.json') as f:
+    data = json.load(f)
+
+log = SimulationLog.from_dict(data)
+```
+
+The JSON has this top-level structure:
+```python
+{
+    'content_store': { 'hash_id': 'actual_text', ... },
+    'entries': [ { 'step': 2, 'entity_name': '...', 'deduplicated_data': {...} }, ... ],
+    'entity_memories': { ... },
+    'game_master_memories': [ ... ]
+}
+```
+
+Each entry's `deduplicated_data` contains nested dicts where long strings have
+been replaced by `{'_ref': 'hash_id'}`. To get the actual text, use
+`SimulationLog.reconstruct_value()`:
+
+```python
+entry = log.entries[0]
+full_data = log.reconstruct_value(entry.deduplicated_data)
+```
+
+### Entry Data Layout
+
+Each entry's `deduplicated_data` has a `key` and a `value`. The `value` is a
+nested dict of component outputs. For entity entries, the key pattern is
+`Entity [name]` and the value contains:
+
+```python
+{
+    'key': 'Entity [Alice]',
+    'value': {
+        'Instructions': {'Key': "Alice's Identity", 'Value': '...'},
+        '__act__': {
+            'Summary': '...',
+            'Value': 'Alice said hello...',  # The actual entity action
+            'Prompt': '...',  # The full prompt sent to the LLM
+        },
+        ...
+    }
+}
+```
+
+For game master entries, the value is organized into **phases**, each
+containing outputs from every GM component that ran during that phase:
+
+```python
+{
+    'key': 'game_master_name',
+    'value': {
+        'terminate': { ... },
+        'next_game_master': { ... },
+        'make_observation': { ... },
+        'next_acting': { ... },
+        'next_action_spec': { ... },
+        'resolve': {           # <-- Most interesting phase
+            '__act__': { ... },
+            '__resolution__': {
+                'Key': '...',
+                'Summary': '...',   # Event resolution summary
+                'Value': '...',     # Full resolved event text
+                'Prompt': '...',
+            },
+            'LineageResourceTracker': {
+                '__act__': {
+                    'Key': '...',
+                    'Value': '...',          # Component's text output
+                    'Measurements': { ... }, # Optional numeric metrics
+                },
+            },
+            'tension_tracker': { '__act__': { 'Value': '0.6' } },
+            'ritual_propriety_observer': { '__act__': { 'Value': '...' } },
+            ...
+        },
+    }
+}
+```
+
+> **IMPORTANT:** The `resolve` phase is typically where the most interesting
+> data lives — event resolutions. When analyzing GM behavior,
+> always look in `resolve` first.
+
+> **IMPORTANT:** Custom components may include a `Measurements` sub-dict
+> alongside their `Value`. This contains numeric metrics (e.g.,
+> `{'compound_health': 120, 'granary_stores': 0}`) that are useful for
+> quantitative tracking across steps.
+
+### Extracting Entity Actions (The Most Common Task)
+
+Use `AIAgentLogInterface.get_component_values()` to extract what entities
+actually said/did:
+
+```python
+interface = AIAgentLogInterface(log)
+
+actions = interface.get_component_values()
+for action in actions:
+    print(f"Step {action['step']} [{action['entity_name']}]: {action['value']}")
+```
+
+This resolves all `_ref` references automatically and returns just the action
+text. You can customize which component and key to extract:
+
+```python
+interface.get_component_values(
+    component_key='Observation',
+    value_key='Value',
+    entity_name='Alice',
+    step_range=(1, 5),
+)
+```
+
+### Extracting GM Component Values
+
+To extract values from specific game master components, navigate the
+phase → component → `__act__` nesting:
+
+```python
+for entry in log.entries:
+    if entry.entry_type != 'step':
+        continue
+    full_data = log.reconstruct_value(entry.deduplicated_data)
+    resolve = full_data.get('value', {}).get('resolve', {})
+    if not resolve:
+        continue
+
+    # Event resolution text
+    resolution = resolve.get('__resolution__', {})
+    if resolution:
+        event_text = resolution.get('Value', '')
+        print(f"Step {entry.step} event: {event_text[:200]}")
+
+    # Custom component values (e.g., tension_tracker)
+    tracker = resolve.get('tension_tracker', {})
+    if tracker:
+        act = tracker.get('__act__', tracker)
+        tension_val = act.get('Value', '')
+        print(f"Step {entry.step} tension: {tension_val}")
+
+    # Components with Measurements
+    resource = resolve.get('LineageResourceTracker', {})
+    if resource:
+        act = resource.get('__act__', resource)
+        measurements = act.get('Measurements', {})
+        if measurements:
+            print(f"Step {entry.step} metrics: {measurements}")
+```
+
+To inspect the keys of the `resolve` phase:
+
+```python
+entry = next(e for e in log.entries if e.entry_type == 'step')
+full_data = log.reconstruct_value(entry.deduplicated_data)
+resolve_keys = list(full_data.get('value', {}).get('resolve', {}).keys())
+print(f"Available GM components: {resolve_keys}")
+```
+
+### Entity Memories
+
+The structured log also stores all entity memories accumulated during the
+simulation. This is a quick way to see what each agent "knows" at the end:
+
+```python
+log_data = json.load(open('path/to/structured.json'))
+memories = log_data.get('entity_memories', {})
+for name, mems in memories.items():
+    print(f"{name}: {len(mems)} memories")
+    for m in mems[-3:]:  # Last 3 memories
+        print(f"  > {str(m)[:150]}")
+```
+
+#### Manual Extraction from Raw JSON
+
+If working directly with the raw JSON file without loading into a
+`SimulationLog`, you can resolve references manually:
+
+```python
+content_store = data['content_store']
+
+def resolve_refs(obj):
+    if isinstance(obj, dict):
+        if '_ref' in obj:
+            return content_store.get(obj['_ref'], f'<UNRESOLVED:{obj["_ref"]}>')
+        return {k: resolve_refs(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [resolve_refs(v) for v in obj]
+    return obj
+
+for entry in data['entries']:
+    dd = entry.get('deduplicated_data', {})
+    if not dd:
+        continue
+    resolved = resolve_refs(dd)
+    value = resolved.get('value', {})
+    entity = entry.get('entity_name', '?')
+    step = entry.get('step', '?')
+
+    if entry.get('entry_type') == 'entity' and isinstance(value, dict):
+        act = value.get('__act__', {})
+        if isinstance(act, dict):
+            action_text = act.get('Value', '')
+            if action_text and len(str(action_text)) > 10:
+                print(f'Step {step} [{entity}]: {action_text[:400]}')
+```
+
 ## Two Approaches to Log Analysis
 
 ### Approach 1: Exact String Matching (Simple Checks)
@@ -93,39 +315,6 @@ response = model.sample_text(prompt, max_tokens=200)
 - Can assess complex multi-step narratives
 - Mirrors how a human would evaluate "did it work?"
 
-### Extracting Content from Nested Log Structures
-
-Log entries often have deeply nested metadata. Use recursive extraction:
-
-```python
-def extract_observations(obj):
-    """Extract observation strings from nested data."""
-    observations = []
-    if isinstance(obj, str):
-        if 'hp' in obj.lower() or 'energy' in obj.lower():
-            observations.append(obj)
-    elif isinstance(obj, dict):
-        for key, v in obj.items():
-            if 'observation' in key.lower() or key == 'Value':
-                if isinstance(v, str):
-                    observations.append(v)
-                else:
-                    observations.extend(extract_observations(v))
-            else:
-                observations.extend(extract_observations(v))
-    elif isinstance(obj, list):
-        for item in obj:
-            observations.extend(extract_observations(item))
-    return observations
-
-# Use with entries
-for entry in interface.filter_entries(include_content=True):
-    metadata = entry.get('metadata', {})
-    obs = extract_observations(metadata)
-    if obs:
-        print(f"Step {entry['step']}: {' '.join(obs)[:500]}")
-```
-
 ## Debugging Workflow
 
 ### Step 1: Get Overview
@@ -151,7 +340,31 @@ This tells you:
 - Which entities participated
 - What types of events were logged
 
-### Step 2: Check Specific Steps
+### Step 2: Verify Structural Correctness First
+
+Before analyzing narrative content, verify the simulation structure matches
+expectations. This catches configuration bugs before wasting time on content:
+
+```python
+overview = interface.get_overview()
+entities = overview['entities']
+total_steps = overview['total_steps']
+
+# Check expected agents participated
+expected_agents = ['Alice', 'Bob']
+for agent in expected_agents:
+    timeline = interface.get_entity_timeline(agent)
+    assert len(timeline) > 0, f"{agent} has no entries!"
+    print(f"{agent}: {len(timeline)} entries across steps")
+
+# Check expected game masters ran
+expected_game_masters = ['negotiation_rules', 'combat_rules']
+for game_master in expected_game_masters:
+    timeline = interface.get_entity_timeline(game_master)
+    print(f"Game Master '{game_master}': {len(timeline)} entries")
+```
+
+### Step 3: Check Specific Steps
 
 If you know which step is problematic, drill into it:
 
@@ -168,7 +381,7 @@ for entry in step_data:
         print(f"Response: {entry['response']}")
 ```
 
-### Step 3: Follow Entity Timeline
+### Step 4: Follow Entity Timeline
 
 To understand one agent's complete journey:
 
@@ -179,7 +392,25 @@ for entry in alice_timeline:
     print(f"Step {entry['step']}: {entry['summary']}")
 ```
 
-### Step 4: Filter by Criteria
+### Step 5: Extract Actual Entity Actions
+
+The `summary` field is often generic (e.g., "Step 3 game_master_name"). To
+get the actual narrative content — what agents said and did — you need to
+resolve the deduplicated data:
+
+```python
+for i, entry in enumerate(log.entries):
+    if entry.entry_type == 'entity':
+        full_content = log.reconstruct_value(entry.deduplicated_data)
+        value = full_content.get('value', {})
+        if isinstance(value, dict):
+            act = value.get('__act__', {})
+            action_text = act.get('Value', '') if isinstance(act, dict) else ''
+            if action_text:
+                print(f"Step {entry.step} [{entry.entity_name}]: {action_text[:400]}")
+```
+
+### Step 6: Filter by Criteria
 
 Find specific types of entries:
 
@@ -194,7 +425,7 @@ memory_entries = interface.filter_entries(component_name='memory')
 late_game = interface.filter_entries(step_range=(10, 20))
 ```
 
-### Step 5: LLM-Based Verification (For Complex Checks)
+### Step 7: LLM-Based Verification (For Complex Checks)
 
 When verifying high-level user intentions, use LLM analysis:
 
@@ -242,7 +473,7 @@ checks = {
 results = verify_simulation(interface, model, checks)
 ```
 
-### Step 6: Search for Keywords
+### Step 8: Search for Keywords
 
 When you know what text to look for:
 
@@ -251,7 +482,7 @@ When you know what text to look for:
 coffee_entries = interface.search_entries('coffee shop')
 ```
 
-### Step 7: Get Full Content
+### Step 9: Get Full Content
 
 For deep investigation of a specific entry:
 
@@ -398,13 +629,53 @@ interface = AIAgentLogInterface(log)
 | `search_entries(query)` | Text search in summaries |
 | `get_entry_content(index)` | Full prompt/response for one entry |
 
+### Pattern: "Compare Two Simulation Runs"
+
+When comparing runs (e.g., different experimental conditions), extract parallel
+metrics from both structured logs and compare side-by-side:
+
+```python
+def extract_trajectory(structured_path, component_name, value_key='Value'):
+    with open(structured_path) as f:
+        structured = json.load(f)
+    log = SimulationLog.from_dict(structured)
+    trajectory = []
+    for entry in log.entries:
+        if entry.entry_type != 'step':
+            continue
+        full = log.reconstruct_value(entry.deduplicated_data)
+        resolve = full.get('value', {}).get('resolve', {})
+        comp = resolve.get(component_name, {})
+        if comp:
+            act = comp.get('__act__', comp)
+            trajectory.append({'step': entry.step, 'value': act.get(value_key, '')})
+    return trajectory
+
+tension_a = extract_trajectory('run_a_structured.json', 'tension_tracker')
+tension_b = extract_trajectory('run_b_structured.json', 'tension_tracker')
+for a, b in zip(tension_a, tension_b):
+    print(f"Step {a['step']}: A={a['value']}  B={b['value']}")
+```
+
 ## Tips
 
+- **Verify structure before content** - Check that expected entities and game
+  masters participated before analyzing what they said
+- **Resolve `_ref` references** - Summary fields are often generic; you must
+  resolve the deduplicated data to get actual entity actions and game master
+  resolutions
+- **Use `__act__.Value` for entity actions** - The actual text of what an agent
+  said or did lives in `deduplicated_data.value.__act__.Value` after resolving
+  references
+- **For GM components, look in `resolve`** - The most interesting GM data lives
+  in `deduplicated_data.value.resolve.<component_name>.__act__`
+- **Discover available components first** - Inspect the `resolve` phase keys
+  before trying to extract specific component values
+- **Use entity_memories for quick summaries** - The `entity_memories` dict in
+  the structured log shows what each agent accumulated
 - **Use LLM-based analysis for high-level verification** - It's more robust than
-string matching
+  string matching
 - Start with `include_content=False` to get summaries, then drill in with `True`
 - Use `filter_entries()` with multiple criteria to narrow down
-- The `summary` field gives quick insight without loading full content
 - **Truncate log text before sending to LLM** - Logs can be very large (100KB+)
 - **Use structured output formats** (YES/NO with REASONING) for easy parsing
-- Use color-coded output to highlight key information in reports to the user.

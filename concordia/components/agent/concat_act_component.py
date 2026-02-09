@@ -169,7 +169,19 @@ class ConcatActComponent(
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to a dictionary."""
-    return {}
+    return {
+        'component_order': (
+            list(self._component_order) if self._component_order else None
+        ),
+        'prefix_entity_name': self._prefix_entity_name,
+        'randomize_choices': self._randomize_choices,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    pass
+    if 'component_order' in state:
+      order = state['component_order']
+      self._component_order = tuple(order) if order else None
+    if 'prefix_entity_name' in state:
+      self._prefix_entity_name = state['prefix_entity_name']
+    if 'randomize_choices' in state:
+      self._randomize_choices = state['randomize_choices']

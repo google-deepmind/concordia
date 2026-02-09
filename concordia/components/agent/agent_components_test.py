@@ -13,6 +13,8 @@
 # limitations under the License.
 
 """Test agent components."""
+import datetime
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.associative_memory import basic_associative_memory
@@ -23,7 +25,10 @@ from concordia.components.agent import instructions
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from concordia.components.agent import plan
+from concordia.components.agent import puppet_act
+from concordia.components.agent import question_of_recent_memories
 from concordia.components.agent import report_function
+from concordia.components.agent import scripted_act
 from concordia.language_model import no_language_model
 from concordia.utils import helper_functions
 import numpy as np
@@ -115,6 +120,40 @@ COMPONENT_FACTORIES = {
         "state_example": {"num_since_last_pre_act": 10},
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
+    "question_of_recent_memories": {
+        "component_class": question_of_recent_memories.QuestionOfRecentMemories,
+        "kwargs": {
+            "model": no_language_model.NoLanguageModel(),
+            "memory_component_key": "memory",
+            "components": ["comp1_key", "comp2_key"],
+            "clock_now": lambda: datetime.datetime(2024, 1, 1, 12, 0, 0),
+            "pre_act_label": "Test Question",
+            "question": "What would {agent_name} do?",
+            "answer_prefix": "{agent_name} would ",
+            "add_to_memory": False,
+        },
+        "state_example": {},
+        "skip_keys": {"_model", "_lock", "_clock_now"},
+    },
+    "puppet_act": {
+        "component_class": puppet_act.PuppetActComponent,
+        "kwargs": {
+            "model": no_language_model.NoLanguageModel(),
+            "fixed_responses": {"test_action": "test_response"},
+        },
+        "state_example": {},
+        "skip_keys": DEFAULT_SKIP_KEYS,
+    },
+    "scripted_act": {
+        "component_class": scripted_act.ScriptedActComponent,
+        "kwargs": {
+            "model": no_language_model.NoLanguageModel(),
+            "script": [{"name": "test_agent", "line": "test_line"}],
+            "component_order": ["comp1_key"],
+        },
+        "state_example": {},
+        "skip_keys": DEFAULT_SKIP_KEYS,
+    },
 }
 
 
@@ -150,6 +189,18 @@ class AgentComponentTest(parameterized.TestCase):
       dict(
           testcase_name="observation",
           component_name="observation",
+      ),
+      dict(
+          testcase_name="question_of_recent_memories",
+          component_name="question_of_recent_memories",
+      ),
+      dict(
+          testcase_name="puppet_act",
+          component_name="puppet_act",
+      ),
+      dict(
+          testcase_name="scripted_act",
+          component_name="scripted_act",
       ),
   )
   def test_get_and_set_state(self, component_name: str):
