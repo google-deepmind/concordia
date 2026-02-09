@@ -26,6 +26,7 @@ from concordia.components.game_master import next_acting as next_acting_componen
 from concordia.components.game_master import next_game_master as next_game_master_components
 from concordia.components.game_master import switch_act as switch_act_component
 from concordia.environment import engine as engine_lib
+from concordia.environment import step_controller as step_controller_lib
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
 import termcolor
@@ -212,6 +213,10 @@ class Sequential(engine_lib.Engine):
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
+      step_controller: step_controller_lib.StepController | None = None,
+      step_callback: (
+          Callable[[step_controller_lib.StepData], None] | None
+      ) = None,
   ):
     """Run a game loop."""
     if not game_masters:
@@ -224,6 +229,10 @@ class Sequential(engine_lib.Engine):
       premise = f'{EVENT_TAG} {premise}'
       game_master.observe(premise)
     while not self.terminate(game_master, verbose) and steps < max_steps:
+      if step_controller is not None:
+        if not step_controller.wait_for_step_permission():
+          break
+
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['terminate'] = game_master.get_last_log()
@@ -272,6 +281,16 @@ class Sequential(engine_lib.Engine):
           logging.debug('Calling checkpoint callback at step %s', steps)
           checkpoint_callback(steps)
         steps += 1
+        # Notify UI of step even when skipping action phase
+        if step_callback is not None:
+          step_data = step_controller_lib.StepData(
+              step=steps,
+              acting_entity='(setup)',
+              action='Skipping action phase',
+              entity_actions={},
+              entity_logs={},
+          )
+          step_callback(step_data)
         continue
 
       if verbose:
@@ -319,6 +338,26 @@ class Sequential(engine_lib.Engine):
 
       if checkpoint_callback is not None:
         checkpoint_callback(steps)
+
+      if step_callback is not None:
+        entity_actions = {}
+        entity_logs = {}
+        for entity in entities:
+          if hasattr(entity, 'get_last_log'):
+            last_log = entity.get_last_log()
+            entity_logs[entity.name] = dict(last_log)
+            if 'Value' in last_log:
+              entity_actions[entity.name] = str(last_log.get('Value', ''))
+        # Always include the acting entity's action (the raw_action from act())
+        entity_actions[next_entity.name] = action
+        step_data = step_controller_lib.StepData(
+            step=steps,
+            acting_entity=next_entity.name,
+            action=action,
+            entity_actions=entity_actions,
+            entity_logs=entity_logs,
+        )
+        step_callback(step_data)
 
   def _log(
       self,
