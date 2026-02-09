@@ -238,6 +238,8 @@ class Simulation(simulation_lib.Simulation):
       raw_log: list[Mapping[str, Any]] | None = None,
       get_state_callback: Callable[[dict[str, Any]], None] | None = None,
       checkpoint_path: str | None = None,
+      step_controller=None,
+      step_callback=None,
   ) -> structured_logging.SimulationLog:
     """Run the simulation.
 
@@ -252,6 +254,8 @@ class Simulation(simulation_lib.Simulation):
         entities and game masters.
       checkpoint_path: The path to save the checkpoints. If None, no checkpoints
         are saved.
+      step_controller: Optional step controller for step-by-step control.
+      step_callback: Optional callback called after each step completes.
 
     Returns:
       SimulationLog object with structured data. Use .to_html() for HTML output
@@ -294,6 +298,8 @@ class Simulation(simulation_lib.Simulation):
         verbose=True,
         log=raw_log,
         checkpoint_callback=checkpoint_callback,
+        step_controller=step_controller,
+        step_callback=step_callback,
     )
 
     # Build and return structured log
@@ -342,8 +348,8 @@ class Simulation(simulation_lib.Simulation):
       entity_state = entity.get_state()
       save_data = {
           "prefab_type": prefab_config.prefab,
-          "entity_params": prefab_config.params,
-          "components": entity_state,
+          "entity_params": self._make_json_serializable(prefab_config.params),
+          "components": self._make_json_serializable(entity_state),
           "component_info": self._extract_component_info(entity),
       }
       checkpoint_data["entities"][entity.name] = save_data
@@ -359,9 +365,9 @@ class Simulation(simulation_lib.Simulation):
       gm_state = gm.get_state()
       save_data = {
           "prefab_type": prefab_config.prefab,
-          "entity_params": prefab_config.params,
+          "entity_params": self._make_json_serializable(prefab_config.params),
           "role": self._entity_to_prefab_config[gm.name].role.name,
-          "components": gm_state,
+          "components": self._make_json_serializable(gm_state),
           "component_info": self._extract_component_info(gm),
       }
       checkpoint_data["game_masters"][gm.name] = save_data
