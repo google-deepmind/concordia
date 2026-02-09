@@ -129,7 +129,7 @@ class MakeObservation(entity_component.ContextComponent,
     super().__init__()
     self._model = model
     self._player_names = player_names
-    self._components = components
+    self._components = tuple(components)
     self._reformat_observations_in_specified_style = (
         reformat_observations_in_specified_style
     )

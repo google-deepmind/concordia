@@ -688,6 +688,141 @@ class AIAgentLogInterfaceTest(absltest.TestCase):
     with self.assertRaises(IndexError):
       interface.get_entry_content(100)
 
+  def test_get_component_values_default(self):
+    """get_component_values extracts __act__ values by default."""
+    log = structured_logging.SimulationLog()
+    log.add_entry(
+        step=1,
+        timestamp='t1',
+        entity_name='Alice',
+        component_name='ActComponent',
+        entry_type='action',
+        summary='Alice acted',
+        raw_data={
+            'value': {
+                '__act__': {
+                    'Key': 'action',
+                    'Value': 'Alice said hello',
+                    'Prompt': 'What does Alice do?',
+                },
+                'Observation': {'Key': 'obs', 'Value': 'saw things'},
+            }
+        },
+    )
+    log.add_entry(
+        step=2,
+        timestamp='t2',
+        entity_name='Bob',
+        component_name='ActComponent',
+        entry_type='action',
+        summary='Bob acted',
+        raw_data={
+            'value': {
+                '__act__': {
+                    'Key': 'action',
+                    'Value': 'Bob waved',
+                },
+            }
+        },
+    )
+    interface = structured_logging.AIAgentLogInterface(log)
+
+    actions = interface.get_component_values()
+
+    self.assertLen(actions, 2)
+    self.assertEqual(actions[0]['value'], 'Alice said hello')
+    self.assertEqual(actions[0]['entity_name'], 'Alice')
+    self.assertEqual(actions[1]['value'], 'Bob waved')
+
+  def test_get_component_values_custom_key(self):
+    """get_component_values can extract arbitrary component keys."""
+    log = structured_logging.SimulationLog()
+    log.add_entry(
+        step=1,
+        timestamp='t1',
+        entity_name='Alice',
+        component_name='ActComponent',
+        entry_type='action',
+        summary='Alice acted',
+        raw_data={
+            'value': {
+                '__act__': {'Key': 'action', 'Value': 'did stuff'},
+                'Observation': {'Key': 'obs', 'Value': 'saw the market'},
+            }
+        },
+    )
+    interface = structured_logging.AIAgentLogInterface(log)
+
+    observations = interface.get_component_values(component_key='Observation')
+
+    self.assertLen(observations, 1)
+    self.assertEqual(observations[0]['value'], 'saw the market')
+
+  def test_get_component_values_entity_filter(self):
+    """get_component_values filters by entity_name."""
+    log = structured_logging.SimulationLog()
+    for name in ('Alice', 'Bob'):
+      log.add_entry(
+          step=1,
+          timestamp='t1',
+          entity_name=name,
+          component_name='Act',
+          entry_type='action',
+          raw_data={'value': {'__act__': {'Value': f'{name} acts'}}},
+      )
+    interface = structured_logging.AIAgentLogInterface(log)
+
+    results = interface.get_component_values(entity_name='Alice')
+
+    self.assertLen(results, 1)
+    self.assertEqual(results[0]['value'], 'Alice acts')
+
+  def test_get_component_values_step_range(self):
+    """get_component_values filters by step range."""
+    log = structured_logging.SimulationLog()
+    for step in (1, 2, 3):
+      log.add_entry(
+          step=step,
+          timestamp=f't{step}',
+          entity_name='Alice',
+          component_name='Act',
+          entry_type='action',
+          raw_data={'value': {'__act__': {'Value': f'step {step}'}}},
+      )
+    interface = structured_logging.AIAgentLogInterface(log)
+
+    results = interface.get_component_values(step_range=(2, 3))
+
+    self.assertLen(results, 2)
+    self.assertEqual(results[0]['value'], 'step 2')
+    self.assertEqual(results[1]['value'], 'step 3')
+
+  def test_get_component_values_skips_missing(self):
+    """get_component_values skips entries without the requested component."""
+    log = structured_logging.SimulationLog()
+    log.add_entry(
+        step=1,
+        timestamp='t1',
+        entity_name='Alice',
+        component_name='Act',
+        entry_type='action',
+        raw_data={'value': {'__act__': {'Value': 'acted'}}},
+    )
+    log.add_entry(
+        step=1,
+        timestamp='t1',
+        entity_name='Bob',
+        component_name='Obs',
+        entry_type='observation',
+        raw_data={'value': {'SomeOther': {'Value': 'observed'}}},
+    )
+    interface = structured_logging.AIAgentLogInterface(log)
+
+    results = interface.get_component_values()
+
+    self.assertLen(results, 1)
+    self.assertEqual(results[0]['entity_name'], 'Alice')
+
 
 if __name__ == '__main__':
   absltest.main()

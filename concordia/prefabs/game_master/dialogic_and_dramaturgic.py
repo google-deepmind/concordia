@@ -115,6 +115,9 @@ class GameMaster(prefab_lib.Prefab):
           # persistence. When provided, observations queued by one GM
           # persist across GM switches.
           'external_queue': None,
+          # Whether to allow LLM fallback when no events are queued for a
+          # player. Disable to prevent observations for non-participants.
+          'allow_llm_fallback': True,
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
@@ -185,6 +188,7 @@ class GameMaster(prefab_lib.Prefab):
     make_observation_key = (
         gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
     )
+    allow_llm_fallback = self.params.get('allow_llm_fallback', True)
     make_observation = gm_components.make_observation.MakeObservation(
         model=model,
         player_names=player_names,
@@ -193,6 +197,7 @@ class GameMaster(prefab_lib.Prefab):
             display_events_key,
         ],
         external_queue=external_queue,
+        allow_llm_fallback=allow_llm_fallback,
     )
 
     scene_tracker = gm_components.scene_tracker.SceneTracker(

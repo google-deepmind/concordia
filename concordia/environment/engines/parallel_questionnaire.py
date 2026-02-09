@@ -182,6 +182,8 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
+      step_controller=None,
+      step_callback=None,
   ):
     if not game_masters:
       raise ValueError('No game masters provided.')
@@ -203,6 +205,11 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
       if self.terminate(game_master, verbose):
         return
+
+      if step_controller is not None:
+        raise NotImplementedError(
+            'Step controller is not supported by this engine.'
+        )
 
       # run observe on all entities in parallel using concurrency
       tasks = {}

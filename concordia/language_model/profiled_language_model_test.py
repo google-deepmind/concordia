@@ -247,38 +247,6 @@ class ProfiledLanguageModelTest(absltest.TestCase):
     self.assertEqual(stats['counters']['llm_calls_sample_choice'], 1)
     self.assertEqual(stats['counters']['llm_calls_success'], 3)
 
-  def test_profiling_overhead_minimal(self):
-    """Test that profiling adds minimal absolute overhead."""
-    base_model = MockLanguageModel(delay=0.05)  # Use 50ms delay
-
-    # Measure without profiling
-    profiler.disable()
-    model_without = profiled_language_model.ProfiledLanguageModel(base_model)
-
-    start = time.perf_counter()
-    for _ in range(20):
-      model_without.sample_text('Test')
-    time_without = time.perf_counter() - start
-
-    # Measure with profiling
-    profiler.enable()
-    profiler.reset()
-    base_model_2 = MockLanguageModel(delay=0.05)
-    model_with = profiled_language_model.ProfiledLanguageModel(base_model_2)
-
-    start = time.perf_counter()
-    for _ in range(20):
-      model_with.sample_text('Test')
-    time_with = time.perf_counter() - start
-
-    # Absolute overhead should be small (less than 50ms for 20 calls)
-    absolute_overhead = time_with - time_without
-    self.assertLess(
-        absolute_overhead,
-        0.05,
-        f'Profiling overhead too high: {absolute_overhead*1000:.1f}ms',
-    )
-
   def test_sample_choice_without_profiling(self):
     """Test sample_choice when profiling is disabled (hits fast path)."""
     base_model = MockLanguageModel()

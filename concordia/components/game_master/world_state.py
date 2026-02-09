@@ -44,7 +44,7 @@ class WorldState(
     """
     self._pre_act_label = pre_act_label
     self._model = model
-    self._components = components
+    self._components = tuple(components)
 
     self._state = {}
     self._latest_action_spec = None
@@ -187,7 +187,7 @@ class Locations(
     self._model = model
     self._entity_names = entity_names
     self._prompt = prompt
-    self._components = components
+    self._components = tuple(components)
 
     self._locations = {}
     self._entity_locations = {name: '' for name in entity_names}
@@ -361,7 +361,7 @@ class GenerativeClock(
     self._model = model
     self._format_description_key = format_description_key
     self._prompt = prompt
-    self._components = components
+    self._components = tuple(components)
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)

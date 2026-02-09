@@ -53,7 +53,7 @@ class AllSimilarMemories(
     super().__init__(pre_act_label)
     self._model = model
     self._memory_component_key = memory_component_key
-    self._components = components
+    self._components = tuple(components)
     self._num_memories_to_retrieve = num_memories_to_retrieve
 
   def get_component_pre_act_label(self, component_name: str) -> str:
@@ -106,12 +106,22 @@ class AllSimilarMemories(
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     with self._lock:
-      return {}
+      return {
+          'memory_component_key': self._memory_component_key,
+          'components': tuple(self._components),
+          'num_memories_to_retrieve': self._num_memories_to_retrieve,
+          'pre_act_label': self.get_pre_act_label(),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      pass
+      if 'memory_component_key' in state:
+        self._memory_component_key = str(state['memory_component_key'])
+      if 'components' in state:
+        self._components = tuple(state['components'])  # type: ignore
+      if 'num_memories_to_retrieve' in state:
+        self._num_memories_to_retrieve = int(state['num_memories_to_retrieve'])  # type: ignore
 
 
 class AllSimilarMemoriesWithoutPreAct(

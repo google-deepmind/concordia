@@ -66,7 +66,7 @@ class NextGameMaster(
     self._game_master_names = list(map_game_master_names_to_choices.keys())
     self._game_master_choices = list(map_game_master_names_to_choices.values())
     self._call_to_action = call_to_action
-    self._components = components
+    self._components = tuple(components)
     self._pre_act_label = pre_act_label
 
     self._currently_active_game_master = None

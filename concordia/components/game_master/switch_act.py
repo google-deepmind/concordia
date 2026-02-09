@@ -365,8 +365,18 @@ class SwitchAct(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'entity_names': list(self._entity_names),
+        'component_order': (
+            list(self._component_order) if self._component_order else None
+        ),
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'entity_names' in state:
+      self._entity_names = state['entity_names']
+    if 'component_order' in state:
+      self._component_order = (
+          tuple(state['component_order']) if state['component_order'] else None
+      )

@@ -73,7 +73,7 @@ class NextActing(
     super().__init__()
     self._model = model
     self._player_names = player_names
-    self._components = components
+    self._components = tuple(components)
     self._pre_act_label = pre_act_label
 
     self._currently_active_player = None
@@ -178,11 +178,15 @@ class NextActingAllEntities(entity_component.ContextComponent):
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'player_names': list(self._player_names),
+        'pre_act_label': self._pre_act_label,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'player_names' in state:
+      self._player_names = state['player_names']
 
 
 class NextActingInFixedOrder(entity_component.ContextComponent):
@@ -263,8 +267,8 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      self._currently_active_player_idx = state['currently_active_player_idx']
-      self._sequence = state['sequence']
+      self._currently_active_player_idx = state['currently_active_player_idx']  # type: ignore
+      self._sequence = list(state['sequence'])  # type: ignore
 
 
 class NextActingInRandomOrder(entity_component.ContextComponent):
@@ -336,8 +340,8 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._currently_active_player_idx = state['currently_active_player_idx']
-    self._currently_available_indices = state['currently_available_indices']
+    self._currently_active_player_idx = state['currently_active_player_idx']  # type: ignore
+    self._currently_available_indices = list(state['currently_available_indices'])  # type: ignore
 
 
 class NextActingFromSceneSpec(
@@ -455,7 +459,7 @@ class NextActionSpec(
     super().__init__()
     self._model = model
     self._player_names = player_names
-    self._components = components
+    self._components = tuple(components)
     self._call_to_next_action_spec = call_to_next_action_spec
     self._next_acting_component_key = next_acting_component_key
     self._pre_act_label = pre_act_label
@@ -522,11 +526,24 @@ class NextActionSpec(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'player_names': list(self._player_names),
+        'components': list(self._components),
+        'call_to_next_action_spec': self._call_to_next_action_spec,
+        'next_acting_component_key': self._next_acting_component_key,
+        'pre_act_label': self._pre_act_label,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'player_names' in state:
+      self._player_names = list(state['player_names'])  # type: ignore
+    if 'components' in state:
+      self._components = tuple(state['components'])  # type: ignore
+    if 'call_to_next_action_spec' in state:
+      self._call_to_next_action_spec = str(state['call_to_next_action_spec'])
+    if 'next_acting_component_key' in state:
+      self._next_acting_component_key = str(state['next_acting_component_key'])
 
 
 class NextActionSpecFromSceneSpec(
@@ -608,11 +625,21 @@ class NextActionSpecFromSceneSpec(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'memory_component_key': self._memory_component_key,
+        'scene_tracker_component_key': self._scene_tracker_component_key,
+        'next_acting_component_key': self._next_acting_component_key,
+        'pre_act_label': self._pre_act_label,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    pass
+    if 'memory_component_key' in state:
+      self._memory_component_key = state['memory_component_key']
+    if 'scene_tracker_component_key' in state:
+      self._scene_tracker_component_key = state['scene_tracker_component_key']
+    if 'next_acting_component_key' in state:
+      self._next_acting_component_key = state['next_acting_component_key']
 
 
 class FixedActionSpec(
@@ -655,7 +682,9 @@ class FixedActionSpec(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    return {}
+    return {
+        'pre_act_label': self._pre_act_label,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""

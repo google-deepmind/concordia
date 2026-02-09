@@ -16,8 +16,7 @@
 """
 
 import abc
-from collections.abc import Callable, Mapping
-from typing import Any
+from collections.abc import Callable
 
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -76,7 +75,7 @@ class Simulation(abc.ABC):
       self,
       premise: str | None = None,
       max_steps: int | None = None,
-  ) -> str | list[Mapping[str, Any]] | structured_logging.SimulationLog:
+  ) -> structured_logging.SimulationLog:
     """Run the simulation.
 
     Args:
@@ -84,8 +83,7 @@ class Simulation(abc.ABC):
       max_steps: The maximum number of steps to run the simulation for.
 
     Returns:
-      If return_structured_log: SimulationLog object with structured data.
-      Elif return_html_log: browseable log of the simulation in HTML format.
-      Else: raw_log list of the simulation.
+      SimulationLog object with structured data. Use .to_html() for HTML output
+      or .to_json() for JSON serialization.
     """
     raise NotImplementedError

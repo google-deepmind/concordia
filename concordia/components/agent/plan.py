@@ -51,7 +51,7 @@ class Plan(
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._components = components
+    self._components = tuple(components)
     self._goal_component_key = goal_component_key
     self._force_time_horizon = force_time_horizon
 
@@ -154,9 +154,22 @@ class Plan(
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     with self._lock:
-      return {'current_plan': self._current_plan}
+      return {
+          'current_plan': self._current_plan,
+          'components': tuple(self._components),
+          'goal_component_key': self._goal_component_key,
+          'force_time_horizon': self._force_time_horizon,
+          'pre_act_label': self.get_pre_act_label(),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      self._current_plan = state['current_plan']
+      if 'current_plan' in state:
+        self._current_plan = str(state['current_plan'])
+      if 'components' in state:
+        self._components = tuple(state['components'])  # type: ignore
+      if 'goal_component_key' in state:
+        self._goal_component_key = str(state['goal_component_key'])
+      if 'force_time_horizon' in state:
+        self._force_time_horizon = str(state['force_time_horizon'])  # type: ignore

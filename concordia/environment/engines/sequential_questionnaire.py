@@ -180,6 +180,8 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
+      step_controller=None,
+      step_callback=None,
   ):
     logging.info('[SequentialQuestionnaireEngine] Starting run_loop.')
     if not game_masters:
@@ -206,6 +208,11 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
             '[SequentialQuestionnaireEngine] Termination condition met.'
         )
         return
+
+      if step_controller is not None:
+        raise NotImplementedError(
+            'Step controller is not supported by this engine.'
+        )
 
       # run observe on all entities in parallel using concurrency
       tasks = {}
