@@ -80,7 +80,7 @@ class VertexLanguageModel(language_model.LanguageModel):
 
   def __init__(
       self,
-      model_name: str = 'gemini-pro',
+      model_name: str = 'gemini-2.5-pro',
       *,
       harm_block_threshold: HarmBlockThreshold = HarmBlockThreshold.BLOCK_NONE,
       measurements: measurements_lib.Measurements | None = None,
@@ -91,6 +91,8 @@ class VertexLanguageModel(language_model.LanguageModel):
 
     Args:
       model_name: which language model to use
+      For a list of available Vertex AI models, see:
+        https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models
       harm_block_threshold: Safety threshold. Choose from {BLOCK_ONLY_HIGH,
         BLOCK_MEDIUM_AND_ABOVE, BLOCK_LOW_AND_ABOVE, BLOCK_NONE}
       measurements: The measurements object to log usage statistics to
