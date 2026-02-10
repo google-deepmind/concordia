@@ -58,7 +58,7 @@ class FixedIntervalClock(GameClock):
       step_size: The step size of the clock.
     """
     if start is None:
-      self._start = datetime.datetime.now()
+      self._start = datetime.datetime.now(datetime.timezone.utc)
     else:
       self._start = start
     self._step_size = step_size
