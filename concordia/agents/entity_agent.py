@@ -264,9 +264,8 @@ class EntityAgent(entity_component.EntityWithComponents):
       raise RuntimeError('Agent must be in PRE_ACT phase for stateless_act')
 
     # 1. PRE_ACT to gather context
-    executor = futures.ThreadPoolExecutor()
-    contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
-    executor.shutdown(wait=True)
+    with futures.ThreadPoolExecutor() as executor:
+      contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
     self._context_processor.pre_act(types.MappingProxyType(contexts))
 
     # 2. Get action from ActComponent
