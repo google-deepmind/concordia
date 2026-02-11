@@ -116,7 +116,8 @@ class Simultaneous(engine_lib.Engine):
             options=tuple(entities_by_name.keys()),
         )
     )
-    next_entity_names = next_object_names_string.split(',')
+    next_entity_names = [
+        name.strip() for name in next_object_names_string.split(',')]
     if log is not None and hasattr(game_master, 'get_last_log'):
       assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
       log_entry['next_acting'] = game_master.get_last_log()
@@ -138,6 +139,15 @@ class Simultaneous(engine_lib.Engine):
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['next_action_spec'] = game_master.get_last_log()
+
+    # Validate all entity names from LLM to prevent KeyError
+    invalid_names = [
+        name for name in next_entity_names if name not in entities_by_name]
+    if invalid_names:
+      raise ValueError(
+          f'Game master returned invalid entity names: {invalid_names}. '
+          f'Valid options: {list(entities_by_name.keys())}'
+      )
 
     return (
         [entities_by_name[entity_name] for entity_name in next_entity_names],
