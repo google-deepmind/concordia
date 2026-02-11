@@ -1036,6 +1036,81 @@ prefab_lib.InstanceConfig(
 
 ---
 
+## Analyzing Simulation Logs
+
+Concordia provides an `AIAgentLogInterface` for programmatic log analysis.
+For the full debugging guide, see the **analyze-logs** skill in `docs/skills/`.
+Additional skills can also be found in the `docs/` directory.
+
+For **human users**, the easiest way to view logs is to open
+`utils/log_viewer.html` in a browser and load the structured log JSON file.
+
+### Setup for AIAgentLogInterface
+
+```python
+from concordia.utils.structured_logging import AIAgentLogInterface
+
+log = simulation.play(return_structured_log=True)
+interface = AIAgentLogInterface(log)
+```
+
+### Quick Overview
+
+```python
+overview = interface.get_overview()
+# {'total_entries': 15, 'total_steps': 5,
+#  'entities': ['Alice', 'Bob', 'default rules'], ...}
+```
+
+### Extracting Entity Actions
+
+```python
+actions = interface.get_component_values()
+for action in actions:
+    print(f"Step {action['step']} [{action['entity_name']}]: {action['value']}")
+
+# Filter by entity and step range
+interface.get_component_values(
+    entity_name='Alice', step_range=(1, 5),
+)
+```
+
+### Debugging Workflow
+
+1. `get_overview()` — check entity count, steps, and participation
+2. `get_entity_timeline(name)` — follow one agent's journey
+3. `get_step_summary(step, include_content=True)` — drill into a specific step
+4. `filter_entries(entry_type=..., step_range=...)` — narrow down entries
+5. `search_entries('keyword')` — text search across summaries
+6. `get_entry_content(entry_index=N)` — full prompt/response for deep inspection
+
+### Saving and Loading Logs
+
+```python
+import json
+from concordia.utils.structured_logging import SimulationLog
+
+# Save
+with open('/tmp/simulation_log.json', 'w') as f:
+    f.write(log.to_json())
+
+# Load
+log = SimulationLog.from_json(open('/tmp/simulation_log.json').read())
+interface = AIAgentLogInterface(log)
+```
+
+### Quick Reference
+
+| Method | Purpose |
+|--------|---------|
+| `get_overview()` | High-level stats |
+| `get_step_summary(step, include_content)` | All entries for one step |
+| `get_entity_timeline(entity, include_content)` | All entries for one entity |
+| `filter_entries(...)` | Filter by entity/component/type/step |
+| `search_entries(query)` | Text search in summaries |
+| `get_entry_content(index)` | Full prompt/response for one entry |
+| `get_component_values(...)` | Extract entity actions with ref resolution |
+
 ---
 
 ## Common Patterns
