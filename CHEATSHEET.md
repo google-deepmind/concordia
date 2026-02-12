@@ -1078,11 +1078,13 @@ interface.get_component_values(
 ### Debugging Workflow
 
 1. `get_overview()` — check entity count, steps, and participation
-2. `get_entity_timeline(name)` — follow one agent's journey
-3. `get_step_summary(step, include_content=True)` — drill into a specific step
-4. `filter_entries(entry_type=..., step_range=...)` — narrow down entries
-5. `search_entries('keyword')` — text search across summaries
-6. `get_entry_content(entry_index=N)` — full prompt/response for deep inspection
+2. `get_entity_actions(name)` — just the action text at each step (actions only)
+3. `get_entity_action_context(name, step)` — full action, observations, and prompt for one step
+4. `get_entity_timeline(name)` — all log entries for an entity (actions, observations, GM events, etc.)
+5. `get_step_summary(step, include_content=True)` — drill into a specific step
+6. `search_summaries('keyword')` — fast text search across entry summaries
+7. `search_entries('keyword')` — deep text search across all reconstructed content
+8. `get_entry_content(entry_index=N)` — full prompt/response for deep inspection
 
 ### Saving and Loading Logs
 
@@ -1104,12 +1106,17 @@ interface = AIAgentLogInterface(log)
 | Method | Purpose |
 |--------|---------|
 | `get_overview()` | High-level stats |
+| `get_entity_actions(name)` | Concise action timeline for one entity |
+| `get_entity_action_context(name, step)` | Full action + observations + prompt for one step |
 | `get_step_summary(step, include_content)` | All entries for one step |
 | `get_entity_timeline(entity, include_content)` | All entries for one entity |
 | `filter_entries(...)` | Filter by entity/component/type/step |
-| `search_entries(query)` | Text search in summaries |
+| `search_summaries(query)` | Fast text search in entry summaries |
+| `search_entries(query)` | Deep text search across all reconstructed content |
 | `get_entry_content(index)` | Full prompt/response for one entry |
-| `get_component_values(...)` | Extract entity actions with ref resolution |
+| `get_component_values(...)` | Extract specific component values with ref resolution |
+| `get_entity_memories(name)` | Get an entity's accumulated memories |
+| `get_game_master_memories()` | Get game master memories |
 
 ---
 
