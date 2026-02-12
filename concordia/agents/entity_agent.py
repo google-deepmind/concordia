@@ -166,39 +166,51 @@ class EntityAgent(entity_component.EntityWithComponents):
       self, action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC
   ) -> str:
     with self._control_lock:
-      self._set_phase(entity_component.Phase.PRE_ACT)
-      contexts = self._parallel_call_('pre_act', action_spec)
-      self._context_processor.pre_act(types.MappingProxyType(contexts))
-      action_attempt = self._act_component.get_action_attempt(
-          contexts, action_spec
-      )
+      try:
+        self._set_phase(entity_component.Phase.PRE_ACT)
+        contexts = self._parallel_call_('pre_act', action_spec)
+        self._context_processor.pre_act(types.MappingProxyType(contexts))
+        action_attempt = self._act_component.get_action_attempt(
+            contexts, action_spec
+        )
 
-      self._set_phase(entity_component.Phase.POST_ACT)
-      contexts = self._parallel_call_('post_act', action_attempt)
-      self._context_processor.post_act(contexts)
+        self._set_phase(entity_component.Phase.POST_ACT)
+        contexts = self._parallel_call_('post_act', action_attempt)
+        self._context_processor.post_act(contexts)
 
-      self._set_phase(entity_component.Phase.UPDATE)
-      self._parallel_call_('update')
+        self._set_phase(entity_component.Phase.UPDATE)
+        self._parallel_call_('update')
 
-      self._set_phase(entity_component.Phase.READY)
+        self._set_phase(entity_component.Phase.READY)
 
-      return action_attempt
+        return action_attempt
+      except Exception:
+        # Ensure correct error handling in the case of multiple threads
+        # using the same entity by setting the phase to ready before raising.
+        self.set_phase(entity_component.Phase.READY)
+        raise
 
   @override
   def observe(self, observation: str) -> None:
     with self._control_lock:
-      self._set_phase(entity_component.Phase.PRE_OBSERVE)
-      contexts = self._parallel_call_('pre_observe', observation)
-      self._context_processor.pre_observe(contexts)
+      try:
+        self._set_phase(entity_component.Phase.PRE_OBSERVE)
+        contexts = self._parallel_call_('pre_observe', observation)
+        self._context_processor.pre_observe(contexts)
 
-      self._set_phase(entity_component.Phase.POST_OBSERVE)
-      contexts = self._parallel_call_('post_observe')
-      self._context_processor.post_observe(contexts)
+        self._set_phase(entity_component.Phase.POST_OBSERVE)
+        contexts = self._parallel_call_('post_observe')
+        self._context_processor.post_observe(contexts)
 
-      self._set_phase(entity_component.Phase.UPDATE)
-      self._parallel_call_('update')
+        self._set_phase(entity_component.Phase.UPDATE)
+        self._parallel_call_('update')
 
-      self._set_phase(entity_component.Phase.READY)
+        self._set_phase(entity_component.Phase.READY)
+      except Exception:
+        # Ensure correct error handling in the case of multiple threads
+        # using the same entity by setting the phase to ready before raising.
+        self.set_phase(entity_component.Phase.READY)
+        raise
 
   def set_state(
       self, entity_components_state: entity_component.EntityState
