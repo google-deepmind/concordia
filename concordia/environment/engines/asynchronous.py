@@ -442,6 +442,7 @@ class Asynchronous(engine_lib.Engine):
             action=action,
             entity_actions={entity.name: action},
             entity_logs=entity_logs,
+            game_master=game_master.name,
         )
         step_callback(step_data)
 
@@ -489,6 +490,24 @@ class Asynchronous(engine_lib.Engine):
                   _PRINT_COLOR,
               )
           )
+
+        # Flush observations to all entities. This is crucial for ensuring
+        # observations are properly delivered whenever there is a transition
+        # between game masters. Without this, observations queued by the
+        # outgoing game master would be lost when control transfers to the
+        # next game master.
+        for entity in entities:
+          observation = self.make_observation(game_master, entity)
+          if observation and observation.strip():
+            if verbose:
+              print(
+                  termcolor.colored(
+                      f'Entity {entity.name} observed: {observation}',
+                      _PRINT_COLOR,
+                  )
+              )
+            entity.observe(observation)
+
         init_steps += 1
         if step_callback is not None:
           step_data = step_controller_lib.StepData(
@@ -497,6 +516,7 @@ class Asynchronous(engine_lib.Engine):
               action='Skipping action phase',
               entity_actions={},
               entity_logs={},
+              game_master=game_master.name,
           )
           step_callback(step_data)
         continue
