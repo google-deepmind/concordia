@@ -289,6 +289,7 @@ class Sequential(engine_lib.Engine):
               action='Skipping action phase',
               entity_actions={},
               entity_logs={},
+              game_master=game_master.name,
           )
           step_callback(step_data)
         continue
@@ -356,6 +357,7 @@ class Sequential(engine_lib.Engine):
             action=action,
             entity_actions=entity_actions,
             entity_logs=entity_logs,
+            game_master=game_master.name,
         )
         step_callback(step_data)
 

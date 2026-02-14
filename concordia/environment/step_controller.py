@@ -32,6 +32,7 @@ class StepData:
   action: str
   entity_actions: dict[str, str]
   entity_logs: dict[str, dict[str, Any]]
+  game_master: str = ''
 
 
 class StepController:
