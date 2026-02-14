@@ -173,15 +173,15 @@ class FormativeMemoriesInitializer(
         ):
           for shared_memory in self._shared_memories:
             make_observation.add_to_queue(player_name, shared_memory)
-          episodes = self.generate_backstory_episodes(player_name)
-          for episode in episodes:
-            make_observation.add_to_queue(player_name, episode)
-            memory.add(f'{player_name} remembers: "{episode}"')
           for player_memory in self._player_specific_memories.get(
               player_name, []
           ):
             make_observation.add_to_queue(player_name, player_memory)
             memory.add(f'{player_name} remembers: "{player_memory}"')
+          episodes = self.generate_backstory_episodes(player_name)
+          for episode in reversed(episodes):
+            make_observation.add_to_queue(player_name, episode)
+            memory.add(f'{player_name} remembers: "{episode}"')
 
         tasks = {
             player_name: functools.partial(
