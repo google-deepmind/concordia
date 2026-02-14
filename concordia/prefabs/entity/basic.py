@@ -23,6 +23,11 @@ from concordia.components import agent as agent_components
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
 
+_DEFAULT_OBSERVATION_HISTORY_LENGTH = 1_000_000
+_DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH = 25
+_DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH = 1_000_000
+_DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH = 5
+
 
 @dataclasses.dataclass
 class Entity(prefab_lib.Prefab):
@@ -38,6 +43,17 @@ class Entity(prefab_lib.Prefab):
           'goal': '',
           'randomize_choices': True,
           'prefix_entity_name': True,
+          'observation_history_length':
+              _DEFAULT_OBSERVATION_HISTORY_LENGTH,
+          'situation_perception_history_length': (
+              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
+          ),
+          'self_perception_history_length': (
+              _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH
+          ),
+          'person_by_situation_history_length': (
+              _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH
+          ),
       }
   )
 
@@ -59,6 +75,22 @@ class Entity(prefab_lib.Prefab):
     entity_goal = self.params.get('goal', '')
     randomize_choices = self.params.get('randomize_choices', True)
     prefix_entity_name = self.params.get('prefix_entity_name', True)
+    observation_history_length = self.params.get(
+        'observation_history_length',
+        _DEFAULT_OBSERVATION_HISTORY_LENGTH
+    )
+    situation_perception_history_length = self.params.get(
+        'situation_perception_history_length',
+        _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH,
+    )
+    self_perception_history_length = self.params.get(
+        'self_perception_history_length',
+        _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH,
+    )
+    person_by_situation_history_length = self.params.get(
+        'person_by_situation_history_length',
+        _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH,
+    )
 
     memory_key = agent_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
     memory = agent_components.memory.AssociativeMemory(memory_bank=memory_bank)
@@ -75,7 +107,7 @@ class Entity(prefab_lib.Prefab):
     observation_key = (
         agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY)
     observation = agent_components.observation.LastNObservations(
-        history_length=100,
+        history_length=observation_history_length,
         pre_act_label=(
             '\nEvents so far (ordered from least recent to most recent)'
         ),
@@ -85,6 +117,7 @@ class Entity(prefab_lib.Prefab):
     situation_perception = (
         agent_components.question_of_recent_memories.SituationPerception(
             model=model,
+            num_memories_to_retrieve=situation_perception_history_length,
             pre_act_label=(
                 f'\nQuestion: What situation is {entity_name} in right now?'
                 '\nAnswer'
@@ -95,6 +128,10 @@ class Entity(prefab_lib.Prefab):
     self_perception = (
         agent_components.question_of_recent_memories.SelfPerception(
             model=model,
+            num_memories_to_retrieve=self_perception_history_length,
+            components=[
+                situation_perception_key,
+            ],
             pre_act_label=(
                 f'\nQuestion: What kind of person is {entity_name}?\nAnswer'
             ),
@@ -102,28 +139,17 @@ class Entity(prefab_lib.Prefab):
     )
 
     person_by_situation_key = 'PersonBySituation'
-    person_by_situation = (
-        agent_components.question_of_recent_memories.PersonBySituation(
-            model=model,
-            components=[
-                self_perception_key,
-                situation_perception_key,
-            ],
-            pre_act_label=(
-                f'\nQuestion: What would a person like {entity_name} do in '
-                'a situation like this?\nAnswer'),
-        )
-    )
-    relevant_memories_key = 'RelevantMemories'
-    relevant_memories = (
-        agent_components.all_similar_memories.AllSimilarMemories(
-            model=model,
-            components=[
-                situation_perception_key,
-            ],
-            num_memories_to_retrieve=10,
-            pre_act_label='\nRecalled memories and observations',
-        )
+    person_by_situation = agent_components.question_of_recent_memories.PersonBySituation(
+        model=model,
+        num_memories_to_retrieve=person_by_situation_history_length,
+        components=[
+            self_perception_key,
+            situation_perception_key,
+        ],
+        pre_act_label=(
+            f'\nQuestion: What would a person like {entity_name} do in '
+            'a situation like this?\nAnswer'
+        ),
     )
 
     if entity_goal:
@@ -138,7 +164,6 @@ class Entity(prefab_lib.Prefab):
     components_of_agent = {
         instructions_key: instructions,
         observation_to_memory_key: observation_to_memory,
-        relevant_memories_key: relevant_memories,
         self_perception_key: self_perception,
         situation_perception_key: situation_perception,
         person_by_situation_key: person_by_situation,
