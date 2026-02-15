@@ -444,11 +444,80 @@ class Simulation(simulation_lib.Simulation):
           try:
             raw_state = comp.get_state()
             comp_info["state"] = self._make_json_serializable(raw_state)
-          except Exception:  # pylint: disable=broad-exception-caught
+          except (TypeError, ValueError, AttributeError):
             comp_info["state"] = {}
+        if hasattr(comp, "get_dynamic_state"):
+          try:
+            dynamic = comp.get_dynamic_state()
+            comp_info["dynamic_state"] = self._make_json_serializable(dynamic)
+          except (TypeError, ValueError, AttributeError):
+            comp_info["dynamic_state"] = {}
         info["context_components"][comp_name] = comp_info
 
     return info
+
+  def set_component_dynamic_state(
+      self,
+      entity_name: str,
+      component_name: str,
+      key: str,
+      value: Any,
+  ) -> None:
+    """Set a dynamic state variable on a component.
+
+    This validates that the key is declared as dynamic by the component's
+    get_dynamic_state method, then applies the change by patching the
+    full state via get_state/set_state.
+
+    Args:
+      entity_name: The name of the entity owning the component.
+      component_name: The name of the context component to modify.
+      key: The state key to modify (must be in get_dynamic_state()).
+      value: The new value for the key.
+
+    Raises:
+      KeyError: If the entity, component, or key is not found.
+      ValueError: If the key is not declared as dynamic.
+    """
+    target_entity = None
+    for e in self.entities:
+      if e.name == entity_name:
+        target_entity = e
+        break
+    if target_entity is None:
+      for gm in self.game_masters:
+        if gm.name == entity_name:
+          target_entity = gm
+          break
+    if target_entity is None:
+      raise KeyError(f"Entity '{entity_name}' not found.")
+
+    if not isinstance(target_entity, entity_component.EntityWithComponents):
+      raise TypeError(f"Entity '{entity_name}' does not support components.")
+
+    try:
+      component = target_entity.get_component(component_name)
+    except KeyError as exc:
+      raise KeyError(
+          f"Component '{component_name}' not found on entity '{entity_name}'."
+      ) from exc
+
+    dynamic_state = component.get_dynamic_state()
+    if key not in dynamic_state:
+      raise ValueError(
+          f"Key '{key}' is not a dynamic state variable of component "
+          f"'{component_name}'. Dynamic keys: {list(dynamic_state.keys())}"
+      )
+
+    current_state = dict(component.get_state())
+    current_state[key] = value
+    component.set_state(current_state)
+    logging.info(
+        "Updated dynamic state: entity=%s, component=%s, key=%s",
+        entity_name,
+        component_name,
+        key,
+    )
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
     """Saves the state of all entities at the current step."""

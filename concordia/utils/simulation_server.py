@@ -58,6 +58,7 @@ class SimulationServer:
     self._server_sent_events_lock = threading.Lock()
     self._current_step_data: dict[str, Any] = {}
     self._cached_entity_info: dict[str, Any] | None = None
+    self._simulation: Any = None
     self._server: socketserver.TCPServer | None = None
     self._server_thread: threading.Thread | None = None
     print(f'[SERVER INIT] SimulationServer initialized on port {port}')
@@ -97,6 +98,22 @@ class SimulationServer:
     """Update the HTML content to serve."""
     self._html_content = html_content
 
+  def set_simulation(self, simulation: Any) -> None:
+    """Set the simulation instance for dynamic state editing.
+
+    This must be called after the Simulation object is created so that
+    the server can forward edit requests to it.
+
+    Args:
+      simulation: The Simulation instance.
+    """
+    self._simulation = simulation
+
+  @property
+  def simulation(self) -> Any:
+    """Get the simulation instance."""
+    return self._simulation
+
   def broadcast_step(self, step_data: step_controller_lib.StepData) -> None:
     """Broadcast step data to all connected Server-Sent Events clients.
 
@@ -109,6 +126,7 @@ class SimulationServer:
         'action': step_data.action,
         'entity_actions': step_data.entity_actions,
         'entity_logs': step_data.entity_logs,
+        'game_master': step_data.game_master,
     }
     message = f'data: {json.dumps(self._current_step_data)}\n\n'
     with self._server_sent_events_lock:
@@ -225,6 +243,8 @@ class SimulationServer:
           print('[SERVER] stop() completed, sending response...')
           self._send_json({'status': 'stopped'})
           print('[SERVER] Response sent for /stop')
+        elif self.path == '/cmd/set_component_state':
+          self._handle_set_component_state()
         else:
           print(f'[SERVER] Unknown path: {self.path}')
           self.send_error(404)
@@ -286,6 +306,55 @@ class SimulationServer:
           with server.server_sent_events_lock:
             if server_sent_events_queue in server.server_sent_events_queues:
               server.server_sent_events_queues.remove(server_sent_events_queue)
+
+      def _handle_set_component_state(self) -> None:
+        """Handle POST /cmd/set_component_state for dynamic editing."""
+        if not server.step_controller.is_paused:
+          self._send_json({
+              'status': 'error',
+              'message': 'Simulation must be paused to edit state.',
+          })
+          return
+
+        if server.simulation is None:
+          self._send_json({
+              'status': 'error',
+              'message': 'No simulation instance available.',
+          })
+          return
+
+        try:
+          content_length = int(self.headers.get('Content-Length', 0))
+          body = self.rfile.read(content_length)
+          data = json.loads(body.decode('utf-8'))
+
+          entity_name = data['entity_name']
+          component_name = data['component_name']
+          key = data['key']
+          value = data['value']
+
+          server.simulation.set_component_dynamic_state(
+              entity_name=entity_name,
+              component_name=component_name,
+              key=key,
+              value=value,
+          )
+
+          # Broadcast updated entity info so inspector refreshes
+          checkpoint_data = server.simulation.make_checkpoint_data()
+          server.broadcast_entity_info(checkpoint_data)
+
+          print(
+              f'[SERVER] Updated dynamic state: {entity_name}.'
+              f'{component_name}.{key}'
+          )
+          self._send_json({
+              'status': 'ok',
+              'message': f'Updated {entity_name}.{component_name}.{key}',
+          })
+        except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
+          print(f'[SERVER] Error setting component state: {e}')
+          self._send_json({'status': 'error', 'message': str(e)})
 
       def _send_json(self, data: dict[str, Any]) -> None:
         """Send JSON response."""

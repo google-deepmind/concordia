@@ -60,3 +60,7 @@ class Constant(
     """Sets the state of the component."""
     if 'state' in state:
       self._state = state['state']
+
+  def get_dynamic_state(self) -> entity_component.ComponentState:
+    """Returns the dynamic state variables that can be edited at runtime."""
+    return {'state': self._state}
