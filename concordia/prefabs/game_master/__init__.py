@@ -14,6 +14,7 @@
 
 """Game Master prefabs."""
 
+from concordia.prefabs.game_master import async_social_media
 from concordia.prefabs.game_master import dialogic
 from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import formative_memories_initializer

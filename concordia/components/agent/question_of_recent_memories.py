@@ -123,10 +123,6 @@ class QuestionOfRecentMemories(
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
-    mems = '\n'.join([
-        mem
-        for mem in memory.retrieve_recent(limit=self._num_memories_to_retrieve)
-    ])
 
     prompt = interactive_document.InteractiveDocument(self._model)
 
@@ -135,7 +131,14 @@ class QuestionOfRecentMemories(
     )
     prompt.statement(component_states)
 
-    prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
+    if self._num_memories_to_retrieve > 0:
+      mems = '\n'.join([
+          mem
+          for mem in memory.retrieve_recent(
+              limit=self._num_memories_to_retrieve
+          )
+      ])
+      prompt.statement(f'Recent observations of {agent_name}:\n{mems}')
 
     if self._clock_now is not None:
       prompt.statement(f'Current time: {self._clock_now()}.\n')
