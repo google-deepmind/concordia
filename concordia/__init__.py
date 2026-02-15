@@ -13,3 +13,22 @@
 # limitations under the License.
 
 
+from .environment import Environment
+from .agent import Agent
+from .simulator import Simulator
+
+# New component to integrate external weather simulation API
+class WeatherSimulator:
+    """Component to integrate an external weather simulation API."""
+
+    def __init__(self, api_key):
+        self.api_key = api_key
+        # Initialize the weather simulation API client here
+
+    def get_weather_data(self, location):
+        """Fetches weather data for a given location."""
+        # Implement logic to call the external weather API and fetch data
+        pass
+
+# Add WeatherSimulator to the list of available components in Concordia
+__all__ = ['Environment', 'Agent', 'Simulator', 'WeatherSimulator']
