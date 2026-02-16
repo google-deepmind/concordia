@@ -25,7 +25,8 @@ from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 from concordia.utils import text
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 
 MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
@@ -80,24 +81,24 @@ DEFAULT_HISTORY = [
 ]
 
 
-DEFAULT_SAFETY_SETTINGS = (
-    {
-        'category': 'HARM_CATEGORY_HARASSMENT',
-        'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-    },
-    {
-        'category': 'HARM_CATEGORY_HATE_SPEECH',
-        'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-    },
-    {
-        'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-    },
-    {
-        'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-    },
-)
+DEFAULT_SAFETY_SETTINGS = [
+    types.SafetySetting(
+        category='HARM_CATEGORY_HARASSMENT',
+        threshold='BLOCK_MEDIUM_AND_ABOVE',
+    ),
+    types.SafetySetting(
+        category='HARM_CATEGORY_HATE_SPEECH',
+        threshold='BLOCK_MEDIUM_AND_ABOVE',
+    ),
+    types.SafetySetting(
+        category='HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold='BLOCK_MEDIUM_AND_ABOVE',
+    ),
+    types.SafetySetting(
+        category='HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold='BLOCK_MEDIUM_AND_ABOVE',
+    ),
+]
 
 
 class GoogleAIStudioLanguageModel(language_model.LanguageModel):
@@ -139,11 +140,7 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
     self._safety_settings = safety_settings
     self._sleep_periodically = sleep_periodically
 
-    genai.configure(api_key=self._api_key)
-    self._model = genai.GenerativeModel(
-        model_name=self._model_name,
-        safety_settings=safety_settings,
-    )
+    self._client = genai.Client(api_key=self._api_key)
 
     self._measurements = measurements
     self._channel = channel
@@ -175,24 +172,34 @@ class GoogleAIStudioLanguageModel(language_model.LanguageModel):
       logging.info('Sleeping for 10 seconds...')
       time.sleep(10)
 
-    chat = self._model.start_chat(history=copy.deepcopy(DEFAULT_HISTORY))
-    sample = chat.send_message(
-        content=prompt,
-        generation_config={
-            'temperature': temperature,
-            'max_output_tokens': max_tokens,
-            'stop_sequences': terminators,
-            'candidate_count': 1,
-            'top_p': top_p,
-            'top_k': top_k,
-            'response_mime_type': 'text/plain',
-        },
-        safety_settings=self._safety_settings,
-        stream=False,
+    # Convert DEFAULT_HISTORY to the new format
+    history_contents = []
+    for msg in DEFAULT_HISTORY:
+      history_contents.append(
+          types.Content(
+              role=msg['role'],
+              parts=[types.Part(text=part) for part in msg['parts']],
+          )
+      )
+
+    chat = self._client.chats.create(
+        model=self._model_name,
+        config=types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+            stop_sequences=terminators,
+            candidate_count=1,
+            top_p=top_p,
+            top_k=top_k,
+            response_mime_type='text/plain',
+            safety_settings=self._safety_settings,
+        ),
+        history=history_contents,
     )
+    sample = chat.send_message(prompt)
     try:
-      response = sample.candidates[0].content.parts[0].text
-    except ValueError as e:
+      response = sample.text
+    except (ValueError, AttributeError) as e:
       logging.error('An error occurred: %s', e)
       logging.debug('prompt: %s', prompt)
       logging.debug('sample: %s', sample)

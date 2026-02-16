@@ -23,56 +23,49 @@ from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 from concordia.utils import text
-from vertexai.preview.generative_models import Content
-from vertexai.preview.generative_models import GenerativeModel
-from vertexai.preview.generative_models import HarmBlockThreshold
-from vertexai.preview.generative_models import HarmCategory
-from vertexai.preview.generative_models import Part
+from google import genai
+from google.genai import types
 
 
 MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
-DEFAULT_HISTORY = (
-    Content(
+DEFAULT_HISTORY = [
+    types.Content(
         role='user',
         parts=[
-            Part.from_dict(
-                {'text': 'Continue my sentences. Never repeat their starts.'}
-            )
+            types.Part(text='Continue my sentences. Never repeat their starts.')
         ],
     ),
-    Content(
+    types.Content(
         role='model',
         parts=[
-            Part.from_dict({
-                'text': (
+            types.Part(
+                text=(
                     'I always continue user-provided text and never repeat '
                     + 'what the user already said.'
                 )
-            })
-        ],
-    ),
-    Content(
-        role='user',
-        parts=[
-            Part.from_dict(
-                {'text': 'Question: Is Jake a turtle?\nAnswer: Jake is '}
             )
         ],
     ),
-    Content(role='model', parts=[Part.from_dict({'text': 'not a turtle.'})]),
-    Content(
+    types.Content(
         role='user',
         parts=[
-            Part.from_dict({
-                'text': (
+            types.Part(text='Question: Is Jake a turtle?\nAnswer: Jake is ')
+        ],
+    ),
+    types.Content(role='model', parts=[types.Part(text='not a turtle.')]),
+    types.Content(
+        role='user',
+        parts=[
+            types.Part(
+                text=(
                     'Question: What is Priya doing right now?\nAnswer: '
                     + 'Priya is currently '
                 )
-            })
+            )
         ],
     ),
-    Content(role='model', parts=[Part.from_dict({'text': 'sleeping.'})]),
-)
+    types.Content(role='model', parts=[types.Part(text='sleeping.')]),
+]
 
 
 class VertexLanguageModel(language_model.LanguageModel):
@@ -82,7 +75,9 @@ class VertexLanguageModel(language_model.LanguageModel):
       self,
       model_name: str = 'gemini-2.5-pro',
       *,
-      harm_block_threshold: HarmBlockThreshold = HarmBlockThreshold.BLOCK_NONE,
+      harm_block_threshold: str = 'BLOCK_NONE',
+      project: str | None = None,
+      location: str = 'us-central1',
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
       sleep_periodically: bool = False,
@@ -93,21 +88,41 @@ class VertexLanguageModel(language_model.LanguageModel):
       model_name: which language model to use
       For a list of available Vertex AI models, see:
         https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models
-      harm_block_threshold: Safety threshold. Choose from {BLOCK_ONLY_HIGH,
-        BLOCK_MEDIUM_AND_ABOVE, BLOCK_LOW_AND_ABOVE, BLOCK_NONE}
+      harm_block_threshold: Safety threshold. Choose from {'BLOCK_ONLY_HIGH',
+        'BLOCK_MEDIUM_AND_ABOVE', 'BLOCK_LOW_AND_ABOVE', 'BLOCK_NONE'}
+      project: Google Cloud project ID. If None, uses GOOGLE_CLOUD_PROJECT
+        environment variable or default credentials.
+      location: Google Cloud location for Vertex AI (default: 'us-central1')
       measurements: The measurements object to log usage statistics to
       channel: The channel to write the statistics to
       sleep_periodically: Whether to sleep between API calls to avoid rate limit
     """
-    self._model = GenerativeModel(model_name)
+    self._model_name = model_name
+    self._client = genai.Client(
+        vertexai=True,
+        project=project,
+        location=location,
+    )
     self._measurements = measurements
     self._channel = channel
-    self._safety_settings = {
-        HarmCategory.HARM_CATEGORY_HARASSMENT: harm_block_threshold,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: harm_block_threshold,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: harm_block_threshold,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: harm_block_threshold,
-    }
+    self._safety_settings = [
+        types.SafetySetting(
+            category='HARM_CATEGORY_HARASSMENT',
+            threshold=harm_block_threshold,
+        ),
+        types.SafetySetting(
+            category='HARM_CATEGORY_HATE_SPEECH',
+            threshold=harm_block_threshold,
+        ),
+        types.SafetySetting(
+            category='HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold=harm_block_threshold,
+        ),
+        types.SafetySetting(
+            category='HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold=harm_block_threshold,
+        ),
+    ]
     self._sleep_periodically = sleep_periodically
     self._calls_between_sleeping = 10
     self._n_calls = 0
@@ -135,23 +150,23 @@ class VertexLanguageModel(language_model.LanguageModel):
       logging.info('Sleeping for 10 seconds...')
       time.sleep(10)
 
-    chat = self._model.start_chat(history=copy.deepcopy(DEFAULT_HISTORY))
-    sample = chat.send_message(
-        content=prompt,
-        generation_config={
-            'temperature': temperature,
-            'topP': top_p,
-            'topK': top_k,
-            'max_output_tokens': max_tokens,
-            'stop_sequences': terminators,
-            'candidate_count': 1,
-        },
-        safety_settings=self._safety_settings,
-        stream=False,
+    chat = self._client.chats.create(
+        model=self._model_name,
+        config=types.GenerateContentConfig(
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_output_tokens=max_tokens,
+            stop_sequences=terminators,
+            candidate_count=1,
+            safety_settings=self._safety_settings,
+        ),
+        history=copy.deepcopy(DEFAULT_HISTORY),
     )
+    sample = chat.send_message(prompt)
     try:
-      response = sample.candidates[0].content.parts[0].text
-    except ValueError as e:
+      response = sample.text
+    except (ValueError, AttributeError) as e:
       logging.error('An error occurred: %s', e)
       logging.debug('prompt: %s', prompt)
       logging.debug('sample: %s', sample)
