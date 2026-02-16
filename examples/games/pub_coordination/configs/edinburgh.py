@@ -24,11 +24,33 @@ LOCATION = "Edinburgh"
 EVENT = "The Rugby World Cup"
 
 NUM_VENUES = 2
-NUM_MAIN_PLAYERS = 4
-NUM_SUPPORTING_PLAYERS = 1
-NUM_GAMES = 3
-GAME_COUNTRIES = ["Scotland", "Ireland", "Italy", "France", "England"]
-NUM_PEOPLE = 5
+NUM_MAIN_PLAYERS = 5
+NUM_SUPPORTING_PLAYERS = 0
+NUM_GAMES = 4
+GAME_COUNTRIES = [
+    "South Africa",
+    "New Zealand",
+    "France",
+    "Ireland",
+    "England",
+    "Australia",
+    "Argentina",
+    "Wales",
+    "Scotland",
+    "Fiji",
+    "Japan",
+    "Italy",
+    "Samoa",
+    "Georgia",
+    "Tonga",
+    "Romania",
+    "Namibia",
+    "Uruguay",
+    "Chile",
+    "Portugal",
+]
+
+PUB_CLOSED_PROBABILITY = 1.0
 
 VENUE_PREFERENCES = {
     "Sandy Bell's": [
@@ -60,6 +82,30 @@ VENUE_PREFERENCES = {
         "Popular with students and locals alike",
         "Affordable prices and a lively atmosphere",
         "Perfect for a casual night out with friends",
+    ],
+    "The Bow Bar": [
+        "Wide selection of whiskies and real ales",
+        "Knowledgeable staff who can recommend a dram",
+        "Traditional pub with a relaxed atmosphere",
+        "Great for a whisky tasting or a quiet pint",
+    ],
+    "The Blue Moon": [
+        "Historic pub with a literary connection",
+        "Cozy and intimate setting with a fireplace",
+        "Wide selection of Scottish gins and cocktails",
+        "Perfect for a romantic date or a special occasion",
+    ],
+    "The Ensign Ewart": [
+        "Traditional pub with a military history",
+        "Located near Edinburgh Castle",
+        "Popular with tourists and locals alike",
+        "Great for a pint and a bite to eat after sightseeing",
+    ],
+    "The Hanging Bat": [
+        "Craft beer bar with a wide selection of international beers",
+        "Lively atmosphere with regular events and live music",
+        "Great for a night out with friends",
+        "Popular with beer enthusiasts",
     ],
 }
 
@@ -102,6 +148,16 @@ SOCIAL_CONTEXTS = [
     (
         "The aroma of coffee fills the air in Stockbridge. Friends stroll along"
         " the charming streets, browsing the independent shops and cafes."
+        " {name} just arrived."
+    ),
+    (
+        "The sound of laughter echoes through the Grassmarket as friends"
+        " explore the lively market stalls. They haggle for souvenirs and"
+        " sample local delicacies. {name} just arrived."
+    ),
+    (
+        "The sun sets over the Firth of Forth, casting a golden glow on the"
+        " water. Friends walk along Portobello Beach, enjoying the fresh air."
         " {name} just arrived."
     ),
 ]
