@@ -61,7 +61,7 @@ def main() -> None:
 
   args = parser.parse_args()
 
-  model = language_model_setup.language_model_setup(
+  model = language_model_setup(
       api_type=args.api_type,
       model_name=args.model_name,
       api_key=args.api_key,

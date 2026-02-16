@@ -69,7 +69,7 @@ def main() -> None:
     ) from e
 
   # Set up the language model
-  model = language_model_setup.language_model_setup(
+  model = language_model_setup(
       api_type=args.api_type,
       model_name=args.model_name,
       api_key=args.api_key,
