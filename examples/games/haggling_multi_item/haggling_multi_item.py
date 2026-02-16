@@ -17,7 +17,7 @@
 import argparse
 import importlib
 
-from concordia.contrib import language_models as language_model_setup
+from concordia.contrib import language_models as language_model_utils
 from examples.games.haggling_multi_item import simulation
 import sentence_transformers
 
@@ -69,7 +69,7 @@ def main() -> None:
     ) from e
 
   # Set up the language model
-  model = language_model_setup(
+  model = language_model_utils.language_model_setup(
       api_type=args.api_type,
       model_name=args.model_name,
       api_key=args.api_key,

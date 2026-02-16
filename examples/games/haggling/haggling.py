@@ -67,7 +67,7 @@ def main() -> None:
   except ImportError as e:
     raise ValueError(f"Could not load config '{scenario_name}': {e}") from e
 
-  model = language_model_utils(
+  model = language_model_utils.language_model_setup(
       api_type=args.api_type,
       model_name=args.model_name,
       api_key=args.api_key,
