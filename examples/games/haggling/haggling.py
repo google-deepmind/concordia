@@ -17,7 +17,7 @@
 import argparse
 import importlib
 
-from concordia.contrib.language_models import language_model_setup as language_model_utils
+from concordia.contrib import language_models as language_model_utils
 from examples.games.haggling import simulation
 import sentence_transformers
 
