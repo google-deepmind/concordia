@@ -187,7 +187,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       except Exception:
         # Ensure correct error handling in the case of multiple threads
         # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        self._set_phase(entity_component.Phase.READY)
         raise
 
   @override
@@ -209,7 +209,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       except Exception:
         # Ensure correct error handling in the case of multiple threads
         # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        self._set_phase(entity_component.Phase.READY)
         raise
 
   def set_state(
