@@ -32,7 +32,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       self,
       model: language_model.LanguageModel,
       observation_component_key: str,
-      components: Sequence[str] = (),
+      components: Sequence[tuple[str, str]] = (),
       declare_entity_as_protagonist: bool = True,
       clock_now: Callable[[], datetime.datetime] | None = None,
       pre_act_label: str = 'The current situation',
@@ -44,7 +44,8 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       model: The language model to use.
       observation_component_key: The name of the component that contains the
         latest observations.
-      components: Keys of components to condition the pre_act value on.
+      components: Sequence of (`component_key`, `label_prefix`) pairs to
+        condition the pre_act value on.
       declare_entity_as_protagonist: Whether to declare the entity to be the
         protagonist in the prompt.
       clock_now: Optional function that returns the current time.

@@ -1,6 +1,8 @@
 """Tests for situation_representation_via_narrative module."""
 
 import datetime
+from collections.abc import Mapping
+from typing import Any
 from unittest import mock
 
 from absl.testing import absltest
@@ -36,7 +38,10 @@ class SituationRepresentationTest(absltest.TestCase):
     context_component = mock.MagicMock()
     context_component.get_pre_act_value.return_value = 'Weather: rainy.'
 
-    logging_channel = mock.MagicMock()
+    logged_payloads = []
+
+    def logging_channel(payload: Mapping[str, Any]) -> None:
+      logged_payloads.append(payload)
 
     component = (
         situation_representation_via_narrative.SituationRepresentation(
@@ -73,8 +78,8 @@ class SituationRepresentationTest(absltest.TestCase):
     self.assertEqual(result, 'Updated situation summary.')
     self.assertEqual(observation_component.get_pre_act_value.call_count, 2)
     context_component.get_pre_act_value.assert_called()
-    logging_channel.assert_called_once()
-    logged_payload = logging_channel.call_args[0][0]
+    self.assertLen(logged_payloads, 1)
+    logged_payload = logged_payloads[0]
     self.assertEqual(logged_payload['Value'], 'Updated situation summary.')
     self.assertIn('***', logged_payload['Chain of thought'])
 
