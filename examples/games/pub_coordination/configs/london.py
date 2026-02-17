@@ -28,7 +28,63 @@ NUM_MAIN_PLAYERS = 4
 NUM_BACKGROUND_PLAYERS = 2
 NUM_SUPPORTING_PLAYERS = 1
 NUM_GAMES = 3
-GAME_COUNTRIES = ["England", "France", "Germany", "Italy", "Spain"]
+GAME_COUNTRIES = [
+    "Albania",
+    "Andorra",
+    "Armenia",
+    "Austria",
+    "Azerbaijan",
+    "Belarus",
+    "Belgium",
+    "Bosnia and Herzegovina",
+    "Bulgaria",
+    "Croatia",
+    "Cyprus",
+    "Czech Republic",
+    "Denmark",
+    "England",
+    "Estonia",
+    "Faroe Islands",
+    "Finland",
+    "France",
+    "Georgia",
+    "Germany",
+    "Gibraltar",
+    "Greece",
+    "Hungary",
+    "Iceland",
+    "Ireland",
+    "Israel",
+    "Italy",
+    "Kazakhstan",
+    "Kosovo",
+    "Latvia",
+    "Liechtenstein",
+    "Lithuania",
+    "Luxembourg",
+    "Malta",
+    "Moldova",
+    "Monaco",
+    "Montenegro",
+    "Netherlands",
+    "North Macedonia",
+    "Norway",
+    "Poland",
+    "Portugal",
+    "Romania",
+    "Russia",
+    "San Marino",
+    "Scotland",
+    "Serbia",
+    "Slovakia",
+    "Slovenia",
+    "Spain",
+    "Sweden",
+    "Switzerland",
+    "Turkey",
+    "Ukraine",
+    "Wales",
+]
 
 FOCAL_PLAYER_PREFAB = "basic__Entity"
 BACKGROUND_PLAYER_PREFAB = "rational__Entity"
@@ -84,6 +140,62 @@ VENUE_PREFERENCES = {
             " families feel comfortable."
         ),
     ],
+    "The Duke of York": [
+        "A dog-friendly pub with a spacious beer garden.",
+        "Welcomes dogs of all sizes and provides water bowls and treats.",
+        (
+            "Serves a selection of craft beers and ales, as well as"
+            " dog-friendly snacks."
+        ),
+        (
+            "The atmosphere is laid-back and friendly, making it a popular spot"
+            " for dog owners."
+        ),
+        (
+            "The staff are dog lovers themselves and always happy to see furry"
+            " friends."
+        ),
+    ],
+    "The Red Lion": [
+        "A cozy and intimate pub with a focus on conversation.",
+        "No loud music or TVs, creating a peaceful environment.",
+        "Serves a carefully curated selection of wines and spirits.",
+        "Has comfortable seating and a warm, inviting atmosphere.",
+        (
+            "The staff are attentive and knowledgeable, happy to engage in"
+            " conversation."
+        ),
+    ],
+    "The White Hart": [
+        "A vibrant and trendy pub with a focus on cocktails.",
+        "Serves a creative and extensive cocktail menu.",
+        "Hosts regular cocktail masterclasses and tasting events.",
+        "The atmosphere is sophisticated and stylish, perfect for a night out.",
+        "The staff are skilled mixologists and passionate about their craft.",
+    ],
+    "The Black Swan": [
+        "A historic pub with a focus on live music.",
+        "Hosts a variety of musical performances throughout the week.",
+        "Serves a selection of craft beers and ales, as well as cocktails.",
+        (
+            "The atmosphere is intimate and welcoming, perfect for enjoying"
+            " live music."
+        ),
+        (
+            "The staff are passionate about music and create a supportive"
+            " environment for artists."
+        ),
+    ],
+    "The Golden Fleece": [
+        "A quirky and eclectic pub with a focus on board games.",
+        "Has a vast collection of board games available to play.",
+        "Hosts regular game nights and tournaments.",
+        "Serves a selection of craft beers, ciders, and snacks.",
+        (
+            "The atmosphere is fun and social, perfect for meeting new people"
+            " and enjoying games."
+        ),
+    ],
 }
 
 FEMALE_NAMES = [
@@ -97,6 +209,16 @@ FEMALE_NAMES = [
     "Jessica Davies",
     "Poppy Evans",
     "Lily Walker",
+    "Sophie Martin",
+    "Grace Thompson",
+    "Ruby White",
+    "Ella Roberts",
+    "Evie Green",
+    "Florence Hall",
+    "Millie Wood",
+    "Molly Clark",
+    "Alice Lewis",
+    "Phoebe Young",
 ]
 MALE_NAMES = [
     "Noah Smith",
@@ -109,6 +231,15 @@ MALE_NAMES = [
     "Harry Davies",
     "Ethan Evans",
     "Jacob Walker",
+    "Matthew Thompson",
+    "Alexander White",
+    "Benjamin Roberts",
+    "Henry Green",
+    "Daniel Hall",
+    "Michael Wood",
+    "Joshua Clark",
+    "Elijah Lewis",
+    "Jackson Young",
 ]
 
 SOCIAL_CONTEXTS = [
@@ -128,6 +259,16 @@ SOCIAL_CONTEXTS = [
         "Sunlight dances on the water as friends cycle along the towpath of"
         " Regent's Canal. They pause to admire the colorful houseboats and wave"
         " at fellow cyclists. {name} just arrived."
+    ),
+    (
+        "Vibrant murals and graffiti adorn the brick walls of Shoreditch."
+        " Friends wander through the streets, their eyes wide with wonder as"
+        " they discover hidden gems of urban art. {name} just arrived."
+    ),
+    (
+        "A checkered blanket is spread out on the lush green lawn of Victoria"
+        " Park. Friends lounge in the sunshine, sharing snacks and stories."
+        " {name} just arrived."
     ),
 ]
 

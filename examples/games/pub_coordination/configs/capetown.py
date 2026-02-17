@@ -23,16 +23,31 @@ DAY = 14
 LOCATION = "Cape Town"
 EVENT = "The Rugby World Cup"
 
-NUM_VENUES = 2
-NUM_MAIN_PLAYERS = 4
-NUM_SUPPORTING_PLAYERS = 1
+NUM_VENUES = 3
+NUM_MAIN_PLAYERS = 6
+NUM_SUPPORTING_PLAYERS = 0
 NUM_GAMES = 3
 GAME_COUNTRIES = [
     "South Africa",
     "New Zealand",
-    "Australia",
+    "France",
+    "Ireland",
     "England",
+    "Australia",
+    "Argentina",
     "Wales",
+    "Scotland",
+    "Fiji",
+    "Japan",
+    "Italy",
+    "Samoa",
+    "Georgia",
+    "Tonga",
+    "Romania",
+    "Namibia",
+    "Uruguay",
+    "Chile",
+    "Portugal",
 ]
 
 VENUE_PREFERENCES = {
@@ -66,6 +81,36 @@ VENUE_PREFERENCES = {
         "Affordable menu with options for all ages",
         "Cheerful and welcoming environment",
     ],
+    "The Cape Town Kick-Off": [
+        "Multiple screens showing different games simultaneously",
+        "Sports-themed decor creating a vibrant atmosphere",
+        "Extensive menu with international flavors",
+        "Great spot for catching any sporting event",
+    ],
+    "The Lion's Den": [
+        "Cozy and intimate setting with a fireplace",
+        "Perfect for watching games with a small group",
+        "Wide selection of whiskeys and single malts",
+        "Knowledgeable staff who can discuss the game in-depth",
+    ],
+    "The Stormers' Stronghold": [
+        "Dedicated to the local Super Rugby team",
+        "Blue and white decor to show your support",
+        "Special events and promotions on game days",
+        "Passionate fans creating an electric atmosphere",
+    ],
+    "The Bo-Kaap Brewhouse": [
+        "Unique location in the colorful Bo-Kaap neighborhood",
+        "Vibrant atmosphere with live music on weekends",
+        "Focus on craft beers and local brews",
+        "Delicious fusion cuisine with a Cape Malay influence",
+    ],
+    "The Kirstenbosch Kraal": [
+        "Tranquil setting near the beautiful Kirstenbosch Gardens",
+        "Outdoor seating surrounded by lush greenery",
+        "Laid-back vibe perfect for a relaxed viewing experience",
+        "Focus on sustainable and locally sourced food and drinks",
+    ],
 }
 
 FEMALE_NAMES = [
@@ -79,6 +124,16 @@ FEMALE_NAMES = [
     "Ayanda Zulu",
     "Nonhlanhla Xhosa",
     "Palesa Sotho",
+    "Lindiwe Tswana",
+    "Refilwe Pedi",
+    "Mpho Venda",
+    "Sibongile Swazi",
+    "Nthabiseng Ndebele",
+    "Bongiwe Shona",
+    "Zandile Afrikaans",
+    "Nosipho English",
+    "Unathi van der Merwe",
+    "Phindile Jansen",
 ]
 MALE_NAMES = [
     "Siyabonga Khumalo",
@@ -91,6 +146,16 @@ MALE_NAMES = [
     "Kagiso Khoza",
     "Lethabo Mabena",
     "Ofentse Mnguni",
+    "Sandile Cele",
+    "Bonga Sithole",
+    "Neo Maphosa",
+    "Lwazi Nkosi",
+    "Sizwe Dlamini",
+    "Bandile Khumalo",
+    "Andile Ngubane",
+    "Philani Mkhize",
+    "Thamsanqa Mthembu",
+    "Bongani Ndlovu",
 ]
 
 SOCIAL_CONTEXTS = [
@@ -107,6 +172,16 @@ SOCIAL_CONTEXTS = [
     (
         "A cool breeze rustles through the leaves as friends hike up Table"
         " Mountain. The city sprawls out below. {name} just arrived."
+    ),
+    (
+        "The rhythmic beat of African drums echoes through the Bo-Kaap"
+        " neighborhood. Friends wander the cobblestone streets, admiring the"
+        " brightly colored houses. {name} just arrived."
+    ),
+    (
+        "The vibrant energy of Long Street pulses through the air. Friends"
+        " weave their way through the crowd, drawn to the lively bars and"
+        " restaurants. {name} just arrived."
     ),
 ]
 

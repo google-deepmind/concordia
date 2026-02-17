@@ -52,6 +52,16 @@ FEMALE_NAMES = [
     "Linnea Beetleblossom",
     "Maeve Parsnipvale",
     "Thora Gourdvine",
+    "Calla Leekmeadow",
+    "Esme Artichokehill",
+    "Freya Turniptop",
+    "Iris Cucumberford",
+    "Lyra Onionbrook",
+    "Nova Radishglen",
+    "Opal Cabbageheart",
+    "Saffron Sproutshade",
+    "Verity Celerywood",
+    "Wren Garlicgrove",
 ]
 
 MALE_NAMES = [
@@ -65,6 +75,16 @@ MALE_NAMES = [
     "Gareth Parsnipfield",
     "Torin Gourdwhisper",
     "Callum Leekstone",
+    "Dorian Artichokevale",
+    "Evander Turnipseed",
+    "Griffin Cucumberpatch",
+    "Lysander Onionglen",
+    "Nolan Radishbrook",
+    "Oren Cabbagevine",
+    "Quentin Sproutmeadow",
+    "Tobias Celeryhill",
+    "Viggo Garlicstream",
+    "Wyatt Willowshade",
 ]
 
 SCENARIO_PREMISE = (

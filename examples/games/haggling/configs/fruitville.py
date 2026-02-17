@@ -50,6 +50,16 @@ FEMALE_NAMES = [
     "Hazel Nutgrove",
     "Ivy Pearblossom",
     "Juniper Quincewood",
+    "Kira Citronbloom",
+    "Lila Figleaf",
+    "Maeve Mulberry",
+    "Nova Peachwood",
+    "Opal Apricot",
+    "Sasha Grapevine",
+    "Quinn Cherryblossom",
+    "Rowan Cranberry",
+    "Sage Honeycomb",
+    "Willow Blackberry",
 ]
 
 MALE_NAMES = [
@@ -63,6 +73,16 @@ MALE_NAMES = [
     "Hunter Nutwood",
     "Ivor Pearbrook",
     "Jasper Quincehill",
+    "Kieran Citronbrook",
+    "Lennon Figtree",
+    "Magnus Mulberrylane",
+    "Nolan Peachgrove",
+    "Orion Apricotwood",
+    "Peregrine Grapehill",
+    "Quentin Cherrybrook",
+    "Rowan Cranberryfield",
+    "Silas Honeybrook",
+    "Tristan Blackberrylane",
 ]
 
 SCENARIO_PREMISE = (

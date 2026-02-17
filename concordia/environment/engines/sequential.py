@@ -133,6 +133,14 @@ class Sequential(engine_lib.Engine):
       assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
       log_entry['next_action_spec'] = game_master.get_last_log()
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
+
+    # Validate entity name from LLM to prevent KeyError
+    if next_object_name not in entities_by_name:
+      raise ValueError(
+          f'Game master returned invalid entity name "{next_object_name}". '
+          f'Valid options: {list(entities_by_name.keys())}'
+      )
+
     return (entities_by_name[next_object_name], next_action_spec)
 
   def resolve(self,
