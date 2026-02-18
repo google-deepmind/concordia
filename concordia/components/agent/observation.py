@@ -97,6 +97,11 @@ class LastNObservations(
     """
     super().__init__(pre_act_label)
     self._memory_component_key = memory_component_key
+    if not isinstance(history_length, int):
+      raise TypeError(
+          f'history_length must be an int, got {type(history_length).__name__}'
+          f' ({history_length}). Use e.g. 1_000_000 instead of 1e6.'
+      )
     self._history_length = history_length
 
   def _make_pre_act_value(self) -> str:

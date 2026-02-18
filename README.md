@@ -15,41 +15,39 @@
 
 ## About
 
-Concordia is a library to facilitate construction and use of generative
-agent-based models to simulate interactions of agents in grounded physical,
-social, or digital space. It makes it easy and flexible to define environments
-using an interaction pattern borrowed from tabletop role-playing games in which
-a special agent called the Game Master (GM) is responsible for simulating the
-environment where player agents interact (like a narrator in an interactive
-story). Agents take actions by describing what they want to do in natural
-language. The GM then translates their actions into appropriate implementations.
-In a simulated physical world, the GM would check the physical plausibility of
-agent actions and describe their effects. In digital environments that simulate
-technologies such as apps and services, the GM may, based on agent input, handle
-necessary API calls to integrate with external tools.
+Concordia is a library for constructing and running generative agent-based
+models that simulate interactions among entities in grounded physical, social,
+or digital environments. It uses an interaction pattern inspired by tabletop
+role-playing games: a special entity called the **Game Master** (GM) simulates
+the environment in which player entities interact. Entities describe their
+intended actions in natural language, and the GM translates these into
+appropriate outcomes e.g. checking physical plausibility in simulated worlds.
 
-Concordia supports a wide array of applications, ranging from social science
-research and AI ethics to cognitive neuroscience and economics; Additionally,
-it also can be leveraged for generating data for personalization applications
-and for conducting performance evaluations of real services through simulated
-usage.
+Concordia supports a broad range of applications, including social science
+research, AI safety and ethics, cognitive neuroscience, economics, synthetic
+data generation for personalization, and performance evaluation of real services
+through simulated usage.
 
-Concordia requires access to a standard LLM API, and optionally may also
-integrate with real applications and services.
+Concordia requires access to a standard LLM API and may optionally integrate
+with external applications and services.
 
 ## How it Works
 
-Concordia operates like a **Game Engine** for generative agents.
+Concordia operates as a **game engine** for generative agents, built around
+three core concepts:
 
-*   **Entities**: The actors in the simulation. These can be player characters
+*   **Entities**: The actors in the simulation—either player characters
     (Agents) or system controllers (Game Masters).
-*   **Components**: The building blocks of an Entity. Just as a game object
-    might have a "coorindates" component, a Concordia agent has components for
-    **Memory**, **Observation**, **Planning**, and **Actuation**.
-*   **Engine**: The loop that drives the simulation. It asks agents for
-    actions and asks the Game Master to resolve them.
+*   **Components**: Modular building blocks of an Entity. Entity
+    behaviors e.g. logic, chains of thought, memory operations, etc are all
+    implemented within components. Concordia comes with a core library of
+    components and user-created components are also included in the main
+    library under the contrib directory. It's easy to create your own components
+    and add them to the library.
+*   **Engine**: The simulation loop. It solicits actions from entities and
+    delegates resolution to the Game Master.
 
-This modular architecture allows you to assemble complex behaviors from simple,
+This modular architecture enables complex behaviors to be assembled from simple,
 reusable parts.
 
 ## Folder Structure
@@ -61,8 +59,6 @@ reusable parts.
     sensory modules.
 *   **[`concordia/environment`](concordia/environment/README.md)**: The "engine"
     of the simulation, containing the Game Master and the turn-taking loop.
-*   **[`concordia/thought_chains`](concordia/thought_chains/README.md)**: Logic
-    for internal reasoning steps (e.g., Chain of Thought).
 *   **[`concordia/document`](concordia/document/README.md)**: Utilities for
     managing LLM prompts and context.
 *   **[`concordia/language_model`](concordia/language_model/README.md)**: LLM
@@ -90,13 +86,13 @@ After doing this you can then `import concordia` in your own code.
 
 ### Codespace
 
-The easiest way to work on the Concordia source code, is to use our
+The easiest way to work on the Concordia source code is to use our
 pre-configured development environment via a
-[Github CodeSpace](https://github.com/features/codespaces).
+[GitHub Codespace](https://github.com/features/codespaces).
 
-This provides a tested development workflow that allows for reproducible builds,
-and minimizes dependency management. We strongly advise preparing all Pull
-Requests for Concordia via this workflow.
+This provides a tested, reproducible development workflow that minimizes
+dependency management. We strongly recommend preparing all pull requests for
+Concordia via this workflow.
 
 ### Manual setup
 
@@ -145,12 +141,11 @@ For example, you can perform an editable installation as follows:
 
 ## Bring your own LLM
 
-Concordia requires a access to an LLM API. Any LLM API that supports sampling
-text should work. The quality of the results you get depends on which LLM you
-select. Some are better at role-playing than others. You must also provide a
-text embedder for the associative memory. Any fixed-dimensional embedding works
-for this. Ideally it would be one that works well for sentence similarity or
-semantic search.
+Concordia requires access to an LLM API. Any LLM API that supports sampling
+text should work, though result quality depends on the capabilities of the
+chosen model. You must also provide a text embedder for associative memory. Any
+fixed-dimensional embedding works for this, ideally one suited to sentence
+similarity or semantic search.
 
 ## Example usage
 

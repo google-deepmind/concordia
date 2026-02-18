@@ -27,6 +27,7 @@ from concordia.typing import entity_component
 from concordia.typing import scene as scene_lib
 
 _SCENE_COUNTER_TAG = '[scene counter]'
+_SCENE_PREMISE_QUEUED_TAG = '[scene premise queued]'
 
 _SCENE_TYPE_TAG = '[scene type]'
 _SCENE_PARTICIPANTS_TAG = '[scene participants]'
@@ -158,14 +159,65 @@ class SceneTracker(
 
     return result
 
+  def _maybe_queue_scene_start_premises(self) -> None:
+    """Queue scene start premises if at step 0 and not already queued.
+
+    This method uses a memory marker to track which scenes have had their
+    premises queued. This ensures premises are queued exactly once per scene,
+    on the first action we see at step 0, regardless of action type.
+
+    This handles the case where an initializer GM runs first without a
+    SceneTracker, causing RESOLVE to run before TERMINATE. By checking on
+    any action type, we queue premises as soon as the main GM sees step 0.
+    """
+    step_within_scene, current_scene, global_step = (
+        self._get_scene_step_and_scene()
+    )
+
+    # Only queue premises at the start of a scene (step 0)
+    if step_within_scene != 0:
+      return
+
+    memory = self.get_entity().get_component(
+        self._memory_component_key, type_=memory_component_module.Memory
+    )
+
+    # Check if we've already queued premises for this scene
+    marker = f'{_SCENE_PREMISE_QUEUED_TAG}({global_step})'
+    existing_markers = memory.scan(lambda x: x == marker)
+    if existing_markers:
+      return
+
+    # Mark this scene as having its premises queued
+    memory.add(marker)
+
+    make_observation = self.get_entity().get_component(
+        self._observation_component_key,
+        type_=make_observation_component_module.MakeObservation,
+    )
+
+    memory.add(f'{_SCENE_TYPE_TAG} {current_scene.scene_type.name}')
+    memory.add(
+        f'{_SCENE_PARTICIPANTS_TAG} {", ".join(self.get_participants())}'
+    )
+
+    for participant in self.get_participants():
+      for observation in self._get_premise(
+          scene=current_scene, participant=participant
+      ):
+        make_observation.add_to_queue(participant, observation)
+        memory.add(f'{participant} observed the following: {observation}')
+
   def pre_act(
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
+    # Queue scene start premises on ANY action at step 0.
+    # This handles the case where an initializer GM runs first, causing
+    # RESOLVE to execute before TERMINATE on the main GM.
+    self._maybe_queue_scene_start_premises()
+
     if action_spec.output_type == entity_lib.OutputType.TERMINATE:
-      memory = self.get_entity().get_component(
-          self._memory_component_key, type_=memory_component_module.Memory
-      )
       step_within_scene, current_scene, _ = self._get_scene_step_and_scene()
 
       if self._verbose:
@@ -184,22 +236,6 @@ class SceneTracker(
             'Summary': 'Terminating the simulation.',
         })
         return _TERMINATE_SIGNAL
-
-      if step_within_scene == 0:
-        make_observation = self.get_entity().get_component(
-            self._observation_component_key,
-            type_=make_observation_component_module.MakeObservation,
-        )
-        memory.add(f'{_SCENE_TYPE_TAG} {current_scene.scene_type.name}')
-        memory.add(
-            f'{_SCENE_PARTICIPANTS_TAG} {", ".join(self.get_participants())}'
-        )
-        for participant in self.get_participants():
-          for observation in self._get_premise(
-              scene=current_scene,
-              participant=participant):
-            make_observation.add_to_queue(participant, observation)
-            memory.add(f'{participant} observed the following: {observation}')
 
     if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
       _, next_scene, _ = self._get_scene_step_and_scene()

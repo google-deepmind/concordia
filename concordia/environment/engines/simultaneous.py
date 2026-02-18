@@ -368,6 +368,7 @@ class Simultaneous(engine_lib.Engine):
               action='Skipping action phase',
               entity_actions={},
               entity_logs={},
+              game_master=game_master.name,
           )
           step_callback(step_data)
         continue
@@ -406,6 +407,7 @@ class Simultaneous(engine_lib.Engine):
             action=resolve_input,
             entity_actions=dict(actions),
             entity_logs=entity_logs,
+            game_master=game_master.name,
         )
         step_callback(step_data)
 
