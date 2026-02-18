@@ -19,6 +19,7 @@ import unittest
 from unittest import mock
 
 from concordia.contrib.components.game_master import schedule_tracker
+from concordia.typing import entity as entity_lib
 
 
 class ScheduledEventTest(unittest.TestCase):
@@ -307,7 +308,11 @@ class ScheduleTrackerTest(unittest.TestCase):
         duration_minutes=90,  # Still ongoing
     )
     
-    output = self.tracker.pre_act(action_spec=None)
+    action_spec = entity_lib.ActionSpec(
+        call_to_action='What happens next?',
+        output_type=entity_lib.OutputType.FREE,
+    )
+    output = self.tracker.pre_act(action_spec=action_spec)
     
     self.assertIn('Scheduled events', output)
     self.assertIn('Upcoming Meeting', output)
