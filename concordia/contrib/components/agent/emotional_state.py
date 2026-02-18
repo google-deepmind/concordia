@@ -23,6 +23,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
+from concordia.typing import logging as logging_lib
 
 
 DEFAULT_EMOTIONAL_STATE_LABEL = 'Emotional state'
@@ -56,8 +57,8 @@ class EmotionalState(
       include_intensity: bool = True,
       add_to_memory: bool = True,
       memory_tag: str = '[emotional state]',
-      logging_channel: entity_component.LoggingChannel = (
-          entity_component.NoOpLoggingChannel
+      logging_channel: logging_lib.LoggingChannel = (
+          logging_lib.NoOpLoggingChannel
       ),
   ):
     """Initializes the EmotionalState component.

@@ -19,6 +19,7 @@ import dataclasses
 import datetime
 from typing import Any
 
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 
@@ -262,7 +263,7 @@ class ScheduleTracker(entity_component.ContextComponent):
 
   def pre_act(
       self,
-      action_spec: entity_component.ActionSpec,
+      action_spec: entity_lib.ActionSpec,
   ) -> str:
     """Returns schedule information for the current time.
 
