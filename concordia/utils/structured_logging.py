@@ -520,6 +520,8 @@ class SimulationLog:
 
     This method converts the raw simulation log format (list of dicts
     with Step, entity keys, Summary, etc.) into the new structured format.
+    Supports both sequential/simultaneous logs and asynchronous logs
+    (which include a 'thread' key identifying the entity thread).
 
     Args:
       raw_log: List of log entries in the raw format.
@@ -527,20 +529,26 @@ class SimulationLog:
     Returns:
       A new SimulationLog populated with the raw_log data.
     """
+
     log = cls()
 
     for entry in raw_log:
       step = entry.get('Step', 0)
       summary = entry.get('Summary', '')
+      thread = entry.get('thread', '')
 
       for key, value in entry.items():
-        if key in ('Step', 'Summary', 'date'):
+        if key in ('Step', 'Summary', 'date', 'thread'):
           continue
 
         if 'Entity' in key:
           entity_name = key.replace('Entity [', '').replace(']', '').strip()
           if entity_name == 'Entity':
-            entity_name = 'Unknown'
+            entity_name = thread or 'Unknown'
+
+          raw_data = {'key': key, 'value': value} if value else {}
+          if thread:
+            raw_data['thread'] = thread
 
           log.add_entry(
               step=step,
@@ -549,10 +557,14 @@ class SimulationLog:
               component_name='entity_action',
               entry_type='entity',
               summary=summary,
-              raw_data={'key': key, 'value': value} if value else {},
+              raw_data=raw_data,
           )
         else:
           gm_name = key.split(' --- ')[0] if ' --- ' in key else key
+
+          raw_data = {'key': key, 'value': value} if value else {}
+          if thread:
+            raw_data['thread'] = thread
 
           log.add_entry(
               step=step,
@@ -561,7 +573,7 @@ class SimulationLog:
               component_name='game_master',
               entry_type='step',
               summary=summary,
-              raw_data={'key': key, 'value': value} if value else {},
+              raw_data=raw_data,
           )
 
     return log
@@ -786,16 +798,19 @@ class AIAgentLogInterface:
         'data': self._log.reconstruct_value(entry.deduplicated_data),
     }
 
-  def search_entries(
+  def search_summaries(
       self,
       query: str,
       include_content: bool = False,
   ) -> list[dict[str, Any]]:
-    """Search entries by text in summary.
+    """Search entries by text in the summary field only.
+
+    This is a fast search that only checks the short summary string
+    attached to each entry (e.g., 'Step 3 forum_rules --- ...').
 
     Args:
       query: Text to search for (case-insensitive).
-      include_content: If True, include full reconstructed content.
+      include_content: If True, include full reconstructed content in results.
 
     Returns:
       List of matching entry dictionaries.
@@ -804,6 +819,34 @@ class AIAgentLogInterface:
     results = []
     for entry in self._log.entries:
       if query_lower in entry.summary.lower():
+        results.append(self._entry_to_dict(entry, include_content))
+    return results
+
+  def search_entries(
+      self,
+      query: str,
+      include_content: bool = True,
+  ) -> list[dict[str, Any]]:
+    """Search entries by text in all reconstructed content.
+
+    Searches through the full reconstructed content of each entry,
+    including prompts, values, observations, component data, etc.
+    This is slower than search_summaries() but finds matches in all
+    logged data.
+
+    Args:
+      query: Text to search for (case-insensitive).
+      include_content: If True, include full reconstructed content in results.
+
+    Returns:
+      List of matching entry dictionaries.
+    """
+    query_lower = query.lower()
+    results = []
+    for entry in self._log.entries:
+      full_data = self._log.reconstruct_value(entry.deduplicated_data)
+      full_str = json.dumps(full_data, default=str)
+      if query_lower in full_str.lower():
         results.append(self._entry_to_dict(entry, include_content))
     return results
 
@@ -825,6 +868,106 @@ class AIAgentLogInterface:
       List of memory strings, or empty list if not available.
     """
     return self._log.get_game_master_memories()
+
+  def get_entity_actions(
+      self,
+      entity_name: str,
+  ) -> list[dict[str, Any]]:
+    """Get a concise timeline of an entity's actions across all steps.
+
+    Extracts the __act__ Value from each entity entry, providing a
+    quick overview of what the entity did at each step.
+
+    Args:
+      entity_name: Name of the entity.
+
+    Returns:
+      List of dicts with 'step' and 'action' keys.
+    """
+    results = []
+    for entry in self._log.entries:
+      if entry.entity_name != entity_name:
+        continue
+      if entry.entry_type != 'entity':
+        continue
+      full_data = self._log.reconstruct_value(entry.deduplicated_data)
+      value_dict = full_data.get('value', {})
+      if not isinstance(value_dict, dict):
+        continue
+      act_component = value_dict.get('__act__', {})
+      if isinstance(act_component, dict) and 'Value' in act_component:
+        results.append({
+            'step': entry.step,
+            'action': act_component['Value'],
+        })
+    return results
+
+  def get_entity_action_context(
+      self,
+      entity_name: str,
+      step: int,
+  ) -> dict[str, Any] | None:
+    """Get an entity's full action context at a specific step.
+
+    Returns the entity's action, observations, and prompt at the time
+    it produced its action. This is the primary method for understanding
+    why an entity did what it did.
+
+    Args:
+      entity_name: Name of the entity.
+      step: The simulation step to look up.
+
+    Returns:
+      Dictionary with 'step', 'entity_name', 'action', 'action_prompt',
+      'observations', and 'all_components' keys, or None if no matching
+      entry was found.
+    """
+    for entry in self._log.entries:
+      if (
+          entry.entity_name != entity_name
+          or entry.entry_type != 'entity'
+          or entry.step != step
+      ):
+        continue
+
+      full_data = self._log.reconstruct_value(entry.deduplicated_data)
+      value_dict = full_data.get('value', {})
+      if not isinstance(value_dict, dict):
+        continue
+
+      act_component = value_dict.get('__act__', {})
+      obs_component = value_dict.get('__observation__', {})
+
+      action = ''
+      action_prompt = ''
+      if isinstance(act_component, dict):
+        action = act_component.get('Value', '')
+        action_prompt = act_component.get('Prompt', '')
+
+      observations = []
+      if isinstance(obs_component, dict):
+        obs_value = obs_component.get('Value', [])
+        if isinstance(obs_value, list):
+          observations = obs_value
+        elif obs_value:
+          observations = [obs_value]
+
+      # Collect all component names and their values
+      all_components = {}
+      for comp_name, comp_data in value_dict.items():
+        if isinstance(comp_data, dict) and 'Value' in comp_data:
+          all_components[comp_name] = comp_data['Value']
+
+      return {
+          'step': step,
+          'entity_name': entity_name,
+          'action': action,
+          'action_prompt': action_prompt,
+          'observations': observations,
+          'all_components': all_components,
+      }
+
+    return None
 
   def _entry_to_dict(
       self,

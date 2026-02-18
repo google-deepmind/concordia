@@ -46,7 +46,7 @@ details.component-level > summary { background: #f8f8ff; font-size: 12px; }
 details.component-level[open] > summary { background: #f0f0ff; }
 
 /* Leaf content */
-.content-block { margin: 5px 0 5px 15px; padding: 8px; background: #fafafa; border-radius: 4px; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 11px; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; border: 1px solid #eee; line-height: 1.4; }
+.content-block { margin: 5px 0 5px 15px; padding: 8px; background: #fafafa; border-radius: 4px; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 11px; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #eee; line-height: 1.4; }
 .content-label { color: #666; font-size: 11px; font-weight: bold; margin: 5px 0 2px 15px; text-transform: uppercase; }
 .memory-item { margin: 5px 0; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 2px solid #667eea; font-size: 13px; }
 .ref-placeholder { color: #888; font-style: italic; }
@@ -339,7 +339,83 @@ function renderGameLog() {
     return;
   }
   
-  // Group by step
+  const isAsync = LOG_DATA.entries.some(e =>
+    e.deduplicated_data && e.deduplicated_data.thread
+  );
+  
+  if (isAsync) {
+    renderAsyncGameLog(container);
+  } else {
+    renderSyncGameLog(container);
+  }
+}
+
+const THREAD_COLORS = ['#667eea', '#e06666', '#6aa84f', '#e69138', '#8e7cc3', '#c27ba0'];
+
+function renderAsyncGameLog(container) {
+  const threads = {};
+  const threadOrder = [];
+  LOG_DATA.entries.forEach(entry => {
+    const thread = (entry.deduplicated_data && entry.deduplicated_data.thread) || 'unknown';
+    if (!threads[thread]) {
+      threads[thread] = [];
+      threadOrder.push(thread);
+    }
+    threads[thread].push(entry);
+  });
+  
+  let html = '<p style="color:#666;font-size:13px;margin-bottom:10px;">' +
+    '🔀 <strong>Async mode detected</strong> — entries grouped by thread (each entity runs independently).</p>';
+  
+  threadOrder.forEach((threadName, ti) => {
+    const entries = threads[threadName];
+    const color = THREAD_COLORS[ti % THREAD_COLORS.length];
+    
+    html += `<details class="step-level" style="border-left-color:${color}" open>`;
+    html += `<summary style="background:${color}15">🧵 Thread: <strong>${escapeHtml(threadName)}</strong> (${entries.length} entries)</summary>`;
+    
+    entries.forEach(entry => {
+      const entityName = entry.entity_name || 'Unknown';
+      const component = entry.component_name || '';
+      const summary = entry.summary || '';
+      const iteration = entry.step ?? '?';
+      
+      html += `<details class="entity-level" style="border-left-color:${color}88">`;
+      html += `<summary><span style="color:${color};font-weight:bold">iter ${iteration}</span> `;
+      html += `<strong>${escapeHtml(entityName)}</strong>`;
+      if (component) html += ` <span style="color:#888">[${escapeHtml(component)}]</span>`;
+      if (summary) html += ` - ${escapeHtml(summary.substring(0, 80))}${summary.length > 80 ? '...' : ''}`;
+      html += `</summary>`;
+      
+      if (summary) {
+        html += `<div class="content-label">Summary</div>`;
+        html += `<div class="content-block">${escapeHtml(summary)}</div>`;
+      }
+      
+      if (entry.deduplicated_data) {
+        const dd = entry.deduplicated_data;
+        if (dd.key) {
+          html += `<div class="content-label">Key</div>`;
+          html += `<div class="content-block">${escapeHtml(dd.key)}</div>`;
+        }
+        if (dd.value) {
+          html += `<details class="component-level" open>`;
+          html += `<summary>Value ${getObjectPreview(dd.value)}</summary>`;
+          html += renderValue(dd.value, 0);
+          html += `</details>`;
+        }
+      }
+      
+      html += `</details>`;
+    });
+    
+    html += `</details>`;
+  });
+  
+  container.innerHTML = html || '<p class="placeholder">No entries.</p>';
+}
+
+function renderSyncGameLog(container) {
   const steps = {};
   LOG_DATA.entries.forEach(entry => {
     const step = entry.step ?? 'unknown';
@@ -366,13 +442,11 @@ function renderGameLog() {
       if (summary) html += ` - ${escapeHtml(summary.substring(0, 80))}${summary.length > 80 ? '...' : ''}`;
       html += `</summary>`;
       
-      // Render the summary if present
       if (summary) {
         html += `<div class="content-label">Summary</div>`;
         html += `<div class="content-block">${escapeHtml(summary)}</div>`;
       }
       
-      // Render deduplicated_data recursively
       if (entry.deduplicated_data) {
         const dd = entry.deduplicated_data;
         if (dd.key) {

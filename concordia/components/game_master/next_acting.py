@@ -399,6 +399,8 @@ class NextActingFromSceneSpec(
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
       scene_participants = self._get_current_scene_participants()
+      if not scene_participants:
+        return ''
       idx = self._counter % len(scene_participants)
       result = scene_participants[idx]
       self._counter += 1

@@ -139,19 +139,27 @@ containing outputs from every GM component that ran during that phase:
 
 ### Extracting Entity Actions (The Most Common Task)
 
-Use `AIAgentLogInterface.get_component_values()` to extract what entities
-actually said/did:
+The simplest way to get what entities actually did:
 
 ```python
 interface = AIAgentLogInterface(log)
 
-actions = interface.get_component_values()
-for action in actions:
-    print(f"Step {action['step']} [{action['entity_name']}]: {action['value']}")
+actions = interface.get_entity_actions('Alice')
+for a in actions:
+    print(f"Step {a['step']}: {str(a['action'])[:200]}")
 ```
 
-This resolves all `_ref` references automatically and returns just the action
-text. You can customize which component and key to extract:
+To understand *why* an entity took a specific action:
+
+```python
+context = interface.get_entity_action_context('Alice', step=3)
+if context:
+    print(f"Action: {context['action']}")
+    print(f"Observations: {context['observations']}")
+    print(f"Prompt: {context['action_prompt']}")
+```
+
+For more flexible extraction, use `get_component_values()`:
 
 ```python
 interface.get_component_values(
@@ -315,9 +323,12 @@ response = model.sample_text(prompt, max_tokens=200)
 - Can assess complex multi-step narratives
 - Mirrors how a human would evaluate "did it work?"
 
-## Debugging Workflow
+## Common Log Analysis Patterns
 
-### Step 1: Get Overview
+Choose the pattern that matches what you are trying to understand about the
+simulation.
+
+### Pattern: Fast Overview of the Simulation
 
 Always start by getting a high-level overview of what happened:
 
@@ -340,7 +351,7 @@ This tells you:
 - Which entities participated
 - What types of events were logged
 
-### Step 2: Verify Structural Correctness First
+### Pattern: Verifying Structural Correctness
 
 Before analyzing narrative content, verify the simulation structure matches
 expectations. This catches configuration bugs before wasting time on content:
@@ -364,9 +375,9 @@ for game_master in expected_game_masters:
     print(f"Game Master '{game_master}': {len(timeline)} entries")
 ```
 
-### Step 3: Check Specific Steps
+### Pattern: Drilling into a Specific Step
 
-If you know which step is problematic, drill into it:
+If you want to see exactly what happened concurrently at a specific time point:
 
 ```python
 # Get all entries for step 3
@@ -381,9 +392,9 @@ for entry in step_data:
         print(f"Response: {entry['response']}")
 ```
 
-### Step 4: Follow Entity Timeline
+### Pattern: Following an Entity's Timeline
 
-To understand one agent's complete journey:
+To understand one agent's journey across the entire simulation:
 
 ```python
 # Get Alice's complete timeline
@@ -392,32 +403,60 @@ for entry in alice_timeline:
     print(f"Step {entry['step']}: {entry['summary']}")
 ```
 
-### Step 5: Extract Actual Entity Actions
+### Pattern: Extracting Entity Actions
 
-The `summary` field is often generic (e.g., "Step 3 game_master_name"). To
-get the actual narrative content — what agents said and did — you need to
-resolve the deduplicated data:
+The simplest way to see what each entity actually did (ignoring observations and
+background events):
 
 ```python
-for i, entry in enumerate(log.entries):
-    if entry.entry_type == 'entity':
-        full_content = log.reconstruct_value(entry.deduplicated_data)
-        value = full_content.get('value', {})
-        if isinstance(value, dict):
-            act = value.get('__act__', {})
-            action_text = act.get('Value', '') if isinstance(act, dict) else ''
-            if action_text:
-                print(f"Step {entry.step} [{entry.entity_name}]: {action_text[:400]}")
+actions = interface.get_entity_actions('Alice')
+for a in actions:
+    print(f"Step {a['step']}: {str(a['action'])[:200]}")
 ```
 
-### Step 6: Filter by Criteria
+This resolves all `_ref` references automatically and returns just the action
+text from `__act__.Value`.
 
-Find specific types of entries:
+### Pattern: Getting Full Action Context
+
+To understand *why* an entity did what it did at a specific step (the prompt
+to their action component):
 
 ```python
-# Find all observations
-observations = interface.filter_entries(entry_type='observation')
+context = interface.get_entity_action_context('Alice', step=3)
+if context:
+    print(f"Action: {context['action']}")
+    print(f"Observations: {context['observations']}")
+    print(f"Prompt: {context['action_prompt']}")
+```
 
+This returns the entity's action, observations, and the full prompt sent to the
+LLM at the time it produced its action.
+
+### Pattern: Extracting Specific Component Values
+
+Use `get_component_values()` for flexible extraction of specific game master or
+entity components:
+
+```python
+actions = interface.get_component_values()
+for action in actions:
+    print(f"Step {action['step']} [{action['entity_name']}]: {action['value']}")
+
+# Customize which component and key to extract
+interface.get_component_values(
+    component_key='Observation',
+    value_key='Value',
+    entity_name='Alice',
+    step_range=(1, 5),
+)
+```
+
+### Pattern: Filtering by Criteria
+
+Find specific types of events or narrow down to a time range:
+
+```python
 # Find entries from a specific component
 memory_entries = interface.filter_entries(component_name='memory')
 
@@ -425,9 +464,10 @@ memory_entries = interface.filter_entries(component_name='memory')
 late_game = interface.filter_entries(step_range=(10, 20))
 ```
 
-### Step 7: LLM-Based Verification (For Complex Checks)
+### Pattern: LLM-Based Verification (For Complex Checks)
 
-When verifying high-level user intentions, use LLM analysis:
+When verifying high-level user intentions that are too nuanced for simple string
+matching, use LLM analysis:
 
 ```python
 def verify_simulation(interface, model, checks):
@@ -473,29 +513,43 @@ checks = {
 results = verify_simulation(interface, model, checks)
 ```
 
-### Step 8: Search for Keywords
+### Pattern: Searching for Keywords
 
-When you know what text to look for:
+For fast searching by entry summary only:
 
 ```python
-# Search for specific behavior
-coffee_entries = interface.search_entries('coffee shop')
+matches = interface.search_summaries('coffee shop')
 ```
 
-### Step 9: Get Full Content
-
-For deep investigation of a specific entry:
+For deep searching across all reconstructed content (prompts, values,
+observations, etc.):
 
 ```python
-# Get full prompt/response/contexts for entry at index 5
+matches = interface.search_entries('coffee shop')
+for e in matches:
+    print(f"Step {e['step']} [{e['entity_name']}]: {e.get('summary', '')}")
+```
+
+### Pattern: Deep Inspection of a Single Entry
+
+For deep investigation of everything attached to a specific log entry:
+
+```python
 content = interface.get_entry_content(entry_index=5)
-print(content['prompt'])
-print(content['response'])
+print(content['data'])
 ```
 
-## Common Debugging Patterns
+### Pattern: Accessing Final Entity Memories
 
-### Pattern: "Did the agent do X?"
+To quickly see what an agent accumulated during the run:
+
+```python
+memories = interface.get_entity_memories('Alice')
+for m in memories[-5:]:
+    print(f"  > {str(m)[:150]}")
+```
+
+### Common question: "Did the agent do X?"
 
 **Option A: Keyword Matching (Limited Use)**
 
@@ -542,7 +596,7 @@ response = model.sample_text(prompt, max_tokens=100)
 did_greet = 'YES' in response.upper()
 ```
 
-### Pattern: "Did the mechanic work correctly?" (LLM-based)
+### Common question: "Did the mechanic work correctly?" (LLM-based)
 
 ```python
 # Use LLM to evaluate if HP/Energy mechanics worked
@@ -561,7 +615,7 @@ Respond with answers and one sentence of reasoning.
 response = model.sample_text(prompt, max_tokens=200)
 ```
 
-### Pattern: "Did the narrative progress or get stuck?"
+### Common question: "Did the narrative progress or get stuck?"
 
 ```python
 # Combat naturally has similar actions - don't flag as repetitive
@@ -577,7 +631,7 @@ Combat is NOT repetitive if HP/Energy change or new tactics are tried.
 """
 ```
 
-### Pattern: "What happened at step N?"
+### Common question: "What happened at step N?"
 
 ```python
 # Full breakdown of step 5
@@ -586,7 +640,7 @@ for e in entries:
     print(f"[{e['entity_name']}] {e['entry_type']}: {e['summary']}")
 ```
 
-### Pattern: "Find the bug"
+### Common question: "Find the bug"
 
 When something went wrong, narrow down systematically:
 
@@ -623,13 +677,19 @@ interface = AIAgentLogInterface(log)
 | Method | Purpose |
 |--------|---------|
 | `get_overview()` | High-level stats |
+| `get_entity_actions(name)` | Concise action timeline for one entity |
+| `get_entity_action_context(name, step)` | Full action + observations + prompt for one step |
 | `get_step_summary(step, include_content)` | All entries for one step |
 | `get_entity_timeline(entity, include_content)` | All entries for one entity |
 | `filter_entries(...)` | Filter by entity/component/type/step |
-| `search_entries(query)` | Text search in summaries |
-| `get_entry_content(index)` | Full prompt/response for one entry |
+| `search_summaries(query)` | Fast text search in entry summaries |
+| `search_entries(query)` | Deep text search across all reconstructed content |
+| `get_entry_content(index)` | Full reconstructed data for one entry |
+| `get_component_values(...)` | Extract specific component values with ref resolution |
+| `get_entity_memories(name)` | Get an entity's accumulated memories |
+| `get_game_master_memories()` | Get game master memories |
 
-### Pattern: "Compare Two Simulation Runs"
+### Common question: "How can I compare two simulation runs?"
 
 When comparing runs (e.g., different experimental conditions), extract parallel
 metrics from both structured logs and compare side-by-side:

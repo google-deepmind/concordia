@@ -1,4 +1,4 @@
-# Copyright 2023 DeepMind Technologies Limited.
+# Copyright 2024 DeepMind Technologies Limited.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,4 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""London Closures configuration for the Pub Coordination simulation."""
 
+from examples.games.pub_coordination.configs import london
+
+# Inherit everything from london
+globals().update(
+    {k: v for k, v in london.__dict__.items() if not k.startswith("_")}
+)
+
+# Override specific parameters
+PUB_CLOSED_PROBABILITY = 0.7
+NUM_MAIN_PLAYERS = 4
+NUM_SUPPORTING_PLAYERS = 1
+NUM_GAMES = 3
+GAME_COUNTRIES = ["England", "France", "Germany", "Italy", "Spain"]

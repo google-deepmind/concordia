@@ -161,6 +161,25 @@ class BaseComponent(metaclass=abc.ABCMeta):
     del state
     return None
 
+  def get_dynamic_state(self) -> ComponentState:
+    """Returns the subset of component state that can be edited at runtime.
+
+    Components that wish to expose certain variables for runtime editing
+    in the visual editor should override this method to return a dict
+    whose keys are a subset of the keys returned by `get_state()`. Each
+    key identifies a state variable that the editor may modify while the
+    simulation is paused.
+
+    The default implementation returns an empty dict, meaning all state is
+    static (read-only in the editor). This ensures full backward compatibility:
+    older components that do not override this method will simply have all
+    their data treated as static.
+
+    Returns:
+      A mapping of dynamic state variable names to their current values.
+    """
+    return {}
+
 
 class ComponentWithLogging(BaseComponent):
   """A base class for components with logging."""

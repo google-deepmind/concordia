@@ -57,7 +57,7 @@ jobs:
         run: pylint --errors-only examples
 
       - name: Typecheck examples
-        run: pytype examples
+        run: pytype --pythonpath=. examples
 
       - name: Convert notebooks
         run: ./bin/convert_notebooks.sh notebooks

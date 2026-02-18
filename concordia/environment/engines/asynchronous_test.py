@@ -1,0 +1,73 @@
+# Copyright 2025 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for asynchronous engine."""
+
+import functools
+from typing import override
+
+from absl.testing import absltest
+from concordia.agents import entity_agent_with_logging
+from concordia.environment.engines import asynchronous
+from concordia.typing import entity as entity_lib
+
+
+_ENTITY_NAMES = ('entity_0', 'entity_1')
+
+
+class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
+
+  def __init__(self, name: str) -> None:
+    self._name = name
+
+  @functools.cached_property
+  @override
+  def name(self) -> str:
+    return self._name
+
+  @override
+  def observe(self, observation: str) -> None:
+    pass
+
+  @override
+  def act(
+      self,
+      action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+  ) -> str:
+    if action_spec.output_type in entity_lib.FREE_ACTION_TYPES:
+      return _ENTITY_NAMES[0]
+    elif action_spec.output_type in entity_lib.CHOICE_ACTION_TYPES:
+      return action_spec.options[0]
+    else:
+      raise ValueError(f'Unsupported output type: {action_spec.output_type}')
+
+
+class AsynchronousTest(absltest.TestCase):
+
+  def test_run_loop(self):
+    env = asynchronous.Asynchronous()
+    game_master = MockEntity(name='game_master')
+    entities = [
+        MockEntity(name=_ENTITY_NAMES[0]),
+        MockEntity(name=_ENTITY_NAMES[1]),
+    ]
+    env.run_loop(
+        game_masters=[game_master],
+        entities=entities,
+        max_steps=2,
+    )
+
+
+if __name__ == '__main__':
+  absltest.main()
