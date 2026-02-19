@@ -190,6 +190,11 @@ doc = interactive_document_tools.InteractiveDocumentWithTools(
     max_tool_result_length=1000,    # Truncation limit
 )
 
+# Validation constraints:
+# - max_tool_calls_per_question >= 1
+# - max_tool_result_length >= 3
+# - enforcement_mode in {"observe", "enforce"}
+
 # Build context
 doc.statement("You are a helpful research assistant.")
 
@@ -216,3 +221,93 @@ The LLM uses JSON to request tool calls:
 
 Results are truncated to `max_tool_result_length` and recorded with
 `tool_call` and `tool_result` tags for filtering.
+
+### Policy-Aware Tool Execution
+
+`InteractiveDocumentWithTools` supports optional policy evaluation for each tool
+call.
+
+```python
+from concordia.document import interactive_document_tools
+from concordia.document import tool_policy
+
+doc = interactive_document_tools.InteractiveDocumentWithTools(
+    model=model,
+    tools=[web_search_tool],
+    policy=tool_policy.SchemaValidatingPolicy(),
+    enforcement_mode='observe',  # default
+)
+```
+
+The policy lifecycle for each tool call is:
+
+1. Parse model output as `{"tool": ..., "args": ...}`.
+2. Build `tool_policy.ToolCall`.
+3. Evaluate configured policy.
+4. Apply decision to execution based on enforcement mode.
+5. Record tool call/result/policy notes in the document.
+
+#### Observe vs Enforce
+
+*   **`observe` (default)**:
+    *   policy decisions are logged
+    *   `DENY` and `EDIT` decisions do not block execution
+    *   malformed policy output fails open (tool still executes)
+*   **`enforce`**:
+    *   policy decisions are applied
+    *   `DENY` blocks execution
+    *   `EDIT` executes with edited args
+    *   malformed policy output fails closed (tool call blocked)
+
+#### Policy Tags
+
+Policy interactions are recorded under `tool_policy` with one of these tags:
+
+*   `tool_policy_allow`
+*   `tool_policy_deny_observed`
+*   `tool_policy_edit_observed`
+*   `tool_policy_deny_enforced`
+*   `tool_policy_edit_enforced`
+*   `tool_policy_error_observed`
+*   `tool_policy_error_enforced`
+
+#### Schema Helper
+
+Tools can optionally expose `input_schema` metadata. Use
+`tool_policy.SchemaValidatingPolicy` to validate tool args before execution.
+
+```python
+from concordia.document import tool
+from concordia.document import tool_policy
+
+class WeatherTool(tool.Tool):
+    @property
+    def name(self) -> str:
+        return "weather"
+
+    @property
+    def description(self) -> str:
+        return "Get weather for a city."
+
+    @property
+    def input_schema(self):
+        return {
+            "type": "object",
+            "required": ["city"],
+            "properties": {"city": {"type": "string"}},
+        }
+
+    def execute(self, *, city: str) -> str:
+        return f"Weather for {city}"
+
+policy = tool_policy.SchemaValidatingPolicy()
+```
+
+`validate_input_schema(...)` intentionally supports a small stable subset:
+
+*   top-level `type: "object"`
+*   `required`
+*   primitive property types: `string`, `number`, `integer`, `boolean`,
+    `object`, `array`
+
+Unsupported schema keywords are ignored by design.

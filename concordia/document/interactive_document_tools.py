@@ -35,6 +35,8 @@ import numpy as np
 # Default configuration
 DEFAULT_MAX_TOOL_CALLS_PER_QUESTION = 5
 DEFAULT_MAX_TOOL_RESULT_LENGTH = 1000
+_MIN_MAX_TOOL_CALLS_PER_QUESTION = 1
+_MIN_MAX_TOOL_RESULT_LENGTH = 3
 
 # New tags for tool-related content
 TOOL_CALL_TAG = 'tool_call'
@@ -114,6 +116,17 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       enforcement_mode: Whether policy decisions are observed or enforced.
     """
     super().__init__(model=model, contents=contents, rng=rng)
+    if max_tool_calls_per_question < _MIN_MAX_TOOL_CALLS_PER_QUESTION:
+      raise ValueError(
+          'max_tool_calls_per_question must be >= '
+          f'{_MIN_MAX_TOOL_CALLS_PER_QUESTION}, got '
+          f'{max_tool_calls_per_question}.'
+      )
+    if max_tool_result_length < _MIN_MAX_TOOL_RESULT_LENGTH:
+      raise ValueError(
+          'max_tool_result_length must be >= '
+          f'{_MIN_MAX_TOOL_RESULT_LENGTH}, got {max_tool_result_length}.'
+      )
     if enforcement_mode not in _VALID_ENFORCEMENT_MODES:
       raise ValueError(
           'enforcement_mode must be "observe" or "enforce", '

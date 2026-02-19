@@ -370,6 +370,30 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
           model, enforcement_mode='invalid'
       )
 
+  def test_non_positive_max_tool_calls_per_question_raises(self):
+    """max_tool_calls_per_question must be positive."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    with self.assertRaisesRegex(
+        ValueError, r'max_tool_calls_per_question must be >= 1'
+    ):
+      interactive_document_tools.InteractiveDocumentWithTools(
+          model, max_tool_calls_per_question=0
+      )
+
+  def test_small_max_tool_result_length_raises(self):
+    """max_tool_result_length must preserve truncation semantics."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    with self.assertRaisesRegex(
+        ValueError, r'max_tool_result_length must be >= 3'
+    ):
+      interactive_document_tools.InteractiveDocumentWithTools(
+          model, max_tool_result_length=2
+      )
+
   def test_policy_observe_mode_runs_tool_and_logs_allow(self):
     """Observe mode should execute tool and log allow decision."""
     model = mock.create_autospec(
