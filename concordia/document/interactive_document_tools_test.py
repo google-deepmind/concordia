@@ -362,9 +362,12 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     model = mock.create_autospec(
         language_model.LanguageModel, instance=True, spec_set=True
     )
+    invalid_mode = cast(
+        interactive_document_tools.EnforcementMode, 'invalid'
+    )
     with self.assertRaises(ValueError):
       interactive_document_tools.InteractiveDocumentWithTools(
-          model, enforcement_mode='invalid'
+          model, enforcement_mode=invalid_mode
       )
 
   def test_policy_observe_mode_runs_tool_and_logs_allow(self):
