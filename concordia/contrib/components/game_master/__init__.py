@@ -15,3 +15,4 @@
 """Library of components contributed by users."""
 
 from concordia.contrib.components.game_master import death
+from concordia.contrib.components.game_master import schedule_tracker

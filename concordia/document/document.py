@@ -36,13 +36,53 @@ class Content:
   _: dataclasses.KW_ONLY
   tags: Set[str] = frozenset()
 
-  # TODO: b/311191278 - implement _repr_pretty_, _repr_html_, _repr_markdown_
-
   def __post_init__(self):
     object.__setattr__(self, 'tags', frozenset(self.tags))
 
   def __str__(self):
     return self.text
+
+  def _repr_pretty_(self, p, cycle):
+    """Pretty print representation for IPython and rich terminals."""
+    if cycle:
+      p.text('Content(...)')
+    else:
+      with p.group(2, 'Content(', ')'):
+        p.text(f'text={self.text!r}')
+        if self.tags:
+          p.text(', ')
+          p.breakable()
+          p.text(f'tags={set(self.tags)!r}')
+
+  def _repr_html_(self):
+    """HTML representation for Jupyter notebooks."""
+    import html
+    text_html = html.escape(self.text).replace('\n', '<br>')
+    if self.tags:
+      tags_html = ', '.join(html.escape(tag) for tag in sorted(self.tags))
+      return (
+          f'<div style="border-left: 3px solid #3498db; padding-left: 10px; '
+          f'margin: 5px 0;">'
+          f'<div style="font-family: monospace;">{text_html}</div>'
+          f'<div style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">'
+          f'Tags: {tags_html}</div>'
+          f'</div>'
+      )
+    else:
+      return (
+          f'<div style="border-left: 3px solid #3498db; padding-left: 10px; '
+          f'margin: 5px 0;">'
+          f'<div style="font-family: monospace;">{text_html}</div>'
+          f'</div>'
+      )
+
+  def _repr_markdown_(self):
+    """Markdown representation for Jupyter notebooks and compatible viewers."""
+    if self.tags:
+      tags_str = ', '.join(f'`{tag}`' for tag in sorted(self.tags))
+      return f'{self.text}\n\n*Tags: {tags_str}*'
+    else:
+      return self.text
 
 
 class Document:
@@ -58,11 +98,100 @@ class Document:
     self._contents = tuple(contents)
 
   # TODO: b/311191905 - implement __iadd__, __add__?
-  # TODO: b/311191278 - implement _repr_pretty_, _repr_html_, _repr_markdown_
 
   def __iter__(self) -> Iterator[Content]:
     """Yields the contents in the document."""
     yield from self._contents
+
+  def _repr_pretty_(self, p, cycle):
+    """Pretty print representation for IPython and rich terminals."""
+    if cycle:
+      p.text('Document(...)')
+    else:
+      num_contents = len(self._contents)
+      text_preview = self.text()[:100]
+      if len(self.text()) > 100:
+        text_preview += '...'
+      with p.group(2, 'Document(', ')'):
+        p.text(f'{num_contents} content(s), ')
+        p.text(f'{len(self.text())} chars')
+        if text_preview:
+          p.breakable()
+          p.text(f'Preview: {text_preview!r}')
+
+  def _repr_html_(self):
+    """HTML representation for Jupyter notebooks."""
+    import html
+    if not self._contents:
+      return '<div style="color: #95a5a6;"><em>Empty document</em></div>'
+    
+    parts = [
+        '<div style="border: 1px solid #bdc3c7; border-radius: 5px; '
+        'padding: 10px; margin: 10px 0; background-color: #ecf0f1;">',
+        f'<div style="font-weight: bold; margin-bottom: 10px; '
+        f'color: #2c3e50;">'
+        f'Document ({len(self._contents)} content(s), '
+        f'{len(self.text())} chars)</div>',
+        '<div style="background-color: white; padding: 10px; '
+        'border-radius: 3px; max-height: 400px; overflow-y: auto;">',
+    ]
+    
+    for i, content in enumerate(self._contents[:20]):  # Limit to first 20
+      content_html = html.escape(content.text).replace('\n', '<br>')
+      if content.tags:
+        tags_html = ', '.join(html.escape(tag) for tag in sorted(content.tags))
+        parts.append(
+            f'<div style="margin-bottom: 10px; padding: 5px; '
+            f'border-left: 3px solid #3498db;">'
+            f'{content_html}'
+            f'<div style="color: #7f8c8d; font-size: 0.85em; '
+            f'margin-top: 3px;">'
+            f'Tags: {tags_html}</div>'
+            f'</div>'
+        )
+      else:
+        parts.append(
+            f'<div style="margin-bottom: 10px; padding: 5px; '
+            f'border-left: 3px solid #95a5a6;">'
+            f'{content_html}'
+            f'</div>'
+        )
+    
+    if len(self._contents) > 20:
+      remaining = len(self._contents) - 20
+      parts.append(
+          f'<div style="color: #7f8c8d; font-style: italic; '
+          f'margin-top: 10px;">'
+          f'... and {remaining} more content(s)</div>'
+      )
+    
+    parts.append('</div></div>')
+    return ''.join(parts)
+
+  def _repr_markdown_(self):
+    """Markdown representation for Jupyter notebooks and compatible viewers."""
+    if not self._contents:
+      return '*Empty document*'
+    
+    parts = [
+        f'# Document\n\n',
+        f'**{len(self._contents)} content(s), {len(self.text())} characters**\n\n',
+        '---\n\n',
+    ]
+    
+    for i, content in enumerate(self._contents[:20], 1):  # Limit to first 20
+      parts.append(f'### Content {i}\n\n')
+      parts.append(content.text)
+      if content.tags:
+        tags_str = ', '.join(f'`{tag}`' for tag in sorted(content.tags))
+        parts.append(f'\n\n*Tags: {tags_str}*')
+      parts.append('\n\n---\n\n')
+    
+    if len(self._contents) > 20:
+      remaining = len(self._contents) - 20
+      parts.append(f'\n\n*... and {remaining} more content(s)*\n')
+    
+    return ''.join(parts)
 
   def __eq__(self, other):
     """Returns True if other is a Document with identical contents."""
