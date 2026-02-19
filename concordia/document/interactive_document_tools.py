@@ -303,7 +303,16 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
           f'{type(decision.action).__name__}.'
       )
 
-    tags = tuple(decision.tags)
+    if isinstance(decision.tags, str):
+      raise ValueError(
+          'Policy decision tags must be an iterable of strings, not str.'
+      )
+    try:
+      tags = tuple(decision.tags)
+    except TypeError as error:
+      raise ValueError(
+          'Policy decision tags must be an iterable of strings.'
+      ) from error
     if any(not isinstance(tag, str) for tag in tags):
       raise ValueError('Policy decision tags must contain only strings.')
 
