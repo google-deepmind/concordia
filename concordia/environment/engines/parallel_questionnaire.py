@@ -94,7 +94,19 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
         )
     )
 
-    next_entity_names = player_names_str.split(',')
+    next_entity_names = [
+        name.strip() for name in player_names_str.split(',') if name.strip()
+    ]
+    invalid_entity_names = [
+        name for name in next_entity_names if name not in entities_by_name
+    ]
+    if invalid_entity_names:
+      logging.warning(
+          '[ParallelQuestionnaireEngine] Ignoring unknown entity names from'
+          ' game master: %s',
+          invalid_entity_names,
+      )
+
     next_entities = [
         entities_by_name[name]
         for name in next_entity_names
@@ -191,106 +203,114 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
     executor = self.get_executor()
 
-    if premise:
-      # run observe on all game masters in parallel using concurrency
-      tasks = {}
-      for entity in game_masters:
-        tasks[entity.name] = functools.partial(entity.observe, premise)
-      concurrency.run_tasks(tasks, executor=executor)
-    mutex = threading.Lock()
+    try:
+      if premise:
+        # run observe on all game masters in parallel using concurrency
+        tasks = {}
+        for entity in game_masters:
+          tasks[entity.name] = functools.partial(entity.observe, premise)
+        concurrency.run_tasks(tasks, executor=executor)
+      mutex = threading.Lock()
 
-    for step in range(max_steps):
-      if verbose:
-        logging.info('Step %s', step)
-
-      if self.terminate(game_master, verbose):
-        return
-
-      if step_controller is not None:
-        raise NotImplementedError(
-            'Step controller is not supported by this engine.'
-        )
-
-      # run observe on all entities in parallel using concurrency
-      tasks = {}
-      for entity in entities:
-        tasks[entity.name] = functools.partial(
-            entity.observe, self.make_observation(game_master, entity, verbose)
-        )
-      concurrency.run_tasks(tasks, executor=executor)
-
-      next_entities = self.next_acting(game_master, entities)
-
-      if not next_entities:
+      for step in range(max_steps):
         if verbose:
-          print(termcolor.colored('No entities to act.', _PRINT_COLOR))
-        return
+          logging.info('Step %s', step)
 
-      player_qid_spec_list = self.next_action_spec(game_master, next_entities)
+        if self.terminate(game_master, verbose):
+          return
 
-      entity_map = {e.name: e for e in next_entities}
-      entity_answers = {name: {} for name in entity_map.keys()}
-
-      tasks = {}
-      entity_original_phases = {}
-
-      for player_name in entity_map:
-        agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-        entity_original_phases[player_name] = agent.get_phase()
-        agent.set_phase(entity_component.Phase.PRE_ACT)
-
-      try:
-        for player_name, q_id, spec_str in player_qid_spec_list:
-          if player_name not in entity_map:
-            continue
-
-          entity = entity_map[player_name]
-          agent = cast(entity_agent.EntityAgent, entity)
-
-          formatted_spec_str = spec_str.replace('{player_name}', player_name)
-          action_spec = engine_lib.action_spec_parser(formatted_spec_str)
-
-          task_key = f'{player_name}_{q_id}'
-
-          def process_question_task(
-              agent: entity_agent.EntityAgent,
-              action_spec: entity_lib.ActionSpec,
-              player_name: str,
-              q_id: str,
-              mutex: threading.Lock,
-              entity_answers: dict[str, dict[str, Any]],
-          ):
-            # Executor is passed down to _process_single_stateless_act
-            answer = agent.stateless_act(action_spec)
-            with mutex:
-              entity_answers[player_name][q_id] = answer
-
-          tasks[task_key] = functools.partial(
-              process_question_task,
-              agent,
-              action_spec,
-              player_name,
-              q_id,
-              mutex,
-              entity_answers,
+        if step_controller is not None:
+          raise NotImplementedError(
+              'Step controller is not supported by this engine.'
           )
-        if tasks:
-          concurrency.run_tasks(tasks, executor=executor)
 
-      finally:
-        # Restore original phases
-        for player_name, phase in entity_original_phases.items():
+        # run observe on all entities in parallel using concurrency
+        tasks = {}
+        for entity in entities:
+          tasks[entity.name] = functools.partial(
+              entity.observe,
+              self.make_observation(game_master, entity, verbose),
+          )
+        concurrency.run_tasks(tasks, executor=executor)
+
+        next_entities = self.next_acting(game_master, entities)
+
+        if not next_entities:
+          if verbose:
+            print(termcolor.colored('No entities to act.', _PRINT_COLOR))
+          return
+
+        player_qid_spec_list = self.next_action_spec(game_master, next_entities)
+
+        entity_map = {e.name: e for e in next_entities}
+        entity_answers = {name: {} for name in entity_map.keys()}
+
+        tasks = {}
+        entity_original_phases = {}
+
+        for player_name in entity_map:
           agent = cast(entity_agent.EntityAgent, entity_map[player_name])
-          agent.set_phase(phase)
+          entity_original_phases[player_name] = agent.get_phase()
+          agent.set_phase(entity_component.Phase.PRE_ACT)
 
-      # Feed back answers to GM
-      for player_name, qid_answer_map in entity_answers.items():
-        for q_id, answer in qid_answer_map.items():
-          observation = f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
-          game_master.observe(observation)
+        try:
+          for player_name, q_id, spec_str in player_qid_spec_list:
+            if player_name not in entity_map:
+              continue
 
-      if verbose:
-        print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
+            entity = entity_map[player_name]
+            agent = cast(entity_agent.EntityAgent, entity)
+
+            formatted_spec_str = spec_str.replace('{player_name}', player_name)
+            action_spec = engine_lib.action_spec_parser(formatted_spec_str)
+
+            task_key = f'{player_name}_{q_id}'
+
+            def process_question_task(
+                agent: entity_agent.EntityAgent,
+                action_spec: entity_lib.ActionSpec,
+                player_name: str,
+                q_id: str,
+                mutex: threading.Lock,
+                entity_answers: dict[str, dict[str, Any]],
+            ):
+              # Executor is passed down to _process_single_stateless_act
+              answer = agent.stateless_act(action_spec)
+              with mutex:
+                entity_answers[player_name][q_id] = answer
+
+            tasks[task_key] = functools.partial(
+                process_question_task,
+                agent,
+                action_spec,
+                player_name,
+                q_id,
+                mutex,
+                entity_answers,
+            )
+          if tasks:
+            concurrency.run_tasks(tasks, executor=executor)
+
+        finally:
+          # Restore original phases
+          for player_name, phase in entity_original_phases.items():
+            agent = cast(entity_agent.EntityAgent, entity_map[player_name])
+            agent.set_phase(phase)
+
+        # Feed back answers to GM
+        for player_name, qid_answer_map in entity_answers.items():
+          for q_id, answer in qid_answer_map.items():
+            observation = (
+                f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
+            )
+            game_master.observe(observation)
+
+        if verbose:
+          print(
+              termcolor.colored('Questionnaire round finished.', _PRINT_COLOR)
+          )
+    finally:
+      self.shutdown()
 
   @override
   def resolve(
