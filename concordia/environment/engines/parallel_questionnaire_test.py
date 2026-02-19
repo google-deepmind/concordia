@@ -19,6 +19,7 @@ from unittest import mock
 
 from absl.testing import absltest
 from concordia.environment.engines import parallel_questionnaire
+from concordia.environment.engines import questionnaire_utils
 from concordia.typing import entity as entity_lib
 
 
@@ -72,13 +73,17 @@ class ParallelQuestionnaireEngineTest(absltest.TestCase):
       _ScriptedEntity(name='carol'),
     ]
 
-    with mock.patch.object(parallel_questionnaire.logging, 'warning') as warn:
+    with mock.patch.object(questionnaire_utils.logging, 'warning') as warn:
       next_entities = engine.next_acting(game_master, entities)
 
-    self.assertEqual([entity.name for entity in next_entities],
-                     ['alice', 'bob', 'carol'])
-    warn.assert_called_once()
-    self.assertEqual(warn.call_args.args[1], ['unknown'])
+    self.assertEqual(
+        [entity.name for entity in next_entities], ['alice', 'bob', 'carol']
+    )
+    warn.assert_called_once_with(
+        '[%s] Ignoring unknown entity names from game master: %s',
+        'ParallelQuestionnaireEngine',
+        ['unknown'],
+    )
 
   def test_run_loop_shuts_down_executor_on_early_return(self):
     engine = parallel_questionnaire.ParallelQuestionnaireEngine(max_workers=1)

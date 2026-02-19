@@ -26,6 +26,7 @@ from concordia.components.game_master import event_resolution as event_resolutio
 from concordia.components.game_master import make_observation as make_observation_component
 from concordia.components.game_master import next_acting as next_acting_components
 from concordia.environment import engine as engine_lib
+from concordia.environment.engines import questionnaire_utils
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
 import termcolor
@@ -46,6 +47,7 @@ DEFAULT_CALL_TO_MAKE_OBSERVATION = (
 )
 
 _PRINT_COLOR = 'cyan'
+_ENGINE_NAME = 'SequentialQuestionnaireEngine'
 
 
 class SequentialQuestionnaireEngine(engine_lib.Engine):
@@ -91,26 +93,11 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
             options=tuple(entities_by_name.keys()),
         )
     )
-
-    next_entity_names = [
-        name.strip() for name in player_names_str.split(',') if name.strip()
-    ]
-    invalid_entity_names = [
-        name for name in next_entity_names if name not in entities_by_name
-    ]
-    if invalid_entity_names:
-      logging.warning(
-          '[SequentialQuestionnaireEngine] Ignoring unknown entity names from'
-          ' game master: %s',
-          invalid_entity_names,
-      )
-
-    next_entities = [
-        entities_by_name[name]
-        for name in next_entity_names
-        if name in entities_by_name
-    ]
-    return next_entities
+    return questionnaire_utils.parse_next_acting_entities(
+        player_names_str,
+        entities_by_name,
+        engine_name=_ENGINE_NAME,
+    )
 
   def next_action_spec(
       self,
@@ -196,130 +183,133 @@ class SequentialQuestionnaireEngine(engine_lib.Engine):
       step_callback=None,
   ):
     logging.info('[SequentialQuestionnaireEngine] Starting run_loop.')
+    del log, checkpoint_callback, step_callback
     if not game_masters:
       raise ValueError('No game masters provided.')
     game_master = game_masters[0]
-
     executor = self.get_executor()
-
     try:
-      if premise:
-        logging.info('[SequentialQuestionnaireEngine] Premise: %s', premise)
-        # run observe on all game masters in parallel using concurrency
-        tasks = {}
-        for entity in game_masters:
-          tasks[entity.name] = functools.partial(entity.observe, premise)
-        concurrency.run_tasks(tasks, executor=executor)
-
-      for step in range(max_steps):
-        logging.info('[SequentialQuestionnaireEngine] Step %d', step)
-        if verbose:
-          print(f'Step {step}')
-
-        if self.terminate(game_master, verbose):
-          logging.info(
-              '[SequentialQuestionnaireEngine] Termination condition met.'
-          )
-          return
-
-        if step_controller is not None:
-          raise NotImplementedError(
-              'Step controller is not supported by this engine.'
-          )
-
-        # run observe on all entities in parallel using concurrency
-        tasks = {}
-        for entity in entities:
-          tasks[entity.name] = functools.partial(
-              entity.observe,
-              self.make_observation(game_master, entity, verbose),
-          )
-        concurrency.run_tasks(tasks, executor=executor)
-
-        next_entities = self.next_acting(game_master, entities)
-        logging.info(
-            '[SequentialQuestionnaireEngine] Next acting entities: %s',
-            [e.name for e in next_entities],
-        )
-
-        if not next_entities:
-          logging.warning('[SequentialQuestionnaireEngine] No entities to act.')
-          if verbose:
-            print(termcolor.colored('No entities to act.', _PRINT_COLOR))
-          return
-
-        player_qid_spec_list = self.next_action_spec(
-            game_master, next_entities
-        )
-        logging.info(
-            '[SequentialQuestionnaireEngine] Got %d specs in'
-            ' player_qid_spec_list',
-            len(player_qid_spec_list),
-        )
-
-        entity_map = {e.name: e for e in next_entities}
-        entity_answers = {name: {} for name in entity_map.keys()}
-
-        for player_name, q_id, spec_str in player_qid_spec_list:
-          if player_name not in entity_map:
-            logging.warning(
-                '[SequentialQuestionnaireEngine] Player %s not in entity map.',
-                player_name,
-            )
-            continue
-
-          entity = entity_map[player_name]
-          agent = cast(entity_agent.EntityAgent, entity)
-
-          # Parse the action spec to extract the question for observation
-          formatted_spec_str = spec_str.replace('{player_name}', player_name)
-          action_spec = engine_lib.action_spec_parser(formatted_spec_str)
-
-          # Build observation from the parsed action spec
-          observation = action_spec.call_to_action
-          if action_spec.output_type == entity_lib.OutputType.CHOICE:
-            escaped_options = [
-                opt.replace(',', r'\,') for opt in action_spec.options
-            ]
-            observation = (
-                observation + '\nOptions: ' + ', '.join(escaped_options)
-            )
-
-          agent.observe(observation)
-          logging.info(
-              '[SequentialQuestionnaireEngine] Player %s observed %s with: %s',
-              player_name,
-              q_id,
-              observation,
-          )
-
-          answer = agent.act(action_spec)
-          logging.info(
-              '[SequentialQuestionnaireEngine] Player %s got action spec %s and'
-              ' answered %s with: %s',
-              player_name,
-              action_spec,
-              q_id,
-              answer,
-          )
-          entity_answers[player_name][q_id] = answer
-
-        # Feed back answers to GM
-        for player_name, qid_answer_map in entity_answers.items():
-          for q_id, answer in qid_answer_map.items():
-            observation = (
-                f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
-            )
-            game_master.observe(observation)
-
-        if verbose:
-          print(
-              termcolor.colored('Questionnaire round finished.', _PRINT_COLOR)
-          )
-
-      logging.info('[SequentialQuestionnaireEngine] run_loop finished.')
+      self._run_loop_impl(
+          game_master=game_master,
+          game_masters=game_masters,
+          entities=entities,
+          premise=premise,
+          max_steps=max_steps,
+          verbose=verbose,
+          step_controller=step_controller,
+          executor=executor,
+      )
     finally:
       self.shutdown()
+
+  def _run_loop_impl(
+      self,
+      *,
+      game_master: entity_lib.Entity | entity_lib.EntityWithLogging,
+      game_masters: Sequence[entity_lib.Entity | entity_lib.EntityWithLogging],
+      entities: Sequence[entity_lib.Entity | entity_lib.EntityWithLogging],
+      premise: str,
+      max_steps: int,
+      verbose: bool,
+      step_controller: Any,
+      executor: futures.ThreadPoolExecutor | None,
+  ) -> None:
+    """Runs questionnaire steps for provided game master and entities."""
+    if premise:
+      logging.info('[SequentialQuestionnaireEngine] Premise: %s', premise)
+      tasks = {
+          entity_.name: functools.partial(entity_.observe, premise)
+          for entity_ in game_masters
+      }
+      concurrency.run_tasks(tasks, executor=executor)
+
+    for step in range(max_steps):
+      logging.info('[SequentialQuestionnaireEngine] Step %d', step)
+      if verbose:
+        print(f'Step {step}')
+
+      if self.terminate(game_master, verbose):
+        logging.info('[SequentialQuestionnaireEngine] Termination condition met.')
+        return
+
+      if step_controller is not None:
+        raise NotImplementedError(
+            'Step controller is not supported by this engine.'
+        )
+
+      tasks = {
+          entity_.name: functools.partial(
+              entity_.observe,
+              self.make_observation(game_master, entity_, verbose),
+          )
+          for entity_ in entities
+      }
+      concurrency.run_tasks(tasks, executor=executor)
+
+      next_entities = self.next_acting(game_master, entities)
+      logging.info(
+          '[SequentialQuestionnaireEngine] Next acting entities: %s',
+          [entity_.name for entity_ in next_entities],
+      )
+      if not next_entities:
+        logging.warning('[SequentialQuestionnaireEngine] No entities to act.')
+        if verbose:
+          print(termcolor.colored('No entities to act.', _PRINT_COLOR))
+        return
+
+      player_qid_spec_list = self.next_action_spec(game_master, next_entities)
+      logging.info(
+          '[SequentialQuestionnaireEngine] Got %d specs in player_qid_spec_list',
+          len(player_qid_spec_list),
+      )
+
+      entity_map = {entity_.name: entity_ for entity_ in next_entities}
+      entity_answers = {name: {} for name in entity_map}
+
+      for player_name, q_id, spec_str in player_qid_spec_list:
+        if player_name not in entity_map:
+          logging.warning(
+              '[SequentialQuestionnaireEngine] Player %s not in entity map.',
+              player_name,
+          )
+          continue
+
+        agent = cast(entity_agent.EntityAgent, entity_map[player_name])
+        formatted_spec_str = spec_str.replace('{player_name}', player_name)
+        action_spec = engine_lib.action_spec_parser(formatted_spec_str)
+
+        observation = action_spec.call_to_action
+        if action_spec.output_type == entity_lib.OutputType.CHOICE:
+          escaped_options = [opt.replace(',', r'\,') for opt in action_spec.options]
+          observation = observation + '\nOptions: ' + ', '.join(escaped_options)
+
+        agent.observe(observation)
+        logging.info(
+            '[SequentialQuestionnaireEngine] Player %s observed %s with: %s',
+            player_name,
+            q_id,
+            observation,
+        )
+
+        answer = agent.act(action_spec)
+        logging.info(
+            '[SequentialQuestionnaireEngine] Player %s got action spec %s and'
+            ' answered %s with: %s',
+            player_name,
+            action_spec,
+            q_id,
+            answer,
+        )
+        entity_answers[player_name][q_id] = answer
+
+      for player_name, qid_answer_map in entity_answers.items():
+        for q_id, answer in qid_answer_map.items():
+          game_master.observe(f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}')
+
+      if verbose:
+        print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
+
+    logging.info('[SequentialQuestionnaireEngine] run_loop finished.')
 
   @override
   def resolve(
