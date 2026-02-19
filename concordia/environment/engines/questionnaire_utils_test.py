@@ -58,7 +58,9 @@ class QuestionnaireUtilsTest(absltest.TestCase):
         engine_name='SequentialQuestionnaireEngine',
     )
 
-    self.assertEqual([entity.name for entity in entities], ['alice', 'bob', 'carol'])
+    self.assertEqual(
+        [entity.name for entity in entities], ['alice', 'bob', 'carol']
+    )
 
   def test_parse_next_acting_entities_filters_unknown_and_logs(self):
     entities_by_name = {'alice': _NamedEntity('alice')}
@@ -89,7 +91,9 @@ class QuestionnaireUtilsTest(absltest.TestCase):
         engine_name='SequentialQuestionnaireEngine',
     )
 
-    self.assertEqual([entity.name for entity in entities], ['bob', 'alice', 'bob'])
+    self.assertEqual(
+        [entity.name for entity in entities], ['bob', 'alice', 'bob']
+    )
 
 
 if __name__ == '__main__':

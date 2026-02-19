@@ -106,7 +106,7 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
       game_master: entity_lib.Entity,
       acting_entities: Sequence[entity_lib.Entity],
   ) -> List[Tuple[str, str, str]]:
-    """Returns the next action spec for all questions for the acting entities."""
+    """Returns the next action spec for all questions for acting entities."""
     if not acting_entities:
       return []
 
@@ -290,7 +290,9 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
       for player_name, qid_answer_map in entity_answers.items():
         for q_id, answer in qid_answer_map.items():
-          game_master.observe(f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}')
+          game_master.observe(
+              f'{PUTATIVE_EVENT_TAG} {player_name}: {q_id}: {answer}'
+          )
 
       if verbose:
         print(termcolor.colored('Questionnaire round finished.', _PRINT_COLOR))
@@ -312,8 +314,9 @@ class ParallelQuestionnaireEngine(engine_lib.Engine):
 
   @override
   def resolve(
-      self, game_master: entity_lib.Entity, putative_event: str
+      self, game_master: entity_lib.Entity, event: str
   ) -> None:
+    del game_master, event
     raise NotImplementedError
 
   def shutdown(self, wait: bool = True) -> None:
