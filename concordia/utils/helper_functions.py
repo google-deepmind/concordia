@@ -309,7 +309,7 @@ def find_data_in_nested_structure(
   return results
 
 
-def deep_compare_components(comp1, comp2, test_case, skip_keys=None):
+def deep_compare_components(comp1, comp2, test_case, skip_keys=()):
   """Recursively compares attributes of two components."""
   test_case.assertEqual(type(comp1), type(comp2))
 
@@ -334,7 +334,7 @@ def deep_compare_components(comp1, comp2, test_case, skip_keys=None):
     )
 
 
-def deep_compare_values(val1, val2, test_case, key_path='', skip_keys=None):
+def deep_compare_values(val1, val2, test_case, key_path='', skip_keys=()):
   """Recursively compares values."""
   test_case.assertEqual(type(val1), type(val2), f'Type mismatch at {key_path}')
 

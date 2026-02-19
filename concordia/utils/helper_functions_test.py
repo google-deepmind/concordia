@@ -55,5 +55,30 @@ class TestPrettyPrintFunction(unittest.TestCase):
     )
 
 
+class TestDeepCompareComponents(unittest.TestCase):
+
+  def test_no_skip_keys_does_not_crash(self):
+    """Regression: calling with skip_keys=None (old default) raised TypeError."""
+
+    class Foo:
+      pass
+
+    a, b = Foo(), Foo()
+    a.x = 1
+    b.x = 1
+    # Should not raise TypeError: argument of type 'NoneType' is not iterable
+    helper_functions.deep_compare_components(a, b, self)
+
+  def test_skip_keys_excludes_field(self):
+
+    class Bar:
+      pass
+
+    a, b = Bar(), Bar()
+    a.x = 1
+    b.x = 99  # would fail if compared
+    helper_functions.deep_compare_components(a, b, self, skip_keys=('x',))
+
+
 if __name__ == '__main__':
   absltest.main()
