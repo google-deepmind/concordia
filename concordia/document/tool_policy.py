@@ -60,3 +60,97 @@ class ToolPolicy(Protocol):
   ) -> PolicyDecision:
     """Evaluates a tool call and returns a decision."""
     raise NotImplementedError
+
+
+def _is_valid_type(value: Any, json_type: str) -> bool:
+  """Checks whether a value matches a limited JSON-schema primitive type."""
+  if json_type == 'string':
+    return isinstance(value, str)
+  if json_type == 'number':
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+  if json_type == 'integer':
+    return isinstance(value, int) and not isinstance(value, bool)
+  if json_type == 'boolean':
+    return isinstance(value, bool)
+  if json_type == 'object':
+    return isinstance(value, Mapping)
+  if json_type == 'array':
+    return isinstance(value, list)
+  return True
+
+
+def validate_input_schema(
+    args: Mapping[str, Any], schema: Mapping[str, Any]
+) -> str | None:
+  """Validates tool args against a minimal JSON-schema subset.
+
+  Supported subset:
+    - top-level type check for "object"
+    - required keys
+    - property primitive types: string, number, integer, boolean, object, array
+
+  Unsupported schema keywords are intentionally ignored.
+
+  Args:
+    args: Tool arguments to validate.
+    schema: JSON-schema-like mapping.
+
+  Returns:
+    None when valid, otherwise a human-readable validation error.
+  """
+  schema_type = schema.get('type')
+  if schema_type is not None and schema_type != 'object':
+    return 'Schema type must be "object".'
+
+  required = schema.get('required', ())
+  if isinstance(required, list):
+    required_keys = tuple(required)
+  else:
+    required_keys = ()
+  for key in required_keys:
+    if isinstance(key, str) and key not in args:
+      return f'Missing required argument "{key}".'
+
+  properties = schema.get('properties')
+  if not isinstance(properties, Mapping):
+    return None
+
+  for key, value in args.items():
+    property_schema = properties.get(key)
+    if not isinstance(property_schema, Mapping):
+      continue
+    expected_type = property_schema.get('type')
+    if not isinstance(expected_type, str):
+      continue
+    if not _is_valid_type(value, expected_type):
+      return (
+          f'Argument "{key}" must have type "{expected_type}", '
+          f'got "{type(value).__name__}".'
+      )
+
+  return None
+
+
+class SchemaValidatingPolicy:
+  """Policy wrapper that validates args against Tool.input_schema."""
+
+  def __init__(self, delegate: ToolPolicy | None = None):
+    self._delegate = delegate
+
+  def evaluate(
+      self,
+      call: ToolCall,
+      available_tools: Mapping[str, tool_module.Tool],
+  ) -> PolicyDecision:
+    tool = available_tools.get(call.tool_name)
+    if tool is not None and tool.input_schema is not None:
+      error = validate_input_schema(call.args, tool.input_schema)
+      if error:
+        return PolicyDecision(
+            action=PolicyAction.DENY,
+            reason=f'Input schema validation failed: {error}',
+        )
+
+    if self._delegate is None:
+      return PolicyDecision()
+    return self._delegate.evaluate(call, available_tools)

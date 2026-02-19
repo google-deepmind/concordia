@@ -65,6 +65,24 @@ class MockTool(tool_module.Tool):
     return self._return_value
 
 
+class MockSchemaTool(MockTool):
+  """A mock tool with input schema metadata."""
+
+  def __init__(
+      self,
+      name: str,
+      description: str,
+      return_value: str,
+      input_schema: dict[str, object],
+  ):
+    super().__init__(name, description, return_value)
+    self._input_schema = input_schema
+
+  @property
+  def input_schema(self) -> dict[str, object] | None:
+    return self._input_schema
+
+
 class MockPolicy:
   """Policy stub with configurable decisions."""
 
@@ -600,6 +618,72 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     self.assertEqual(tool.call_count, 1)
     tags_found = {tag for c in doc.contents() for tag in c.tags}
     self.assertIn('tool_policy_error_observed', tags_found)
+
+  def test_schema_validating_policy_observe_mode_denied_but_executes(self):
+    """Observe mode executes on schema validation deny decision."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": 12}}',
+        'Final answer',
+    ]
+    tool = MockSchemaTool(
+        'search',
+        'Search',
+        'result',
+        {
+            'type': 'object',
+            'required': ['query'],
+            'properties': {'query': {'type': 'string'}},
+        },
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=tool_policy.SchemaValidatingPolicy(),
+        enforcement_mode='observe',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_deny_observed', tags_found)
+
+  def test_schema_validating_policy_enforce_mode_denied_and_blocks(self):
+    """Enforce mode blocks on schema validation deny decision."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": 12}}',
+        'Final answer',
+    ]
+    tool = MockSchemaTool(
+        'search',
+        'Search',
+        'result',
+        {
+            'type': 'object',
+            'required': ['query'],
+            'properties': {'query': {'type': 'string'}},
+        },
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=tool_policy.SchemaValidatingPolicy(),
+        enforcement_mode='enforce',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    doc_text = doc.text()
+    self.assertIn('Error: Tool call "search" denied by policy.', doc_text)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_deny_enforced', tags_found)
 
   def test_policy_enforce_mode_non_decision_blocks(self):
     """Enforce mode blocks tool if policy returns non-decision object."""
