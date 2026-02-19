@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 import functools
+import threading
 from typing import Any, Callable, override
 
 from absl import logging
@@ -82,6 +83,7 @@ class Simultaneous(engine_lib.Engine):
     self._call_to_resolve = call_to_resolve
     self._call_to_check_termination = call_to_check_termination
     self._call_to_next_game_master = call_to_next_game_master
+    self._gm_log_lock = threading.Lock()
 
   def make_observation(
       self, game_master: entity_lib.Entity, entity: entity_lib.Entity
@@ -299,12 +301,13 @@ class Simultaneous(engine_lib.Engine):
           skip_actions: bool = False,
       ) -> str:
         """Make observation, get action and resolution for one entity."""
-        observation = self.make_observation(game_master, entity)
-        if log is not None and hasattr(game_master, 'get_last_log'):
-          assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-          log_entry['make_observation'][
-              entity.name
-          ] = game_master.get_last_log()
+        with self._gm_log_lock:
+          observation = self.make_observation(game_master, entity)
+          if log is not None and hasattr(game_master, 'get_last_log'):
+            assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
+            log_entry['make_observation'][
+                entity.name
+            ] = game_master.get_last_log()
         # Only observe if the observation is not an empty or whitespace string
         if observation and observation.strip():
           if verbose:
@@ -355,8 +358,11 @@ class Simultaneous(engine_lib.Engine):
             _entity_act, entity, action_spec, skip_actions
         )
 
-      # Run entity actions concurrently
-      actions = concurrency.run_tasks(tasks)
+      # Run entity actions concurrently (fault-tolerant)
+      actions, errors = concurrency.run_tasks_in_background(tasks)
+      if errors:
+        for name, error in errors.items():
+          logging.warning('Entity %s failed to act: %s', name, error)
 
       if skip_actions:
         steps += 1
