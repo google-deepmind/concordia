@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import unittest
 
 from absl.testing import absltest
@@ -53,6 +54,35 @@ class TestPrettyPrintFunction(unittest.TestCase):
         helper_functions.print_pretty_prefabs(test_dict),
         EXPECTED_OUTPUT_STANDARD_CASE,
     )
+
+
+class TestTimedeltaToReadableStr(unittest.TestCase):
+
+  def test_hours_and_minutes(self):
+    """Regression: hours+minutes used to produce 'X hours a n d Y minutes'."""
+    td = datetime.timedelta(hours=2, minutes=30)
+    result = helper_functions.timedelta_to_readable_str(td)
+    self.assertEqual(result, '2 hours and 30 minutes')
+
+  def test_hours_minutes_and_seconds(self):
+    td = datetime.timedelta(hours=1, minutes=5, seconds=10)
+    result = helper_functions.timedelta_to_readable_str(td)
+    self.assertEqual(result, '1 hour and 5 minutes and 10 seconds')
+
+  def test_minutes_and_seconds_only(self):
+    td = datetime.timedelta(minutes=3, seconds=45)
+    result = helper_functions.timedelta_to_readable_str(td)
+    self.assertEqual(result, '3 minutes and 45 seconds')
+
+  def test_seconds_only(self):
+    td = datetime.timedelta(seconds=42)
+    result = helper_functions.timedelta_to_readable_str(td)
+    self.assertEqual(result, '42 seconds')
+
+  def test_singular_units(self):
+    td = datetime.timedelta(hours=1, minutes=1, seconds=1)
+    result = helper_functions.timedelta_to_readable_str(td)
+    self.assertEqual(result, '1 hour and 1 minute and 1 second')
 
 
 if __name__ == '__main__':
