@@ -34,7 +34,9 @@ runs:
         else
           exit 1
         fi
-        echo "key=${name}-${version}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
+        echo "key=${name}-${version}-py${STEPS_SETUP_PYTHON_OUTPUTS_PYTHON_VERSION}-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
+      env:
+        STEPS_SETUP_PYTHON_OUTPUTS_PYTHON_VERSION: ${{ steps.setup-python.outputs.python-version }}
 
     - name: Restore installation
       id: restore
