@@ -117,6 +117,26 @@ Answer: OK then...I hereby declare the answer to be 7
       )
       self.assertEqual(doc.contents(), expected)
 
+  def test_open_question_diversified_uses_document_rng(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = '1. alpha!\n2. beta!\n3. gamma!'
+    rng = mock.create_autospec(
+        np.random.Generator, instance=True, spec_set=True
+    )
+    rng.integers.return_value = 1
+
+    doc = interactive_document.InteractiveDocument(model, rng=rng)
+    response = doc.open_question_diversified(
+        question='Which answer?',
+        num_samples=3,
+        terminators=('!',),
+    )
+
+    self.assertEqual(response, 'beta')
+    rng.integers.assert_called_once_with(3)
+
   def test_multiple_choice_question(self):
     model = mock.create_autospec(
         language_model.LanguageModel, instance=True, spec_set=True
