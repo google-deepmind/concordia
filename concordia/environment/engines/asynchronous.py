@@ -102,6 +102,7 @@ class Asynchronous(engine_lib.Engine):
     self._sleep_time = sleep_time
     self._pause_event = threading.Event()
     self._pause_event.set()
+    self._gm_log_lock = threading.Lock()
 
   def pause(self) -> None:
     """Pause all player threads. They will block until play() is called."""
@@ -153,6 +154,13 @@ class Asynchronous(engine_lib.Engine):
       assert hasattr(game_master, 'get_last_log')
       log_entry['next_acting'] = game_master.get_last_log()
 
+    # Filter to only entities in the passed list (enables per-entity calls)
+    next_entity_names = [
+        name for name in next_entity_names if name in entities_by_name
+    ]
+    if not next_entity_names:
+      return ([], [])
+
     action_spec_by_name = {}
     for next_entity_name in next_entity_names:
       next_action_spec_string = game_master.act(
@@ -174,15 +182,6 @@ class Asynchronous(engine_lib.Engine):
       ):
         assert hasattr(game_master, 'get_last_log')
         log_entry['next_action_spec'] = game_master.get_last_log()
-
-    invalid_names = [
-        name for name in next_entity_names if name not in entities_by_name
-    ]
-    if invalid_names:
-      raise ValueError(
-          f'Game master returned invalid entity names: {invalid_names}. '
-          f'Valid options: {list(entities_by_name.keys())}'
-      )
 
     return (
         [entities_by_name[entity_name] for entity_name in next_entity_names],
@@ -298,7 +297,6 @@ class Asynchronous(engine_lib.Engine):
   def _entity_loop(
       self,
       entity: entity_lib.Entity,
-      entities: Sequence[entity_lib.Entity],
       game_master: entity_lib.Entity,
       max_steps: int,
       verbose: bool,
@@ -314,7 +312,6 @@ class Asynchronous(engine_lib.Engine):
 
     Args:
       entity: The entity to run.
-      entities: All entities in the simulation.
       game_master: The game master (must be thread-safe).
       max_steps: Maximum number of iterations for this entity.
       verbose: Whether to print debug information.
@@ -349,25 +346,26 @@ class Asynchronous(engine_lib.Engine):
         log_entry['terminate'] = game_master.get_last_log()
 
       acting_entities, action_specs = self.next_acting(
-          game_master, entities, log_entry=log_entry, log=log
+          game_master, [entity], log_entry=log_entry, log=log
       )
-      acting_names = [e.name for e in acting_entities]
       iteration += 1
-      if entity.name not in acting_names:
+      if not acting_entities:
         time.sleep(self._sleep_time)
         continue
 
-      entity_index = acting_names.index(entity.name)
-      action_spec = action_specs[entity_index]
+      action_spec = action_specs[0]
 
       if action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
         time.sleep(self._sleep_time)
         continue
 
-      observation = self.make_observation(game_master, entity)
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['make_observation'][entity.name] = game_master.get_last_log()
+      with self._gm_log_lock:
+        observation = self.make_observation(game_master, entity)
+        if log is not None and hasattr(game_master, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')
+          log_entry['make_observation'][
+              entity.name
+          ] = game_master.get_last_log()
       if observation and observation.strip():
         if verbose:
           print(
@@ -398,11 +396,14 @@ class Asynchronous(engine_lib.Engine):
             )
         )
 
-      self.resolve(game_master, action, verbose=verbose)
+      with self._gm_log_lock:
+        self.resolve(game_master, action, verbose=verbose)
 
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['resolve'] = game_master.get_last_log()
+        if log is not None and hasattr(game_master, 'get_last_log'):
+          assert hasattr(game_master, 'get_last_log')
+          log_entry['resolve'] = game_master.get_last_log()
+
+      if log is not None:
         next_entity_log = {}
         game_master_key = game_master.name
         entity_key = f'Entity [{entity.name}]'
@@ -530,7 +531,6 @@ class Asynchronous(engine_lib.Engine):
       tasks[entity.name] = functools.partial(
           self._entity_loop,
           entity=entity,
-          entities=entities,
           game_master=game_master,
           max_steps=max_steps,
           verbose=verbose,
