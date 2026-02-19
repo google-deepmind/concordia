@@ -38,6 +38,17 @@ class _StubTool(tool_module.Tool):
     return 'ok'
 
 
+class _SchemaTool(_StubTool):
+  """Tool stub with configurable input schema."""
+
+  def __init__(self, schema: Mapping[str, Any]):
+    self._schema = schema
+
+  @property
+  def input_schema(self) -> Mapping[str, Any] | None:
+    return self._schema
+
+
 class _DenyPolicy:
   """Policy stub that always denies tool calls."""
 
@@ -52,6 +63,23 @@ class _DenyPolicy:
         reason=f'Denied {call.tool_name}.',
         tags=('test_tag',),
     )
+
+
+class _RecordingPolicy:
+  """Policy stub that records calls and returns a configured decision."""
+
+  def __init__(self, decision: tool_policy.PolicyDecision):
+    self._decision = decision
+    self.calls: list[tool_policy.ToolCall] = []
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: Mapping[str, tool_module.Tool],
+  ) -> tool_policy.PolicyDecision:
+    del available_tools
+    self.calls.append(call)
+    return self._decision
 
 
 class ToolPolicyTest(absltest.TestCase):
@@ -88,6 +116,123 @@ class ToolPolicyTest(absltest.TestCase):
     )
     self.assertEqual(decision.action, tool_policy.PolicyAction.DENY)
     self.assertEqual(decision.tags, ('test_tag',))
+
+  def test_validate_input_schema_accepts_valid_args(self):
+    schema = {
+        'type': 'object',
+        'required': ['query'],
+        'properties': {
+            'query': {'type': 'string'},
+            'limit': {'type': 'integer'},
+            'active': {'type': 'boolean'},
+        },
+    }
+
+    self.assertIsNone(
+        tool_policy.validate_input_schema(
+            {'query': 'weather', 'limit': 3, 'active': True},
+            schema,
+        )
+    )
+
+  def test_validate_input_schema_rejects_missing_required_key(self):
+    schema = {
+        'type': 'object',
+        'required': ['query'],
+        'properties': {'query': {'type': 'string'}},
+    }
+
+    error = tool_policy.validate_input_schema({}, schema)
+
+    self.assertEqual(error, 'Missing required argument "query".')
+
+  def test_validate_input_schema_rejects_wrong_primitive_type(self):
+    schema = {
+        'type': 'object',
+        'properties': {'limit': {'type': 'integer'}},
+    }
+
+    error = tool_policy.validate_input_schema({'limit': 'many'}, schema)
+
+    self.assertEqual(
+        error, 'Argument "limit" must have type "integer", got "str".'
+    )
+
+  def test_schema_validating_policy_denies_when_validation_fails(self):
+    schema_tool = _SchemaTool(
+        {
+            'type': 'object',
+            'required': ['query'],
+            'properties': {'query': {'type': 'string'}},
+        }
+    )
+    delegate = _RecordingPolicy(tool_policy.PolicyDecision())
+    policy = tool_policy.SchemaValidatingPolicy(delegate)
+
+    decision = policy.evaluate(
+        tool_policy.ToolCall(
+            tool_name='stub',
+            args={},
+            raw_response='{}',
+            attempt_index=1,
+        ),
+        {'stub': schema_tool},
+    )
+
+    self.assertEqual(decision.action, tool_policy.PolicyAction.DENY)
+    self.assertIn('Input schema validation failed', decision.reason)
+    self.assertEmpty(delegate.calls)
+
+  def test_schema_validating_policy_delegates_after_validation(self):
+    schema_tool = _SchemaTool(
+        {
+            'type': 'object',
+            'required': ['query'],
+            'properties': {'query': {'type': 'string'}},
+        }
+    )
+    delegate_decision = tool_policy.PolicyDecision(
+        action=tool_policy.PolicyAction.EDIT,
+        edited_args={'query': 'edited'},
+        reason='delegate rewrite',
+    )
+    delegate = _RecordingPolicy(delegate_decision)
+    policy = tool_policy.SchemaValidatingPolicy(delegate)
+
+    decision = policy.evaluate(
+        tool_policy.ToolCall(
+            tool_name='stub',
+            args={'query': 'weather'},
+            raw_response='{}',
+            attempt_index=1,
+        ),
+        {'stub': schema_tool},
+    )
+
+    self.assertEqual(decision, delegate_decision)
+    self.assertLen(delegate.calls, 1)
+
+  def test_schema_validating_policy_allows_when_no_delegate(self):
+    schema_tool = _SchemaTool(
+        {
+            'type': 'object',
+            'required': ['query'],
+            'properties': {'query': {'type': 'string'}},
+        }
+    )
+    policy = tool_policy.SchemaValidatingPolicy()
+
+    decision = policy.evaluate(
+        tool_policy.ToolCall(
+            tool_name='stub',
+            args={'query': 'weather'},
+            raw_response='{}',
+            attempt_index=1,
+        ),
+        {'stub': schema_tool},
+    )
+
+    self.assertEqual(decision.action, tool_policy.PolicyAction.ALLOW)
 
 
 if __name__ == '__main__':
