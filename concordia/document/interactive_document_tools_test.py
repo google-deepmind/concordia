@@ -117,6 +117,21 @@ class MockInvalidActionPolicy:
     )
 
 
+class MockStringTagsPolicy:
+  """Policy stub with malformed string tags payload."""
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: dict[str, tool_module.Tool],
+  ) -> tool_policy.PolicyDecision:
+    del call, available_tools
+    return tool_policy.PolicyDecision(
+        action=tool_policy.PolicyAction.ALLOW,
+        tags=cast(tuple[str, ...], 'invalid'),
+    )
+
+
 class InteractiveDocumentWithToolsTest(parameterized.TestCase):
 
   def test_open_question_no_tools(self):
@@ -555,6 +570,29 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     tags_found = {tag for c in doc.contents() for tag in c.tags}
     self.assertIn('tool_policy_error_observed', tags_found)
 
+  def test_policy_observe_mode_string_tags_fails_open(self):
+    """Observe mode executes tool if policy returns string tags."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockStringTagsPolicy(),
+        enforcement_mode='observe',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_observed', tags_found)
+
   def test_policy_enforce_mode_invalid_action_blocks(self):
     """Enforce mode blocks tool if policy returns invalid action."""
     model = mock.create_autospec(
@@ -569,6 +607,29 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
         model,
         tools=[tool],
         policy=MockInvalidActionPolicy(),
+        enforcement_mode='enforce',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_enforced', tags_found)
+
+  def test_policy_enforce_mode_string_tags_blocks(self):
+    """Enforce mode blocks tool if policy returns string tags."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockStringTagsPolicy(),
         enforcement_mode='enforce',
     )
 
