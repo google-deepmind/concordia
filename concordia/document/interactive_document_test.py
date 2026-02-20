@@ -122,10 +122,7 @@ Answer: OK then...I hereby declare the answer to be 7
         language_model.LanguageModel, instance=True, spec_set=True
     )
     model.sample_text.return_value = '1. alpha!\n2. beta!\n3. gamma!'
-    rng = mock.create_autospec(
-        np.random.Generator, instance=True, spec_set=True
-    )
-    rng.integers.return_value = 1
+    rng = np.random.default_rng(seed=42)
 
     doc = interactive_document.InteractiveDocument(model, rng=rng)
     response = doc.open_question_diversified(
@@ -134,8 +131,7 @@ Answer: OK then...I hereby declare the answer to be 7
         terminators=('!',),
     )
 
-    self.assertEqual(response, 'beta')
-    rng.integers.assert_called_once_with(3)
+    self.assertEqual(response, 'alpha')
 
   def test_multiple_choice_question(self):
     model = mock.create_autospec(

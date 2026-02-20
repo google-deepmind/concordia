@@ -290,7 +290,7 @@ class InteractiveDocument(document.Document):
               f'LLM generated only {len(candidates)} initial answers.'
           )
       candidates = [re.sub(r'^\d+\.\s*', '', line) for line in candidates]
-      response = candidates[self._rng.integers(len(candidates))]
+      response = self._rng.choice(candidates)
       response = truncate_string(response, terminators)
 
     else:
