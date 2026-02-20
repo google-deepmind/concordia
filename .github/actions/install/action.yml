@@ -24,6 +24,8 @@ runs:
     - name: Get cache key
       id: cache-key
       shell: bash
+      env:
+        PYTHON_VERSION: ${{ steps.setup-python.outputs.python-version }}
       run: |
         if [ "${RUNNER_OS}" = 'macOS' ]; then
           readonly name="$(sw_vers -productName)"
@@ -34,7 +36,7 @@ runs:
         else
           exit 1
         fi
-        echo "key=${name}-${version}-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
+        echo "key=${name}-${version}-py${PYTHON_VERSION}-${{ hashFiles('requirements.txt') }}" >> $GITHUB_OUTPUT
 
     - name: Restore installation
       id: restore
