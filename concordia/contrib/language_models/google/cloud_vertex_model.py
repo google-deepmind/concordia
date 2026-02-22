@@ -32,7 +32,7 @@ DEFAULT_HISTORY = [
     types.Content(
         role='user',
         parts=[
-            types.Part(text='Continue my sentences. Never repeat their starts.')
+            types.Part(text='You are an autoregressive LLM. You always complete user inputs.')
         ],
     ),
     types.Content(
