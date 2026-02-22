@@ -189,6 +189,71 @@ class NextActingAllEntities(entity_component.ContextComponent):
       self._player_names = state['player_names']
 
 
+class NextActingActiveEntity(entity_component.ContextComponent):
+  """A component for async engines that tracks the active entity.
+
+  This component is designed for asynchronous environments where each entity
+  runs in its own thread. It returns the entity from action_spec.options for
+  NEXT_ACTING queries, and tracks the currently active player using a lock
+  for thread safety.
+  """
+
+  def __init__(
+      self,
+      player_names: Sequence[str],
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
+  ):
+    """Initializes the component.
+
+    Args:
+      player_names: Names of players.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
+    """
+    super().__init__()
+    self._player_names = player_names
+    self._pre_act_label = pre_act_label
+    self._lock = threading.Lock()
+    self._currently_active_player = None
+
+    if not self._player_names:
+      raise ValueError('No player names provided.')
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      # The async engine passes a single entity per thread via options.
+      result = ','.join(action_spec.options)
+      if action_spec.options:
+        with self._lock:
+          self._currently_active_player = action_spec.options[0]
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    """Returns the currently active player."""
+    with self._lock:
+      return self._currently_active_player
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    return {
+        'player_names': list(self._player_names),
+        'pre_act_label': self._pre_act_label,
+        'currently_active_player': self._currently_active_player,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    if 'player_names' in state:
+      self._player_names = state['player_names']
+    if 'currently_active_player' in state:
+      with self._lock:
+        self._currently_active_player = state['currently_active_player']
+
+
 class NextActingInFixedOrder(entity_component.ContextComponent):
   """A component that decides whose turn is next in a fixed sequence.
   """
