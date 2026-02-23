@@ -96,8 +96,8 @@ setuptools.setup(
         ],
         'google': [
             # Used in concordia.contrib.language_models.google
-            'google-cloud-aiplatform',
-            'google-generativeai',
+            'google-genai',
+            'google-cloud-aiplatform',  # For custom endpoint models
         ],
         'huggingface': [
             # Used in concordia.contrib.language_models.huggingface
