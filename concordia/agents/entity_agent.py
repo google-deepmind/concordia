@@ -272,6 +272,8 @@ class EntityAgent(entity_component.EntityWithComponents):
       action_spec: entity.ActionSpec,
   ) -> str:
     """Helper for single stateless action, used by parallel_stateless_act."""
+    logging.warning('stateless_act is deprecated. Please use act instead.')
+
     if self.get_phase() != entity_component.Phase.PRE_ACT:
       raise RuntimeError('Agent must be in PRE_ACT phase for stateless_act')
 
