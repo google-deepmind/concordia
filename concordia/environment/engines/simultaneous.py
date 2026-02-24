@@ -16,6 +16,7 @@
 
 from collections.abc import Mapping, Sequence
 import functools
+import re
 import threading
 from typing import Any, Callable, override
 
@@ -45,6 +46,7 @@ DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
 )
 
 DEFAULT_ACT_COMPONENT_KEY = switch_act_component.DEFAULT_ACT_COMPONENT_KEY
+_BASE64_TRUNCATE_PATTERN = re.compile(r'(base64,)[A-Za-z0-9+/=]{100,}')
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG
@@ -164,9 +166,12 @@ class Simultaneous(engine_lib.Engine):
   ) -> None:
     """Resolve an event."""
     if verbose:
+      display_event = _BASE64_TRUNCATE_PATTERN.sub(
+          r'\1[IMAGE DATA]', putative_event
+      )
       print(
           termcolor.colored(
-              f'The suggested action or event to resolve was: {putative_event}',
+              f'The suggested action or event to resolve was: {display_event}',
               _PRINT_COLOR,
           )
       )
@@ -336,9 +341,13 @@ class Simultaneous(engine_lib.Engine):
         else:
           action = f'{entity.name}: {raw_action}'
         if verbose:
+          display_action = _BASE64_TRUNCATE_PATTERN.sub(
+              r'\1[IMAGE DATA]', action
+          )
           print(
               termcolor.colored(
-                  f'Entity {entity.name} chose action: {action}', _PRINT_COLOR
+                  f'Entity {entity.name} chose action: {display_action}',
+                  _PRINT_COLOR,
               )
           )
 
