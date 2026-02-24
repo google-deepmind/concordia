@@ -102,7 +102,6 @@ class Asynchronous(engine_lib.Engine):
     self._sleep_time = sleep_time
     self._pause_event = threading.Event()
     self._pause_event.set()
-    self._gm_log_lock = threading.Lock()
 
   def pause(self) -> None:
     """Pause all player threads. They will block until play() is called."""
@@ -359,13 +358,12 @@ class Asynchronous(engine_lib.Engine):
         time.sleep(self._sleep_time)
         continue
 
-      with self._gm_log_lock:
-        observation = self.make_observation(game_master, entity)
-        if log is not None and hasattr(game_master, 'get_last_log'):
-          assert hasattr(game_master, 'get_last_log')
-          log_entry['make_observation'][
-              entity.name
-          ] = game_master.get_last_log()
+      observation = self.make_observation(game_master, entity)
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')
+        log_entry['make_observation'][
+            entity.name
+        ] = game_master.get_last_log()
       if observation and observation.strip():
         if verbose:
           print(
@@ -396,12 +394,11 @@ class Asynchronous(engine_lib.Engine):
             )
         )
 
-      with self._gm_log_lock:
-        self.resolve(game_master, action, verbose=verbose)
+      self.resolve(game_master, action, verbose=verbose)
 
-        if log is not None and hasattr(game_master, 'get_last_log'):
-          assert hasattr(game_master, 'get_last_log')
-          log_entry['resolve'] = game_master.get_last_log()
+      if log is not None and hasattr(game_master, 'get_last_log'):
+        assert hasattr(game_master, 'get_last_log')
+        log_entry['resolve'] = game_master.get_last_log()
 
       if log is not None:
         next_entity_log = {}
