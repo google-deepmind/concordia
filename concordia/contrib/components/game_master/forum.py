@@ -59,6 +59,7 @@ class Post:
   content: str
   timestamp: str
   votes: int = 0
+  image: str | None = None
   replies: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
 
@@ -108,6 +109,7 @@ class ForumState(entity_component.ContextComponent):
       title: str,
       content: str,
       timestamp: str = '',
+      image: str | None = None,
   ) -> int:
     with self._lock:
       post_id = self._next_post_id
@@ -118,6 +120,7 @@ class ForumState(entity_component.ContextComponent):
           title=title,
           content=content,
           timestamp=timestamp or datetime.datetime.now().isoformat(),
+          image=image,
       )
       return post_id
 
@@ -127,6 +130,7 @@ class ForumState(entity_component.ContextComponent):
       author: str,
       content: str,
       timestamp: str = '',
+      image: str | None = None,
   ) -> int | None:
     with self._lock:
       if post_id not in self._posts:
@@ -138,6 +142,7 @@ class ForumState(entity_component.ContextComponent):
           'author': author,
           'content': content,
           'timestamp': timestamp or datetime.datetime.now().isoformat(),
+          'image': image,
       })
       return reply_id
 
@@ -272,7 +277,25 @@ class ForumState(entity_component.ContextComponent):
       return -1
 
   def parse_and_execute_action(self, action_text: str) -> str:
-    action = self.extract_json(action_text)
+    action = None
+    image_data = None
+
+    try:
+      parsed = json.loads(action_text.strip())
+      if isinstance(parsed, dict):
+        if 'text' in parsed and 'image' in parsed:
+          image_data = parsed.get('image')
+          if image_data == 'FAILED TO MAKE AN IMAGE':
+            image_data = None
+          action = self.extract_json(parsed['text'])
+        elif 'action' in parsed:
+          action = parsed
+    except (json.JSONDecodeError, ValueError):
+      pass
+
+    if action is None:
+      action = self.extract_json(action_text)
+
     if action is None:
       return (
           'Error: Could not parse action. Expected valid JSON.'
@@ -285,14 +308,22 @@ class ForumState(entity_component.ContextComponent):
     if action_type == 'post':
       title = action.get('title', '')
       content = action.get('content', '')
-      post_id = self.create_post(author=author, title=title, content=content)
+      post_id = self.create_post(
+          author=author,
+          title=title,
+          content=content,
+          image=image_data,
+      )
       result = f'{author} created post #{post_id}: "{title}"'
       return result
     elif action_type == 'reply':
       post_id = self._parse_post_id(action.get('post_id', -1))
       content = action.get('content', '')
       reply_id = self.reply_to_post(
-          post_id=post_id, author=author, content=content
+          post_id=post_id,
+          author=author,
+          content=content,
+          image=image_data,
       )
       if reply_id is not None:
         result = f'{author} replied to post #{post_id}: "{content}"'
@@ -364,6 +395,21 @@ class ForumState(entity_component.ContextComponent):
         .replace('\n', '<br>')
     )
 
+  def _extract_image_src(self, image_markdown: str) -> str:
+    match = re.search(r'!\[[^\]]*\]\(([^)]+)\)', image_markdown)
+    if match:
+      return match.group(1)
+    return ''
+
+  def _render_post_image(self, post: Post) -> str:
+    if post.image and post.image.startswith('!['):
+      src = self._extract_image_src(post.image)
+      if src:
+        return (
+            f'<div class="post-image"><img src="{src}" alt="post image"></div>'
+        )
+    return ''
+
   def to_html(self, title: str = '') -> str:
     title = title or self._forum_name
     posts = self.get_recent_posts()
@@ -385,6 +431,14 @@ class ForumState(entity_component.ContextComponent):
 
         replies_html = ''
         for reply in post.replies:
+          reply_image_html = ''
+          reply_image = reply.get('image')
+          if reply_image and reply_image.startswith('!['):
+            reply_image_html = (
+                '<div class="post-image"><img src="'
+                f'{self._extract_image_src(reply_image)}"'
+                ' alt="reply image"></div>'
+            )
           replies_html += f"""
           <div class="reply">
             <div class="reply-meta">
@@ -392,6 +446,7 @@ class ForumState(entity_component.ContextComponent):
               <span class="timestamp">{self._escape_html(reply.get('timestamp', ''))}</span>
             </div>
             <div class="reply-content">{self._escape_html(reply['content'])}</div>
+            {reply_image_html}
           </div>"""
 
         reply_count = len(post.replies)
@@ -411,6 +466,7 @@ class ForumState(entity_component.ContextComponent):
               <span class="timestamp">{self._escape_html(post.timestamp)}</span>
             </div>
             <div class="post-body">{self._escape_html(post.content)}</div>
+            {self._render_post_image(post)}
             <div class="post-actions">
               <span class="action-item">💬 {reply_label}</span>
             </div>
@@ -530,6 +586,15 @@ class ForumState(entity_component.ContextComponent):
       font-size: 12px;
       color: #818384;
       font-weight: bold;
+    }}
+    .post-image {{
+      margin: 8px 0;
+    }}
+    .post-image img {{
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: 4px;
+      border: 1px solid #343536;
     }}
     .action-item {{
       padding: 4px 6px;

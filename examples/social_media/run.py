@@ -33,14 +33,18 @@ import os
 from typing import Any
 
 from concordia.contrib.language_models import language_model_setup
+from concordia.contrib.language_models.google import gemini_model_vision
 from examples.social_media import scenario_00_robo_alchemy
+from examples.social_media import scenario_01_robo_alchemy_images
 from concordia.language_model import no_language_model
+from concordia.language_model import retry_wrapper
 import numpy as np
 import sentence_transformers
 
 
 _SCENARIO_MODULES = [
     scenario_00_robo_alchemy,
+    scenario_01_robo_alchemy_images,
 ]
 
 SCENARIOS = {
@@ -91,6 +95,7 @@ def run_scenario_by_number(
     model,
     embedder,
     output_dir: str | None = None,
+    image_model=None,
 ):
   """Run a scenario by number."""
   if scenario_num not in SCENARIOS:
@@ -100,9 +105,10 @@ def run_scenario_by_number(
 
   info = SCENARIOS[scenario_num]
   return info["run"](
-      model,
-      embedder,
+      model=model,
+      embedder=embedder,
       output_dir=output_dir,
+      image_model=image_model,
   )
 
 
@@ -158,6 +164,12 @@ def main():
       help="Run with a mock model for testing.",
   )
   parser.add_argument(
+      "--image_model_name",
+      type=str,
+      default=None,
+      help="Model name for image generation (e.g. 'gemini-2.5-flash-image').",
+  )
+  parser.add_argument(
       "--list",
       action="store_true",
       help="List available scenarios and exit.",
@@ -173,11 +185,26 @@ def main():
   if model is None:
     return
 
+  image_model = None
+  if args.image_model_name:
+    if not args.api_key:
+      print("Error: --image_model_name requires --api_key.")
+      return
+    print(f"Initializing image model: {args.image_model_name}")
+    image_model = gemini_model_vision.GeminiModelVision(
+        model_name=args.image_model_name,
+        api_key=args.api_key,
+    )
+    image_model = retry_wrapper.RetryLanguageModel(
+        image_model, retry_tries=5, retry_delay=1
+    )
+
   results = run_scenario_by_number(
       args.scenario,
       model,
       embedder,
       output_dir=args.output_dir,
+      image_model=image_model,
   )
 
   if results:

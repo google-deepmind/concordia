@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Scenario 0: Robot-Assisted Alchemy Forum.
+"""Scenario 1: Robot-Assisted Alchemy Forum with Required Images.
 
-A minimal scenario with four people discussing robot-assisted medieval
-alchemy on a forum. Designed for rapid iteration during development, also
-sometimes produces amusing results.
+Identical to Scenario 0 but uses the image-capable entity prefab, so agents
+generate an image alongside every post and reply.
 """
 
+from concordia.contrib.prefabs import entity as contrib_entity_prefabs
 from examples.social_media import shared as shared_lib
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import helper_functions
 
 
 _USER_SILAS = "Silas Varnham"
@@ -42,9 +43,14 @@ _ALL_USERS = [_USER_SILAS, _USER_PETRA, _USER_DIEGO, _USER_THADDEUS]
 
 _FORUM_GM = "forum_rules"
 
+_IMAGE_MODE = "choice"
 
-def create_debug_scenario():
-  """Create a debug scenario with several robot-alchemy enthusiasts on a forum.
+
+def create_scenario(image_model=None):
+  """Create a scenario with required image prompts.
+
+  Args:
+    image_model: Optional image generation model.
 
   Returns:
     A simulation configuration.
@@ -195,78 +201,54 @@ def create_debug_scenario():
       ],
   }
 
+  player_params = {
+      "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
+      "situation_perception_history_length": (
+          _SITUATION_PERCEPTION_HISTORY_LENGTH
+      ),
+      "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
+      "person_by_situation_history_length": _PERSON_BY_SITUATION_HISTORY_LENGTH,
+      "image_mode": _IMAGE_MODE,
+  }
+  if image_model:
+    player_params["image_model"] = image_model
+
   silas = prefab_lib.InstanceConfig(
-      prefab="basic__Entity",
+      prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
-          "name": _USER_SILAS,
-          "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
-          "situation_perception_history_length": (
-              _SITUATION_PERCEPTION_HISTORY_LENGTH
-          ),
-          "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
-          "person_by_situation_history_length": (
-              _PERSON_BY_SITUATION_HISTORY_LENGTH
-          ),
-      },
+      params={**player_params, "name": _USER_SILAS},
   )
 
   petra = prefab_lib.InstanceConfig(
-      prefab="basic__Entity",
+      prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
-          "name": _USER_PETRA,
-          "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
-          "situation_perception_history_length": (
-              _SITUATION_PERCEPTION_HISTORY_LENGTH
-          ),
-          "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
-          "person_by_situation_history_length": (
-              _PERSON_BY_SITUATION_HISTORY_LENGTH
-          ),
-      },
+      params={**player_params, "name": _USER_PETRA},
   )
 
   diego = prefab_lib.InstanceConfig(
-      prefab="basic__Entity",
+      prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
-          "name": _USER_DIEGO,
-          "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
-          "situation_perception_history_length": (
-              _SITUATION_PERCEPTION_HISTORY_LENGTH
-          ),
-          "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
-          "person_by_situation_history_length": (
-              _PERSON_BY_SITUATION_HISTORY_LENGTH
-          ),
-      },
+      params={**player_params, "name": _USER_DIEGO},
   )
 
   thaddeus = prefab_lib.InstanceConfig(
-      prefab="basic__Entity",
+      prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
-          "name": _USER_THADDEUS,
-          "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
-          "situation_perception_history_length": (
-              _SITUATION_PERCEPTION_HISTORY_LENGTH
-          ),
-          "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
-          "person_by_situation_history_length": (
-              _PERSON_BY_SITUATION_HISTORY_LENGTH
-          ),
-      },
+      params={**player_params, "name": _USER_THADDEUS},
   )
+
+  gm_params = {
+      "name": _FORUM_GM,
+      "forum_name": "The Robotic Athanor Forum",
+  }
+  if image_model:
+    gm_params["image_model"] = image_model
 
   game_masters = [
       prefab_lib.InstanceConfig(
           prefab="async_social_media__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
-              "name": _FORUM_GM,
-              "forum_name": "The Robotic Athanor Forum",
-          },
+          params=gm_params,
       ),
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
@@ -309,9 +291,14 @@ def create_debug_scenario():
                       " robotic alchemy rigs."
                   ),
                   (
-                      "The forum has sections for Build Logs, Alchemical"
-                      " Theory, Manuscript Analysis, and Buy/Sell/Trade."
-                      " All members live in SF / Bay Area in 2026."
+                      "The forum has in the past been used for Build Logs,"
+                      " Alchemical Theory, Manuscript Analysis, and"
+                      " Buy/Sell/Trade. All members live in SF / the Bay Area."
+                      " The year is 2026."
+                  ),
+                  (
+                      "It is traditional to post dank memes to accompany all"
+                      " posts and replies on the Robotic Athanor forum."
                   ),
               ],
           },
@@ -324,10 +311,14 @@ def create_debug_scenario():
       "All members of The Robotic Athanor forum are browsing and interacting."
   )
 
-  return shared_lib.create_simulation_config(premise, instances)
+  extra_prefabs = helper_functions.get_package_classes(contrib_entity_prefabs)
+
+  return shared_lib.create_simulation_config(
+      premise, instances, extra_prefabs=extra_prefabs
+  )
 
 
-def run_debug_simulation(
+def run_simulation(
     model,
     embedder,
     override_agent_model=None,
@@ -339,14 +330,14 @@ def run_debug_simulation(
     entity_info_callback=None,
     simulation_callback=None,
 ):
-  """Run the debug simulation.
+  """Run the simulation with required image prompts.
 
   Args:
     model: The default language model to use.
     embedder: The sentence embedder.
     override_agent_model: Optional model to use for agents instead of default.
     override_game_master_model: Optional model for game masters.
-    image_model: Optional image generation model (unused in this scenario).
+    image_model: Optional image generation model.
     output_dir: Optional directory to save config visualization.
     step_controller: Optional step controller for real-time visualization.
     step_callback: Optional callback for step updates.
@@ -356,8 +347,7 @@ def run_debug_simulation(
   Returns:
     Simulation results.
   """
-  del image_model
-  config = create_debug_scenario()
+  config = create_scenario(image_model=image_model)
   return shared_lib.run_scenario(
       config,
       model,
@@ -365,22 +355,21 @@ def run_debug_simulation(
       override_agent_model=override_agent_model,
       override_game_master_model=override_game_master_model,
       output_dir=output_dir,
-      scenario_name="Scenario 0: Social Media Debug",
+      scenario_name="Scenario 1: Social Media with Images",
       step_controller=step_controller,
       step_callback=step_callback,
       entity_info_callback=entity_info_callback,
       simulation_callback=simulation_callback,
-      max_steps=8,
+      max_steps=5,
   )
 
 
 SCENARIO_INFO = {
-    "number": 0,
-    "name": "Social Media: Robot Alchemy",
+    "number": 1,
+    "name": "Social Media: Robot Alchemy with Images",
     "description": (
-        "A debug scenario with several robot-alchemy enthusiasts interacting"
-        " on The Robotic Athanor forum."
+        "Same as Scenario 0 but agents generate images with every post."
     ),
-    "create": create_debug_scenario,
-    "run": run_debug_simulation,
+    "create": create_scenario,
+    "run": run_simulation,
 }
