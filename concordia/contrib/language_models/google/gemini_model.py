@@ -44,7 +44,7 @@ DEFAULT_HISTORY = (
         parts=[
             types.Part(
                 text=(
-                    'You always continue sentences provided by the user, and'
+                    'You always continue inputs provided by the user, and'
                     ' you never repeat what the user already said.'
                 ),
             ),

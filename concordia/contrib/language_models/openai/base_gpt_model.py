@@ -69,7 +69,7 @@ class BaseGPTModel(language_model.LanguageModel):
         {
             'role': 'system',
             'content': (
-                'You always continue sentences provided '
+                'You always continue input provided '
                 + 'by the user and you never repeat what '
                 + 'the user already said.'
             ),
