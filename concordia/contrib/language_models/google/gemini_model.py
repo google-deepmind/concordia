@@ -23,6 +23,7 @@ See https://ai.google.dev/gemini-api/docs/migrate for migration details.
 from collections.abc import Collection, Sequence
 import copy
 import os
+import re
 import time
 from typing import override
 
@@ -43,7 +44,7 @@ DEFAULT_HISTORY = (
         parts=[
             types.Part(
                 text=(
-                    'You always continue sentences provided by the user, and'
+                    'You always continue inputs provided by the user, and'
                     ' you never repeat what the user already said.'
                 ),
             ),
@@ -141,15 +142,15 @@ class GeminiModel(language_model.LanguageModel):
     environment variable for AI Studio access.
 
     Args:
-      model_name: which language model to use (e.g. 'gemini-2.5-pro').
-        For available models see https://ai.google.dev/gemini-api/docs/models
-      api_key: API key for Gemini API access. If None and project is also
-        None, will try the GEMINI_API_KEY environment variable.
+      model_name: which language model to use (e.g. 'gemini-2.5-pro'). For
+        available models see https://ai.google.dev/gemini-api/docs/models
+      api_key: API key for Gemini API access. If None and project is also None,
+        will try the GEMINI_API_KEY environment variable.
       project: GCP project ID for Vertex AI access.
       location: GCP region for Vertex AI (e.g. 'us-central1'). Required if
         project is provided.
-      safety_settings: Safety settings for content filtering.
-        See https://ai.google.dev/gemini-api/docs/safety-settings
+      safety_settings: Safety settings for content filtering. See
+        https://ai.google.dev/gemini-api/docs/safety-settings
       measurements: The measurements object to log usage statistics to.
       channel: The channel to write the statistics to.
       sleep_periodically: Whether to sleep between API calls to avoid rate
@@ -187,6 +188,11 @@ class GeminiModel(language_model.LanguageModel):
 
     self._calls_between_sleeping = 10
     self._n_calls = 0
+
+  def _strip_markdown(self, text_to_strip: str) -> str:
+    """Remove markdown code blocks from the text."""
+
+    return re.sub(r'```(?:\w+)?\n?', '', text_to_strip).strip()
 
   @override
   def sample_text(
@@ -236,6 +242,7 @@ class GeminiModel(language_model.LanguageModel):
       logging.debug('prompt: %s', prompt)
       logging.debug('sample: %s', sample)
       response = ''
+      response = self._strip_markdown(response)
     if self._measurements is not None:
       self._measurements.publish_datum(
           self._channel, {'raw_text_length': len(response)}
