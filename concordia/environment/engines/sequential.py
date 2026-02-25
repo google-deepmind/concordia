@@ -17,6 +17,7 @@
 
 from collections.abc import Mapping, Sequence
 import functools
+import re
 from typing import Any, Callable
 
 from absl import logging
@@ -43,6 +44,7 @@ DEFAULT_CALL_TO_NEXT_GAME_MASTER = (
     next_game_master_components.DEFAULT_CALL_TO_NEXT_GAME_MASTER)
 
 DEFAULT_ACT_COMPONENT_KEY = switch_act_component.DEFAULT_ACT_COMPONENT_KEY
+_BASE64_TRUNCATE_PATTERN = re.compile(r'(base64,)[A-Za-z0-9+/=]{100,}')
 
 PUTATIVE_EVENT_TAG = event_resolution_components.PUTATIVE_EVENT_TAG
 EVENT_TAG = event_resolution_components.EVENT_TAG
@@ -149,9 +151,15 @@ class Sequential(engine_lib.Engine):
               verbose: bool = False) -> None:
     """Resolve an event."""
     if verbose:
-      print(termcolor.colored(
-          f'The suggested action or event to resolve was: {putative_event}',
-          _PRINT_COLOR))
+      display_event = _BASE64_TRUNCATE_PATTERN.sub(
+          r'\1[IMAGE DATA]', putative_event
+      )
+      print(
+          termcolor.colored(
+              f'The suggested action or event to resolve was: {display_event}',
+              _PRINT_COLOR,
+          )
+      )
     game_master.observe(observation=f'{PUTATIVE_EVENT_TAG} {putative_event}')
     result = game_master.act(
         action_spec=entity_lib.ActionSpec(
@@ -312,8 +320,13 @@ class Sequential(engine_lib.Engine):
       else:
         action = f'{next_entity.name}: {raw_action}'
       if verbose:
-        print(termcolor.colored(
-            f'Entity {next_entity.name} chose action: {action}', _PRINT_COLOR))
+        display_action = _BASE64_TRUNCATE_PATTERN.sub(r'\1[IMAGE DATA]', action)
+        print(
+            termcolor.colored(
+                f'Entity {next_entity.name} chose action: {display_action}',
+                _PRINT_COLOR,
+            )
+        )
 
       self.resolve(game_master=game_master,
                    putative_event=action,

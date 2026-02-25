@@ -208,5 +208,69 @@ class SendEventToRelevantPlayersTest(absltest.TestCase):
     self.assertIn('Charlie', called_players)
 
 
+EVENT_TAG = event_resolution.EVENT_TAG
+
+
+class DisplayEventsFilterTest(absltest.TestCase):
+  """Tests for DisplayEvents event_filter_fn parameter."""
+
+  def _create_component(self, memory_contents, event_filter_fn=None):
+    mock_model = mock.MagicMock()
+    mock_memory = mock.MagicMock(spec=memory_component.Memory)
+    mock_memory.scan.return_value = memory_contents
+
+    mock_entity = mock.MagicMock()
+    mock_entity.get_component.return_value = mock_memory
+
+    component = event_resolution.DisplayEvents(
+        model=mock_model,
+        event_filter_fn=event_filter_fn,
+    )
+    component.set_entity(mock_entity)
+    component._logging_channel = mock.MagicMock()
+    return component
+
+  def test_filter_excludes_events(self):
+    events = [
+        f'{EVENT_TAG} Alice arrived at town_square.',
+        f'{EVENT_TAG} Bob is at the market.',
+        f'{EVENT_TAG} Charlie is at town_square.',
+    ]
+    component = self._create_component(
+        events,
+        event_filter_fn=lambda e: 'town_square' in e,
+    )
+    result = component._make_pre_act_value()
+    self.assertIn('Alice arrived at town_square', result)
+    self.assertIn('Charlie is at town_square', result)
+    self.assertNotIn('Bob', result)
+
+  def test_no_filter_passes_all_events(self):
+    events = [
+        f'{EVENT_TAG} Alice arrived at town_square.',
+        f'{EVENT_TAG} Bob is at the market.',
+    ]
+    component = self._create_component(events, event_filter_fn=None)
+    result = component._make_pre_act_value()
+    self.assertIn('Alice', result)
+    self.assertIn('Bob', result)
+
+  def test_filter_applied_before_recency_limit(self):
+    events = [
+        f'{EVENT_TAG} Old event at location_a.',
+        f'{EVENT_TAG} Event at location_b.',
+        f'{EVENT_TAG} Recent event at location_a.',
+    ]
+    component = self._create_component(
+        events,
+        event_filter_fn=lambda e: 'location_a' in e,
+    )
+    component._num_events_to_retrieve = 1
+    result = component._make_pre_act_value()
+    self.assertIn('Recent event at location_a', result)
+    self.assertNotIn('Old event', result)
+    self.assertNotIn('location_b', result)
+
+
 if __name__ == '__main__':
   absltest.main()

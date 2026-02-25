@@ -289,6 +289,7 @@ class DisplayEvents(
       ),
       num_events_to_retrieve: int = 100,
       pre_act_label: str = 'Recent events',
+      event_filter_fn: Callable[[str], bool] | None = None,
   ):
     """Initializes the component.
 
@@ -299,6 +300,10 @@ class DisplayEvents(
       num_events_to_retrieve: The number of events to retrieve.
       pre_act_label: Prefix to add to the output of the component when called in
         `pre_act`.
+      event_filter_fn: Optional predicate (event_string) -> bool. When provided,
+        only events for which this function returns True will be included.
+        Subclasses can use this for entity-aware filtering (e.g. by location) by
+        providing a closure that captures the relevant state.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -308,12 +313,16 @@ class DisplayEvents(
     self._model = model
     self._memory_component_key = memory_component_key
     self._num_events_to_retrieve = num_events_to_retrieve
+    self._event_filter_fn = event_filter_fn
 
   def _make_pre_act_value(self) -> str:
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
     events = memory.scan(selector_fn=lambda x: EVENT_TAG in x)
+
+    if self._event_filter_fn:
+      events = [e for e in events if self._event_filter_fn(e)]
 
     limit = self._num_events_to_retrieve
     if limit > len(events):
@@ -468,7 +477,7 @@ class SendEventToRelevantPlayers(
               )
           )
 
-        prompts_to_log[active_entity_name] = (prompt.view().text())
+        prompts_to_log[active_entity_name] = prompt.view().text()
 
         if proceed:
           # Remove their previous observation since they have already seen it.
@@ -494,8 +503,9 @@ class SendEventToRelevantPlayers(
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
-    action_spec_dict = (self._last_action_spec.to_dict()
-                        if self._last_action_spec else None)
+    action_spec_dict = (
+        self._last_action_spec.to_dict() if self._last_action_spec else None
+    )
     return {
         '_queue': self._queue,
         '_last_action_spec': action_spec_dict,
