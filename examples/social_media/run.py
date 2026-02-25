@@ -33,7 +33,8 @@ import os
 from typing import Any
 
 from concordia.contrib.language_models import language_model_setup
-from concordia.contrib.language_models.google import gemini_model_vision
+from concordia.contrib.language_models.google import gemini_model_multimodal
+from concordia.contrib.language_models.openai import gpt_model_multimodal
 from examples.social_media import scenario_00_robo_alchemy
 from examples.social_media import scenario_01_robo_alchemy_images
 from concordia.language_model import no_language_model
@@ -191,10 +192,17 @@ def main():
       print("Error: --image_model_name requires --api_key.")
       return
     print(f"Initializing image model: {args.image_model_name}")
-    image_model = gemini_model_vision.GeminiModelVision(
-        model_name=args.image_model_name,
-        api_key=args.api_key,
-    )
+    if args.api_type == "openai":
+      image_model = gpt_model_multimodal.GptVisionModel(
+          model_name=args.model_name,
+          image_model_name=args.image_model_name,
+          api_key=args.api_key,
+      )
+    else:
+      image_model = gemini_model_multimodal.GeminiModelVision(
+          model_name=args.image_model_name,
+          api_key=args.api_key,
+      )
     image_model = retry_wrapper.RetryLanguageModel(
         image_model, retry_tries=5, retry_delay=1
     )
