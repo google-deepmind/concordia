@@ -209,6 +209,19 @@ def create_scenario(image_model=None):
       "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
       "person_by_situation_history_length": _PERSON_BY_SITUATION_HISTORY_LENGTH,
       "image_mode": _IMAGE_MODE,
+      "image_prompt_question": (
+          "Given the context above, write a short prompt (one or two"
+          " sentences) describing a dank meme image with text overlay"
+          " that this forum user would post. The meme should be relevant"
+          " to the current forum discussion."
+      ),
+      "image_from_text_question": (
+          "Given the following text that was just written:\n"
+          "{text}\n\n"
+          "Write a short prompt (one or two sentences) describing a dank"
+          " meme image with text overlay that would accompany this forum"
+          " post. The meme should be funny and relevant."
+      ),
   }
   if image_model:
     player_params["image_model"] = image_model
