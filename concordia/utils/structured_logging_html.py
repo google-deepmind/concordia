@@ -27,6 +27,9 @@ from typing import Any
 
 from concordia.utils import structured_logging
 
+# pylint: disable=g-inconsistent-quotes
+# pylint: disable=invalid-name
+
 
 def render_dynamic_html(
     simulation_log: structured_logging.SimulationLog,
@@ -173,10 +176,30 @@ h1 { color: #333; margin-bottom: 5px; }
   html_parts.append(json.dumps(gm_memories_data))
   html_parts.append(';\n')
 
-  # Add JavaScript for rendering
+  # Add JavaScript for rendering — regex patterns use raw strings to avoid
+  # Python backslash warnings.
+  _CONTENT_REF_RE = r"!\[([^\]]*)\](content_ref:([a-f0-9]+)\)"
+  _IMAGE_MD_RE = r"!\[([^\]]*)\]((data:image\/[^)]+)\)"
   html_parts.append("""
 function getContent(id) {
-  return CONTENT_STORE[id] || '';
+  const raw = CONTENT_STORE[id] || '';
+  return resolveContentRefs(raw);
+}
+
+function resolveContentRefs(text) {
+  if (typeof text !== 'string') return text;
+  var re = new RegExp('""" + _CONTENT_REF_RE + """', 'g');
+  return text.replace(re, function(m, alt, refId) {
+    const data = CONTENT_STORE[refId];
+    return data ? '![' + alt + '](' + data + ')' : m;
+  });
+}
+
+function renderImageMarkdown(text) {
+  var re = new RegExp('""" + _IMAGE_MD_RE + """', 'g');
+  return text.replace(re, function(m, alt, src) {
+    return '<img src="' + src + '" alt="' + alt + '" style="max-width:400px;max-height:400px;display:block;margin:8px 0;border-radius:4px;" loading=\"lazy\">';
+  });
 }
 
 function escapeHtml(text) {
@@ -186,15 +209,15 @@ function escapeHtml(text) {
   return div.innerHTML.replace(/\\\\n/g, '<br />');
 }
 
-// Recursively render any Python object as collapsible HTML
-// Mirrors PythonObjectToHTMLConverter logic
-// Handles _ref references by looking up content in CONTENT_STORE
 function renderObject(obj) {
   if (obj === null || obj === undefined) {
     return '';
   }
 
   if (typeof obj === 'string') {
+    if (obj.includes('data:image/')) {
+      return renderImageMarkdown(escapeHtml(obj));
+    }
     return escapeHtml(obj);
   }
 
@@ -211,10 +234,12 @@ function renderObject(obj) {
   }
 
   if (typeof obj === 'object') {
-    // Handle _ref references - lookup in CONTENT_STORE
     if (obj._ref && Object.keys(obj).length === 1) {
-      const content = CONTENT_STORE[obj._ref];
+      const content = getContent(obj._ref);
       if (content !== undefined) {
+        if (content.includes('data:image/')) {
+          return renderImageMarkdown(escapeHtml(content));
+        }
         return escapeHtml(content);
       }
       return '[ref:' + obj._ref + ']';

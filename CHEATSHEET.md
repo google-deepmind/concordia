@@ -1120,6 +1120,80 @@ interface = AIAgentLogInterface(log)
 
 ---
 
+## CLI Tools for Log Analysis
+
+For command-line based log analysis (ideal for scripting and piping), use
+`concordia-log`:
+
+```bash
+# Quick overview of a simulation
+concordia-log overview sim.json
+
+# What did Alice do?
+concordia-log actions sim.json Alice
+
+# Why did she do it at step 3?
+concordia-log context sim.json Alice --step 3
+
+# All entries for step 5
+concordia-log step sim.json 5
+
+# Search for keywords
+concordia-log search sim.json "coffee shop"
+
+# Entity memories
+concordia-log memories sim.json Alice
+
+# List all entities (useful for scripting)
+concordia-log entities sim.json
+
+# Discover components on an entity
+concordia-log components sim.json --entity Alice
+
+# List keys for a specific component
+concordia-log components sim.json --entity Alice --component __act__
+
+# Extract value at a specific key in the log of a specific component across steps for all entities
+concordia-log components sim.json --component MyComponent --key Key
+
+# Extract value at a specific key in the log of a specific component across steps for a specific entity
+concordia-log components sim.json --entity Alice --component MyComponent --key Key
+
+# Extract value at a specific key in the log of a specific component for a specific entity on a specific step
+concordia-log components sim.json --entity Alice --component MyComponent --key Key --step 3
+
+# Full timeline for an entity
+concordia-log timeline sim.json Alice
+
+# Dump inflated JSON for jq/grep
+concordia-log dump sim.json | jq '.[] | .data.__act__.Value'
+```
+
+**Common patterns:**
+
+```bash
+# Pipe to grep
+concordia-log actions sim.json Alice | grep "hello"
+
+# JSON output for jq
+concordia-log actions sim.json Alice --json | jq '.[].action'
+
+# Compare two entities
+diff <(concordia-log actions run.json Alice) <(concordia-log actions run.json Bob)
+```
+
+**Running the tool:**
+
+- **From source (dev):** `./concordia/command_line_interface/concordia-log overview sim.json`
+- **After pip install:** `pip install gdm-concordia` makes `concordia-log` available globally.
+
+Run `concordia-log --help` for all subcommands.
+
+Image-heavy logs: base64 image data is automatically stripped from output
+(replaced with `[image: N bytes]`). Use `--include-images` to include it.
+
+---
+
 ## Common Patterns
 
 | Pattern | Implementation |

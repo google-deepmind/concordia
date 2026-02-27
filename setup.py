@@ -77,6 +77,11 @@ setuptools.setup(
         'tenacity',
         'termcolor',
     ),
+    entry_points={
+        'console_scripts': [
+            'concordia-log=concordia.command_line_interface.concordia_log:main',
+        ],
+    },
     extras_require={
         'amazon': [
             # Used in contrib.language_models.amazon

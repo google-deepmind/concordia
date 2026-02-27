@@ -343,7 +343,11 @@ class ForumState(entity_component.ContextComponent):
         self.queue_notification(author, result)
         return result
       else:
-        result = f'{author} tried to upvote non-existent post #{post_id}'
+        available = sorted(self._posts.keys())
+        result = (
+            f'Post #{post_id} does not exist on the forum.'
+            f' Available posts are: {available}.'
+        )
         self.queue_notification(author, result)
         return result
     elif action_type == 'downvote':
@@ -354,7 +358,11 @@ class ForumState(entity_component.ContextComponent):
         self.queue_notification(author, result)
         return result
       else:
-        result = f'{author} tried to downvote non-existent post #{post_id}'
+        available = sorted(self._posts.keys())
+        result = (
+            f'Post #{post_id} does not exist on the forum.'
+            f' Available posts are: {available}.'
+        )
         self.queue_notification(author, result)
         return result
     else:
