@@ -15,13 +15,14 @@
 
 """Groq language model wrapper following BaseGPTModel style."""
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
+from collections.abc import Sequence
+import re
 from typing import Any, override
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from groq import Groq
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 
@@ -41,6 +42,10 @@ class GroqModel(language_model.LanguageModel):
     self._measurements = measurements
     self._channel = channel
 
+  def _strip_markdown(self, text_to_strip: str) -> str:
+    """Remove markdown code blocks from the text."""
+    return re.sub(r"```(?:\w+)?\n?", "", text_to_strip).strip()
+
   def _sample_text(
       self,
       prompt: str,
@@ -59,7 +64,7 @@ class GroqModel(language_model.LanguageModel):
         {
             "role": "system",
             "content": (
-                "You always continue sentences provided "
+                "You always continue input provided "
                 "by the user and you never repeat what "
                 "the user already said."
             ),

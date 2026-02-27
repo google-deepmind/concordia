@@ -18,7 +18,9 @@ To use this model, install concordia with the huggingface extra:
   pip install gdm-concordia[huggingface]
 """
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
+from collections.abc import Sequence
+import re
 from typing import Any, override
 
 from concordia.language_model import language_model
@@ -27,9 +29,8 @@ import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
-
 _DEFAULT_SYSTEM_MESSAGE = (
-    'You always continue sentences provided by the user and you never repeat '
+    'You always continue inputs provided by the user and you never repeat '
     'what the user already said.'
 )
 
@@ -87,6 +88,10 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     """Returns the device the model is on."""
     return next(iter(self._model.parameters())).device
 
+  def _strip_markdown(self, text_to_strip: str) -> str:
+    """Remove markdown code blocks from the text."""
+    return re.sub(r'```(?:\w+)?\n?', '', text_to_strip).strip()
+
   @override
   def sample_text(
       self,
@@ -136,6 +141,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     result = self._tokenizer.decode(
         outputs[0][inputs['input_ids'].shape[1] :], skip_special_tokens=True
     )
+    result = self._strip_markdown(result)
 
     for term in terminators:
       if term in result:
