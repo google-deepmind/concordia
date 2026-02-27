@@ -47,6 +47,8 @@ class Entity(prefab_lib.Prefab):
           'prefix_entity_name': True,
           'image_model': None,
           'image_mode': 'choice',
+          'image_prompt_question': None,
+          'image_from_text_question': None,
           'observation_history_length': _DEFAULT_OBSERVATION_HISTORY_LENGTH,
           'situation_perception_history_length': (
               _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
@@ -173,6 +175,14 @@ class Entity(prefab_lib.Prefab):
       components_of_agent[goal_key] = overarching_goal
       component_order.insert(1, goal_key)
 
+    image_prompt_kwargs = {}
+    ipq = self.params.get('image_prompt_question', None)
+    if ipq:
+      image_prompt_kwargs['image_prompt_question'] = ipq
+    iftq = self.params.get('image_from_text_question', None)
+    if iftq:
+      image_prompt_kwargs['image_from_text_question'] = iftq
+
     act_component = image_text_act_component.ImageTextActComponent(
         model=model,
         image_model=image_model_instance,
@@ -180,6 +190,7 @@ class Entity(prefab_lib.Prefab):
         component_order=component_order,
         randomize_choices=randomize_choices,
         prefix_entity_name=prefix_entity_name,
+        **image_prompt_kwargs,
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(

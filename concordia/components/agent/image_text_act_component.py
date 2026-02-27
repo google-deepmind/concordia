@@ -62,8 +62,8 @@ DEFAULT_ORDERING_QUESTION = (
 
 _IMAGE_GENERATION_PROMPT = (
     'Generate an image based on the following description. '
-    'Do not include any text in your response, only output '
-    'the image.\n\n'
+    'Do not include any non-embedded text in your response, only output '
+    'the image. The image may contain embedded text, such as in a meme.\n\n'
 )
 
 
