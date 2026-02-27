@@ -27,12 +27,18 @@ from collections.abc import Mapping, Sequence
 import dataclasses
 import hashlib
 import json
+import re
 import threading
 from typing import Any
 
 from concordia.utils import structured_logging_html
 
 _DEFAULT_MIN_CHUNK_LENGTH = 50
+
+_IMAGE_MD_REGEX = re.compile(
+    r'!\[([^\]]*)\]\((data:image/[a-zA-Z0-9.\-+]+;base64,[^)]+)\)'
+)
+_CONTENT_REF_REGEX = re.compile(r'!\[([^\]]*)\]\(content_ref:([a-f0-9]+)\)')
 
 
 class ContentStore:
@@ -270,6 +276,8 @@ class SimulationLog:
 
     Scans through the value tree (dicts, lists, strings) and replaces
     strings longer than min_length with {'_ref': content_id} references.
+    Embedded images are extracted and stored separately so that identical
+    images shared across different text contexts are deduplicated.
 
     Args:
       value: The value to deduplicate (can be str, list, dict, or other).
@@ -281,6 +289,7 @@ class SimulationLog:
     """
     if isinstance(value, str):
       if len(value) >= min_length:
+        value = self._extract_and_store_images(value)
         return {'_ref': self._content_store.add(value)}
       return value
     elif isinstance(value, list):
@@ -296,11 +305,23 @@ class SimulationLog:
       except TypeError:
         return str(value)
 
+  def _extract_and_store_images(self, text: str) -> str:
+    """Extract embedded images from text, store them, and replace with refs."""
+
+    def _replace_image(match: re.Match[str]) -> str:
+      alt = match.group(1)
+      data_uri = match.group(2)
+      content_id = self._content_store.add(data_uri)
+      return f'![{alt}](content_ref:{content_id})'
+
+    return _IMAGE_MD_REGEX.sub(_replace_image, text)
+
   def reconstruct_value(self, value: Any) -> Any:
     """Recursively reconstruct strings from references.
 
     Scans through the value tree and replaces {'_ref': content_id}
     references with the original string content from ContentStore.
+    Also restores embedded image data from content_ref: placeholders.
 
     Args:
       value: The value with references to reconstruct.
@@ -310,11 +331,25 @@ class SimulationLog:
     """
     if isinstance(value, dict):
       if '_ref' in value and len(value) == 1:
-        return self._content_store.get(value['_ref'])
+        text = self._content_store.get(value['_ref'])
+        return self._restore_images(text)
       return {k: self.reconstruct_value(v) for k, v in value.items()}
     elif isinstance(value, list):
       return [self.reconstruct_value(v) for v in value]
     return value
+
+  def _restore_images(self, text: str) -> str:
+    """Restore embedded images from content_ref: placeholders."""
+
+    def _replace_ref(match: re.Match[str]) -> str:
+      alt = match.group(1)
+      content_id = match.group(2)
+      data_uri = self._content_store.get_or_none(content_id)
+      if data_uri is not None:
+        return f'![{alt}]({data_uri})'
+      return match.group(0)
+
+    return _CONTENT_REF_REGEX.sub(_replace_ref, text)
 
   def add_entry(
       self,
