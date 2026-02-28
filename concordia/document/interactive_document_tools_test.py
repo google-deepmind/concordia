@@ -15,6 +15,7 @@
 """Unit tests for InteractiveDocumentWithTools tool-calling functionality."""
 
 import functools
+from typing import cast
 from unittest import mock
 
 from absl.testing import absltest
@@ -22,6 +23,7 @@ from absl.testing import parameterized
 from concordia.document import document
 from concordia.document import interactive_document_tools
 from concordia.document import tool as tool_module
+from concordia.document import tool_policy
 from concordia.language_model import language_model
 
 
@@ -61,6 +63,73 @@ class MockTool(tool_module.Tool):
     self.call_count += 1
     self.last_args = kwargs
     return self._return_value
+
+
+class MockPolicy:
+  """Policy stub with configurable decisions."""
+
+  def __init__(
+      self,
+      decision: tool_policy.PolicyDecision | None = None,
+      *,
+      raise_error: bool = False,
+  ):
+    self._decision = decision or tool_policy.PolicyDecision()
+    self._raise_error = raise_error
+    self.calls: list[tool_policy.ToolCall] = []
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: dict[str, tool_module.Tool],
+  ) -> tool_policy.PolicyDecision:
+    del available_tools
+    self.calls.append(call)
+    if self._raise_error:
+      raise ValueError('policy failure')
+    return self._decision
+
+
+class MockNonDecisionPolicy:
+  """Policy stub that returns an invalid decision shape."""
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: dict[str, tool_module.Tool],
+  ) -> object:
+    del call, available_tools
+    return {'action': 'allow'}
+
+
+class MockInvalidActionPolicy:
+  """Policy stub that returns a decision with malformed action."""
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: dict[str, tool_module.Tool],
+  ) -> tool_policy.PolicyDecision:
+    del call, available_tools
+    return tool_policy.PolicyDecision(
+        action=cast(tool_policy.PolicyAction, 'allow'),
+        reason='invalid action type',
+    )
+
+
+class MockStringTagsPolicy:
+  """Policy stub with malformed string tags payload."""
+
+  def evaluate(
+      self,
+      call: tool_policy.ToolCall,
+      available_tools: dict[str, tool_module.Tool],
+  ) -> tool_policy.PolicyDecision:
+    del call, available_tools
+    return tool_policy.PolicyDecision(
+        action=tool_policy.PolicyAction.ALLOW,
+        tags=cast(tuple[str, ...], 'invalid'),
+    )
 
 
 class InteractiveDocumentWithToolsTest(parameterized.TestCase):
@@ -264,9 +333,16 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
         language_model.LanguageModel, instance=True, spec_set=True
     )
     tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(action=tool_policy.PolicyAction.DENY)
+    )
 
     doc = interactive_document_tools.InteractiveDocumentWithTools(
-        model, tools=[tool], max_tool_calls_per_question=10
+        model,
+        tools=[tool],
+        max_tool_calls_per_question=10,
+        policy=policy,
+        enforcement_mode='enforce',
     )
     doc.statement('Some content')
 
@@ -274,6 +350,343 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
 
     self.assertIn('search', copied._tools)
     self.assertEqual(copied._max_tool_calls, 10)
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    copied.open_question('Question?')
+    self.assertEqual(tool.call_count, 0)
+
+  def test_invalid_enforcement_mode_raises(self):
+    """Invalid policy enforcement mode should raise ValueError."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    invalid_mode = cast(
+        interactive_document_tools.EnforcementMode, 'invalid'
+    )
+    with self.assertRaises(ValueError):
+      interactive_document_tools.InteractiveDocumentWithTools(
+          model, enforcement_mode=invalid_mode
+      )
+
+  def test_policy_observe_mode_runs_tool_and_logs_allow(self):
+    """Observe mode should execute tool and log allow decision."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(
+            action=tool_policy.PolicyAction.ALLOW, reason='safe'
+        )
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='observe'
+    )
+
+    response = doc.open_question('Question?')
+
+    self.assertEqual(response, 'Final answer')
+    self.assertEqual(tool.call_count, 1)
+    self.assertLen(policy.calls, 1)
+    self.assertEqual(policy.calls[0].attempt_index, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_allow', tags_found)
+
+  def test_policy_observe_mode_denied_call_still_executes_tool(self):
+    """Observe mode should record deny decision without blocking execution."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(
+            action=tool_policy.PolicyAction.DENY, reason='blocked in observe'
+        )
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='observe'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_deny_observed', tags_found)
+
+  def test_policy_observe_mode_edit_keeps_original_args(self):
+    """Observe mode should execute original args for edit decisions."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "original"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(
+            action=tool_policy.PolicyAction.EDIT,
+            reason='suggest edit',
+            edited_args={'query': 'edited'},
+        )
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='observe'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'query': 'original'})
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_edit_observed', tags_found)
+
+  def test_policy_enforce_mode_denied_call_blocks_execution(self):
+    """Enforce mode deny should block tool execution."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(
+            action=tool_policy.PolicyAction.DENY, reason='blocked'
+        )
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='enforce'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    doc_text = doc.text()
+    self.assertIn('Error: Tool call "search" denied by policy.', doc_text)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_deny_enforced', tags_found)
+
+  def test_policy_enforce_mode_edit_executes_edited_args(self):
+    """Enforce mode edit should execute with edited args."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "original"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(
+        tool_policy.PolicyDecision(
+            action=tool_policy.PolicyAction.EDIT,
+            reason='rewrite args',
+            edited_args={'query': 'edited'},
+        )
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='enforce'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'query': 'edited'})
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_edit_enforced', tags_found)
+
+  def test_policy_error_observe_mode_executes_and_logs_error(self):
+    """Observe mode should fail open when policy raises an error."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(raise_error=True)
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='observe'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_observed', tags_found)
+
+  def test_policy_error_enforce_mode_blocks_and_logs_error(self):
+    """Enforce mode should fail closed when policy raises an error."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    policy = MockPolicy(raise_error=True)
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool], policy=policy, enforcement_mode='enforce'
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    doc_text = doc.text()
+    self.assertIn('blocked due to policy error', doc_text)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_enforced', tags_found)
+
+  def test_policy_observe_mode_invalid_action_fails_open(self):
+    """Observe mode executes tool if policy returns invalid action."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockInvalidActionPolicy(),
+        enforcement_mode='observe',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_observed', tags_found)
+
+  def test_policy_observe_mode_string_tags_fails_open(self):
+    """Observe mode executes tool if policy returns string tags."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockStringTagsPolicy(),
+        enforcement_mode='observe',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_observed', tags_found)
+
+  def test_policy_enforce_mode_invalid_action_blocks(self):
+    """Enforce mode blocks tool if policy returns invalid action."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockInvalidActionPolicy(),
+        enforcement_mode='enforce',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_enforced', tags_found)
+
+  def test_policy_enforce_mode_string_tags_blocks(self):
+    """Enforce mode blocks tool if policy returns string tags."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockStringTagsPolicy(),
+        enforcement_mode='enforce',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_enforced', tags_found)
+
+  def test_policy_observe_mode_non_decision_fails_open(self):
+    """Observe mode executes tool if policy returns non-decision object."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockNonDecisionPolicy(),
+        enforcement_mode='observe',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 1)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_observed', tags_found)
+
+  def test_policy_enforce_mode_non_decision_blocks(self):
+    """Enforce mode blocks tool if policy returns non-decision object."""
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"query": "q1"}}',
+        'Final answer',
+    ]
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model,
+        tools=[tool],
+        policy=MockNonDecisionPolicy(),
+        enforcement_mode='enforce',
+    )
+
+    doc.open_question('Question?')
+
+    self.assertEqual(tool.call_count, 0)
+    tags_found = {tag for c in doc.contents() for tag in c.tags}
+    self.assertIn('tool_policy_error_enforced', tags_found)
 
   def test_multiple_choice_with_tool_call_then_answer(self):
     """LLM uses a tool then answers multiple choice."""
