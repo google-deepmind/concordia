@@ -101,6 +101,4 @@ class Measurements:
   def close(self) -> None:
     """Closes all channels."""
     with self._channels_lock:
-      for channel in self._channels:
-        self.close_channel(channel)
       self._channels.clear()
