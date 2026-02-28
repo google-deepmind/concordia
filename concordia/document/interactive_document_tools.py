@@ -22,11 +22,12 @@ information, and the tool calls and results are recorded in the document.
 from collections.abc import Collection, Iterable, Sequence
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 
 from concordia.document import document
 from concordia.document import interactive_document
 from concordia.document import tool as tool_module
+from concordia.document import tool_policy
 from concordia.language_model import language_model
 import numpy as np
 
@@ -38,6 +39,18 @@ DEFAULT_MAX_TOOL_RESULT_LENGTH = 1000
 # New tags for tool-related content
 TOOL_CALL_TAG = 'tool_call'
 TOOL_RESULT_TAG = 'tool_result'
+TOOL_POLICY_TAG = 'tool_policy'
+TOOL_POLICY_ALLOW_TAG = 'tool_policy_allow'
+TOOL_POLICY_DENY_OBSERVED_TAG = 'tool_policy_deny_observed'
+TOOL_POLICY_EDIT_OBSERVED_TAG = 'tool_policy_edit_observed'
+TOOL_POLICY_DENY_ENFORCED_TAG = 'tool_policy_deny_enforced'
+TOOL_POLICY_EDIT_ENFORCED_TAG = 'tool_policy_edit_enforced'
+TOOL_POLICY_ERROR_OBSERVED_TAG = 'tool_policy_error_observed'
+TOOL_POLICY_ERROR_ENFORCED_TAG = 'tool_policy_error_enforced'
+
+_VALID_ENFORCEMENT_MODES = frozenset({'observe', 'enforce'})
+
+EnforcementMode = Literal['observe', 'enforce']
 
 # Regex pattern to find JSON tool calls in LLM output
 # Matches {"tool": "name", "args": {...}}
@@ -83,6 +96,8 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       rng: np.random.Generator | None = None,
       max_tool_calls_per_question: int = DEFAULT_MAX_TOOL_CALLS_PER_QUESTION,
       max_tool_result_length: int = DEFAULT_MAX_TOOL_RESULT_LENGTH,
+      policy: tool_policy.ToolPolicy | None = None,
+      enforcement_mode: EnforcementMode = 'observe',
   ) -> None:
     """Initializes the instance.
 
@@ -95,11 +110,20 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
         question before forcing a final answer.
       max_tool_result_length: Maximum character length for tool results. Results
         exceeding this will be truncated.
+      policy: Optional policy used to evaluate tool calls.
+      enforcement_mode: Whether policy decisions are observed or enforced.
     """
     super().__init__(model=model, contents=contents, rng=rng)
+    if enforcement_mode not in _VALID_ENFORCEMENT_MODES:
+      raise ValueError(
+          'enforcement_mode must be "observe" or "enforce", '
+          f'got "{enforcement_mode}".'
+      )
     self._tools = {t.name: t for t in tools}
     self._max_tool_calls = max_tool_calls_per_question
     self._max_result_length = max_tool_result_length
+    self._policy = policy
+    self._enforcement_mode = enforcement_mode
 
   def copy(self) -> 'InteractiveDocumentWithTools':
     """See base class."""
@@ -110,6 +134,8 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
         rng=self._rng,
         max_tool_calls_per_question=self._max_tool_calls,
         max_tool_result_length=self._max_result_length,
+        policy=self._policy,
+        enforcement_mode=self._enforcement_mode,
     )
 
   def _format_tool_descriptions(self) -> str:
@@ -187,6 +213,252 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
   ) -> None:
     """Appends a tool result record to the document."""
     self.append(text + end, tags=[TOOL_RESULT_TAG, *tags])
+
+  def _tool_policy(
+      self, text: str, *, tags: Collection[str] = (), end: str = ''
+  ) -> None:
+    """Appends a tool policy record to the document."""
+    self.append(text + end, tags=[TOOL_POLICY_TAG, *tags])
+
+  @staticmethod
+  def _merge_tags(*tag_groups: Collection[str]) -> tuple[str, ...]:
+    """Merges tags while preserving order and removing duplicates."""
+    merged: list[str] = []
+    seen: set[str] = set()
+    for tag_group in tag_groups:
+      for tag in tag_group:
+        if tag not in seen:
+          merged.append(tag)
+          seen.add(tag)
+    return tuple(merged)
+
+  def _serialize_args(self, args: dict[str, Any]) -> str:
+    """Converts args to a stable string for logs."""
+    try:
+      return json.dumps(args, sort_keys=True)
+    except TypeError:
+      return str(args)
+
+  def _format_policy_note(
+      self,
+      *,
+      action: str,
+      reason: str = '',
+      edited_args: dict[str, Any] | None = None,
+  ) -> str:
+    """Formats a policy note for structured logging."""
+    segments = [f'action={action}']
+    if reason:
+      segments.append(f'reason={reason}')
+    if edited_args is not None:
+      segments.append(f'edited_args={self._serialize_args(edited_args)}')
+    return '[Tool Policy: ' + '; '.join(segments) + ']'
+
+  def _evaluate_policy_decision(
+      self,
+      *,
+      tool_name: str,
+      args: dict[str, Any],
+      raw_response: str,
+      attempt_index: int,
+  ) -> tool_policy.PolicyDecision:
+    """Evaluates the configured policy for one tool call."""
+    if self._policy is None:
+      raise RuntimeError('Policy is not configured.')
+    return self._policy.evaluate(
+        tool_policy.ToolCall(
+            tool_name=tool_name,
+            args=dict(args),
+            raw_response=raw_response,
+            attempt_index=attempt_index,
+        ),
+        self._tools,
+    )
+
+  def _coerce_policy_decision(
+      self, decision: Any
+  ) -> tool_policy.PolicyDecision:
+    """Validates and normalizes the policy decision shape."""
+    if not isinstance(decision, tool_policy.PolicyDecision):
+      raise ValueError(
+          'Policy must return tool_policy.PolicyDecision, got '
+          f'{type(decision).__name__}.'
+      )
+    if not isinstance(decision.action, tool_policy.PolicyAction):
+      raise ValueError(
+          'Policy decision action must be PolicyAction, got '
+          f'{type(decision.action).__name__}.'
+      )
+
+    if isinstance(decision.tags, str):
+      raise ValueError(
+          'Policy decision tags must be an iterable of strings, not str.'
+      )
+    try:
+      tags = tuple(decision.tags)
+    except TypeError as error:
+      raise ValueError(
+          'Policy decision tags must be an iterable of strings.'
+      ) from error
+    if any(not isinstance(tag, str) for tag in tags):
+      raise ValueError('Policy decision tags must contain only strings.')
+
+    reason = str(decision.reason)
+    edited_args = decision.edited_args
+    if (
+        decision.action is tool_policy.PolicyAction.EDIT
+        and not isinstance(edited_args, dict)
+    ):
+      raise ValueError(
+          'Policy decision action EDIT requires edited_args as dict.'
+      )
+    return tool_policy.PolicyDecision(
+        action=decision.action,
+        reason=reason,
+        edited_args=edited_args,
+        tags=tags,
+    )
+
+  def _policy_error_outcome(
+      self, *, tool_name: str, args: dict[str, Any], error: Exception
+  ) -> tuple[dict[str, Any], str, tuple[str, ...], str]:
+    """Converts policy failures into observe/enforce runtime outcomes."""
+    if self._enforcement_mode == 'observe':
+      tags = (TOOL_POLICY_ERROR_OBSERVED_TAG,)
+      note = self._format_policy_note(
+          action='error_observed', reason=str(error)
+      )
+      return args, self._execute_tool(tool_name, args), tags, note
+
+    tags = (TOOL_POLICY_ERROR_ENFORCED_TAG,)
+    note = self._format_policy_note(action='error_enforced', reason=str(error))
+    result = f'Error: Tool call "{tool_name}" blocked due to policy error.'
+    return args, result, tags, note
+
+  def _apply_policy_decision(
+      self,
+      *,
+      tool_name: str,
+      args: dict[str, Any],
+      decision: tool_policy.PolicyDecision,
+  ) -> tuple[dict[str, Any], str, tuple[str, ...], str]:
+    """Applies a validated policy decision to produce execution outcome."""
+    tags = decision.tags
+    reason = decision.reason
+
+    if decision.action is tool_policy.PolicyAction.ALLOW:
+      merged_tags = self._merge_tags((TOOL_POLICY_ALLOW_TAG,), tags)
+      note = self._format_policy_note(action='allow', reason=reason)
+      return args, self._execute_tool(tool_name, args), merged_tags, note
+
+    if decision.action is tool_policy.PolicyAction.DENY:
+      if self._enforcement_mode == 'observe':
+        merged_tags = self._merge_tags((TOOL_POLICY_DENY_OBSERVED_TAG,), tags)
+        note = self._format_policy_note(action='deny_observed', reason=reason)
+        result = self._execute_tool(tool_name, args)
+        return args, result, merged_tags, note
+      merged_tags = self._merge_tags((TOOL_POLICY_DENY_ENFORCED_TAG,), tags)
+      note = self._format_policy_note(action='deny_enforced', reason=reason)
+      result = f'Error: Tool call "{tool_name}" denied by policy.'
+      return args, result, merged_tags, note
+
+    if decision.action is tool_policy.PolicyAction.EDIT:
+      if self._enforcement_mode == 'observe':
+        merged_tags = self._merge_tags((TOOL_POLICY_EDIT_OBSERVED_TAG,), tags)
+        note = self._format_policy_note(
+            action='edit_observed',
+            reason=reason,
+            edited_args=decision.edited_args,
+        )
+        return args, self._execute_tool(tool_name, args), merged_tags, note
+
+      edited_args = decision.edited_args
+      if not isinstance(edited_args, dict):
+        return self._policy_error_outcome(
+            tool_name=tool_name,
+            args=args,
+            error=ValueError(
+                'Policy decision action EDIT requires edited_args as dict.'
+            ),
+        )
+
+      merged_tags = self._merge_tags((TOOL_POLICY_EDIT_ENFORCED_TAG,), tags)
+      note = self._format_policy_note(
+          action='edit_enforced', reason=reason, edited_args=edited_args
+      )
+      return (
+          edited_args,
+          self._execute_tool(tool_name, edited_args),
+          merged_tags,
+          note,
+      )
+
+    return self._policy_error_outcome(
+        tool_name=tool_name,
+        args=args,
+        error=ValueError(
+            'Policy decision action must be one of ALLOW, DENY, EDIT.'
+        ),
+    )
+
+  def _run_policy(
+      self,
+      *,
+      tool_name: str,
+      args: dict[str, Any],
+      raw_response: str,
+      attempt_index: int,
+  ) -> tuple[dict[str, Any], str, tuple[str, ...], str | None]:
+    """Evaluates policy and executes tool call according to mode."""
+    if self._policy is None:
+      return args, self._execute_tool(tool_name, args), (), None
+
+    try:
+      decision = self._evaluate_policy_decision(
+          tool_name=tool_name,
+          args=args,
+          raw_response=raw_response,
+          attempt_index=attempt_index,
+      )
+      decision = self._coerce_policy_decision(decision)
+    except Exception as error:  # pylint: disable=broad-exception-caught
+      return self._policy_error_outcome(
+          tool_name=tool_name, args=args, error=error
+      )
+
+    return self._apply_policy_decision(
+        tool_name=tool_name, args=args, decision=decision
+    )
+
+  def _record_tool_interaction(
+      self,
+      *,
+      raw_response: str,
+      tool_name: str,
+      original_args: dict[str, Any],
+      executed_args: dict[str, Any],
+      result: str,
+      policy_tags: tuple[str, ...],
+      policy_note: str | None,
+  ) -> None:
+    """Records tool call, policy decision, and tool result in the document."""
+    self._model_response(raw_response)
+    self._response('\n')
+
+    call_text = (
+        f'[Tool Call: {tool_name}({self._serialize_args(original_args)})]'
+    )
+    if executed_args != original_args:
+      call_text += (
+          ' [Executed with args: '
+          f'{self._serialize_args(executed_args)}]'
+      )
+    self._tool_call(call_text + '\n', tags=policy_tags)
+
+    if policy_note:
+      self._tool_policy(policy_note + '\n', tags=policy_tags)
+
+    self._tool_result(f'[Tool Result: {result}]\n', tags=policy_tags)
 
   def open_question(
       self,
@@ -280,17 +552,21 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       tool_name, args = tool_call
       tool_calls_made += 1
 
-      # Record the raw LLM output (contains tool call)
-      self._model_response(response)
-      self._response('\n')
-
-      # Record the tool call
-      args_json = json.dumps(args)
-      self._tool_call(f'[Tool Call: {tool_name}({args_json})]\n')
-
-      # Execute and record result
-      result = self._execute_tool(tool_name, args)
-      self._tool_result(f'[Tool Result: {result}]\n')
+      executed_args, result, policy_tags, policy_note = self._run_policy(
+          tool_name=tool_name,
+          args=args,
+          raw_response=response,
+          attempt_index=tool_calls_made,
+      )
+      self._record_tool_interaction(
+          raw_response=response,
+          tool_name=tool_name,
+          original_args=args,
+          executed_args=executed_args,
+          result=result,
+          policy_tags=policy_tags,
+          policy_note=policy_note,
+      )
 
       # Prepare for next iteration
       self._response(f'{answer_label}: ')
@@ -406,17 +682,21 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       tool_name, args = tool_call
       tool_calls_made += 1
 
-      # Record the raw LLM output (contains tool call)
-      self._model_response(response)
-      self._response('\n')
-
-      # Record the tool call
-      args_json = json.dumps(args)
-      self._tool_call(f'[Tool Call: {tool_name}({args_json})]\n')
-
-      # Execute and record result
-      result = self._execute_tool(tool_name, args)
-      self._tool_result(f'[Tool Result: {result}]\n')
+      executed_args, result, policy_tags, policy_note = self._run_policy(
+          tool_name=tool_name,
+          args=args,
+          raw_response=response,
+          attempt_index=tool_calls_made,
+      )
+      self._record_tool_interaction(
+          raw_response=response,
+          tool_name=tool_name,
+          original_args=args,
+          executed_args=executed_args,
+          result=result,
+          policy_tags=policy_tags,
+          policy_note=policy_note,
+      )
 
       # Prepare for next iteration
       self._response('Answer: ')
