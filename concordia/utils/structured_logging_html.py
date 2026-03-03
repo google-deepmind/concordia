@@ -176,10 +176,6 @@ h1 { color: #333; margin-bottom: 5px; }
   html_parts.append(json.dumps(gm_memories_data))
   html_parts.append(';\n')
 
-  # Add JavaScript for rendering — regex patterns use raw strings to avoid
-  # Python backslash warnings.
-  _CONTENT_REF_RE = r"!\[([^\]]*)\](content_ref:([a-f0-9]+)\)"
-  _IMAGE_MD_RE = r"!\[([^\]]*)\]((data:image\/[^)]+)\)"
   html_parts.append("""
 function getContent(id) {
   const raw = CONTENT_STORE[id] || '';
@@ -188,17 +184,15 @@ function getContent(id) {
 
 function resolveContentRefs(text) {
   if (typeof text !== 'string') return text;
-  var re = new RegExp('""" + _CONTENT_REF_RE + """', 'g');
-  return text.replace(re, function(m, alt, refId) {
+  return text.replace(/!\\[([^\\]]*)\\]\\(content_ref:([a-f0-9]+)\\)/g, function(m, alt, refId) {
     const data = CONTENT_STORE[refId];
     return data ? '![' + alt + '](' + data + ')' : m;
   });
 }
 
 function renderImageMarkdown(text) {
-  var re = new RegExp('""" + _IMAGE_MD_RE + """', 'g');
-  return text.replace(re, function(m, alt, src) {
-    return '<img src="' + src + '" alt="' + alt + '" style="max-width:400px;max-height:400px;display:block;margin:8px 0;border-radius:4px;" loading=\"lazy\">';
+  return text.replace(/!\\[([^\\]]*)\\]\\((data:image\\/[^)]+)\\)/g, function(m, alt, src) {
+    return '<img src="' + src + '" alt="' + alt + '" style="max-width:400px;max-height:400px;display:block;margin:8px 0;border-radius:4px;" loading=\\"lazy\\">';
   });
 }
 
