@@ -140,6 +140,22 @@ class SceneTrackerPremiseQueuingTest(absltest.TestCase):
     # Verify no premises were queued (marker exists) - no add_to_queue calls
     self.assertEqual(self.mock_observation.add_to_queue.call_count, 0)
 
+  def test_state_round_trip_preserves_scene_data(self):
+    tracker = self._create_tracker_with_mocks(existing_markers=[])
+    state = tracker.get_state()
+    tracker2 = self._create_tracker_with_mocks(existing_markers=[])
+    tracker2.set_state(state)
+    self.assertEqual(tracker2._max_rounds, tracker._max_rounds)
+    for idx in range(tracker._max_rounds):
+      self.assertEqual(
+          tracker2._round_idx_to_scene[idx]["step_within_scene"],
+          tracker._round_idx_to_scene[idx]["step_within_scene"],
+      )
+      self.assertEqual(
+          tracker2._round_idx_to_scene[idx]["scene"],
+          tracker._round_idx_to_scene[idx]["scene"],
+      )
+
 
 if __name__ == "__main__":
   absltest.main()
