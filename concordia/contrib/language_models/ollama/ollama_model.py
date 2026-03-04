@@ -15,6 +15,7 @@
 """Ollama Language Model, a wrapper for models running on the local machine."""
 
 from collections.abc import Collection, Sequence
+import re
 import json
 from typing import override
 
@@ -28,13 +29,13 @@ _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
 _DEFAULT_TERMINATORS = ()
 _DEFAULT_SYSTEM_MESSAGE = (
-    "Continue the user's sentences. Never repeat their starts. For example, "
+    "Continue the user's inputs. Never repeat their starts. For example, "
     "when you see 'Bob is', you should continue the sentence after "
     "the word 'is'. Here are some more examples: 'Question: Is Jake a "
     "turtle?\nAnswer: Jake is ' should be completed as 'not a turtle.' and "
     "'Question: What is Priya doing right now?\nAnswer: Priya is currently ' "
     "should be completed as 'working on repairing the sink.'. Notice that "
-    "it is OK to be creative with how you finish the user's sentences. The "
+    "it is OK to be creative with how you finish the user's inputs. The "
     'most important thing is to always continue in the same style as the user.'
 )
 
@@ -67,6 +68,10 @@ class OllamaLanguageModel(language_model.LanguageModel):
 
     self._measurements = measurements
     self._channel = channel
+
+  def _strip_markdown(self, text_to_strip: str) -> str:
+    """Remove markdown code blocks from the text."""
+    return re.sub(r'```(?:\w+)?\n?', '', text_to_strip).strip()
 
   @override
   def sample_text(
