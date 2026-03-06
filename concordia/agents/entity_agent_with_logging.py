@@ -73,17 +73,19 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
         channel_name = component_name
         component.set_logging_channel(
             lambda datum, ch=channel_name: self._component_logging.publish_datum(
-                ch, datum
+                ch, datum, capture_key=self.name
             )
         )
     if isinstance(act_component, entity_component.ComponentWithLogging):
       act_component.set_logging_channel(
-          lambda datum: self._component_logging.publish_datum('__act__', datum)
+          lambda datum: self._component_logging.publish_datum(
+              '__act__', datum, capture_key=self.name
+          )
       )
     if isinstance(context_processor, entity_component.ComponentWithLogging):
       context_processor.set_logging_channel(
           lambda datum: self._component_logging.publish_datum(
-              '__context_processor__', datum
+              '__context_processor__', datum, capture_key=self.name
           )
       )
 

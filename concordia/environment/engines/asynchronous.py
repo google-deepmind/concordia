@@ -35,6 +35,8 @@ from concordia.components.game_master import switch_act as switch_act_component
 from concordia.environment import engine as engine_lib
 from concordia.environment import step_controller as step_controller_lib
 from concordia.typing import entity as entity_lib
+from concordia.utils import async_log_collector as collector_lib
+from concordia.utils import async_measurements as async_measurements_lib
 from concordia.utils import concurrency
 import termcolor
 
@@ -60,6 +62,22 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 _DEFAULT_SLEEP_TIME = 0.1
+
+
+def _get_reactive_measurements(
+    entity: entity_lib.Entity,
+) -> async_measurements_lib.ReactiveMeasurements:
+  """Returns the ReactiveMeasurements instance from an entity."""
+  if not hasattr(entity, 'measurements'):
+    raise ValueError(f'Entity {entity.name} has no measurements property. ')
+  measurements = entity.measurements
+  if not isinstance(measurements, async_measurements_lib.ReactiveMeasurements):
+    raise ValueError(
+        f'Entity {entity.name} uses {type(measurements).__name__} but the '
+        'asynchronous engine requires ReactiveMeasurements. Pass '
+        'measurements=ReactiveMeasurements() to EntityAgentWithLogging.'
+    )
+  return measurements
 
 
 def _get_empty_log_entry():
@@ -104,10 +122,14 @@ class Asynchronous(engine_lib.Engine):
     self._sleep_time = sleep_time
     self._pause_event = threading.Event()
     self._pause_event.set()
+    self._collector = collector_lib.AsyncLogCollector()
+    self._log_list: list[Mapping[str, Any]] | None = None
 
   def pause(self) -> None:
     """Pause all player threads. They will block until play() is called."""
     self._pause_event.clear()
+    if self._log_list is not None:
+      self._collector.materialize(self._log_list)
 
   def play(self) -> None:
     """Resume all player threads after a pause."""
@@ -131,31 +153,38 @@ class Asynchronous(engine_lib.Engine):
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
-      log_entry: Mapping[str, Any] | None = None,
+      log_entry: dict[str, Any] | None = None,
       log: list[Mapping[str, Any]] | None = None,
+      gm_measurements: (
+          async_measurements_lib.ReactiveMeasurements | None
+      ) = None,
   ) -> tuple[
       Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
   ]:  # pytype: disable=signature-mismatch
     entities_by_name = {entity.name: entity for entity in entities}
-    next_object_names_string = game_master.act(
-        action_spec=entity_lib.ActionSpec(
-            call_to_action=self._call_to_next_acting,
-            output_type=entity_lib.OutputType.NEXT_ACTING,
-            options=tuple(entities_by_name.keys()),
+
+    if gm_measurements is not None and log_entry is not None:
+      with gm_measurements.capture(game_master.name) as captured:
+        next_object_names_string = game_master.act(
+            action_spec=entity_lib.ActionSpec(
+                call_to_action=self._call_to_next_acting,
+                output_type=entity_lib.OutputType.NEXT_ACTING,
+                options=tuple(entities_by_name.keys()),
+            )
         )
-    )
+      log_entry['next_acting'] = dict(captured)
+    else:
+      next_object_names_string = game_master.act(
+          action_spec=entity_lib.ActionSpec(
+              call_to_action=self._call_to_next_acting,
+              output_type=entity_lib.OutputType.NEXT_ACTING,
+              options=tuple(entities_by_name.keys()),
+          )
+      )
+
     next_entity_names = [
         name.strip() for name in next_object_names_string.split(',')
     ]
-    if (
-        log is not None
-        and log_entry is not None
-        and hasattr(game_master, 'get_last_log')
-    ):
-      assert hasattr(game_master, 'get_last_log')
-      log_entry['next_acting'] = game_master.get_last_log()
-
-    # Filter to only entities in the passed list (enables per-entity calls)
     next_entity_names = [
         name for name in next_entity_names if name in entities_by_name
     ]
@@ -164,25 +193,30 @@ class Asynchronous(engine_lib.Engine):
 
     action_spec_by_name = {}
     for next_entity_name in next_entity_names:
-      next_action_spec_string = game_master.act(
-          action_spec=entity_lib.ActionSpec(
-              call_to_action=self._call_to_next_action_spec.format(
-                  name=next_entity_name
-              ),
-              output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
+      if gm_measurements is not None and log_entry is not None:
+        with gm_measurements.capture(game_master.name) as captured:
+          next_action_spec_string = game_master.act(
+              action_spec=entity_lib.ActionSpec(
+                  call_to_action=self._call_to_next_action_spec.format(
+                      name=next_entity_name
+                  ),
+                  output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
+              )
           )
-      )
+        log_entry['next_action_spec'] = dict(captured)
+      else:
+        next_action_spec_string = game_master.act(
+            action_spec=entity_lib.ActionSpec(
+                call_to_action=self._call_to_next_action_spec.format(
+                    name=next_entity_name
+                ),
+                output_type=entity_lib.OutputType.NEXT_ACTION_SPEC,
+            )
+        )
+
       action_spec_by_name[next_entity_name] = engine_lib.action_spec_parser(
           next_action_spec_string
       )
-
-      if (
-          log is not None
-          and log_entry is not None
-          and hasattr(game_master, 'get_last_log')
-      ):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['next_action_spec'] = game_master.get_last_log()
 
     return (
         [entities_by_name[entity_name] for entity_name in next_entity_names],
@@ -217,37 +251,6 @@ class Asynchronous(engine_lib.Engine):
       print(
           termcolor.colored(f'The resolved event was: {result}', _PRINT_COLOR)
       )
-
-  def _log(
-      self,
-      log: list[Mapping[str, Any]],
-      steps: int,
-      entity_key: str,
-      entity_log: Mapping[str, Any],
-      game_master_key: str,
-      game_master_log: Mapping[str, Any],
-      thread: str = '',
-  ):
-    game_master_finalized_log = {}
-    for segment_key, segment_log in game_master_log.items():
-      game_master_finalized_log[segment_key] = {}
-      for component_key, component_value in segment_log.items():
-        if component_value:
-          tmp_log_dict = {
-              key: value for key, value in component_value.items() if value
-          }
-          if len(tmp_log_dict) > 1:
-            game_master_finalized_log[segment_key][component_key] = tmp_log_dict
-
-    entry = {
-        'Step': steps,
-        entity_key: entity_log,
-        game_master_key: game_master_finalized_log,
-        'Summary': f'Step {steps} {game_master_key}',
-    }
-    if thread:
-      entry['thread'] = thread
-    log.append(entry)
 
   def terminate(
       self, game_master: entity_lib.Entity, verbose: bool = False
@@ -327,6 +330,9 @@ class Asynchronous(engine_lib.Engine):
       step_controller: Optional controller to manage stepping through the
         simulation.
     """
+    gm_measurements = _get_reactive_measurements(game_master)
+    entity_measurements = _get_reactive_measurements(entity)
+
     iteration = 0
     while not terminate_event.is_set() and iteration < max_steps:
       if step_controller is not None:
@@ -339,18 +345,23 @@ class Asynchronous(engine_lib.Engine):
       if terminate_event.is_set():
         break
 
-      if self.terminate(game_master, verbose):
+      with gm_measurements.capture(game_master.name) as terminate_log:
+        should_terminate = self.terminate(game_master, verbose)
+
+      if should_terminate:
         terminate_event.set()
         break
 
       log_entry = _get_empty_log_entry()
-
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['terminate'] = game_master.get_last_log()
+      if log is not None:
+        log_entry['terminate'] = terminate_log
 
       acting_entities, action_specs = self.next_acting(
-          game_master, [entity], log_entry=log_entry, log=log
+          game_master,
+          [entity],
+          log_entry=log_entry,
+          log=log,
+          gm_measurements=gm_measurements,
       )
       iteration += 1
       if not acting_entities:
@@ -363,12 +374,11 @@ class Asynchronous(engine_lib.Engine):
         time.sleep(self._sleep_time)
         continue
 
-      observation = self.make_observation(game_master, entity)
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['make_observation'][
-            entity.name
-        ] = game_master.get_last_log()
+      with gm_measurements.capture(game_master.name) as obs_log:
+        observation = self.make_observation(game_master, entity)
+      if log is not None:
+        log_entry['make_observation'][entity.name] = obs_log
+
       if observation and observation.strip():
         if verbose:
           print(
@@ -387,7 +397,10 @@ class Asynchronous(engine_lib.Engine):
                 _PRINT_COLOR,
             )
         )
-      raw_action = entity.act(action_spec)
+
+      with entity_measurements.capture(entity.name) as entity_act_log:
+        raw_action = entity.act(action_spec)
+
       if entity.name in raw_action:
         action = raw_action
       else:
@@ -401,31 +414,21 @@ class Asynchronous(engine_lib.Engine):
             )
         )
 
-      self.resolve(game_master, action, verbose=verbose)
-
-      if log is not None and hasattr(game_master, 'get_last_log'):
-        assert hasattr(game_master, 'get_last_log')
-        log_entry['resolve'] = game_master.get_last_log()
+      with gm_measurements.capture(game_master.name) as resolve_log:
+        self.resolve(game_master, action, verbose=verbose)
+      if log is not None:
+        log_entry['resolve'] = resolve_log
 
       if log is not None:
-        next_entity_log = {}
-        game_master_key = game_master.name
-        entity_key = f'Entity [{entity.name}]'
-        if hasattr(entity, 'get_last_log'):
-          next_entity_log = entity.get_last_log()
-        if DEFAULT_ACT_COMPONENT_KEY in log_entry['resolve']:
-          event_to_log = log_entry['resolve'][DEFAULT_ACT_COMPONENT_KEY][
-              'Value'
-          ]
-          game_master_key = f'{game_master_key} --- {event_to_log}'
-        self._log(
-            log=log,
-            steps=iteration,
-            entity_key=entity_key,
-            entity_log=next_entity_log,
-            game_master_key=game_master_key,
-            game_master_log=log_entry,
-            thread=entity.name,
+        self._collector.emit(
+            collector_lib.RawLogEvent(
+                step=iteration,
+                entity_name=entity.name,
+                game_master_name=game_master.name,
+                entity_log=dict(entity_act_log),
+                game_master_log=log_entry,
+                action=action,
+            )
         )
 
       if checkpoint_callback is not None:
@@ -437,16 +440,12 @@ class Asynchronous(engine_lib.Engine):
         checkpoint_callback(iteration)
 
       if step_callback is not None:
-        entity_logs = {}
-        if hasattr(entity, 'get_last_log'):
-          assert hasattr(entity, 'get_last_log')
-          entity_logs[entity.name] = entity.get_last_log()
         step_data = step_controller_lib.StepData(
             step=iteration,
             acting_entity=entity.name,
             action=action,
             entity_actions={entity.name: action},
-            entity_logs=entity_logs,
+            entity_logs={entity.name: dict(entity_act_log)},
             game_master=game_master.name,
         )
         step_callback(step_data)
@@ -465,6 +464,8 @@ class Asynchronous(engine_lib.Engine):
   ):
     if not game_masters:
       raise ValueError('No game masters provided.')
+
+    self._log_list = log
 
     game_master = game_masters[0]
     if premise:
@@ -546,3 +547,7 @@ class Asynchronous(engine_lib.Engine):
       )
 
     concurrency.run_tasks(tasks)
+
+    if log is not None:
+      self._collector.materialize(log)
+    self._log_list = None

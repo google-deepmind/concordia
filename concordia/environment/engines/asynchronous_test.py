@@ -24,6 +24,7 @@ from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.environment.engines import asynchronous
 from concordia.typing import entity as entity_lib
+from concordia.utils import async_measurements as async_measurements_lib
 
 
 _ENTITY_NAMES = ('entity_0', 'entity_1')
@@ -42,6 +43,7 @@ class MockEntity(entity_agent_with_logging.EntityAgentWithLogging):
     self._name = name
     self._observations = []
     self._act_count = 0
+    self._component_logging = async_measurements_lib.ReactiveMeasurements()
 
   @functools.cached_property
   @override
@@ -81,6 +83,7 @@ class SelectiveGMEntity(entity_agent_with_logging.EntityAgentWithLogging):
     self._eligible_names = list(eligible_names)
     self._lock = threading.Lock()
     self._last_observation_target: str | None = None
+    self._component_logging = async_measurements_lib.ReactiveMeasurements()
 
   @functools.cached_property
   @override
@@ -266,7 +269,7 @@ class AsynchronousTest(absltest.TestCase):
     self.assertGreater(entity_1._act_count, 0)
 
   def test_gm_log_lock_prevents_race_condition(self):
-    """Verify each thread's log entry is correctly associated with its thread."""
+    """Verify each thread's log entry is associated with its correct thread."""
     env = asynchronous.Asynchronous(sleep_time=0.0)
     gm = SelectiveGMEntity(
         name='game_master', eligible_names=list(_ENTITY_NAMES)

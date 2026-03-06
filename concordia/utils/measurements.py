@@ -47,14 +47,19 @@ class Measurements:
       self._channels[channel] = []
     return self._channels[channel]
 
-  def publish_datum(self, channel: str, datum: Any) -> None:
+  def publish_datum(
+      self, channel: str, datum: Any, capture_key: str | None = None
+  ) -> None:
     """Publishes a datum to the channel.
 
     Args:
       channel: The channel name to push the datum into. If the channel doesn't
         exist yet, it will be created.
       datum: The payload to push into the channel.
+      capture_key: Optional key for routing to specific captures. Ignored in the
+        base class but used by ReactiveMeasurements.
     """
+    del capture_key
     with self._channels_lock:
       self._get_channel_or_create(channel).append(datum)
 

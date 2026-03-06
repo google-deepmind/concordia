@@ -29,6 +29,7 @@ from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs import game_master as game_master_prefabs
 from concordia.prefabs.simulation import generic as simulation
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import async_measurements
 from concordia.utils import helper_functions
 from concordia.utils import visual_interface
 
@@ -117,6 +118,13 @@ def run_scenario(
 
   if engine is None:
     engine = asynchronous.Asynchronous()
+
+  if isinstance(engine, asynchronous.Asynchronous):
+    reactive = async_measurements.ReactiveMeasurements()
+    for instance in config.instances:
+      params = dict(instance.params)
+      params["measurements"] = reactive
+      instance.params = params  # pytype: disable=annotation-type-mismatch
 
   sim = simulation.Simulation(
       config=config,
