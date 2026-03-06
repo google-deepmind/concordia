@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [2.4.0] - 2026-03-06
+
+### Changed
+
+- Use InteractiveDocument RNG for diversified answers
+- NextActingActiveEntity returns the current player for async threads
+- Make more basic entity parameters configurable and give them more sensible
+default values. Remove the relevant memories component since it does not really
+help here, and it can confuse, especially in simulations that don't have a
+concrete concept of time.
+- Make LastNObservations component give a more sensible error message if the user passes a wrong type history length.
+- Add name of the current active game master to StepData so we can visualize it in the UI.
+- Wrap entity_agent `act` and `observe` calls in try...except blocks in order to surface more helpful error messages during async usage.
+- Refactor to push "thought chains" concept down into the event_resolution component since it's not a general Concordia concept but rather an implementation detail of a specific component.
+- Small tweaks to social media example scenario 1 and the contrib forum component to get it to produce more interesting memes.
+- Improve image_text_act component and pass more params through basic_with_image prefab.
+- Avoid printing long bytes representations of images.
+- Migrated deprecated google.generativeai and vertexai package to the newer google.genai package
+- Add deprecation warning on entity_agent.stateless_act, use act instead.
+- generic simulation now saves more info in checkpoints
+
+### Added
+
+- Entities can now be passed a custom Measurements object.
+- Support images in the generic log viewer html.
+- Add log analysis CLI
+- Add gpt_model_multimodal.py and rename gemini_model_vision.py to gemini_model_multimodal.py
+- Add social media example with image generation.
+- Add a text+image generation act component and a prefab that uses it.
+- Add dynamic state editing in the visual interface and additional visualization improvements:
+- Add async_social_media prefab and its associated forum component to facilitate social media simulations. These parts work well with the asynchronous engine. The forum component is thread safe.
+- Add simulation server for play/pause user interface visualization
+- Add support for logs produced by the asynchronous engine to the generic log viewer.
+- Add asynchronous engine
+- Improve logging, AIAgentLogInterface, and the documentation for how to use them.
+- Add functionality to allow an interactive GUI view of a running simulation.
+Augment the engine API to allow passing a step_controller to start, pause, and
+step the simulation from the UI and a step_callback to control what information
+is passed to the UI on each step.
+- Add tool-use capabilities to InteractiveDocument
+- Improve analyze-logs agent skill for use with antigravity, claude code, etc
+- Improve the structured logging library and extract out its HTML writing function to a different file.
+- Update generic simulation to improve data stored in checkpoints and to pass args needed to allow the visual UI.
+
+### Fixed
+
+- Fix logging for async engine by introducing ReactiveMeasurements.
+- Fixing scene serialisation error that was crashing jobs after restoration from a checkpoint.
+- Fix broken HTML log rendering due to broken regex in structured_logging_html.py. The regex patterns for matching content_ref and image markdown in the JavaScript rendering code used new RegExp('...') with Python string interpolation, which required backslashes to survive three parsing layers (Python string → JS string → RegExp). The escaping was wrong, producing Unmatched ')' SyntaxError that crashed renderGMLog() before any content was injected into the DOM, resulting in empty simulation HTML logs.
+- Fix deduplication for large images in structured_logging.
+- Add gemini_model_vision.py, a model wrapper with image generation and image interpretation functionality.
+- Added optional event_filter_fn to DisplayEvents component. Can use this for
+entity-aware filtering of events (e.g. by location or entity so GM maintains
+partial POV) by providing a function that returns True for events it wants
+filtered
+- Remove engine-level _gm_log_lock from asynchronous engine. Makes thread safety the responsibility of the game master, not the engine (as intended and documented in the class docstring)
+- Address PR feedback on diversified RNG usage
+- Optimize async engine and fix bugs:
+- Fix concurrency bugs in simultaneous engine
+- fix: validate entity name from LLM to prevent KeyError in sequential engine
+- Make the asynchronous engine handle observations while switching game masters, matching the behavior of the sequential and simultaneous engines.
+- The scene tracker now queues premises on the first action of step 0, using a memory tag to ensure it happens only once per scene.
+- fix: prevent ZeroDivisionError when scene has no participants
+- Add missing variables in get_state/set_state methods for all components.
+- Add ability to turn off llm generation of observations to prevent information leakage
+- fix type mismatch introduced by recent commit
+- Add generic log_viewer.html and simplify the Simulation.play API.
+
 ## [2.3.1] - 2026-02-04
 
 ### Fixed
