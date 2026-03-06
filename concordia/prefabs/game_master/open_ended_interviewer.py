@@ -109,6 +109,7 @@ class GameMaster(prefab_lib.Prefab):
         agent_name=agent_name,
         act_component=act_component,
         context_components=components_of_game_master,
+        measurements=self.params.get("measurements"),
     )
 
     return game_master_agent

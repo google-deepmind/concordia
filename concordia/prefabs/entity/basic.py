@@ -189,6 +189,7 @@ class Entity(prefab_lib.Prefab):
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
+        measurements=self.params.get('measurements'),
     )
 
     return agent
