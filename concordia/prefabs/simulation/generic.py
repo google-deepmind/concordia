@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""An adaptable simulation prefab that can be configured to run any simulation."""
+"""Adaptable simulation prefab that can be configured to run any simulation."""
 
 from collections.abc import Callable, Mapping
 import copy
@@ -600,6 +600,19 @@ class Simulation(simulation_lib.Simulation):
     if entity_params is None or entity_components_state is None:
       logging.warning("Missing params or components state for %s.", entity_name)
       return
+
+    original_instance = next(
+        (
+            instance_config
+            for instance_config in self._config.instances
+            if instance_config.params.get("name") == entity_name
+        ),
+        None,
+    )
+    if original_instance:
+      for key, value in original_instance.params.items():
+        if key not in entity_params:
+          entity_params[key] = value
 
     instance_config = prefab_lib.InstanceConfig(
         prefab=prefab_type,
