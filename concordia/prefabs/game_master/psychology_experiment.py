@@ -22,8 +22,8 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as actor_components
 from concordia.components import game_master as gm_components
+from concordia.components.game_master import event_resolution as thought_chains_lib
 from concordia.language_model import language_model
-from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import scene as scene_lib
 
@@ -190,7 +190,7 @@ class GameMaster(prefab_lib.Prefab):
         agent_name=name,
         act_component=act_component,
         context_components=components_of_game_master,
+        measurements=self.params.get("measurements"),
     )
 
     return game_master
-

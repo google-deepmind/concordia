@@ -38,6 +38,7 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
+      measurements: measurements_lib.Measurements | None = None,
   ):
     """Initializes the agent.
 
@@ -54,27 +55,43 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       context_processor: The component that will be used to process contexts. If
         None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
+      measurements: Optional measurements instance to use for logging. Defaults
+        to a standard Measurements().
     """
     super().__init__(agent_name=agent_name,
                      act_component=act_component,
                      context_processor=context_processor,
                      context_components=context_components)
-    self._component_logging = measurements_lib.Measurements()
+    self._component_logging = (
+        measurements
+        if measurements is not None
+        else measurements_lib.Measurements()
+    )
 
     for component_name, component in self._context_components.items():
       if isinstance(component, entity_component.ComponentWithLogging):
         channel_name = component_name
         component.set_logging_channel(
-            self._component_logging.get_channel(channel_name).append
+            lambda datum, ch=channel_name: self._component_logging.publish_datum(
+                ch, datum, capture_key=self.name
+            )
         )
     if isinstance(act_component, entity_component.ComponentWithLogging):
       act_component.set_logging_channel(
-          self._component_logging.get_channel('__act__').append
+          lambda datum: self._component_logging.publish_datum(
+              '__act__', datum, capture_key=self.name
+          )
       )
     if isinstance(context_processor, entity_component.ComponentWithLogging):
       context_processor.set_logging_channel(
-          self._component_logging.get_channel('__context_processor__').append
+          lambda datum: self._component_logging.publish_datum(
+              '__context_processor__', datum, capture_key=self.name
+          )
       )
+
+  @property
+  def measurements(self) -> measurements_lib.Measurements:
+    return self._component_logging
 
   def get_all_logs(self):
     return self._component_logging.get_all_channels()

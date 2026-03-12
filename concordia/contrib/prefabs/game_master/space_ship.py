@@ -23,16 +23,16 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as actor_components
 from concordia.components import game_master as gm_components
+from concordia.components.game_master import event_resolution as thought_chains_lib
 from concordia.contrib.components.game_master import death as death_component_module
 from concordia.contrib.components.game_master import spaceship_system as spaceship_system_component_module
 from concordia.language_model import language_model
-from concordia.thought_chains import thought_chains as thought_chains_lib
 from concordia.typing import prefab as prefab_lib
 
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab entity implementing a game master for games set in a specific location."""
+  """A prefab game master for games set in a specific location."""
 
   description: str = (
       'A general game master for games set in a specific location.'

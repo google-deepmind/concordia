@@ -26,6 +26,7 @@ from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import measurements as measurements_lib
 
 
 def build_components(
@@ -131,6 +132,7 @@ def build_game_master(
     name: str,
     player_names: Sequence[str],
     components: dict[str, entity_component.ContextComponent],
+    measurements: measurements_lib.Measurements | None = None,
 ) -> entity_agent_with_logging.EntityAgentWithLogging:
   """Build the game master entity from components.
 
@@ -139,6 +141,7 @@ def build_game_master(
     name: Name of the game master.
     player_names: Names of all player entities.
     components: Dictionary of components to use.
+    measurements: Optional measurements instance.
 
   Returns:
     The constructed game master entity.
@@ -155,6 +158,7 @@ def build_game_master(
       agent_name=name,
       act_component=act_component,
       context_components=components,
+      measurements=measurements,
   )
 
   return game_master
@@ -162,7 +166,7 @@ def build_game_master(
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab entity implementing a formative memories initializer game master."""
+  """Implements a formative memories initializer game master entity."""
 
   description: str = (
       'An initializer for all entities that '
@@ -219,4 +223,5 @@ class GameMaster(prefab_lib.Prefab):
         name=name,
         player_names=player_names,
         components=components,
+        measurements=self.params.get('measurements'),
     )
