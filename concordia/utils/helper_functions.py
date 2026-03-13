@@ -119,7 +119,7 @@ def timedelta_to_readable_str(td: datetime.timedelta):
     readable_str += [f'{hours} hour' if hours == 1 else f'{hours} hours']
   if minutes > 0:
     if hours > 0:
-      readable_str += ' and '
+      readable_str += [' and ']
     readable_str += [
         f'{minutes} minute' if minutes == 1 else f'{minutes} minutes'
     ]
