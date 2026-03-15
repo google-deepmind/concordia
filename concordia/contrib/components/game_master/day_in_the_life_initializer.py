@@ -213,6 +213,8 @@ class DayInTheLifeInitializer(
       pre_act_label: str = '[Day in the Life Initializer]',
       num_personal_events: int = 5,
       verbose: bool = False,
+      skip_personal_events: bool = False,
+      skip_shared_setup: bool = False,
   ):
     """Initializes the component.
 
@@ -227,9 +229,9 @@ class DayInTheLifeInitializer(
         game master (e.g. formative memories). Used for conditioning the
         generation.
       player_specific_context: specific context for each player, used to
-        condition event generation. This mapping should be keyed by player
-        name, and each player's value should be a mapping containing 'wearing'
-        (a string describing clothing) and 'eating' (a string describing food
+        condition event generation. This mapping should be keyed by player name,
+        and each player's value should be a mapping containing 'wearing' (a
+        string describing clothing) and 'eating' (a string describing food
         consumed).
       components: Keys of GM components (like Time) to condition on.
       delimiter_symbol: Symbol used to separate generated events.
@@ -238,6 +240,8 @@ class DayInTheLifeInitializer(
       pre_act_label: Label for logging.
       num_personal_events: The number of mundane events per agent.
       verbose: Whether to print verbose output/warnings.
+      skip_personal_events: Whether to skip generating personal mundane events.
+      skip_shared_setup: Whether to skip generating the shared dialogue setup.
     """
     super().__init__()
     self._model = model
@@ -253,6 +257,8 @@ class DayInTheLifeInitializer(
     self._pre_act_label = pre_act_label
     self._num_personal_events = num_personal_events
     self._verbose = verbose
+    self._skip_personal_events = skip_personal_events
+    self._skip_shared_setup = skip_shared_setup
 
     self._initialized = False
 
@@ -326,14 +332,10 @@ class DayInTheLifeInitializer(
       action_spec: entity_lib.ActionSpec,
   ) -> str:
     """Initializes observations if not already done, then returns next GM."""
-    # This component only activates when the orchestrator asks for the next GM.
     if action_spec.output_type != entity_lib.OutputType.NEXT_GAME_MASTER:
       return ''
 
-    if self._initialized:
-      # Initialization complete, hand off to the dialogue GM
-      return self._next_game_master_name
-    else:
+    if not self._initialized:
       memory = self.get_entity().get_component(
           self._memory_component_key, type_=memory_component.Memory
       )
@@ -343,12 +345,22 @@ class DayInTheLifeInitializer(
       )
       context = self._get_context_string()
 
-      # Process the single dyad directly.
       self._process_dyad(context, memory, make_observation)
 
       self._initialized = True
-      # Return own name to allow other components in this GM to finish this step
       return self.get_entity().name
+
+    make_observation = self.get_entity().get_component(
+        self._make_observation_component_key,
+        type_=make_observation_component.MakeObservation,
+    )
+    queue_state = make_observation.get_state().get('queue', {})
+    has_pending = any(bool(v) for v in queue_state.values())
+
+    if has_pending:
+      return self.get_entity().name
+
+    return self._next_game_master_name
 
   def _process_dyad(
       self,
@@ -362,58 +374,69 @@ class DayInTheLifeInitializer(
     # Handle the single-player rumination scenario, providing memories to both
     # instances.
     if self._scenario_type == 'single_rumination':
-      # Generate the scene and events once using the first player's name.
-      internal_scene = self.generate_shared_setup(player1, None, context)
-      personal_events = self.generate_personal_events(
-          player1, context, internal_scene
-      )
-      scene_str = f'[Internal Scene] "{internal_scene}"'
+      internal_scene = None
+      if not self._skip_shared_setup:
+        internal_scene = self.generate_shared_setup(player1, None, context)
 
-      # Add the same generated events to BOTH player instances' observation
-      # queues.
+      personal_events = []
+      if not self._skip_personal_events:
+        personal_events = self.generate_personal_events(
+            player1, context, internal_scene or ''
+        )
+
       for p in [player1, player2]:
         for num, event in enumerate(personal_events):
           event_str = f'[Daily Personal Event {num+1}] "{event}"'
           make_observation.add_to_queue(p, event_str)
-        make_observation.add_to_queue(p, scene_str)
+        if internal_scene:
+          scene_str = f'[Internal Scene] "{internal_scene}"'
+          make_observation.add_to_queue(p, scene_str)
 
-      # Log the event to the game master's memory.
       for num, event in enumerate(personal_events):
         memory.add(f'[DITL Personal Event] {player1}: "{event}"')
-      memory.add(f'[DITL Internal Scene] {player1}: "{internal_scene}"')
+      if internal_scene:
+        memory.add(f'[DITL Internal Scene] {player1}: "{internal_scene}"')
       return
 
-    # Handle all two-player scenarios (unchanged from your original code).
-    shared_event = self.generate_shared_setup(player1, player2, context)
-    personal_events_p1 = self.generate_personal_events(
-        player1, context, shared_event
-    )
-    personal_events_p2 = self.generate_personal_events(
-        player2, context, shared_event
-    )
+    # Handle all two-player scenarios.
+    shared_event = None
+    if not self._skip_shared_setup:
+      shared_event = self.generate_shared_setup(player1, player2, context)
 
-    # Inject events for player 1.
+    personal_events_p1 = []
+    personal_events_p2 = []
+    if not self._skip_personal_events:
+      personal_events_p1 = self.generate_personal_events(
+          player1, context, shared_event or ''
+      )
+      personal_events_p2 = self.generate_personal_events(
+          player2, context, shared_event or ''
+      )
+
     for num, event in enumerate(personal_events_p1):
       event_str = f'[Daily Personal Event {num+1}] "{event}"'
       make_observation.add_to_queue(player1, event_str)
       memory.add(f'[DITL Personal Event] {player1}: "{event}"')
-    shared_event_str = f'[Daily Shared Setup] "{shared_event}"'
-    make_observation.add_to_queue(player1, shared_event_str)
 
-    # Inject events for player 2.
+    if shared_event:
+      shared_event_str = f'[Daily Shared Setup] "{shared_event}"'
+      make_observation.add_to_queue(player1, shared_event_str)
+
     for num, event in enumerate(personal_events_p2):
       event_str = f'[Daily Personal Event {num+1}] "{event}"'
       make_observation.add_to_queue(player2, event_str)
       memory.add(f'[DITL Personal Event] {player2}: "{event}"')
-    make_observation.add_to_queue(player2, shared_event_str)
 
-    # Log the shared event to the game master's memory once.
-    memory.add(f'[DITL Shared Setup] {player1} and {player2}: "{shared_event}"')
+    if shared_event:
+      make_observation.add_to_queue(player2, shared_event_str)
+      memory.add(
+          f'[DITL Shared Setup] {player1} and {player2}: "{shared_event}"'
+      )
 
   def generate_shared_setup(
       self, player1: str, player2: str | None, context: str
   ) -> str:
-    """Generates the event that brings agents together, based on scenario_type."""
+    """Generates the event that brings agents together."""
     prompt = interactive_document.InteractiveDocument(self._model)
     p1_background = self._get_player_background(player1)
 
