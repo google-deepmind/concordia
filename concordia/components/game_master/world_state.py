@@ -168,8 +168,10 @@ class Locations(
       model: language_model.LanguageModel,
       entity_names: Sequence[str],
       prompt: str,
+      initial_locations: dict[str, str] | None = None,
       components: Sequence[str] = (),
       pre_act_label: str = '\nEntity locations',
+      valid_locations: Sequence[str] | None = None,
   ):
     """Initializes the component.
 
@@ -178,10 +180,16 @@ class Locations(
       entity_names: Names of entities to track locations for.
       prompt: description of all locations to be specifically represented in the
         world. This is used to prompt the model to generate concrete variables
-        representing the locations and their properties (e.g. their topology). 
+        representing the locations and their properties (e.g. their topology).
+      initial_locations: Optional dict mapping entity names to starting
+        locations. If not provided, all entities start with empty locations.
       components: Keys of components to condition entity locations on.
-      pre_act_label: Prefix to add to the output of the component when called
-        in `pre_act`.
+      pre_act_label: Prefix to add to the output of the component when called in
+        `pre_act`.
+      valid_locations: Optional list of valid location names. When provided, the
+        LLM is constrained to output only these locations, and any output not
+        matching is normalized to 'unknown'. When None, free-form behavior is
+        used.
     """
     self._pre_act_label = pre_act_label
     self._model = model
@@ -190,8 +198,15 @@ class Locations(
     self._components = tuple(components)
 
     self._locations = {}
-    self._entity_locations = {name: '' for name in entity_names}
+    # Use initial_locations if provided, otherwise default to empty strings
+    if initial_locations:
+      self._entity_locations = {
+          name: initial_locations.get(name, '') for name in entity_names
+      }
+    else:
+      self._entity_locations = {name: '' for name in entity_names}
     self._latest_action_spec = None
+    self._valid_locations = set(valid_locations) if valid_locations else None
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)
@@ -261,6 +276,33 @@ class Locations(
     })
     return result
 
+  def _normalize_location(self, location: str) -> str:
+    """Normalize a location string against valid_locations if provided.
+
+    Args:
+      location: The raw location string from the LLM.
+
+    Returns:
+      The canonical location name if found in valid_locations, or the original
+      location if valid_locations is not set. Returns empty string if the
+      location indicates the entity is in transit/unknown.
+    """
+    if not location:
+      return ''
+    location = location.strip().rstrip('.')
+    if self._valid_locations is None:
+      return location
+    if location in self._valid_locations:
+      return location
+    location_lower = location.lower()
+    for valid in self._valid_locations:
+      if valid.lower() == location_lower:
+        return valid
+    for valid in self._valid_locations:
+      if valid.lower() in location_lower:
+        return valid
+    return ''
+
   def post_act(
       self,
       event: str,
@@ -278,16 +320,41 @@ class Locations(
       ])
       prompt.statement('All locations and their properties:\n'
                        f'{locations_and_properties}')
-      prompt.statement('Known location of each entity prior to the latest '
-                       f'event:\n{self._entity_locations}')
+
+      previous_locations_str = '\n'.join([
+          f'  {name}: {loc if loc else "unknown"}'
+          for name, loc in self._entity_locations.items()
+      ])
+      prompt.statement(
+          'Current known location of each person BEFORE the latest event:\n'
+          f'{previous_locations_str}'
+      )
       prompt.statement(f'The latest event: {event}')
+
+      if self._valid_locations:
+        valid_list = ', '.join(sorted(self._valid_locations))
+        question = (
+            'For each person listed above, did the latest event cause them '
+            'to physically move to a DIFFERENT location? '
+            'Only count an explicit physical movement (e.g. "walked to", '
+            '"went to", "traveled to") as a location change. '
+            'Talking, observing, or mentioning a place is NOT a move. '
+            'If a person did NOT move, respond with "SAME". '
+            'If a person DID move, respond with their new location using '
+            f'ONLY one of these exact names: [{valid_list}]. '
+            'Format: "person1|SAME,person2|new_location,person3|SAME,...".'
+        )
+      else:
+        question = (
+            'Given the context above, where are the named people currently '
+            'located? Respond with an empty string for anyone whose '
+            'current location is unknown. Format the response as a '
+            'comma-separated list e.g. '
+            '"person1|location1,person2|location2,person3|location3,...".'
+        )
+
       entity_locations_str = prompt.open_question(
-          question=(
-              'Given the context above, where are the named people currently '
-              'located? Respond with an empty string for anyone whose '
-              'current location is unknown. Format the response as a '
-              'comma-separated list e.g. '
-              '"person1|location1,person2|location2,person3|location3,...".'),
+          question=question,
           max_tokens=512,
       )
       names_to_locations = entity_locations_str.split(',')
@@ -295,8 +362,18 @@ class Locations(
         name_and_location = name_to_location_str.strip().split('|')
         if len(name_and_location) == 2:
           name, location = name_and_location
-          if name.strip() in self._entity_names:
-            self._entity_locations[name.strip()] = location.strip()
+          name = name.strip()
+          location = location.strip()
+          if name in self._entity_names:
+            if self._valid_locations:
+              if location.upper() == 'SAME':
+                pass
+              else:
+                normalized = self._normalize_location(location)
+                if normalized:
+                  self._entity_locations[name] = normalized
+            else:
+              self._entity_locations[name] = location
 
     return ''
 
