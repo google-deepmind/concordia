@@ -315,7 +315,7 @@ class Sequential(engine_lib.Engine):
             f'Entity {next_entity.name} is next to act. They must respond '
             f' in the format: "{entity_spec_to_use}".', _PRINT_COLOR))
       raw_action = next_entity.act(entity_spec_to_use)
-      if next_entity.name in raw_action:
+      if raw_action.startswith(f'{next_entity.name}:'):
         action = raw_action
       else:
         action = f'{next_entity.name}: {raw_action}'

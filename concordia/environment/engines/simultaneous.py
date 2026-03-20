@@ -336,7 +336,7 @@ class Simultaneous(engine_lib.Engine):
               )
           )
         raw_action = entity.act(action_spec)
-        if entity.name in raw_action:
+        if raw_action.startswith(f'{entity.name}:'):
           action = raw_action
         else:
           action = f'{entity.name}: {raw_action}'
