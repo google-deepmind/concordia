@@ -84,7 +84,7 @@ class AsyncLogCollector:
       ):
         event_to_log = game_master_finalized_log['resolve'][
             DEFAULT_ACT_COMPONENT_KEY
-        ]['Value']
+        ].get('Value', '')
         game_master_key = f'{game_master_key} --- {event_to_log}'
 
       entity_key = f'Entity [{event.entity_name}]'
