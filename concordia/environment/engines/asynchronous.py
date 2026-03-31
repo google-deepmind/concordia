@@ -532,7 +532,11 @@ class Asynchronous(engine_lib.Engine):
     terminate_event = threading.Event()
 
     tasks = {}
-    for entity in entities:
+    for i, entity in enumerate(entities):
+      # Only the first entity's thread runs the checkpoint callback
+      # as make_checkpoint_data() snapshots ALL entities and game
+      # masters (global state)
+      entity_checkpoint_cb = checkpoint_callback if i == 0 else None
       tasks[entity.name] = functools.partial(
           self._entity_loop,
           entity=entity,
@@ -541,7 +545,7 @@ class Asynchronous(engine_lib.Engine):
           verbose=verbose,
           terminate_event=terminate_event,
           log=log,
-          checkpoint_callback=checkpoint_callback,
+          checkpoint_callback=entity_checkpoint_cb,
           step_callback=step_callback,
           step_controller=step_controller,
       )
