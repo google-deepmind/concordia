@@ -18,6 +18,7 @@ import datetime
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from concordia.components.game_master import asynchronous_questionnaire
 from concordia.components.game_master import event_resolution
 from concordia.components.game_master import formative_memories_initializer
 from concordia.components.game_master import inventory
@@ -336,6 +337,20 @@ COMPONENT_FACTORIES = {
         },
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
+    "asynchronous_questionnaire": {
+        "component_class": asynchronous_questionnaire.AsynchronousQuestionnaire,
+        "kwargs": {
+            "questionnaires": [
+                depression_anxiety_stress_scale.DASSQuestionnaire()
+            ],
+            "player_names": ["Alice", "Bob"],
+        },
+        "state_example": {
+            "player_question_index": {"Alice": 1},
+            "answers": {"Alice": []},
+        },
+        "skip_keys": DEFAULT_SKIP_KEYS | {"_lock"},
+    },
 }
 
 
@@ -431,6 +446,10 @@ class GMComponentTest(parameterized.TestCase):
       dict(
           testcase_name="generative_clock",
           component_name="generative_clock",
+      ),
+      dict(
+          testcase_name="asynchronous_questionnaire",
+          component_name="asynchronous_questionnaire",
       ),
   )
   def test_get_and_set_state(self, component_name: str):

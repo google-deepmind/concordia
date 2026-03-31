@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""An adaptable simulation prefab that can be configured to run any simulation."""
+"""A simulation prefab for running questionnaire-based simulations."""
 
 from collections.abc import Callable, Mapping
 import copy
@@ -23,13 +23,13 @@ from typing import Any
 
 from absl import logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
-from concordia.environment.engines import parallel_questionnaire
-from concordia.environment.engines import sequential_questionnaire
+from concordia.environment.engines import asynchronous
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
+from concordia.utils import async_measurements
 from concordia.utils import structured_logging
 import numpy as np
 
@@ -46,12 +46,6 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: Config,
       model: language_model.LanguageModel,
       embedder: Callable[[str], np.ndarray],
-      engine: (
-          parallel_questionnaire.ParallelQuestionnaireEngine
-          | sequential_questionnaire.SequentialQuestionnaireEngine
-          | None
-      ) = None,
-      max_workers: int | None = None,
       verbose: bool = False,
   ):
     """Initialize the simulation object.
@@ -69,10 +63,6 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       config: the config to use.
       model: the language model to use.
       embedder: the sentence transformer to use.
-      engine: the engine to use. If None, a new engine is created with
-        parallel_questionnaire.ParallelQuestionnaireEngine.
-      max_workers: the maximum number of workers to use in the engine's
-        ThreadPoolExecutor, if the default engine is used.
       verbose: Whether to print verbose output.
     """
     logging.info("[QuestionnaireSimulation] Initializing simulation.")
@@ -80,15 +70,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     self._model = model
     self._embedder = embedder
     self._verbose = verbose
-    if engine is None:
-      if not max_workers:
-        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine()
-      else:
-        self._engine = parallel_questionnaire.ParallelQuestionnaireEngine(
-            max_workers=max_workers
-        )
-    else:
-      self._engine = engine
+    self._engine = asynchronous.Asynchronous()
     self.game_masters = []
     self.entities = []
     self._raw_log = []
@@ -103,7 +85,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     gm_configs = [
         entity_cfg
         for entity_cfg in all_data
-        if entity_cfg.role == Role.GAME_MASTER
+        if entity_cfg.role in (Role.GAME_MASTER, Role.INITIALIZER)
     ]
     entities_configs = [
         entity_cfg for entity_cfg in all_data if entity_cfg.role == Role.ENTITY
@@ -112,7 +94,6 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     for entity_config in entities_configs:
       self.add_entity(entity_config)
 
-    # The questionnaire simulation is not supposed to have any initializers
     for gm_config in gm_configs:
       self.add_game_master(gm_config)
 
@@ -164,7 +145,13 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     game_master_prefab = copy.deepcopy(
         self._config.prefabs[instance_config.prefab]
     )
-    game_master_prefab.params = instance_config.params
+
+    params = dict(instance_config.params)
+    if isinstance(self._engine, asynchronous.Asynchronous):
+      if "measurements" not in params:
+        params["measurements"] = async_measurements.ReactiveMeasurements()
+
+    game_master_prefab.params = params
     game_master_prefab.entities = self.entities
     game_master = game_master_prefab.build(
         model=self._model, memory_bank=self.game_master_memory_bank
@@ -194,7 +181,13 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
       raise ValueError("Instance config role must be ENTITY")
 
     entity_prefab = copy.deepcopy(self._config.prefabs[instance_config.prefab])
-    entity_prefab.params = instance_config.params
+
+    params = dict(instance_config.params)
+    if isinstance(self._engine, asynchronous.Asynchronous):
+      if "measurements" not in params:
+        params["measurements"] = async_measurements.ReactiveMeasurements()
+
+    entity_prefab.params = params
 
     memory_bank = associative_memory.AssociativeMemoryBank(
         sentence_embedder=self._embedder,
@@ -301,7 +294,8 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
           checkpoint_callback=checkpoint_callback,
       )
     finally:
-      self._engine.shutdown()
+      if hasattr(self._engine, "shutdown"):
+        self._engine.shutdown()
     logging.info("[QuestionnaireSimulation] Simulation finished.")
     return structured_logging.SimulationLog.from_raw_log(raw_log)
 
