@@ -293,6 +293,7 @@ class Locations(
     if self._valid_locations is None:
       return location
     valid_locations = self._valid_locations
+    assert valid_locations is not None  # Already checked above
     if location in valid_locations:
       return location
     location_lower = location.lower()
