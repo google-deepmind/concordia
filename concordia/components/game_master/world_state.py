@@ -290,20 +290,18 @@ class Locations(
     if not location:
       return ''
     location = location.strip().rstrip('.')
-    if self._valid_locations is None:
-      return location
-    valid_locations = self._valid_locations
-    assert valid_locations is not None  # Already checked above
-    if location in valid_locations:
-      return location
-    location_lower = location.lower()
-    for valid in valid_locations:
-      if valid.lower() == location_lower:
-        return valid
-    for valid in valid_locations:
-      if valid.lower() in location_lower:
-        return valid
-    return ''
+    if self._valid_locations is not None:
+      if location in self._valid_locations:
+        return location
+      location_lower = location.lower()
+      for valid in self._valid_locations:
+        if valid.lower() == location_lower:
+          return valid
+      for valid in self._valid_locations:
+        if valid.lower() in location_lower:
+          return valid
+      return ''
+    return location
 
   def post_act(
       self,
