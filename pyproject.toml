@@ -31,6 +31,9 @@ pyink-annotation-pragmas = [
 required_plugins = ["pytest-xdist"]
 addopts = "-n auto"
 testpaths = ["concordia", "examples"]
+python_files = ["*_test.py", "test_*.py"]
+python_classes = ["Test*", "*Test"]
+python_functions = ["test_*"]
 
 [tool.pytype]
 inputs = ["concordia", "examples"]
