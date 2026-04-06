@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library of components specifically for generative agents."""
+"""Library of components."""
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import all_similar_memories
+from concordia.components.agent import concat
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import constant
 from concordia.components.agent import instructions
@@ -26,3 +27,4 @@ from concordia.components.agent import plan
 from concordia.components.agent import question_of_recent_memories
 from concordia.components.agent import report_function
 from concordia.components.agent import scripted_act
+from concordia.components.agent import select_act_component
