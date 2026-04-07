@@ -21,6 +21,7 @@ import re
 from typing import Any
 
 from absl import logging
+from concordia.environment import step_controller as step_controller_lib
 from concordia.typing import entity as entity_lib
 
 _TYPE_SKIP_THIS_STEP = 'type: __SKIP_THIS_STEP__'
@@ -78,8 +79,10 @@ class Engine(metaclass=abc.ABCMeta):
       verbose: bool,
       log: list[Mapping[str, Any]] | None,
       checkpoint_callback: Callable[[int], None] | None = None,
-      step_controller: Any = None,
-      step_callback: Callable[[Any], None] | None = None,
+      step_controller: step_controller_lib.StepController | None = None,
+      step_callback: (
+          Callable[[step_controller_lib.StepData], None] | None
+      ) = None,
   ):
     """Run a game loop."""
 

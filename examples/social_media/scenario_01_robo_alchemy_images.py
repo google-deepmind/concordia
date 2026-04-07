@@ -18,7 +18,9 @@ Identical to Scenario 0 but uses the image-capable entity prefab, so agents
 generate an image alongside every post and reply.
 """
 
+from collections.abc import Callable
 from concordia.contrib.prefabs import entity as contrib_entity_prefabs
+from concordia.environment import step_controller as step_controller_lib
 from examples.social_media import shared as shared_lib
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import helper_functions
@@ -338,8 +340,10 @@ def run_simulation(
     override_game_master_model=None,
     image_model=None,
     output_dir: str | None = None,
-    step_controller=None,
-    step_callback=None,
+    step_controller: step_controller_lib.StepController | None = None,
+    step_callback: (
+        Callable[[step_controller_lib.StepData], None] | None
+    ) = None,
     entity_info_callback=None,
     simulation_callback=None,
 ):

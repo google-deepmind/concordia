@@ -479,8 +479,10 @@ class Asynchronous(engine_lib.Engine):
       verbose: bool = False,
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
-      step_controller=None,
-      step_callback=None,
+      step_controller: step_controller_lib.StepController | None = None,
+      step_callback: (
+          Callable[[step_controller_lib.StepData], None] | None
+      ) = None,
   ):
     if not game_masters:
       raise ValueError('No game masters provided.')

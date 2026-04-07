@@ -19,6 +19,8 @@ alchemy on a forum. Designed for rapid iteration during development, also
 sometimes produces amusing results.
 """
 
+from collections.abc import Callable
+from concordia.environment import step_controller as step_controller_lib
 from examples.social_media import shared as shared_lib
 from concordia.typing import prefab as prefab_lib
 
@@ -334,8 +336,10 @@ def run_debug_simulation(
     override_game_master_model=None,
     image_model=None,
     output_dir: str | None = None,
-    step_controller=None,
-    step_callback=None,
+    step_controller: step_controller_lib.StepController | None = None,
+    step_callback: (
+        Callable[[step_controller_lib.StepData], None] | None
+    ) = None,
     entity_info_callback=None,
     simulation_callback=None,
 ):

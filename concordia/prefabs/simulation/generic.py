@@ -24,6 +24,7 @@ from typing import Any
 from absl import logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.environment import engine as engine_lib
+from concordia.environment import step_controller as step_controller_lib
 from concordia.environment.engines import sequential
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -238,8 +239,10 @@ class Simulation(simulation_lib.Simulation):
       raw_log: list[Mapping[str, Any]] | None = None,
       get_state_callback: Callable[[dict[str, Any]], None] | None = None,
       checkpoint_path: str | None = None,
-      step_controller=None,
-      step_callback=None,
+      step_controller: step_controller_lib.StepController | None = None,
+      step_callback: (
+          Callable[[step_controller_lib.StepData], None] | None
+      ) = None,
   ) -> structured_logging.SimulationLog:
     """Run the simulation.
 

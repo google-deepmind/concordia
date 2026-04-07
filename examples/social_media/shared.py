@@ -18,12 +18,14 @@ This module provides common functionality for simulating social media
 interactions on a Reddit-like forum using the asynchronous engine.
 """
 
+from collections.abc import Callable
 import datetime
 import os
 from typing import Any
 
 from concordia.contrib.components.game_master import forum as forum_lib
 from concordia.environment import engine as engine_lib
+from concordia.environment import step_controller as step_controller_lib
 from concordia.environment.engines import asynchronous
 from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs import game_master as game_master_prefabs
@@ -65,8 +67,10 @@ def run_scenario(
     override_game_master_model=None,
     output_dir: str | None = None,
     scenario_name: str = "scenario",
-    step_controller=None,
-    step_callback=None,
+    step_controller: step_controller_lib.StepController | None = None,
+    step_callback: (
+        Callable[[step_controller_lib.StepData], None] | None
+    ) = None,
     entity_info_callback=None,
     engine: engine_lib.Engine | None = None,
     max_steps: int | None = None,
