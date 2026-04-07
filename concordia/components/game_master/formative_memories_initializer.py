@@ -229,17 +229,17 @@ class FormativeMemoriesInitializer(
         f'named {active_entity_name} who was born in {date_of_birth}.'
     )
     question += (
-        f'Begin the story when {active_entity_name} is very young and end it'
-        ' when they are quite old. The story should be no more than four'
+        f'Begin the story when {active_entity_name} is very young.'
+        ' The story should be no more than four'
         ' paragraphs in total. The story may include details such as (but'
         ' not limited to) any of the following: what their job is or was,'
         ' what their typical day was or is like, what their goals, desires,'
         ' hopes, dreams, and aspirations are, and have been, as well as'
         ' their drives, duties, responsibilities, and obligations. It should'
-        ' clarify what gives them joy and what are they afraid of. It may'
-        ' include their friends and family, as well as antagonists. It'
-        ' should be a complete life story for a complete person but it'
-        ' should not specify how their life ends. The reader should be left'
+        ' clarify what gives them joy and what are they afraid of. It is'
+        ' good to emphasize emotional content and thick cultureal details.'
+        ' It may include their friends and family, as well as antagonists.'
+        ' It should convey their lived experience. The reader should be left'
         f' with a profound understanding of {active_entity_name}.'
     )
     backstory = prompt.open_question(
@@ -259,8 +259,8 @@ class FormativeMemoriesInitializer(
         'important for establishing who they are as a person. They should '
         f"be consistent with {active_entity_name}'s personality and "
         f"circumstances. Describe each episode from {active_entity_name}'s "
-        'perspective and use third-person limited point of view. Each'
-        ' episode '
+        'perspective and emphasize the dramatic. Use third-person limited '
+        'point of view. Each episode '
         'must mention their age at the time the event occurred using'
         ' language '
         f'such as "When {active_entity_name} was 5 years old, they '
