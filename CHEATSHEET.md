@@ -965,9 +965,25 @@ oe_interviewer_config = prefab_lib.InstanceConfig(
         'player_names': persona_names,
         'questionnaires': [open_ended_questionnaire],
         'embedder': embedder,  # Required for open-ended questions
+        # Optional: provide a sequence of events to observe over multiple steps
+        'sequence_of_events': [
+            "The mayor announced a new public park.",
+            "A local business closed down.",
+        ],
     },
 )
 ```
+
+### Using `sequence_of_events` to Track Attitude Changes
+The `sequence_of_events` parameter allows you to feed sequential information
+or world events to agents over multiple simulation steps.
+
+- **Purpose**: Measure how agents' opinions, attitudes, or psychological states
+  change in response to specific stimuli (e.g., news reports, policy changes).
+- **Behavior**: At step `i`, the Game Master sends `sequence_of_events[i]` as
+  an observation to all agents before asking them to complete the questionnaire.
+- **Empty Observations**: If omitted, empty observations are sent, which is
+  useful for static baseline assessments.
 
 ---
 
@@ -1001,21 +1017,14 @@ results_log = simulation.play()
 ---
 
 ### Execution Modes
-Choose between parallel (faster) or sequential (context-dependent) execution.
-
-| Mode | Engine | Best For |
-|------|--------|----------|
-| **Parallel** (Default) | `ParallelQuestionnaireEngine` | Speed, independent answers |
-| **Sequential** | `SequentialQuestionnaireEngine` | Answers that depend on prior context |
+Questionnaire simulations run asynchronously in parallel by default using the
+`Asynchronous` engine.
 
 ```python
-from concordia.environment.engines import parallel_questionnaire
-
 simulation = questionnaire_simulation.QuestionnaireSimulation(
     config=config,
     model=model,
     embedder=embedder,
-    engine=parallel_questionnaire.ParallelQuestionnaireEngine(max_workers=4),
 )
 ```
 

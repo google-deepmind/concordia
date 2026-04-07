@@ -42,7 +42,7 @@ _TERMINATE_SIGNAL = 'Yes'
 class OpenEndedQuestionnaire(entity_component.ContextComponent):
   """A component that asks openended questionnaire to one or more actors.
 
-  The component is designed to be used with the ParallelQuestionnaireEngine. The
+  The component is designed to be used with the Asynchronous engine. The
   component translate the sequence of events into the observation stream; after
   each observation the agents are asked to respond to the questionnaires. Each
   question is asked to each player at each step. The answers are aggregated

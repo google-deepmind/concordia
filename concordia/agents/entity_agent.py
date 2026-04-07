@@ -258,23 +258,3 @@ class EntityAgent(entity_component.EntityWithComponents):
     with self._phase_lock:
       self._phase = phase
 
-  def stateless_act(
-      self,
-      action_spec: entity.ActionSpec,
-  ) -> str:
-    """Helper for single stateless action, used by parallel_stateless_act."""
-    logging.warning('stateless_act is deprecated. Please use act instead.')
-
-    if self.get_phase() != entity_component.Phase.PRE_ACT:
-      raise RuntimeError('Agent must be in PRE_ACT phase for stateless_act')
-
-    # 1. PRE_ACT to gather context
-    executor = futures.ThreadPoolExecutor()
-    contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
-    executor.shutdown(wait=True)
-
-    # 2. Get action from ActComponent
-    action_attempt = self._act_component.get_action_attempt(
-        contexts, action_spec
-    )
-    return action_attempt
