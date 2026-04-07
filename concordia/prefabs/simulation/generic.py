@@ -425,13 +425,6 @@ class Simulation(simulation_lib.Simulation):
           "module": type(act_comp).__module__,
       }
 
-    if hasattr(entity, "_context_processor"):
-      ctx_proc = getattr(entity, "_context_processor")
-      info["context_processor"] = {
-          "class_name": type(ctx_proc).__name__,
-          "module": type(ctx_proc).__module__,
-      }
-
     if hasattr(entity, "_context_components"):
       ctx_comps = getattr(entity, "_context_components")
       info["context_components"] = {}

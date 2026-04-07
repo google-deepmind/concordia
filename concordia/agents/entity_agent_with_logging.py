@@ -32,9 +32,6 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       self,
       agent_name: str,
       act_component: entity_component.ActingComponent,
-      context_processor: (
-          entity_component.ContextProcessorComponent | None
-      ) = None,
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
@@ -52,16 +49,15 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
     Args:
       agent_name: The name of the agent.
       act_component: The component that will be used to act.
-      context_processor: The component that will be used to process contexts. If
-        None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
       measurements: Optional measurements instance to use for logging. Defaults
         to a standard Measurements().
     """
-    super().__init__(agent_name=agent_name,
-                     act_component=act_component,
-                     context_processor=context_processor,
-                     context_components=context_components)
+    super().__init__(
+        agent_name=agent_name,
+        act_component=act_component,
+        context_components=context_components,
+    )
     self._component_logging = (
         measurements
         if measurements is not None
@@ -80,14 +76,6 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       act_component.set_logging_channel(
           lambda datum: self._component_logging.publish_datum(
               '__act__', datum, capture_key=self._active_capture_key
-          )
-      )
-    if isinstance(context_processor, entity_component.ComponentWithLogging):
-      context_processor.set_logging_channel(
-          lambda datum: self._component_logging.publish_datum(
-              '__context_processor__',
-              datum,
-              capture_key=self._active_capture_key,
           )
       )
 

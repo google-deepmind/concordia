@@ -23,7 +23,6 @@ import types
 from typing import cast, override
 
 from absl import logging
-from concordia.components.agent import no_op_context_processor
 from concordia.typing import entity
 from concordia.typing import entity_component
 from concordia.utils import concurrency
@@ -46,9 +45,6 @@ class EntityAgent(entity_component.EntityWithComponents):
       self,
       agent_name: str,
       act_component: entity_component.ActingComponent,
-      context_processor: (
-          entity_component.ContextProcessorComponent | None
-      ) = None,
       context_components: Mapping[str, entity_component.ContextComponent] = (
           types.MappingProxyType({})
       ),
@@ -61,8 +57,6 @@ class EntityAgent(entity_component.EntityWithComponents):
     Args:
       agent_name: The name of the agent.
       act_component: The component that will be used to act.
-      context_processor: The component that will be used to process contexts. If
-        None, a NoOpContextProcessor will be used.
       context_components: The ContextComponents that will be used by the agent.
     """
     super().__init__()
@@ -75,12 +69,6 @@ class EntityAgent(entity_component.EntityWithComponents):
 
     self._act_component = act_component
     self._act_component.set_entity(self)
-
-    if context_processor is None:
-      self._context_processor = no_op_context_processor.NoOpContextProcessor()
-    else:
-      self._context_processor = context_processor
-    self._context_processor.set_entity(self)
 
     self._context_components = dict(context_components)
     for component in self._context_components.values():
@@ -178,14 +166,12 @@ class EntityAgent(entity_component.EntityWithComponents):
       try:
         self._set_phase(entity_component.Phase.PRE_ACT)
         contexts = self._parallel_call_('pre_act', action_spec)
-        self._context_processor.pre_act(types.MappingProxyType(contexts))
         action_attempt = self._act_component.get_action_attempt(
             contexts, action_spec
         )
 
         self._set_phase(entity_component.Phase.POST_ACT)
-        contexts = self._parallel_call_('post_act', action_attempt)
-        self._context_processor.post_act(contexts)
+        self._parallel_call_('post_act', action_attempt)
 
         self._set_phase(entity_component.Phase.UPDATE)
         self._parallel_call_('update')
@@ -212,12 +198,10 @@ class EntityAgent(entity_component.EntityWithComponents):
         self._active_capture_key = key_override
       try:
         self._set_phase(entity_component.Phase.PRE_OBSERVE)
-        contexts = self._parallel_call_('pre_observe', observation)
-        self._context_processor.pre_observe(contexts)
+        self._parallel_call_('pre_observe', observation)
 
         self._set_phase(entity_component.Phase.POST_OBSERVE)
-        contexts = self._parallel_call_('post_observe')
-        self._context_processor.post_observe(contexts)
+        self._parallel_call_('post_observe')
 
         self._set_phase(entity_component.Phase.UPDATE)
         self._parallel_call_('update')
@@ -260,22 +244,10 @@ class EntityAgent(entity_component.EntityWithComponents):
             'Error setting state for act component: %s', traceback.format_exc()
         )
 
-    # Restore context processor
-    proc_state = entity_components_state.get('context_processor')
-    if proc_state:
-      try:
-        self._context_processor.set_state(proc_state)
-      except Exception:  # pylint: disable=broad-exception-caught
-        logging.error(
-            'Error setting state for context processor: %s',
-            traceback.format_exc()
-        )
-
   def get_state(self) -> entity_component.EntityState:
     """Returns the state of the agent as a dictionary."""
     return {
         'act_component': self._act_component.get_state(),
-        'context_processor': self._context_processor.get_state(),
         'context_components': {
             component_name: component.get_state()
             for component_name, component in self._context_components.items()
@@ -300,7 +272,6 @@ class EntityAgent(entity_component.EntityWithComponents):
     executor = futures.ThreadPoolExecutor()
     contexts = self._parallel_call_('pre_act', action_spec, executor=executor)
     executor.shutdown(wait=True)
-    self._context_processor.pre_act(types.MappingProxyType(contexts))
 
     # 2. Get action from ActComponent
     action_attempt = self._act_component.get_action_attempt(

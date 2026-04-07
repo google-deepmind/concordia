@@ -1071,13 +1071,6 @@ def visualize_config_to_html(
           html += '</div>';
         }}
 
-        // Context processor
-        if (data.component_info.context_processor) {{
-          html += '<div class="param-row">';
-          html += '<span class="param-name">Context Processor</span>';
-          html += `<span class="param-value">${{escapeHtml(data.component_info.context_processor.class_name)}}</span>`;
-          html += '</div>';
-        }}
 
         html += '</div></div>';
 
