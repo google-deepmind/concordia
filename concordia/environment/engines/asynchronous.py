@@ -158,13 +158,15 @@ class Asynchronous(engine_lib.Engine):
       gm_measurements: (
           async_measurements_lib.ReactiveMeasurements | None
       ) = None,
+      capture_key: str | None = None,
   ) -> tuple[
       Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
   ]:  # pytype: disable=signature-mismatch
     entities_by_name = {entity.name: entity for entity in entities}
 
     if gm_measurements is not None and log_entry is not None:
-      with gm_measurements.capture(game_master.name) as captured:
+      key = capture_key or game_master.name
+      with gm_measurements.capture(key) as captured:
         next_object_names_string = game_master.act(
             action_spec=entity_lib.ActionSpec(
                 call_to_action=self._call_to_next_acting,
@@ -194,7 +196,8 @@ class Asynchronous(engine_lib.Engine):
     action_spec_by_name = {}
     for next_entity_name in next_entity_names:
       if gm_measurements is not None and log_entry is not None:
-        with gm_measurements.capture(game_master.name) as captured:
+        key = capture_key or game_master.name
+        with gm_measurements.capture(key) as captured:
           next_action_spec_string = game_master.act(
               action_spec=entity_lib.ActionSpec(
                   call_to_action=self._call_to_next_action_spec.format(
@@ -333,122 +336,139 @@ class Asynchronous(engine_lib.Engine):
     gm_measurements = _get_reactive_measurements(game_master)
     entity_measurements = _get_reactive_measurements(entity)
 
+    # Register this thread's entity name on the game master so that
+    # game_master.act()/observe() publish log data with entity.name as
+    # the capture_key instead of game_master.name. This prevents
+    # cross-thread log contamination when multiple entity threads share
+    # the same game master.
+    thread_id = threading.current_thread().ident
+    if hasattr(game_master, 'set_capture_key_for_thread'):
+      game_master.set_capture_key_for_thread(thread_id, entity.name)
+
     iteration = 0
-    while not terminate_event.is_set() and iteration < max_steps:
-      if step_controller is not None:
-        if not step_controller.wait_for_step_permission():
+    try:
+      while not terminate_event.is_set() and iteration < max_steps:
+        if step_controller is not None:
+          if not step_controller.wait_for_step_permission():
+            terminate_event.set()
+            break
+
+        self._pause_event.wait()
+
+        if terminate_event.is_set():
+          break
+
+        with gm_measurements.capture(entity.name) as terminate_log:
+          should_terminate = self.terminate(game_master, verbose)
+
+        if should_terminate:
           terminate_event.set()
           break
 
-      self._pause_event.wait()
+        log_entry = _get_empty_log_entry()
+        if log is not None:
+          log_entry['terminate'] = terminate_log
 
-      if terminate_event.is_set():
-        break
+        acting_entities, action_specs = self.next_acting(
+            game_master,
+            [entity],
+            log_entry=log_entry,
+            log=log,
+            gm_measurements=gm_measurements,
+            capture_key=entity.name,
+        )
+        iteration += 1
+        if not acting_entities:
+          time.sleep(self._sleep_time)
+          continue
 
-      with gm_measurements.capture(game_master.name) as terminate_log:
-        should_terminate = self.terminate(game_master, verbose)
+        action_spec = action_specs[0]
 
-      if should_terminate:
-        terminate_event.set()
-        break
+        if action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
+          time.sleep(self._sleep_time)
+          continue
 
-      log_entry = _get_empty_log_entry()
-      if log is not None:
-        log_entry['terminate'] = terminate_log
+        with gm_measurements.capture(entity.name) as obs_log:
+          observation = self.make_observation(game_master, entity)
+        if log is not None:
+          log_entry['make_observation'][entity.name] = obs_log
 
-      acting_entities, action_specs = self.next_acting(
-          game_master,
-          [entity],
-          log_entry=log_entry,
-          log=log,
-          gm_measurements=gm_measurements,
-      )
-      iteration += 1
-      if not acting_entities:
-        time.sleep(self._sleep_time)
-        continue
+        if observation and observation.strip():
+          if verbose:
+            print(
+                termcolor.colored(
+                    f'Entity {entity.name} observed: {observation}',
+                    _PRINT_COLOR,
+                )
+            )
+          entity.observe(observation)
 
-      action_spec = action_specs[0]
-
-      if action_spec.output_type == entity_lib.OutputType.SKIP_THIS_STEP:
-        time.sleep(self._sleep_time)
-        continue
-
-      with gm_measurements.capture(game_master.name) as obs_log:
-        observation = self.make_observation(game_master, entity)
-      if log is not None:
-        log_entry['make_observation'][entity.name] = obs_log
-
-      if observation and observation.strip():
         if verbose:
           print(
               termcolor.colored(
-                  f'Entity {entity.name} observed: {observation}',
+                  f'Entity {entity.name} is next to act. They must respond'
+                  f' in the format: "{action_spec}".',
                   _PRINT_COLOR,
               )
           )
-        entity.observe(observation)
 
-      if verbose:
-        print(
-            termcolor.colored(
-                f'Entity {entity.name} is next to act. They must respond'
-                f' in the format: "{action_spec}".',
-                _PRINT_COLOR,
-            )
-        )
+        with entity_measurements.capture(entity.name) as entity_act_log:
+          raw_action = entity.act(action_spec)
 
-      with entity_measurements.capture(entity.name) as entity_act_log:
-        raw_action = entity.act(action_spec)
+        if raw_action.startswith(f'{entity.name}:'):
+          action = raw_action
+        else:
+          action = f'{entity.name}: {raw_action}'
+        if verbose:
+          display_action = _BASE64_TRUNCATE_PATTERN.sub(
+              r'\1[IMAGE DATA]', action
+          )
+          print(
+              termcolor.colored(
+                  f'Entity {entity.name} chose action: {display_action}',
+                  _PRINT_COLOR,
+              )
+          )
 
-      if raw_action.startswith(f'{entity.name}:'):
-        action = raw_action
-      else:
-        action = f'{entity.name}: {raw_action}'
-      if verbose:
-        display_action = _BASE64_TRUNCATE_PATTERN.sub(r'\1[IMAGE DATA]', action)
-        print(
-            termcolor.colored(
-                f'Entity {entity.name} chose action: {display_action}',
-                _PRINT_COLOR,
-            )
-        )
+        with gm_measurements.capture(entity.name) as resolve_log:
+          self.resolve(game_master, action, verbose=verbose)
+        if log is not None:
+          log_entry['resolve'] = resolve_log
 
-      with gm_measurements.capture(game_master.name) as resolve_log:
-        self.resolve(game_master, action, verbose=verbose)
-      if log is not None:
-        log_entry['resolve'] = resolve_log
+        if log is not None:
+          self._collector.emit(
+              collector_lib.RawLogEvent(
+                  step=iteration,
+                  entity_name=entity.name,
+                  game_master_name=game_master.name,
+                  entity_log=dict(entity_act_log),
+                  game_master_log=log_entry,
+                  action=action,
+              )
+          )
 
-      if log is not None:
-        self._collector.emit(
-            collector_lib.RawLogEvent(
-                step=iteration,
-                entity_name=entity.name,
-                game_master_name=game_master.name,
-                entity_log=dict(entity_act_log),
-                game_master_log=log_entry,
-                action=action,
-            )
-        )
+        if checkpoint_callback is not None:
+          logging.debug(
+              'Calling checkpoint callback for %s at iteration %s',
+              entity.name,
+              iteration,
+          )
+          checkpoint_callback(iteration)
 
-      if checkpoint_callback is not None:
-        logging.debug(
-            'Calling checkpoint callback for %s at iteration %s',
-            entity.name,
-            iteration,
-        )
-        checkpoint_callback(iteration)
-
-      if step_callback is not None:
-        step_data = step_controller_lib.StepData(
-            step=iteration,
-            acting_entity=entity.name,
-            action=action,
-            entity_actions={entity.name: action},
-            entity_logs={entity.name: dict(entity_act_log)},
-            game_master=game_master.name,
-        )
-        step_callback(step_data)
+        if step_callback is not None:
+          step_data = step_controller_lib.StepData(
+              step=iteration,
+              acting_entity=entity.name,
+              action=action,
+              entity_actions={entity.name: action},
+              entity_logs={entity.name: dict(entity_act_log)},
+              game_master=game_master.name,
+          )
+          step_callback(step_data)
+    finally:
+      # Clean up thread mapping when entity loop exits.
+      if hasattr(game_master, 'clear_capture_key_for_thread'):
+        game_master.clear_capture_key_for_thread(thread_id)
 
   def run_loop(
       self,

@@ -73,21 +73,42 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
         channel_name = component_name
         component.set_logging_channel(
             lambda datum, ch=channel_name: self._component_logging.publish_datum(
-                ch, datum, capture_key=self.name
+                ch, datum, capture_key=self._active_capture_key
             )
         )
     if isinstance(act_component, entity_component.ComponentWithLogging):
       act_component.set_logging_channel(
           lambda datum: self._component_logging.publish_datum(
-              '__act__', datum, capture_key=self.name
+              '__act__', datum, capture_key=self._active_capture_key
           )
       )
     if isinstance(context_processor, entity_component.ComponentWithLogging):
       context_processor.set_logging_channel(
           lambda datum: self._component_logging.publish_datum(
-              '__context_processor__', datum, capture_key=self.name
+              '__context_processor__',
+              datum,
+              capture_key=self._active_capture_key,
           )
       )
+
+  # Per-thread capture key routing for async log isolation. The async
+  # engine registers entity_name -> thread_id mappings so that when
+  # multiple entity threads share a game master, each thread's
+  # game_master.act() publishes log data with the calling entity's name
+  # as the capture_key, not the game master's name.
+
+  def set_capture_key_for_thread(
+      self, thread_id: int, entity_name: str
+  ) -> None:
+    """Register a per-thread capture key for async log isolation."""
+    if not hasattr(self, '_capture_key_by_thread'):
+      self._capture_key_by_thread = {}
+    self._capture_key_by_thread[thread_id] = entity_name
+
+  def clear_capture_key_for_thread(self, thread_id: int) -> None:
+    """Remove the per-thread capture key when the entity loop exits."""
+    if hasattr(self, '_capture_key_by_thread'):
+      self._capture_key_by_thread.pop(thread_id, None)
 
   @property
   def measurements(self) -> measurements_lib.Measurements:
