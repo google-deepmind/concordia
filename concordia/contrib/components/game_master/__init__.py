@@ -16,3 +16,4 @@
 
 from concordia.contrib.components.game_master import day_in_the_life_initializer
 from concordia.contrib.components.game_master import death
+from concordia.contrib.components.game_master import schedule_tracker
