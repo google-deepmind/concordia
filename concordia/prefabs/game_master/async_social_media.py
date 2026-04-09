@@ -207,6 +207,11 @@ class GameMaster(prefab_lib.Prefab):
     terminate_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
     terminate = gm_components.terminate.NeverTerminate()
 
+    next_game_master_key = (
+        gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    )
+    next_game_master = actor_components.constant.Constant(state=name)
+
     components_of_game_master = {
         observation_component_key: observation,
         observation_to_memory_key: observation_to_memory,
@@ -217,6 +222,7 @@ class GameMaster(prefab_lib.Prefab):
         next_actor_key: next_actor,
         next_action_spec_key: next_action_spec,
         terminate_key: terminate,
+        next_game_master_key: next_game_master,
     }
 
     component_order = list(components_of_game_master.keys())
