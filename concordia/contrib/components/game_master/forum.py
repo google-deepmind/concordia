@@ -679,7 +679,8 @@ class ForumResolution(
     self._forum_component_key = forum_component_key
     self._memory_component_key = memory_component_key
     self._pre_act_label = pre_act_label
-    self._resolved_suggestions: set[str] = set()
+    self._resolved_per_entity: dict[str, int] = {}
+    self._resolution_lock = threading.Lock()
     self._active_entity_name: str | None = None
     self._putative_action: str | None = None
 
@@ -696,32 +697,50 @@ class ForumResolution(
     if not suggestions:
       return None, None
 
-    unresolved = [s for s in suggestions if s not in self._resolved_suggestions]
+    # Determine which entity's thread is calling. In the async engine,
+    # act() sets _active_capture_key to the entity name BEFORE
+    # dispatching pre_act to worker threads (via _parallel_call_).
+    # Since act() holds _control_lock for the entire duration, this
+    # value is stable. We read it to restrict resolution to only the
+    # calling entity's putative events, preventing cross-thread
+    # contamination.
+    # NOTE: We cannot use threading.current_thread().ident here because
+    # pre_act runs in a worker thread pool, not the entity loop thread.
+    thread_entity_name = None
+    game_master = self.get_entity()
+    if hasattr(game_master, '_active_capture_key'):
+      capture_key = game_master._active_capture_key  # pylint: disable=protected-access
+      if capture_key in self._player_names:
+        thread_entity_name = capture_key
 
-    if not unresolved:
-      return None, None
+    with self._resolution_lock:
+      names_to_check = (
+          [thread_entity_name] if thread_entity_name else self._player_names
+      )
+      for name in names_to_check:
+        prefix = f'{PUTATIVE_EVENT_TAG} {name}'
+        entity_suggestions = [s for s in suggestions if prefix in s]
+        resolved = self._resolved_per_entity.get(name, 0)
+        if len(entity_suggestions) > resolved:
+          selected = entity_suggestions[resolved]
+          self._resolved_per_entity[name] = resolved + 1
 
-    selected = unresolved[-1]
-    self._resolved_suggestions.add(selected)
+          putative_action = selected[
+              selected.find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
+          ]
+          # Strip the entity name prefix and separator.
+          entity_prefix = f' {name}'
+          if putative_action.startswith(entity_prefix):
+            remainder = putative_action[len(entity_prefix) :]
+            if remainder.startswith(':'):
+              remainder = remainder[1:]
+            elif remainder.startswith(' --'):
+              remainder = remainder[3:]
+            putative_action = remainder.strip()
 
-    putative_action = selected[
-        selected.find(PUTATIVE_EVENT_TAG) + len(PUTATIVE_EVENT_TAG) :
-    ]
+          return name, putative_action
 
-    active_entity_name = None
-    for name in self._player_names:
-      prefix = f' {name}'
-      if putative_action.startswith(prefix):
-        active_entity_name = name
-        remainder = putative_action[len(prefix) :]
-        if remainder.startswith(':'):
-          remainder = remainder[1:]
-        elif remainder.startswith(' --'):
-          remainder = remainder[3:]
-        putative_action = remainder.strip()
-        break
-
-    return active_entity_name, putative_action
+    return None, None
 
   def get_active_entity_name(self) -> str | None:
     return self._active_entity_name
@@ -756,13 +775,15 @@ class ForumResolution(
 
   def get_state(self) -> entity_component.ComponentState:
     return {
-        'resolved_suggestions': list(self._resolved_suggestions),
+        'resolved_per_entity': dict(self._resolved_per_entity),
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    self._resolved_suggestions = set(
-        str(s) for s in state.get('resolved_suggestions', [])
-    )
+    raw = state.get('resolved_per_entity', {})
+    if isinstance(raw, dict):
+      self._resolved_per_entity = {str(k): int(v) for k, v in raw.items()}
+    else:
+      self._resolved_per_entity = {}
 
 
 class ForumObservation(

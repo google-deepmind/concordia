@@ -305,9 +305,9 @@ class ForumResolutionTest(absltest.TestCase):
 
   def test_get_and_set_state(self):
     component, _ = self._make_resolution_with_mocks(memory_contents=[])
-    component.set_state({'resolved_suggestions': ['suggestion_a']})
+    component.set_state({'resolved_per_entity': {'Alice': 1}})
     state = component.get_state()
-    self.assertIn('suggestion_a', state['resolved_suggestions'])
+    self.assertEqual(state['resolved_per_entity'], {'Alice': 1})
 
     component2, _ = self._make_resolution_with_mocks(memory_contents=[])
     component2.set_state(state)
