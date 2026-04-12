@@ -90,16 +90,22 @@ class BaseGPTModel(language_model.LanguageModel):
         {'role': 'user', 'content': prompt},
     ]
 
-    response = self._client.chat.completions.create(
+    kwargs = dict(
         model=self._model_name,
         messages=messages,
         temperature=temperature,
         max_completion_tokens=max_tokens,
         timeout=timeout,
         seed=seed,
-        reasoning_effort=reasoning_effort,
-        verbosity=verbosity,
     )
+    # reasoning_effort and verbosity are only supported by reasoning
+    # models (o-series, GPT-5). Skip for others to avoid 400 errors.
+    _REASONING_PREFIXES = ('o1', 'o3', 'o4', 'gpt-5')
+    if any(self._model_name.startswith(p) for p in _REASONING_PREFIXES):
+      kwargs['reasoning_effort'] = reasoning_effort
+      kwargs['verbosity'] = verbosity
+
+    response = self._client.chat.completions.create(**kwargs)
 
     if self._measurements is not None:
       self._measurements.publish_datum(
