@@ -46,6 +46,13 @@ _TOOL_CALL_PATTERN = re.compile(
     re.DOTALL,
 )
 
+# Pattern for single-tool shorthand: any top-level JSON object.
+# Used when there is exactly one registered tool.
+_SINGLE_TOOL_JSON_PATTERN = re.compile(
+    r'(\{[^}]+\})',
+    re.DOTALL,
+)
+
 
 class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
   """An interactive document that supports tool use by the LLM.
@@ -117,6 +124,20 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
     if not self._tools:
       return ''
 
+    if len(self._tools) == 1:
+      # Single-tool shorthand: the LLM just writes the args as JSON.
+      tool = next(iter(self._tools.values()))
+      lines = [f'\nAvailable tool: {tool.name}']
+      lines.append(tool.description)
+      lines.append(
+          '\nTo use this tool, respond with a JSON object containing'
+          ' the arguments. For example: {"action": "list_threads"}'
+      )
+      lines.append(
+          'After receiving tool results, provide your final answer.'
+      )
+      return '\n'.join(lines)
+
     lines = ['\nAvailable tools (use JSON format to call):']
     for name, t in self._tools.items():
       lines.append(f'- {name}: {t.description}')
@@ -129,26 +150,42 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
   def _parse_tool_call(self, text: str) -> tuple[str, dict[str, Any]] | None:
     """Parses a tool call from LLM output.
 
+    Supports two formats:
+      1. Multi-tool: {"tool": "name", "args": {...}}
+      2. Single-tool shorthand: any JSON object (e.g. {"action": "...", ...})
+         — only used when exactly one tool is registered.
+
     Args:
       text: The LLM's response text.
 
     Returns:
       A tuple of (tool_name, args_dict) if a tool call is found, else None.
     """
+    # Try the explicit multi-tool format first.
     match = _TOOL_CALL_PATTERN.search(text)
-    if not match:
-      return None
-
-    tool_name = match.group(1)
-    args_str = match.group(2)
-
-    try:
-      args = json.loads(args_str)
-      if not isinstance(args, dict):
+    if match:
+      tool_name = match.group(1)
+      args_str = match.group(2)
+      try:
+        args = json.loads(args_str)
+        if isinstance(args, dict):
+          return (tool_name, args)
+      except json.JSONDecodeError:
         return None
-      return (tool_name, args)
-    except json.JSONDecodeError:
-      return None
+
+    # Single-tool shorthand: any JSON object routes to the sole tool.
+    if len(self._tools) == 1:
+      sole_tool_name = next(iter(self._tools))
+      json_match = _SINGLE_TOOL_JSON_PATTERN.search(text)
+      if json_match:
+        try:
+          args = json.loads(json_match.group(1))
+          if isinstance(args, dict):
+            return (sole_tool_name, args)
+        except json.JSONDecodeError:
+          pass
+
+    return None
 
   def _truncate_result(self, result: str) -> str:
     """Truncates a tool result to the maximum allowed length."""
