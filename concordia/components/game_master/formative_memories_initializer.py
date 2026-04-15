@@ -55,6 +55,7 @@ class FormativeMemoriesInitializer(
       ),
       pre_act_label: str = '',
       sentences_per_episode: int = 5,
+      style: str = '',
   ):
     """A component that generates a backstory for each player entity.
 
@@ -83,6 +84,7 @@ class FormativeMemoriesInitializer(
         `pre_act`.
       sentences_per_episode: The maximum number of sentences to generate per
         episode.
+      style: The style to use for the final generated episodes.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -120,6 +122,7 @@ class FormativeMemoriesInitializer(
     self._make_observation_component_key = make_observation_component_key
     self._pre_act_label = pre_act_label
     self._sentences_per_episode = sentences_per_episode
+    self._style = style
 
     self._player_specific_memories = player_specific_memories
     self._player_specific_context = player_specific_context
@@ -251,6 +254,8 @@ class FormativeMemoriesInitializer(
 
     inner_prompt = interactive_document.InteractiveDocument(self._model)
     inner_prompt.statement('Creative Writing Master Class\n')
+    if self._style:
+      inner_prompt.statement(f'Style: {self._style}')
     inner_prompt.statement('Character background story:\n\n' + backstory)
     question = (
         'Given the life story above, invent formative episodes from '
@@ -270,7 +275,7 @@ class FormativeMemoriesInitializer(
         f'"{self._delimiter_symbol}". Do not apply any other '
         'special formatting besides these delimiters.'
     )
-    aggregated_result = prompt.open_question(
+    aggregated_result = inner_prompt.open_question(
         question=question,
         max_tokens=6000,
         terminators=[],
