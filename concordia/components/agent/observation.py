@@ -139,7 +139,12 @@ class LastNObservations(
 class ObservationsSinceLastPreAct(
     action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
 ):
-  """A component to retrieve observations obtained since the last `pre_act`."""
+  """A component to retrieve observations added since the last ``pre_act``.
+
+  Relies on the assumption that ``memory.retrieve_recent()`` returns
+  memories in chronological (append) order and that memories are never
+  deleted, so ``len(all_recent)`` is a monotonically increasing watermark.
+  """
 
   def __init__(
       self,
@@ -159,28 +164,29 @@ class ObservationsSinceLastPreAct(
     super().__init__(pre_act_label)
     self._memory_component_key = memory_component_key
 
-    self._num_since_last_pre_act = 0
-
-  def pre_observe(
-      self,
-      observation: str,
-  ) -> str:
-    self._num_since_last_pre_act += 1
-    return ''
+    # Watermark: total number of memories seen at end of last pre_act.
+    self._last_seen_index = 0
 
   def _make_pre_act_value(self) -> str:
-    """Returns the latest observations to preact."""
+    """Returns all [observation]-tagged memories added since last pre_act."""
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
 
+    # Retrieve all memories to determine current bank size.
+    # retrieve_recent returns memories in chronological (append) order;
+    all_recent = memory.retrieve_recent(limit=1_000_000)
+    new_count = len(all_recent) - self._last_seen_index
+
     result = ''
-    if self._num_since_last_pre_act >= 1:
-      mems = memory.retrieve_recent(limit=self._num_since_last_pre_act)
-      # Remove memories that are not observations.
-      mems = [mem for mem in mems if OBSERVATION_TAG in mem]
-      result = '\n'.join(mems) + '\n'
-      self._num_since_last_pre_act = 0
+    if new_count > 0:
+      new_mems = all_recent[-new_count:]
+      # Filter to observations only.
+      obs_mems = [m for m in new_mems if OBSERVATION_TAG in m]
+      if obs_mems:
+        result = '\n'.join(obs_mems) + '\n'
+
+    self._last_seen_index = len(all_recent)
 
     self._logging_channel(
         {'Key': self.get_pre_act_label(), 'Value': result.splitlines()}
@@ -191,9 +197,14 @@ class ObservationsSinceLastPreAct(
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""
     with self._lock:
-      return {'num_since_last_pre_act': self._num_since_last_pre_act}
+      return {'last_seen_index': self._last_seen_index}
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
     with self._lock:
-      self._num_since_last_pre_act = state['num_since_last_pre_act']
+      # Support loading from both old and new state formats.
+      if 'last_seen_index' in state:
+        self._last_seen_index = state['last_seen_index']
+      elif 'num_since_last_pre_act' in state:
+        # Legacy format — can't reconstruct exact index, so start fresh.
+        self._last_seen_index = 0

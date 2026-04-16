@@ -55,7 +55,7 @@ class FormativeMemoriesInitializer(
       ),
       pre_act_label: str = '',
       sentences_per_episode: int = 5,
-      style: str = '',
+      player_styles: str | Mapping[str, str] | None = None,
   ):
     """A component that generates a backstory for each player entity.
 
@@ -72,7 +72,7 @@ class FormativeMemoriesInitializer(
       shared_memories: specific memories all players and the game master share.
       player_specific_memories: specific memories each player shares with the
         game master.
-      player_specific_context: specific context the game master needs to know 
+      player_specific_context: specific context the game master needs to know
         about each player.
       components: Keys of components to condition on.
       delimiter_symbol: The symbol to use to separate episodes in the generated
@@ -84,7 +84,9 @@ class FormativeMemoriesInitializer(
         `pre_act`.
       sentences_per_episode: The maximum number of sentences to generate per
         episode.
-      style: The style to use for the final generated episodes.
+      player_styles: The style to use for the final generated episodes per
+        player. Pass either a per-player dictionary or a single string to be
+        used for all players.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -122,7 +124,14 @@ class FormativeMemoriesInitializer(
     self._make_observation_component_key = make_observation_component_key
     self._pre_act_label = pre_act_label
     self._sentences_per_episode = sentences_per_episode
-    self._style = style
+    self._player_styles = player_styles
+
+    if isinstance(self._player_styles, str) or isinstance(
+        self._player_styles, bytes
+    ):
+      self._player_styles = {
+          player: self._player_styles for player in self._player_names
+      }
 
     self._player_specific_memories = player_specific_memories
     self._player_specific_context = player_specific_context
@@ -254,9 +263,23 @@ class FormativeMemoriesInitializer(
 
     inner_prompt = interactive_document.InteractiveDocument(self._model)
     inner_prompt.statement('Creative Writing Master Class\n')
-    if self._style:
-      inner_prompt.statement(f'Style: {self._style}')
-    inner_prompt.statement('Character background story:\n\n' + backstory)
+    inner_prompt.statement("Question: What is the protagonist's name?")
+    inner_prompt.statement(f'Answer: {active_entity_name}\n')
+    inner_prompt.statement('Question: Describe the setting or background.')
+    shared_memories = '\n'.join(self._shared_memories)
+    inner_prompt.statement(f'Answer: {shared_memories}\n')
+    inner_prompt.statement("Question: What is the protagonist's gender?")
+    inner_prompt.statement(f'Answer: {gender}\n')
+    inner_prompt.statement(
+        'Question: What year was protagonist born? Respond with just the year'
+        ' as a number.'
+    )
+    inner_prompt.statement(f'Answer: {date_of_birth}\n')
+    inner_prompt.statement('Protagonist background story:\n\n' + backstory)
+    if self._player_styles is not None:
+      inner_prompt.statement(
+          f'Writing style to apply: {self._player_styles[active_entity_name]}'
+      )
     question = (
         'Given the life story above, invent formative episodes from '
         f'the life of {active_entity_name}. '
