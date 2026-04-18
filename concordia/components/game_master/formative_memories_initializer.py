@@ -56,6 +56,7 @@ class FormativeMemoriesInitializer(
       pre_act_label: str = '',
       sentences_per_episode: int = 5,
       player_styles: str | Mapping[str, str] | None = None,
+      skip_formative_memories_for: Sequence[str] = (),
   ):
     """A component that generates a backstory for each player entity.
 
@@ -87,6 +88,9 @@ class FormativeMemoriesInitializer(
       player_styles: The style to use for the final generated episodes per
         player. Pass either a per-player dictionary or a single string to be
         used for all players.
+      skip_formative_memories_for: A sequence of player names for which
+        formative memory generation should be skipped. Shared memories and
+        player-specific memories will still be added for these players.
 
     Raises:
       ValueError: If the component order is not None and contains duplicate
@@ -135,6 +139,7 @@ class FormativeMemoriesInitializer(
 
     self._player_specific_memories = player_specific_memories
     self._player_specific_context = player_specific_context
+    self._skip_formative_memories_for = set(skip_formative_memories_for)
 
     self._initialized = False
 
@@ -185,10 +190,11 @@ class FormativeMemoriesInitializer(
         ):
           for shared_memory in self._shared_memories:
             make_observation.add_to_queue(player_name, shared_memory)
-          episodes = self.generate_backstory_episodes(player_name)
-          for episode in episodes:
-            make_observation.add_to_queue(player_name, episode)
-            memory.add(f'{player_name} remembers: "{episode}"')
+          if player_name not in self._skip_formative_memories_for:
+            episodes = self.generate_backstory_episodes(player_name)
+            for episode in episodes:
+              make_observation.add_to_queue(player_name, episode)
+              memory.add(f'{player_name} remembers: "{episode}"')
           for player_memory in self._player_specific_memories.get(
               player_name, []
           ):
@@ -276,10 +282,6 @@ class FormativeMemoriesInitializer(
     )
     inner_prompt.statement(f'Answer: {date_of_birth}\n')
     inner_prompt.statement('Protagonist background story:\n\n' + backstory)
-    if self._player_styles is not None:
-      inner_prompt.statement(
-          f'Writing style to apply: {self._player_styles[active_entity_name]}'
-      )
     question = (
         'Given the life story above, invent formative episodes from '
         f'the life of {active_entity_name}. '
@@ -298,6 +300,11 @@ class FormativeMemoriesInitializer(
         f'"{self._delimiter_symbol}". Do not apply any other '
         'special formatting besides these delimiters.'
     )
+    if self._player_styles is not None:
+      question += (
+          ' Write each episode in the following style: '
+          f'{self._player_styles[active_entity_name]}'
+      )
     aggregated_result = inner_prompt.open_question(
         question=question,
         max_tokens=6000,
