@@ -182,11 +182,8 @@ class RetryLanguageModelTest(absltest.TestCase):
         jitter=(0.0, 0.0),
         exponential_backoff=False,
     )
-    # Tenacity wraps exhausted retries in RetryError; the original exception is
-    # accessible via RetryError.__cause__.
-    with self.assertRaises(tenacity.RetryError) as cm:
+    with self.assertRaises(ConnectionError):
       model.sample_text('prompt')
-    self.assertIsInstance(cm.exception.__cause__, ConnectionError)
     self.assertEqual(mock.sample_text_calls, 3)
 
   def test_sample_text_does_not_retry_unregistered_exception(self):
@@ -250,11 +247,8 @@ class RetryLanguageModelTest(absltest.TestCase):
         jitter=(0.0, 0.0),
         exponential_backoff=False,
     )
-    # Tenacity wraps exhausted retries in RetryError; the original exception is
-    # accessible via RetryError.__cause__.
-    with self.assertRaises(tenacity.RetryError) as cm:
+    with self.assertRaises(ConnectionError):
       model.sample_choice('prompt', ['a', 'b'])
-    self.assertIsInstance(cm.exception.__cause__, ConnectionError)
     self.assertEqual(mock.sample_choice_calls, 3)
 
   def test_fixed_wait_no_exponential_backoff(self):
