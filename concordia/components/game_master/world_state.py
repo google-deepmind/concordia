@@ -294,15 +294,16 @@ class Locations(
     location = location.strip().rstrip('.')
     if self._valid_locations is None:
       return location
-    assert self._valid_locations is not None
-    valid_locations: set[str] = self._valid_locations
-    if location in valid_locations:
+    # At this point self._valid_locations is a set[str] (not None).
+    # Use a list copy to avoid pylint membership/iteration errors on Optional.
+    valid_list = list(self._valid_locations)
+    if location in valid_list:
       return location
     location_lower = location.lower()
-    for valid in valid_locations:
+    for valid in valid_list:
       if valid.lower() == location_lower:
         return valid
-    for valid in valid_locations:
+    for valid in valid_list:
       if valid.lower() in location_lower:
         return valid
     return ''
