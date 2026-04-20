@@ -206,7 +206,9 @@ class Locations(
     else:
       self._entity_locations = {name: '' for name in entity_names}
     self._latest_action_spec = None
-    self._valid_locations = set(valid_locations) if valid_locations else None
+    self._valid_locations: set[str] | None = (
+        set(valid_locations) if valid_locations else None
+    )
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)
@@ -292,13 +294,16 @@ class Locations(
     location = location.strip().rstrip('.')
     if self._valid_locations is None:
       return location
-    if location in self._valid_locations:
+    # self._valid_locations is guaranteed non-None after the guard above.
+    # pylint cannot narrow Optional[set] through self.* access, so we
+    # suppress the false-positive errors explicitly.
+    if location in self._valid_locations:  # pylint: disable=unsupported-membership-test
       return location
     location_lower = location.lower()
-    for valid in self._valid_locations:
+    for valid in self._valid_locations:  # pylint: disable=not-an-iterable
       if valid.lower() == location_lower:
         return valid
-    for valid in self._valid_locations:
+    for valid in self._valid_locations:  # pylint: disable=not-an-iterable
       if valid.lower() in location_lower:
         return valid
     return ''
