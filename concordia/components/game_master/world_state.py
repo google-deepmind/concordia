@@ -294,16 +294,16 @@ class Locations(
     location = location.strip().rstrip('.')
     if self._valid_locations is None:
       return location
-    # At this point self._valid_locations is a set[str] (not None).
-    # Use a list copy to avoid pylint membership/iteration errors on Optional.
-    valid_list = list(self._valid_locations)
-    if location in valid_list:
+    # self._valid_locations is guaranteed non-None after the guard above.
+    # pylint cannot narrow Optional[set] through self.* access, so we
+    # suppress the false-positive errors explicitly.
+    if location in self._valid_locations:  # pylint: disable=unsupported-membership-test
       return location
     location_lower = location.lower()
-    for valid in valid_list:
+    for valid in self._valid_locations:  # pylint: disable=not-an-iterable
       if valid.lower() == location_lower:
         return valid
-    for valid in valid_list:
+    for valid in self._valid_locations:  # pylint: disable=not-an-iterable
       if valid.lower() in location_lower:
         return valid
     return ''
