@@ -206,7 +206,9 @@ class Locations(
     else:
       self._entity_locations = {name: '' for name in entity_names}
     self._latest_action_spec = None
-    self._valid_locations = set(valid_locations) if valid_locations else None
+    self._valid_locations: set[str] | None = (
+        set(valid_locations) if valid_locations else None
+    )
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)
@@ -292,13 +294,15 @@ class Locations(
     location = location.strip().rstrip('.')
     if self._valid_locations is None:
       return location
-    if location in self._valid_locations:
+    assert self._valid_locations is not None
+    valid_locations: set[str] = self._valid_locations
+    if location in valid_locations:
       return location
     location_lower = location.lower()
-    for valid in self._valid_locations:
+    for valid in valid_locations:
       if valid.lower() == location_lower:
         return valid
-    for valid in self._valid_locations:
+    for valid in valid_locations:
       if valid.lower() in location_lower:
         return valid
     return ''
