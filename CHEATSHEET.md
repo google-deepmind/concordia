@@ -1,3 +1,6 @@
+<!-- disableFinding("Master") -->
+<!-- disableFinding("master") -->
+<!-- disableFinding(WHITESPACE_LINES) -->
 # Concordia Simulation Cheat Sheet
 
 A concise guide to building and running simulations in Concordia.
@@ -436,11 +439,16 @@ class ReflectiveAgent(prefab_lib.Prefab):
 
 ---
 
-## Initializing Agent Memories
+## Memory Generators and Initialization
 
-The recommended way to generate agent backstories and shared context is using
-the `formative_memories_initializer__GameMaster`. This prefab runs once at the
-start of the simulation to inject memories into agents.
+Concordia provides mechanisms to generate agent backstories and shared context
+at simulation startup.
+
+### 1. Formative Memories Initializer
+
+The `formative_memories_initializer__GameMaster` is the standard way to generate
+agent backstories and shared context. It runs once at the start of the
+simulation to inject memories into agents based on a provided context.
 
 ```python
 # Define shared facts (world building)
@@ -467,11 +475,67 @@ initializer = prefab_lib.InstanceConfig(
         'player_specific_context': player_specific_context,
     },
 )
-
-# Assuming 'instances' is defined elsewhere and you want to add this to it.
-# For this example, we'll just show the config.
-# instances.append(initializer)
 ```
+
+### 2. Two-Stage Persona Initializer
+
+For more advanced use cases, such as generating diverse populations at scale
+(arXiv:2602.03545), use the `PersonaInitializer` from `concordia.contrib`. This
+allows swapping different generation strategies (e.g., AlphaEvolve solutions)
+via a protocol.
+
+```python
+from concordia.contrib.prefabs.game_master import persona_initializer
+from concordia.contrib.persona_generators import persona_generator_one
+
+# Create a generator (AlphaEvolve Variant #1)
+generator = persona_generator_one.TwoStagePersonaGenerator(model)
+
+# Register it in your prefabs dictionary
+prefabs['persona_initializer__GameMaster'] = persona_initializer.GameMaster(
+    generator=generator
+)
+
+# Use it in instances
+instances.append(
+    prefab_lib.InstanceConfig(
+        prefab='persona_initializer__GameMaster',
+        role=prefab_lib.Role.INITIALIZER,
+        params={
+            'name': 'persona setup',
+            'next_game_master_name': 'conversation rules',
+            'initial_context': 'A small island community...',
+            'diversity_axes': ['personality', 'occupation'],
+        },
+    )
+)
+```
+
+### 3. Standalone Persona Generation CLI
+
+You can also generate personas externally and save them to the filesystem using
+the standalone CLI tool. This is useful for generating populations that can be
+reused across multiple simulations.
+
+```bash
+python generate_personas.py \
+    --num_personas=5 \
+    --output_path=personas.json \
+    --initial_context="London in 1888 during the Industrial Revolution." \
+    --diversity_axes="age,social class,occupation" \
+    --generator="base"
+```
+
+### Persona Generator Options
+
+The following generators are available. All generators follow the two-stage architecture described in arXiv:2602.03545 (Identity/Characteristics → Narrative/Memories).
+
+| Generator | Description |
+| :--- | :--- |
+| `base` | Forces diversity in Stage 1 by conditioning on previous personas. Stage 2 generates thick memories from thin characteristics. |
+| `alphaevolve_1` to `5` | Evolved versions of the base generator with various prompt and architecture optimizations discovered during the AlphaEvolve pipeline. |
+These can be used directly by importing the respective class, or selected via the `generate_personas.py` CLI tool.
+
 
 ### Pre-loading Memories
 ```python
