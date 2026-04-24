@@ -17,9 +17,11 @@
 import json
 import os
 import tempfile
+from typing import cast
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from concordia.agents import entity_agent_with_logging
 from concordia.language_model import no_language_model
 from concordia.prefabs.entity import minimal as minimal_entity
 from concordia.prefabs.game_master import generic as generic_gm
@@ -171,20 +173,27 @@ class CheckpointTest(parameterized.TestCase):
     )
 
     for entity in sim.entities:
-      self.assertIsInstance(entity.measurements, type(measurements))
+      entity_agent = cast(
+          entity_agent_with_logging.EntityAgentWithLogging, entity
+      )
+      self.assertIsInstance(entity_agent.measurements, type(measurements))
 
     _checkpoint_roundtrip(sim)
 
     for entity in sim.entities:
+      entity_agent = cast(
+          entity_agent_with_logging.EntityAgentWithLogging, entity
+      )
       self.assertIsInstance(
-          entity.measurements,
+          entity_agent.measurements,
           type(measurements),
           f'{entity.name} must have {type(measurements).__name__} after'
           ' restore',
       )
     for gm in sim.game_masters:
+      gm_agent = cast(entity_agent_with_logging.EntityAgentWithLogging, gm)
       self.assertIsInstance(
-          gm.measurements,
+          gm_agent.measurements,
           type(measurements),
           f'{gm.name} must have {type(measurements).__name__} after restore',
       )
@@ -202,7 +211,10 @@ class CheckpointTest(parameterized.TestCase):
     _checkpoint_roundtrip(sim)
 
     entity = sim.entities[0]
-    measurements = entity.measurements
+    entity_agent = cast(
+        entity_agent_with_logging.EntityAgentWithLogging, entity
+    )
+    measurements = entity_agent.measurements
     if isinstance(measurements, async_measurements_lib.ReactiveMeasurements):
       with measurements.capture(entity.name) as captured:
         measurements.publish_datum(
