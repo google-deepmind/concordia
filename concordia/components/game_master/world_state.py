@@ -15,6 +15,7 @@
 """A component to represent any world state variables the GM deems important."""
 
 from collections.abc import Sequence
+from typing import cast
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
@@ -155,7 +156,7 @@ class WorldState(
       )
     else:
       self._latest_action_spec = None
-    self._state = state['state']
+    self._state = cast(dict[str, str], state['state'])
 
 
 class Locations(
@@ -206,7 +207,7 @@ class Locations(
     else:
       self._entity_locations = {name: '' for name in entity_names}
     self._latest_action_spec = None
-    self._valid_locations = set(valid_locations) if valid_locations else None
+    self._valid_locations = set(valid_locations) if valid_locations else set()
 
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(self._prompt)
@@ -290,7 +291,7 @@ class Locations(
     if not location:
       return ''
     location = location.strip().rstrip('.')
-    if self._valid_locations is None:
+    if not self._valid_locations:
       return location
     if location in self._valid_locations:
       return location
@@ -390,8 +391,8 @@ class Locations(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._locations = state['locations']
-    self._entity_locations = state['entity_locations']
+    self._locations = cast(dict[str, str], state['locations'])
+    self._entity_locations = cast(dict[str, str], state['entity_locations'])
     action_spec_dict = state['latest_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._latest_action_spec = entity_lib.action_spec_from_dict(
@@ -554,7 +555,9 @@ class GenerativeClock(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._num_steps = state['num_steps']
-    self._time = state['time']
-    self._prompt_to_log = state['prompt_to_log']
-    self._latest_action_spec = state['latest_action_spec']
+    self._num_steps = cast(int, state['num_steps'])
+    self._time = cast(str, state['time'])
+    self._prompt_to_log = cast(str, state['prompt_to_log'])
+    self._latest_action_spec = cast(
+        entity_lib.ActionSpec | None, state['latest_action_spec']
+    )
