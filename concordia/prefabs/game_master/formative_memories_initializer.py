@@ -37,6 +37,7 @@ def build_components(
     shared_memories: Sequence[str],
     player_specific_memories: Mapping[str, Sequence[str]],
     player_specific_context: Mapping[str, str],
+    skip_formative_memories_for: Sequence[str] = (),
 ) -> dict[str, entity_component.ContextComponent]:
   """Build the components for a formative memories initializer game master.
 
@@ -51,6 +52,8 @@ def build_components(
     shared_memories: Memories shared by all players.
     player_specific_memories: Memories specific to each player.
     player_specific_context: Context specific to each player.
+    skip_formative_memories_for: Player names to skip formative memory
+      generation for. Shared and player-specific memories are still added.
 
   Returns:
     A dictionary mapping component keys to components.
@@ -92,6 +95,7 @@ def build_components(
           shared_memories=shared_memories,
           player_specific_memories=player_specific_memories,
           player_specific_context=player_specific_context,
+          skip_formative_memories_for=skip_formative_memories_for,
       )
   )
 
@@ -216,6 +220,9 @@ class GameMaster(prefab_lib.Prefab):
             'player_specific_memories', {}
         ),
         player_specific_context=self.params.get('player_specific_context', {}),
+        skip_formative_memories_for=self.params.get(
+            'skip_formative_memories_for', ()
+        ),
     )
 
     return build_game_master(
