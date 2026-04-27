@@ -113,11 +113,27 @@ class Entity(prefab_lib.Prefab):
         ),
     )
 
+    # Create the goal component early so perception components can reference it.
+    if entity_goal:
+      goal_key = 'Goal'
+      overarching_goal = agent_components.constant.Constant(
+          state=entity_goal, pre_act_label='\nGoal'
+      )
+    else:
+      goal_key = None
+      overarching_goal = None
+
+    # When a goal is set, include it in the perception components so the
+    # intermediate reasoning chain (not just the final action prompt)
+    # explicitly considers the agent's goal.
+    goal_components = [goal_key] if goal_key else []
+
     situation_perception_key = 'SituationPerception'
     situation_perception = (
         agent_components.question_of_recent_memories.SituationPerception(
             model=model,
             num_memories_to_retrieve=situation_perception_history_length,
+            components=goal_components,
             pre_act_label=(
                 f'\nQuestion: What situation is {entity_name} in right now?'
                 '\nAnswer'
@@ -129,7 +145,7 @@ class Entity(prefab_lib.Prefab):
         agent_components.question_of_recent_memories.SelfPerception(
             model=model,
             num_memories_to_retrieve=self_perception_history_length,
-            components=[
+            components=goal_components + [
                 situation_perception_key,
             ],
             pre_act_label=(
@@ -142,7 +158,7 @@ class Entity(prefab_lib.Prefab):
     person_by_situation = agent_components.question_of_recent_memories.PersonBySituation(
         model=model,
         num_memories_to_retrieve=person_by_situation_history_length,
-        components=[
+        components=goal_components + [
             self_perception_key,
             situation_perception_key,
         ],
@@ -151,15 +167,6 @@ class Entity(prefab_lib.Prefab):
             'a situation like this?\nAnswer'
         ),
     )
-
-    if entity_goal:
-      goal_key = 'Goal'
-      overarching_goal = agent_components.constant.Constant(
-          state=entity_goal, pre_act_label='\nGoal'
-      )
-    else:
-      goal_key = None
-      overarching_goal = None
 
     components_of_agent = {
         instructions_key: instructions,
