@@ -11,8 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Entity prefabs contributed by users."""
-
-from concordia.contrib.prefabs.entity import basic_with_image
-from concordia.contrib.prefabs.entity import conversations_with_ai_companions
