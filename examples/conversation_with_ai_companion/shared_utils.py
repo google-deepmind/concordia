@@ -185,7 +185,8 @@ def run_simulation(
       safe_name = scenario_name.lower().replace(" ", "_")
       dialog_filename = f"{safe_name}_{timestamp}_dialog.txt"
       dialog_path = os.path.join(output_dir, dialog_filename)
-      with open(dialog_path, "w") as f:
+      os.makedirs(output_dir, exist_ok=True)
+      with open(dialog_path, "w", encoding="utf-8") as f:
         f.write(dialog_text)
       print(f"Dialog transcript saved to: {dialog_path}")
     except Exception as e:  # pylint: disable=broad-except
