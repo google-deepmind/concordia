@@ -413,8 +413,11 @@ class ForumState(entity_component.ContextComponent):
     if post.image and post.image.startswith('!['):
       src = self._extract_image_src(post.image)
       if src:
+        safe_src = self._escape_html(src)
+        if not any(src.lower().startswith(scheme) for scheme in ('https://', 'http://', 'data:image/')):
+          return ''
         return (
-            f'<div class="post-image"><img src="{src}" alt="post image"></div>'
+            f'<div class="post-image"><img src="{safe_src}" alt="post image"></div>'
         )
     return ''
 
@@ -442,11 +445,13 @@ class ForumState(entity_component.ContextComponent):
           reply_image_html = ''
           reply_image = reply.get('image')
           if reply_image and reply_image.startswith('!['):
-            reply_image_html = (
-                '<div class="post-image"><img src="'
-                f'{self._extract_image_src(reply_image)}"'
-                ' alt="reply image"></div>'
-            )
+            reply_src = self._extract_image_src(reply_image)
+              if any(reply_src.lower().startswith(scheme) for scheme in ('https://', 'http://', 'data:image/')):
+                reply_image_html = (
+                    '<div class="post-image"><img src="'
+                    f'{self._escape_html(reply_src)}"'
+                    ' alt="reply image"></div>'
+                )
           replies_html += f"""
           <div class="reply">
             <div class="reply-meta">
