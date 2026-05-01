@@ -293,13 +293,14 @@ class Locations(
     location = location.strip().rstrip('.')
     if not self._valid_locations:
       return location
-    if location in self._valid_locations:
+    valid_locations = self._valid_locations
+    if location in valid_locations:
       return location
     location_lower = location.lower()
-    for valid in self._valid_locations:
+    for valid in valid_locations:
       if valid.lower() == location_lower:
         return valid
-    for valid in self._valid_locations:
+    for valid in valid_locations:
       if valid.lower() in location_lower:
         return valid
     return ''
