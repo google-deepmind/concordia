@@ -20,6 +20,7 @@ from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.game_master import formative_memories_initializer
 from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
 from concordia.prefabs.game_master import generic
+from concordia.prefabs.game_master import interrupt_driven
 from concordia.prefabs.game_master import interviewer
 from concordia.prefabs.game_master import marketplace
 from concordia.prefabs.game_master import open_ended_interviewer
