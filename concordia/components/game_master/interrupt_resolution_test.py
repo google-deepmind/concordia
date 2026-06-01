@@ -140,6 +140,7 @@ class TimerUpdateTest(absltest.TestCase):
 
     timer = scheduler.get_timer('Alice')
     self.assertIsNotNone(timer)
+    assert timer is not None
     self.assertEqual(
         timer.expiry,
         _START + datetime.timedelta(minutes=30),
@@ -329,6 +330,7 @@ class TimerAbsoluteTest(absltest.TestCase):
 
     timer = scheduler.get_timer('Alice')
     self.assertIsNotNone(timer)
+    assert timer is not None
     # _START is 09:00 on 2026-01-01; "14:00" should be same-day 14:00.
     self.assertEqual(
         timer.expiry,
@@ -354,6 +356,7 @@ class TimerAbsoluteTest(absltest.TestCase):
 
     timer = scheduler.get_timer('Alice')
     self.assertIsNotNone(timer)
+    assert timer is not None
     # Fallback: _START + 1h = 10:00.
     self.assertEqual(
         timer.expiry,
