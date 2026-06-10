@@ -8,16 +8,26 @@ fishing). Each scenario supports two governance modes: "standard" (unregulated
 free-for-all) and "election" (agents elect leaders and vote on harvest
 policies).
 
+The implementation here largely follows the work done in [1, 2] where the
+authors evaluate simulated common pool resource dilemmas with and without
+elected leaders.
+
+<!-- disableFinding(LINE_OVER_80) -->
+
+[1] Faulkner, R., Deshpande, A., Piedrahita, D. G., Leibo, J. Z., & Jin, Z. (2026). Evaluating Cooperation in LLM Social Groups through Elected Leadership. ArXiv.org. https://arxiv.org/abs/2604.11721
+
+[2] Piatti, G., Jin, Z., Kleiman-Weiner, M., Schölkopf, B., Sachan, M., & Mihalcea, R. (2024). Cooperate or Collapse: Emergence of Sustainable Cooperation in a Society of LLM Agents. ArXiv.org. https://arxiv.org/abs/2404.16698
+
 ## Quick Start
 
 ### Using OpenAI
 
 ```bash
-pip install concordia[contrib] sentence-transformers
+pip install gdm-concordia sentence-transformers
 
 python -m concordia.examples.resource_dilemma.run \
   --api_type=openai \
-  --model_name=gpt-4o-mini \
+  --model_name=gpt-5.4-mini \
   --scenario=pasture \
   --mode=standard \
   --num_cycles=6
@@ -30,7 +40,7 @@ export GOOGLE_API_KEY=your_key_here
 
 python -m concordia.examples.resource_dilemma.run \
   --api_type=gemini \
-  --model_name=gemini-2.0-flash \
+  --model_name=gemini-3.1-flash-lite \
   --scenario=irrigation \
   --mode=election
 ```
