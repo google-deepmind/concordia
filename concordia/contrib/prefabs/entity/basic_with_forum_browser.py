@@ -12,7 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A prefab entity that generates both text and image outputs."""
+"""A basic entity prefab with forum browsing capabilities.
+
+This prefab extends the basic three-question entity with a
+ForumBrowsingContext component that lets the agent selectively browse
+forum threads via tool calls.  It is designed to be paired with the
+``async_social_media_with_moderation`` game master prefab.
+
+The entity's ForumState must be provided via the ``forum_state`` param,
+which should be the same instance used by the game master.
+"""
 
 from collections.abc import Mapping
 import dataclasses
@@ -20,7 +29,8 @@ import dataclasses
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as agent_components
-from concordia.components.agent import image_text_act_component
+from concordia.contrib.components.game_master import forum as forum_module
+from concordia.contrib.components.game_master import forum_browser
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
 
@@ -32,12 +42,27 @@ _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH = 5
 
 @dataclasses.dataclass
 class Entity(prefab_lib.Prefab):
-  """A prefab entity that generates both text and image outputs in JSON."""
+  """A basic entity with forum browsing.
+
+  Like ``basic.Entity`` but adds a ``ForumBrowsingContext`` component
+  so the agent can browse the forum state via tool calls.  This
+  enables informed decision-making when interacting with the moderated
+  social media game master.
+
+  Required params:
+    forum_state: A ``ForumState`` instance (shared with the GM).
+
+  Optional params (same defaults as basic.Entity):
+    name, goal, randomize_choices, prefix_entity_name,
+    observation_history_length, situation_perception_history_length,
+    self_perception_history_length, person_by_situation_history_length.
+  """
 
   description: str = (
-      'An entity based on the basic prefab that produces structured JSON '
-      'output with both text and image fields. Supports image_first, '
-      'text_first, and choice modes for generation ordering.'
+      'An entity that browses a social media forum and makes decisions '
+      'by asking "What situation am I in right now?", "What kind of '
+      'person am I?", and "What would a person like me do in a '
+      'situation like this?"'
   )
   params: Mapping[str, str] = dataclasses.field(
       default_factory=lambda: {
@@ -45,10 +70,6 @@ class Entity(prefab_lib.Prefab):
           'goal': '',
           'randomize_choices': True,
           'prefix_entity_name': True,
-          'image_model': None,
-          'image_mode': 'choice',
-          'image_prompt_question': None,
-          'image_from_text_question': None,
           'observation_history_length': _DEFAULT_OBSERVATION_HISTORY_LENGTH,
           'situation_perception_history_length': (
               _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
@@ -67,14 +88,23 @@ class Entity(prefab_lib.Prefab):
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Build an entity with forum browsing.
+
+    Args:
+      model: The language model to use.
+      memory_bank: The memory bank to use.
+
+    Returns:
+      An entity.
+    """
     entity_name = self.params.get('name', 'Alice')
     entity_goal = self.params.get('goal', '')
     randomize_choices = self.params.get('randomize_choices', True)
     prefix_entity_name = self.params.get('prefix_entity_name', True)
-    image_model_instance = self.params.get('image_model', None)
-    image_mode = self.params.get('image_mode', 'choice')
+    forum_state = self.params.get('forum_state', None)
     observation_history_length = self.params.get(
-        'observation_history_length', _DEFAULT_OBSERVATION_HISTORY_LENGTH
+        'observation_history_length',
+        _DEFAULT_OBSERVATION_HISTORY_LENGTH,
     )
     situation_perception_history_length = self.params.get(
         'situation_perception_history_length',
@@ -111,11 +141,39 @@ class Entity(prefab_lib.Prefab):
         ),
     )
 
+    # Create the goal component early so perception components can reference it.
+    if entity_goal:
+      goal_key = 'Goal'
+      overarching_goal = agent_components.constant.Constant(
+          state=entity_goal, pre_act_label='\nGoal'
+      )
+    else:
+      goal_key = None
+      overarching_goal = None
+
+    goal_components = [goal_key] if goal_key else []
+
+    # Forum browsing context — lets the agent selectively browse threads.
+    forum_browsing_key = 'forum_browsing'
+    if isinstance(forum_state, forum_module.ForumState):
+      forum_browsing = forum_browser.ForumBrowsingContext(
+          model=model,
+          forum_state=forum_state,
+          name=entity_name,
+          components=(),
+      )
+    else:
+      forum_browsing = agent_components.constant.Constant(
+          state='(Forum browsing unavailable — no ForumState provided.)',
+          pre_act_label=f"{entity_name}'s Forum Browsing",
+      )
+
     situation_perception_key = 'SituationPerception'
     situation_perception = (
         agent_components.question_of_recent_memories.SituationPerception(
             model=model,
             num_memories_to_retrieve=situation_perception_history_length,
+            components=goal_components + [forum_browsing_key],
             pre_act_label=(
                 f'\nQuestion: What situation is {entity_name} in right now?'
                 '\nAnswer'
@@ -127,7 +185,7 @@ class Entity(prefab_lib.Prefab):
         agent_components.question_of_recent_memories.SelfPerception(
             model=model,
             num_memories_to_retrieve=self_perception_history_length,
-            components=[
+            components=goal_components + [
                 situation_perception_key,
             ],
             pre_act_label=(
@@ -137,31 +195,25 @@ class Entity(prefab_lib.Prefab):
     )
 
     person_by_situation_key = 'PersonBySituation'
-    person_by_situation = agent_components.question_of_recent_memories.PersonBySituation(
-        model=model,
-        num_memories_to_retrieve=person_by_situation_history_length,
-        components=[
-            self_perception_key,
-            situation_perception_key,
-        ],
-        pre_act_label=(
-            f'\nQuestion: What would a person like {entity_name} do in '
-            'a situation like this?\nAnswer'
-        ),
+    person_by_situation = (
+        agent_components.question_of_recent_memories.PersonBySituation(
+            model=model,
+            num_memories_to_retrieve=person_by_situation_history_length,
+            components=goal_components + [
+                self_perception_key,
+                situation_perception_key,
+            ],
+            pre_act_label=(
+                f'\nQuestion: What would a person like {entity_name} do in '
+                'a situation like this?\nAnswer'
+            ),
+        )
     )
-
-    if entity_goal:
-      goal_key = 'Goal'
-      overarching_goal = agent_components.constant.Constant(
-          state=entity_goal, pre_act_label='\nGoal'
-      )
-    else:
-      goal_key = None
-      overarching_goal = None
 
     components_of_agent = {
         instructions_key: instructions,
         observation_to_memory_key: observation_to_memory,
+        forum_browsing_key: forum_browsing,
         self_perception_key: self_perception,
         situation_perception_key: situation_perception,
         person_by_situation_key: person_by_situation,
@@ -173,24 +225,14 @@ class Entity(prefab_lib.Prefab):
 
     if overarching_goal is not None:
       components_of_agent[goal_key] = overarching_goal
+      # Place goal after the instructions.
       component_order.insert(1, goal_key)
 
-    image_prompt_kwargs = {}
-    ipq = self.params.get('image_prompt_question', None)
-    if ipq:
-      image_prompt_kwargs['image_prompt_question'] = ipq
-    iftq = self.params.get('image_from_text_question', None)
-    if iftq:
-      image_prompt_kwargs['image_from_text_question'] = iftq
-
-    act_component = image_text_act_component.ImageTextActComponent(
+    act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
-        image_model=image_model_instance,
-        image_mode=image_mode,
         component_order=component_order,
         randomize_choices=randomize_choices,
         prefix_entity_name=prefix_entity_name,
-        **image_prompt_kwargs,
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(

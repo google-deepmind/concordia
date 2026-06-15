@@ -14,4 +14,5 @@
 
 """Library of components contributed by users."""
 
+from concordia.contrib.prefabs.game_master import async_social_media_with_moderation
 from concordia.contrib.prefabs.game_master import space_ship

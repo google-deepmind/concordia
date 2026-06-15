@@ -14,5 +14,6 @@
 
 """Entity prefabs contributed by users."""
 
+from concordia.contrib.prefabs.entity import basic_with_forum_browser
 from concordia.contrib.prefabs.entity import basic_with_image
 from concordia.contrib.prefabs.entity import conversations_with_ai_companions
