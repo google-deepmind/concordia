@@ -85,6 +85,22 @@ def setup_model(args):
       disable_language_model=False,
   )
 
+  print("=" * 60, flush=True)
+  print(
+      f"MODEL SMOKE TEST — api_type={args.api_type} "
+      f"model_name={args.model_name}",
+      flush=True,
+  )
+  try:
+    sample = model.sample_text(
+        "Reply with a single short sentence confirming you are online."
+    )
+    print(f"MODEL SMOKE TEST RESPONSE: {sample!r}", flush=True)
+  except Exception as exc:  # pylint: disable=broad-except
+    print(f"MODEL SMOKE TEST FAILED: {type(exc).__name__}: {exc}", flush=True)
+    raise
+  print("=" * 60, flush=True)
+
   st_model = sentence_transformers.SentenceTransformer(
       "sentence-transformers/all-mpnet-base-v2"
   )

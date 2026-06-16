@@ -37,7 +37,7 @@ _REGISTRY = types.MappingProxyType({
     'pytorch_gemma': (
         'huggingface.pytorch_gemma_model.PyTorchGemmaLanguageModel'
     ),
-    'together_ai': 'together.together_ai.Base',
+    'together_ai': 'together.together_ai_model.Base',
     'vllm': 'vllm.vllm_model.VLLMLanguageModel',
 })
 
