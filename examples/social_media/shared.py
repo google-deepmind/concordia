@@ -24,6 +24,8 @@ import os
 from typing import Any
 
 from concordia.contrib.components.game_master import forum as forum_lib
+from concordia.contrib.prefabs import entity as contrib_entity_prefabs
+from concordia.contrib.prefabs import game_master as contrib_game_master_prefabs
 from concordia.environment import engine as engine_lib
 from concordia.environment import step_controller as step_controller_lib
 from concordia.environment.engines import asynchronous
@@ -39,7 +41,9 @@ from concordia.utils import visual_interface
 def get_prefabs():
   prefabs = {
       **helper_functions.get_package_classes(entity_prefabs),
+      **helper_functions.get_package_classes(contrib_entity_prefabs),
       **helper_functions.get_package_classes(game_master_prefabs),
+      **helper_functions.get_package_classes(contrib_game_master_prefabs),
   }
   return prefabs
 

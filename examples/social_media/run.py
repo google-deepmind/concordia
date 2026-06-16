@@ -37,6 +37,7 @@ from concordia.contrib.language_models.google import gemini_model_multimodal
 from concordia.contrib.language_models.openai import gpt_model_multimodal
 from examples.social_media import scenario_00_robo_alchemy
 from examples.social_media import scenario_01_robo_alchemy_images
+from examples.social_media import scenario_02_game_theory_tv
 from concordia.language_model import no_language_model
 from concordia.language_model import retry_wrapper
 import numpy as np
@@ -46,6 +47,7 @@ import sentence_transformers
 _SCENARIO_MODULES = [
     scenario_00_robo_alchemy,
     scenario_01_robo_alchemy_images,
+    scenario_02_game_theory_tv,
 ]
 
 SCENARIOS = {
