@@ -99,7 +99,7 @@ class MCPToolExecutor(entity_component.ContextComponent):
       memory_entry = (
           f"Tool '{tool_info['tool']}' returned: {result}"
       )
-      memory.add(memory_entry, {})
+      memory.add(memory_entry)
 
       self._tool_results.append({
           'tool': tool_info['tool'],
@@ -110,7 +110,7 @@ class MCPToolExecutor(entity_component.ContextComponent):
       error_msg = f'Tool execution failed: {str(e)}'
       try:
         memory = self._get_memory()
-        memory.add(error_msg, {})
+        memory.add(error_msg)
       except Exception:  # pylint: disable=broad-except
         pass
       self._tool_results.append({

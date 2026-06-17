@@ -22,7 +22,7 @@ import os
 import pathlib
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP  # type: ignore[import]
 
 # Initialize MCP server
 mcp = FastMCP("file-reader")
