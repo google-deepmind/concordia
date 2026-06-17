@@ -64,6 +64,12 @@ class MCPToolExecutor(entity_component.ContextComponent):
         type_=actor_components.memory.AssociativeMemory,
     )
 
+  def get_state(self):
+    return None
+
+  def set_state(self, state) -> None:
+    pass
+
   def get_pre_act_value(self) -> str:
     if self._tool_results:
       last = self._tool_results[-1]
