@@ -130,6 +130,10 @@ setuptools.setup(
             # Used in concordia.contrib.language_models.together
             'together',
         ],
+        'mcp': [
+            # Used in concordia.contrib.tools.mcp
+            'mcp',
+        ],
         'vllm': [
             # Used in concordia.contrib.language_models.vllm
             'vllm',
