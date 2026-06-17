@@ -160,22 +160,9 @@ Always execute tools when agents request external information."""
     )
     
     # Conversation scene
-    convo_scene = gm_components.conversation.Conversation(
-        players=players,
+    convo_scene = gm_components.event_resolution.Conversation(
         model=model,
-        memory=memory,
-        clock=clock,
-        burner_memory_factory=lambda: associative_memory.AssociativeMemory(
-            sentence_embedder=memory.get_embedder(),
-        ),
-        components={},
-        cap_nonplayer_characters=3,
-        game_master_instructions=(
-            'This is a social science experiment. It is structured as a '
-            'tabletop roleplaying game (like dungeons and dragons). You are '
-            'the game master and storyteller. With tool support enabled, '
-            'agents can access real external information during the simulation.'
-        ),
+        players=players,
         verbose=False,
     )
     
