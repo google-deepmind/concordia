@@ -19,8 +19,8 @@ import json
 from typing import Any, Dict, List, Optional
 from contextlib import AsyncExitStack
 
-from mcp.client.session import ClientSession
-from mcp.client.stdio import stdio_client, StdioServerParameters
+from mcp.client.session import ClientSession  # type: ignore[import]
+from mcp.client.stdio import stdio_client, StdioServerParameters  # type: ignore[import]
 
 
 class MCPClient:
