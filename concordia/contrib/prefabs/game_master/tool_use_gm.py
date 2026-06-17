@@ -95,15 +95,12 @@ def build_tool_use_game_master(
     
     # Build GM components
     instructions = gm_components.instructions.Instructions(
-        agent_name=name,
         logging_channel=None,
     )
     
     # Custom instructions that mention tool availability
     tool_instructions = gm_components.instructions.Instructions(
-        agent_name=name,
         logging_channel=None,
-        pre_act_key='Available external tools',
     )
     tool_instructions.set_pre_act_value(
         f"""The following external tools are available for agents to use:
@@ -151,7 +148,6 @@ Always execute tools when agents request external information."""
                 gm_components.all_similar_memories.DEFAULT_OBSERVATION_COMPONENT_KEY: observation,
             },
             num_memories_to_retrieve=10,
-            pre_act_key='Relevant memories',
         )
     )
     
@@ -204,7 +200,6 @@ Always execute tools when agents request external information."""
         agent_name=name,
         act_component=convo_scene,
         context_components=components_of_agent,
-        component_logging=None,
     )
     
     return gm_entity
