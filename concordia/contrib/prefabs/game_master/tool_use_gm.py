@@ -14,188 +14,205 @@
 
 """GameMaster prefab that enables tool use via MCP protocol."""
 
-import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+import dataclasses
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
-from concordia.associative_memory import associative_memory
-from concordia.associative_memory import formative_memories
+from concordia.associative_memory import basic_associative_memory
+from concordia.components import agent as actor_components
 from concordia.components import game_master as gm_components
+from concordia.components.game_master import next_acting
+from concordia.components.game_master import terminate as terminate_components
+from concordia.contrib.components.game_master import mcp_tool_executor
 from concordia.language_model import language_model
-from concordia.thought_chains import thought_chains as thought_chains_lib
-from concordia.tools import mcp_client
+from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 
 
-def build_tool_use_game_master(
-    model: language_model.LanguageModel,
-    memory: associative_memory.AssociativeMemoryBank,
-    mcp_server_command: str,
-    mcp_server_args: Sequence[str],
-    clock,
-    players: Sequence[entity_agent_with_logging.EntityAgentWithLogging],
-    name: str = 'GameMaster with Tool Support',
-    update_thought_chain: (
-        Sequence[thought_chains_lib.ThoughtChain] | None
-    ) = None,
-) -> entity_agent_with_logging.EntityAgentWithLogging:
-    """Build a GameMaster that can execute external tools via MCP.
-    
-    This GameMaster monitors agent actions and autonomously executes
-    appropriate MCP tools when agents request external information.
-    
-    Args:
-        model: Language model for the GM
-        memory: Memory bank for the GM
-        mcp_server_command: Command to start MCP server (e.g., sys.executable)
-        mcp_server_args: Arguments for MCP server (e.g., path to server script)
-        clock: Simulation clock
-        players: List of player agents in the simulation
-        name: Name for this GameMaster
-        update_thought_chain: Optional custom thought chain
-        
-    Returns:
-        Configured GameMaster entity with MCP tool support
-        
-    Example:
-```python
-        gm = build_tool_use_game_master(
-            model=language_model,
-            memory=memory_bank,
-            mcp_server_command=sys.executable,
-            mcp_server_args=['concordia/tools/mcp_servers/file_reader_server.py'],
-            clock=clock,
-            players=[alice, bob],
-        )
-```
-    """
-    # Initialize MCP client
-    client = mcp_client.MCPClient(
-        server_command=mcp_server_command,
-        server_args=list(mcp_server_args),
-    )
-    
-    # Create client manager
-    manager = mcp_client.MCPClientManager()
-    manager.add_client('file-tools', client)
-    
-    # Connect to MCP server
-    mcp_client.run_sync(manager.connect_all())
-    
-    # Get available tools
-    all_tools = mcp_client.run_sync(manager.list_all_tools())
-    tool_descriptions = []
-    for client_name, tools in all_tools.items():
-        for tool in tools:
-            tool_descriptions.append(
-                f"- {tool['name']}: {tool['description']}"
-            )
-    
-    tools_text = '\n'.join(tool_descriptions)
-    
-    # Build GM components
-    instructions = gm_components.instructions.Instructions(
-        logging_channel=None,
-    )
-    
-    # Custom instructions that mention tool availability
-    tool_instructions = gm_components.instructions.Instructions(
-        logging_channel=None,
-    )
-    tool_instructions.set_pre_act_value(
-        f"""The following external tools are available for agents to use:
+@dataclasses.dataclass
+class GameMasterWithMCPTools(prefab_lib.Prefab):
+  """A prefab game master that supports MCP tool use."""
 
-{tools_text}
+  description: str = (
+      'A game master that enables agents to use external tools via MCP.'
+  )
+  params: Mapping[str, Any] = dataclasses.field(
+      default_factory=lambda: {
+          'name': 'GameMaster with Tool Support',
+          'mcp_server_command': '',
+          'mcp_server_args': [],
+      }
+  )
+  entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()
 
-When an agent's action indicates they want to use a tool (e.g., "I read the file", 
-"I check the document"), automatically execute the appropriate tool and inject 
-the result into the agent's observations.
+  def build(
+      self,
+      model: language_model.LanguageModel,
+      memory_bank: basic_associative_memory.AssociativeMemoryBank,
+  ) -> entity_agent_with_logging.EntityAgentWithLogging:
+    """Builds the GameMaster entity with MCP tool support."""
 
-Tool execution format:
-- Detect: Agent says "I read /tmp/file.txt"
-- Execute: read_file(path="/tmp/file.txt")
-- Result: Inject file contents into next observation
+    name = self.params.get('name', 'GameMaster with Tool Support')
+    mcp_server_command = self.params.get('mcp_server_command', '')
+    mcp_server_args = self.params.get('mcp_server_args', [])
+    player_names = [entity.name for entity in self.entities]
 
-Always execute tools when agents request external information."""
+    # Memory component
+    memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
+    memory_component = actor_components.memory.AssociativeMemory(
+        memory_bank=memory_bank
     )
-    
-    # Observation component
-    observation = gm_components.observation.Observation(
-        clock_now=clock.now,
-        memory=memory.get_data_frame(),
-        timeframe_delta_from=None,
-        timeframe_delta_until=None,
-        component_name='Recent events',
+
+    # Instructions
+    instructions_key = 'instructions'
+    instructions = gm_components.instructions.Instructions()
+
+    # Tool instructions as a constant
+    tool_instructions_key = 'tool_instructions'
+    tool_instructions = actor_components.constant.Constant(
+        state=(
+            'Agents in this simulation have access to external tools via MCP.'
+            ' When an agent requests external information, execute the'
+            ' appropriate tool and inject the result into observations.'
+        ),
+        pre_act_label='Tool Support Instructions',
     )
-    
-    # Tool execution component
-    from concordia.components.game_master import mcp_tool_executor
-    
-    tool_executor = mcp_tool_executor.MCPToolExecutor(
-        model=model,
-        mcp_client_manager=manager,
-        memory=memory,
-        component_name='Tool Executor',
+
+    # Observation components
+    observation_to_memory_key = 'observation_to_memory'
+    observation_to_memory = actor_components.observation.ObservationToMemory()
+
+    observation_key = (
+        actor_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
     )
-    
+    observation = actor_components.observation.LastNObservations(
+        history_length=1000,
+    )
+
     # Relevant memories
-    player_names = [player.name for player in players]
-    
-    relevant_memories = (
-        gm_components.all_similar_memories.AllSimilarMemories(
-            model=model,
-            components={
-                gm_components.all_similar_memories.DEFAULT_OBSERVATION_COMPONENT_KEY: observation,
-            },
-            num_memories_to_retrieve=10,
-        )
-    )
-    
-    # Player status
-    player_status = gm_components.player_status.PlayerStatus(
-        clock_now=clock.now,
+    relevant_memories_key = 'relevant_memories'
+    relevant_memories = actor_components.all_similar_memories.AllSimilarMemories(
         model=model,
-        memory=memory,
+        components=[observation_key],
+        num_memories_to_retrieve=10,
+        pre_act_label='Relevant memories',
+    )
+
+    # MCP Tool executor
+    tool_executor_key = 'tool_executor'
+    tool_executor_component = mcp_tool_executor.MCPToolExecutor(
+        model=model,
+        mcp_server_command=mcp_server_command,
+        mcp_server_args=list(mcp_server_args),
+        memory_component_key=memory_component_key,
+        pre_act_label='Tool Executor',
+    )
+
+    # Event resolution (act component)
+    player_characters_key = 'player_characters'
+    player_characters = gm_components.instructions.PlayerCharacters(
+        player_characters=player_names,
+    )
+
+    display_events_key = 'display_events'
+    display_events = gm_components.event_resolution.DisplayEvents(
+        model=model,
+        pre_act_label='Story so far',
+    )
+
+    next_actor_key = next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+    next_actor = next_acting.NextActingAllEntities(
         player_names=player_names,
     )
-    
-    # Conversation scene
-    convo_scene = gm_components.event_resolution.Conversation(
+
+    next_action_spec_key = (
+        gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
+    )
+    default_action_spec = entity_lib.ActionSpec(
+        call_to_action='What does {name} do next?',
+        output_type=entity_lib.OutputType.FREE,
+        options=(),
+        tag='action',
+    )
+    next_action_spec = gm_components.next_acting.FixedActionSpec(
+        action_spec=default_action_spec
+    )
+
+    make_observation_key = (
+        gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
+    )
+    make_observation = gm_components.make_observation.MakeObservation(
         model=model,
-        players=players,
-        verbose=False,
+        player_names=player_names,
+        components=[
+            instructions_key,
+            player_characters_key,
+            relevant_memories_key,
+            display_events_key,
+        ],
     )
-    
-    # Component order
-    entity_components = [
-        instructions,
-        tool_instructions,
-        observation,
-        relevant_memories,
-        player_status,
-        tool_executor,  # Tool executor monitors and acts on events
-        convo_scene,
+
+    terminate_key = terminate_components.DEFAULT_TERMINATE_COMPONENT_KEY
+    terminate_component = terminate_components.NeverTerminate()
+
+    event_resolution_key = (
+        gm_components.switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
+    )
+    event_resolution = gm_components.event_resolution.EventResolution(
+        model=model,
+        event_resolution_steps=[],
+        components=[
+            instructions_key,
+            tool_instructions_key,
+            player_characters_key,
+            relevant_memories_key,
+            display_events_key,
+        ],
+    )
+
+    component_order = [
+        instructions_key,
+        tool_instructions_key,
+        player_characters_key,
+        observation_key,
+        observation_to_memory_key,
+        relevant_memories_key,
+        display_events_key,
+        memory_component_key,
+        tool_executor_key,
+        make_observation_key,
+        next_actor_key,
+        next_action_spec_key,
+        event_resolution_key,
+        terminate_key,
     ]
-    
-    components_of_agent = {
-        _get_component_name(component): component 
-        for component in entity_components
-    }
-    
-    # Build the GameMaster entity
-    gm_entity = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=name,
-        act_component=convo_scene,
-        context_components=components_of_agent,
+
+    act_component = gm_components.switch_act.SwitchAct(
+        model=model,
+        entity_names=player_names,
+        component_order=component_order,
     )
-    
-    return gm_entity
 
+    components_of_game_master = {
+        instructions_key: instructions,
+        tool_instructions_key: tool_instructions,
+        player_characters_key: player_characters,
+        observation_key: observation,
+        observation_to_memory_key: observation_to_memory,
+        relevant_memories_key: relevant_memories,
+        display_events_key: display_events,
+        memory_component_key: memory_component,
+        tool_executor_key: tool_executor_component,
+        make_observation_key: make_observation,
+        next_actor_key: next_actor,
+        next_action_spec_key: next_action_spec,
+        event_resolution_key: event_resolution,
+        terminate_key: terminate_component,
+    }
 
-def _get_component_name(component) -> str:
-    """Helper to get component name."""
-    if hasattr(component, 'name'):
-        if callable(component.name):
-            return component.name()
-        return component.name
-    return component.__class__.__name__
+    return entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name=name,
+        act_component=act_component,
+        context_components=components_of_game_master,
+    )
