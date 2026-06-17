@@ -289,7 +289,7 @@ class Gemma4Chat(language_model.LanguageModel):
             # Keep reasoning brief.
             reasoning_effort='low',
         )
-      except _get_together_errors() as err:
+      except _get_together_errors() as err:  # pylint: disable=catching-non-exception
         if attempts >= _NUM_SILENT_ATTEMPTS:
           logging.warning('  Exception: %s', err)
           logging.debug('  Text exception prompt: %s', prompt)
@@ -504,7 +504,7 @@ class DeepSeekModel(language_model.LanguageModel):
             seed=seed,
             stream=False,
         )
-      except _get_together_errors() as err:
+      except _get_together_errors() as err:  # pylint: disable=catching-non-exception
         if attempts >= _NUM_SILENT_ATTEMPTS:
           logging.warning('  Exception: %s', err)
           logging.debug('  Text exception prompt: %s', prompt)
@@ -706,7 +706,7 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             top_k=top_k,
             reasoning_effort='low',
         )
-      except _get_together_errors() as err:
+      except _get_together_errors() as err:  # pylint: disable=catching-non-exception
         if attempts >= _NUM_SILENT_ATTEMPTS:
           logging.warning('  Exception: %s', err)
           logging.debug('  Text exception prompt: %s', prompt)
