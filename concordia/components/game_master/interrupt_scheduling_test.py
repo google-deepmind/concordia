@@ -209,6 +209,7 @@ class EntitySchedulerTest(absltest.TestCase):
     s = self._make_scheduler(hour=9)
     timer = s.get_timer('Alice')
     self.assertIsNotNone(timer)
+    assert timer is not None
     self.assertEqual(timer.expiry, datetime.datetime(2026, 1, 1, 9, 0))
 
   def test_set_timer_replaces(self):
@@ -246,6 +247,7 @@ class EntitySchedulerTest(absltest.TestCase):
     )
     next_timer = s.get_next_timer()
     self.assertIsNotNone(next_timer)
+    assert next_timer is not None
     self.assertEqual(next_timer.entity_name, 'Bob')
 
   def test_get_next_timer_skips_none(self):
@@ -261,6 +263,7 @@ class EntitySchedulerTest(absltest.TestCase):
     )
     next_timer = s.get_next_timer()
     self.assertIsNotNone(next_timer)
+    assert next_timer is not None
     self.assertEqual(next_timer.entity_name, 'Bob')
 
   def test_get_next_timer_all_none_returns_none(self):
@@ -420,6 +423,7 @@ class EntitySchedulerTest(absltest.TestCase):
     )
     alice_timer = s2.get_timer('Alice')
     self.assertIsNotNone(alice_timer)
+    assert alice_timer is not None
     self.assertEqual(alice_timer.description, 'test timer')
     queue = s2.peek_event_queue()
     self.assertLen(queue, 1)
