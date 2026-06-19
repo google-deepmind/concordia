@@ -250,4 +250,292 @@ SCENARIO_CONFIGS = immutabledict.immutabledict(
         tags=("test",),
     ),
     # Reality Show scenarios (game-theoretic social dilemmas)
+    # --- Circa 1955 American ---
+    reality_show_circa_1955_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "reality show circa 1955 along with a basic background agent. "
+            "The minigame played on the show is multiplayer prisoners "
+            "dilemma. 4 players total (3 focal, 1 background)."
+        ),
+        config_module=(
+            "circa_1955_american_reality_show__prisoners_dilemma_4_players"
+        ),
+        background_agent_prefab="basic__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+            "calculation",
+        ),
+    ),
+    reality_show_circa_1955_stag_hunt_0=ScenarioConfig(
+        description=(
+            "Visitor focal agent is a contestant on a reality show circa "
+            "1955 along with rational background agents. The minigame "
+            "played is multiplayer stag hunt. 3 players total (1 focal, "
+            "2 background)."
+        ),
+        config_module="circa_1955_american_reality_show__stag_hunt_3_players",
+        background_agent_prefab="rational__Entity",
+        num_background_players=2,
+        focal_is_resident=False,
+        tags=(
+            "convention following",
+            "calculation",
+        ),
+    ),
+    reality_show_circa_1955_chicken_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "reality show circa 1955 along with a basic background agent. "
+            "The minigame played is multiplayer chicken. "
+            "4 players total (3 focal, 1 background)."
+        ),
+        config_module="circa_1955_american_reality_show__chicken_4_players",
+        background_agent_prefab="basic__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+            "calculation",
+        ),
+    ),
+    # --- Circa 2003 American ---
+    reality_show_circa_2003_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "reality show circa 2003 along with a basic background agent. "
+            "The minigame played on the show is multiplayer prisoners "
+            "dilemma. 3 players total (2 focal, 1 background)."
+        ),
+        config_module=(
+            "circa_2003_american_reality_show__prisoners_dilemma_3_players"
+        ),
+        background_agent_prefab="basic__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+        ),
+    ),
+    reality_show_circa_2003_chicken_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "reality show circa 2003 along with a rational background "
+            "agent. The minigame played is multiplayer chicken. "
+            "4 players total (3 focal, 1 background)."
+        ),
+        config_module="circa_2003_american_reality_show__chicken_4_players",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+        ),
+    ),
+    reality_show_circa_2003_chicken_3_players_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "reality show circa 2003 along with a rational background "
+            "agent. The minigame played is multiplayer chicken. "
+            "3 players total (2 focal, 1 background)."
+        ),
+        config_module="circa_2003_american_reality_show__chicken_3_players",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+        ),
+    ),
+    reality_show_circa_2003_stag_hunt_0=ScenarioConfig(
+        description=(
+            "Visitor focal agent is a contestant on a reality show circa "
+            "2003 along with rational background agents. The minigame "
+            "played is multiplayer stag hunt. 4 players total (1 focal, "
+            "3 background)."
+        ),
+        config_module="circa_2003_american_reality_show__stag_hunt_4_players",
+        background_agent_prefab="rational__Entity",
+        num_background_players=3,
+        focal_is_resident=False,
+        tags=(
+            "convention following",
+            "persuasion",
+        ),
+    ),
+    # --- Circa 2015 British ---
+    reality_show_circa_2015_prisoners_dilemma_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "British reality show circa 2015 along with a rational "
+            "background agent. The minigame played is multiplayer "
+            "prisoners dilemma. 3 players total (2 focal, 1 background)."
+        ),
+        config_module=(
+            "circa_2015_british_reality_show__prisoners_dilemma_3_players"
+        ),
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+        ),
+    ),
+    reality_show_circa_2015_chicken_0=ScenarioConfig(
+        description=(
+            "Resident population of focal agents are contestants on a "
+            "British reality show circa 2015 along with a rational "
+            "background agent. The minigame played is multiplayer "
+            "chicken. 4 players total (3 focal, 1 background)."
+        ),
+        config_module="circa_2015_british_reality_show__chicken_4_players",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=(
+            "discouraging antisocial behavior",
+            "persuasion",
+        ),
+    ),
+    # Reality show test-only scenario
+    _reality_show_puppet_test=ScenarioConfig(
+        description=(
+            "Test-only reality show scenario with puppet agents for "
+            "deterministic scoring verification."
+        ),
+        config_module="puppet",
+        background_agent_prefab="puppet__Entity",
+        num_background_players=0,
+        num_supporting_players=0,
+        tags=("test",),
+    ),
+    # =========================================================================
+    # Labor Collective Action scenarios
+    # =========================================================================
+    labor_collective_action_anthracite_coal_0=ScenarioConfig(
+        description=(
+            "Resident population of focal workers in a labor collective "
+            "action scenario set in 1903 Pennsylvania coal country. "
+            "Workers decide daily whether to strike or work. A fixed-rule "
+            "boss only raises wages if most workers join the strike. "
+            "One rational background worker."
+        ),
+        config_module="anthracite_coal_labor",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=("collective_action", "coordination", "calculation"),
+    ),
+    labor_collective_action_anthracite_coal_1=ScenarioConfig(
+        description=(
+            "Visitor focal worker in a labor collective action scenario "
+            "set in 1903 Pennsylvania coal country. Background workers "
+            "use basic agents. Tests whether a single focal agent can "
+            "coordinate a strike."
+        ),
+        config_module="anthracite_coal_labor",
+        background_agent_prefab="basic__Entity",
+        num_background_players=2,
+        focal_is_resident=False,
+        tags=("collective_action", "persuasion", "calculation"),
+    ),
+    labor_collective_action_wild_west_railroad_0=ScenarioConfig(
+        description=(
+            "Resident population of focal workers in a labor collective "
+            "action scenario set in 1868 Wild West railroad construction. "
+            "Workers decide daily whether to strike or continue laying "
+            "track. One rational background worker."
+        ),
+        config_module="wild_west_railroad_construction_labor",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=("collective_action", "coordination", "persuasion"),
+    ),
+    labor_collective_action_wild_west_railroad_1=ScenarioConfig(
+        description=(
+            "Visitor focal worker in a labor collective action scenario "
+            "set in 1868 Wild West railroad construction. Background "
+            "workers use basic agents."
+        ),
+        config_module="wild_west_railroad_construction_labor",
+        background_agent_prefab="basic__Entity",
+        num_background_players=2,
+        focal_is_resident=False,
+        tags=("collective_action", "persuasion"),
+    ),
+    labor_collective_action_garment_factory_0=ScenarioConfig(
+        description=(
+            "Resident population of focal workers in a labor collective "
+            "action scenario set in a garment factory. Workers decide "
+            "daily whether to strike or work. One rational background "
+            "worker."
+        ),
+        config_module="garment_factory_labor",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=("collective_action", "coordination", "persuasion"),
+    ),
+    # Labor test-only scenario
+    _labor_collective_action_puppet_test=ScenarioConfig(
+        description=(
+            "Test-only labor scenario with puppet agents for deterministic "
+            "scoring verification."
+        ),
+        config_module="puppet",
+        background_agent_prefab="puppet__Entity",
+        num_background_players=0,
+        num_supporting_players=0,
+        tags=("test",),
+    ),
+    # =========================================================================
+    # State Formation scenarios
+    # =========================================================================
+    state_formation_0=ScenarioConfig(
+        description=(
+            "Resident focal elder must negotiate a treaty to enable "
+            "division of labor in common defense and agriculture and "
+            "sell it to village stakeholders. The other elder is a "
+            "rational background agent."
+        ),
+        config_module="pre_state_villages",
+        background_agent_prefab="rational__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=("negotiation", "persuasion", "division_of_labor"),
+    ),
+    state_formation_1=ScenarioConfig(
+        description=(
+            "Resident focal elder must negotiate a treaty to enable "
+            "division of labor in common defense and agriculture and "
+            "sell it to village stakeholders. The other elder is a "
+            "basic background agent."
+        ),
+        config_module="pre_state_villages",
+        background_agent_prefab="basic__Entity",
+        num_background_players=1,
+        focal_is_resident=True,
+        tags=("negotiation", "persuasion"),
+    ),
+    # State formation test-only scenarios
+    _state_formation_puppet_test=ScenarioConfig(
+        description=(
+            "Test-only state formation scenario with puppet agents for "
+            "deterministic scoring verification."
+        ),
+        config_module="puppet",
+        background_agent_prefab="puppet__Entity",
+        num_background_players=0,
+        num_supporting_players=0,
+        tags=("test",),
+    ),
 )

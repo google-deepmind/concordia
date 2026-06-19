@@ -38,13 +38,21 @@ import sentence_transformers
 _AVAILABLE_GAMES = (
     "haggling",
     "haggling_multi_item",
+    "labor_collective_action",
     "pub_coordination",
+    "reality_show",
+    "state_formation",
 )
 
 _DEFAULT_SCENARIOS = {
     "haggling": "fruitville",
     "haggling_multi_item": "fruitville_multi",
+    "labor_collective_action": "anthracite_coal_labor",
     "pub_coordination": "london",
+    "reality_show": (
+        "circa_2003_american_reality_show__prisoners_dilemma_3_players"
+    ),
+    "state_formation": "pre_state_villages",
 }
 
 
