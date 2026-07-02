@@ -25,6 +25,7 @@ echo
 echo
 
 echo "pytype examples..."
+rm -rf .pytype
 pytype examples || FAILURES=true
 echo
 echo
