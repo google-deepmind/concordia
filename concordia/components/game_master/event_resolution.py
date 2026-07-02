@@ -209,7 +209,7 @@ class EventResolution(
       putative_action = f'Putative event to resolve: {putative_action}'
       prompt.statement(putative_action)
       prompt, event_statement = run_chain_of_thought(
-          thoughts=self._event_resolution_steps,
+          thoughts=self._event_resolution_steps,  # pyrefly: ignore[bad-argument-type]
           premise=putative_action,
           document=prompt,
           active_player_name=self._active_entity_name,
@@ -355,9 +355,9 @@ class DisplayEvents(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
     if 'num_events_to_retrieve' in state:
-      self._num_events_to_retrieve = state['num_events_to_retrieve']
+      self._num_events_to_retrieve = state['num_events_to_retrieve']  # pyrefly: ignore[bad-assignment]
 
 
 class SendEventToRelevantPlayers(
@@ -518,15 +518,15 @@ class SendEventToRelevantPlayers(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._queue = state['_queue']
+    self._queue = state['_queue']  # pyrefly: ignore[bad-assignment]
     action_spec_dict = state['_last_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._last_action_spec = entity_lib.action_spec_from_dict(
-          action_spec_dict
+          action_spec_dict  # pyrefly: ignore[bad-argument-type]
       )
     else:
       self._last_action_spec = None
-    self._map_names_to_previous_observations = state[
+    self._map_names_to_previous_observations = state[  # pyrefly: ignore[bad-assignment]
         '_map_names_to_previous_observations'
     ]
 

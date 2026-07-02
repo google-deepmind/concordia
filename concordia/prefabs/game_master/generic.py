@@ -32,7 +32,7 @@ from concordia.typing import prefab as prefab_lib
 class GameMaster(prefab_lib.Prefab):
   """A prefab entity implementing a generic game master."""
 
-  description: str = 'A general purpose game master.'
+  description: str = 'A general purpose game master.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'default rules',
@@ -265,7 +265,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     game_master = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=name,
+        agent_name=name,  # pyrefly: ignore[bad-argument-type]
         act_component=act_component,
         context_components=components_of_game_master,
         measurements=self.params.get('measurements'),

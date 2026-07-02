@@ -122,9 +122,10 @@ class GameMaster(prefab_lib.Prefab):
   """A prefab game master specialized for handling conversation.
   """
 
+  # pyrefly: ignore[bad-override]
   description: str = ('A game master specialized for handling matrix game. '
                       'decisions, designed to be used with scenes.')
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': DEFAULT_NAME,
           'scenes': (),
@@ -208,7 +209,7 @@ class GameMaster(prefab_lib.Prefab):
             observation_component_key,
             display_events_key,
         ],
-        external_queue=external_queue,
+        external_queue=external_queue,  # pyrefly: ignore[bad-argument-type]
         allow_llm_fallback=False,
     )
 
@@ -254,7 +255,7 @@ class GameMaster(prefab_lib.Prefab):
     )
     scene_tracker = gm_components.scene_tracker.SceneTracker(
         model=model,
-        scenes=scenes,
+        scenes=scenes,  # pyrefly: ignore[bad-argument-type]
         observation_component_key=(
             gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
         ),
@@ -275,7 +276,7 @@ class GameMaster(prefab_lib.Prefab):
         display_events_key: display_events,
         observation_component_key: observation,
         actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
-            actor_components.memory.AssociativeMemory(memory_bank=memory_bank)
+            actor_components.memory.AssociativeMemory(memory_bank=memory_bank)  # pyrefly: ignore[bad-argument-type]
         ),
         make_observation_key: make_observation,
         gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: next_actor,
@@ -300,7 +301,7 @@ class GameMaster(prefab_lib.Prefab):
         agent_name=name,
         act_component=act_component,
         context_components=components_of_game_master,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return game_master

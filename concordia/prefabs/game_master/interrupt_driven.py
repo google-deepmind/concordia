@@ -129,7 +129,7 @@ class GameMaster(prefab_lib.Prefab):
     extra_components_index: Indices for extra components in the order.
   """
 
-  description: str = 'An interrupt-driven game master with selective attention.'
+  description: str = 'An interrupt-driven game master with selective attention.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'interrupt_driven_rules',

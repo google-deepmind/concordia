@@ -391,12 +391,12 @@ class Inventory(
           if invalid:
             raise RuntimeError(f'{key} inventory has invalid {invalid} types.')
           config.check_valid(new_inventories[key][item_type])
-      self._inventories = copy.deepcopy(new_inventories)
+      self._inventories = copy.deepcopy(new_inventories)  # pyrefly: ignore[bad-assignment]
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      self._inventories = state['inventories']
+      self._inventories = state['inventories']  # pyrefly: ignore[bad-assignment]
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
@@ -475,7 +475,7 @@ class Score(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._inventory.set_state(state['inventory'])
+    self._inventory.set_state(state['inventory'])  # pyrefly: ignore[bad-argument-type]
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""

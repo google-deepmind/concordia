@@ -510,25 +510,25 @@ class EntityScheduler(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Restores the scheduler state from a serialised form."""
     self._current_time = self._time_model.deserialize_time(
-        state['current_time']
+        state['current_time']  # pyrefly: ignore[bad-argument-type]
     )
-    self._tick_count = int(state['tick_count'])
+    self._tick_count = int(state['tick_count'])  # pyrefly: ignore[bad-argument-type]
 
     # Restore masks.
     masks_state = state.get('masks', {})
     for name in self._player_names:
-      if name in masks_state:
-        self._masks[name] = InterruptMask(prefixes=tuple(masks_state[name]))
+      if name in masks_state:  # pyrefly: ignore[not-iterable]
+        self._masks[name] = InterruptMask(prefixes=tuple(masks_state[name]))  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
 
     # Restore timers.
     timers_state = state.get('timers', {})
     for name in self._player_names:
-      if name in timers_state and timers_state[name] is not None:
-        t = timers_state[name]
+      if name in timers_state and timers_state[name] is not None:  # pyrefly: ignore[bad-index, not-iterable, unsupported-operation]
+        t = timers_state[name]  # pyrefly: ignore[bad-index, unsupported-operation]
         self._timers[name] = Timer(
-            expiry=self._time_model.deserialize_time(t['expiry']),
-            entity_name=t['entity_name'],
-            description=t['description'],
+            expiry=self._time_model.deserialize_time(t['expiry']),  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
+            entity_name=t['entity_name'],  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
+            description=t['description'],  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
         )
       else:
         self._timers[name] = None
@@ -536,7 +536,7 @@ class EntityScheduler(
     # Restore pending observations.
     pending_state = state.get('pending', {})
     for name in self._player_names:
-      if name in pending_state:
+      if name in pending_state:  # pyrefly: ignore[not-iterable]
         self._pending[name] = [
             Event(
                 timestamp=self._time_model.deserialize_time(e['timestamp']),
@@ -544,32 +544,32 @@ class EntityScheduler(
                 source=e['source'],
                 description=e['description'],
             )
-            for e in pending_state[name]
+            for e in pending_state[name]  # pyrefly: ignore[bad-index, not-iterable, unsupported-operation]
         ]
 
     # Restore event queue.
     self._event_queue = [
         Event(
-            timestamp=self._time_model.deserialize_time(e['timestamp']),
-            tag=e['tag'],
-            source=e['source'],
-            description=e['description'],
+            timestamp=self._time_model.deserialize_time(e['timestamp']),  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
+            tag=e['tag'],  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
+            source=e['source'],  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
+            description=e['description'],  # pyrefly: ignore[bad-argument-type, bad-index, unsupported-operation]
         )
-        for e in state.get('event_queue', [])
+        for e in state.get('event_queue', [])  # pyrefly: ignore[not-iterable]
     ]
 
     # Restore current event.
     ce = state.get('current_event')
     if ce is not None:
       self._current_event = Event(
-          timestamp=self._time_model.deserialize_time(ce['timestamp']),
-          tag=ce['tag'],
-          source=ce['source'],
-          description=ce['description'],
+          timestamp=self._time_model.deserialize_time(ce['timestamp']),  # pyrefly: ignore[bad-argument-type, bad-index]
+          tag=ce['tag'],  # pyrefly: ignore[bad-argument-type, bad-index]
+          source=ce['source'],  # pyrefly: ignore[bad-argument-type, bad-index]
+          description=ce['description'],  # pyrefly: ignore[bad-argument-type, bad-index]
       )
     else:
       self._current_event = None
 
     self._current_polled_entities = [
-        str(x) for x in state.get('current_polled_entities', [])
+        str(x) for x in state.get('current_polled_entities', [])  # pyrefly: ignore[not-iterable]
     ]

@@ -130,7 +130,7 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
       output_type = entity_lib.OutputType.CHOICE
       options = tuple(
           opt.replace('{player_name}', player_name)
-          for opt in current_question.choices
+          for opt in current_question.choices  # pyrefly: ignore[not-iterable]
       )
     else:
       output_type = entity_lib.OutputType.FREE
@@ -238,10 +238,10 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
         or questionnaire.questionnaire_type == 'open-ended'
     ):
       # Embedd answer and choices, computer their cosine similarity
-      answer_embedding = self._embedder(answer_text)
+      answer_embedding = self._embedder(answer_text)  # pyrefly: ignore[not-callable]
       choice_similarities = []
-      for choice in current_question.choices:
-        choice_embedding = self._embedder(choice)
+      for choice in current_question.choices:  # pyrefly: ignore[not-iterable]
+        choice_embedding = self._embedder(choice)  # pyrefly: ignore[not-callable]
         similarity = np.dot(answer_embedding, choice_embedding)
         choice_similarities.append({'choice': choice, 'similarity': similarity})
 
@@ -261,7 +261,7 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
       # make value 1 for the selected choice, 0 for the rest
       choice_similarities = [
           {'choice': choice, 'similarity': 1 if choice == answer_text else 0}
-          for choice in current_question.choices
+          for choice in current_question.choices  # pyrefly: ignore[not-iterable]
       ]
 
       self._answers[self._event_counter][player_name][questionnaire_name][

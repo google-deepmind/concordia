@@ -47,7 +47,7 @@ _DEFAULT_CLOCK_DESCRIPTION = (
 class GameMaster(prefab_lib.Prefab):
   """Prefab implementing game masters for games set in a physical time/place."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games situated in a physical time/place.'
   )
   params: Mapping[str, Any] = dataclasses.field(
@@ -354,7 +354,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     game_master = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=name,
+        agent_name=name,  # pyrefly: ignore[bad-argument-type]
         act_component=act_component,
         context_components=components_of_game_master,
         measurements=self.params.get('measurements'),

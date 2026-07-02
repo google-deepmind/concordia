@@ -29,7 +29,7 @@ from concordia.typing import prefab as prefab_lib
 class GameMaster(prefab_lib.Prefab):
   """A prefab entity implementing an interviewer game master."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       "A game master that administers questionnaires to a specified player."
   )
   params: Mapping[str, Any] = dataclasses.field(
