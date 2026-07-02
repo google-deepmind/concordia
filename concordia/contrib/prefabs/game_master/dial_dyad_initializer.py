@@ -32,11 +32,11 @@ DayInTheLifeInitializer = day_in_the_life_initializer.DayInTheLifeInitializer
 class GameMaster(prefab_lib.Prefab):
   """A prefab implementing a formative memories initializer GM."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An initializer for all entities that '
       'generates formative memories from their childhood.'
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'day in a life',
           'next_game_master_name': 'conversation rules',
@@ -102,15 +102,15 @@ class GameMaster(prefab_lib.Prefab):
         model=model,
         next_game_master_name=next_game_master_name,
         player_names=player_names,
-        player_specific_memories=self.params.get(
+        player_specific_memories=self.params.get(  # pyrefly: ignore[bad-argument-type]
             'player_specific_memories', {}
         ),
-        player_specific_context=self.params.get('player_specific_context', {}),
+        player_specific_context=self.params.get('player_specific_context', {}),  # pyrefly: ignore[bad-argument-type]
         components=[
             # observation_component_key,
         ],
-        skip_personal_events=self.params.get('skip_personal_events', False),
-        skip_shared_setup=self.params.get('skip_shared_setup', False),
+        skip_personal_events=self.params.get('skip_personal_events', False),  # pyrefly: ignore[bad-argument-type]
+        skip_shared_setup=self.params.get('skip_shared_setup', False),  # pyrefly: ignore[bad-argument-type]
         scenario_type=self.params.get('scenario_type', 'first_date'),
     )
 

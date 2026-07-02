@@ -69,7 +69,7 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
 
 
 class LastNObservations(
@@ -131,9 +131,9 @@ class LastNObservations(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
     if 'history_length' in state:
-      self._history_length = state['history_length']
+      self._history_length = state['history_length']  # pyrefly: ignore[bad-assignment]
 
 
 class ObservationsSinceLastPreAct(
@@ -204,7 +204,7 @@ class ObservationsSinceLastPreAct(
     with self._lock:
       # Support loading from both old and new state formats.
       if 'last_seen_index' in state:
-        self._last_seen_index = state['last_seen_index']
+        self._last_seen_index = state['last_seen_index']  # pyrefly: ignore[bad-assignment]
       elif 'num_since_last_pre_act' in state:
         # Legacy format — can't reconstruct exact index, so start fresh.
         self._last_seen_index = 0

@@ -187,7 +187,7 @@ def create_simulation_for_dyad(
       prefab_lib.InstanceConfig(
           prefab=dial_prefab,
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               'name': 'day in a life',
               'next_game_master_name': (
                   '' if skip_shared_setup else 'conversation rules'

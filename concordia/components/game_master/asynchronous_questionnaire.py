@@ -147,7 +147,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
         output_type = entity_lib.OutputType.CHOICE
         options = tuple(
             opt.replace('{player_name}', player_name)
-            for opt in question.choices
+            for opt in question.choices  # pyrefly: ignore[not-iterable]
         )
       else:
         output_type = entity_lib.OutputType.FREE
@@ -267,7 +267,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
             if self._embedder:
               answer_embedding = self._embedder(answer_text)
               choice_similarities = []
-              for choice in question.choices:
+              for choice in question.choices:  # pyrefly: ignore[not-iterable]
                 choice_embedding = self._embedder(choice)
                 similarity = np.dot(answer_embedding, choice_embedding)
                 choice_similarities.append({
@@ -283,7 +283,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
                     'choice': choice,
                     'similarity': 1 if choice == answer_text else 0,
                 }
-                for choice in question.choices
+                for choice in question.choices  # pyrefly: ignore[not-iterable]
             ]
           else:
             value = answer_text

@@ -123,7 +123,7 @@ class Sequential(engine_lib.Engine):
     )
     if log is not None and hasattr(game_master, 'get_last_log'):
       assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-      log_entry['next_acting'] = game_master.get_last_log()
+      log_entry['next_acting'] = game_master.get_last_log()  # pyrefly: ignore[unsupported-operation]
     next_action_spec_string = game_master.act(
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_next_action_spec.format(
@@ -133,7 +133,7 @@ class Sequential(engine_lib.Engine):
     )
     if log is not None and hasattr(game_master, 'get_last_log'):
       assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-      log_entry['next_action_spec'] = game_master.get_last_log()
+      log_entry['next_action_spec'] = game_master.get_last_log()  # pyrefly: ignore[unsupported-operation]
     next_action_spec = engine_lib.action_spec_parser(next_action_spec_string)
 
     # Validate entity name from LLM to prevent KeyError
@@ -145,7 +145,7 @@ class Sequential(engine_lib.Engine):
 
     return (entities_by_name[next_object_name], next_action_spec)
 
-  def resolve(self,
+  def resolve(self,  # pyrefly: ignore[bad-override]
               game_master: entity_lib.Entity,
               putative_event: str,
               verbose: bool = False) -> None:

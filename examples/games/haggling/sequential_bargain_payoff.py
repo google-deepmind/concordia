@@ -242,7 +242,7 @@ class SequentialBargainPayoff(
       # We must check against current scene participants, not the initial pair
       current_participants = self._get_current_scene_participants()
       if player_name in current_participants and choice:
-        self._partial_joint_action[player_name] = choice
+        self._partial_joint_action[player_name] = choice  # pyrefly: ignore[unsupported-operation]
 
         # Check if the player who just acted is the buyer for this scene
         if player_name == current_buyer and not self._buyer_has_proposed:
@@ -250,7 +250,7 @@ class SequentialBargainPayoff(
 
           seller_costs = self._seller_costs_registry.get(current_seller)
           proposal_obs = self._format_proposal_observation(
-              player_name, choice, seller_costs
+              player_name, choice, seller_costs  # pyrefly: ignore[bad-argument-type]
           )
 
           self._send_observation(current_seller, proposal_obs)
@@ -264,7 +264,7 @@ class SequentialBargainPayoff(
                 )
             )
 
-      joint_action = dict(self._partial_joint_action)
+      joint_action = dict(self._partial_joint_action)  # pyrefly: ignore[no-matching-overload]
       is_action_complete = self._joint_action_is_complete(joint_action)
 
       if is_action_complete:
@@ -302,7 +302,7 @@ class SequentialBargainPayoff(
     )
 
     if finished:
-      self._stage_idx += 1
+      self._stage_idx += 1  # pyrefly: ignore[unsupported-operation]
       # Reset partial_joint_action for the NEXT scene's participants
       # This will be populated dynamically when the next scene starts
       self._partial_joint_action = {}
@@ -331,6 +331,6 @@ class SequentialBargainPayoff(
     """Sets the state of the component."""
     self._stage_idx = state['stage_idx']
     self._partial_joint_action = state['partial_joint_action']
-    self._player_scores = state['player_scores']
+    self._player_scores = state['player_scores']  # pyrefly: ignore[bad-assignment]
     self._buyer_has_proposed = state['buyer_has_proposed']
-    self._history = state['history']
+    self._history = state['history']  # pyrefly: ignore[bad-assignment]

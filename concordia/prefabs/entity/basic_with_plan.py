@@ -28,13 +28,13 @@ from concordia.typing import prefab as prefab_lib
 class Entity(prefab_lib.Prefab):
   """A prefab implementing a basic actor entity with planning."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking "What situation am I in right'
       ' now?", "What kind of person am I?", and "What would a person like me do'
       ' in a situation like this?" and building a plan based on the answers.'
       ' It then tries to execute the plan.'
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
@@ -161,9 +161,9 @@ class Entity(prefab_lib.Prefab):
     component_order = list(components_of_agent.keys())
 
     if overarching_goal is not None:
-      components_of_agent[goal_key] = overarching_goal
+      components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
       # Place goal after the instructions.
-      component_order.insert(1, goal_key)
+      component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
 
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
@@ -174,7 +174,7 @@ class Entity(prefab_lib.Prefab):
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return agent

@@ -152,13 +152,13 @@ class EnvironmentPrefabsTest(parameterized.TestCase):
 
     if scenes is not None:
       params = dict(copy.copy(environment_config.params))
-      params['scenes'] = scenes
-      environment_config.params = params
+      params['scenes'] = scenes  # pyrefly: ignore[unsupported-operation]
+      environment_config.params = params  # pyrefly: ignore[bad-assignment]
 
     if prefab_name == 'scripted':
       params = dict(copy.copy(environment_config.params))
-      params['script'] = _CONSTANT_SCRIPT
-      environment_config.params = params
+      params['script'] = _CONSTANT_SCRIPT  # pyrefly: ignore[unsupported-operation]
+      environment_config.params = params  # pyrefly: ignore[bad-assignment]
 
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,

@@ -219,15 +219,15 @@ class FixedIncrementClock(
         and increment_minutes is not None
         and increment_rules is not None
     ):
-      parsed_start_time = self._parse_time(start_time_str)
-      step_timedelta = datetime.timedelta(minutes=increment_minutes)
+      parsed_start_time = self._parse_time(start_time_str)  # pyrefly: ignore[bad-argument-type]
+      step_timedelta = datetime.timedelta(minutes=increment_minutes)  # pyrefly: ignore[bad-argument-type]
       self._game_clock = _FixedIntervalClock(
           start=parsed_start_time, step_size=step_timedelta
       )
-      self._game_clock._step = step  # pylint: disable=protected-access
-      self._increment_minutes = increment_minutes
-      self._use_variable_increments = state.get('use_variable_increments', True)
-      self._increment_rules = increment_rules
+      self._game_clock._step = step  # pylint: disable=protected-access  # pyrefly: ignore[bad-assignment]
+      self._increment_minutes = increment_minutes  # pyrefly: ignore[bad-assignment]
+      self._use_variable_increments = state.get('use_variable_increments', True)  # pyrefly: ignore[bad-assignment]
+      self._increment_rules = increment_rules  # pyrefly: ignore[bad-assignment]
     else:
       self._log('Warning: Could not fully restore FixedIncrementClock state.')
 
@@ -261,7 +261,7 @@ _DEFAULT_CLOCK_DESCRIPTION = (
 class GameMasterSimultaneous(prefab_lib.Prefab):
   """A prefab entity implementing a game master for games with simultaneous event resolution."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games with simultaneous event resolution.'
   )
   params: Mapping[str, Any] = dataclasses.field(
@@ -363,7 +363,7 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
 
     locations_constant_key = 'locations_constant'
     locations_constant = actor_components.constant.Constant(
-        self.params.get('locations'), pre_act_label='Locations'
+        self.params.get('locations'), pre_act_label='Locations'  # pyrefly: ignore[bad-argument-type]
     )
 
     clock_constant_key = 'clock_constant'
@@ -628,16 +628,16 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
     }
     if use_narrative_history_manager:
       components_of_game_master[narrative_history_key] = (
-          narrative_history_component
+          narrative_history_component  # pyrefly: ignore[unsupported-operation]
       )
     if use_location_based_filter:
-      components_of_game_master[location_filter_key] = location_filter_component
+      components_of_game_master[location_filter_key] = location_filter_component  # pyrefly: ignore[unsupported-operation]
     if use_gm_working_memory:
       components_of_game_master[gm_working_memory_key] = (
-          gm_working_memory_component
+          gm_working_memory_component  # pyrefly: ignore[unsupported-operation]
       )
     if use_npc_events:
-      components_of_game_master[npc_event_key] = npc_event_component
+      components_of_game_master[npc_event_key] = npc_event_component  # pyrefly: ignore[unsupported-operation]
 
     # 11. Define Execution Order
     component_order = list(components_of_game_master.keys())

@@ -107,8 +107,8 @@ class Document:
       tags: Collection[str] = (),
   ) -> None:
     """Appends text to the document."""
-    text = Content(text=text, tags=frozenset(tags))
-    self._contents += (text,)
+    text = Content(text=text, tags=frozenset(tags))  # pyrefly: ignore[bad-assignment]
+    self._contents += (text,)  # pyrefly: ignore[bad-assignment]
 
   def extend(self, contents: Iterable[Content]) -> None:
     """Extends the document with the provided contents."""
@@ -120,7 +120,7 @@ class Document:
 
   def new(self: T) -> T:
     """Returns an empty copy of this document."""
-    document = self.copy()
+    document = self.copy()  # pyrefly: ignore[missing-attribute]
     document.clear()
     return document
 
@@ -135,9 +135,9 @@ class Document:
     Yields:
       The document being edited.
     """
-    edit = self.new()
+    edit = self.new()  # pyrefly: ignore[missing-attribute]
     yield edit
-    self.extend(edit.contents())
+    self.extend(edit.contents())  # pyrefly: ignore[missing-attribute]
 
 
 class View:

@@ -61,7 +61,7 @@ class PubCoordinationPayoff:
       self, joint_action: Mapping[str, str]
   ) -> Mapping[str, float]:
     """Maps joint actions to scores for each player."""
-    self._latest_joint_action = joint_action
+    self._latest_joint_action = joint_action  # pyrefly: ignore[bad-assignment]
     scores = {}
     for player in self._player_names:
       choice = joint_action.get(player)
@@ -112,7 +112,7 @@ class PubCoordinationPayoff:
     for player in self._player_names:
       choice = joint_action.get(player)
       score = scores.get(player, 0.0)
-      was_pub_closed = self._option_multipliers.get(choice) == 0.0
+      was_pub_closed = self._option_multipliers.get(choice) == 0.0  # pyrefly: ignore[bad-argument-type]
 
       # Sentiment
       if score > 0.9:
@@ -585,7 +585,7 @@ def run_simulation(
         prefab_lib.InstanceConfig(
             prefab="puppet__Entity",
             role=prefab_lib.Role.ENTITY,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 "name": name,
                 "fixed_responses": {
                     getattr(config_lib, "CALL_TO_SPEECH").format(
@@ -632,7 +632,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
               "shared_memories": shared_memories,
@@ -645,7 +645,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="conversation_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
               "scenes": scenes,
           },
@@ -668,7 +668,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="decision_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
               "scenes": scenes,
               "action_to_scores": payoff.action_to_scores,

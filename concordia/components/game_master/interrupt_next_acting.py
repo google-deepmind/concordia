@@ -183,9 +183,9 @@ class InterruptNextActing(
           },
       }
       if initial_events_snapshot is not None:
-        log_data['Initial Events'] = initial_events_snapshot
+        log_data['Initial Events'] = initial_events_snapshot  # pyrefly: ignore[bad-assignment]
       if initial_entity_states is not None:
-        log_data['Initial Entity States'] = initial_entity_states
+        log_data['Initial Entity States'] = initial_entity_states  # pyrefly: ignore[bad-assignment]
       self._logging_channel(log_data)
       return result
 

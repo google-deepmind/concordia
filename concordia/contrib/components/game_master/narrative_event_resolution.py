@@ -1275,7 +1275,7 @@ Now, rewrite the observation for {player_name}, filtering out any information {p
     generative_clock = self.get_entity().get_component(
         self._generative_clock_key,
     )
-    generative_clock.advance_by_minutes(self._time_period_minutes)
+    generative_clock.advance_by_minutes(self._time_period_minutes)  # pyrefly: ignore[missing-attribute]
 
     result_message = (
         f"Narrative for {self._time_period_minutes}m (from {current_time_str})"

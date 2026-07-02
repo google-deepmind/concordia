@@ -428,7 +428,7 @@ class DayInTheLifeInitializer(
       memory.add(f'[DITL Personal Event] {player2}: "{event}"')
 
     if shared_event:
-      make_observation.add_to_queue(player2, shared_event_str)
+      make_observation.add_to_queue(player2, shared_event_str)  # pyrefly: ignore[unbound-name]
       memory.add(
           f'[DITL Shared Setup] {player1} and {player2}: "{shared_event}"'
       )
@@ -452,7 +452,7 @@ class DayInTheLifeInitializer(
       )
       log_key = f'{self._pre_act_label} Internal Scene ({player1})'
     else:  # All two-player scenarios
-      p2_background = self._get_player_background(player2)
+      p2_background = self._get_player_background(player2)  # pyrefly: ignore[bad-argument-type]
 
       if self._scenario_type == 'first_date':
         prompt_template = SHARED_DIALOGUE_SETUP_PROMPT
@@ -475,7 +475,7 @@ class DayInTheLifeInitializer(
           player1_wearing_statement=self._player_specific_context[player1][
               'wearing'
           ],
-          player2_wearing_statement=self._player_specific_context[player2][
+          player2_wearing_statement=self._player_specific_context[player2][  # pyrefly: ignore[bad-index]
               'wearing'
           ],
           **{theme_key: random.choice(_DATE_THEMES)},
@@ -489,7 +489,7 @@ class DayInTheLifeInitializer(
 
     if self._scenario_type != 'single_rumination':
       # For two-player scenarios, assert player 2's wearing statement.
-      p2_wearing_statement = self._player_specific_context[player2]['wearing']
+      p2_wearing_statement = self._player_specific_context[player2]['wearing']  # pyrefly: ignore[bad-index]
       assert (
           p2_wearing_statement.strip()
       ), 'Player 2 wearing statement is empty.'
@@ -550,4 +550,4 @@ class DayInTheLifeInitializer(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._initialized = state.get('initialized', False)
+    self._initialized = state.get('initialized', False)  # pyrefly: ignore[bad-assignment]

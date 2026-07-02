@@ -163,7 +163,7 @@ class QuestionOfRecentMemories(
     }
 
     if self._clock_now is not None:
-      log['Time'] = self._clock_now()
+      log['Time'] = self._clock_now()  # pyrefly: ignore[bad-assignment]
 
     self._logging_channel(log)
 
@@ -198,11 +198,11 @@ class QuestionOfRecentMemories(
       if 'memory_component_key' in state:
         self._memory_component_key = str(state['memory_component_key'])
       if 'components' in state:
-        self._components = tuple(state['components'])
+        self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
       if 'terminators' in state:
-        self._terminators = tuple(state['terminators'])
+        self._terminators = tuple(state['terminators'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
       if 'num_memories_to_retrieve' in state:
-        self._num_memories_to_retrieve = state['num_memories_to_retrieve']
+        self._num_memories_to_retrieve = state['num_memories_to_retrieve']  # pyrefly: ignore[bad-assignment]
 
 
 class QuestionOfRecentMemoriesWithoutPreAct(

@@ -190,7 +190,7 @@ class ComponentWithLogging(BaseComponent):
 
   def set_logging_channel(self, logging_channel: logging_lib.LoggingChannel):
     """Sets the logging channel for the component."""
-    self._logging_channel = logging_channel
+    self._logging_channel = logging_channel  # pyrefly: ignore[bad-assignment]
 
 
 class EntityWithComponents(entity_lib.Entity):

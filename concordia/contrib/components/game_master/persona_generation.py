@@ -360,7 +360,7 @@ class PersonaInitializer(
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    self._initialized = state.get('initialized', False)
+    self._initialized = state.get('initialized', False)  # pyrefly: ignore[bad-assignment]
     self._persona_data = cast(
         list[dict[str, Any]], state.get('persona_data', [])
     )

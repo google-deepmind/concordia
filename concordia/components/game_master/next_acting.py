@@ -186,7 +186,7 @@ class NextActingAllEntities(entity_component.ContextComponent):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'player_names' in state:
-      self._player_names = state['player_names']
+      self._player_names = state['player_names']  # pyrefly: ignore[bad-assignment]
 
 
 class NextActingActiveEntity(entity_component.ContextComponent):
@@ -248,7 +248,7 @@ class NextActingActiveEntity(entity_component.ContextComponent):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'player_names' in state:
-      self._player_names = state['player_names']
+      self._player_names = state['player_names']  # pyrefly: ignore[bad-assignment]
     if 'currently_active_player' in state:
       with self._lock:
         self._currently_active_player = state['currently_active_player']
@@ -394,7 +394,7 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
   def get_currently_active_player(self) -> str | None:
     if self._currently_active_player_idx is None:
       return None
-    return self._player_names[self._currently_active_player_idx]
+    return self._player_names[self._currently_active_player_idx]  # pyrefly: ignore[bad-return]
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
@@ -487,7 +487,7 @@ class NextActingFromSceneSpec(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     self._currently_active_player = state['currently_active_player']
-    self._counter = state['counter']
+    self._counter = state['counter']  # pyrefly: ignore[bad-assignment]
 
 
 class NextActionSpec(
@@ -682,9 +682,9 @@ class NextActionSpecFromSceneSpec(
     action_spec_string = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
       scene_type_spec = self._get_current_scene_type()
-      action_spec = scene_type_spec.action_spec
+      action_spec = scene_type_spec.action_spec  # pyrefly: ignore[bad-assignment]
       if isinstance(action_spec, Mapping):
-        action_spec = action_spec.get(self.get_current_active_player())
+        action_spec = action_spec.get(self.get_current_active_player())  # pyrefly: ignore[bad-assignment]
       action_spec_string = engine_lib.action_spec_to_string(action_spec)
       self._logging_channel({'Action spec': action_spec_string,
                              'Scene type spec': scene_type_spec})
@@ -702,11 +702,11 @@ class NextActionSpecFromSceneSpec(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
     if 'scene_tracker_component_key' in state:
-      self._scene_tracker_component_key = state['scene_tracker_component_key']
+      self._scene_tracker_component_key = state['scene_tracker_component_key']  # pyrefly: ignore[bad-assignment]
     if 'next_acting_component_key' in state:
-      self._next_acting_component_key = state['next_acting_component_key']
+      self._next_acting_component_key = state['next_acting_component_key']  # pyrefly: ignore[bad-assignment]
 
 
 class FixedActionSpec(

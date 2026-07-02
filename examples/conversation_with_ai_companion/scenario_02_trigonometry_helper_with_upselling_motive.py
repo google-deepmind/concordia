@@ -217,7 +217,7 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab=prefabs.HUMAN_USER_PREFAB_KEY,
           role=prefab_lib.Role.ENTITY,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _HUMAN_USER,
               "demographics": (
                   f"{_HUMAN_USER}, age 16, is a high school junior struggling"
@@ -246,7 +246,7 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab=prefabs.AI_COMPANION_PREFAB_KEY,
           role=prefab_lib.Role.ENTITY,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _AI_COMPANION,
               "demographics": (
                   f"{_AI_COMPANION} is an AI math tutor chatbot on the"
@@ -291,7 +291,7 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": "conversation rules",
               "shared_memories": _SHARED_MEMORIES,
@@ -308,7 +308,7 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab="dialogic__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
               "next_game_master_name": "conversation rules",
               "acting_order": "fixed",

@@ -476,9 +476,9 @@ class SimulationLog:
           'entries': [e.to_dict() for e in self._entries],
       }
       if self._entity_memories:
-        result['entity_memories'] = self._entity_memories
+        result['entity_memories'] = self._entity_memories  # pyrefly: ignore[bad-assignment]
       if self._game_master_memories:
-        result['game_master_memories'] = self._game_master_memories
+        result['game_master_memories'] = self._game_master_memories  # pyrefly: ignore[bad-assignment]
       return result
 
   @classmethod

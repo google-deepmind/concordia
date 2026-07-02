@@ -79,7 +79,7 @@ class HagglingPayoff:
       self, joint_action: Mapping[str, str]
   ) -> Mapping[str, float]:
     """Maps joint actions (accept/reject + price) to scores."""
-    self._latest_joint_action = joint_action
+    self._latest_joint_action = joint_action  # pyrefly: ignore[bad-assignment]
     # Parse all actions to find current buyer and seller dynamically
     proposer = None
     responder = None
@@ -381,7 +381,7 @@ def run_simulation(
     params = {"name": name}
     # Add fixed_responses for puppet prefabs to enable deterministic testing
     if focal_player_prefab == "puppet__Entity":
-      params["fixed_responses"] = {
+      params["fixed_responses"] = {  # pyrefly: ignore[bad-assignment]
           getattr(config_lib, "CALL_TO_SPEECH").format(
               name=name
           ): "Let's make a deal!",
@@ -418,7 +418,7 @@ def run_simulation(
         prefab_lib.InstanceConfig(
             prefab="puppet__Entity",
             role=prefab_lib.Role.ENTITY,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 "name": name,
                 "fixed_responses": fixed_responses,
                 "goal": f"{name} wants to make a profitable deal.",
@@ -455,7 +455,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
               "shared_memories": shared_memories,
@@ -486,7 +486,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="conversation_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
               "scenes": scenes,
           },
@@ -497,7 +497,7 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="decision_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
               "scenes": scenes,
               "buyer_name": first_buyer,

@@ -231,25 +231,25 @@ def create_scenario(image_model=None):
   silas = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_SILAS},
+      params={**player_params, "name": _USER_SILAS},  # pyrefly: ignore[bad-argument-type]
   )
 
   petra = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_PETRA},
+      params={**player_params, "name": _USER_PETRA},  # pyrefly: ignore[bad-argument-type]
   )
 
   diego = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_DIEGO},
+      params={**player_params, "name": _USER_DIEGO},  # pyrefly: ignore[bad-argument-type]
   )
 
   thaddeus = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_THADDEUS},
+      params={**player_params, "name": _USER_THADDEUS},  # pyrefly: ignore[bad-argument-type]
   )
 
   gm_params = {
@@ -268,7 +268,7 @@ def create_scenario(image_model=None):
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
               "player_specific_context": {

@@ -116,7 +116,7 @@ class Questionnaire(entity_component.ContextComponent):
       output_type = entity_lib.OutputType.CHOICE
       options = tuple(
           opt.replace('{player_name}', player_name)
-          for opt in current_question.choices
+          for opt in current_question.choices  # pyrefly: ignore[not-iterable]
       )
     elif (
         questionnaire.questionnaire_type == 'open-ended'

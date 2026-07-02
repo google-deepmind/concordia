@@ -149,7 +149,7 @@ class Simulation(simulation_lib.Simulation):
     """
     return copy.copy(self.entities)
 
-  def add_game_master(
+  def add_game_master(  # pyrefly: ignore[bad-override]
       self,
       instance_config: prefab_lib.InstanceConfig,
       state: entity_component.EntityState | None = None,
@@ -180,7 +180,7 @@ class Simulation(simulation_lib.Simulation):
 
     self.game_masters.append(game_master)
 
-  def add_entity(
+  def add_entity(  # pyrefly: ignore[bad-override]
       self,
       instance_config: prefab_lib.InstanceConfig,
       state: entity_component.EntityState | None = None,
@@ -211,7 +211,7 @@ class Simulation(simulation_lib.Simulation):
       )
       try:
         memory_component = entity.get_component("__memory__")
-        memory_component.set_state(memory_state)
+        memory_component.set_state(memory_state)  # pyrefly: ignore[bad-argument-type]
         logging.info(
             "Successfully set pre-loaded memories for %s.", entity.name
         )
@@ -316,7 +316,7 @@ class Simulation(simulation_lib.Simulation):
         continue
       entity_memory_component = player.get_component("__memory__")
       entity_memories[player.name] = (
-          entity_memory_component.get_all_memories_as_text()
+          entity_memory_component.get_all_memories_as_text()  # pyrefly: ignore[missing-attribute]
       )
 
     game_master_memories = (
@@ -441,13 +441,13 @@ class Simulation(simulation_lib.Simulation):
             raw_state = comp.get_state()
             comp_info["state"] = self._make_json_serializable(raw_state)
           except (TypeError, ValueError, AttributeError):
-            comp_info["state"] = {}
+            comp_info["state"] = {}  # pyrefly: ignore[bad-assignment]
         if hasattr(comp, "get_dynamic_state"):
           try:
             dynamic = comp.get_dynamic_state()
             comp_info["dynamic_state"] = self._make_json_serializable(dynamic)
           except (TypeError, ValueError, AttributeError):
-            comp_info["dynamic_state"] = {}
+            comp_info["dynamic_state"] = {}  # pyrefly: ignore[bad-assignment]
         info["context_components"][comp_name] = comp_info
 
     return info

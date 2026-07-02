@@ -56,7 +56,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
     self._model = model
     self._clock_now = clock_now
     self._observation_component_key = observation_component_key
-    self._components = dict(components)
+    self._components = dict(components)  # pyrefly: ignore[no-matching-overload]
     self._declare_entity_as_protagonist = declare_entity_as_protagonist
     self._logging_channel = logging_channel
 
@@ -90,7 +90,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       chain_of_thought.statement('~~ Creative Writing Assignment ~~')
       if self._declare_entity_as_protagonist:
         chain_of_thought.statement(f'Protagonist: {agent_name}')
-      mems = observations.get_pre_act_value()
+      mems = observations.get_pre_act_value()  # pyrefly: ignore[missing-attribute]
       chain_of_thought.statement(f'Story fragments and world data:\n{mems}')
       self._add_components_if_any(chain_of_thought)
       if self._clock_now is not None:
@@ -112,7 +112,7 @@ class SituationRepresentation(action_spec_ignored.ActionSpecIgnored):
       initial_step_thought_chain = '\n'.join(
           chain_of_thought.view().text().splitlines())
 
-    result = observations.get_pre_act_value() + '\n'
+    result = observations.get_pre_act_value() + '\n'  # pyrefly: ignore[missing-attribute]
     chain_of_thought = interactive_document.InteractiveDocument(self._model)
     chain_of_thought.statement(f'Context:\n{self._situation_thus_far}')
     self._add_components_if_any(chain_of_thought)

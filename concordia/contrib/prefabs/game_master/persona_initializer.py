@@ -185,7 +185,7 @@ class GameMaster(prefab_lib.Prefab):
   See: https://arxiv.org/abs/2602.03545
   """
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An initializer that generates diverse personas from a pluggable '
       'PersonaGenerator and injects their memories into agent memory banks.'
   )

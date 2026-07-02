@@ -71,7 +71,7 @@ class GameMaster(prefab_lib.Prefab):
   fighting, or interacting with objects, while following structured scenes.
   """
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A game master for physical time/place simulations with scene support. '
       'Combines full world simulation with structured scene progressions.'
   )
@@ -159,7 +159,7 @@ class GameMaster(prefab_lib.Prefab):
 
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
     memory_component = actor_components.memory.AssociativeMemory(
-        memory_bank=memory_bank
+        memory_bank=memory_bank  # pyrefly: ignore[bad-argument-type]
     )
 
     instructions_key = 'instructions'

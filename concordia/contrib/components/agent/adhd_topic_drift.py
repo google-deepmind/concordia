@@ -70,6 +70,6 @@ class AdhdTopicDrift(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     if "step_count" in state:
-      self._step_count = int(state["step_count"])
+      self._step_count = int(state["step_count"])  # pyrefly: ignore[bad-argument-type]
     if "period" in state:
-      self._period = int(state["period"])
+      self._period = int(state["period"])  # pyrefly: ignore[bad-argument-type]
