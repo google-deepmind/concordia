@@ -58,7 +58,7 @@ class HarvestingGameMaster(prefab_lib.Prefab):
     tag: Tag for the action spec (default: 'harvesting').
   """
 
-  description: str = 'Game master for concurrent resource harvesting phase.'
+  description: str = 'Game master for concurrent resource harvesting phase.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -164,7 +164,7 @@ class HarvestingGameMaster(prefab_lib.Prefab):
 
     # Next game master — constant transition
     next_gm_key = switch_act.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
-    next_gm_comp = resource_components.ConstantNextGameMaster(next_gm_name)
+    next_gm_comp = resource_components.ConstantNextGameMaster(next_gm_name)  # pyrefly: ignore[bad-argument-type]
 
     # Terminate — check simulation state for depletion / cycle exhaustion
     terminate_key = '__terminate__'
@@ -201,7 +201,7 @@ class HarvestingGameMaster(prefab_lib.Prefab):
           memory_bank=memory_bank,
       )
       logger_key = resource_logger.DEFAULT_RESOURCE_LOGGER_COMPONENT_KEY
-      components_of_gm[logger_key] = logger_comp
+      components_of_gm[logger_key] = logger_comp  # pyrefly: ignore[unsupported-operation]
 
     component_order = list(components_of_gm.keys())
 

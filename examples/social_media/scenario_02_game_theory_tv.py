@@ -178,32 +178,32 @@ def create_debug_scenario():
   margaux = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_MARGAUX, **_entity_params},
+      params={"name": _USER_MARGAUX, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   nash = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_NASH, **_entity_params},
+      params={"name": _USER_NASH, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   ruby = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_RUBY, **_entity_params},
+      params={"name": _USER_RUBY, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   viktor = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_VIKTOR, **_entity_params},
+      params={"name": _USER_VIKTOR, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
       prefab_lib.InstanceConfig(
           prefab="async_social_media_with_moderation__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _FORUM_GM,
               "forum_name": "The Strategic Couch",
               "moderators": [_USER_MARGAUX],
@@ -213,7 +213,7 @@ def create_debug_scenario():
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
               "player_specific_context": {

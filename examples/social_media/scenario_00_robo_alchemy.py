@@ -200,7 +200,7 @@ def create_debug_scenario():
   silas = prefab_lib.InstanceConfig(
       prefab="basic__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
+      params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_SILAS,
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
@@ -216,7 +216,7 @@ def create_debug_scenario():
   petra = prefab_lib.InstanceConfig(
       prefab="basic__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
+      params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_PETRA,
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
@@ -232,7 +232,7 @@ def create_debug_scenario():
   diego = prefab_lib.InstanceConfig(
       prefab="basic__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
+      params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_DIEGO,
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
@@ -248,7 +248,7 @@ def create_debug_scenario():
   thaddeus = prefab_lib.InstanceConfig(
       prefab="basic__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={
+      params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_THADDEUS,
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
@@ -273,7 +273,7 @@ def create_debug_scenario():
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
               "player_specific_context": {

@@ -131,7 +131,7 @@ def run_scenario(
     reactive = async_measurements.ReactiveMeasurements()
     for instance in config.instances:
       params = dict(instance.params)
-      params["measurements"] = reactive
+      params["measurements"] = reactive  # pyrefly: ignore[unsupported-operation]
       instance.params = params  # pytype: disable=annotation-type-mismatch
 
   sim = simulation.Simulation(

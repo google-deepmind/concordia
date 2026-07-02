@@ -4727,7 +4727,7 @@ def load_personas(
     instance_config = prefab_lib.InstanceConfig(
         prefab=agent_arc,
         role=prefab_lib.Role.ENTITY,
-        params=params,
+        params=params,  # pyrefly: ignore[bad-argument-type]
     )
     player_instances.append(instance_config)
 
@@ -4768,7 +4768,7 @@ def generate_mixed_sex_dates(
       if not has_collision:
         all_dates[day] = candidate_dyads
         for p in candidate_dyads:
-          seen_pairs.add(tuple(sorted(p)))
+          seen_pairs.add(tuple(sorted(p)))  # pyrefly: ignore[bad-argument-type]
         break
     else:
       raise ValueError(

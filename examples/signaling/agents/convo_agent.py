@@ -248,7 +248,7 @@ class SwitchingActComponent(
         randomize_choices=randomize_choices,
     )
 
-  def set_entity(
+  def set_entity(  # pyrefly: ignore[bad-override]
       self, entity: entity_agent_with_logging.EntityAgentWithLogging
   ):
     super().set_entity(entity)
@@ -293,11 +293,11 @@ class SwitchingActComponent(
 class ConversationalAgent(prefab_lib.Prefab):
   """A prefab for a conversational agent aiming for pink noise dynamics."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that participates in conversations, aiming to create a '
       'dynamically balanced and engaging dialogue.'
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'Debra',
           'randomize_choices': True,
@@ -454,7 +454,7 @@ class ConversationalAgent(prefab_lib.Prefab):
         model=model,
         basic_component_order=basic_component_order,
         convo_component_order=convo_component_order,
-        randomize_choices=randomize_choices,
+        randomize_choices=randomize_choices,  # pyrefly: ignore[bad-argument-type]
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(

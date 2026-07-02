@@ -1102,7 +1102,7 @@ def _details_generator(
   generated = {str(key): '' for key in extract_braces(element_string)}
   if 'person_name' in generated:
     gender = person_gender
-    _add_pronouns(generated, gender)
+    _add_pronouns(generated, gender)  # pyrefly: ignore[bad-argument-type]
   if 'antagonist_name' in generated:
     _add_pronouns(generated, antagonist_gender, prefix='antagonist_')
   if 'organizer_name' in generated:
@@ -1135,9 +1135,9 @@ def _details_generator(
       if key == 'organizer_name':
         generated[key] = organizer_name
       if key == 'person_name':
-        generated[key] = person_name
+        generated[key] = person_name  # pyrefly: ignore[unsupported-operation]
 
-  return generated
+  return generated  # pyrefly: ignore[bad-return]
 
 
 def sample_parameters(
@@ -1254,7 +1254,7 @@ def sample_parameters(
             rng=rng,
         )
         protagonist_generated['person_name'] = person_name
-        _add_pronouns(protagonist_generated, gender=gender)
+        _add_pronouns(protagonist_generated, gender=gender)  # pyrefly: ignore[bad-argument-type]
         formative_memory_prompts[person_name].append(
             protagonist_element_string.format(**protagonist_generated)
         )

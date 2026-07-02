@@ -149,7 +149,7 @@ class Asynchronous(engine_lib.Engine):
     return observation
 
   @override
-  def next_acting(
+  def next_acting(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
@@ -226,7 +226,7 @@ class Asynchronous(engine_lib.Engine):
         [action_spec_by_name[entity_name] for entity_name in next_entity_names],
     )
 
-  def resolve(
+  def resolve(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       putative_event: str,

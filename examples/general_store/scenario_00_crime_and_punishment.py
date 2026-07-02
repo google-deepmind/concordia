@@ -411,7 +411,7 @@ def create_scenario(time_period_minutes=10):
       prefab_lib.InstanceConfig(
           prefab='GameMasterSimultaneous',
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               'name': 'default rules',
               'start_time': 'Tuesday, March 3, 2026 at 8:30 AM',
               'time_period_minutes': time_period_minutes,
@@ -432,7 +432,7 @@ def create_scenario(time_period_minutes=10):
       prefab_lib.InstanceConfig(
           prefab='formative_memories_initializer__GameMaster',
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               'name': 'initial setup rules',
               'next_game_master_name': 'default rules',
               'shared_memories': store_initialization_memories,

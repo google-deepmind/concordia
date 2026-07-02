@@ -71,11 +71,11 @@ class SequentialBargainGameMaster(prefab_lib.Prefab):
   buyer proposes, so the seller can see the proposal before deciding.
   """
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A game master specialized for sequential bargaining decisions, '
       "where the seller observes the buyer's proposal before responding."
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': DEFAULT_NAME,
           'scenes': (),
@@ -187,7 +187,7 @@ class SequentialBargainGameMaster(prefab_lib.Prefab):
         seller_name=seller_name,
         action_to_scores=action_to_scores,
         scores_to_observation=scores_to_observation,
-        seller_costs_registry=seller_costs_registry,
+        seller_costs_registry=seller_costs_registry,  # pyrefly: ignore[bad-argument-type]
         scene_tracker_component_key=scene_tracker_key,
         verbose=True,
     )
@@ -211,7 +211,7 @@ class SequentialBargainGameMaster(prefab_lib.Prefab):
 
     scene_tracker = gm_components.scene_tracker.SceneTracker(
         model=model,
-        scenes=scenes,
+        scenes=scenes,  # pyrefly: ignore[bad-argument-type]
         observation_component_key=(
             gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
         ),
@@ -232,7 +232,7 @@ class SequentialBargainGameMaster(prefab_lib.Prefab):
         display_events_key: display_events,
         observation_component_key: observation,
         actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY: (
-            actor_components.memory.AssociativeMemory(memory_bank=memory_bank)
+            actor_components.memory.AssociativeMemory(memory_bank=memory_bank)  # pyrefly: ignore[bad-argument-type]
         ),
         make_observation_key: make_observation,
         gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: next_actor,

@@ -114,7 +114,7 @@ def get_marketplace_config(
         goal_text=goal_text or '',
         seed=seed,
     )
-    agents = personas.make_agents(agent_data)
+    agents = personas.make_agents(agent_data)  # pyrefly: ignore[bad-assignment]
   else:
     player_instances = []
     agent_list = []
@@ -136,7 +136,7 @@ def get_marketplace_config(
         )
       player_instances.append(instance_config)
       agent_list.append(agent)
-    agents = agent_list
+    agents = agent_list  # pyrefly: ignore[bad-assignment]
 
   if item_list == 'original':
     all_goods = get_all_goods_from_spec(goods.ORIGINAL_GOODS)
@@ -164,8 +164,8 @@ def get_marketplace_config(
       good_id = good.id
       seller_data = {'name': f'Seller_{i+1}', 'type': 'producer'}
       seller_data['good_to_sell'] = good_id
-      seller_data['production_cost'] = good.price
-      seller_data['inventory'] = good.inventory
+      seller_data['production_cost'] = good.price  # pyrefly: ignore[bad-assignment]
+      seller_data['inventory'] = good.inventory  # pyrefly: ignore[bad-assignment]
       sellers.append(seller_data)
       seller_goal = (
           f'You are a seller of {good_id}. Your cost to produce each unit is'
@@ -192,14 +192,14 @@ def get_marketplace_config(
       'show_advert': True,
   }
   if history is not None:
-    component_kwargs['history'] = history
+    component_kwargs['history'] = history  # pyrefly: ignore[bad-assignment]
 
   instances = player_instances
   instances.append(
       prefab_lib.InstanceConfig(
           prefab='marketplace__GameMaster',
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               'name': 'MarketplaceGM',
               'experiment_component_class': MarketPlace,
               'experiment_component_init_kwargs': component_kwargs,
