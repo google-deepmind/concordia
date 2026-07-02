@@ -74,7 +74,7 @@ class GameMaster(prefab_lib.Prefab):
   Includes a ThreadSafeGenerativeClock that tracks time abstract with strings.
   """
 
-  description: str = 'A game master for asynchronous social media simulations.'
+  description: str = 'A game master for asynchronous social media simulations.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'forum_rules',

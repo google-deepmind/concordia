@@ -180,8 +180,8 @@ class ConcatActComponent(
   def set_state(self, state: entity_component.ComponentState) -> None:
     if 'component_order' in state:
       order = state['component_order']
-      self._component_order = tuple(order) if order else None
+      self._component_order = tuple(order) if order else None  # pyrefly: ignore[bad-argument-type]
     if 'prefix_entity_name' in state:
-      self._prefix_entity_name = state['prefix_entity_name']
+      self._prefix_entity_name = state['prefix_entity_name']  # pyrefly: ignore[bad-assignment]
     if 'randomize_choices' in state:
-      self._randomize_choices = state['randomize_choices']
+      self._randomize_choices = state['randomize_choices']  # pyrefly: ignore[bad-assignment]

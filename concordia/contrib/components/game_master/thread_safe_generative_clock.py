@@ -250,9 +250,9 @@ class ThreadSafeGenerativeClock(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      self._num_steps = state['num_steps']
-      self._time = state['time']
-      self._prompt_to_log = state['prompt_to_log']
+      self._num_steps = state['num_steps']  # pyrefly: ignore[bad-assignment]
+      self._time = state['time']  # pyrefly: ignore[bad-assignment]
+      self._prompt_to_log = state['prompt_to_log']  # pyrefly: ignore[bad-assignment]
       self._latest_action_spec = None
       raw_acted = state.get('acted_this_round', [])
       if isinstance(raw_acted, list):

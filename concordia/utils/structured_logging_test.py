@@ -537,7 +537,7 @@ class FromRawLogTest(absltest.TestCase):
             'game_master': {'resolve': {'key': 'value'}},
         },
     ]
-    log = structured_logging.SimulationLog.from_raw_log(raw_log)
+    log = structured_logging.SimulationLog.from_raw_log(raw_log)  # pyrefly: ignore[bad-argument-type]
     # Should have entries for both entity and game_master keys
     self.assertGreaterEqual(len(log), 2)
 
@@ -546,7 +546,7 @@ class FromRawLogTest(absltest.TestCase):
     raw_log = [
         {'Step': 5, 'Summary': 'Test', 'Entity [Bob]': {}},
     ]
-    log = structured_logging.SimulationLog.from_raw_log(raw_log)
+    log = structured_logging.SimulationLog.from_raw_log(raw_log)  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(log.get_steps(), [5])
 
   def test_from_raw_log_extracts_entity_name(self):
@@ -554,7 +554,7 @@ class FromRawLogTest(absltest.TestCase):
     raw_log = [
         {'Step': 1, 'Summary': 'Test', 'Entity [Alice]': {}},
     ]
-    log = structured_logging.SimulationLog.from_raw_log(raw_log)
+    log = structured_logging.SimulationLog.from_raw_log(raw_log)  # pyrefly: ignore[bad-argument-type]
     self.assertIn('Alice', log.get_entity_names())
 
 

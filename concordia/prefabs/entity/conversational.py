@@ -49,7 +49,7 @@ CONVERSATION_DYNAMICS_QUESTION = (
 class Entity(prefab_lib.Prefab):
   """A prefab for a conversational agent aiming for engaging dynamics."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that participates in conversations, aiming to create a '
       'dynamically balanced and engaging dialogue.'
   )
@@ -194,7 +194,7 @@ class Entity(prefab_lib.Prefab):
     component_order = list(components_of_agent.keys())
 
     if convo_style_key:
-      components_of_agent[convo_style_key] = conversation_style
+      components_of_agent[convo_style_key] = conversation_style  # pyrefly: ignore[unsupported-operation]
       component_order.insert(5, convo_style_key)
 
     act_component = agent_components.concat_act_component.ConcatActComponent(
@@ -206,7 +206,7 @@ class Entity(prefab_lib.Prefab):
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return agent

@@ -34,10 +34,10 @@ class Entity(prefab_lib.Prefab):
   generating a response using the language model.
   """
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       "An entity with fixed responses for specific calls to action."
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           "name": "Puppet Agent",
           "fixed_responses": {},
@@ -62,7 +62,7 @@ class Entity(prefab_lib.Prefab):
 
     act_comp = puppet_act.PuppetActComponent(
         model=model,
-        fixed_responses=fixed_responses_map,
+        fixed_responses=fixed_responses_map,  # pyrefly: ignore[bad-argument-type]
     )
 
     components = {
@@ -73,7 +73,7 @@ class Entity(prefab_lib.Prefab):
     }
 
     if goal:
-      components["Goal"] = agent_components.constant.Constant(
+      components["Goal"] = agent_components.constant.Constant(  # pyrefly: ignore[unsupported-operation]
           state=goal, pre_act_label="\nGoal"
       )
 
@@ -81,5 +81,5 @@ class Entity(prefab_lib.Prefab):
         agent_name=name,
         act_component=act_comp,
         context_components=components,
-        measurements=self.params.get("measurements"),
+        measurements=self.params.get("measurements"),  # pyrefly: ignore[bad-argument-type]
     )

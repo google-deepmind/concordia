@@ -47,12 +47,12 @@ _DEFAULT_BEST_OPTION_HISTORY_LENGTH = 5
 class Entity(prefab_lib.Prefab):
   """A prefab for a 'rational' agent (logic of consequence)."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking '
       '"What situation am I in right now?", "Which options are available to '
       'me?", and "Of those options, which is best?"'
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'Rational Agent',
           'goal': '',
@@ -122,7 +122,7 @@ class Entity(prefab_lib.Prefab):
     observation_key = (
         agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY)
     observation = agent_components.observation.LastNObservations(
-        history_length=observation_history_length,
+        history_length=observation_history_length,  # pyrefly: ignore[bad-argument-type]
         pre_act_label=(
             '\nEvents so far (ordered from least recent to most recent)'
         ),
@@ -201,20 +201,20 @@ class Entity(prefab_lib.Prefab):
     component_order = list(components_of_agent.keys())
 
     if overarching_goal is not None:
-      components_of_agent[goal_key] = overarching_goal
+      components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
       # Place goal after the instructions.
-      component_order.insert(1, goal_key)
+      component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
 
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
         component_order=component_order,
-        randomize_choices=randomize_choices,
-        prefix_entity_name=prefix_entity_name,
+        randomize_choices=randomize_choices,  # pyrefly: ignore[bad-argument-type]
+        prefix_entity_name=prefix_entity_name,  # pyrefly: ignore[bad-argument-type]
     )
 
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )

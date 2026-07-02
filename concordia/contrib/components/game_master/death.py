@@ -216,12 +216,12 @@ class Death(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._actors_names = state['actors_names']
-    self._step_counter = state['step_counter']
+    self._actors_names = state['actors_names']  # pyrefly: ignore[bad-assignment]
+    self._step_counter = state['step_counter']  # pyrefly: ignore[bad-assignment]
     action_spec_dict = state['last_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._last_action_spec = entity_lib.action_spec_from_dict(
-          action_spec_dict
+          action_spec_dict  # pyrefly: ignore[bad-argument-type]
       )
     else:
       self._last_action_spec = None

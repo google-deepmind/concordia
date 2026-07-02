@@ -28,7 +28,7 @@ from concordia.typing import prefab as prefab_lib
 class Entity(prefab_lib.Prefab):
   """A prefab implementing a simulated AI assistant with a system prompt."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that simulates an AI assistant with a configurable system '
       'prompt.'
   )
@@ -90,7 +90,7 @@ class Entity(prefab_lib.Prefab):
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return agent

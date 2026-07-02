@@ -1249,51 +1249,51 @@ class ForumState(entity_component.ContextComponent):
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
       self._posts = {}
-      posts_data = dict(state.get('posts', {}))
+      posts_data = dict(state.get('posts', {}))  # pyrefly: ignore[no-matching-overload]
       for pid_str, post_data in posts_data.items():
         self._posts[int(pid_str)] = Post(**post_data)
-      self._next_post_id = int(state.get('next_post_id', 0))
-      self._next_reply_id = int(state.get('next_reply_id', 0))
+      self._next_post_id = int(state.get('next_post_id', 0))  # pyrefly: ignore[bad-argument-type]
+      self._next_reply_id = int(state.get('next_reply_id', 0))  # pyrefly: ignore[bad-argument-type]
       karma_data = state.get('karma', {})
       if karma_data:
-        self._karma = {str(k): int(v) for k, v in dict(karma_data).items()}
+        self._karma = {str(k): int(v) for k, v in dict(karma_data).items()}  # pyrefly: ignore[no-matching-overload]
       votes_data = state.get('last_seen_votes', {})
       if votes_data:
         self._last_seen_votes = {
             str(k): {str(vk): int(vv) for vk, vv in dict(v).items()}
-            for k, v in dict(votes_data).items()
+            for k, v in dict(votes_data).items()  # pyrefly: ignore[no-matching-overload]
         }
       pinned = state.get('pinned_post_id', None)
-      self._pinned_post_id = int(pinned) if pinned is not None else None
+      self._pinned_post_id = int(pinned) if pinned is not None else None  # pyrefly: ignore[bad-argument-type]
       moderators_data = state.get('moderators', [])
       if moderators_data:
-        self._moderators = [str(m) for m in moderators_data]
+        self._moderators = [str(m) for m in moderators_data]  # pyrefly: ignore[not-iterable]
       bans_data = state.get('bans', {})
       if bans_data:
-        self._bans = {str(k): dict(v) for k, v in dict(bans_data).items()}
+        self._bans = {str(k): dict(v) for k, v in dict(bans_data).items()}  # pyrefly: ignore[no-matching-overload]
       else:
         self._bans = {}
-      self._timestamp_change_count = int(state.get('timestamp_change_count', 0))
+      self._timestamp_change_count = int(state.get('timestamp_change_count', 0))  # pyrefly: ignore[bad-argument-type]
       direct_message_data = state.get('direct_message_threads', {})
       if direct_message_data:
         self._direct_message_threads = {
             str(k): [dict(m) for m in v]
-            for k, v in dict(direct_message_data).items()
+            for k, v in dict(direct_message_data).items()  # pyrefly: ignore[no-matching-overload]
         }
       else:
         self._direct_message_threads = {}
-      self._temp_ban_duration = int(state.get('temp_ban_duration', 1))
-      self._min_karma_to_post = int(state.get('min_karma_to_post', -1))
+      self._temp_ban_duration = int(state.get('temp_ban_duration', 1))  # pyrefly: ignore[bad-argument-type]
+      self._min_karma_to_post = int(state.get('min_karma_to_post', -1))  # pyrefly: ignore[bad-argument-type]
       self._min_karma_to_direct_message = int(
-          state.get('min_karma_to_direct_message', 1)
+          state.get('min_karma_to_direct_message', 1)  # pyrefly: ignore[bad-argument-type]
       )
       event_log_data = state.get('event_log', [])
       self._event_log = (
-          [dict(e) for e in event_log_data] if event_log_data else []
+          [dict(e) for e in event_log_data] if event_log_data else []  # pyrefly: ignore[no-matching-overload, not-iterable]
       )
-      self._event_seq = int(state.get('event_seq', len(self._event_log)))
-      self._event_log_drain_cursor = int(state.get('event_log_drain_cursor', 0))
-      self._activity_seq = int(state.get('activity_seq', 0))
+      self._event_seq = int(state.get('event_seq', len(self._event_log)))  # pyrefly: ignore[bad-argument-type]
+      self._event_log_drain_cursor = int(state.get('event_log_drain_cursor', 0))  # pyrefly: ignore[bad-argument-type]
+      self._activity_seq = int(state.get('activity_seq', 0))  # pyrefly: ignore[bad-argument-type]
 
   def _escape_html(self, text: str) -> str:
     return (
@@ -1716,7 +1716,7 @@ class ForumResolution(
   def set_state(self, state: entity_component.ComponentState) -> None:
     raw = state.get('resolved_per_entity', {})
     if isinstance(raw, dict):
-      self._resolved_per_entity = {str(k): int(v) for k, v in raw.items()}
+      self._resolved_per_entity = {str(k): int(v) for k, v in raw.items()}  # pyrefly: ignore[bad-argument-type]
     else:
       self._resolved_per_entity = {}
 

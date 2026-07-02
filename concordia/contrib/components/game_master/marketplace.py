@@ -342,7 +342,7 @@ class MarketPlace(
         self._agents[order.agent_id].queue.append(outcome)
       # Log failed orders before returning
       self._logtrade_history(
-          good_id, bids + asks, original_quantities, order_fulfillment
+          good_id, bids + asks, original_quantities, order_fulfillment  # pyrefly: ignore[bad-argument-type]
       )
       if asks:
         lowest_ask_price = min(order.price for order in asks)
@@ -429,7 +429,7 @@ class MarketPlace(
 
     # --- Log all orders (successful and unsuccessful) to history ---
     self._logtrade_history(
-        good_id, bids + asks, original_quantities, order_fulfillment
+        good_id, bids + asks, original_quantities, order_fulfillment  # pyrefly: ignore[bad-argument-type]
     )
 
     # --- Log outcomes for agents whose orders were NOT filled ---
@@ -493,7 +493,7 @@ class MarketPlace(
             f"Your bid for {order.qty} {good_id} did not trade."
         )
       self._logtrade_history(
-          good_id, bids, original_quantities, order_fulfillment
+          good_id, bids, original_quantities, order_fulfillment  # pyrefly: ignore[bad-argument-type]
       )
       return float("nan"), []
 
@@ -534,7 +534,7 @@ class MarketPlace(
         )
 
     self._logtrade_history(
-        good_id, bids, original_quantities, order_fulfillment
+        good_id, bids, original_quantities, order_fulfillment  # pyrefly: ignore[bad-argument-type]
     )
     return fixed_price, completed_orders
 
@@ -783,9 +783,9 @@ class MarketPlace(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component from a saved state."""
-    self._acting_player_names = state["acting_player_names"]
-    self._current_player_index = state["current_player_index"]
-    self._start_of_round = state.get("start_of_round", True)
+    self._acting_player_names = state["acting_player_names"]  # pyrefly: ignore[bad-assignment]
+    self._current_player_index = state["current_player_index"]  # pyrefly: ignore[bad-assignment]
+    self._start_of_round = state.get("start_of_round", True)  # pyrefly: ignore[bad-assignment]
 
     # Reconstruct the Good objects first.
     goods_data = state.get("goods", {})
@@ -793,7 +793,7 @@ class MarketPlace(
       self._goods = {}
       for name, good_data in goods_data.items():
         if isinstance(good_data, dict):
-          self._goods[name] = Good(**good_data)
+          self._goods[name] = Good(**good_data)  # pyrefly: ignore[bad-unpacking, missing-argument, unsupported-operation]
         else:
           self._log_self(
               "set_state_warning",
@@ -809,7 +809,7 @@ class MarketPlace(
       self._agents = {}
       for name, agent_data in agents_data.items():
         if isinstance(agent_data, dict):
-          self._agents[name] = MarketplaceAgent(**agent_data)
+          self._agents[name] = MarketplaceAgent(**agent_data)  # pyrefly: ignore[bad-unpacking, missing-argument, unsupported-operation]
         else:
           # Handle cases where agent_data is not a dict, e.g., log error
           self._log_self(
@@ -820,7 +820,7 @@ class MarketPlace(
     else:
       self._agents = {}
 
-    self._state = state["state"]
+    self._state = state["state"]  # pyrefly: ignore[bad-assignment]
     history_data = state.get("history")
     if isinstance(history_data, list):
       self.history = history_data
@@ -828,16 +828,16 @@ class MarketPlace(
       self.history = []  # Ensure it's a list
     curve_history_data = state.get("curve_history")
     if isinstance(curve_history_data, dict):
-      self.curve_history = curve_history_data
+      self.curve_history = curve_history_data  # pyrefly: ignore[bad-assignment]
     else:
       self.curve_history = {}  # Ensure it's a dict
     trade_history_data = state.get("trade_history")
     if isinstance(trade_history_data, list):
-      self.trade_history = trade_history_data
+      self.trade_history = trade_history_data  # pyrefly: ignore[bad-assignment]
     else:
       self.trade_history = []
     self._processed_actions = set(
-        state.get("processed_actions", [])
+        state.get("processed_actions", [])  # pyrefly: ignore[bad-argument-type]
     )  # Convert list back to a set.
 
     # Reconstruct the Order objects, including the nested Good objects.
@@ -854,4 +854,4 @@ class MarketPlace(
               if isinstance(good_data, dict):
                 reconstructed_good = Good(**good_data)
                 order_data["good"] = reconstructed_good
-                self._orderbooks[good_id].append(Order(**order_data))
+                self._orderbooks[good_id].append(Order(**order_data))  # pyrefly: ignore[bad-unpacking, missing-argument]
