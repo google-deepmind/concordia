@@ -342,6 +342,7 @@ def run_debug_simulation(
     ) = None,
     entity_info_callback=None,
     simulation_callback=None,
+    max_steps: int = 8,
 ):
   """Run the debug simulation.
 
@@ -356,6 +357,7 @@ def run_debug_simulation(
     step_callback: Optional callback for step updates.
     entity_info_callback: Optional callback for entity info in serve mode.
     simulation_callback: Optional callback receiving the Simulation instance.
+    max_steps: Number of player steps to run. Defaults to 8.
 
   Returns:
     Simulation results.
@@ -374,7 +376,7 @@ def run_debug_simulation(
       step_callback=step_callback,
       entity_info_callback=entity_info_callback,
       simulation_callback=simulation_callback,
-      max_steps=8,
+      max_steps=max_steps,
   )
 
 
