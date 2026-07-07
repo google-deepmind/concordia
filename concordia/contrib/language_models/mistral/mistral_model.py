@@ -130,6 +130,9 @@ class MistralLanguageModel(language_model.LanguageModel):
           logging.warning('  Exception: %s', err)
         continue
       else:
+        if not response.choices or response.choices[0].message is None:
+          raise language_model.InvalidResponseError(
+              'LLM returned empty or filtered response')
         result = response.choices[0].message.content
         break
 
@@ -198,6 +201,9 @@ class MistralLanguageModel(language_model.LanguageModel):
           logging.warning('  Exception: %s', err)
         continue
       else:
+        if not response.choices or response.choices[0].message is None:
+          raise language_model.InvalidResponseError(
+              'LLM returned empty or filtered response')
         return response.choices[0].message.content
 
     raise language_model.InvalidResponseError(
