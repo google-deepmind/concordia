@@ -73,8 +73,8 @@ class MCPToolExecutor(entity_component.ContextComponent):
   def get_pre_act_value(self) -> str:
     if self._tool_results:
       last = self._tool_results[-1]
-      return f"{self._pre_act_label}: Last tool result: {last}"
-    return f"{self._pre_act_label}: No tools executed yet."
+      return f'{self._pre_act_label}: Last tool result: {last}'
+    return f'{self._pre_act_label}: No tools executed yet.'
 
   def update_after_event(
       self,
@@ -93,12 +93,13 @@ class MCPToolExecutor(entity_component.ContextComponent):
       return
 
     try:
-      result = f"Tool '{tool_info['tool']}' executed with args {tool_info['arguments']}"
+      result = (
+          f"Tool '{tool_info['tool']}' executed with args"
+          f" {tool_info['arguments']}"
+      )
 
       memory = self._get_memory()
-      memory_entry = (
-          f"Tool '{tool_info['tool']}' returned: {result}"
-      )
+      memory_entry = f"Tool '{tool_info['tool']}' returned: {result}"
       memory.add(memory_entry)
 
       self._tool_results.append({
@@ -129,9 +130,7 @@ class MCPToolExecutor(entity_component.ContextComponent):
     ]
     return any(re.search(pattern, text.lower()) for pattern in patterns)
 
-  def _extract_tool_request(
-      self, text: str
-  ) -> dict[str, Any] | None:
+  def _extract_tool_request(self, text: str) -> dict[str, Any] | None:
     """Extract tool name and arguments from text using LLM.
 
     Args:

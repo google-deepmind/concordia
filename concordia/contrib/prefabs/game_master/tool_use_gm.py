@@ -92,11 +92,13 @@ class GameMasterWithMCPTools(prefab_lib.Prefab):
 
     # Relevant memories
     relevant_memories_key = 'relevant_memories'
-    relevant_memories = actor_components.all_similar_memories.AllSimilarMemories(
-        model=model,
-        components=[observation_key],
-        num_memories_to_retrieve=10,
-        pre_act_label='Relevant memories',
+    relevant_memories = (
+        actor_components.all_similar_memories.AllSimilarMemories(
+            model=model,
+            components=[observation_key],
+            num_memories_to_retrieve=10,
+            pre_act_label='Relevant memories',
+        )
     )
 
     # MCP Tool executor

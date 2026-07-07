@@ -1,6 +1,7 @@
 # MCP (Model Context Protocol) Integration for Concordia
 
-**Note:** This is a contrib module. It wraps MCP tools to work with Concordia's existing `Tool` abstraction from `concordia/document/tool.py`.
+**Note:** This is a contrib module. It wraps MCP tools to work with
+Concordia's existing `Tool` abstraction from `concordia/document/tool.py`.
 
 ## Quick Start
 ```python
@@ -23,9 +24,12 @@ for tool in tools:
 
 ## Architecture
 
-This module wraps MCP tools to implement Concordia's `Tool` interface, allowing seamless integration with existing tool-based systems like interactive documents.
+This module wraps MCP tools to implement Concordia's `Tool` interface,
+allowing seamless integration with existing tool-based systems like interactive
+documents.
 
 **Key files:**
+
 - `mcp_client.py` - MCP protocol client
 - `mcp_tool.py` - Wrapper implementing `concordia.document.tool.Tool`
 - `servers/` - Example MCP servers
@@ -45,5 +49,6 @@ See `servers/file_reader_server.py` for an example.
 
 ## References
 
+<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
 - [MCP Specification](https://modelcontextprotocol.io/)
 - [Concordia Tool Interface](../../../document/tool.py)
