@@ -15,6 +15,7 @@
 """Tool interface for interactive documents with tool use."""
 
 import abc
+from collections.abc import Mapping
 from typing import Any
 
 
@@ -72,3 +73,20 @@ class Tool(abc.ABC):
       truncated by the calling code to fit context limits.
     """
     raise NotImplementedError
+
+  @property
+  def input_schema(self) -> Mapping[str, Any] | None:
+    """Schema describing tool arguments.
+
+    This is optional metadata that policy implementations can use to validate
+    arguments before execution.
+    """
+    return None
+
+  @property
+  def risk_level(self) -> str:
+    """Risk category for tool execution.
+
+    Recommended values are "read", "sensitive", and "destructive".
+    """
+    return 'read'
