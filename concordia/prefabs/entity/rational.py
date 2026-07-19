@@ -157,35 +157,35 @@ class Entity(prefab_lib.Prefab):
     )
 
     options_perception_key = 'AvailableOptionsPerception'
-    options_perception = (
-        agent_components.question_of_recent_memories.AvailableOptionsPerception(
-            model=model,
-            num_memories_to_retrieve=available_options_history_length,
-            components=goal_components + [
-                situation_perception_key,
-            ],
-            pre_act_label=(
-                f'\nQuestion: Which options are available to {entity_name} '
-                'right now?\nAnswer'
-            ),
-        )
+    options_perception = agent_components.question_of_recent_memories.AvailableOptionsPerception(
+        model=model,
+        num_memories_to_retrieve=available_options_history_length,
+        components=goal_components
+        + [
+            situation_perception_key,
+            *goal_components,
+        ],
+        pre_act_label=(
+            f'\nQuestion: Which options are available to {entity_name} '
+            'right now?\nAnswer'
+        ),
     )
 
     best_option_perception_key = 'BestOptionPerception'
-    best_option_perception = (
-        agent_components.question_of_recent_memories.BestOptionPerception(
-            model=model,
-            num_memories_to_retrieve=best_option_history_length,
-            components=goal_components + [
-                situation_perception_key,
-                options_perception_key,
-            ],
-            pre_act_label=(
-                f'\nQuestion: Of the options available to {entity_name}, '
-                f'which choice of action or strategy is best for {entity_name} '
-                'to take right now?\nAnswer'
-            ),
-        )
+    best_option_perception = agent_components.question_of_recent_memories.BestOptionPerception(
+        model=model,
+        num_memories_to_retrieve=best_option_history_length,
+        components=goal_components
+        + [
+            situation_perception_key,
+            options_perception_key,
+            *goal_components,
+        ],
+        pre_act_label=(
+            f'\nQuestion: Of the options available to {entity_name}, '
+            f'which choice of action or strategy is best for {entity_name} '
+            'to take right now?\nAnswer'
+        ),
     )
 
     components_of_agent = {
