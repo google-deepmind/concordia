@@ -43,7 +43,6 @@ from concordia.language_model import retry_wrapper
 import numpy as np
 import sentence_transformers
 
-
 _SCENARIO_MODULES = [
     scenario_00_robo_alchemy,
     scenario_01_robo_alchemy_images,
@@ -110,7 +109,7 @@ def setup_model(args):
 
 
 def run_scenario_by_number(
-    scenario_num: int,
+    scenario_num: int | str,
     model,
     embedder,
     output_dir: str | None = None,
@@ -149,8 +148,8 @@ def main():
   )
   parser.add_argument(
       "--scenario",
-      type=int,
-      default=0,
+      type=str,
+      default="0",
       help="Scenario number to run (default: 0)",
   )
   parser.add_argument(
@@ -225,8 +224,15 @@ def main():
         image_model, retry_tries=5, retry_delay=1
     )
 
+  # Coerce scenario key: try int first, then fall back to string.
+  scenario_key = args.scenario
+  try:
+    scenario_key = int(scenario_key)
+  except ValueError:
+    pass  # Keep as string (e.g. '2a')
+
   results = run_scenario_by_number(
-      args.scenario,
+      scenario_key,
       model,
       embedder,
       output_dir=args.output_dir,
@@ -234,7 +240,7 @@ def main():
   )
 
   if results:
-    info = SCENARIOS[args.scenario]
+    info = SCENARIOS[scenario_key]
     save_results(results, args.output_dir, info["name"])
 
 
