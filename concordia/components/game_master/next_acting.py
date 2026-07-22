@@ -305,20 +305,22 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      idx = self._currently_active_player_idx
-      if idx is None:
-        idx = 0
-      else:
-        idx = (idx + 1) % len(self._sequence)
-      result = self._sequence[idx]
-      self._currently_active_player_idx = idx
+      with self._lock:
+        idx = self._currently_active_player_idx
+        if idx is None:
+          idx = 0
+        else:
+          idx = (idx + 1) % len(self._sequence)
+        result = self._sequence[idx]
+        self._currently_active_player_idx = idx
 
     return result
 
   def get_currently_active_player(self) -> str | None:
-    if self._currently_active_player_idx is None:
-      return None
-    return self._sequence[self._currently_active_player_idx]
+    with self._lock:
+      if self._currently_active_player_idx is None:
+        return None
+      return self._sequence[self._currently_active_player_idx]
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
