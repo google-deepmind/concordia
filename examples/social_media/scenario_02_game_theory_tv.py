@@ -123,8 +123,10 @@ def create_debug_scenario():
   Returns:
     A simulation configuration.
   """
-  # Create a shared ForumState with improved parameters.
-  # Key changes:
+  # Create a shared ForumState.
+  # Key Features:
+  #   - forum name: "The Strategic Couch"
+  #   - members: Dr. Okoro, Margaux, Nash, Ruby, Viktor
   #   - moderator is Dr. Okoro (not a debater)
   #   - min_karma_to_post lowered to -10 (prevents posting lockout)
   #   - min_karma_to_direct_message lowered to 0 (enables DMs earlier)
@@ -435,8 +437,8 @@ def run_debug_simulation(
 
 
 SCENARIO_INFO = {
-    "number": "2",
-    "name": "Social Media: The Strategic Couch (Improved)",
+    "number": 2,
+    "name": "Social Media: The Strategic Couch",
     "description": (
         "A game-theory forum where armchair strategists debate reality TV"
         " strategies, moderation, and whether game theory even applies to"
