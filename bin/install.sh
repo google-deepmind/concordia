@@ -19,7 +19,27 @@ set -euxo pipefail
 cd "$(dirname "$0")/.."
 
 echo 'Installing requirements...'
-pip install --no-deps --require-hashes --requirement requirements.txt
+REQUIREMENTS_FILE=requirements.txt
+# pytype does not yet support Python 3.13+. Its C++ extension fails to build
+# from source on environments without a C++20-capable compiler. Filter it out
+# so the rest of the dependencies can install cleanly.
+if python -c "import sys; sys.exit(0 if sys.version_info >= (3, 13) else 1)"; then
+  echo 'Python >= 3.13 detected — filtering out pytype (unsupported)...'
+  REQUIREMENTS_FILE=/tmp/requirements-filtered.txt
+  python -c "
+import sys, re
+content = open('requirements.txt').read()
+# Remove the pytype== block (package line + hashes + trailing comments).
+content = re.sub(
+    r'^pytype==.*?(?=^[a-zA-Z_])',
+    '',
+    content,
+    flags=re.MULTILINE | re.DOTALL,
+)
+sys.stdout.write(content)
+" > "${REQUIREMENTS_FILE}"
+fi
+pip install --no-deps --require-hashes --requirement "${REQUIREMENTS_FILE}"
 echo
 echo
 

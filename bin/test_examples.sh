@@ -25,8 +25,12 @@ echo
 echo
 
 echo "pytype examples..."
-rm -rf .pytype
-pytype examples || FAILURES=true
+if command -v pytype &> /dev/null; then
+  rm -rf .pytype
+  pytype examples || FAILURES=true
+else
+  echo "pytype not installed (unsupported on this Python version) — skipping."
+fi
 echo
 echo
 
@@ -41,7 +45,11 @@ echo
 echo
 
 echo "pytype notebooks..."
-pytype --pythonpath=. notebooks || FAILURES=true
+if command -v pytype &> /dev/null; then
+  pytype --pythonpath=. notebooks || FAILURES=true
+else
+  echo "pytype not installed (unsupported on this Python version) — skipping."
+fi
 echo
 echo
 

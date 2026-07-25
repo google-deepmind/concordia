@@ -25,7 +25,11 @@ echo
 echo
 
 echo "pytype concordia..."
-pytype concordia || FAILURES=true
+if command -v pytype &> /dev/null; then
+  pytype concordia || FAILURES=true
+else
+  echo "pytype not installed (unsupported on this Python version) — skipping."
+fi
 echo
 echo
 
