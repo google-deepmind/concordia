@@ -90,6 +90,9 @@ class GroqModel(language_model.LanguageModel):
         seed=seed,
     )
 
+    if not response.choices or response.choices[0].message is None:
+      raise language_model.InvalidResponseError(
+          'LLM returned empty or filtered response')
     text = response.choices[0].message.content
 
     if self._measurements is not None:
