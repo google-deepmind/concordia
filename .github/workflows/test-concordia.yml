@@ -51,5 +51,4 @@ jobs:
       - name: Lint Concordia
         run: pylint --errors-only concordia
 
-      - name: Typecheck Concordia
-        run: pytype concordia
+     # TODO(b/530893475): Enable `pyrefly check concordia` once there is a working config.

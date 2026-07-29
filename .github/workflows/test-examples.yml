@@ -56,8 +56,7 @@ jobs:
       - name: Lint examples
         run: pylint --errors-only examples
 
-      - name: Typecheck examples
-        run: pytype --pythonpath=. examples
+      # TODO(b/530893475): Enable `pyrefly check examples/**/*.py` once there is a working config.
 
       - name: Convert notebooks
         run: ./bin/convert_notebooks.sh notebooks
@@ -65,5 +64,4 @@ jobs:
       - name: Lint notebooks
         run: pylint --errors-only notebooks
 
-      - name: Typecheck notebooks
-        run: pytype --pythonpath=. notebooks
+      # TODO(b/530893475): Enable `pyrefly check notebooks` once there is a working config.

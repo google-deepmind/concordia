@@ -24,15 +24,7 @@ pytest examples || FAILURES=true
 echo
 echo
 
-echo "pytype examples..."
-if command -v pytype &> /dev/null; then
-  rm -rf .pytype
-  pytype examples || FAILURES=true
-else
-  echo "pytype not installed (unsupported on this Python version) — skipping."
-fi
-echo
-echo
+# TODO(b/530893475): Enable `pyrefly check examples/**/*.py` once there is a working config.
 
 echo "pylint examples..."
 pylint --errors-only examples || FAILURES=true
@@ -44,14 +36,8 @@ echo "convert notebooks..."
 echo
 echo
 
-echo "pytype notebooks..."
-if command -v pytype &> /dev/null; then
-  pytype --pythonpath=. notebooks || FAILURES=true
-else
-  echo "pytype not installed (unsupported on this Python version) — skipping."
-fi
-echo
-echo
+# TODO(b/530893475): Enable `pyrefly check notebook` once there is a working config.
+
 
 echo "pylint notebooks..."
 pylint --errors-only notebooks || FAILURES=true

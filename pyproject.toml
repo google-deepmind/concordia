@@ -22,6 +22,7 @@ pyink-annotation-pragmas = [
   "pylint:",
   "type: ignore",
   "pytype:",
+  "pyrefly:",
   "mypy:",
   "pyright:",
   "pyre-",
@@ -42,3 +43,7 @@ jobs = "auto"
 # Use the enum overlay for more precise enum checking. This flag is temporary
 # and will be removed once this behavior is enabled by default.
 use_enum_overlay = true
+
+[tool.pyrefly]
+project-includes = ["concordia", "examples"]
+# TODO(b/530893475): Check this config matches the internal config.

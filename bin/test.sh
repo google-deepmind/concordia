@@ -24,14 +24,7 @@ pytest concordia || FAILURES=true
 echo
 echo
 
-echo "pytype concordia..."
-if command -v pytype &> /dev/null; then
-  pytype concordia || FAILURES=true
-else
-  echo "pytype not installed (unsupported on this Python version) — skipping."
-fi
-echo
-echo
+# TODO(b/530893475): Enable `pyrefly check concordia` once there is a working config.
 
 echo "pylint concordia..."
 pylint --errors-only concordia || FAILURES=true

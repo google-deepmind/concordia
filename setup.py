@@ -95,8 +95,8 @@ setuptools.setup(
             'pip-tools',
             'pyink',
             'pylint',
+            'pyrefly',
             'pytest-xdist',
-            'pytype',
             'twine',
         ],
         'google': [

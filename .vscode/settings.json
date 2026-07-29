@@ -28,8 +28,7 @@
     "**/*.py[cod]": true,
     "**/__pycache__": true,
     "**/.cache": true,
-    "**/.pytest_cache": true,
-    "**/.pytype": true
+    "**/.pytest_cache": true
   },
 
   // Python settings.
