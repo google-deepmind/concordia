@@ -34,7 +34,7 @@ from concordia.typing import prefab as prefab_lib
 class GameMasterWithMCPTools(prefab_lib.Prefab):
   """A prefab game master that supports MCP tool use."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A game master that enables agents to use external tools via MCP.'
   )
   params: Mapping[str, Any] = dataclasses.field(

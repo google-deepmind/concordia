@@ -178,7 +178,7 @@ def get_marketplace_config(
           params={'name': seller_data['name'], 'goal': seller_goal},
       )
       player_instances.append(instance_config)
-    agents.extend(personas.make_agents(sellers))
+    agents.extend(personas.make_agents(sellers))  # pyrefly: ignore[missing-attribute]
   else:
     market_type = 'fixed_prices'
 

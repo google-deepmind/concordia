@@ -355,7 +355,7 @@ class DayInTheLifeInitializer(
         type_=make_observation_component.MakeObservation,
     )
     queue_state = make_observation.get_state().get('queue', {})
-    has_pending = any(bool(v) for v in queue_state.values())
+    has_pending = any(bool(v) for v in queue_state.values())  # pyrefly: ignore[missing-attribute]
 
     if has_pending:
       return self.get_entity().name

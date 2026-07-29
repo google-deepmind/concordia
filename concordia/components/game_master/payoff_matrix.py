@@ -150,7 +150,7 @@ class PayoffMatrix(
         self._partial_joint_action[player_name] = choice  # pyrefly: ignore[unsupported-operation]
 
       # Check if all players have acted so far in the current stage game.
-      joint_action = self._partial_joint_action.copy()
+      joint_action = self._partial_joint_action.copy()  # pyrefly: ignore[missing-attribute]
       is_action_complete = self._joint_action_is_complete(joint_action)
       if is_action_complete:
         if self._verbose:

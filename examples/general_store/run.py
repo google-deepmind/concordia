@@ -32,7 +32,7 @@ import json
 import os
 from typing import Any
 
-from concordia.contrib.language_models import language_model_setup
+from concordia.contrib.language_models import language_model_setup  # pyrefly: ignore[missing-import]
 from examples.general_store import scenario_00_crime_and_punishment
 from concordia.language_model import no_language_model
 import numpy as np
