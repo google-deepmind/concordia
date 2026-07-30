@@ -4,8 +4,6 @@
 #
 #    pip-compile --all-extras --allow-unsafe --generate-hashes --no-build-isolation --strip-extras examples/requirements.in setup.py
 #
---index-url https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/
-
 absl-py==2.3.1 \
     --hash=sha256:a97820526f7fbfd2ec1bce83f3f25e3a14840dac0d8e02a0b71cd75db3f77fc9 \
     --hash=sha256:eeecf07f0c2a93ace0772c92e596ace6d3d3996c042b2128459aaae2a76de11d

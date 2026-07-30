@@ -19,7 +19,6 @@ set -euxo pipefail
 cd "$(dirname "$0")/.."
 
 echo 'Installing requirements...'
-REQUIREMENTS_FILE=requirements.txt
 pip install --no-deps --require-hashes --requirement requirements.txt
 echo
 echo
