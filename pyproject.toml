@@ -33,17 +33,21 @@ required_plugins = ["pytest-xdist"]
 addopts = "-n auto"
 testpaths = ["concordia", "examples"]
 
-[tool.pytype]
-inputs = ["concordia", "examples"]
-# Keep going past errors to analyze as many files as possible.
-keep_going = true
-# Run N jobs in parallel. When 'auto' is used, this will be equivalent to the
-# number of CPUs on the host system.
-jobs = "auto"
-# Use the enum overlay for more precise enum checking. This flag is temporary
-# and will be removed once this behavior is enabled by default.
-use_enum_overlay = true
-
 [tool.pyrefly]
-project-includes = ["concordia", "examples"]
-# TODO(b/530893475): Check this config matches the internal config.
+# See //third_party/pyrefly/pyrefly.toml
+infer-with-first-use = false
+check-unannotated-defs = true
+infer-return-types = "never"
+
+[tool.pyrefly.errors]
+abstract-method-call = false
+bad-dunder-all = false
+bad-override-mutable-attribute = false
+bad-override-param-name = false
+implicit-import = false
+protocol-implicitly-defined-attribute = false
+redefinition = false
+redundant-condition = false
+unreachable = false
+unsafe-overlap = false
+unused-coroutine = false
