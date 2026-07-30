@@ -24,7 +24,8 @@ Usage:
 
   metrics = forum_metrics.compute_all_metrics(forum_state)
   report = forum_metrics.format_metrics_report(metrics)
-  forum_metrics.save_metrics_report(metrics, '/path/to/output_metrics')
+  forum_metrics.save_metrics_report(metrics, '/path/to/output_metrics.json')
+  forum_metrics.save_metrics_html_report(metrics, '/path/to/metrics.html')
 """
 
 import collections
@@ -572,4 +573,337 @@ def save_metrics_report(
   print()
   print(report)
 
+  return output_path
+
+
+def format_metrics_html_report(metrics: dict[str, Any]) -> str:
+  """Format metrics as a self-contained HTML report.
+
+  Produces a styled HTML document with sections for toxicity, polarization,
+  and collaboration metrics, including tables and color-coded indicators.
+
+  Args:
+    metrics: Output from compute_all_metrics().
+
+  Returns:
+    Complete HTML document string.
+  """
+  tox = metrics['toxicity']
+  pol = metrics['polarization']
+  col = metrics['collaboration']
+
+  def _pct(value: float) -> str:
+    return f'{value:.1%}'
+
+  def _severity_class(value: float, thresholds: tuple[float, float]) -> str:
+    """Return CSS class based on value severity."""
+    if value <= thresholds[0]:
+      return 'good'
+    elif value <= thresholds[1]:
+      return 'warn'
+    return 'bad'
+
+  # Build karma table rows.
+  karma_rows = ''
+  for name, score in sorted(
+      pol['final_karma'].items(), key=lambda x: -x[1]
+  ):
+    css_class = 'good' if score > 0 else ('warn' if score == 0 else 'bad')
+    karma_rows += (
+        f'<tr><td>{name}</td>'
+        f'<td class="{css_class}">{score:+d}</td></tr>\n'
+    )
+
+  # Build voting pairs table rows.
+  voting_rows = ''
+  for pair in pol.get('voting_pairs', []):
+    polarity_class = _severity_class(
+        pair['net_polarity'], (0.5, 0.8)
+    )
+    voting_rows += (
+        f'<tr><td>{pair["voter"]}</td>'
+        f'<td>{pair["author"]}</td>'
+        f'<td>{pair["upvotes"]}</td>'
+        f'<td>{pair["downvotes"]}</td>'
+        f'<td class="{polarity_class}">{pair["net_polarity"]:.2f}</td></tr>\n'
+    )
+
+  # Build per-agent content table rows.
+  agent_rows = ''
+  if col.get('agent_content'):
+    for name in sorted(col['agent_content'].keys()):
+      c = col['agent_content'][name]
+      threads = col['threads_engaged_per_agent'].get(name, 0)
+      summary = col.get('agent_action_summaries', {}).get(name, {})
+      total_acts = summary.get('total', 0)
+      entropy = summary.get('entropy', 0.0)
+      agent_rows += (
+          f'<tr><td>{name}</td>'
+          f'<td>{c["posts"]}</td>'
+          f'<td>{c["replies"]}</td>'
+          f'<td>{c["total"]}</td>'
+          f'<td>{total_acts}</td>'
+          f'<td>{entropy:.2f}</td>'
+          f'<td>{threads}</td></tr>\n'
+      )
+
+  # Negative karma agents list.
+  neg_karma_list = ', '.join(tox['negative_karma_agents']) or 'None'
+
+  # Severity classes for key indicators.
+  downvote_class = _severity_class(tox['downvote_ratio'], (0.3, 0.5))
+  polarity_class = _severity_class(pol['vote_polarity'], (0.5, 0.8))
+  equality_class = _severity_class(
+      1.0 - col['participation_equality'], (0.3, 0.5)
+  )
+
+  html = f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forum Simulation Metrics Report</title>
+<style>
+  :root {{
+    --bg: #fafafa;
+    --card-bg: #ffffff;
+    --border: #e0e0e0;
+    --text: #212121;
+    --text-secondary: #616161;
+    --accent-tox: #c62828;
+    --accent-pol: #e65100;
+    --accent-col: #2e7d32;
+    --good: #2e7d32;
+    --warn: #f57f17;
+    --bad: #c62828;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+  }}
+  h1 {{
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 3px solid var(--text);
+    padding-bottom: 0.5rem;
+  }}
+  .subtitle {{ color: var(--text-secondary); margin-bottom: 2rem; }}
+  .section {{
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }}
+  .section h2 {{
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--border);
+  }}
+  .section-toxicity h2 {{ border-bottom-color: var(--accent-tox); }}
+  .section-polarization h2 {{ border-bottom-color: var(--accent-pol); }}
+  .section-collaboration h2 {{ border-bottom-color: var(--accent-col); }}
+  .metrics-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }}
+  .metric-card {{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+  }}
+  .metric-card .label {{
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+  }}
+  .metric-card .value {{
+    font-size: 1.6rem;
+    font-weight: 700;
+  }}
+  .metric-card .detail {{
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+  }}
+  .good {{ color: var(--good); }}
+  .warn {{ color: var(--warn); }}
+  .bad  {{ color: var(--bad); }}
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }}
+  th, td {{
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }}
+  th {{
+    background: var(--bg);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }}
+  tr:last-child td {{ border-bottom: none; }}
+  .footer {{
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 2rem;
+  }}
+</style>
+</head>
+<body>
+
+<h1>Forum Simulation Metrics Report</h1>
+<p class="subtitle">Toxicity · Polarization · Collaboration</p>
+
+<!-- ── Toxicity ── -->
+<div class="section section-toxicity">
+  <h2>Toxicity</h2>
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="label">Downvote Ratio</div>
+      <div class="value {downvote_class}">{_pct(tox['downvote_ratio'])}</div>
+      <div class="detail">{tox['total_downvotes']} down / {tox['total_votes']} total</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Ban Count</div>
+      <div class="value">{tox['ban_count']}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Parse Errors</div>
+      <div class="value">{tox['parse_error_count']}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Negative Karma Agents</div>
+      <div class="value {'bad' if tox['negative_karma_count'] > 0 else 'good'}">{tox['negative_karma_count']}</div>
+      <div class="detail">{neg_karma_list}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Lowest Karma</div>
+      <div class="value {'bad' if tox['min_karma'] < 0 else 'good'}">{tox['min_karma']:+d}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Total Upvotes</div>
+      <div class="value">{tox['total_upvotes']}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Polarization ── -->
+<div class="section section-polarization">
+  <h2>Polarization</h2>
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="label">Vote Polarity</div>
+      <div class="value {polarity_class}">{pol['vote_polarity']:.3f}</div>
+      <div class="detail">0 = balanced, 1 = fully polarized</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Karma Spread (σ)</div>
+      <div class="value">{pol['karma_spread_std']:.2f}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Karma Range</div>
+      <div class="value">{pol['karma_range']['min']} to {pol['karma_range']['max']}</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Final Karma</h3>
+  <table>
+    <thead><tr><th>Agent</th><th>Karma</th></tr></thead>
+    <tbody>
+{karma_rows}    </tbody>
+  </table>
+
+  {'<h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Voting Patterns</h3>' if voting_rows else ''}
+  {'<table><thead><tr><th>Voter</th><th>Author</th><th>↑</th><th>↓</th><th>Polarity</th></tr></thead><tbody>' + voting_rows + '</tbody></table>' if voting_rows else ''}
+</div>
+
+<!-- ── Collaboration ── -->
+<div class="section section-collaboration">
+  <h2>Collaboration</h2>
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="label">Total Posts</div>
+      <div class="value">{col['total_posts']}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Total Replies</div>
+      <div class="value">{col['total_replies']}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Avg Replies / Post</div>
+      <div class="value">{col['avg_replies_per_post']:.1f}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Action Diversity (H)</div>
+      <div class="value">{col['action_diversity_entropy']:.2f}</div>
+      <div class="detail">bits</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Participation Equality</div>
+      <div class="value {equality_class}">{col['participation_equality']:.3f}</div>
+      <div class="detail">0 = dominated, 1 = equal</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Content Ratio</div>
+      <div class="value">{_pct(col['content_ratio'])}</div>
+      <div class="detail">{col['total_content_events']} content / {col['total_actions']} actions</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Avg Threads Engaged</div>
+      <div class="value">{col['avg_threads_engaged']:.1f}</div>
+    </div>
+  </div>
+
+  {'<h3 style="margin: 1rem 0 0.5rem; font-size: 1rem;">Per-Agent Breakdown</h3>' if agent_rows else ''}
+  {'<table><thead><tr><th>Agent</th><th>Posts</th><th>Replies</th><th>Total Content</th><th>Total Actions</th><th>Entropy (H)</th><th>Threads</th></tr></thead><tbody>' + agent_rows + '</tbody></table>' if agent_rows else ''}
+</div>
+
+<div class="footer">
+  Generated by forum_metrics · Concordia Social Media Simulation
+</div>
+
+</body>
+</html>"""
+
+  return html
+
+
+def save_metrics_html_report(
+    metrics: dict[str, Any],
+    output_path: str,
+) -> str:
+  """Save metrics as an HTML report.
+
+  Args:
+    metrics: Output from compute_all_metrics().
+    output_path: File path (with .html extension) to save the report.
+
+  Returns:
+    The output file path.
+  """
+  html = format_metrics_html_report(metrics)
+  with open(output_path, 'w') as f:
+    f.write(html)
+  print(f'Metrics HTML report saved to: {output_path}')
   return output_path

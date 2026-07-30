@@ -229,6 +229,7 @@ def run_scenario(
   # ForumState and save alongside other outputs.
   metrics = None
   metrics_path = None
+  metrics_html_path = None
   if output_dir:
     try:
       for gm in sim.get_game_masters():
@@ -249,6 +250,17 @@ def run_scenario(
         metrics_path = forum_metrics.save_metrics_report(
             metrics, metrics_filepath
         )
+        # Also save as HTML report.
+        metrics_html_filename = (
+            f"{scenario_name.lower().replace(' ', '_')}"
+            f"_{timestamp}_metrics.html"
+        )
+        metrics_html_filepath = os.path.join(
+            output_dir, metrics_html_filename
+        )
+        metrics_html_path = forum_metrics.save_metrics_html_report(
+            metrics, metrics_html_filepath
+        )
         break  # Only process the first forum-bearing GM.
     except OSError as e:
       print(f"Warning: Could not save metrics report: {e}")
@@ -261,5 +273,7 @@ def run_scenario(
       "structured_log_path": structured_log_path,
       "metrics": metrics,
       "metrics_path": metrics_path,
+      "metrics_html_path": metrics_html_path,
       "checkpoint_history": checkpoint_history,
   }
+
