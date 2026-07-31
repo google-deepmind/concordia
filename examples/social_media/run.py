@@ -38,6 +38,9 @@ from concordia.contrib.language_models.openai import gpt_model_multimodal
 from examples.social_media import scenario_00_robo_alchemy
 from examples.social_media import scenario_01_robo_alchemy_images
 from examples.social_media import scenario_02_game_theory_tv
+from examples.social_media import scenario_03_urbanist_grid
+from examples.social_media import scenario_04_ethical_plate
+from examples.social_media import scenario_05_silicon_prometheus
 from concordia.language_model import no_language_model
 from concordia.language_model import retry_wrapper
 import numpy as np
@@ -47,6 +50,9 @@ _SCENARIO_MODULES = [
     scenario_00_robo_alchemy,
     scenario_01_robo_alchemy_images,
     scenario_02_game_theory_tv,
+    scenario_03_urbanist_grid,
+    scenario_04_ethical_plate,
+    scenario_05_silicon_prometheus,
 ]
 
 SCENARIOS = {
