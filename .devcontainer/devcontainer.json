@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json
 {
   "name": "Concordia",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12-trixie",
+  "image": "mcr.microsoft.com/devcontainers/python:3.14-trixie",
   "postCreateCommand": "bin/install.sh",
   "customizations": {
     "vscode": {
@@ -16,6 +16,9 @@
         "ms-toolsai.jupyter"
       ]
     }
+  },
+  "containerEnv": {
+    "TMPDIR": "/tmp"
   },
   "remoteEnv": {
     "PYTHONPATH": "${containerEnv:PYTHONPATH}:${containerWorkspaceFolder}",

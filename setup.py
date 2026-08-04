@@ -136,7 +136,7 @@ setuptools.setup(
         ],
         'vllm': [
             # Used in concordia.contrib.language_models.vllm
-            'vllm',
+            'vllm>=0.21.0',
         ],
         'groq': [
             # Used in concordia.contrib.language_models.groq
