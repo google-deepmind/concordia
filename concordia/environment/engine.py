@@ -156,15 +156,23 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
 
   Supports both JSON format (preferred) and legacy string format (for backward
   compatibility).
-
-  Args:
-    next_action_spec_string: The string representation of the next action spec.
-
-  Returns:
-    The parsed action spec.
   """
+  raw = next_action_spec_string.strip()
+
+  # Accept common LLM formatting: fenced JSON blocks.
+  if raw.startswith("```"):
+    lines = raw.splitlines()
+    if lines:
+      # Drop opening fence line (``` or ```json)
+      if lines[0].strip().startswith("```"):
+        lines = lines[1:]
+      # Drop closing fence line if present
+      if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    raw = "\n".join(lines).strip()
+
   try:
-    spec_dict = json.loads(next_action_spec_string)
+    spec_dict = json.loads(raw)
     return entity_lib.action_spec_from_dict(spec_dict)
   except json.JSONDecodeError:
     logging.warning(
@@ -173,7 +181,6 @@ def action_spec_parser(next_action_spec_string: str) -> entity_lib.ActionSpec:
         next_action_spec_string[:100],
     )
     return _legacy_action_spec_parser(next_action_spec_string)
-
 
 def action_spec_to_string(action_spec: entity_lib.ActionSpec) -> str:
   """Convert an action spec to a JSON string."""
