@@ -270,8 +270,10 @@ def create_debug_scenario():
           params={  # pyrefly: ignore[bad-argument-type]
               "name": _FORUM_GM,
               "forum_name": "The Ethical Plate",
+              # pyrefly: ignore [bad-assignment]
               "moderators": [_USER_MODERATOR],
               "call_to_action": _CALL_TO_ACTION,
+              # pyrefly: ignore [bad-assignment]
               "forum_state": forum_state,
           },
       ),
@@ -281,6 +283,7 @@ def create_debug_scenario():
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": {
                   name: f"Age: {age}\n" + "\n".join(memories)
                   for name, memories, age in [
@@ -311,7 +314,9 @@ def create_debug_scenario():
                       ),
                   ]
               },
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": [
                   (
                       "The Ethical Plate is an online forum dedicated to"

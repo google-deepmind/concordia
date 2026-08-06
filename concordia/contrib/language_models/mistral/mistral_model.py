@@ -24,6 +24,7 @@ from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import mistralai
+# pyrefly: ignore [missing-module-attribute]
 from mistralai import models
 
 
@@ -74,6 +75,7 @@ class MistralLanguageModel(language_model.LanguageModel):
     self._text_model_name = model_name
     self._measurements = measurements
     self._channel = channel
+    # pyrefly: ignore [missing-attribute]
     self._client = mistralai.Mistral(api_key=self._api_key)
 
     self._choice_model_name = self._text_model_name
@@ -125,6 +127,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             stop=terminators,
             random_seed=seed,
         )
+      # pyrefly: ignore [missing-attribute]
       except mistralai.models.sdkerror.SDKError as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           logging.warning('  Exception: %s', err)
@@ -193,6 +196,7 @@ class MistralLanguageModel(language_model.LanguageModel):
             max_tokens=max_tokens,
             random_seed=seed,
         )
+      # pyrefly: ignore [missing-attribute]
       except mistralai.models.sdkerror.SDKError as err:
         if attempts >= _NUM_SILENT_ATTEMPTS:
           logging.warning('  Exception: %s', err)

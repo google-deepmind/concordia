@@ -145,6 +145,7 @@ def _create_together_client(api_key: str) -> TogetherClient:
   Returns:
     A Together AI client.
   """
+  # pyrefly: ignore [bad-return]
   return together.Together(api_key=api_key)
 
 
@@ -216,6 +217,7 @@ class Gemma4Chat(language_model.LanguageModel):
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
+    # pyrefly: ignore [bad-argument-type]
     self._client = client or _create_together_client(api_key)
     self._max_allowed_tokens = max_allowed_tokens
 
@@ -305,6 +307,7 @@ class Gemma4Chat(language_model.LanguageModel):
           )
         continue
       else:
+        # pyrefly: ignore [missing-attribute]
         result = response.choices[0].message.content or ''
         if not result:
           # Reasoning model consumed the entire budget on thinking and produced
@@ -313,7 +316,9 @@ class Gemma4Chat(language_model.LanguageModel):
               '  Empty content from %s (finish_reason=%s,'
               ' completion_tokens=%s). Retrying.',
               self._model_name,
+              # pyrefly: ignore [missing-attribute]
               response.choices[0].finish_reason,
+              # pyrefly: ignore [missing-attribute]
               getattr(response.usage, 'completion_tokens', '?'),
           )
           continue
@@ -441,6 +446,7 @@ class DeepSeekModel(language_model.LanguageModel):
     self._model_name = model_name
     self._measurements = measurements
     self._channel = channel
+    # pyrefly: ignore [bad-argument-type]
     self._client = client or _create_together_client(api_key)
     self._max_allowed_tokens = max_allowed_tokens
 
@@ -520,6 +526,7 @@ class DeepSeekModel(language_model.LanguageModel):
           )
         continue
       else:
+        # pyrefly: ignore [missing-attribute]
         result = response.choices[0].message.content
         break
 
@@ -637,6 +644,7 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
     self._measurements = measurements
     self._max_allowed_tokens = max_allowed_tokens
     self._channel = channel
+    # pyrefly: ignore [bad-argument-type]
     self._client = client or _create_together_client(api_key)
 
   @override
@@ -722,7 +730,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
           )
         continue
       else:
+        # pyrefly: ignore [missing-attribute]
         result = response.choices[0].message.content
+        # pyrefly: ignore [missing-attribute]
         reasoning = getattr(response.choices[0].message, 'reasoning', '')
         break
 

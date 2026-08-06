@@ -195,12 +195,14 @@ class GeminiModelVision(language_model.LanguageModel):
 
     response = self._client.models.generate_content(
         model=self._model_name,
+        # pyrefly: ignore [bad-argument-type]
         contents=contents,
         config=config,
     )
 
     output_parts = []
     try:
+      # pyrefly: ignore [missing-attribute, unsupported-operation]
       for part in response.candidates[0].content.parts:
         if part.text:
           output_parts.append(part.text)

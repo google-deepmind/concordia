@@ -202,12 +202,16 @@ def create_debug_scenario():
       role=prefab_lib.Role.ENTITY,
       params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_SILAS,
+          # pyrefly: ignore [bad-assignment]
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _SITUATION_PERCEPTION_HISTORY_LENGTH
           ),
+          # pyrefly: ignore [bad-assignment]
           "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
           "person_by_situation_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _PERSON_BY_SITUATION_HISTORY_LENGTH
           ),
       },
@@ -218,12 +222,16 @@ def create_debug_scenario():
       role=prefab_lib.Role.ENTITY,
       params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_PETRA,
+          # pyrefly: ignore [bad-assignment]
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _SITUATION_PERCEPTION_HISTORY_LENGTH
           ),
+          # pyrefly: ignore [bad-assignment]
           "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
           "person_by_situation_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _PERSON_BY_SITUATION_HISTORY_LENGTH
           ),
       },
@@ -234,12 +242,16 @@ def create_debug_scenario():
       role=prefab_lib.Role.ENTITY,
       params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_DIEGO,
+          # pyrefly: ignore [bad-assignment]
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _SITUATION_PERCEPTION_HISTORY_LENGTH
           ),
+          # pyrefly: ignore [bad-assignment]
           "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
           "person_by_situation_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _PERSON_BY_SITUATION_HISTORY_LENGTH
           ),
       },
@@ -250,12 +262,16 @@ def create_debug_scenario():
       role=prefab_lib.Role.ENTITY,
       params={  # pyrefly: ignore[bad-argument-type]
           "name": _USER_THADDEUS,
+          # pyrefly: ignore [bad-assignment]
           "observation_history_length": _OBSERVATION_HISTORY_LENGTH,
           "situation_perception_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _SITUATION_PERCEPTION_HISTORY_LENGTH
           ),
+          # pyrefly: ignore [bad-assignment]
           "self_perception_history_length": _SELF_PERCEPTION_HISTORY_LENGTH,
           "person_by_situation_history_length": (
+              # pyrefly: ignore [bad-assignment]
               _PERSON_BY_SITUATION_HISTORY_LENGTH
           ),
       },
@@ -276,6 +292,7 @@ def create_debug_scenario():
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": {
                   name: f"Age: {age}\n" + "\n".join(memories)
                   for name, memories, age in [
@@ -301,7 +318,9 @@ def create_debug_scenario():
                       ),
                   ]
               },
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": [
                   (
                       "The Robotic Athanor is an online forum devoted to"

@@ -128,10 +128,15 @@ def run_scenario_by_number(
     return None
 
   info = SCENARIOS[scenario_num]
+  # pyrefly: ignore [not-callable]
   return info["run"](
+      # pyrefly: ignore [unexpected-keyword]
       model=model,
+      # pyrefly: ignore [unexpected-keyword]
       embedder=embedder,
+      # pyrefly: ignore [unexpected-keyword]
       output_dir=output_dir,
+      # pyrefly: ignore [unexpected-keyword]
       image_model=image_model,
   )
 
@@ -247,6 +252,7 @@ def main():
 
   if results:
     info = SCENARIOS[scenario_key]
+    # pyrefly: ignore [bad-argument-type]
     save_results(results, args.output_dir, info["name"])
 
 

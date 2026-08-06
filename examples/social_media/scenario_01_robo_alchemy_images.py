@@ -271,6 +271,7 @@ def create_scenario(image_model=None):
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": {
                   name: f"Age: {age}\n" + "\n".join(memories)
                   for name, memories, age in [
@@ -296,7 +297,9 @@ def create_scenario(image_model=None):
                       ),
                   ]
               },
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": [
                   (
                       "The Robotic Athanor is an online forum devoted to"

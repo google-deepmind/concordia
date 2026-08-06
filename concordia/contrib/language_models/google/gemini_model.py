@@ -230,12 +230,14 @@ class GeminiModel(language_model.LanguageModel):
 
     chat = self._client.chats.create(
         model=self._model_name,
+        # pyrefly: ignore [bad-argument-type]
         history=copy.deepcopy(DEFAULT_HISTORY),
         config=config,
     )
     sample = chat.send_message(message=prompt)
 
     try:
+      # pyrefly: ignore [missing-attribute, unsupported-operation]
       response = sample.candidates[0].content.parts[0].text
     except (ValueError, IndexError, AttributeError) as e:
       logging.error('An error occurred: %s', e)

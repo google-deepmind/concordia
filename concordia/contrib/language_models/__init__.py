@@ -42,6 +42,7 @@ _REGISTRY = types.MappingProxyType({
 })
 
 
+# pyrefly: ignore [invalid-annotation]
 def _import_model(model_path: str) -> type(language_model.LanguageModel):
   """Imports a model from this package."""
   module_path, class_name = f'{__name__}.{model_path}'.rsplit('.', 1)
