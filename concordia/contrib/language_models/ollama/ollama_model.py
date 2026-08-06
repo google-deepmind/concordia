@@ -145,6 +145,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
         if isinstance(json_data_response, dict) and json_data_response:
           sample = next(iter(json_data_response.values()))
         elif isinstance(json_data_response, str) and json_data_response:
+          # pyrefly: ignore [missing-attribute]
           sample = sample_or_none.strip()
         else:
           continue

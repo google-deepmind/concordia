@@ -24,7 +24,10 @@ pytest examples || FAILURES=true
 echo
 echo
 
-# TODO(b/530893475): Enable `pyrefly check examples/**/*.py` once there is a working config.
+echo "pyrefly check examples..."
+pyrefly check examples/**/*.py || FAILURES=true
+echo
+echo
 
 echo "pylint examples..."
 pylint --errors-only examples || FAILURES=true

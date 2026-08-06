@@ -201,7 +201,9 @@ def get_marketplace_config(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               'name': 'MarketplaceGM',
+              # pyrefly: ignore [bad-assignment]
               'experiment_component_class': MarketPlace,
+              # pyrefly: ignore [bad-assignment]
               'experiment_component_init_kwargs': component_kwargs,
           },
       )

@@ -111,6 +111,7 @@ class MCPClient:
       tools.append({
           "name": tool.name,
           "description": tool.description or "",
+          # pyrefly: ignore [missing-attribute]
           "input_schema": tool.inputSchema,
       })
     return tools

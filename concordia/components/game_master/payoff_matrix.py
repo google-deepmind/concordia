@@ -151,6 +151,7 @@ class PayoffMatrix(
 
       # Check if all players have acted so far in the current stage game.
       joint_action = self._partial_joint_action.copy()  # pyrefly: ignore[missing-attribute]
+      # pyrefly: ignore [bad-argument-type]
       is_action_complete = self._joint_action_is_complete(joint_action)
       if is_action_complete:
         if self._verbose:
@@ -160,6 +161,7 @@ class PayoffMatrix(
               )
           )
         # Get the scores for each player for the current step.
+        # pyrefly: ignore [bad-argument-type]
         this_step_scores = self._action_to_scores(joint_action)
         for player_name in this_step_scores:
           if player_name in self._player_scores:
@@ -225,7 +227,9 @@ class PayoffMatrix(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
+    # pyrefly: ignore [bad-assignment]
     self._stage_idx = state['stage_idx']
+    # pyrefly: ignore [bad-assignment]
     self._partial_joint_action = state['partial_joint_action']
     self._player_scores = state['player_scores']  # pyrefly: ignore[bad-assignment]
     self._history = state['history']  # pyrefly: ignore[bad-assignment]

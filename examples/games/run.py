@@ -143,6 +143,7 @@ def main() -> None:
     sys.exit(1)
 
   if args.focal_player_prefab:
+    # pyrefly: ignore [missing-attribute]
     config_lib.FOCAL_PLAYER_PREFAB = args.focal_player_prefab
 
   model = language_models.language_model_setup(

@@ -140,7 +140,9 @@ class VertexAI(language_model.LanguageModel):
       try:
         response = self._client.predict(
             endpoint=self._endpoint_name,
+            # pyrefly: ignore [bad-argument-type]
             instances=[{"inputs": _wrap_prompt(prompt)}],
+            # pyrefly: ignore [bad-argument-type]
             parameters=self._parameters,
         ).predictions[0]
 
@@ -149,15 +151,18 @@ class VertexAI(language_model.LanguageModel):
         # Apply terminators
         for terminator in terminators:
           if terminator in result:
+            # pyrefly: ignore [bad-index, missing-attribute]
             result = result[: result.index(terminator)] + terminator
             break
 
         if self._measurements is not None:
           self._measurements.publish_datum(
               self._channel,
+              # pyrefly: ignore [bad-argument-type]
               {"raw_text_length": len(result)},
           )
 
+        # pyrefly: ignore [bad-return]
         return result
 
       except Exception as err:  # pylint: disable=broad-exception-caught

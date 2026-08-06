@@ -501,8 +501,10 @@ def run_simulation(
             role=prefab_lib.Role.ENTITY,
             params={  # pyrefly: ignore[bad-argument-type]
                 "name": name,
+                # pyrefly: ignore [bad-assignment]
                 "fixed_responses": fixed_responses,
                 "goal": f"{name} wants to make a profitable deal.",
+                # pyrefly: ignore [bad-assignment]
                 "extras": {"specific_memories": formatted_memories},
             },
         )
@@ -539,7 +541,9 @@ def run_simulation(
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": shared_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
           },
       )
@@ -562,6 +566,7 @@ def run_simulation(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
           },
       )
@@ -573,10 +578,13 @@ def run_simulation(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
               "buyer_name": first_buyer,
               "seller_name": first_seller,
+              # pyrefly: ignore [bad-assignment]
               "action_to_scores": first_payoff.action_to_scores,
+              # pyrefly: ignore [bad-assignment]
               "scores_to_observation": first_payoff.scores_to_observation,
           },
       )

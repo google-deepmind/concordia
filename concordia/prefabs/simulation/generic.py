@@ -277,6 +277,7 @@ class Simulation(simulation_lib.Simulation):
     self._get_state_callback = get_state_callback
 
     checkpoint_callback = functools.partial(
+        # pyrefly: ignore [bad-argument-type]
         self.save_checkpoint, checkpoint_path=checkpoint_path
     )
 

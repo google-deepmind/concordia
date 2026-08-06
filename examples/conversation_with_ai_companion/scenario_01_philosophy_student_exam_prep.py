@@ -230,8 +230,10 @@ def create_config() -> prefab_lib.Config:
                   f" cramming for an exam. {_AI_COMPANION} is an AI"
                   " assistant tool they are using to study."
               ),
+              # pyrefly: ignore [bad-assignment]
               "emotion_options": _JORDAN_EMOTION_OPTIONS,
               "context": _HUMAN_USER_CONTEXT,
+              # pyrefly: ignore [bad-assignment]
               "extra_components": {
                   "Style": agent_components.constant.Constant(
                       state=(
@@ -258,6 +260,7 @@ def create_config() -> prefab_lib.Config:
                   f"{_AI_COMPANION} is a helpful and harmless AI assistant."
                   " It is a tool, not a person."
               ),
+              # pyrefly: ignore [bad-assignment]
               "emotion_options": _SAGE_OPERATING_MODES,
               "goal": (
                   f"{_AI_COMPANION} should be a useful study tool for"
@@ -272,6 +275,7 @@ def create_config() -> prefab_lib.Config:
                   " clearly state that it is a tool."
               ),
               "context": _AI_COMPANION_CONTEXT,
+              # pyrefly: ignore [bad-assignment]
               "extra_components": {
                   "Style": agent_components.constant.Constant(
                       state=(
@@ -302,10 +306,15 @@ def create_config() -> prefab_lib.Config:
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": _SHARED_MEMORIES,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": player_specific_context,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_styles": _PLAYER_STYLES,
+              # pyrefly: ignore [bad-assignment]
               "skip_formative_memories_for": [_AI_COMPANION],
           },
       )
@@ -320,6 +329,7 @@ def create_config() -> prefab_lib.Config:
               "name": "conversation rules",
               "next_game_master_name": "conversation rules",
               "acting_order": "fixed",
+              # pyrefly: ignore [bad-assignment]
               "can_terminate_simulation": True,
           },
       )

@@ -323,6 +323,7 @@ def deep_compare_components(comp1, comp2, test_case, skip_keys=None):
 
   for key in d1:
 
+    # pyrefly: ignore [not-iterable]
     if key in skip_keys:
       continue
 

@@ -143,6 +143,7 @@ class GptVisionModel(language_model.LanguageModel):
           prompt=prompt,
           n=1,
       )
+      # pyrefly: ignore [unsupported-operation]
       b64_data = response.data[0].b64_json
       return f'![image](data:image/png;base64,{b64_data})'
     except Exception as e:  # pylint: disable=broad-except
@@ -196,6 +197,7 @@ class GptVisionModel(language_model.LanguageModel):
         {'role': 'user', 'content': user_content},
     ]
 
+    # pyrefly: ignore [no-matching-overload]
     response = self._client.chat.completions.create(
         model=self._model_name,
         messages=messages,

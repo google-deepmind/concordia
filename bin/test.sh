@@ -24,7 +24,10 @@ pytest concordia || FAILURES=true
 echo
 echo
 
-# TODO(b/530893475): Enable `pyrefly check concordia` once there is a working config.
+echo "pyrefly concordia..."
+pyrefly check concordia || FAILURES=true
+echo
+echo
 
 echo "pylint concordia..."
 pylint --errors-only concordia || FAILURES=true

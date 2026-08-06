@@ -852,6 +852,8 @@ class MarketPlace(
               # We need to pop it and reconstruct it as a Good object.
               good_data = order_data.pop("good", None)
               if isinstance(good_data, dict):
+                # pyrefly: ignore [bad-unpacking, missing-argument]
                 reconstructed_good = Good(**good_data)
+                # pyrefly: ignore [unsupported-operation]
                 order_data["good"] = reconstructed_good
                 self._orderbooks[good_id].append(Order(**order_data))  # pyrefly: ignore[bad-unpacking, missing-argument]
