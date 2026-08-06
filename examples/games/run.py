@@ -28,7 +28,9 @@ Usage:
 """
 
 import argparse
+import datetime
 import importlib
+import json
 import sys
 
 from concordia.contrib import language_models
@@ -194,6 +196,30 @@ def main() -> None:
       print("\nBackground player scores:")
       for name, score in background_scores.items():
         print(f"  {name}: {score:.2f}")
+
+    # Persist scores alongside the structured log so that a completed run
+    # can be fingerprinted later (see fingerprint_run.py) without needing
+    # to re-parse stdout.
+    if focal_scores or background_scores:
+      scores_file = f"/tmp/simulation_scores_{game}_{scenario}.json"
+      with open(scores_file, "w") as f:
+        json.dump(
+            {
+                "game": game,
+                "scenario": scenario,
+                "model_name": args.model_name,
+                "api_type": args.api_type,
+                "timestamp": (
+                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                ),
+                "command": " ".join(sys.argv),
+                "focal_scores": focal_scores,
+                "background_scores": background_scores,
+            },
+            f,
+            indent=2,
+        )
+      print(f"Scores written to {scores_file}")
 
 
 if __name__ == "__main__":
