@@ -168,8 +168,8 @@ class Plan(
       if 'current_plan' in state:
         self._current_plan = str(state['current_plan'])
       if 'components' in state:
-        self._components = tuple(state['components'])  # type: ignore
+        self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
       if 'goal_component_key' in state:
         self._goal_component_key = str(state['goal_component_key'])
       if 'force_time_horizon' in state:
-        self._force_time_horizon = str(state['force_time_horizon'])  # type: ignore
+        self._force_time_horizon = str(state['force_time_horizon'])

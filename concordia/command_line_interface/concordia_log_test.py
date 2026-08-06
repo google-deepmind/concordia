@@ -165,7 +165,7 @@ def _write_log_to_file(
 def _capture_output(func, *args, **kwargs) -> str:
   buf = io.StringIO()
   old_stdout = sys.stdout
-  sys.stdout = buf  # type: ignore[assignment]
+  sys.stdout = buf
   try:
     func(*args, **kwargs)
     return buf.getvalue()
@@ -176,7 +176,7 @@ def _capture_output(func, *args, **kwargs) -> str:
 def _capture_stderr(func, *args, **kwargs) -> str:
   buf = io.StringIO()
   old_stderr = sys.stderr
-  sys.stderr = buf  # type: ignore[assignment]
+  sys.stderr = buf
   try:
     func(*args, **kwargs)
     return buf.getvalue()

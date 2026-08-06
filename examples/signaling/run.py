@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pytype: skip-file
+
 r"""Entry point for the signaling marketplace experiment.
 
 This script provides a BYO (Bring Your Own) model interface for running the

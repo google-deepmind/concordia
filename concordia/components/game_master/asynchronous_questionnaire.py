@@ -123,7 +123,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
   def _get_action_spec(self, player_name: str) -> entity_lib.ActionSpec:
     """Returns the ActionSpec for the player's current question."""
     with self._lock:
-      p_event_idx: Dict[str, int] = self._player_event_index  # type: ignore
+      p_event_idx: Dict[str, int] = self._player_event_index
       event_idx = p_event_idx.get(player_name, 0)
       threshold = max(1, len(self._sequence_of_events))
       if event_idx >= threshold:
@@ -132,7 +132,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
             output_type=entity_lib.OutputType.FREE,
         )
 
-      p_question_idx: Dict[str, int] = self._player_question_index  # type: ignore
+      p_question_idx: Dict[str, int] = self._player_question_index
       q_idx = p_question_idx.get(player_name, 0)
       if q_idx >= len(self._all_questions):
         return entity_lib.ActionSpec(
@@ -202,11 +202,11 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
         return ''
 
       with self._lock:
-        p_event_idx: Dict[str, int] = self._player_event_index  # type: ignore
+        p_event_idx: Dict[str, int] = self._player_event_index
         event_idx = p_event_idx.get(player_name, 0)
 
         # Only observe the event from the sequence once per event_idx
-        p_obs_idx: Dict[str, int] = self._player_observed_event_index  # type: ignore
+        p_obs_idx: Dict[str, int] = self._player_observed_event_index
         observed_idx = p_obs_idx.get(player_name, -1)
         if (
             event_idx < len(self._sequence_of_events)
@@ -323,7 +323,7 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
     """Returns results compatible with OpenEndedQuestionnaire."""
     with self._lock:
       data = []
-      answers_dict: Dict[str, List[Dict[str, Any]]] = self._answers  # type: ignore
+      answers_dict: Dict[str, List[Dict[str, Any]]] = self._answers
       for player_answers in list(answers_dict.values()):
         data.extend(player_answers)
     return data
@@ -367,9 +367,11 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
       return {
-          'player_event_index': dict(self._player_event_index).copy(),  # type: ignore
-          'player_question_index': dict(self._player_question_index).copy(),  # type: ignore
-          'player_observed_event_index': dict(self._player_observed_event_index).copy(),  # type: ignore
+          'player_event_index': dict(self._player_event_index).copy(),
+          'player_question_index': dict(self._player_question_index).copy(),
+          'player_observed_event_index': (
+              dict(self._player_observed_event_index).copy()
+          ),
           'answers': copy.deepcopy(self._answers),
           'pending_qa_observations': copy.deepcopy(
               self._pending_qa_observations
@@ -378,20 +380,19 @@ class AsynchronousQuestionnaire(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      # pytype: disable=annotation-type-mismatch
-      self._player_event_index = state.get(
+
+      self._player_event_index = state.get(  # pyrefly: ignore[bad-assignment]
           'player_event_index', {name: 0 for name in self._player_names}
       )
-      self._player_question_index = state['player_question_index']
-      self._player_observed_event_index = state.get(
+      self._player_question_index = state['player_question_index']  # pyrefly: ignore[bad-assignment]
+      self._player_observed_event_index = state.get(  # pyrefly: ignore[bad-assignment]
           'player_observed_event_index',
           {name: -1 for name in self._player_names}
       )
-      self._answers = copy.deepcopy(state['answers'])
-      self._pending_qa_observations = copy.deepcopy(
+      self._answers = copy.deepcopy(state['answers'])  # pyrefly: ignore[bad-assignment]
+      self._pending_qa_observations = copy.deepcopy(  # pyrefly: ignore[bad-assignment]
           state.get(
               'pending_qa_observations',
               {name: [] for name in self._player_names},
           )
       )
-      # pytype: enable=annotation-type-mismatch

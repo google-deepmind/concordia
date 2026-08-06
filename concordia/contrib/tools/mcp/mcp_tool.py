@@ -16,7 +16,7 @@
 
 from typing import Any
 
-from concordia.contrib.tools.mcp import mcp_client  # type: ignore[import]
+from concordia.contrib.tools.mcp import mcp_client
 from concordia.document import tool
 
 

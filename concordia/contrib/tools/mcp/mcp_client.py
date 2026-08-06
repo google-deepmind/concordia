@@ -18,8 +18,8 @@ import asyncio
 import contextlib
 from typing import Any, Dict, List, Optional
 
-from mcp.client import session as mcp_session  # type: ignore[import]
-from mcp.client import stdio as mcp_stdio  # type: ignore[import]
+from mcp.client import session as mcp_session
+from mcp.client import stdio as mcp_stdio
 
 
 class MCPClient:

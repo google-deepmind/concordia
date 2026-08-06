@@ -467,7 +467,7 @@ class ForumState(entity_component.ContextComponent):
           reply['votes'] = reply.get('votes', 0) + 1
           if 'vote_log' not in reply:
             reply['vote_log'] = []
-          reply['vote_log'].append({'voter': voter, 'direction': 'up'})  # pytype: disable=attribute-error
+          reply['vote_log'].append({'voter': voter, 'direction': 'up'})
           author = str(reply['author'])
           if voter and voter != author and author in self._karma:
             self._karma[author] += 1
@@ -495,7 +495,7 @@ class ForumState(entity_component.ContextComponent):
           reply['votes'] = reply.get('votes', 0) - 1
           if 'vote_log' not in reply:
             reply['vote_log'] = []
-          reply['vote_log'].append({'voter': voter, 'direction': 'down'})  # pytype: disable=attribute-error
+          reply['vote_log'].append({'voter': voter, 'direction': 'down'})
           author = str(reply['author'])
           if voter and voter != author and author in self._karma:
             self._karma[author] -= 1

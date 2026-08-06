@@ -305,7 +305,7 @@ class Gemma4Chat(language_model.LanguageModel):
           )
         continue
       else:
-        result = response.choices[0].message.content or ''  # pytype: disable=attribute-error
+        result = response.choices[0].message.content or ''
         if not result:
           # Reasoning model consumed the entire budget on thinking and produced
           # no content. Log and retry with the normal backoff loop.
@@ -313,8 +313,8 @@ class Gemma4Chat(language_model.LanguageModel):
               '  Empty content from %s (finish_reason=%s,'
               ' completion_tokens=%s). Retrying.',
               self._model_name,
-              response.choices[0].finish_reason,  # pytype: disable=attribute-error
-              getattr(response.usage, 'completion_tokens', '?'),  # pytype: disable=attribute-error
+              response.choices[0].finish_reason,
+              getattr(response.usage, 'completion_tokens', '?'),
           )
           continue
         # Apply caller-supplied terminators client-side, since we didn't pass
@@ -520,7 +520,7 @@ class DeepSeekModel(language_model.LanguageModel):
           )
         continue
       else:
-        result = response.choices[0].message.content  # pytype: disable=attribute-error
+        result = response.choices[0].message.content
         break
 
     if self._measurements is not None:
@@ -722,8 +722,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
           )
         continue
       else:
-        result = response.choices[0].message.content  # pytype: disable=attribute-error
-        reasoning = getattr(response.choices[0].message, 'reasoning', '')  # pytype: disable=attribute-error
+        result = response.choices[0].message.content
+        reasoning = getattr(response.choices[0].message, 'reasoning', '')
         break
 
     if self._measurements is not None:

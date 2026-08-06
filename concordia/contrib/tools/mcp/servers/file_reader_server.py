@@ -21,7 +21,7 @@ to read files and list directories during simulations.
 import pathlib
 from typing import Optional
 
-from mcp.server import fastmcp  # type: ignore[import]
+from mcp.server import fastmcp
 
 # Initialize MCP server
 mcp = fastmcp.FastMCP("file-reader")

@@ -123,7 +123,7 @@ def run_scenario(
   for instance in config.instances:
     if instance.role == prefab_lib.Role.GAME_MASTER:
       params = dict(instance.params)
-      instance.params = params  # pytype: disable=annotation-type-mismatch
+      instance.params = params
 
   if engine is None:
     engine = asynchronous.Asynchronous()
@@ -133,7 +133,7 @@ def run_scenario(
     for instance in config.instances:
       params = dict(instance.params)
       params["measurements"] = reactive  # pyrefly: ignore[unsupported-operation]
-      instance.params = params  # pytype: disable=annotation-type-mismatch
+      instance.params = params
 
   sim = simulation.Simulation(
       config=config,
@@ -190,7 +190,7 @@ def run_scenario(
       timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
       for gm in sim.get_game_masters():
         try:
-          forum_state = gm.get_component(  # pytype: disable=attribute-error
+          forum_state = gm.get_component(  # pyrefly: ignore[missing-attribute]
               forum_lib.DEFAULT_FORUM_COMPONENT_KEY,
               type_=forum_lib.ForumState,
           )
@@ -234,7 +234,7 @@ def run_scenario(
     try:
       for gm in sim.get_game_masters():
         try:
-          forum_state = gm.get_component(  # pytype: disable=attribute-error
+          forum_state = gm.get_component(  # pyrefly: ignore[missing-attribute]
               forum_lib.DEFAULT_FORUM_COMPONENT_KEY,
               type_=forum_lib.ForumState,
           )
@@ -276,4 +276,3 @@ def run_scenario(
       "metrics_html_path": metrics_html_path,
       "checkpoint_history": checkpoint_history,
   }
-

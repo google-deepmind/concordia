@@ -93,4 +93,4 @@ def language_model_setup(
   except KeyError as error:
     raise ValueError(f'Unrecognized api_type: {api_type}') from error
   cls = _import_model(model_path)
-  return cls(**kwargs)  # pytype: disable=wrong-keyword-args
+  return cls(**kwargs)
