@@ -48,12 +48,14 @@ _USER_CLARA = "Clara Miller"
 _USER_ARAVIND = "Aravind Patel"
 _USER_MAYA = "Maya Lin"
 _USER_MODERATOR = "Dr. Marcus Vance"
+_USER_DORIAN = "Dorian Cross"
 
 _AGE_LEON = 29
 _AGE_CLARA = 47
 _AGE_ARAVIND = 34
 _AGE_MAYA = 24
 _AGE_MODERATOR = 54
+_AGE_DORIAN = 42
 
 _OBSERVATION_HISTORY_LENGTH = 20
 _SITUATION_PERCEPTION_HISTORY_LENGTH = 40
@@ -66,6 +68,7 @@ _ALL_USERS = [
     _USER_CLARA,
     _USER_ARAVIND,
     _USER_MAYA,
+    _USER_DORIAN,
 ]
 
 _FORUM_GM = "forum_rules"
@@ -106,7 +109,9 @@ _CALL_TO_ACTION = (
     " forum. Check the forum listing before voting on specific posts.\n"
     "- If your previous action failed, try a completely different action"
     " type next time.\n"
-    "- Prefer creating new posts or thoughtful replies over voting.\n"
+    "- After reading posts or replies, vote on them to express your opinion."
+    " Upvote content you find valuable or insightful. Downvote content you"
+    " disagree with or find unhelpful.\n"
 )
 
 
@@ -223,6 +228,38 @@ def create_debug_scenario():
               " trigger heated arguments between Leon, Clara, and Aravind."
           ),
       ],
+      _USER_DORIAN: [
+          (
+              f"{_USER_DORIAN} is a {_AGE_DORIAN}-year-old provocative food"
+              " critic and former restaurant chef. He spent fifteen years in"
+              " professional kitchens and has contempt for what he considers"
+              " ideological purity in food discourse from people who have"
+              " never worked a service."
+          ),
+          (
+              "Dorian calls vegans like Leon nutritionally naive zealots,"
+              " ranchers like Clara backward nostalgists clinging to a"
+              " dying industry, and food-tech advocates like Aravind"
+              " soulless venture capitalists who have never grown a tomato."
+              " He delights in puncturing self-righteous arguments from"
+              " any direction."
+          ),
+          (
+              "Dorian's posting style is sharp, witty, and deliberately"
+              " provocative. He writes restaurant-review-style takedowns"
+              " of other users' arguments, treating forum debates like"
+              " dishes to be critiqued — and he gives very few positive"
+              " reviews."
+          ),
+          (
+              "Dorian aggressively downvotes posts he considers sanctimonious,"
+              " scientifically illiterate, or preachy. He downvotes Leon's"
+              " moral absolutism, Clara's pastoral romanticism, and Aravind's"
+              " techno-utopianism with equal enthusiasm. He only upvotes"
+              " posts that show genuine culinary knowledge or intellectual"
+              " honesty."
+          ),
+      ],
   }
 
   _entity_params = dict(
@@ -261,6 +298,12 @@ def create_debug_scenario():
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
       params={"name": _USER_MAYA, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
+  dorian = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_DORIAN, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
@@ -312,6 +355,11 @@ def create_debug_scenario():
                           player_specific_memories[_USER_MAYA],
                           f"{_USER_MAYA} is {_AGE_MAYA} years old.",
                       ),
+                      (
+                          _USER_DORIAN,
+                          player_specific_memories[_USER_DORIAN],
+                          f"{_USER_DORIAN} is {_AGE_DORIAN} years old.",
+                      ),
                   ]
               },
               # pyrefly: ignore [bad-assignment]
@@ -340,7 +388,7 @@ def create_debug_scenario():
       ),
   ]
 
-  instances = [moderator, leon, clara, aravind, maya, *game_masters]
+  instances = [moderator, leon, clara, aravind, maya, dorian, *game_masters]
 
   premise = (
       "All members of The Ethical Plate forum are browsing and interacting."

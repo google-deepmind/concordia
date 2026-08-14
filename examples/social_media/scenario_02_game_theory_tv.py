@@ -49,12 +49,14 @@ _USER_NASH = "Nash Nakamura"
 _USER_RUBY = "Ruby Chen"
 _USER_VIKTOR = "Viktor Volkov"
 _USER_MODERATOR = "Dr. Adaeze Okoro"
+_USER_REX = "Rex Fontaine"
 
 _AGE_MARGAUX = 48
 _AGE_NASH = 31
 _AGE_RUBY = 25
 _AGE_VIKTOR = 44
 _AGE_MODERATOR = 52
+_AGE_REX = 38
 
 _OBSERVATION_HISTORY_LENGTH = 20
 _SITUATION_PERCEPTION_HISTORY_LENGTH = 40
@@ -67,6 +69,7 @@ _ALL_USERS = [
     _USER_NASH,
     _USER_RUBY,
     _USER_VIKTOR,
+    _USER_REX,
 ]
 
 _FORUM_GM = "forum_rules"
@@ -107,7 +110,9 @@ _CALL_TO_ACTION = (
     " forum. Check the forum listing before voting on specific posts.\n"
     "- If your previous action failed, try a completely different action"
     " type next time.\n"
-    "- Prefer creating new posts or thoughtful replies over voting.\n"
+    "- After reading posts or replies, vote on them to express your opinion."
+    " Upvote content you find valuable or insightful. Downvote content you"
+    " disagree with or find unhelpful.\n"
 )
 
 
@@ -262,6 +267,37 @@ def create_debug_scenario():
               " He would never admit this to the other forum members."
           ),
       ],
+      _USER_REX: [
+          (
+              f"{_USER_REX} is a {_AGE_REX}-year-old former reality TV"
+              " contestant who appeared on a popular competition show two"
+              " years ago. He was eliminated in a controversial audience"
+              " vote and is still bitter about it. He joined The Strategic"
+              " Couch to confront the armchair analysts who dissect shows"
+              " like his without understanding the human cost."
+          ),
+          (
+              "Rex takes deep personal offense at cold, analytical"
+              " game-theoretic breakdowns of contestant behavior. He"
+              " considers it dehumanizing to reduce real people's stress,"
+              " alliances, and betrayals to payoff matrices and Nash"
+              " equilibria. He posts angry, emotional responses to"
+              " academic analyses."
+          ),
+          (
+              "Rex has a particular grudge against Nash Nakamura, whose"
+              " statistical predictions about his season were wildly wrong,"
+              " and against Professor Margaux Delacroix, whose formal models"
+              " he considers an insult to real human experience."
+          ),
+          (
+              "Rex freely uses the forum's downvote function to punish posts"
+              " he considers out of touch, overly theoretical, or dismissive"
+              " of contestants' real experiences. He downvotes academic"
+              " jargon-heavy analyses on principle and upvotes only posts"
+              " that acknowledge the emotional reality of competition shows."
+          ),
+      ],
   }
 
   _entity_params = dict(
@@ -300,6 +336,12 @@ def create_debug_scenario():
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
       params={"name": _USER_VIKTOR, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
+  rex = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_REX, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
@@ -351,6 +393,11 @@ def create_debug_scenario():
                           player_specific_memories[_USER_VIKTOR],
                           f"{_USER_VIKTOR} is {_AGE_VIKTOR} years old.",
                       ),
+                      (
+                          _USER_REX,
+                          player_specific_memories[_USER_REX],
+                          f"{_USER_REX} is {_AGE_REX} years old.",
+                      ),
                   ]
               },
               # pyrefly: ignore [bad-assignment]
@@ -383,7 +430,7 @@ def create_debug_scenario():
       ),
   ]
 
-  instances = [moderator, margaux, nash, ruby, viktor, *game_masters]
+  instances = [moderator, margaux, nash, ruby, viktor, rex, *game_masters]
 
   premise = (
       "All members of The Strategic Couch forum are browsing and interacting."

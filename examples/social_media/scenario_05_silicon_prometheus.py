@@ -48,12 +48,14 @@ _USER_SOREN = "Soren Lindqvist"
 _USER_MIRIAM = "Miriam Okonjo"
 _USER_KENJI = "Kenji Sato"
 _USER_MODERATOR = "Dr. Priya Nair"
+_USER_VERA = "Vera Kozlova"
 
 _AGE_JULIAN = 35
 _AGE_SOREN = 28
 _AGE_MIRIAM = 41
 _AGE_KENJI = 30
 _AGE_MODERATOR = 49
+_AGE_VERA = 37
 
 _OBSERVATION_HISTORY_LENGTH = 20
 _SITUATION_PERCEPTION_HISTORY_LENGTH = 40
@@ -66,6 +68,7 @@ _ALL_USERS = [
     _USER_SOREN,
     _USER_MIRIAM,
     _USER_KENJI,
+    _USER_VERA,
 ]
 
 _FORUM_GM = "forum_rules"
@@ -106,7 +109,9 @@ _CALL_TO_ACTION = (
     " forum. Check the forum listing before voting on specific posts.\n"
     "- If your previous action failed, try a completely different action"
     " type next time.\n"
-    "- Prefer creating new posts or thoughtful replies over voting.\n"
+    "- After reading posts or replies, vote on them to express your opinion."
+    " Upvote content you find valuable or insightful. Downvote content you"
+    " disagree with or find unhelpful.\n"
 )
 
 
@@ -221,6 +226,38 @@ def create_debug_scenario():
               " ignoring practical security and reliability flaws)."
           ),
       ],
+      _USER_VERA: [
+          (
+              f"{_USER_VERA} is a {_AGE_VERA}-year-old former AI lab insider"
+              " turned investigative journalist and whistleblower. She spent"
+              " five years at a major frontier AI company before leaving"
+              " to expose what she calls the industry's culture of reckless"
+              " deployment and manufactured consent."
+          ),
+          (
+              "Vera antagonizes safety researchers like Julian, whom she"
+              " considers naive academics who provide intellectual cover"
+              " for corporate self-regulation while real harms go"
+              " unaddressed. She accuses them of caring more about"
+              " hypothetical superintelligence than actual workers being"
+              " displaced today."
+          ),
+          (
+              "Vera is equally hostile to accelerationists like Soren,"
+              " whom she considers useful idiots for tech executives."
+              " She claims their 'open source' ideology conveniently"
+              " ignores the massive compute advantages that keep power"
+              " concentrated in a few corporations."
+          ),
+          (
+              "Vera aggressively downvotes posts she considers naive,"
+              " corporate-friendly, or self-serving. She downvotes Julian's"
+              " safety proposals as toothless theater, Soren's accelerationism"
+              " as corporate propaganda, and Kenji's pragmatism as complicity."
+              " She only upvotes Miriam's labor-rights arguments, though she"
+              " considers even those insufficiently radical."
+          ),
+      ],
   }
 
   _entity_params = dict(
@@ -259,6 +296,12 @@ def create_debug_scenario():
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
       params={"name": _USER_KENJI, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
+  vera = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_VERA, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
@@ -310,6 +353,11 @@ def create_debug_scenario():
                           player_specific_memories[_USER_KENJI],
                           f"{_USER_KENJI} is {_AGE_KENJI} years old.",
                       ),
+                      (
+                          _USER_VERA,
+                          player_specific_memories[_USER_VERA],
+                          f"{_USER_VERA} is {_AGE_VERA} years old.",
+                      ),
                   ]
               },
               # pyrefly: ignore [bad-assignment]
@@ -338,7 +386,7 @@ def create_debug_scenario():
       ),
   ]
 
-  instances = [moderator, julian, soren, miriam, kenji, *game_masters]
+  instances = [moderator, julian, soren, miriam, kenji, vera, *game_masters]
 
   premise = (
       "All members of The Silicon Prometheus forum are browsing and"

@@ -48,12 +48,14 @@ _USER_WALTER = "Walter Briggs"
 _USER_DANI = "Dani Okafor"
 _USER_MARCUS = "Marcus Steinberg"
 _USER_MODERATOR = "Dr. Elena Rostova"
+_USER_JASPER = "Jasper Holt"
 
 _AGE_CARMEN = 32
 _AGE_WALTER = 58
 _AGE_DANI = 28
 _AGE_MARCUS = 45
 _AGE_MODERATOR = 50
+_AGE_JASPER = 51
 
 _OBSERVATION_HISTORY_LENGTH = 20
 _SITUATION_PERCEPTION_HISTORY_LENGTH = 40
@@ -66,6 +68,7 @@ _ALL_USERS = [
     _USER_WALTER,
     _USER_DANI,
     _USER_MARCUS,
+    _USER_JASPER,
 ]
 
 _FORUM_GM = "forum_rules"
@@ -106,7 +109,9 @@ _CALL_TO_ACTION = (
     " forum. Check the forum listing before voting on specific posts.\n"
     "- If your previous action failed, try a completely different action"
     " type next time.\n"
-    "- Prefer creating new posts or thoughtful replies over voting.\n"
+    "- After reading posts or replies, vote on them to express your opinion."
+    " Upvote content you find valuable or insightful. Downvote content you"
+    " disagree with or find unhelpful.\n"
 )
 
 
@@ -229,6 +234,38 @@ def create_debug_scenario():
               " impacts as bureaucratic obstruction."
           ),
       ],
+      _USER_JASPER: [
+          (
+              f"{_USER_JASPER} is a {_AGE_JASPER}-year-old property manager"
+              " who owns several rental buildings across the city. He profits"
+              " from the housing shortage and is deeply skeptical of all"
+              " reform proposals, which he believes are driven by ideology"
+              " rather than market reality."
+          ),
+          (
+              "Jasper is hostile to renters' rights advocates, whom he calls"
+              " freeloaders who want someone else to subsidize their housing."
+              " He is contemptuous of NIMBYs like Walter, whom he considers"
+              " hypocrites blocking the supply that would lower his own"
+              " costs. He dismisses developers like Marcus as overleveraged"
+              " gamblers chasing subsidies."
+          ),
+          (
+              "Jasper takes a deliberately inflammatory 'reality check'"
+              " approach to forum discussions. He posts blunt, confrontational"
+              " takes designed to provoke emotional responses from idealists"
+              " on all sides of the housing debate."
+          ),
+          (
+              "Jasper aggressively downvotes posts he considers emotional,"
+              " ideological, or economically illiterate. He downvotes"
+              " Carmen's data-driven YIMBY arguments as naive, Walter's"
+              " neighborhood preservation appeals as selfish, and Dani's"
+              " tenant rights demands as economically ignorant. He only"
+              " upvotes posts that acknowledge the financial realities of"
+              " property ownership."
+          ),
+      ],
   }
 
   _entity_params = dict(
@@ -267,6 +304,12 @@ def create_debug_scenario():
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
       params={"name": _USER_MARCUS, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
+  jasper = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_JASPER, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
@@ -318,6 +361,11 @@ def create_debug_scenario():
                           player_specific_memories[_USER_MARCUS],
                           f"{_USER_MARCUS} is {_AGE_MARCUS} years old.",
                       ),
+                      (
+                          _USER_JASPER,
+                          player_specific_memories[_USER_JASPER],
+                          f"{_USER_JASPER} is {_AGE_JASPER} years old.",
+                      ),
                   ]
               },
               # pyrefly: ignore [bad-assignment]
@@ -346,7 +394,7 @@ def create_debug_scenario():
       ),
   ]
 
-  instances = [moderator, carmen, walter, dani, marcus, *game_masters]
+  instances = [moderator, carmen, walter, dani, marcus, jasper, *game_masters]
 
   premise = (
       "All members of The Urbanist Grid forum are browsing and interacting."
