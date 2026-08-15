@@ -124,6 +124,7 @@ class Inventory(
         `pre_act`.
       verbose: whether to print the full update chain of thought or not
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._observations_component_name = observations_component_name
@@ -436,6 +437,7 @@ class Score(
       pre_act_label: the name of this component to use in pre_act.
       verbose: whether to print the full update chain of thought or not
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._inventory = inventory
     self._player_names = player_names
