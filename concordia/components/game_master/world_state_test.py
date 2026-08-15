@@ -61,8 +61,9 @@ class WorldStateTest(absltest.TestCase):
         call_to_action='test', output_type=entity_lib.OutputType.RESOLVE
     )
     self.assertEqual(component.pre_act(action_spec), 'x: y\n')
-    self.assertEqual(component._latest_action_spec.to_dict(),
-                     action_spec.to_dict())
+    self.assertEqual(
+        component.get_state()['latest_action_spec'], action_spec.to_dict()
+    )
 
   def test_action_spec_round_trip(self):
     component = world_state.WorldState(model=self._model)
@@ -73,7 +74,7 @@ class WorldStateTest(absltest.TestCase):
     restored = world_state.WorldState(model=self._model)
     restored.set_state(component.get_state())
     self.assertEqual(
-        restored._latest_action_spec.to_dict(), action_spec.to_dict()
+        restored.get_state()['latest_action_spec'], action_spec.to_dict()
     )
 
 
