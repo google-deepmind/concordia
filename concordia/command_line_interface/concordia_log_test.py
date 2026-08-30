@@ -17,6 +17,7 @@
 import io
 import json
 import os
+import pathlib
 import sys
 import tempfile
 
@@ -478,6 +479,56 @@ class DumpTest(absltest.TestCase):
     )
     data = json.loads(output)
     self.assertTrue(all(e['entity_name'] == 'Alice' for e in data))
+
+
+class BundleTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self._log = _create_sample_log()
+    self._path = _write_log_to_file(self._log)
+    output_fd, self._output = tempfile.mkstemp(suffix='.html')
+    os.close(output_fd)
+
+  def tearDown(self):
+    super().tearDown()
+    os.unlink(self._path)
+    if os.path.exists(self._output):
+      os.unlink(self._output)
+
+  def test_bundle_writes_self_contained_viewer(self):
+    output = _capture_output(
+        concordia_log.main,
+        ['bundle', self._path, '--output', self._output],
+    )
+
+    self.assertIn(self._output, output)
+    html = pathlib.Path(self._output).read_text()
+    self.assertIn('Concordia Structured Log Viewer', html)
+    self.assertIn('let LOG_DATA = {', html)
+    self.assertIn('Alice said hello to Bob', html)
+    self.assertIn('Preloaded structured log:', html)
+
+  def test_bundle_escapes_script_end_tags_in_log_content(self):
+    self._log.add_entry(
+        step=3,
+        timestamp='2024-01-01T10:02:00',
+        entity_name='Alice',
+        component_name='ActComponent',
+        entry_type='entity',
+        summary='</script><script>alert("unsafe")</script>',
+        raw_data={'value': 'safe'},
+    )
+    with open(self._path, 'w') as log_file:
+      log_file.write(self._log.to_json())
+
+    concordia_log.main(
+        ['bundle', self._path, '--output', self._output]
+    )
+
+    html = pathlib.Path(self._output).read_text()
+    self.assertNotIn('</script><script>alert', html)
+    self.assertIn('<\\/script><script>alert', html)
 
 
 class ImageStrippingTest(absltest.TestCase):
