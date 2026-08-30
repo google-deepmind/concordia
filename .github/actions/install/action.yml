@@ -82,8 +82,8 @@ runs:
         pylint --version
         which pytest
         pytest --version
-        which pytype
-        pytype --version
+        which pyrefly
+        pyrefly --version
         pip list
 
     - name: Save installation

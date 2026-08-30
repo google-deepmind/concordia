@@ -344,7 +344,7 @@ class SwitchAct(
       action_spec: entity_lib.ActionSpec,
   ):
     if isinstance(prompt, interactive_document.InteractiveDocument):
-      prompt = prompt.view().text().splitlines()
+      prompt = prompt.view().text().splitlines()  # pyrefly: ignore[bad-assignment]
     self._logging_channel({
         'Summary': result,
         'Action Spec': action_spec.call_to_action,
@@ -375,8 +375,8 @@ class SwitchAct(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'entity_names' in state:
-      self._entity_names = state['entity_names']
+      self._entity_names = state['entity_names']  # pyrefly: ignore[bad-assignment]
     if 'component_order' in state:
       self._component_order = (
-          tuple(state['component_order']) if state['component_order'] else None
+          tuple(state['component_order']) if state['component_order'] else None  # pyrefly: ignore[bad-argument-type]
       )

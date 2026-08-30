@@ -149,7 +149,7 @@ class Asynchronous(engine_lib.Engine):
     return observation
 
   @override
-  def next_acting(
+  def next_acting(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
@@ -159,9 +159,7 @@ class Asynchronous(engine_lib.Engine):
           async_measurements_lib.ReactiveMeasurements | None
       ) = None,
       capture_key: str | None = None,
-  ) -> tuple[
-      Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
-  ]:  # pytype: disable=signature-mismatch
+  ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     entities_by_name = {entity.name: entity for entity in entities}
 
     if gm_measurements is not None and log_entry is not None:
@@ -226,7 +224,7 @@ class Asynchronous(engine_lib.Engine):
         [action_spec_by_name[entity_name] for entity_name in next_entity_names],
     )
 
-  def resolve(
+  def resolve(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       putative_event: str,

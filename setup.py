@@ -95,8 +95,8 @@ setuptools.setup(
             'pip-tools',
             'pyink',
             'pylint',
+            'pyrefly',
             'pytest-xdist',
-            'pytype',
             'twine',
         ],
         'google': [
@@ -130,9 +130,13 @@ setuptools.setup(
             # Used in concordia.contrib.language_models.together
             'together',
         ],
+        'mcp': [
+            # Used in concordia.contrib.tools.mcp
+            'mcp',
+        ],
         'vllm': [
             # Used in concordia.contrib.language_models.vllm
-            'vllm',
+            'vllm>=0.21.0',
         ],
         'groq': [
             # Used in concordia.contrib.language_models.groq

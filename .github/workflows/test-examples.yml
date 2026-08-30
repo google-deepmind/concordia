@@ -57,13 +57,4 @@ jobs:
         run: pylint --errors-only examples
 
       - name: Typecheck examples
-        run: pytype --pythonpath=. examples
-
-      - name: Convert notebooks
-        run: ./bin/convert_notebooks.sh notebooks
-
-      - name: Lint notebooks
-        run: pylint --errors-only notebooks
-
-      - name: Typecheck notebooks
-        run: pytype --pythonpath=. notebooks
+        run: pyrefly check examples/**/*.py

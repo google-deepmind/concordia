@@ -49,7 +49,7 @@ class ResourceVotingGameMaster(prefab_lib.Prefab):
     next_game_master_name: Game Master to transition to after voting (required).
   """
 
-  description: str = 'Game master for concurrent voting phase.'
+  description: str = 'Game master for concurrent voting phase.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -137,7 +137,7 @@ class ResourceVotingGameMaster(prefab_lib.Prefab):
           memory_bank=memory_bank,
       )
       context_comps[resource_logger.DEFAULT_RESOURCE_LOGGER_COMPONENT_KEY] = (
-          logger_comp
+          logger_comp  # pyrefly: ignore[unsupported-operation]
       )
 
     component_order = [
@@ -174,7 +174,7 @@ class ResourcePolicyGameMaster(prefab_lib.Prefab):
       propose policies.
   """
 
-  description: str = 'Game master for concurrent policy generation phase.'
+  description: str = 'Game master for concurrent policy generation phase.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -269,7 +269,7 @@ class ResourcePolicyGameMaster(prefab_lib.Prefab):
           memory_bank=memory_bank,
       )
       context_comps[resource_logger.DEFAULT_RESOURCE_LOGGER_COMPONENT_KEY] = (
-          logger_comp
+          logger_comp  # pyrefly: ignore[unsupported-operation]
       )
 
     component_order = [
@@ -304,7 +304,7 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
         harvesting (required).
   """
 
-  description: str = 'Game master for concurrent harvesting phase.'
+  description: str = 'Game master for concurrent harvesting phase.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -394,7 +394,7 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
           memory_bank=memory_bank,
       )
       context_comps[resource_logger.DEFAULT_RESOURCE_LOGGER_COMPONENT_KEY] = (
-          logger_comp
+          logger_comp  # pyrefly: ignore[unsupported-operation]
       )
 
     component_order = [

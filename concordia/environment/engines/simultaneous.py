@@ -102,15 +102,13 @@ class Simultaneous(engine_lib.Engine):
     return observation
 
   @override
-  def next_acting(
+  def next_acting(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       entities: Sequence[entity_lib.Entity],
       log_entry: Mapping[str, Any] | None = None,
       log: list[Mapping[str, Any]] | None = None,
-  ) -> tuple[
-      Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
-  ]:  # pytype: disable=signature-mismatch
+  ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     """Return the next action spec for an entity."""
     entities_by_name = {entity.name: entity for entity in entities}
     next_object_names_string = game_master.act(
@@ -124,7 +122,7 @@ class Simultaneous(engine_lib.Engine):
         name.strip() for name in next_object_names_string.split(',')]
     if log is not None and hasattr(game_master, 'get_last_log'):
       assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-      log_entry['next_acting'] = game_master.get_last_log()
+      log_entry['next_acting'] = game_master.get_last_log()  # pyrefly: ignore[unsupported-operation]
 
     action_spec_by_name = {}
     for next_entity_name in next_entity_names:
@@ -142,7 +140,7 @@ class Simultaneous(engine_lib.Engine):
 
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
-        log_entry['next_action_spec'] = game_master.get_last_log()
+        log_entry['next_action_spec'] = game_master.get_last_log()  # pyrefly: ignore[unsupported-operation]
 
     # Validate all entity names from LLM to prevent KeyError
     invalid_names = [
@@ -158,7 +156,7 @@ class Simultaneous(engine_lib.Engine):
         [action_spec_by_name[entity_name] for entity_name in next_entity_names],
     )
 
-  def resolve(
+  def resolve(  # pyrefly: ignore[bad-override]
       self,
       game_master: entity_lib.Entity,
       putative_event: str,

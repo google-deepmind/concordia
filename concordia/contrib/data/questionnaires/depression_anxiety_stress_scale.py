@@ -417,7 +417,7 @@ class DASSQuestionnaire(base_questionnaire.QuestionnaireBase):
 
   def get_dimension_ranges(self) -> Dict[str, tuple[float, float]]:
     """Returns the ranges for each dimension."""
-    return {dim: (0, 3) for dim in self.dimensions}
+    return {dim: (0, 3) for dim in self.dimensions}  # pyrefly: ignore[not-iterable]
 
   def plot_results(
       self,

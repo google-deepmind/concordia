@@ -227,10 +227,10 @@ class SpaceshipSystem(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._system_name = state['system_name']
-    self._system_max_health = state['system_max_health']
-    self._system_failure_probability = state['system_failure_probability']
-    self._current_health = state['current_health']
-    self._is_failing = state['is_failing']
-    self._verbose = state['verbose']
-    self._step_counter = state['step_counter']
+    self._system_name = state['system_name']  # pyrefly: ignore[bad-assignment]
+    self._system_max_health = state['system_max_health']  # pyrefly: ignore[bad-assignment]
+    self._system_failure_probability = state['system_failure_probability']  # pyrefly: ignore[bad-assignment]
+    self._current_health = state['current_health']  # pyrefly: ignore[bad-assignment]
+    self._is_failing = state['is_failing']  # pyrefly: ignore[bad-assignment]
+    self._verbose = state['verbose']  # pyrefly: ignore[bad-assignment]
+    self._step_counter = state['step_counter']  # pyrefly: ignore[bad-assignment]

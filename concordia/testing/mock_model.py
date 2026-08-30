@@ -45,7 +45,7 @@ class MockModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    del (
+    del (  # pyrefly: ignore[unsupported-delete]
         prompt,
         max_tokens,
         terminators,

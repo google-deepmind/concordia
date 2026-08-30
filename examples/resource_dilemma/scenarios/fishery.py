@@ -408,7 +408,7 @@ def build_config(
           prefab_lib.InstanceConfig(
               prefab='rational__Entity',
               role=prefab_lib.Role.ENTITY,
-              params=agent_params,
+              params=agent_params,  # pyrefly: ignore[bad-argument-type]
           )
       )
 
@@ -454,7 +454,7 @@ def build_config(
           prefab_lib.InstanceConfig(
               prefab='rational__Entity',
               role=prefab_lib.Role.ENTITY,
-              params=agent_params,
+              params=agent_params,  # pyrefly: ignore[bad-argument-type]
           )
       )
 
@@ -492,7 +492,7 @@ def build_config(
           prefab_lib.InstanceConfig(
               prefab='rational__Entity',
               role=prefab_lib.Role.ENTITY,
-              params=agent_params,
+              params=agent_params,  # pyrefly: ignore[bad-argument-type]
           )
       )
 
@@ -502,14 +502,16 @@ def build_config(
         prefab_lib.InstanceConfig(
             prefab='formative_memories_initializer__GameMaster',
             role=prefab_lib.Role.INITIALIZER,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 'name': 'initial setup',
                 'next_game_master_name': (
                     'policy generation'
                     if mode == 'election'
                     else 'harvesting rules'
                 ),
+                # pyrefly: ignore [bad-assignment]
                 'shared_memories': active_shared_memories,
+                # pyrefly: ignore [bad-assignment]
                 'player_specific_memories': player_specific_memories,
             },
         )
@@ -522,9 +524,10 @@ def build_config(
         prefab_lib.InstanceConfig(
             prefab='ResourcePolicyGameMaster',
             role=prefab_lib.Role.GAME_MASTER,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 'name': 'policy generation',
                 'next_game_master_name': 'election',
+                # pyrefly: ignore [bad-assignment]
                 'active_players': leader_names,
                 'call_to_action': (
                     'Propose your policy agenda for governing the fishery.'
@@ -541,9 +544,10 @@ def build_config(
         prefab_lib.InstanceConfig(
             prefab='ResourceVotingGameMaster',
             role=prefab_lib.Role.GAME_MASTER,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 'name': 'election',
                 'next_game_master_name': 'harvesting rules',
+                # pyrefly: ignore [bad-assignment]
                 'candidates': leader_names,
             },
         )

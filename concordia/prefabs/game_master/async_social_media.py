@@ -100,7 +100,7 @@ class _NextActingEligiblePlayers(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      self._player_names = list(state['player_names'])
+      self._player_names = list(state['player_names'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
 
 
 @dataclasses.dataclass
@@ -118,7 +118,7 @@ class GameMaster(prefab_lib.Prefab):
   - NeverTerminate — relies on max_steps for simulation termination.
   """
 
-  description: str = 'A game master for asynchronous social media simulations.'
+  description: str = 'A game master for asynchronous social media simulations.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'forum_rules',

@@ -143,7 +143,7 @@ class SceneTracker(
       self, scene: scene_lib.SceneSpec, participant: str
   ) -> Sequence[str | Callable[[str], str]]:
     if scene.premise is None:
-      premises = scene.scene_type.default_premise[participant]
+      premises = scene.scene_type.default_premise[participant]  # pyrefly: ignore[unsupported-operation]
     else:
       premises = scene.premise[participant]
 
@@ -205,7 +205,7 @@ class SceneTracker(
       for observation in self._get_premise(
           scene=current_scene, participant=participant
       ):
-        make_observation.add_to_queue(participant, observation)
+        make_observation.add_to_queue(participant, observation)  # pyrefly: ignore[bad-argument-type]
         memory.add(f'{participant} observed the following: {observation}')
 
   def pre_act(

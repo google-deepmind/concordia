@@ -41,7 +41,7 @@ class GameMaster(prefab_lib.Prefab):
   observation generation and action specification.
   """
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       "A generic Game Master that administers a psychology experiment defined "
       "by custom observation and action specification components."
   )

@@ -85,6 +85,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
     prompt_with_system_message = f'{self._text_system_message}\n\n{prompt}'
     prompt_length = len(prompt_with_system_message)
 
+    # pyrefly: ignore [not-callable]
     inputs = self._tokenizer(prompt_with_system_message, return_tensors='pt')
 
     generated_tokens = self._model.generate(
@@ -97,6 +98,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
         output_scores=True,
     )
 
+    # pyrefly: ignore [missing-attribute]
     response = self._tokenizer.decode(
         np.int64(generated_tokens.sequences[0].cpu()),
         skip_special_tokens=True,
@@ -125,6 +127,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
   ) -> tuple[int, str, dict[str, float]]:
     del seed  # Unused.
 
+    # pyrefly: ignore [not-callable]
     inputs = self._tokenizer(prompt, return_tensors='pt')
     generated_tokens = self._model.generate(
         inputs.input_ids.to(self._device),
@@ -132,6 +135,7 @@ class PyTorchGemmaLanguageModel(language_model.LanguageModel):
         return_dict_in_generate=True,
         output_scores=True,
     )
+    # pyrefly: ignore [missing-attribute]
     sample = self._tokenizer.batch_decode(
         [np.argmax(generated_tokens.scores[0][0].cpu())],
         skip_special_tokens=True,

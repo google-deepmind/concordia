@@ -63,7 +63,7 @@ class Terminate(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._terminate_now = state['terminate_now']
+    self._terminate_now = state['terminate_now']  # pyrefly: ignore[bad-assignment]
 
 
 class NeverTerminate(
@@ -148,4 +148,4 @@ class SceneBasedTerminator(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._terminate_now = state['terminate_now']
+    self._terminate_now = state['terminate_now']  # pyrefly: ignore[bad-assignment]

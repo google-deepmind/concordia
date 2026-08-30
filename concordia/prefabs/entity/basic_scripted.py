@@ -28,11 +28,11 @@ from concordia.typing import prefab as prefab_lib
 class Entity(prefab_lib.Prefab):
   """A prefab implementing a basic actor entity."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking '
       '"What situation am I in right now?", "What kind of person am I?", and '
       '"What would a person like me do in a situation like this?"')
-  params: Mapping[str, str] = dataclasses.field(default_factory=lambda: {
+  params: Mapping[str, str] = dataclasses.field(default_factory=lambda: {  # pyrefly: ignore[bad-assignment]
       'name': 'Alice',
       'goal': '',
       'script': [],
@@ -144,21 +144,21 @@ class Entity(prefab_lib.Prefab):
     component_order = list(components_of_agent.keys())
 
     if overarching_goal is not None:
-      components_of_agent[goal_key] = overarching_goal
+      components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
       # Place goal after the instructions.
-      component_order.insert(1, goal_key)
+      component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
 
     act_component = agent_components.scripted_act.ScriptedActComponent(
         model=model,
         component_order=component_order,
-        script=self.params.get('script', []),
+        script=self.params.get('script', []),  # pyrefly: ignore[bad-argument-type]
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=entity_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return agent

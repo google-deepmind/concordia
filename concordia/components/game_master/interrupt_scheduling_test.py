@@ -111,7 +111,7 @@ class EventOrderingTest(absltest.TestCase):
   def test_frozen(self):
     e = _event()
     with self.assertRaises(AttributeError):
-      e.tag = 'modified'  # type: ignore
+      e.tag = 'modified'  # pyrefly: ignore[read-only]
 
 
 class EntitySchedulerTest(absltest.TestCase):

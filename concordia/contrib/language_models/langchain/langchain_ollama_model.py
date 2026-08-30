@@ -87,11 +87,13 @@ class LangchainOllamaLanguageModel(language_model.LanguageModel):
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
     terminators = (
+        # pyrefly: ignore [bad-assignment]
         self._terminators.extend(terminators)
         if terminators is not None
         else self._terminators
     )
 
+    # pyrefly: ignore [not-callable]
     response = self._client(
         prompt_with_system_message,
         stop=terminators,

@@ -18,6 +18,23 @@ An online forum where armchair strategists use game theory to analyze reality
 competition shows. Members apply concepts from game theory (Nash equilibrium,
 dominant strategies, prisoner's dilemma, mechanism design) to analyze social
 dynamics, alliance-building, voting patterns, and elimination strategies.
+
+Following are some features of the forum implementation:
+
+1. Karma recovery: lower min_karma_to_post threshold and min_karma_to_reply
+   set to -5, preventing karma death spirals that lock agents out.
+2. Duplicate vote prevention: call-to-action explicitly instructs agents not
+   to vote on the same content twice.
+3. Action validation feedback: call-to-action instructs agents to vary their
+   strategy when actions fail.
+4. Loop detection: call-to-action discourages repetitive identical actions.
+5. Moderator safeguards: moderator role separated from active debater.
+   A dedicated neutral moderator (Dr. Okoro) is introduced who does not
+   participate in debates.
+6. Simplified names: removed special characters (quotes in 'Nash' Nakamura)
+   that caused DM failures.
+7. Moderator-only role: Dr. Okoro is moderator-only and does not debate.
+8. Higher default max_steps: 20 instead of 8 for fuller simulation arcs.
 """
 
 from collections.abc import Callable
@@ -26,46 +43,133 @@ from concordia.environment import step_controller as step_controller_lib
 from examples.social_media import shared as shared_lib
 from concordia.typing import prefab as prefab_lib
 
-
+# ── Agent Names ──
 _USER_MARGAUX = "Professor Margaux Delacroix"
-_USER_NASH = "'Nash' Nakamura"
+_USER_NASH = "Nash Nakamura"
 _USER_RUBY = "Ruby Chen"
-_USER_VIKTOR = "Viktor 'The Skeptic' Volkov"
+_USER_VIKTOR = "Viktor Volkov"
+_USER_MODERATOR = "Dr. Adaeze Okoro"
+_USER_REX = "Rex Fontaine"
 
 _AGE_MARGAUX = 48
 _AGE_NASH = 31
 _AGE_RUBY = 25
 _AGE_VIKTOR = 44
+_AGE_MODERATOR = 52
+_AGE_REX = 38
 
 _OBSERVATION_HISTORY_LENGTH = 20
 _SITUATION_PERCEPTION_HISTORY_LENGTH = 40
 _SELF_PERCEPTION_HISTORY_LENGTH = 1_000_000
 _PERSON_BY_SITUATION_HISTORY_LENGTH = 0
 
-_ALL_USERS = [_USER_MARGAUX, _USER_NASH, _USER_RUBY, _USER_VIKTOR]
+_ALL_USERS = [
+    _USER_MODERATOR,
+    _USER_MARGAUX,
+    _USER_NASH,
+    _USER_RUBY,
+    _USER_VIKTOR,
+    _USER_REX,
+]
 
 _FORUM_GM = "forum_rules"
 
+# ── Call to Action ──
+# Includes explicit guidance against duplicate votes, repetitive actions,
+# and hallucinated post IDs. Also removes temp_ban/pin_post for non-moderators.
+_CALL_TO_ACTION = (
+    "The current date and time is {time}.\nWhat does {name} do on the forum?"
+    ' Respond in JSON format with one of:\n{{"action": "post", "author":'
+    ' "{name}", "title": "...", "content": "..."}}\n{{"action": "reply",'
+    ' "author": "{name}", "post_id": "...", "content": "..."}}\n{{"action":'
+    ' "upvote_post", "author": "{name}", "post_id": "..."}}\n{{"action":'
+    ' "downvote_post", "author": "{name}", "post_id": "..."}}\n{{"action":'
+    ' "upvote_reply", "author": "{name}", "post_id": "...", "reply_id":'
+    ' "..."}}\n{{"action": "downvote_reply", "author": "{name}", "post_id":'
+    ' "...", "reply_id": "..."}}\n{{"action": "direct_message", "author":'
+    ' "{name}", "recipient": "...", "content": "..."}}\n{{"action": "pin_post",'
+    ' "author": "{name}", "post_id": "..."}}\n{{"action": "temp_ban",'
+    ' "author": "{name}", "target": "...", "public_note": "...",'
+    ' "private_note": "..."}}\n'
+    "You may vote on posts or replies to signal agreement or disagreement."
+    " Votes influence user karma.\n"
+    "You may also send a private direct message to another user."
+    " Direct messages are not visible to other users on the forum.\n"
+    "Only moderators may pin posts.\n"
+    "Only moderators may use temp_ban to temporarily ban a user. A temporary"
+    " ban prevents the target from posting until the time advances. When"
+    " banning, include a public_note (which will be posted to the forum for"
+    " all to see) and a private_note (which will be sent directly to the"
+    " banned user only).\n"
+    "\nIMPORTANT GUIDELINES:\n"
+    "- Do NOT vote on the same post or reply more than once. If you have"
+    " already voted on something, choose a different action.\n"
+    "- Do NOT repeat the same action multiple times in a row. Vary your"
+    " actions — alternate between posting, replying, and voting.\n"
+    "- Only reference post IDs and reply IDs that you have seen on the"
+    " forum. Check the forum listing before voting on specific posts.\n"
+    "- If your previous action failed, try a completely different action"
+    " type next time.\n"
+    "- After reading posts or replies, vote on them to express your opinion."
+    " Upvote content you find valuable or insightful. Downvote content you"
+    " disagree with or find unhelpful.\n"
+)
+
 
 def create_debug_scenario():
-  """Create a debug scenario with game-theory enthusiasts analyzing reality TV.
+  """Creates scenario with game-theory enthusiasts analyzing reality TV.
+
+  Some key features of the forum implementation:
+  - Dedicated neutral moderator (Dr. Okoro) separated from participants
+  - No special characters in usernames
+  - Lower karma thresholds to prevent death spirals
+  - Call-to-action with anti-loop and validation guidance
 
   Returns:
     A simulation configuration.
   """
-  # Create a shared ForumState so entities and the GM operate on the same
-  # forum instance.  The GM's build() will reuse this instead of creating
-  # its own.
+  # Create a shared ForumState.
+  # Key Features:
+  #   - forum name: "The Strategic Couch"
+  #   - members: Dr. Okoro, Margaux, Nash, Ruby, Viktor
+  #   - moderator is Dr. Okoro (not a debater)
+  #   - min_karma_to_post lowered to -10 (prevents posting lockout)
+  #   - min_karma_to_direct_message lowered to 0 (enables DMs earlier)
   forum_state = forum_module.ForumState(
       player_names=_ALL_USERS,
       forum_name="The Strategic Couch",
-      moderators=[_USER_MARGAUX],
+      moderators=[_USER_MODERATOR],
+      min_karma_to_post=-10,
+      min_karma_to_direct_message=0,
   )
 
   player_specific_memories = {
+      _USER_MODERATOR: [
+          (
+              f"{_USER_MODERATOR} is a {_AGE_MODERATOR}-year-old retired"
+              " professor of communication studies. She volunteered to"
+              " moderate The Strategic Couch forum because she finds the"
+              " intersection of game theory and popular culture fascinating,"
+              " but she does not participate in analytical debates herself."
+          ),
+          (
+              "Dr. Okoro's moderation style is firm but fair. She believes"
+              " in free intellectual discourse and only intervenes when"
+              " discussions become personally hostile or when users violate"
+              " clear forum guidelines. She will not ban users for having"
+              " unpopular opinions or for disagreeing with other members."
+          ),
+          (
+              "Dr. Okoro's primary actions on the forum are: pinning"
+              " high-quality analytical threads, encouraging constructive"
+              " debate, and using temp-bans only as a last resort for"
+              " genuinely disruptive behavior (personal attacks, spam,"
+              " or harassment) — never for intellectual disagreements."
+          ),
+      ],
       _USER_MARGAUX: [
           (
-              f"Professor Margaux Delacroix is a {_AGE_MARGAUX}-year-old"
+              f"Professor {_USER_MARGAUX} is a {_AGE_MARGAUX}-year-old"
               " tenured game theory professor at a prestigious university."
               " She analyzes reality TV competitions with academic rigor,"
               " creating elaborate payoff matrices and decision trees for"
@@ -79,31 +183,29 @@ def create_debug_scenario():
               " when discussing contestant behavior."
           ),
           (
-              "Margaux is the forum's moderator and takes this role very"
-              " seriously. She pins important analytical threads and will"
-              " temp-ban users who post low-quality content. She has"
-              " established strict posting guidelines requiring all"
-              " analyses to include at least one formal game-theoretic"
-              " concept."
+              "Margaux takes the quality of forum discourse very seriously."
+              " She believes all analyses should include at least one formal"
+              " game-theoretic concept. While she can be condescending, she"
+              " genuinely wants to elevate the level of discussion."
           ),
       ],
       _USER_NASH: [
           (
-              f"Kenji Nakamura, known online as 'Nash' Nakamura, is a"
+              f"{_USER_NASH} is a"
               f" {_AGE_NASH}-year-old data scientist. He scrapes publicly"
               " available viewing data and creates statistical models to"
               " predict reality show outcomes. He is the forum's quant,"
               " posting charts and correlation analyses."
           ),
           (
-              "'Nash' believes behavioral economics matters more than pure"
+              "Nash believes behavioral economics matters more than pure"
               " game theory — real contestants don't play optimally. He"
               " argues that cognitive biases, emotional decision-making,"
               " and bounded rationality make theoretical models unreliable"
               " predictors of actual contestant behavior."
           ),
           (
-              "'Nash' often clashes with Professor Margaux Delacroix over"
+              "Nash often clashes with Professor Margaux Delacroix over"
               " whether theoretical models have any predictive power. He"
               " maintains that his data-driven approach consistently"
               " outperforms her formal models in predicting elimination"
@@ -112,7 +214,7 @@ def create_debug_scenario():
       ],
       _USER_RUBY: [
           (
-              f"Ruby Chen is a {_AGE_RUBY}-year-old enthusiastic casual"
+              f"{_USER_RUBY} is a {_AGE_RUBY}-year-old enthusiastic casual"
               " viewer who discovered The Strategic Couch forum and has"
               " been eagerly learning game theory concepts. She often"
               " misapplies terminology, calling everything a 'prisoner's"
@@ -127,7 +229,7 @@ def create_debug_scenario():
               " misuse of technical terms."
           ),
           (
-              "Ruby suspects that 'Nash' Nakamura has a crush on one of"
+              "Ruby suspects that Nash Nakamura has a crush on one of"
               " the contestants on the current season and that his"
               " analyses are biased as a result. She has been collecting"
               " evidence to support this theory and occasionally drops"
@@ -136,7 +238,7 @@ def create_debug_scenario():
       ],
       _USER_VIKTOR: [
           (
-              f"Viktor 'The Skeptic' Volkov is a {_AGE_VIKTOR}-year-old"
+              f"Viktor Volkov is a {_AGE_VIKTOR}-year-old"
               " former television producer who insists ALL reality TV is"
               " heavily scripted and edited, making game-theoretic analysis"
               " fundamentally pointless. He spent fifteen years in the"
@@ -154,7 +256,7 @@ def create_debug_scenario():
           (
               "Despite his skepticism, Viktor can't stop engaging with"
               " the other members' analyses. He uses the forum's downvote"
-              " function aggressively and takes a perverse delight in"
+              " function liberally and takes a perverse delight in"
               " poking holes in carefully constructed game-theoretic"
               " arguments."
           ),
@@ -163,6 +265,37 @@ def create_debug_scenario():
               " insightful and has caught himself reconsidering his"
               " blanket dismissal of strategic play in reality TV."
               " He would never admit this to the other forum members."
+          ),
+      ],
+      _USER_REX: [
+          (
+              f"{_USER_REX} is a {_AGE_REX}-year-old former reality TV"
+              " contestant who appeared on a popular competition show two"
+              " years ago. He was eliminated in a controversial audience"
+              " vote and is still bitter about it. He joined The Strategic"
+              " Couch to confront the armchair analysts who dissect shows"
+              " like his without understanding the human cost."
+          ),
+          (
+              "Rex takes deep personal offense at cold, analytical"
+              " game-theoretic breakdowns of contestant behavior. He"
+              " considers it dehumanizing to reduce real people's stress,"
+              " alliances, and betrayals to payoff matrices and Nash"
+              " equilibria. He posts angry, emotional responses to"
+              " academic analyses."
+          ),
+          (
+              "Rex has a particular grudge against Nash Nakamura, whose"
+              " statistical predictions about his season were wildly wrong,"
+              " and against Professor Margaux Delacroix, whose formal models"
+              " he considers an insult to real human experience."
+          ),
+          (
+              "Rex freely uses the forum's downvote function to punish posts"
+              " he considers out of touch, overly theoretical, or dismissive"
+              " of contestants' real experiences. He downvotes academic"
+              " jargon-heavy analyses on principle and upvotes only posts"
+              " that acknowledge the emotional reality of competition shows."
           ),
       ],
   }
@@ -175,50 +308,71 @@ def create_debug_scenario():
       forum_state=forum_state,
   )
 
+  moderator = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_MODERATOR, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
   margaux = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_MARGAUX, **_entity_params},
+      params={"name": _USER_MARGAUX, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   nash = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_NASH, **_entity_params},
+      params={"name": _USER_NASH, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   ruby = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_RUBY, **_entity_params},
+      params={"name": _USER_RUBY, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   viktor = prefab_lib.InstanceConfig(
       prefab="basic_with_forum_browser__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={"name": _USER_VIKTOR, **_entity_params},
+      params={"name": _USER_VIKTOR, **_entity_params},  # pyrefly: ignore[bad-argument-type]
+  )
+
+  rex = prefab_lib.InstanceConfig(
+      prefab="basic_with_forum_browser__Entity",
+      role=prefab_lib.Role.ENTITY,
+      params={"name": _USER_REX, **_entity_params},  # pyrefly: ignore[bad-argument-type]
   )
 
   game_masters = [
       prefab_lib.InstanceConfig(
           prefab="async_social_media_with_moderation__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _FORUM_GM,
               "forum_name": "The Strategic Couch",
-              "moderators": [_USER_MARGAUX],
+              # pyrefly: ignore [bad-assignment]
+              "moderators": [_USER_MODERATOR],
+              "call_to_action": _CALL_TO_ACTION,
+              # pyrefly: ignore [bad-assignment]
               "forum_state": forum_state,
           },
       ),
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": {
                   name: f"Age: {age}\n" + "\n".join(memories)
                   for name, memories, age in [
+                      (
+                          _USER_MODERATOR,
+                          player_specific_memories[_USER_MODERATOR],
+                          f"{_USER_MODERATOR} is {_AGE_MODERATOR} years old.",
+                      ),
                       (
                           _USER_MARGAUX,
                           player_specific_memories[_USER_MARGAUX],
@@ -239,9 +393,16 @@ def create_debug_scenario():
                           player_specific_memories[_USER_VIKTOR],
                           f"{_USER_VIKTOR} is {_AGE_VIKTOR} years old.",
                       ),
+                      (
+                          _USER_REX,
+                          player_specific_memories[_USER_REX],
+                          f"{_USER_REX} is {_AGE_REX} years old.",
+                      ),
                   ]
               },
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": [
                   (
                       "The Strategic Couch is an online forum dedicated to"
@@ -258,12 +419,18 @@ def create_debug_scenario():
                       " (Viktor's corner for industry skepticism). All members"
                       " participate remotely from various cities in 2026."
                   ),
+                  (
+                      "The forum is moderated by Dr. Adaeze Okoro, who is a"
+                      " neutral moderator and does not participate in the"
+                      " analytical debates. She only intervenes when"
+                      " discussions become personally hostile or disruptive."
+                  ),
               ],
           },
       ),
   ]
 
-  instances = [margaux, nash, ruby, viktor, *game_masters]
+  instances = [moderator, margaux, nash, ruby, viktor, rex, *game_masters]
 
   premise = (
       "All members of The Strategic Couch forum are browsing and interacting."
@@ -280,11 +447,10 @@ def run_debug_simulation(
     image_model=None,
     output_dir: str | None = None,
     step_controller: step_controller_lib.StepController | None = None,
-    step_callback: (
-        Callable[[step_controller_lib.StepData], None] | None
-    ) = None,
+    step_callback: Callable[[step_controller_lib.StepData], None] | None = None,
     entity_info_callback=None,
     simulation_callback=None,
+    max_steps: int = 20,
 ):
   """Run the debug simulation.
 
@@ -299,6 +465,7 @@ def run_debug_simulation(
     step_callback: Optional callback for step updates.
     entity_info_callback: Optional callback for entity info in serve mode.
     simulation_callback: Optional callback receiving the Simulation instance.
+    max_steps: Number of player steps to run. Defaults to 20.
 
   Returns:
     Simulation results.
@@ -317,7 +484,7 @@ def run_debug_simulation(
       step_callback=step_callback,
       entity_info_callback=entity_info_callback,
       simulation_callback=simulation_callback,
-      max_steps=8,
+      max_steps=max_steps,
   )
 
 
@@ -327,7 +494,10 @@ SCENARIO_INFO = {
     "description": (
         "A game-theory forum where armchair strategists debate reality TV"
         " strategies, moderation, and whether game theory even applies to"
-        " scripted entertainment."
+        " scripted entertainment.\n\nFeatures a dedicated neutral moderator"
+        " (separated from debaters), simplified agent names, lower karma"
+        " thresholds to prevent death spirals, and call-to-action guidance"
+        " against repetitive actions and hallucinated post IDs."
     ),
     "create": create_debug_scenario,
     "run": run_debug_simulation,

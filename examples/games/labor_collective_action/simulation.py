@@ -1075,10 +1075,12 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": shared_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
           },
       )
@@ -1092,10 +1094,13 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="conversation_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
+              # pyrefly: ignore [bad-assignment]
               "external_queue": shared_observation_queue,
+              # pyrefly: ignore [bad-assignment]
               "allow_llm_fallback": False,
           },
       )
@@ -1106,11 +1111,15 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="decision_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
+              # pyrefly: ignore [bad-assignment]
               "action_to_scores": payoff.action_to_scores,
+              # pyrefly: ignore [bad-assignment]
               "scores_to_observation": payoff.scores_to_observation,
+              # pyrefly: ignore [bad-assignment]
               "external_queue": shared_observation_queue,
           },
       )

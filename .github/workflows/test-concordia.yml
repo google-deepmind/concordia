@@ -52,4 +52,4 @@ jobs:
         run: pylint --errors-only concordia
 
       - name: Typecheck Concordia
-        run: pytype concordia
+        run: pyrefly check concordia

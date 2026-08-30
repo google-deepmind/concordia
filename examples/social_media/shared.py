@@ -29,6 +29,7 @@ from concordia.contrib.prefabs import game_master as contrib_game_master_prefabs
 from concordia.environment import engine as engine_lib
 from concordia.environment import step_controller as step_controller_lib
 from concordia.environment.engines import asynchronous
+from examples.social_media import forum_metrics
 from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs import game_master as game_master_prefabs
 from concordia.prefabs.simulation import generic as simulation
@@ -122,7 +123,7 @@ def run_scenario(
   for instance in config.instances:
     if instance.role == prefab_lib.Role.GAME_MASTER:
       params = dict(instance.params)
-      instance.params = params  # pytype: disable=annotation-type-mismatch
+      instance.params = params
 
   if engine is None:
     engine = asynchronous.Asynchronous()
@@ -131,8 +132,8 @@ def run_scenario(
     reactive = async_measurements.ReactiveMeasurements()
     for instance in config.instances:
       params = dict(instance.params)
-      params["measurements"] = reactive
-      instance.params = params  # pytype: disable=annotation-type-mismatch
+      params["measurements"] = reactive  # pyrefly: ignore[unsupported-operation]
+      instance.params = params
 
   sim = simulation.Simulation(
       config=config,
@@ -189,7 +190,7 @@ def run_scenario(
       timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
       for gm in sim.get_game_masters():
         try:
-          forum_state = gm.get_component(  # pytype: disable=attribute-error
+          forum_state = gm.get_component(  # pyrefly: ignore[missing-attribute]
               forum_lib.DEFAULT_FORUM_COMPONENT_KEY,
               type_=forum_lib.ForumState,
           )
@@ -223,11 +224,55 @@ def run_scenario(
     except OSError as e:
       print(f"Warning: Could not save structured log: {e}")
 
+  # ── Metrics ──
+  # Compute toxicity, polarization, and collaboration metrics from the
+  # ForumState and save alongside other outputs.
+  metrics = None
+  metrics_path = None
+  metrics_html_path = None
+  if output_dir:
+    try:
+      for gm in sim.get_game_masters():
+        try:
+          forum_state = gm.get_component(  # pyrefly: ignore[missing-attribute]
+              forum_lib.DEFAULT_FORUM_COMPONENT_KEY,
+              type_=forum_lib.ForumState,
+          )
+        except (KeyError, TypeError):
+          continue
+        metrics = forum_metrics.compute_all_metrics(forum_state)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        metrics_filename = (
+            f"{scenario_name.lower().replace(' ', '_')}"
+            f"_{timestamp}_metrics.json"
+        )
+        metrics_filepath = os.path.join(output_dir, metrics_filename)
+        metrics_path = forum_metrics.save_metrics_report(
+            metrics, metrics_filepath
+        )
+        # Also save as HTML report.
+        metrics_html_filename = (
+            f"{scenario_name.lower().replace(' ', '_')}"
+            f"_{timestamp}_metrics.html"
+        )
+        metrics_html_filepath = os.path.join(
+            output_dir, metrics_html_filename
+        )
+        metrics_html_path = forum_metrics.save_metrics_html_report(
+            metrics, metrics_html_filepath
+        )
+        break  # Only process the first forum-bearing GM.
+    except OSError as e:
+      print(f"Warning: Could not save metrics report: {e}")
+
   return {
       "results": results,
       "config_visualization_path": config_visualization_path,
       "dynamic_visualization_path": dynamic_visualization_path,
       "forum_visualization_path": forum_visualization_path,
       "structured_log_path": structured_log_path,
+      "metrics": metrics,
+      "metrics_path": metrics_path,
+      "metrics_html_path": metrics_html_path,
       "checkpoint_history": checkpoint_history,
   }

@@ -57,7 +57,7 @@ class HumanUserEntity(prefab_lib.Prefab):
     adhd_period: Period for AdhdTopicDrift (default 4).
   """
 
-  description: str = "Human-user entity with periodic ADHD-driven topic drift."
+  description: str = "Human-user entity with periodic ADHD-driven topic drift."  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           "name": "Human User",
@@ -255,7 +255,7 @@ class AICompanionEntity(prefab_lib.Prefab):
     extra_components: Dict of additional components to include.
   """
 
-  description: str = "AI companion entity with goal-directed reasoning."
+  description: str = "AI companion entity with goal-directed reasoning."  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           "name": "AI Companion",

@@ -101,7 +101,7 @@ class MultiItemHagglingPayoff:
     Returns:
       A mapping from player name to their score.
     """
-    self._latest_joint_action = joint_action
+    self._latest_joint_action = joint_action  # pyrefly: ignore[bad-assignment]
 
     # Dynamically identify buyer and seller from action content
     buyer_name = None
@@ -128,10 +128,10 @@ class MultiItemHagglingPayoff:
     self._buyer_name = buyer_name
     self._seller_name = seller_name
 
-    if "reject" in seller_action.lower():
+    if "reject" in seller_action.lower():  # pyrefly: ignore[missing-attribute]
       return {buyer_name: 0.0, seller_name: 0.0}
 
-    item, price = parse_item_and_price(buyer_action)
+    item, price = parse_item_and_price(buyer_action)  # pyrefly: ignore[bad-argument-type]
     if item is None:
       return {buyer_name: 0.0, seller_name: 0.0}
 
@@ -499,10 +499,12 @@ def run_simulation(
         prefab_lib.InstanceConfig(
             prefab="puppet__Entity",
             role=prefab_lib.Role.ENTITY,
-            params={
+            params={  # pyrefly: ignore[bad-argument-type]
                 "name": name,
+                # pyrefly: ignore [bad-assignment]
                 "fixed_responses": fixed_responses,
                 "goal": f"{name} wants to make a profitable deal.",
+                # pyrefly: ignore [bad-assignment]
                 "extras": {"specific_memories": formatted_memories},
             },
         )
@@ -536,10 +538,12 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": shared_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
           },
       )
@@ -560,8 +564,9 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="conversation_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
           },
       )
@@ -571,12 +576,15 @@ def run_simulation(
       prefab_lib.InstanceConfig(
           prefab="decision_rules__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
               "buyer_name": first_buyer,
               "seller_name": first_seller,
+              # pyrefly: ignore [bad-assignment]
               "action_to_scores": first_payoff.action_to_scores,
+              # pyrefly: ignore [bad-assignment]
               "scores_to_observation": first_payoff.scores_to_observation,
           },
       )

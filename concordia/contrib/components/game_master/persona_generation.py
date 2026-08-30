@@ -238,7 +238,7 @@ class PersonaInitializer(
         type_=make_observation_component.MakeObservation,
     )
     queue_state = make_observation.get_state().get('queue', {})
-    has_pending = any(bool(v) for v in queue_state.values())
+    has_pending = any(bool(v) for v in queue_state.values())  # pyrefly: ignore[missing-attribute]
     if has_pending:
       return self.get_entity().name
 
@@ -360,7 +360,7 @@ class PersonaInitializer(
     }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    self._initialized = state.get('initialized', False)
+    self._initialized = state.get('initialized', False)  # pyrefly: ignore[bad-assignment]
     self._persona_data = cast(
         list[dict[str, Any]], state.get('persona_data', [])
     )

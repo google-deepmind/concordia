@@ -132,7 +132,7 @@ class ConsumerEvaluation(question_of_recent_memories.QuestionOfRecentMemories):
 class Consumer(prefab_lib.Prefab):
   """A prefab implementing a consumer entity for the marketplace."""
 
-  description: str = 'An entity that is a consumer in a marketplace.'
+  description: str = 'An entity that is a consumer in a marketplace.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, str] = dataclasses.field(
       default_factory=lambda: {
           'name': 'Alice',
@@ -239,8 +239,8 @@ class Consumer(prefab_lib.Prefab):
     component_order = list(components_of_agent.keys())
 
     if overarching_goal is not None:
-      components_of_agent[goal_key] = overarching_goal
-      component_order.insert(1, goal_key)
+      components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
+      component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
 
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,

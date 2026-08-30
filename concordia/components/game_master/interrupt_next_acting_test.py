@@ -311,7 +311,7 @@ class InitialStateSnapshotTest(absltest.TestCase):
     _wire(component, scheduler)
 
     component.pre_act(_NEXT_ACTING_SPEC)
-    log_call = component._logging_channel.call_args
+    log_call = component._logging_channel.call_args  # pyrefly: ignore[missing-attribute]
     log_data = log_call[0][0]
     self.assertIn('Initial Events', log_data)
     self.assertIn('Initial Entity States', log_data)
@@ -335,7 +335,7 @@ class InitialStateSnapshotTest(absltest.TestCase):
     component.pre_act(_NEXT_ACTING_SPEC)
 
     # The second log call should NOT contain the snapshot keys.
-    log_call = component._logging_channel.call_args
+    log_call = component._logging_channel.call_args  # pyrefly: ignore[missing-attribute]
     log_data = log_call[0][0]
     self.assertNotIn('Initial Events', log_data)
     self.assertNotIn('Initial Entity States', log_data)

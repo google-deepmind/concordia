@@ -82,7 +82,7 @@ class Measurements:
   def get_last_datum(self, channel: str) -> Any:
     """Returns the last datum in the channel."""
     with self._channels_lock:
-      channel = self._get_channel_or_create(channel)
+      channel = self._get_channel_or_create(channel)  # pyrefly: ignore[bad-assignment]
       if channel:
         return channel[-1]
       else:

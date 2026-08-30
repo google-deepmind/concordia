@@ -59,7 +59,7 @@ class Constant(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'state' in state:
-      self._state = state['state']
+      self._state = state['state']  # pyrefly: ignore[bad-assignment]
 
   def get_dynamic_state(self) -> entity_component.ComponentState:
     """Returns the dynamic state variables that can be edited at runtime."""

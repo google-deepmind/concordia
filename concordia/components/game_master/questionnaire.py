@@ -116,7 +116,7 @@ class Questionnaire(entity_component.ContextComponent):
       output_type = entity_lib.OutputType.CHOICE
       options = tuple(
           opt.replace('{player_name}', player_name)
-          for opt in current_question.choices
+          for opt in current_question.choices  # pyrefly: ignore[not-iterable]
       )
     elif (
         questionnaire.questionnaire_type == 'open-ended'
@@ -292,5 +292,5 @@ class Questionnaire(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._answers = state['answers']  # pytype: disable=annotation-type-mismatch
-    self._answered_mask = state['answered_mask']  # pytype: disable=annotation-type-mismatch
+    self._answers = state['answers']  # pyrefly: ignore[bad-assignment]
+    self._answered_mask = state['answered_mask']  # pyrefly: ignore[bad-assignment]

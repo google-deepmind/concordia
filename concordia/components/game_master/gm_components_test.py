@@ -184,7 +184,7 @@ COMPONENT_FACTORIES = {
                 model=no_language_model.NoLanguageModel(),
                 item_type_configs=[],
                 player_initial_endowments={},
-                clock_now=lambda: datetime.datetime.now,
+                clock_now=lambda: datetime.datetime.now,  # pyrefly: ignore[bad-argument-type]
             ),
             "player_names": ["Alice", "Bob"],
             "targets": {},
@@ -462,12 +462,12 @@ class GMComponentTest(parameterized.TestCase):
     state_example = component_config["state_example"]
     skip_keys = component_config["skip_keys"]
 
-    component_a = component_class(**kwargs)
-    component_a.set_state(state_example)
+    component_a = component_class(**kwargs)  # pyrefly: ignore[bad-unpacking, missing-argument, not-callable]
+    component_a.set_state(state_example)  # pyrefly: ignore[bad-argument-type]
     state_a = component_a.get_state()
 
     # Initialize component B, then set the state to the state of component A
-    component_b = component_class(**kwargs)
+    component_b = component_class(**kwargs)  # pyrefly: ignore[bad-unpacking, missing-argument, not-callable]
     component_b.set_state(state_a)
     state_b = component_b.get_state()
 

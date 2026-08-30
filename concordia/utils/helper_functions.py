@@ -184,7 +184,7 @@ def get_package_classes(module: types.ModuleType):
     all_var_names = dir(submodule)
     for var_name in all_var_names:
       var = getattr(submodule, var_name)
-      if inspect.isclass(var) and var.__module__.startswith(package_name):
+      if inspect.isclass(var) and var.__module__.startswith(package_name):  # pyrefly: ignore[bad-argument-type]
         key = f'{submodule_name}__{var_name}'
         prefabs[key] = var()
   return prefabs
@@ -323,6 +323,7 @@ def deep_compare_components(comp1, comp2, test_case, skip_keys=None):
 
   for key in d1:
 
+    # pyrefly: ignore [not-iterable]
     if key in skip_keys:
       continue
 

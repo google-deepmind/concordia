@@ -419,7 +419,7 @@ def coffee_shop_example() -> list[Mapping[str, Any]]:
 
   return _run_scenario(
       player_names=['Alice', 'Bob'],
-      initial_entity_states=initial_entity_states,
+      initial_entity_states=initial_entity_states,  # pyrefly: ignore[bad-argument-type]
       responses={'Alice': alice_responses, 'Bob': bob_responses},
       start_time='2026-06-15T09:00:00',
       initial_events=[{
@@ -534,7 +534,7 @@ def kitchen_timer_example() -> list[Mapping[str, Any]]:
 
   return _run_scenario(
       player_names=['Chef', 'Reader'],
-      initial_entity_states=initial_entity_states,
+      initial_entity_states=initial_entity_states,  # pyrefly: ignore[bad-argument-type]
       responses={
           'Chef': chef_responses,
           'Reader': reader_responses,
@@ -622,7 +622,7 @@ def morning_routine_example() -> list[Mapping[str, Any]]:
 
   return _run_scenario(
       player_names=['Alex', 'Bailey', 'Casey'],
-      initial_entity_states=initial_entity_states,
+      initial_entity_states=initial_entity_states,  # pyrefly: ignore[bad-argument-type]
       responses={
           'Alex': alex_responses,
           'Bailey': bailey_responses,
@@ -739,7 +739,7 @@ def study_hall_example() -> list[Mapping[str, Any]]:
 
   return _run_scenario(
       player_names=['Maya', 'Leo'],
-      initial_entity_states=initial_entity_states,
+      initial_entity_states=initial_entity_states,  # pyrefly: ignore[bad-argument-type]
       responses={
           'Maya': maya_responses,
           'Leo': leo_responses,

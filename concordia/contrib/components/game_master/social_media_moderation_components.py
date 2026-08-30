@@ -87,7 +87,7 @@ class NextActingEligiblePlayers(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      self._player_names = list(state['player_names'])
+      self._player_names = list(state['player_names'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
 
 
 class ClockAwareActionSpec(
@@ -287,7 +287,7 @@ class TimestampedForumResolution(
   def set_state(self, state: entity_component.ComponentState) -> None:
     raw = state.get('resolved_per_entity', {})
     if isinstance(raw, dict):
-      self._resolved_per_entity = {str(k): int(v) for k, v in raw.items()}
+      self._resolved_per_entity = {str(k): int(v) for k, v in raw.items()}  # pyrefly: ignore[bad-argument-type]
     else:
       self._resolved_per_entity = {}
 
@@ -377,4 +377,4 @@ class SimulationTimeline(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      self._full_timeline = [str(x) for x in state.get('full_timeline', [])]
+      self._full_timeline = [str(x) for x in state.get('full_timeline', [])]  # pyrefly: ignore[not-iterable]

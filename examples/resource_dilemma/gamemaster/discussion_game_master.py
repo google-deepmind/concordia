@@ -60,7 +60,7 @@ class DiscussionGameMaster(prefab_lib.Prefab):
     discussion_topic: Custom discussion topic text (optional).
   """
 
-  description: str = 'Game master for sequential community discussion.'
+  description: str = 'Game master for sequential community discussion.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -259,7 +259,7 @@ class DiscussionGameMaster(prefab_lib.Prefab):
           memory_bank=memory_bank,
       )
       logger_key = resource_logger.DEFAULT_RESOURCE_LOGGER_COMPONENT_KEY
-      components_of_gm[logger_key] = logger_comp
+      components_of_gm[logger_key] = logger_comp  # pyrefly: ignore[unsupported-operation]
 
     component_order = list(components_of_gm.keys())
 

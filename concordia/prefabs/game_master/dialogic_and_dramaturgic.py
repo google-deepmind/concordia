@@ -99,7 +99,7 @@ def _configure_default_scenes(
 class GameMaster(prefab_lib.Prefab):
   """A prefab game master specialized for handling conversation."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A game master specialized for handling conversation. '
       'This game master is designed to be used with scenes.'
   )
@@ -184,7 +184,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
-    memory = actor_components.memory.AssociativeMemory(memory_bank=memory_bank)
+    memory = actor_components.memory.AssociativeMemory(memory_bank=memory_bank)  # pyrefly: ignore[bad-argument-type]
 
     make_observation_key = (
         gm_components.make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
@@ -276,7 +276,7 @@ class GameMaster(prefab_lib.Prefab):
     # Only add SendEventToRelevantPlayers when notify_observers is False.
     if send_events_to_players is not None:
       components_of_game_master[send_events_to_players_key] = (
-          send_events_to_players
+          send_events_to_players  # pyrefly: ignore[unsupported-operation]
       )
 
     component_order = list(components_of_game_master.keys())

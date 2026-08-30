@@ -127,7 +127,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     """
     return copy.copy(self.entities)
 
-  def add_game_master(
+  def add_game_master(  # pyrefly: ignore[bad-override]
       self,
       instance_config: prefab_lib.InstanceConfig,
       state: entity_component.EntityState | None = None,
@@ -149,7 +149,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     params = dict(instance_config.params)
     if isinstance(self._engine, asynchronous.Asynchronous):
       if "measurements" not in params:
-        params["measurements"] = async_measurements.ReactiveMeasurements()
+        params["measurements"] = async_measurements.ReactiveMeasurements()  # pyrefly: ignore[unsupported-operation]
 
     game_master_prefab.params = params
     game_master_prefab.entities = self.entities
@@ -168,7 +168,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
 
     self.game_masters.append(game_master)
 
-  def add_entity(
+  def add_entity(  # pyrefly: ignore[bad-override]
       self,
       instance_config: prefab_lib.InstanceConfig,
       state: entity_component.EntityState | None = None,
@@ -185,7 +185,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
     params = dict(instance_config.params)
     if isinstance(self._engine, asynchronous.Asynchronous):
       if "measurements" not in params:
-        params["measurements"] = async_measurements.ReactiveMeasurements()
+        params["measurements"] = async_measurements.ReactiveMeasurements()  # pyrefly: ignore[unsupported-operation]
 
     entity_prefab.params = params
 
@@ -207,7 +207,7 @@ class QuestionnaireSimulation(simulation_lib.Simulation):
         )
       try:
         memory_component = entity.get_component("__memory__")
-        memory_component.set_state(memory_state)
+        memory_component.set_state(memory_state)  # pyrefly: ignore[bad-argument-type]
         if self._verbose:
           logging.info(
               "Successfully set pre-loaded memories for %s.", entity.name

@@ -38,16 +38,21 @@ from concordia.contrib.language_models.openai import gpt_model_multimodal
 from examples.social_media import scenario_00_robo_alchemy
 from examples.social_media import scenario_01_robo_alchemy_images
 from examples.social_media import scenario_02_game_theory_tv
+from examples.social_media import scenario_03_urbanist_grid
+from examples.social_media import scenario_04_ethical_plate
+from examples.social_media import scenario_05_silicon_prometheus
 from concordia.language_model import no_language_model
 from concordia.language_model import retry_wrapper
 import numpy as np
 import sentence_transformers
 
-
 _SCENARIO_MODULES = [
     scenario_00_robo_alchemy,
     scenario_01_robo_alchemy_images,
     scenario_02_game_theory_tv,
+    scenario_03_urbanist_grid,
+    scenario_04_ethical_plate,
+    scenario_05_silicon_prometheus,
 ]
 
 SCENARIOS = {
@@ -110,7 +115,7 @@ def setup_model(args):
 
 
 def run_scenario_by_number(
-    scenario_num: int,
+    scenario_num: int | str,
     model,
     embedder,
     output_dir: str | None = None,
@@ -123,10 +128,15 @@ def run_scenario_by_number(
     return None
 
   info = SCENARIOS[scenario_num]
+  # pyrefly: ignore [not-callable]
   return info["run"](
+      # pyrefly: ignore [unexpected-keyword]
       model=model,
+      # pyrefly: ignore [unexpected-keyword]
       embedder=embedder,
+      # pyrefly: ignore [unexpected-keyword]
       output_dir=output_dir,
+      # pyrefly: ignore [unexpected-keyword]
       image_model=image_model,
   )
 
@@ -149,8 +159,8 @@ def main():
   )
   parser.add_argument(
       "--scenario",
-      type=int,
-      default=0,
+      type=str,
+      default="0",
       help="Scenario number to run (default: 0)",
   )
   parser.add_argument(
@@ -225,8 +235,15 @@ def main():
         image_model, retry_tries=5, retry_delay=1
     )
 
+  # Coerce scenario key: try int first, then fall back to string.
+  scenario_key = args.scenario
+  try:
+    scenario_key = int(scenario_key)
+  except ValueError:
+    pass  # Keep as string (e.g. '2a')
+
   results = run_scenario_by_number(
-      args.scenario,
+      scenario_key,
       model,
       embedder,
       output_dir=args.output_dir,
@@ -234,7 +251,8 @@ def main():
   )
 
   if results:
-    info = SCENARIOS[args.scenario]
+    info = SCENARIOS[scenario_key]
+    # pyrefly: ignore [bad-argument-type]
     save_results(results, args.output_dir, info["name"])
 
 

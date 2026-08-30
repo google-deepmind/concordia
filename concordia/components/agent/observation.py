@@ -17,6 +17,7 @@
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 DEFAULT_OBSERVATION_COMPONENT_KEY = '__observation__'
@@ -69,7 +70,7 @@ class ObservationToMemory(action_spec_ignored.ActionSpecIgnored):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
 
 
 class LastNObservations(
@@ -106,6 +107,13 @@ class LastNObservations(
 
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
+    if self._history_length <= 0:
+      # A non-positive history length disables observations: return an empty
+      # string so nothing is added to the prompt. We also skip the memory
+      # lookup, since retrieve_recent rejects a limit <= 0.
+      self._logging_channel({'Key': self.get_pre_act_label(), 'Value': []})
+      return ''
+
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
@@ -120,6 +128,15 @@ class LastNObservations(
 
     return result
 
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    """Adds nothing to the prompt when the history length is non-positive."""
+    if self._history_length <= 0:
+      return ''
+    return super().pre_act(action_spec)
+
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""
     return {
@@ -131,9 +148,9 @@ class LastNObservations(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the component state from JSON data."""
     if 'memory_component_key' in state:
-      self._memory_component_key = state['memory_component_key']
+      self._memory_component_key = state['memory_component_key']  # pyrefly: ignore[bad-assignment]
     if 'history_length' in state:
-      self._history_length = state['history_length']
+      self._history_length = state['history_length']  # pyrefly: ignore[bad-assignment]
 
 
 class ObservationsSinceLastPreAct(
@@ -204,7 +221,7 @@ class ObservationsSinceLastPreAct(
     with self._lock:
       # Support loading from both old and new state formats.
       if 'last_seen_index' in state:
-        self._last_seen_index = state['last_seen_index']
+        self._last_seen_index = state['last_seen_index']  # pyrefly: ignore[bad-assignment]
       elif 'num_since_last_pre_act' in state:
         # Legacy format — can't reconstruct exact index, so start fresh.
         self._last_seen_index = 0

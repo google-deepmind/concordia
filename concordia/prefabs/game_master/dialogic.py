@@ -32,7 +32,7 @@ class GameMaster(prefab_lib.Prefab):
   """A prefab game master specialized for handling conversation.
   """
 
-  description: str = 'A game master specialized for handling conversation.'
+  description: str = 'A game master specialized for handling conversation.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, str | bool] = dataclasses.field(
       default_factory=lambda: {
           # `name`: the name of this game master.
@@ -105,7 +105,7 @@ class GameMaster(prefab_lib.Prefab):
 
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
     memory_component = actor_components.memory.AssociativeMemory(
-        memory_bank=memory_bank)
+        memory_bank=memory_bank)  # pyrefly: ignore[bad-argument-type]
 
     relevant_memories_key = 'relevant_memories'
     relevant_memories = (
@@ -193,7 +193,7 @@ class GameMaster(prefab_lib.Prefab):
         gm_components.next_game_master.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY)
     next_game_master = gm_components.next_game_master.NextGameMaster(
         model=model,
-        map_game_master_names_to_choices=map_game_master_names_to_choices,
+        map_game_master_names_to_choices=map_game_master_names_to_choices,  # pyrefly: ignore[bad-argument-type]
         call_to_action='Is the conversation finished?',
         components=[
             instructions_key,
@@ -237,7 +237,7 @@ class GameMaster(prefab_lib.Prefab):
     if not can_terminate_simulation:
       terminate_key = gm_components.terminate.DEFAULT_TERMINATE_COMPONENT_KEY
       terminate = gm_components.terminate.NeverTerminate()
-      components_of_game_master[terminate_key] = terminate
+      components_of_game_master[terminate_key] = terminate  # pyrefly: ignore[unsupported-operation]
 
     component_order = list(components_of_game_master.keys())
 
@@ -248,9 +248,9 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     conversation_game_master = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=name,
+        agent_name=name,  # pyrefly: ignore[bad-argument-type]
         act_component=act_component,
         context_components=components_of_game_master,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
     return conversation_game_master

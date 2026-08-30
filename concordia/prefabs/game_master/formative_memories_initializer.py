@@ -172,7 +172,7 @@ def build_game_master(
 class GameMaster(prefab_lib.Prefab):
   """Implements a formative memories initializer game master entity."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An initializer for all entities that '
       'generates formative memories from their childhood.'
   )

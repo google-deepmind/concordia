@@ -131,5 +131,5 @@ class Script(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._script = state['script']
-    self._script_idx = state['script_idx']
+    self._script = state['script']  # pyrefly: ignore[bad-assignment]
+    self._script_idx = state['script_idx']  # pyrefly: ignore[bad-assignment]

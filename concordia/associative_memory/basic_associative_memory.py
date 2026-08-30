@@ -68,8 +68,8 @@ class AssociativeMemoryBank:
     """Sets the AssociativeMemory from a dictionary."""
 
     with self._memory_bank_lock:
-      self._stored_hashes = set(state['stored_hashes'])
-      self._memory_bank = pd.read_json(StringIO(state['memory_bank']))
+      self._stored_hashes = set(state['stored_hashes'])  # pyrefly: ignore[bad-argument-type]
+      self._memory_bank = pd.read_json(StringIO(state['memory_bank']))  # pyrefly: ignore[bad-argument-type]
       self._pending_memories.clear()  # Clear any pending on state restore
 
   def _flush_pending(self) -> None:

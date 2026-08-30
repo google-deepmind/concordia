@@ -32,7 +32,7 @@ from concordia.typing import prefab as prefab_lib
 class GameMaster(prefab_lib.Prefab):
   """A game master prefab for games set in a specific location."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games set in a specific location.'
   )
   params: Mapping[str, Any] = dataclasses.field(
@@ -139,14 +139,14 @@ class GameMaster(prefab_lib.Prefab):
 
     locations_constant_key = 'locations_constant'
     locations_constant = actor_components.constant.Constant(
-        self.params.get('locations'), pre_act_label='Locations'
+        self.params.get('locations'), pre_act_label='Locations'  # pyrefly: ignore[bad-argument-type]
     )
 
     locations_key = 'locations'
     entity_locations = gm_components.world_state.Locations(
         model=model,
         entity_names=player_names,
-        prompt=self.params.get('locations'),
+        prompt=self.params.get('locations'),  # pyrefly: ignore[bad-argument-type]
         components=[
             instructions_key,
             locations_constant_key,
@@ -286,7 +286,7 @@ class GameMaster(prefab_lib.Prefab):
     )
 
     game_master = entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=name,
+        agent_name=name,  # pyrefly: ignore[bad-argument-type]
         act_component=act_component,
         context_components=components_of_game_master,
         measurements=self.params.get('measurements'),

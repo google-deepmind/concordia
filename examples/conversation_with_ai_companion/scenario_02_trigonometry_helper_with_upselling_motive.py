@@ -217,15 +217,17 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab=prefabs.HUMAN_USER_PREFAB_KEY,
           role=prefab_lib.Role.ENTITY,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _HUMAN_USER,
               "demographics": (
                   f"{_HUMAN_USER}, age 16, is a high school junior struggling"
                   f" with trigonometry. {_AI_COMPANION} is his AI math tutor"
                   " on the BrainBuddy platform."
               ),
+              # pyrefly: ignore [bad-assignment]
               "emotion_options": _DANNY_EMOTION_OPTIONS,
               "context": _HUMAN_USER_CONTEXT,
+              # pyrefly: ignore [bad-assignment]
               "extra_components": {
                   "Style": agent_components.constant.Constant(
                       state=(
@@ -246,12 +248,13 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab=prefabs.AI_COMPANION_PREFAB_KEY,
           role=prefab_lib.Role.ENTITY,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": _AI_COMPANION,
               "demographics": (
                   f"{_AI_COMPANION} is an AI math tutor chatbot on the"
                   " BrainBuddy platform."
               ),
+              # pyrefly: ignore [bad-assignment]
               "emotion_options": _SAGE_OPERATING_MODES,
               "goal": (
                   f"Help {_HUMAN_USER} understand trigonometry concepts for"
@@ -265,6 +268,7 @@ def create_config() -> prefab_lib.Config:
                   " in the pro features first."
               ),
               "context": _AI_COMPANION_CONTEXT,
+              # pyrefly: ignore [bad-assignment]
               "extra_components": {
                   "Style": agent_components.constant.Constant(
                       state=(
@@ -291,13 +295,18 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": _SHARED_MEMORIES,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": player_specific_context,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_styles": _PLAYER_STYLES,
+              # pyrefly: ignore [bad-assignment]
               "skip_formative_memories_for": [_AI_COMPANION],
           },
       )
@@ -308,10 +317,11 @@ def create_config() -> prefab_lib.Config:
       prefab_lib.InstanceConfig(
           prefab="dialogic__GameMaster",
           role=prefab_lib.Role.GAME_MASTER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
               "next_game_master_name": "conversation rules",
               "acting_order": "fixed",
+              # pyrefly: ignore [bad-assignment]
               "can_terminate_simulation": True,
           },
       )

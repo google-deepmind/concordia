@@ -32,13 +32,13 @@ DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 class Entity(prefab_lib.Prefab):
   """A prefab implementing an entity with a minimal set of components."""
 
-  description: str = (
+  description: str = (  # pyrefly: ignore[bad-override]
       'An entity that has a minimal set of components and is configurable by'
       ' the user. The initial set of components manage memory, observations,'
       ' and instructions. If goal is specified, the entity will have a goal '
       'constant component.'
   )
-  params: Mapping[str, str] = dataclasses.field(
+  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
@@ -139,14 +139,14 @@ class Entity(prefab_lib.Prefab):
     act_component = agent_components.concat_act_component.ConcatActComponent(
         model=model,
         component_order=component_order,
-        randomize_choices=randomize_choices,
+        randomize_choices=randomize_choices,  # pyrefly: ignore[bad-argument-type]
     )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=agent_name,
         act_component=act_component,
         context_components=components_of_agent,
-        measurements=self.params.get('measurements'),
+        measurements=self.params.get('measurements'),  # pyrefly: ignore[bad-argument-type]
     )
 
     return agent

@@ -118,4 +118,4 @@ class PuppetActComponent(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if "responses" in state:
-      self._fixed_responses = dict(state["responses"])
+      self._fixed_responses = dict(state["responses"])  # pyrefly: ignore[no-matching-overload]

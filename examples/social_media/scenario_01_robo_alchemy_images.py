@@ -231,25 +231,25 @@ def create_scenario(image_model=None):
   silas = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_SILAS},
+      params={**player_params, "name": _USER_SILAS},  # pyrefly: ignore[bad-argument-type]
   )
 
   petra = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_PETRA},
+      params={**player_params, "name": _USER_PETRA},  # pyrefly: ignore[bad-argument-type]
   )
 
   diego = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_DIEGO},
+      params={**player_params, "name": _USER_DIEGO},  # pyrefly: ignore[bad-argument-type]
   )
 
   thaddeus = prefab_lib.InstanceConfig(
       prefab="basic_with_image__Entity",
       role=prefab_lib.Role.ENTITY,
-      params={**player_params, "name": _USER_THADDEUS},
+      params={**player_params, "name": _USER_THADDEUS},  # pyrefly: ignore[bad-argument-type]
   )
 
   gm_params = {
@@ -268,9 +268,10 @@ def create_scenario(image_model=None):
       prefab_lib.InstanceConfig(
           prefab="formative_memories_initializer__GameMaster",
           role=prefab_lib.Role.INITIALIZER,
-          params={
+          params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup",
               "next_game_master_name": _FORUM_GM,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_context": {
                   name: f"Age: {age}\n" + "\n".join(memories)
                   for name, memories, age in [
@@ -296,7 +297,9 @@ def create_scenario(image_model=None):
                       ),
                   ]
               },
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": [
                   (
                       "The Robotic Athanor is an online forum devoted to"
@@ -346,6 +349,7 @@ def run_simulation(
     ) = None,
     entity_info_callback=None,
     simulation_callback=None,
+    max_steps: int = 5,
 ):
   """Run the simulation with required image prompts.
 
@@ -360,6 +364,7 @@ def run_simulation(
     step_callback: Optional callback for step updates.
     entity_info_callback: Optional callback for entity info in serve mode.
     simulation_callback: Optional callback receiving the Simulation instance.
+    max_steps: Number of player steps to run. Defaults to 5.
 
   Returns:
     Simulation results.
@@ -377,7 +382,7 @@ def run_simulation(
       step_callback=step_callback,
       entity_info_callback=entity_info_callback,
       simulation_callback=simulation_callback,
-      max_steps=5,
+      max_steps=max_steps,
   )
 
 

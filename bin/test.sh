@@ -24,8 +24,8 @@ pytest concordia || FAILURES=true
 echo
 echo
 
-echo "pytype concordia..."
-pytype concordia || FAILURES=true
+echo "pyrefly concordia..."
+pyrefly check concordia || FAILURES=true
 echo
 echo
 

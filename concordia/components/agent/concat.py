@@ -76,4 +76,4 @@ class Concatenate(
     """Sets the state of the component."""
     with self._lock:
       if 'components' in state:
-        self._components = tuple(state['components'])  # type: ignore
+        self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]

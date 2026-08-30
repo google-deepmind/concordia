@@ -152,7 +152,7 @@ class WorldState(
     action_spec_dict = state['latest_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._latest_action_spec = entity_lib.action_spec_from_dict(
-          action_spec_dict
+          action_spec_dict  # pyrefly: ignore[bad-argument-type]
       )
     else:
       self._latest_action_spec = None
@@ -396,7 +396,7 @@ class Locations(
     action_spec_dict = state['latest_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._latest_action_spec = entity_lib.action_spec_from_dict(
-          action_spec_dict
+          action_spec_dict  # pyrefly: ignore[bad-argument-type]
       )
     else:
       self._latest_action_spec = None

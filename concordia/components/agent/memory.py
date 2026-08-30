@@ -140,8 +140,8 @@ class AssociativeMemory(Memory):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     with self._lock:
-      self._memory_bank.set_state(state['memory_bank'])
-      self._buffer = state['buffer']
+      self._memory_bank.set_state(state['memory_bank'])  # pyrefly: ignore[bad-argument-type]
+      self._buffer = state['buffer']  # pyrefly: ignore[bad-assignment]
 
   def retrieve_associative(
       self,

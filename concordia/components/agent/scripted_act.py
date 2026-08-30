@@ -158,6 +158,6 @@ class ScriptedActComponent(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     if 'script' in state:
-      self._script = list(state['script'])  # type: ignore
+      self._script = list(state['script'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
     if 'line_index' in state:
-      self._line_index = int(state['line_index'])  # type: ignore
+      self._line_index = int(state['line_index'])  # pyrefly: ignore[bad-argument-type]

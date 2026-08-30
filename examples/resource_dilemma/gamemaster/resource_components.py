@@ -708,12 +708,12 @@ class ResourceTerminate(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     if 'current_cycle' in state:
-      self._sim_state.current_cycle = state['current_cycle']
+      self._sim_state.current_cycle = state['current_cycle']  # pyrefly: ignore[bad-assignment]
     if 'total_cycles' in state:
-      self._sim_state.total_cycles = state['total_cycles']
+      self._sim_state.total_cycles = state['total_cycles']  # pyrefly: ignore[bad-assignment]
     if 'resource_level' in state:
-      self._sim_state.resource_level = state['resource_level']
+      self._sim_state.resource_level = state['resource_level']  # pyrefly: ignore[bad-assignment]
     if 'cycle_harvest_total' in state:
-      self._sim_state.cycle_harvest_total = state['cycle_harvest_total']
+      self._sim_state.cycle_harvest_total = state['cycle_harvest_total']  # pyrefly: ignore[bad-assignment]
     if 'terminated' in state:
-      self._sim_state.terminated = state['terminated']
+      self._sim_state.terminated = state['terminated']  # pyrefly: ignore[bad-assignment]

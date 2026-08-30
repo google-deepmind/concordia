@@ -302,6 +302,7 @@ class FormativeMemoriesInitializer(
     )
     if self._player_styles is not None:
       question += (
+          # pyrefly: ignore[bad-index]
           ' Write each episode in the following style: '
           f'{self._player_styles[active_entity_name]}'
       )
@@ -326,4 +327,4 @@ class FormativeMemoriesInitializer(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'initialized' in state:
-      self._initialized = state['initialized']
+      self._initialized = state['initialized']  # pyrefly: ignore[bad-assignment]
