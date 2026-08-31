@@ -284,14 +284,50 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
 
     self._currently_active_player_idx = None
 
+  def _index_after_removal(self, removed_idx: int) -> int | None:
+    """Returns the active player index after a removal from the sequence.
+
+    Must be called with `self._lock` held, and after the removal has already
+    been applied to `self._sequence`.
+
+    Args:
+      removed_idx: The index the removed actor occupied in the sequence.
+    """
+    idx = self._currently_active_player_idx
+    if idx is None or not self._sequence:
+      return None
+    if removed_idx < idx:
+      # The currently active player shifted one place towards the front.
+      return idx - 1
+    if removed_idx == idx:
+      # The currently active player left mid-turn. Step back one place so that
+      # the next `pre_act` resumes with their successor, who now occupies
+      # `removed_idx` (wrapping to the end when the front was removed).
+      return (removed_idx - 1) % len(self._sequence)
+    return idx
+
   def remove_actor_from_sequence(self, actor_name: str) -> None:
-    """Removes an actor from the sequence."""
+    """Removes an actor from the sequence.
+
+    The index tracking the currently active player is adjusted so that it keeps
+    pointing at the same player. Without this, removing an actor positioned at
+    or before the currently active player leaves the index dangling, which
+    makes `get_currently_active_player` raise `IndexError` and makes `pre_act`
+    skip or repeat a turn.
+
+    Args:
+      actor_name: Name of the actor to remove from the sequence.
+
+    Raises:
+      ValueError: If the actor is not in the sequence.
+    """
     with self._lock:
       logging.info('Removing %s from sequence: %s', actor_name, self._sequence)
-      if actor_name in self._sequence:
-        self._sequence.remove(actor_name)
-      else:
+      if actor_name not in self._sequence:
         raise ValueError(f'Actor {actor_name} not found in sequence.')
+      removed_idx = self._sequence.index(actor_name)
+      self._sequence.remove(actor_name)
+      self._currently_active_player_idx = self._index_after_removal(removed_idx)
       logging.info('Sequence after removal: %s', self._sequence)
 
   def add_actor_to_sequence(self, actor_name: str) -> None:
@@ -305,29 +341,30 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   ) -> str:
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
-      idx = self._currently_active_player_idx
-      if idx is None:
-        idx = 0
-      else:
-        idx = (idx + 1) % len(self._sequence)
-      result = self._sequence[idx]
-      self._currently_active_player_idx = idx
+      with self._lock:
+        idx = self._currently_active_player_idx
+        if idx is None:
+          idx = 0
+        else:
+          idx = (idx + 1) % len(self._sequence)
+        result = self._sequence[idx]
+        self._currently_active_player_idx = idx
 
     return result
 
   def get_currently_active_player(self) -> str | None:
-    if self._currently_active_player_idx is None:
-      return None
-    return self._sequence[self._currently_active_player_idx]
+    with self._lock:
+      if self._currently_active_player_idx is None:
+        return None
+      return self._sequence[self._currently_active_player_idx]
 
   def get_state(self) -> entity_component.ComponentState:
     """Returns the state of the component."""
     with self._lock:
-      sequence = copy.copy(self._sequence)
-    return {
-        'currently_active_player_idx': self._currently_active_player_idx,
-        'sequence': sequence,
-    }
+      return {
+          'currently_active_player_idx': self._currently_active_player_idx,
+          'sequence': copy.copy(self._sequence),
+      }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
