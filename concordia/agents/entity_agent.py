@@ -179,7 +179,13 @@ class EntityAgent(entity_component.EntityWithComponents):
       except Exception:
         # Ensure correct error handling in the case of multiple threads
         # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        try:
+          self._set_phase(entity_component.Phase.READY)
+        except ValueError:
+          # The failure interrupted a phase transition (e.g. inside
+          # PRE_ACT), so there is no valid successor to READY. Reset the
+          # phase directly to keep the entity usable for other threads.
+          self.set_phase(entity_component.Phase.READY)
         raise
       finally:
         self._active_capture_key = self._agent_name
@@ -207,7 +213,13 @@ class EntityAgent(entity_component.EntityWithComponents):
       except Exception:
         # Ensure correct error handling in the case of multiple threads
         # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        try:
+          self._set_phase(entity_component.Phase.READY)
+        except ValueError:
+          # The failure interrupted a phase transition (e.g. inside
+          # PRE_OBSERVE), so there is no valid successor to READY. Reset
+          # the phase directly to keep the entity usable for other threads.
+          self.set_phase(entity_component.Phase.READY)
         raise
       finally:
         self._active_capture_key = self._agent_name
