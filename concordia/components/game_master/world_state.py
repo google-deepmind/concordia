@@ -43,6 +43,7 @@ class WorldState(
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._components = tuple(components)
@@ -192,6 +193,7 @@ class Locations(
         matching is normalized to 'unknown'. When None, free-form behavior is
         used.
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._entity_names = entity_names
@@ -435,6 +437,7 @@ class GenerativeClock(
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._format_description_key = format_description_key
