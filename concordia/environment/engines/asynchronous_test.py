@@ -26,7 +26,6 @@ from concordia.environment.engines import asynchronous
 from concordia.typing import entity as entity_lib
 from concordia.utils import async_measurements as async_measurements_lib
 
-
 _ENTITY_NAMES = ('entity_0', 'entity_1')
 
 _DEFAULT_ACTION_SPEC_JSON = json.dumps({
@@ -296,6 +295,46 @@ class AsynchronousTest(absltest.TestCase):
             entry,
             f'Log entry for thread {thread} should have key {entity_key}',
         )
+
+  def test_multi_game_master_switching(self):
+    """Verify that the async engine switches GMs during the entity loop."""
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+
+    class SwitchingGM(MockEntity):
+
+      def __init__(self, name: str, next_gm_name: str | None = None) -> None:
+        super().__init__(name=name)
+        self._next_gm_name = next_gm_name
+        self._lock = threading.Lock()
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        with self._lock:
+          self._act_count += 1
+        if action_spec.output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+          return self._next_gm_name or self.name
+        elif action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+          return ', '.join(_ENTITY_NAMES)
+        elif action_spec.output_type == entity_lib.OutputType.MAKE_OBSERVATION:
+          return f'From {self.name}'
+        return super().act(action_spec)
+
+    gm_1 = SwitchingGM(name='gm_1', next_gm_name='gm_2')
+    gm_2 = SwitchingGM(name='gm_2', next_gm_name='gm_2')
+    entities = [MockEntity(name=n) for n in _ENTITY_NAMES]
+
+    env.run_loop(
+        game_masters=[gm_1, gm_2],
+        entities=entities,
+        max_steps=3,
+    )
+
+    # gm_1 should have run and then switched to gm_2
+    self.assertGreater(gm_1._act_count, 0)
+    self.assertGreater(gm_2._act_count, 0)
 
 
 if __name__ == '__main__':

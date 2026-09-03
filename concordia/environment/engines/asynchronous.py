@@ -40,7 +40,6 @@ from concordia.utils import async_measurements as async_measurements_lib
 from concordia.utils import concurrency
 import termcolor
 
-
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
     make_observation_component.DEFAULT_CALL_TO_MAKE_OBSERVATION
 )
@@ -309,6 +308,7 @@ class Asynchronous(engine_lib.Engine):
       max_steps: int,
       verbose: bool,
       terminate_event: threading.Event,
+      game_masters: Sequence[entity_lib.Entity] | None = None,
       log: list[Mapping[str, Any]] | None = None,
       checkpoint_callback: Callable[[int], None] | None = None,
       step_callback: (
@@ -324,6 +324,8 @@ class Asynchronous(engine_lib.Engine):
       max_steps: Maximum number of iterations for this entity.
       verbose: Whether to print debug information.
       terminate_event: Shared event signaling global termination.
+      game_masters: Optional sequence of all game masters for multi-GM
+        switching.
       log: Optional log list for structured logging.
       checkpoint_callback: Optional callback invoked after each iteration.
       step_callback: Optional callback invoked after each iteration with step
@@ -331,6 +333,8 @@ class Asynchronous(engine_lib.Engine):
       step_controller: Optional controller to manage stepping through the
         simulation.
     """
+    if game_masters is None:
+      game_masters = [game_master]
     gm_measurements = _get_reactive_measurements(game_master)
     entity_measurements = _get_reactive_measurements(entity)
 
@@ -355,6 +359,25 @@ class Asynchronous(engine_lib.Engine):
 
         if terminate_event.is_set():
           break
+
+        # --- Multi-GM switching ---
+        # When multiple game masters are registered, ask the current GM
+        # which GM should run next.  This enables time-based transitions
+        if len(game_masters) > 1:
+          new_gm = self.next_game_master(game_master, game_masters, verbose)
+          if new_gm is not game_master:
+            # Flush pending observations from the outgoing GM so they
+            # are not lost during the transition.
+            observation = self.make_observation(game_master, entity)
+            if observation and observation.strip():
+              entity.observe(observation)
+            # Transfer thread capture key to the new GM.
+            if hasattr(game_master, 'clear_capture_key_for_thread'):
+              game_master.clear_capture_key_for_thread(thread_id)
+            game_master = new_gm
+            if hasattr(game_master, 'set_capture_key_for_thread'):
+              game_master.set_capture_key_for_thread(thread_id, entity.name)
+            gm_measurements = _get_reactive_measurements(game_master)
 
         with gm_measurements.capture(entity.name) as terminate_log:
           should_terminate = self.terminate(game_master, verbose)
@@ -561,6 +584,7 @@ class Asynchronous(engine_lib.Engine):
           self._entity_loop,
           entity=entity,
           game_master=game_master,
+          game_masters=game_masters,
           max_steps=max_steps,
           verbose=verbose,
           terminate_event=terminate_event,
