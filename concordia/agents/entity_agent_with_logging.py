@@ -93,6 +93,12 @@ class EntityAgentWithLogging(entity_agent.EntityAgent,
       self._capture_key_by_thread = {}
     self._capture_key_by_thread[thread_id] = entity_name
 
+  def get_capture_key_for_thread(self, thread_id: int) -> str | None:
+    """Get the per-thread capture key."""
+    if hasattr(self, '_capture_key_by_thread'):
+      return self._capture_key_by_thread.get(thread_id)
+    return None
+
   def clear_capture_key_for_thread(self, thread_id: int) -> None:
     """Remove the per-thread capture key when the entity loop exits."""
     if hasattr(self, '_capture_key_by_thread'):
