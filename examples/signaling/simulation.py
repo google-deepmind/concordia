@@ -178,7 +178,7 @@ def get_marketplace_config(
           params={'name': seller_data['name'], 'goal': seller_goal},
       )
       player_instances.append(instance_config)
-    agents.extend(personas.make_agents(sellers))
+    agents.extend(personas.make_agents(sellers))  # pyrefly: ignore[missing-attribute]
   else:
     market_type = 'fixed_prices'
 
@@ -201,7 +201,9 @@ def get_marketplace_config(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               'name': 'MarketplaceGM',
+              # pyrefly: ignore [bad-assignment]
               'experiment_component_class': MarketPlace,
+              # pyrefly: ignore [bad-assignment]
               'experiment_component_init_kwargs': component_kwargs,
           },
       )

@@ -24,9 +24,8 @@ pytest examples || FAILURES=true
 echo
 echo
 
-echo "pytype examples..."
-rm -rf .pytype
-pytype examples || FAILURES=true
+echo "pyrefly check examples..."
+pyrefly check examples/**/*.py || FAILURES=true
 echo
 echo
 
@@ -40,10 +39,8 @@ echo "convert notebooks..."
 echo
 echo
 
-echo "pytype notebooks..."
-pytype --pythonpath=. notebooks || FAILURES=true
-echo
-echo
+# TODO(b/530893475): Enable `pyrefly check notebook` once there is a working config.
+
 
 echo "pylint notebooks..."
 pylint --errors-only notebooks || FAILURES=true

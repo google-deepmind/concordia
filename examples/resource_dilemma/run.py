@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pytype: skip-file
+
 r"""Entry point for the resource dilemma common pool resource (CPR) experiments.
 
 This script provides a BYO (Bring Your Own) model interface for running the
@@ -42,7 +42,7 @@ import argparse
 import logging
 import os
 
-from concordia.contrib.language_models import language_model_setup
+from concordia.contrib.language_models import language_model_setup  # pyrefly: ignore[missing-import]
 from examples.resource_dilemma.personas import fishery_personas
 from examples.resource_dilemma.personas import irrigation_personas
 from examples.resource_dilemma.personas import network_personas

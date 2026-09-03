@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Concordia
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Install Concordia
         uses: ./.github/actions/install
@@ -57,13 +57,4 @@ jobs:
         run: pylint --errors-only examples
 
       - name: Typecheck examples
-        run: pytype --pythonpath=. examples
-
-      - name: Convert notebooks
-        run: ./bin/convert_notebooks.sh notebooks
-
-      - name: Lint notebooks
-        run: pylint --errors-only notebooks
-
-      - name: Typecheck notebooks
-        run: pytype --pythonpath=. notebooks
+        run: pyrefly check examples/**/*.py

@@ -80,6 +80,7 @@ class GroqModel(language_model.LanguageModel):
         {"role": "user", "content": prompt},
     ]
 
+    # pyrefly: ignore [no-matching-overload]
     response = self._client.chat.completions.create(
         model=self._model_name,
         messages=messages,

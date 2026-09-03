@@ -42,6 +42,7 @@ _REGISTRY = types.MappingProxyType({
 })
 
 
+# pyrefly: ignore [invalid-annotation]
 def _import_model(model_path: str) -> type(language_model.LanguageModel):
   """Imports a model from this package."""
   module_path, class_name = f'{__name__}.{model_path}'.rsplit('.', 1)
@@ -93,4 +94,4 @@ def language_model_setup(
   except KeyError as error:
     raise ValueError(f'Unrecognized api_type: {api_type}') from error
   cls = _import_model(model_path)
-  return cls(**kwargs)  # pytype: disable=wrong-keyword-args
+  return cls(**kwargs)

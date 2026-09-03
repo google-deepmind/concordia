@@ -27,9 +27,6 @@ from concordia.typing import entity
 from concordia.typing import entity_component
 from concordia.utils import concurrency
 
-# TODO: b/313715068 - remove disable once pytype bug is fixed.
-# pytype: disable=override-error
-
 
 class EntityAgent(entity_component.EntityWithComponents):
   """An agent that has its functionality defined by components.
@@ -159,7 +156,7 @@ class EntityAgent(entity_component.EntityWithComponents):
       # Activate per-thread capture key so log data from this act() call
       # is routed to the correct entity thread's capture context.
       key_override = self._capture_key_by_thread.get(
-          threading.current_thread().ident
+          threading.current_thread().ident  # pyrefly: ignore[bad-argument-type]
       )
       if key_override is not None:
         self._active_capture_key = key_override
@@ -192,7 +189,7 @@ class EntityAgent(entity_component.EntityWithComponents):
     with self._control_lock:
       # Activate per-thread capture key (same as act()).
       key_override = self._capture_key_by_thread.get(
-          threading.current_thread().ident
+          threading.current_thread().ident  # pyrefly: ignore[bad-argument-type]
       )
       if key_override is not None:
         self._active_capture_key = key_override
@@ -227,7 +224,7 @@ class EntityAgent(entity_component.EntityWithComponents):
     for component_name, component in self._context_components.items():
       if component_name in context_components_state:
         try:
-          component.set_state(context_components_state[component_name])
+          component.set_state(context_components_state[component_name])  # pyrefly: ignore[bad-argument-type]
         except Exception:  # pylint: disable=broad-exception-caught
           logging.error(
               'Error setting state for component %s: %s',

@@ -116,6 +116,7 @@ class VLLMLanguageModel(language_model.LanguageModel):
     if max_model_len is not None:
       llm_kwargs['max_model_len'] = max_model_len
 
+    # pyrefly: ignore [bad-argument-type]
     self._llm = LLM(**llm_kwargs)
 
   def increment_lora_adapters(self) -> int:
@@ -224,7 +225,9 @@ class VLLMLanguageModel(language_model.LanguageModel):
         if j < len(prompt_logprobs) and prompt_logprobs[j]:
           # Get the token ID at this position
           token_id = full_tokens[j]
+          # pyrefly: ignore [not-iterable]
           if token_id in prompt_logprobs[j]:
+            # pyrefly: ignore [unsupported-operation]
             total_logprob += prompt_logprobs[j][token_id].logprob
 
       logprobs.append(total_logprob)

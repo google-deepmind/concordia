@@ -152,6 +152,7 @@ class Inventory(
     self._is_count_noun = {}
     self._lock = threading.Lock()
 
+    # pyrefly: ignore [bad-assignment]
     self._is_count_noun = concurrency.run_tasks({
         item_type: functools.partial(
             helper_functions.is_count_noun, item_type, self._model

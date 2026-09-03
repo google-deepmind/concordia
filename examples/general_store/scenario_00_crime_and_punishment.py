@@ -414,6 +414,7 @@ def create_scenario(time_period_minutes=10):
           params={  # pyrefly: ignore[bad-argument-type]
               'name': 'default rules',
               'start_time': 'Tuesday, March 3, 2026 at 8:30 AM',
+              # pyrefly: ignore [bad-assignment]
               'time_period_minutes': time_period_minutes,
               'extra_event_resolution_steps': '',
               'locations': (
@@ -426,6 +427,7 @@ def create_scenario(time_period_minutes=10):
                   ' Diner, The Gilded Truffle'
               ),
               'game_rules': game_rules[0],
+              # pyrefly: ignore [bad-assignment]
               'use_gm_working_memory': True,
           },
       ),
@@ -435,7 +437,9 @@ def create_scenario(time_period_minutes=10):
           params={  # pyrefly: ignore[bad-argument-type]
               'name': 'initial setup rules',
               'next_game_master_name': 'default rules',
+              # pyrefly: ignore [bad-assignment]
               'shared_memories': store_initialization_memories,
+              # pyrefly: ignore [bad-assignment]
               'player_specific_context': {
                   'Jennifer Ffiriny': (
                       'Jennifer Ffiriny has ruined the lives of everyone that'
@@ -449,6 +453,7 @@ def create_scenario(time_period_minutes=10):
                       ' everyone to show that they are friends'
                   ),
               },
+              # pyrefly: ignore [bad-assignment]
               'player_specific_memories': {
                   'Detective Smith': [
                       'March 2025: Detective Smith transferred to a new job.',

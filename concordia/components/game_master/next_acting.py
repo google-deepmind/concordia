@@ -332,8 +332,8 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     with self._lock:
-      self._currently_active_player_idx = state['currently_active_player_idx']  # type: ignore
-      self._sequence = list(state['sequence'])  # type: ignore
+      self._currently_active_player_idx = state['currently_active_player_idx']
+      self._sequence = list(state['sequence'])  # pyrefly: ignore[bad-argument-type]
 
 
 class NextActingInRandomOrder(entity_component.ContextComponent):
@@ -405,8 +405,10 @@ class NextActingInRandomOrder(entity_component.ContextComponent):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
-    self._currently_active_player_idx = state['currently_active_player_idx']  # type: ignore
-    self._currently_available_indices = list(state['currently_available_indices'])  # type: ignore
+    self._currently_active_player_idx = state['currently_active_player_idx']
+    self._currently_available_indices = list(  # pyrefly: ignore[bad-assignment]
+        state['currently_available_indices']  # pyrefly: ignore[bad-argument-type]
+    )
 
 
 class NextActingFromSceneSpec(
@@ -604,9 +606,9 @@ class NextActionSpec(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'player_names' in state:
-      self._player_names = list(state['player_names'])  # type: ignore
+      self._player_names = list(state['player_names'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
     if 'components' in state:
-      self._components = tuple(state['components'])  # type: ignore
+      self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
     if 'call_to_next_action_spec' in state:
       self._call_to_next_action_spec = str(state['call_to_next_action_spec'])
     if 'next_acting_component_key' in state:

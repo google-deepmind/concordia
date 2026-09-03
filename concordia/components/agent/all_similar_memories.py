@@ -119,9 +119,9 @@ class AllSimilarMemories(
       if 'memory_component_key' in state:
         self._memory_component_key = str(state['memory_component_key'])
       if 'components' in state:
-        self._components = tuple(state['components'])  # type: ignore
+        self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
       if 'num_memories_to_retrieve' in state:
-        self._num_memories_to_retrieve = int(state['num_memories_to_retrieve'])  # type: ignore
+        self._num_memories_to_retrieve = int(state['num_memories_to_retrieve'])  # pyrefly: ignore[bad-argument-type]
 
 
 class AllSimilarMemoriesWithoutPreAct(

@@ -41,7 +41,7 @@ setuptools.setup(
     author='DeepMind',
     author_email='noreply@google.com',
     description=(
-        'A library for building a generative model of social interacions.'
+        'A library for building a generative model of social interactions.'
     ),
     long_description=LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
@@ -95,8 +95,8 @@ setuptools.setup(
             'pip-tools',
             'pyink',
             'pylint',
+            'pyrefly',
             'pytest-xdist',
-            'pytype',
             'twine',
         ],
         'google': [
@@ -136,7 +136,7 @@ setuptools.setup(
         ],
         'vllm': [
             # Used in concordia.contrib.language_models.vllm
-            'vllm',
+            'vllm>=0.21.0',
         ],
         'groq': [
             # Used in concordia.contrib.language_models.groq

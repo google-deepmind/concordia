@@ -108,9 +108,7 @@ class Simultaneous(engine_lib.Engine):
       entities: Sequence[entity_lib.Entity],
       log_entry: Mapping[str, Any] | None = None,
       log: list[Mapping[str, Any]] | None = None,
-  ) -> tuple[
-      Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
-  ]:  # pytype: disable=signature-mismatch
+  ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     """Return the next action spec for an entity."""
     entities_by_name = {entity.name: entity for entity in entities}
     next_object_names_string = game_master.act(

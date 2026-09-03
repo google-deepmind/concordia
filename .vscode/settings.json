@@ -28,8 +28,7 @@
     "**/*.py[cod]": true,
     "**/__pycache__": true,
     "**/.cache": true,
-    "**/.pytest_cache": true,
-    "**/.pytype": true
+    "**/.pytest_cache": true
   },
 
   // Python settings.
@@ -40,7 +39,7 @@
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
+      "source.organizeImports": "never"
     }
   },
   "python.formatting.provider": "none",

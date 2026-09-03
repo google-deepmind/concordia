@@ -392,7 +392,7 @@ class BestOptionPerception(QuestionOfRecentMemories):
 
 
 class CombinedPerception(QuestionOfRecentMemories):
-  """This component answers the three key questions in one go."""
+  """Answers all 3 March & Olsen `logic of appropriateness` questions."""
 
   def __init__(self, **kwargs):
     agent_name = '{agent_name}'

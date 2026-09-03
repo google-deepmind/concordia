@@ -159,9 +159,7 @@ class Asynchronous(engine_lib.Engine):
           async_measurements_lib.ReactiveMeasurements | None
       ) = None,
       capture_key: str | None = None,
-  ) -> tuple[
-      Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]
-  ]:  # pytype: disable=signature-mismatch
+  ) -> tuple[Sequence[entity_lib.Entity], Sequence[entity_lib.ActionSpec]]:
     entities_by_name = {entity.name: entity for entity in entities}
 
     if gm_measurements is not None and log_entry is not None:

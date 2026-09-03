@@ -1137,6 +1137,7 @@ def run_simulation(
               params={  # pyrefly: ignore[bad-argument-type]
                   "name": name,
                   "goal": goal,
+                  # pyrefly: ignore [bad-assignment]
                   "fixed_responses": fixed_responses,
               },
           )
@@ -1201,6 +1202,7 @@ def run_simulation(
               params={  # pyrefly: ignore[bad-argument-type]
                   "name": villager_name,
                   "goal": goal,
+                  # pyrefly: ignore [bad-assignment]
                   "fixed_responses": fixed_responses,
               },
           )
@@ -1213,6 +1215,7 @@ def run_simulation(
               params={  # pyrefly: ignore[bad-argument-type]
                   "name": villager_name,
                   "goal": goal,
+                  # pyrefly: ignore [bad-assignment]
                   "extra_components": {
                       "how_things_are": how_things_are_component,
                   },
@@ -1266,7 +1269,9 @@ def run_simulation(
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "initial setup rules",
               "next_game_master_name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "shared_memories": shared_memories,
+              # pyrefly: ignore [bad-assignment]
               "player_specific_memories": player_specific_memories,
           },
       )
@@ -1282,7 +1287,9 @@ def run_simulation(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "conversation rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
+              # pyrefly: ignore [bad-assignment]
               "external_queue": shared_observation_queue,
           },
       )
@@ -1295,10 +1302,15 @@ def run_simulation(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "decision rules",
+              # pyrefly: ignore [bad-assignment]
               "scenes": scenes,
+              # pyrefly: ignore [bad-assignment]
               "action_to_scores": payoff.action_to_scores,
+              # pyrefly: ignore [bad-assignment]
               "scores_to_observation": payoff.scores_to_observation,
+              # pyrefly: ignore [bad-assignment]
               "external_queue": shared_observation_queue,
+              # pyrefly: ignore [bad-assignment]
               "extra_components": {
                   DEFAULT_AGREEMENT_DETECTOR_KEY: agreement_detector,
               },

@@ -64,9 +64,13 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     self._tokenizer = AutoTokenizer.from_pretrained(
         model_name, token=api_key, trust_remote_code=trust_remote_code
     )
+    # pyrefly: ignore [missing-attribute]
     if self._tokenizer.pad_token is None:
+      # pyrefly: ignore [missing-attribute]
       self._tokenizer.pad_token = self._tokenizer.eos_token
+    # pyrefly: ignore [missing-attribute]
     if self._tokenizer.pad_token_id is None:
+      # pyrefly: ignore [missing-attribute]
       self._tokenizer.pad_token_id = self._tokenizer.eos_token_id
 
     self._model = AutoModelForCausalLM.from_pretrained(
@@ -80,6 +84,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
   @property
   def tokenizer(self) -> AutoTokenizer:
     """Returns the tokenizer instance."""
+    # pyrefly: ignore [bad-return]
     return self._tokenizer
 
   @property
@@ -115,6 +120,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
     else:
       formatted_prompt = f'{_DEFAULT_SYSTEM_MESSAGE}\n\n{prompt}'
 
+    # pyrefly: ignore [not-callable]
     inputs = self._tokenizer(formatted_prompt, return_tensors='pt').to(
         self.device
     )
@@ -125,7 +131,9 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
         'top_p': top_p,
         'top_k': top_k,
         'do_sample': True,
+        # pyrefly: ignore [missing-attribute]
         'pad_token_id': self._tokenizer.pad_token_id,
+        # pyrefly: ignore [missing-attribute]
         'eos_token_id': self._tokenizer.eos_token_id,
     }
     if seed is not None:
@@ -133,6 +141,7 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
 
     outputs = self._model.generate(**inputs, **generation_args)
 
+    # pyrefly: ignore [missing-attribute]
     result = self._tokenizer.decode(
         outputs[0][inputs['input_ids'].shape[1] :], skip_special_tokens=True
     )
@@ -154,12 +163,14 @@ class HuggingFaceLanguageModel(language_model.LanguageModel):
   def _compute_log_probability(self, prompt: str, response: str) -> float:
     """Computes the log probability of generating the response given the prompt."""
     full_text = prompt + response
+    # pyrefly: ignore [not-callable]
     inputs = self._tokenizer(full_text, return_tensors='pt').to(self.device)
 
     with torch.no_grad():
       outputs = self._model(**inputs)
       logits = outputs.logits
 
+    # pyrefly: ignore [not-callable]
     prompt_inputs = self._tokenizer(prompt, return_tensors='pt').to(self.device)
     prompt_length = prompt_inputs['input_ids'].shape[1]
 

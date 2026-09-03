@@ -17,6 +17,7 @@
 
 from concordia.components.agent import action_spec_ignored
 from concordia.components.agent import memory as memory_component
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 DEFAULT_OBSERVATION_COMPONENT_KEY = '__observation__'
@@ -106,6 +107,13 @@ class LastNObservations(
 
   def _make_pre_act_value(self) -> str:
     """Returns the latest observations to preact."""
+    if self._history_length <= 0:
+      # A non-positive history length disables observations: return an empty
+      # string so nothing is added to the prompt. We also skip the memory
+      # lookup, since retrieve_recent rejects a limit <= 0.
+      self._logging_channel({'Key': self.get_pre_act_label(), 'Value': []})
+      return ''
+
     memory = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component.Memory
     )
@@ -119,6 +127,15 @@ class LastNObservations(
     )
 
     return result
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    """Adds nothing to the prompt when the history length is non-positive."""
+    if self._history_length <= 0:
+      return ''
+    return super().pre_act(action_spec)
 
   def get_state(self) -> entity_component.ComponentState:
     """Converts the component to JSON data."""

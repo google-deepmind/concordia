@@ -594,7 +594,7 @@ class ForumBrowsingContext(
       dm_messages[partner] = self._forum_state.get_direct_message_thread(
           self._name, partner
       )
-    tool.dm_messages = dm_messages  # pytype: disable=attribute-error
+    tool.dm_messages = dm_messages  # pyrefly: ignore[missing-attribute]
 
     # Collect component context (identity, exemplars, narrative).
     context_parts: list[str] = []
