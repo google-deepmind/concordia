@@ -237,13 +237,17 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
         questionnaire.questionnaire_type == 'free'
         or questionnaire.questionnaire_type == 'open-ended'
     ):
-      # Embedd answer and choices, computer their cosine similarity
-      answer_embedding = self._embedder(answer_text)  # pyrefly: ignore[not-callable]
-      choice_similarities = []
-      for choice in current_question.choices:  # pyrefly: ignore[not-iterable]
-        choice_embedding = self._embedder(choice)  # pyrefly: ignore[not-callable]
-        similarity = np.dot(answer_embedding, choice_embedding)
-        choice_similarities.append({'choice': choice, 'similarity': similarity})
+      answer_embedding = None
+      value = answer_text
+      if self._embedder:
+        # Embed answer and choices, compute their cosine similarity.
+        answer_embedding = self._embedder(answer_text)
+        choice_similarities = []
+        for choice in current_question.choices:  # pyrefly: ignore[not-iterable]
+          choice_embedding = self._embedder(choice)
+          similarity = np.dot(answer_embedding, choice_embedding)
+          choice_similarities.append({'choice': choice, 'similarity': similarity})
+        value = choice_similarities
 
       self._answers[self._event_counter][player_name][questionnaire_name][
           question_id
@@ -251,7 +255,7 @@ class OpenEndedQuestionnaire(entity_component.ContextComponent):
           'statement': current_question.statement,
           'text': answer_text,
           'dimension': dimension,
-          'value': choice_similarities,
+          'value': value,
           'embedding': answer_embedding,
       }
     elif (
