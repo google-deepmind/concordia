@@ -312,8 +312,9 @@ class GenerativeTimeModel(TimeModel):
 
     Prompts the LLM to convert the entity's absolute time specification into
     a number of seconds from now, then adds that offset to ``current_time``.
-    If the result is not strictly after ``current_time``, one simulated day
-    (86400 seconds) is added on the assumption the entity meant "tomorrow".
+    A non-positive offset is reduced modulo one simulated day. Exact multiples
+    of a day map to the following day, so the result is strictly after
+    ``current_time``.
 
     Args:
       time_str: An absolute time string, e.g. ``'8:00'``.
@@ -346,10 +347,11 @@ class GenerativeTimeModel(TimeModel):
       raise ValueError(
           f'Cannot parse LLM absolute-time response: {response!r}'
       ) from e
-    result = current_time + offset
-    if result <= current_time:
-      result += 86400  # Assume "tomorrow".
-    return result
+    if offset <= 0:
+      offset %= 86400
+      if offset == 0:
+        offset = 86400
+    return current_time + offset
 
   def format_time(self, time: int) -> str:
     """Formats a timestamp using the LLM. Results are cached."""
