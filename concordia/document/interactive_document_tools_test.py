@@ -322,6 +322,90 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     self.assertEqual(tool.call_count, 0)
     self.assertEqual(result, 1)
 
+  def test_multiple_choice_standalone_letter_answer(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = ' b '
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What color is the sky?',
+        ['Red', 'Blue', 'Green'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(result, 1)
+    model.sample_choice.assert_not_called()
+    self.assertTrue(doc.text().endswith('Answer: (b)\n'))
+
+  def test_multiple_choice_incidental_letter_uses_sample_choice(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = 'Based on the evidence, Paris.'
+    model.sample_choice.return_value = (2, 'c', {'debug': 'fallback'})
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What is the capital?',
+        ['London', 'Berlin', 'Paris'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(result, 2)
+    model.sample_choice.assert_called_once()
+
+  def test_multiple_choice_conflicting_parenthesized_answers_uses_fallback(
+      self,
+  ):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = (
+        'I considered (a), but my final answer is (b).'
+    )
+    model.sample_choice.return_value = (1, 'b', {'debug': 'fallback'})
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What color is the sky?',
+        ['Red', 'Blue', 'Green'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(result, 1)
+    model.sample_choice.assert_called_once()
+
+  def test_multiple_choice_repeated_same_parenthesized_answer(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.return_value = 'I choose (b). Final answer: (b).'
+    tool = MockTool('search', 'Search', 'result')
+
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+    result = doc.multiple_choice_question(
+        'What color is the sky?',
+        ['Red', 'Blue', 'Green'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(result, 1)
+    model.sample_choice.assert_not_called()
+    self.assertTrue(doc.text().endswith('Answer: (b)\n'))
+
   def test_multiple_choice_max_tool_calls(self):
     """Multiple choice forces answer when tool budget exhausted."""
     model = mock.create_autospec(
