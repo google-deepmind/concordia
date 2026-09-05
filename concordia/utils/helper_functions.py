@@ -300,10 +300,14 @@ def find_data_in_nested_structure(
     for k, v in data.items():
       if k == key:
         results.append(v)
-      results.extend(find_data_in_nested_structure(v, key))
+      results.extend(
+          find_data_in_nested_structure(v, key, remove_duplicates=False)
+      )
   elif isinstance(data, list):
     for item in data:
-      results.extend(find_data_in_nested_structure(item, key))
+      results.extend(
+          find_data_in_nested_structure(item, key, remove_duplicates=False)
+      )
   if remove_duplicates:
     return remove_duplicate_dicts(results)
   return results
