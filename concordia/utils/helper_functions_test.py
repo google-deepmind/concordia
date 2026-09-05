@@ -55,5 +55,34 @@ class TestPrettyPrintFunction(unittest.TestCase):
     )
 
 
+class FindNestedDataTest(absltest.TestCase):
+
+  def test_preserves_nested_duplicates_when_disabled(self):
+    value = {'name': 'Alice'}
+    data = {'outer': [{'event': value}, {'event': value}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            data, 'event', remove_duplicates=False
+        ),
+        [value, value],
+    )
+
+  def test_preserves_nested_scalar_values_when_disabled(self):
+    data = {'outer': [{'event': 'Alice'}, {'event': 'Alice'}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            data, 'event', remove_duplicates=False
+        ),
+        ['Alice', 'Alice'],
+    )
+
+  def test_default_removes_duplicates_across_nested_branches(self):
+    value = {'name': 'Alice'}
+    data = {'left': {'event': value}, 'right': [{'event': value}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), [value]
+    )
+
+
 if __name__ == '__main__':
   absltest.main()
