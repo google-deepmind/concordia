@@ -64,7 +64,7 @@ setuptools.setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
-    package_data={},
+    package_data={'concordia.utils': ['log_viewer.html']},
     python_requires='>=3.12',
     install_requires=(
         'absl-py',

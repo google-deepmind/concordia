@@ -25,15 +25,18 @@ Usage:
   concordia-log components sim.json --component tension_tracker
   concordia-log entities sim.json
   concordia-log dump sim.json | jq '...'
+  concordia-log bundle sim.json --output sim_viewer.html
 
 Add --json for structured JSON output.
 """
 
 import argparse
 import json
+import pathlib
 import re
 import sys
 
+from concordia.utils import log_viewer
 from concordia.utils import structured_logging
 
 
@@ -366,6 +369,27 @@ def cmd_dump(args):
   print(text)
 
 
+def cmd_bundle(args):
+  """Build a portable HTML viewer with the structured log embedded."""
+  log = _load_log(args.log_file)
+  input_path = pathlib.Path(args.log_file)
+  output_path = (
+      pathlib.Path(args.output)
+      if args.output
+      else input_path.with_name(f'{input_path.stem}_viewer.html')
+  )
+  output_path.write_text(
+      log_viewer.build_self_contained_viewer(
+          log, log_name=input_path.name
+      ),
+      encoding='utf-8',
+  )
+  if args.json:
+    _print_json({'output': str(output_path)})
+  else:
+    print(f'Wrote self-contained log viewer to {output_path}')
+
+
 def main(argv=None):
   parser = argparse.ArgumentParser(
       prog='concordia-log',
@@ -389,6 +413,7 @@ def main(argv=None):
           '  concordia-log components sim.json --entity Alice'
           ' --component __act__ --key Key --step 3\n'
           '  concordia-log dump sim.json | jq ".[] | .data.__act__.Value"\n'
+          '  concordia-log bundle sim.json --output sim_viewer.html\n'
           '  concordia-log actions sim.json Alice | grep "hello"\n'
       ),
   )
@@ -502,6 +527,17 @@ def main(argv=None):
   p.add_argument('--step', type=int, help='Filter to a specific step')
   p.add_argument('--entity', help='Filter to a specific entity')
 
+  p = subparsers.add_parser(
+      'bundle',
+      help='Build a portable HTML viewer with the log embedded',
+  )
+  p.add_argument('log_file', help='Path to structured log JSON file')
+  p.add_argument(
+      '-o',
+      '--output',
+      help='Output HTML path (default: <log_file>_viewer.html)',
+  )
+
   args = parser.parse_args(argv)
 
   commands = {
@@ -515,6 +551,7 @@ def main(argv=None):
       'memories': cmd_memories,
       'components': cmd_components,
       'dump': cmd_dump,
+      'bundle': cmd_bundle,
   }
   commands[args.command](args)
 
