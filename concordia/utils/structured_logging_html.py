@@ -73,8 +73,20 @@ def render_dynamic_html(
 
   # Get entity names for tabs
   entity_names = simulation_log.get_entity_names()
-  # Filter to only entities that have memories
-  entity_tabs = [name for name in entity_names if name in entity_memories_data]
+  # Derive GM names from log entries (entries with entry_type='step').
+  gm_names = {
+      entry.entity_name
+      for entry in simulation_log.entries
+      if entry.entry_type == 'step'
+  }
+  # Include all entities from log or memories, excluding game masters
+  entity_tabs = [
+      name
+      for name in sorted(
+          list(set(entity_names) | set(entity_memories_data.keys()))
+      )
+      if name not in gm_names
+  ]
 
   # Build the HTML
   html_parts = [
@@ -298,62 +310,86 @@ function renderObjectChildren(obj) {
   return html;
 }
 
+// Assign a distinct color to each GM name using a hash-based palette.
+const GM_COLORS = ['#667eea', '#16a34a', '#db2777', '#ea580c', '#7c3aed', '#0891b2'];
+const gmColorMap = {};
+function getGMColor(name) {
+  if (!gmColorMap[name]) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = ((h << 5) - h + name.charCodeAt(i)) | 0;
+    gmColorMap[name] = GM_COLORS[Math.abs(h) % GM_COLORS.length];
+  }
+  return gmColorMap[name];
+}
+
 function renderGMLog() {
   const container = document.getElementById('gm_log');
   let html = '';
 
-  // Group entries by step
-  const stepMap = {};
-  ENTRIES.forEach(entry => {
-    if (!stepMap[entry.step]) stepMap[entry.step] = [];
-    stepMap[entry.step].push(entry);
-  });
+  // Render entries in insertion order (not grouped by step number).
+  // With multiple GMs, this preserves GM transition boundaries.
+  let lastGM = '';
+  let lastStep = -1;
 
-  const steps = Object.keys(stepMap).map(Number).sort((a, b) => a - b);
-
-  steps.forEach(step => {
-    const entries = stepMap[step];
-    \n\
-    // Build step summary from entries
-    let stepSummary = 'Step ' + step;
-    if (entries.length > 0 && entries[0].summary) {
-      stepSummary += ' --- ' + entries[0].summary;
-    }
-    \n\
-    html += '<details class="step-details" open>';
-    html += '<summary><b>' + escapeHtml(stepSummary) + '</b></summary>';
-
-    entries.forEach(entry => {
-      // Create a label for this entry (like "Entity [name]" or component name)
-      let entryLabel = entry.entity_name;
-      if (entry.entry_type === 'entity') {
-        entryLabel = 'Entity [' + entry.entity_name + ']';
-      }
-      \n\
-      // If entry has deduplicated_data, render it as collapsible content
-      if (entry.deduplicated_data && Object.keys(entry.deduplicated_data).length > 0) {
-        html += '<details>';
-        html += '<summary>' + escapeHtml(entryLabel) + '</summary>';
-        // Render all the data in deduplicated_data recursively
-        for (const [key, value] of Object.entries(entry.deduplicated_data)) {
-          html += '<b><ul>' + escapeHtml(key) + '</b>';
-          html += '<li>' + renderObject(value) + '</li></ul>';
-        }
+  ENTRIES.forEach((entry, idx) => {
+    // Detect GM transitions and insert a visual separator.
+    const gmName = entry.entry_type === 'step' ? entry.entity_name : '';
+    if (gmName && gmName !== lastGM) {
+      if (lastGM) {
+        // Close previous GM section
         html += '</details>';
-      } else {
-        // Simple entry with no data
-        html += '<div class="entry">';
-        html += '<span class="entry-entity">' + escapeHtml(entryLabel) + '</span>';
-        html += ' <span class="entry-component">(' + escapeHtml(entry.component_name) + ')</span>';
-        if (entry.summary) {
-          html += '<div class="entry-summary">' + escapeHtml(entry.summary) + '</div>';
-        }
-        html += '</div>';
       }
-    });
+      const gmColor = getGMColor(gmName);
+      html += '<details class="step-details" open>';
+      html += '<summary style="border-left:4px solid ' + gmColor + ';padding-left:8px;">';
+      html += '<b style="color:' + gmColor + ';">\u2588 ' + escapeHtml(gmName) + '</b>';
+      html += '</summary>';
+      lastGM = gmName;
+    }
 
-    html += '</details>';
+    // Create step sub-group when step number changes
+    if (entry.step !== lastStep) {
+      if (lastStep >= 0) {
+        html += '</details>';  // close previous step
+      }
+      let stepSummary = 'Step ' + entry.step;
+      if (entry.summary) {
+        stepSummary += ' \u2014 ' + entry.summary;
+      }
+      html += '<details>';
+      html += '<summary>' + escapeHtml(stepSummary) + '</summary>';
+      lastStep = entry.step;
+    }
+
+    // Create a label for this entry
+    let entryLabel = entry.entity_name;
+    if (entry.entry_type === 'entity') {
+      entryLabel = 'Entity [' + entry.entity_name + ']';
+    }
+
+    // Render entry content
+    if (entry.deduplicated_data && Object.keys(entry.deduplicated_data).length > 0) {
+      html += '<details>';
+      html += '<summary>' + escapeHtml(entryLabel) + '</summary>';
+      for (const [key, value] of Object.entries(entry.deduplicated_data)) {
+        html += '<b><ul>' + escapeHtml(key) + '</b>';
+        html += '<li>' + renderObject(value) + '</li></ul>';
+      }
+      html += '</details>';
+    } else {
+      html += '<div class="entry">';
+      html += '<span class="entry-entity">' + escapeHtml(entryLabel) + '</span>';
+      html += ' <span class="entry-component">(' + escapeHtml(entry.component_name) + ')</span>';
+      if (entry.summary) {
+        html += '<div class="entry-summary">' + escapeHtml(entry.summary) + '</div>';
+      }
+      html += '</div>';
+    }
   });
+
+  // Close any open details tags
+  if (lastStep >= 0) html += '</details>';
+  if (lastGM) html += '</details>';
 
   container.innerHTML = html || '<p>No log entries.</p>';
 }
@@ -407,7 +443,7 @@ function openTab(evt, tabId) {
 }
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
+function initializeView() {
   renderGMLog();
 
   // Render entity memories
@@ -419,7 +455,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   renderGMMemories();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeView);
+} else {
+  initializeView();
+}
 </script>
 """)
 

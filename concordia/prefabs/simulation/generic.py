@@ -276,10 +276,13 @@ class Simulation(simulation_lib.Simulation):
 
     self._get_state_callback = get_state_callback
 
-    checkpoint_callback = functools.partial(
-        # pyrefly: ignore [bad-argument-type]
-        self.save_checkpoint, checkpoint_path=checkpoint_path
-    )
+    if checkpoint_path or get_state_callback:
+      checkpoint_callback = functools.partial(
+          # pyrefly: ignore [bad-argument-type]
+          self.save_checkpoint, checkpoint_path=checkpoint_path
+      )
+    else:
+      checkpoint_callback = None
 
     # Ensure game masters are ordered Initializers first
     initializers = [
@@ -518,6 +521,9 @@ class Simulation(simulation_lib.Simulation):
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
     """Saves the state of all entities at the current step."""
+    if not checkpoint_path and not self._get_state_callback:
+      return
+
     checkpoint_data = self.make_checkpoint_data()
 
     if self._get_state_callback:

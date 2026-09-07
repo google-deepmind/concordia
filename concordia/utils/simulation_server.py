@@ -42,15 +42,22 @@ class SimulationServer:
       self,
       port: int = 8080,
       html_content: str = '',
+      host: str = '127.0.0.1',
   ):
     """Initialize the simulation server.
 
     Args:
       port: Port to serve on.
       html_content: Static HTML content to serve at the root.
+      host: Interface to bind to. Defaults to the loopback interface only,
+        since this server has no authentication and its endpoints (including
+        `/cmd/set_component_state`, which can overwrite arbitrary simulation
+        state) are unauthenticated. Pass '0.0.0.0' explicitly to accept
+        connections from other machines on the network.
     """
     self._port = port
     self._html_content = html_content
+    self._host = host
     self._step_controller = step_controller_lib.StepController(
         start_paused=True
     )
@@ -63,6 +70,31 @@ class SimulationServer:
     self._server_thread: threading.Thread | None = None
     print(f'[SERVER INIT] SimulationServer initialized on port {port}')
     sys.stdout.flush()
+
+  @property
+  def host(self) -> str:
+    """Get the interface the server binds to."""
+    return self._host
+
+  @property
+  def port(self) -> int:
+    """Get the port the server was configured to listen on.
+
+    If the server was started with `port=0`, use `bound_port` instead to get
+    the OS-assigned port actually in use.
+    """
+    return self._port
+
+  @property
+  def bound_port(self) -> int:
+    """Get the port the running server is actually bound to.
+
+    Raises:
+      RuntimeError: If the server has not been started.
+    """
+    if self._server is None:
+      raise RuntimeError('Server has not been started.')
+    return self._server.server_address[1]
 
   @property
   def step_controller(self) -> step_controller_lib.StepController:
@@ -369,7 +401,9 @@ class SimulationServer:
   def start(self) -> None:
     """Start the HTTP server in a background thread."""
     handler = self._create_handler()
-    self._server = socketserver.ThreadingTCPServer(('', self._port), handler)
+    self._server = socketserver.ThreadingTCPServer(
+        (self._host, self._port), handler
+    )
     self._server.allow_reuse_address = True
     self._server_thread = threading.Thread(target=self._server.serve_forever)
     self._server_thread.daemon = True
