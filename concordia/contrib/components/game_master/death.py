@@ -174,10 +174,14 @@ class Death(
         actor = actor.strip().replace('.', '')
         if actor not in self._actors_names:
           continue
-        self.get_entity().get_component(
+        next_acting_component = self.get_entity().get_component(
             self._next_acting_component_key,
-            type_=next_acting_component_module.NextActingInFixedOrder,
-        ).remove_actor_from_sequence(actor)
+            type_=(
+                next_acting_component_module
+                .NextActingInFixedOrderWithDynamicPlayerList
+            ),
+        )
+        next_acting_component.remove_actor_from_sequence(actor)
 
         make_observation = self.get_entity().get_component(
             self._observation_component_key,

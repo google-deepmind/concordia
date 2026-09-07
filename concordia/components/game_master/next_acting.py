@@ -256,6 +256,10 @@ class NextActingActiveEntity(entity_component.ContextComponent):
 
 class NextActingInFixedOrder(entity_component.ContextComponent):
   """A component that decides whose turn is next in a fixed sequence.
+
+  The sequence is fixed for the lifetime of the simulation. Use
+  `NextActingInFixedOrderWithDynamicPlayerList` if players need to leave the
+  sequence part way through, e.g. because they died.
   """
 
   def __init__(
@@ -274,6 +278,96 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     Raises:
       ValueError: If the component order is not None and contains duplicate
         components.
+    """
+    super().__init__()
+    self._sequence = copy.copy(list(sequence))
+
+    self._pre_act_label = pre_act_label
+
+    self._lock = threading.Lock()
+
+    self._currently_active_player_idx = None
+
+  def remove_actor_from_sequence(self, actor_name: str) -> None:
+    """Always raises. Removing players is not supported by this component.
+
+    Args:
+      actor_name: Name of the actor that the caller tried to remove.
+
+    Raises:
+      ValueError: Always.
+    """
+    raise ValueError(
+        'Removing players not supported with NextActingInFixedOrder, use '
+        'NextActingInFixedOrderWithDynamicPlayerList instead. Tried to remove '
+        f'{actor_name}.'
+    )
+
+  def add_actor_to_sequence(self, actor_name: str) -> None:
+    """Adds an actor to the sequence."""
+    with self._lock:
+      self._sequence.append(actor_name)
+
+  def pre_act(
+      self,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    result = ''
+    if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
+      idx = self._currently_active_player_idx
+      if idx is None:
+        idx = 0
+      else:
+        idx = (idx + 1) % len(self._sequence)
+      result = self._sequence[idx]
+      self._currently_active_player_idx = idx
+
+    return result
+
+  def get_currently_active_player(self) -> str | None:
+    if self._currently_active_player_idx is None:
+      return None
+    return self._sequence[self._currently_active_player_idx]
+
+  def get_state(self) -> entity_component.ComponentState:
+    """Returns the state of the component."""
+    with self._lock:
+      sequence = copy.copy(self._sequence)
+    return {
+        'currently_active_player_idx': self._currently_active_player_idx,
+        'sequence': sequence,
+    }
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    """Sets the state of the component."""
+    with self._lock:
+      self._currently_active_player_idx = state['currently_active_player_idx']
+      self._sequence = list(state['sequence'])  # pyrefly: ignore[bad-argument-type]
+
+
+class NextActingInFixedOrderWithDynamicPlayerList(
+    entity_component.ContextComponent
+):
+  """Turn order over a fixed sequence that players may leave or join.
+
+  Unlike `NextActingInFixedOrder`, this component supports removing players
+  from the sequence part way through a simulation, e.g. when they die. The
+  index tracking the currently active player is kept in step with the sequence
+  as it changes, so that turn order is preserved across removals.
+  """
+
+  def __init__(
+      self,
+      sequence: Sequence[str],
+      pre_act_label: str = DEFAULT_NEXT_ACTING_PRE_ACT_LABEL,
+  ):
+    """Initializes the component.
+
+    Args:
+      sequence: Sequence of player names. The game master will select players
+        to take turns in this order. The sequence will be cycled through.
+      pre_act_label: Prefix to add to the output of the component when called
+        in `pre_act`.
     """
     super().__init__()
     self._sequence = copy.copy(list(sequence))
@@ -339,9 +433,24 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
       self,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
+    """Returns the name of the player whose turn is next.
+
+    Args:
+      action_spec: The action spec. Ignored unless its output type is
+        NEXT_ACTING.
+
+    Raises:
+      ValueError: If a turn is requested once every player has been removed
+        from the sequence.
+    """
     result = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTING:
       with self._lock:
+        if not self._sequence:
+          raise ValueError(
+              'Cannot select the next acting player: every player has been '
+              'removed from the sequence.'
+          )
         idx = self._currently_active_player_idx
         if idx is None:
           idx = 0
