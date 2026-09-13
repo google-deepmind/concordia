@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Last Light at Bellwether</title><style>
+:root{color-scheme:dark;font:17px/1.6 system-ui;background:#091721;color:#f2e6cf;--muted:#b6c8cb;--gold:#edc984}
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0 auto;max-width:940px;padding:26px 18px 60px}
+h1{font:clamp(2.4rem,7vw,4.3rem)/1.1 Georgia,serif;margin:18px 0 10px;max-width:720px}
+h2{font:1.5rem Georgia,serif;margin-top:32px}h3{font:1.2rem Georgia,serif}
+.subtle,small{color:var(--muted)}.badge{border:1px solid #998d6b;padding:5px 12px;border-radius:30px;font-size:.8rem;display:inline-block}
+#fixture{background:#483627;margin-left:6px}#connection{font-size:.85rem;color:var(--muted);min-height:1.5em}
+#opening{max-width:760px}button{font:inherit;cursor:pointer;color:inherit;background:#203b48;border:1px solid #638084;border-radius:9px;padding:10px 14px}
+button:hover{background:#345664}button:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+button:disabled{opacity:.5;cursor:default}#begin,#act{background:var(--gold);color:#15222a;font-weight:700}
+#map{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:28px 40px;background:radial-gradient(ellipse at 25% 55%,#2e4d4a 0%,#1b353b 46%,#0d2335 48%,#123247 63%,#0b2032 66%);border:1px solid #416570;border-radius:45% 18% 30% 18%;padding:46px 20px;min-height:250px}
+#map button{z-index:1;font-size:.95rem;background:#102734eb;box-shadow:0 2px 10px #0008;min-height:75px}
+#map button.lit{border-color:#efc276;box-shadow:0 0 24px #eab86b50;background:#3d3728}
+#map button.unserved{border-style:dashed;border-color:#f0ac94}#map .facility-status{font-weight:700;color:inherit}
+#map button[aria-pressed=true]{outline:2px solid var(--gold)}#map small{display:block;font-size:.72rem}
+#cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.card{border-left:3px solid #c7a566;padding:14px;background:#132a35;border-radius:4px}.card p{margin:5px 0}.card button{font-size:.85rem;padding:7px 10px;margin:5px 6px 0 0}
+#resources{display:flex;flex-wrap:wrap;gap:10px}#resources span{background:#19313b;padding:8px 12px;border-radius:8px}
+pre,.story{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.story{border-top:1px solid #304852;padding:13px 0;margin:0}
+.story small{display:block}.private{border-left:2px solid #7ca6ba;padding-left:12px}
+#journal{max-height:600px;overflow:auto;padding-right:10px}
+textarea{width:100%;min-height:116px;padding:12px;background:#102732;color:inherit;border:1px solid #819ca1;border-radius:8px;font:inherit;resize:vertical}
+#choices{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}#choices button{font-size:.85rem}
+#error{color:#ffc1a8;white-space:pre-wrap}#epilogue{background:#192f37;border:1px solid #ad9e77;border-radius:12px;padding:20px;margin-top:26px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}td,th{text-align:left;border-bottom:1px solid #42606b;padding:7px}
+details{margin:20px 0}summary{cursor:pointer;color:var(--muted)}#context{max-height:350px;overflow:auto}#prompt{margin:28px 0 8px}
+[hidden]{display:none!important}@media(max-width:460px){body{padding:20px 14px 40px}#map{gap:20px 12px;padding:30px 12px}#cast{grid-template-columns:1fr 1fr}.card{padding:10px}.card p{font-size:.8rem}button{min-height:44px}}
+
+#join{background:#132a35;border:1px solid #638084;border-radius:12px;padding:20px;margin-top:20px}
+#join label,#join input,#join select{display:block;width:100%;margin:8px 0}
+input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819ca1;border-radius:8px;padding:12px;min-height:48px;max-width:100%}
+#role-badge{font-weight:700;color:var(--gold)}#jump-action{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));right:16px;z-index:5;background:var(--gold);color:#15222a;box-shadow:0 4px 20px #0008}
+#composer{scroll-margin:16px;background:#0f2530;border:1px solid #416570;padding:16px;border-radius:12px;margin-top:24px}
+#action-form>p{position:relative;background:#0f2530;padding:10px 0;margin-bottom:0}
+#action{max-height:40dvh}#act{min-width:136px}#choices button,.card button{min-height:48px}
+#journal{overscroll-behavior:contain}#role-wait{font-size:1.05rem;color:#edc984}
+@media(max-width:460px){#composer{padding:12px}#map button{overflow-wrap:anywhere;font-size:.85rem}#cast{grid-template-columns:1fr}.card p{font-size:.95rem}body{padding-bottom:84px}th,td{overflow-wrap:anywhere}#epilogue{padding:12px}table{table-layout:fixed}#map{gap:16px 12px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+#voice label{display:block;margin:14px 0}#voice input{width:24px;height:24px;min-height:24px;vertical-align:middle}#voice button{min-height:48px;margin:5px 4px 5px 0}#transcript{min-height:100px}
+#visual-note input{display:block;max-width:100%;min-height:44px;margin:12px 0}#visual-note button{min-height:48px;margin:6px 4px 6px 0}#note-provenance,#note-summary{white-space:pre-wrap;overflow-wrap:anywhere}
+#service-rows button{width:100%;min-width:0;min-height:44px;padding:.3rem .1rem;white-space:normal;overflow-wrap:anywhere}#service-explanation{white-space:pre-wrap}</style></head><body>
+<section id="join" hidden><h2>Join the night</h2><p>Choose a role and ask the host to approve this browser. Reloading keeps your place. No private information is shared until approval.</p><form id="join-form"><label for="join-name">Your name for the host</label><input id="join-name" maxlength="80" autocomplete="nickname" required><label for="join-role">Role</label><select id="join-role"><option value="Coordinator">Coordinator Alice</option><option>Nell</option><option value="spectator">Spectator · public events only</option></select><button id="join-submit">Request to join</button></form><p id="join-status" role="status"></p></section>
+<div id="play"><header><p id="role-badge"></p><span class="badge" id="watch">Watch 1 · Early evening</span><span class="badge" id="fixture" hidden>Fixture · AI residents scripted</span>
+<h1>Last Light<br>at Bellwether</h1><p class="subtle">An island community. One stormy night.</p>
+<details id="first-play" hidden><summary>How to play your role</summary><p id="role-guide"></p></details>
+<p id="recipe-note" class="subtle"></p><p id="connection" role="status">Connecting…</p><p id="run-status" role="status" hidden></p><p id="opening"></p><button id="begin" hidden>Begin the night</button></header>
+<section aria-labelledby="map-title"><h2 id="map-title">The island</h2><div id="resources"></div><p id="supply-note" class="subtle"></p>
+<div id="map" aria-label="Locations around Bellwether harbor"></div><p id="location" class="subtle">Choose a place. Looking around does not move time.</p>
+<p id="service-note" role="status"></p><details id="service-history" hidden><summary>Service across the watches</summary><table><caption>Resolved service, not promises or predictions</caption><thead id="service-head"></thead><tbody id="service-rows"></tbody></table><p id="service-explanation" role="status">Choose a resolved service to see its recorded boundary details. Inspection is free.</p></details>
+<button id="all-cast" type="button">All residents</button><div id="cast"></div></section>
+<section id="epilogue" hidden aria-labelledby="dawn-title"><h2 id="dawn-title">Dawn at Bellwether</h2><div id="outcome"></div><div id="responses"></div></section>
+<details id="voice"><summary>Voice options · optional, on-device only</summary>
+<label><input id="voice-enabled" type="checkbox"> Enable voice controls for this page</label>
+<p class="subtle">Text always works. Dictation is editable and is never sent automatically. Microphone and local language support are checked only when you choose Dictate. No remote speech fallback is used.</p>
+<button id="listen" type="button" disabled>Read latest observation</button> <button id="stop-audio" type="button" disabled>Stop audio</button><p id="latest-spoken" class="subtle"></p>
+<button id="dictate" type="button" disabled>Dictate on this device</button> <button id="finish-dictation" type="button" disabled>Finish dictation</button> <button id="cancel-dictation" type="button" disabled>Cancel dictation</button>
+<label for="transcript">Transcript · review and edit before adding</label><textarea id="transcript" placeholder="Your speech transcript stays here until you add it to your action draft."></textarea><button id="use-transcript" type="button" disabled>Add to action draft</button><p id="voice-status" role="status">Voice is off. Text always works.</p></details>
+<h2>The night’s account</h2><div id="journal" aria-live="polite"></div>
+<details id="agreements" hidden><summary>Commitments and institutions</summary><div id="commitments"></div><div id="institutions"></div></details>
+<details><summary>Your available context</summary><pre id="context"></pre></details>
+<section id="public-account" hidden><h2>Keep a public account</h2>
+<p>Save public events and material consequences. Private messages are excluded. Public speech may still identify people. This is not a saved game.</p>
+<button id="export-html" type="button">Download readable account</button>
+<button id="export-json" type="button">Download public JSON</button>
+<button id="export-svg" type="button">Download public figure</button>
+<p id="export-status" role="status"></p></section>
+<section id="composer"><h2 id="prompt">Waiting to begin</h2><p id="role-wait" role="status"></p><p id="turn-note" class="subtle"></p><label id="decision-label" for="decision" hidden>Your decision</label><select id="decision" hidden></select><div id="choices"></div>
+<details id="visual-note" hidden><summary>Review an image note · optional</summary>
+<p>Open a visual-note JSON made with the local image tool. The file is read only in this page, not uploaded. Treat its description as a draft, not verified facts.</p>
+<label for="note-file">Choose a visual-note JSON file</label><input id="note-file" type="file" accept=".json,application/json" disabled>
+<p id="note-summary" class="subtle"></p><details id="note-details" hidden><summary>Source details</summary><p id="note-provenance" class="subtle"></p></details><label for="note-text">Review and edit the description</label><textarea id="note-text" disabled></textarea>
+<button id="use-note" type="button" disabled>Add reviewed text to action draft</button><button id="clear-note" type="button" disabled>Clear review</button><p id="note-status" role="status">Nothing is sent automatically.</p></details>
+<form id="action-form"><label for="action">What do you do or say?</label><textarea id="action" placeholder="Choose a suggestion, or write your own words…"></textarea>
+<p id="preview-result" role="status"></p><p id="submission-status" role="status"></p><p id="waiting-status" class="subtle" aria-live="off" hidden></p>
+<p><button type="button" id="preview" hidden disabled>Check interpretation · free</button> <button type="button" id="wait">Suggest waiting</button> <button id="act" disabled>Send action</button></p></form></section>
+</div><button id="jump-action" type="button" hidden>Go to your action</button><p id="error" role="alert"></p>
+<script>
+(() => {
+ const $=id=>document.getElementById(id);let current,retry,sending=false,picked,connected=false,identity='',draftKey='bellwether-draft';
+ let previewController=null,previewSerial=0,previewScope='';
+ let draftRevision=0,submission=null;
+ function resetSubmission(){submission=null;sending=false;retry=null;draftRevision++;$('submission-status').textContent='';$('error').textContent='';waitingStatus();}
+ function waitingStatus(){
+  const state=current?.result;
+  const active=connected&&state&&!state.lobby&&state.phase==='running'&&!runIsClosed(state)&&submission?.stage==='received'&&submission.operation==='human.respond'&&Number.isFinite(submission.confirmedAt)&&(!state.human.pending||state.human.pending.id===submission.requestId);
+  const seconds=active?5*Math.floor((performance.now()-submission.confirmedAt)/5000):0;
+  const visible=Boolean(active&&seconds>=15),node=$('waiting-status');
+  node.hidden=!visible;
+  const words=visible?'Confirmed '+seconds+' seconds ago in this page. This is not a progress estimate.':'';
+  if(node.textContent!==words)node.textContent=words;
+ }
+ function deliveryStatus(){
+  $('act').textContent=sending?'Sending…':'Send action';
+  $('act').setAttribute('aria-busy',String(sending));
+  if(submission?.stage==='received'&&submission.operation==='human.respond'&&current?.result.human?.pending&&current.result.human.pending.id!==submission.requestId)submission=null;
+  waitingStatus();
+  if(!submission){$('submission-status').textContent='';return;}
+  const messages={sending:'Sending… confirmation is pending. You can keep editing your draft.',received:'Action received. Delivery is confirmed, not its outcome.',rejected:'The action was not accepted. Your draft is kept.',uncertain:'Confirmation is unavailable. Your draft is kept; check the journal before sending again.'};
+  let message=messages[submission.stage]||'';
+  if(submission.operation==='game.begin'){message=message.replace('Action received. Delivery is confirmed, not its outcome.','Begin request received. The night is starting.').replace('The action was not accepted.','The begin request was not accepted.');}
+  $('submission-status').textContent=message;
+ }
+ // Display aliases never change authenticated role IDs, requests or records.
+ function roleLabel(role){return role==='Coordinator'?'Coordinator Alice':role}
+ function watchLabel(watch){return watch==='Dusk'?'Watch 1 · Early evening':watch}
+ const api=name=>new URL('api/'+name,location.origin+location.pathname.replace(/\/?$/,'/')).href;
+ const announceError=message=>{$('error').textContent=message};
+ $('jump-action').onclick=()=>{$('composer').scrollIntoView({block:'start',behavior:'auto'});$('action').focus({preventScroll:true})};
+ $('join-form').onsubmit=async e=>{e.preventDefault();if(!connected||navigator.onLine===false)return;$('join-submit').disabled=true;
+  try{const response=await fetch(api('join'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:$('join-name').value,role:$('join-role').value})});const result=await response.json();if(!response.ok)throw new Error(result.error.message);$('join-status').textContent='Waiting for host approval as '+roleLabel(result.requested_role);}
+  catch(error){announceError(error.message)}finally{$('join-submit').disabled=!connected||navigator.onLine===false}
+ };
+ async function ownJoin(){if(!connected||navigator.onLine===false)return;try{const response=await fetch(api('session'));if(response.ok){const own=await response.json();if(connected&&current?.result.lobby&&own.requested_role)$('join-status').textContent='Waiting for host approval as '+roleLabel(own.requested_role);}}catch{}}
+
+ // Preserve native focus; reset retained presentation at every role boundary.
+ const rendered=new Map();let journalRows=[];
+ function refresh(id,value,draw){const key=JSON.stringify(value);if(rendered.get(id)===key)return;rendered.set(id,key);draw();}
+ const labels=['Harbor beacon','Storm shelter','Cooperative cold store','Generator yard'];
+ const watches=['Dusk','High Tide','Before Dawn'];let serviceHistoryKey='';
+ const facility={'Harbor beacon':'beacon','Storm shelter':'shelter','Cooperative cold store':'cold store'};
+ const descriptions={Mara:'Harbor master · boats and safe passage',Nell:'Cooperative custodian · reserves and livelihoods',Ivo:'Engineer · repairs and working conditions',Sam:'Shelter steward · displaced residents'};
+ $('action').value='';
+ $('action').oninput=()=>{draftRevision++;sessionStorage.setItem(draftKey,$('action').value);retry=null;updatePreview()};
+ function suggest(words){$('action').value=words;$('action').oninput();$('action').focus()}
+ function appendToDraft(words){const draft=$('action');draft.value+=(draft.value&&!/\s$/.test(draft.value)?' ':'')+words;draft.oninput();draft.focus()}
+ $('wait').onclick=()=>suggest(current?.result.night?'wait':'Wait and listen.');
+ $('all-cast').onclick=()=>{picked=null;render(current)};
+ function text(parent,tag,value,cls){const el=document.createElement(tag);el.textContent=value;if(cls)el.className=cls;parent.append(el);return el}
+
+ // Local file review is not an image upload or a game operation.
+ const visualNotes=(() => {
+  let scope='',generation=0,loading=false,canUse=false;
+  const status=message=>$('note-status').textContent=message;
+  const bounded=(value,max)=>typeof value==='string'&&value.trim()&&Array.from(value).length<=max;
+  function controls(){
+   $('visual-note').hidden=!scope;
+   $('note-file').disabled=!scope||!canUse;
+   $('note-text').disabled=!scope||!canUse||loading;
+   $('use-note').disabled=!scope||!canUse||loading||!$('note-text').value.trim();
+   $('clear-note').disabled=!scope||(!loading&&!$('note-text').value&&!$('note-provenance').textContent);
+  }
+  function clear(){
+   generation++;loading=false;$('note-file').value='';$('note-text').value='';$('note-provenance').textContent='';$('note-summary').textContent='';$('note-details').hidden=true;$('note-details').open=false;
+   status('Review cleared. Your action draft is unchanged.');controls();
+  }
+  function validate(data){
+   if(!data||data.schema!=='bellwether.visual-note.v1'||data.kind!=='model_observation_draft'||data.review!=='required_before_use'||data.provider!=='local_ollama'
+    ||!bounded(data.text,16000)||!bounded(data.question,2000)||!bounded(data.model,256)
+    ||!data.source||!/^[a-f0-9]{64}$/.test(data.source.transmitted_sha256||''))
+     throw new Error('Choose a valid visual-note v1 JSON from the local image tool.');
+   return data;
+  }
+  $('note-file').onchange=async()=>{
+   if(!scope||!canUse)return;const file=$('note-file').files[0];if(!file)return;
+   const expected=scope,attempt=++generation;loading=true;status('Reading the selected note locally…');controls();
+   const stillHere=()=>attempt===generation&&scope===expected&&canUse;
+   try{
+    if(file.size>128*1024)throw new Error('Note exceeds the 128 KiB limit.');
+    const bytes=await file.arrayBuffer();if(!stillHere())return;
+    const data=validate(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));
+    if(!stillHere())return;
+    $('note-text').value=data.text;
+    $('note-summary').textContent=['Reported model: '+data.model,'Question: '+data.question,data.stop_reason==='length'?'The model reached its limit; this description may be incomplete.':''].filter(Boolean).join('\n');
+    $('note-provenance').textContent='Transmitted image hash: '+data.source.transmitted_sha256+'\nReview against the original image; file provenance is not verified by this page.';$('note-details').hidden=false;
+    status('Review and edit the text. Adding it only changes your local action draft.');
+   }catch(error){
+    if(stillHere())status('Cannot read this note. Your draft and previous review are kept. '+(error instanceof SyntaxError||error instanceof TypeError?'Use a UTF-8 visual-note JSON.':error.message));
+   }finally{if(attempt===generation){loading=false;controls()}}
+  };
+  $('note-text').oninput=controls;
+  $('clear-note').onclick=clear;
+  $('use-note').onclick=()=>{
+   if(!scope||!canUse||loading||!$('note-text').value.trim())return;
+   appendToDraft($('note-text').value);clear();status('Added to your draft. Review your words and decision, then choose Send action.');
+  };
+  return {
+   update(nextScope,allowed){if(scope!==nextScope){scope=nextScope;clear();}canUse=allowed;controls()},
+   disconnect(){scope='';canUse=false;clear()}
+  };
+ })();
+
+ // Optional presentation voice; game inputs remain text, never microphone data.
+ const voice=(() => {
+  const synth=window.speechSynthesis;
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const language=navigator.language||'en-US';
+  let enabled=false,scope='',canDictate=false,latest='',recognition=null,generation=0,spoken=null,checking=false;
+  const status=message=>$('voice-status').textContent=message;
+  const localVoices=()=>synth?.getVoices().filter(v=>v.localService===true)||[];
+  function controls(){
+   const available=enabled&&Boolean(scope);
+   $('dictate').disabled=!available||!canDictate||Boolean(recognition)||checking;
+   $('finish-dictation').disabled=!recognition;
+   $('cancel-dictation').disabled=!recognition&&!checking;
+   $('use-transcript').disabled=!available||!canDictate||!$('transcript').value.trim();
+   $('listen').disabled=!available||!latest||!localVoices().length||!window.SpeechSynthesisUtterance;
+   $('stop-audio').disabled=!spoken;
+  }
+  function stopSpeech(){
+   if(spoken){spoken.onend=spoken.onerror=null;spoken=null;synth?.cancel();}
+   controls();
+  }
+  function cancelDictation(clear=true){
+   generation++;checking=false;
+   if(recognition){const old=recognition;recognition=null;old.onresult=old.onend=old.onerror=null;old.abort();}
+   if(clear)$('transcript').value='';
+   controls();
+  }
+  function reset(){
+   cancelDictation();stopSpeech();status(enabled?'Audio stopped. Text controls remain available.':'Voice is off. Text always works.');
+  }
+  $('voice-enabled').onchange=()=>{
+   enabled=$('voice-enabled').checked;reset();controls();
+   if(enabled)status('Choose Dictate or Read latest observation. Only on-device speech is used; nothing plays automatically.');
+  };
+  $('transcript').oninput=controls;
+  $('cancel-dictation').onclick=()=>{cancelDictation();status('Dictation cancelled. Your action draft is unchanged.')};
+  $('finish-dictation').onclick=()=>{recognition?.stop();status('Finishing dictation… review the transcript before adding it.')};
+  $('use-transcript').onclick=()=>{
+   if(!enabled||!canDictate||!scope)return;
+   const transcript=$('transcript').value.trim();if(!transcript)return;
+   appendToDraft(transcript);cancelDictation();status('Transcript added to your draft. Edit it, then choose Send action.');
+  };
+  $('dictate').onclick=async()=>{
+   if(!enabled||!canDictate||!scope||recognition||checking)return;
+   stopSpeech();cancelDictation();const attempt=generation,expected=scope;checking=true;status('Checking for an installed on-device language…');controls();
+   const stillHere=()=>attempt===generation&&expected===scope&&enabled&&canDictate;
+   try{
+    if(!Recognition||typeof Recognition.available!=='function'||!('processLocally' in Recognition.prototype))
+     throw new Error('On-device dictation is unavailable in this browser. Please type instead.');
+    const availability=await Recognition.available({langs:[language],processLocally:true});
+    if(!stillHere())return;
+    if(availability!=='available')throw new Error('An on-device '+language+' language pack is not installed. Please type instead; no remote fallback or download was started.');
+    const rec=new Recognition();rec.processLocally=true;
+    if(rec.processLocally!==true)throw new Error('On-device processing could not be enabled. Please type instead.');
+    recognition=rec;rec.lang=language;rec.interimResults=false;rec.continuous=true;rec.maxAlternatives=1;
+    rec.onresult=event=>{
+     if(!stillHere()||recognition!==rec)return;
+     for(let i=event.resultIndex;i<event.results.length;i++)if(event.results[i].isFinal){
+      const value=event.results[i][0].transcript;
+      $('transcript').value+=($('transcript').value?' ':'')+value;
+     }
+     status('Review your transcript. It has not been added or sent.');controls();
+    };
+    rec.onerror=event=>{
+     if(!stillHere())return;
+     recognition=null;checking=false;generation++;rec.onresult=rec.onend=rec.onerror=null;rec.abort();
+     status(event.error==='not-allowed'?'Microphone permission was declined. Please type instead.':'Dictation stopped. Review any transcript or continue typing.');controls();
+    };
+    rec.onend=()=>{if(!stillHere())return;recognition=null;status('Dictation finished. Edit the transcript, then Add to draft.');controls()};
+    rec.start();status('Listening on this device… Finish or Cancel when ready.');
+   }catch(error){if(stillHere()){cancelDictation(false);status(error.message||'Dictation unavailable. Please type instead.')}}
+   finally{if(attempt===generation){checking=false;controls()}}
+  };
+  $('listen').onclick=()=>{
+   if(!enabled||!scope||!latest||!window.SpeechSynthesisUtterance)return;
+   const voices=localVoices(),chosen=voices.find(v=>v.lang===language)||voices.find(v=>v.lang.split('-')[0]===language.split('-')[0])||voices[0];
+   if(!chosen){status('No local speaking voice is available. The observation remains readable.');return}
+   stopSpeech();cancelDictation(false);
+   const utterance=new SpeechSynthesisUtterance(latest);utterance.voice=chosen;utterance.lang=chosen.lang;spoken=utterance;
+   utterance.onend=()=>{if(spoken===utterance){spoken=null;status('Reading finished.');controls()}};
+   utterance.onerror=()=>{if(spoken===utterance){spoken=null;status('Audio unavailable. Read the observation in the journal.');controls()}};
+   synth.speak(utterance);status('Reading your latest visible observation. Stop audio at any time.');controls();
+  };
+  $('stop-audio').onclick=()=>{stopSpeech();status('Audio stopped.')};
+  synth?.addEventListener('voiceschanged',controls);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)reset()});
+  window.addEventListener('pagehide',reset);
+  return {
+   update(nextScope,allowed,observation){
+    if(nextScope!==scope){scope=nextScope;reset();}
+    canDictate=allowed;latest=observation||'';
+    $('latest-spoken').textContent=!localVoices().length?'No local speaking voice is available here. Read the journal below.':latest?'Read aloud uses the latest observation visible in your journal.':'No observation available yet.';
+    controls();
+   },
+   disconnect(){scope='';canDictate=false;latest='';reset();controls()}
+  };
+ })();
+
+ function runIsClosed(state){return state.phase==='failed'||state.phase==='completed'||Boolean(state.human?.finished)}
+ function render(data){
+  if(!data||(current&&data.revision<current.revision))return;current=data;
+  const state=data.result;
+  if(state.lobby){rendered.clear();journalRows=[];voice.disconnect();visualNotes.disconnect();invalidatePreview();previewScope='';$('join').hidden=false;$('play').hidden=true;$('jump-action').hidden=true;
+   for(const id of ['context','journal','prompt','outcome','responses'])$(id).replaceChildren();
+   if(identity){$('action').value='';identity='';}resetSubmission();$('join-submit').disabled=!connected||navigator.onLine===false;ownJoin();return;}
+  $('join').hidden=true;$('play').hidden=false;
+  const world=state.scenario,human=state.human,night=state.night;
+  const failed=state.phase==='failed',completed=state.phase==='completed',closed=runIsClosed(state);
+  const role=state.role||'Coordinator',spectator=role==='spectator',isResident=state.multiplayer&&role!=='Coordinator'&&!spectator;
+  const nextIdentity=data.references.session_id+':'+role;
+  if(identity!==nextIdentity){resetSubmission();rendered.clear();journalRows=[];$('journal').replaceChildren();identity=nextIdentity;draftKey='bellwether-draft:'+identity;$('action').value=sessionStorage.getItem(draftKey)||'';retry=null;}
+  $('role-badge').textContent=night?(state.multiplayer?(spectator?'Spectator · public events only':'Shared night · You are '+roleLabel(role)+' · Two human roles and '+(state.fixture?'three scripted residents':'three AI residents')):'Single player · You are Coordinator Alice · '+(state.fixture?'Four scripted residents':'Four AI residents')):'One-turn fixture · You are Coordinator Alice';
+  $('first-play').hidden=!night;
+  $('role-guide').textContent=spectator?'Watch public events and material consequences. Private journals and action controls are not available to spectators.':isResident?'You control Nell’s words and decisions. Accept, decline or offer different terms when addressed. Accepting records consent; Coordinator Alice still has to carry out any transfer. Only you can submit your turn. Reloading keeps your approved browser role.':'You play Alice, the Coordinator. Early evening is the first watch, recorded as Dusk in the account. Coordinate three watches of service. Ask for consent, arrange transfers and work, and choose what to supply. A request, an accepted commitment and a performed action are different. Every valid sent attempt costs one choice, including refusal. Looking around and checking an interpretation are free. Send only when ready; partial outcomes are possible.';
+  updatePreview();
+  $('jump-action').hidden=closed||!human.pending||spectator;
+
+  $('fixture').hidden=!state.fixture;$('watch').textContent=night?watchLabel(night.watch)+' · '+night.remaining+' choices remain':'Watch 1 · Early evening · one-turn fixture';
+  $('connection').textContent=!connected?'Reconnecting… your draft is kept':failed?'Connected · Night stopped':completed?'The account is complete':human.finished?'Connected · Input closed':'Connected · '+(human.pending?'Your turn':spectator?'Watching public events':night?.next_actor&&night.next_actor!==role?'Waiting for '+roleLabel(night.next_actor):human.status);
+  $('run-status').hidden=!failed;
+  $('run-status').textContent=failed?'The run stopped unexpectedly. Its account may be incomplete. Recorded events remain in your journal. '+(night?'You can download a public account; it is not a saved game. ':'')+'Reloading does not restart the run.':'';
+  $('public-account').hidden=!night;
+  $('export-svg').disabled=$('export-html').disabled=$('export-json').disabled=!connected||exporting;
+  $('recipe-note').textContent=state.recipe&&state.recipe.recipe!=='bellwether'?'Teaching case: '+state.recipe.recipe.replaceAll('-',' ')+'. '+state.recipe.fuel_consumed_before_play+' fuel used before play; Used totals include that initial consumption. Fixed Bellwether consent and accounting still apply.':'';
+  $('opening').textContent=world.opening;$('begin').hidden=!night||state.phase!=='paused'||spectator||closed;$('begin').disabled=!connected||sending||(state.multiplayer&&!state.players_ready);if(connected&&state.phase==='paused'&&!closed&&state.multiplayer&&!state.players_ready)$('connection').textContent='Waiting for the host to approve both players';
+  $('resources').replaceChildren();
+  if(night){
+   renderServiceHistory(night);
+   const stock=night.inventory;
+   for(const value of ['Generator: '+stock.Generator.fuel+' fuel','Nell: '+stock.Nell.fuel+' reserve',night.repair?'Beacon repair complete':'Spare part: '+(stock.Nell.part?'with Nell':stock.Ivo.part?'with Ivo':'installed')])text($('resources'),'span',value);
+   $('supply-note').textContent='Requested this watch: '+(night.allocation.join(', ')||'none')+'. Lights show the last resolved watch, not promises.';
+   $('agreements').hidden=false;$('commitments').replaceChildren();
+   for(const c of night.commitments)text($('commitments'),'p',roleLabel(c.owner)+' · '+(c.facility||c.kind)+' · '+c.status);
+   if(!night.commitments.length)text($('commitments'),'p','No accepted commitments yet.');
+   $('institutions').replaceChildren();
+   for(const institution of night.institutions){text($('institutions'),'h3',institution.name);text($('institutions'),'p',institution.rule);text($('institutions'),'p',institution.enforcement,'subtle')}
+  }
+  $('service-history').hidden=!night;
+  if(!$('map').children.length)for(const loc of world.locations){
+   const button=document.createElement('button');button.dataset.location=loc;button.type='button';text(button,'span',loc);text(button,'small','Inspect · free');text(button,'small','','facility-status');
+   button.onclick=()=>{picked=loc;render(current)};$('map').append(button);
+  }
+  for(const b of $('map').children){
+   const loc=b.dataset.location;b.setAttribute('aria-pressed',String(picked===loc));
+   const result=night?.services.filter(x=>x.facility===facility[loc]).at(-1);
+   const status=!night?'':loc==='Generator yard'?night.inventory.Generator.fuel+' fuel available':result?watchLabel(result.watch)+' · '+(result.served?'Maintained':'Unserved'):'Not resolved yet';
+   const label=b.querySelector('.facility-status');if(label.textContent!==status)label.textContent=status;
+   b.setAttribute('aria-label',loc+(status?'. '+status:'')+'. Inspect; no turn cost.');
+   b.classList.toggle('lit',Boolean(result?.served));b.classList.toggle('unserved',Boolean(result&&!result.served));
+  }
+  $('location').textContent=picked?picked+' · inspection only':'Choose a place. Looking around does not move time.';
+  refresh('cast',[world.cast,picked,Boolean(night),closed,isResident,spectator],()=>{
+  $('cast').replaceChildren();
+  for(const resident of world.cast.filter(x=>!picked||x.location===picked)){
+   const card=text($('cast'),'article','','card');text(card,'strong',resident.name);text(card,'p',descriptions[resident.name]||resident.role);text(card,'small',resident.location);
+   if(night&&!closed&&!isResident&&!spectator){const talk=text(card,'button','Discuss');talk.type='button';talk.onclick=()=>suggest('tell '+resident.name+': ');const pm=text(card,'button','Private');pm.type='button';pm.onclick=()=>suggest('message '+resident.name+': ')}
+  }
+  });
+  const journal=$('journal'),atEnd=journal.scrollTop+ journal.clientHeight>=journal.scrollHeight-40;
+  const entries=night?night.journal:human.entries;
+  voice.update(connected&&!closed?identity+':'+(human.pending?.id||'waiting'):'',Boolean(connected&&!closed&&human.pending&&!spectator),entries.at(-1)?.text||'');
+  visualNotes.update(connected&&!closed&&human.pending&&!spectator?identity+':'+human.pending.id:'',Boolean(connected&&!closed&&!sending&&human.pending&&!spectator));
+  // Append-only delivery preserves selection. Changed recipient projections rebuild.
+  const rows=entries.map(entry=>JSON.stringify([Boolean(night),entry]));
+  if(journalRows.length>rows.length||journalRows.some((row,index)=>row!==rows[index])){journal.replaceChildren();journalRows=[];}
+  for(const entry of entries.slice(journalRows.length)){
+   const p=text(journal,'p','','story'+(entry.recipients?.length<5?' private':''));
+   if(night)text(p,'small',(entry.watch<3?watchLabel(watches[entry.watch]):'Dawn')+(entry.recipients.length<5?' · Private':''));
+   text(p,'span',entry.text);
+  }
+  journalRows=rows;
+  if(atEnd)journal.scrollTop=journal.scrollHeight;
+  const context=human.pending?.context||'';if($('context').textContent!==context)$('context').textContent=context;
+  $('prompt').textContent=failed?'This run has stopped':completed?'The night has ended':human.finished?'No further actions are accepted':human.pending?.prompt||(night?'The island is responding…':'Waiting for the next prompt');
+  $('role-wait').textContent=isResident&&!closed&&!human.pending?'Waiting for a conversation or request addressed to Nell. Other players cannot act for you.':'';
+  $('turn-note').textContent=isResident?'Choose your own decision and words. Acceptance records consent; it does not perform a transfer.':night?'Every valid attempt costs one choice, even a refused request. Ambiguous actions ask for clarification without an effect.':'One-turn fixture only.';
+  deliveryStatus();
+  $('act').disabled=closed||!connected||sending||!human.pending;$('composer').hidden=spectator||Boolean(night?.epilogue&&!human.pending);
+  $('decision').hidden=$('decision-label').hidden=!isResident;
+  if(isResident)refresh('decision',state.decisions||['speak'],()=>{const chosen=$('decision').value;$('decision').replaceChildren();for(const decision of state.decisions||['speak']){const option=text($('decision'),'option',({accept:'Accept this request',decline:'Decline',counter:'Offer different terms',revoke:'Revoke my unfulfilled commitment',speak:'Speak'})[decision]);option.value=decision;}if([...(state.decisions||[])].includes(chosen))$('decision').value=chosen;});
+  $('wait').hidden=isResident;
+  refresh('choices',[Boolean(night),closed,isResident,spectator],()=>{
+  $('choices').replaceChildren();
+  if(night&&!closed&&!isResident&&!spectator){
+   const suggestions=['ask Nell for fuel and part','ask Ivo to repair','transfer reserve and part','order repair','allocate all','allocate shelter and cold store','promise shelter','propose to everyone: '];
+   for(const words of suggestions){const b=text($('choices'),'button',words);b.type='button';b.onclick=()=>suggest(words)}
+  }
+  });
+  if(night?.epilogue){
+   $('epilogue').hidden=false;const end=night.epilogue;$('outcome').replaceChildren();$('responses').replaceChildren();
+   text($('outcome'),'p',end.services_maintained+' of 9 facility-watches supplied. '+end.fuel_used+' fuel consumed. '+(end.repair_completed?'Ivo’s repair lowered final beacon demand.':'The beacon was not repaired.'));
+   const table=text($('outcome'),'table',''),head=text(table,'tr','');for(const h of ['Watch','Facility','Consequence'])text(head,'th',h);
+   for(const record of night.services){const row=text(table,'tr','');for(const value of [watchLabel(record.watch),record.facility,record.consequence])text(row,'td',value)}
+   text($('outcome'),'p','The previous-storm accounts remain disputed. Tonight’s accounting cannot decide who was right.');
+   for(const [name,speech] of Object.entries(night.dawn_responses)){
+    text($('responses'),'h3',name);
+    const row=text($('responses'),'p',speech===null?'Response unavailable. No usable reply was recorded.':speech);
+    row.dataset.responseStatus=speech===null?'unavailable':'available';
+   }
+  }
+ }
+ async function dispatch(operation,args){
+  if(!connected||!current||sending||runIsClosed(current.result))return;
+  const owner=identity,version=draftRevision,key=draftKey,draft=$('action').value;
+  const attempt={stage:'sending',operation,requestId:args.request_id};submission=attempt;$('error').textContent='';
+  retry=retry||{operation,arguments:args,references:current.references,revision:current.revision,retry_key:crypto.randomUUID()};
+  const envelope=retry;
+  const stillOurs=()=>submission===attempt&&identity===owner;
+  sending=true;render(current);
+  try{
+   const response=await fetch(api('dispatch'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(envelope)});
+   const result=await response.json();
+   if(!stillOurs())return;
+   if(!response.ok){retry=null;attempt.stage='rejected';throw new Error(result.error.message)}
+   retry=null;attempt.stage='received';attempt.confirmedAt=performance.now();
+   if(operation==='human.respond'&&draftRevision===version&&$('action').value===draft){$('action').value='';sessionStorage.removeItem(key)}
+  }catch(error){
+   if(!stillOurs())return;
+   if(attempt.stage!=='rejected')attempt.stage='uncertain';
+   $('error').textContent=error.message+' Your draft is kept.';
+  }finally{if(stillOurs()){sending=false;render(current)}}
+ }
+ function renderServiceHistory(night){
+  const signature=JSON.stringify(night.services);if(signature===serviceHistoryKey)return;serviceHistoryKey=signature;
+  const latest=night.services.at(-1),note=latest?'Latest resolved watch: '+watchLabel(latest.watch)+'. Map labels show recorded service, not requests or promises.':'No watch has been resolved yet. Requested supply is not delivered service.';
+  $('service-note').textContent=note;$('service-head').replaceChildren();$('service-rows').replaceChildren();
+  const header=text($('service-head'),'tr','');for(const label of ['Watch',...Object.values(facility).map(name=>name[0].toUpperCase()+name.slice(1))]){const cell=text(header,'th',label);cell.scope='col'}
+  for(const watch of watches){const row=text($('service-rows'),'tr',''),heading=text(row,'th',watchLabel(watch));heading.scope='row';
+   for(const name of Object.values(facility)){const record=night.services.find(x=>x.watch===watch&&x.facility===name);const cell=text(row,'td',record?'':'Not resolved');
+    if(record){
+     const button=text(cell,'button',record.served?'Served':'Unserved');button.type='button';
+     button.setAttribute('aria-label',watchLabel(watch)+' · '+name+' · '+(record.served?'Served':'Unserved')+' · Boundary details');
+     button.onclick=()=>{$('service-explanation').textContent=watchLabel(watch)+' · '+name+'\n'+(record.resolution?.explanation||'Boundary details were not recorded.')+'\n'+record.consequence};
+    }}
+  }
+ }
+ function invalidatePreview(){previewSerial++;previewController?.abort();previewController=null;$('preview-result').textContent=''}
+ function updatePreview(){
+  if(!current||current.result.lobby)return;
+  const state=current.result,scope=JSON.stringify([identity,state.human.pending?.id||'',$('action').value]);
+  if(scope!==previewScope){invalidatePreview();previewScope=scope}
+  $('preview').hidden=!state.night||(state.role&&state.role!=='Coordinator');
+  $('preview').disabled=!connected||sending||Boolean(previewController)||!$('action').value.trim();
+ }
+ function interpretation(intent){
+  switch(intent.kind){
+   case 'request':return intent.target==='Nell'?'Ask Nell for reserve fuel and the spare part. She decides whether to accept.':'Ask Ivo to commit to a repair. He decides whether to accept.';
+   case 'transfer':return 'Attempt the transfer of reserve fuel and the spare part. Nell’s current consent is required.';
+   case 'work':return 'Attempt Ivo’s repair. Accepted labor, the spare part and the repair deadline still matter.';
+   case 'allocate':return 'Set this watch’s requested service to '+(intent.facilities.join(', ')||'none')+'. Supply is resolved at the watch boundary, subject to resources.';
+   case 'promise':return 'Promise service for the '+intent.facility+'. Making a promise does not supply it.';
+   case 'revoke':return 'Withdraw your unfulfilled service promise.';
+   case 'wait':return 'Spend one choice waiting when you send this action.';
+   case 'talk':return (intent.private&&intent.target!=='everyone'?'Private message':'Public discussion')+' to '+intent.target+': '+intent.text;
+   default:throw new Error('No supported interpretation returned.');
+  }
+ }
+ $('preview').onclick=async()=>{
+  if(!connected||!current||previewController)return;
+  const serial=++previewSerial,scope=previewScope,words=$('action').value;
+  previewController=new AbortController();updatePreview();$('preview-result').textContent='Checking interpretation…';
+  try{
+   const response=await fetch(api('dispatch'),{method:'POST',headers:{'Content-Type':'application/json'},signal:previewController.signal,body:JSON.stringify({operation:'game.preview',arguments:{text:words}})});
+   const data=await response.json();
+   if(serial!==previewSerial||scope!==previewScope||!connected)return;
+   if(!response.ok)throw new Error(data.error?.message||'Interpretation unavailable.');
+   $('preview-result').textContent=interpretation(data.result)+' Interpretation only: no action was sent and no choice was spent. It does not guarantee success or consent.';
+  }catch(error){if(serial===previewSerial&&error.name!=='AbortError')$('preview-result').textContent=error.message+' Your draft is kept; nothing was sent.'}
+  finally{if(serial===previewSerial){previewController=null;updatePreview()}}
+ };
+ window.addEventListener('pagehide',invalidatePreview);
+ let exporting=false;
+ async function downloadAccount(format){
+  if(!connected||!current||exporting)return;
+  const owner=identity;exporting=true;render(current);$('export-status').textContent='Preparing public account…';
+  try{
+   const response=await fetch(api('dispatch'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'game.public_account',arguments:{format}})});
+   const data=await response.json();
+   if(!response.ok)throw new Error(data.error?.message||'Download unavailable.');
+   if(owner!==identity||current.result.lobby||!connected)throw new Error('Connection or role changed; retry when connected.');
+   const artifact=data.result,url=URL.createObjectURL(new Blob([artifact.content],{type:artifact.media_type})),link=document.createElement('a');
+   link.href=url;link.download=artifact.filename;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+   $('export-status').textContent='Public account downloaded. Your draft and the night are unchanged.';
+  }catch(error){$('export-status').textContent=error.message.replace(/[.!?]$/,'')+'. Your draft is kept.'}
+  finally{exporting=false;if(current)render(current)}
+ }
+ $('export-svg').onclick=()=>downloadAccount('svg');
+ $('export-html').onclick=()=>downloadAccount('html');$('export-json').onclick=()=>downloadAccount('json');
+ $('action-form').onsubmit=e=>{e.preventDefault();if(current?.result.human.pending)dispatch('human.respond',{request_id:current.result.human.pending.id,response:current.result.role==='Nell'?JSON.stringify({decision:$('decision').value,speech:$('action').value}):$('action').value})};
+ $('begin').onclick=()=>dispatch('game.begin',{});
+ let stream=null;
+ function disconnected(){
+  connected=false;voice.disconnect();visualNotes.disconnect();invalidatePreview();
+  $('connection').textContent='Reconnecting… your draft is kept';
+  $('act').disabled=true;$('begin').disabled=true;$('join-submit').disabled=true;
+  if(current)render(current);
+ }
+ function connect(){
+  if(stream||navigator.onLine===false)return;
+  const active=new EventSource(api('events'));stream=active;
+  active.onmessage=e=>{
+   if(stream!==active||navigator.onLine===false)return;
+   const data=JSON.parse(e.data);
+   if(current&&data.revision<current.revision)return;
+   connected=true;render(data);
+  };
+  // Keep native EventSource retry for stream errors; never resend actions.
+  active.onerror=()=>{if(stream===active)disconnected()};
+ }
+ window.addEventListener('offline',()=>{if(stream)stream.close();stream=null;disconnected()});
+ window.addEventListener('online',()=>{if(!stream){disconnected();connect()}});
+ $('join-submit').disabled=true;
+ if(navigator.onLine===false)disconnected();else connect();
+ // Local elapsed time only; no requests or automatic resend.
+ setInterval(waitingStatus,5000);
+})();
+</script></body></html>

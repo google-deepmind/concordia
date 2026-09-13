@@ -64,7 +64,19 @@ setuptools.setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
-    package_data={},
+    package_data={
+        'concordia.examples.bellwether': [
+            'player.html',
+            'README.md',
+            'GAME.md',
+            'MULTIPLAYER.md',
+            'VOICE.md',
+            'VISUAL-NOTES.md',
+            'RESEARCHER.md',
+            'ENGINES.md',
+            'PUBLIC-ACCOUNT.md',
+        ],
+    },
     python_requires='>=3.12',
     install_requires=(
         'absl-py',
