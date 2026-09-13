@@ -108,6 +108,10 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
       page.locator('#project-alice-custom_instructions').fill(literal)
       page.locator('#project-premise').fill(literal)
       page.locator('#project-max-steps').fill('2')
+      page.locator('[data-project-id="bob"]').click()
+      page.locator('#project-bob-goal').fill(
+          'Share music & listen carefully 🎵'
+      )
       page.locator('[data-project-id="conversation"]').click()
       page.locator('#project-conversation-name').fill(
           'GM "音楽" & <conversation>'
@@ -124,6 +128,10 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
       assert saved['instances'][0]['params']['custom_instructions'] == literal
       assert saved['instances'][2]['params']['can_terminate_simulation'] is True
       assert saved['max_steps'] == 2
+      assert saved['instances'][1]['prefab'] == 'basic'
+      assert saved['instances'][1]['params']['goal'] == (
+          'Share music & listen carefully 🎵'
+      )
       assert not built
       page.reload()
       page.locator('[data-project-id="alice"]').click()
@@ -180,6 +188,13 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
           .get_component('Instructions')
           .get_state()['state']
           == literal
+      )
+      bob = built[0].get_entities()[1]
+      assert {'SituationPerception', 'SelfPerception', 'PersonBySituation'} <= (
+          bob.get_all_context_components().keys()
+      )
+      assert bob.get_component('Goal').get_state()['state'] == (
+          'Share music & listen carefully 🎵'
       )
       assert built[0].get_game_masters()[0].name == 'GM "音楽" & <conversation>'
       assert fresh.get_project()['document'] == saved
@@ -307,6 +322,23 @@ def test_completed_project_can_start_a_fresh_controllable_run(
     runtime.goto(url + 'runtime')
     browser_api.expect(runtime.locator('#run-status')).to_have_text('Completed')
     browser_api.expect(runtime.locator('#step-counter')).to_have_text('4')
+
+    runtime.locator('[data-entity-id="entity_0"]').click()
+    browser_api.expect(runtime.locator('#inspector-subtitle')).to_have_text(
+        'minimal'
+    )
+    assert runtime.locator('#toggle_comp_SelfPerception').count() == 0
+    runtime.locator('[data-entity-id="entity_1"]').click()
+    browser_api.expect(runtime.locator('#inspector-title')).to_have_text('Bob')
+    browser_api.expect(runtime.locator('#inspector-subtitle')).to_have_text(
+        'basic'
+    )
+    for name in ('SelfPerception', 'SituationPerception', 'PersonBySituation'):
+      browser_api.expect(
+          runtime.locator('#toggle_comp_' + name)
+      ).to_be_visible()
+    runtime.screenshot(path=str(tmp_path / 'basic-roommate-inspector.png'))
+
     initial.get_by_role('button', name='Run saved project').click()
     try:
       assert second_bound.wait(2)

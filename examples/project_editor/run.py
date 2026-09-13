@@ -45,7 +45,9 @@ def build(config: prefab_lib.Config) -> generic.Simulation:
 
 def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument('--project', type=Path, help='Saved conversation-v1 JSON')
+  parser.add_argument(
+      '--project', type=Path, help='Saved roommate-conversation project JSON'
+  )
   parser.add_argument('--port', type=int, default=8080)
   parser.add_argument('--output', type=Path, default=Path('project-run'))
   parser.add_argument(

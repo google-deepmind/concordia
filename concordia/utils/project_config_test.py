@@ -53,6 +53,35 @@ class ProjectConfigTest(parameterized.TestCase):
     self.assertIs(config.instances[2].params['can_terminate_simulation'], True)
     self.assertEqual(config.default_max_steps, 2)
 
+  def test_distinct_prefabs_build_their_real_context_components(self):
+    self.doc['instances'][1]['params']['goal'] = 'Keep a shared music journal'
+    reopened = self.registry.loads(self.registry.dumps(self.doc))
+    alice, bob = run.build(self.registry.to_config(reopened)).get_entities()
+    questions = {'SituationPerception', 'SelfPerception', 'PersonBySituation'}
+    self.assertTrue(questions <= bob.get_all_context_components().keys())
+    self.assertFalse(questions & alice.get_all_context_components().keys())
+    self.assertEqual(
+        bob.get_component('Goal').get_state()['state'],
+        'Keep a shared music journal',
+    )
+
+  def test_legacy_project_retains_both_minimal_actors_and_saved_instructions(
+      self,
+  ):
+    old = self.registry.default_document(template.LEGACY_TEMPLATE_KEY)
+    old['instances'][1]['params']['custom_instructions'] = 'Saved Bob\n🎵'
+    reopened = self.registry.loads(self.registry.dumps(old))
+    self.assertEqual(reopened, old)
+    config = self.registry.to_config(reopened)
+    self.assertEqual(
+        [item.prefab for item in config.instances[:2]], ['minimal', 'minimal']
+    )
+    bob = run.build(config).get_entities()[1]
+    self.assertNotIn('SelfPerception', bob.get_all_context_components())
+    self.assertEqual(
+        bob.get_component('Instructions').get_state()['state'], 'Saved Bob\n🎵'
+    )
+
   def test_stable_ids_survive_reorder_and_rename_reference(self):
     self.doc['instances'][2]['params']['name'] = 'Renamed GM'
     self.doc['instances'].reverse()

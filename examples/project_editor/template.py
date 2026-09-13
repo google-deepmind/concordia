@@ -12,20 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ordinary JSON fields on existing minimal actors and dialogic GM."""
+"""Compare standard minimal/basic actors through supported JSON fields."""
 
+import dataclasses
 from typing import Any
 
+from concordia.prefabs.entity import basic
 from concordia.prefabs.entity import minimal
 from concordia.prefabs.game_master import dialogic
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_config
 
-TEMPLATE_KEY = 'conversation-v1'
+TEMPLATE_KEY = 'conversation-v2'
+LEGACY_TEMPLATE_KEY = 'conversation-v1'
 
 
-def make_config() -> prefab_lib.Config:
-  """Fresh prefab definitions, no pre-bound or serialized components."""
+def _legacy_config() -> prefab_lib.Config:
+  """Preserve saved two-minimal-actor projects without changing their meaning."""
   return prefab_lib.Config(
       prefabs={'minimal': minimal.Entity(), 'dialogic': dialogic.GameMaster()},
       instances=[
@@ -80,6 +83,28 @@ def make_config() -> prefab_lib.Config:
   )
 
 
+def make_config() -> prefab_lib.Config:
+  """Contrast Alice's minimal context with Bob's three-question reasoning."""
+  legacy = _legacy_config()
+  bob = prefab_lib.InstanceConfig(
+      prefab='basic',
+      role=prefab_lib.Role.ENTITY,
+      params={
+          'name': 'Bob',
+          'goal': (
+              'As a university roommate, find music that both you and Alice'
+              ' enjoy without assuming either person changes their tastes.'
+          ),
+          'randomize_choices': False,  # pyrefly: ignore[bad-assignment]
+      },
+  )
+  return dataclasses.replace(
+      legacy,
+      prefabs={**legacy.prefabs, 'basic': basic.Entity()},
+      instances=[legacy.instances[0], bob, legacy.instances[2]],
+  )
+
+
 def validate(document: dict[str, Any]) -> None:
   """Constrain the actual dialogic prefab enum, not its generated behavior."""
   gm = next(
@@ -99,8 +124,8 @@ def validate(document: dict[str, Any]) -> None:
 def registry() -> project_config.Registry:
   """Caller-owned fixed template registry; imported JSON chooses no code."""
   return project_config.Registry({
-      TEMPLATE_KEY: project_config.Template(
-          factory=make_config,
+      key: project_config.Template(
+          factory=factory,
           instance_ids=('alice', 'bob', 'conversation'),
           references={
               (
@@ -109,5 +134,9 @@ def registry() -> project_config.Registry:
               ): prefab_lib.Role.GAME_MASTER
           },
           validate=validate,
+      )
+      for key, factory in (
+          (TEMPLATE_KEY, make_config),
+          (LEGACY_TEMPLATE_KEY, _legacy_config),
       )
   })

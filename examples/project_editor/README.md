@@ -1,8 +1,9 @@
 # Initial-project edit → save → reopen → run
 
-This small example adds **one supported template** to Concordia's existing visual
-interface and SimulationServer. Two university roommates discuss music, using the
-library's `minimal.Entity` and `dialogic.GameMaster` prefabs. No new engine,
+This small example adds **a supported roommate-conversation template** to
+Concordia's existing visual interface and SimulationServer. Two university roommates discuss music, using the
+library's `minimal.Entity` (Alice), `basic.Entity` (Bob), and
+`dialogic.GameMaster` prefabs. No new engine,
 acting policy, component system, or web framework is involved.
 
 The bundled **NoLanguageModel** is a development stub. Its output is not a
@@ -28,6 +29,11 @@ page, editing, importing, or saving does **not** execute the simulation.
 
 1. Select **Alice**. Edit `custom_instructions` or `goal`. Text supports quotes,
    line feeds, Unicode, angle brackets, ampersands, and empty strings.
+   Then select **Bob** and edit `goal`. His standard basic prefab adds
+   `SituationPerception`, `SelfPerception`, and `PersonBySituation` components;
+   Alice’s minimal prefab does not. After Run, compare their component cards in
+   the Runtime inspector. A real model would generate Bob’s intermediate
+   reasoning; the bundled stub only demonstrates the editor workflow.
 2. Select **Conversation** (the GM). Change `acting_order` to `random` or
    `game_master_choice`, or change `can_terminate_simulation`. These are the real
    dialogic prefab parameters, not a scripted outcome.
@@ -75,7 +81,7 @@ generally deterministic under seeds. No continuation is implied.
 To use an already configured real model and embedder, adapt the Python `build`
 function; do not put credentials or importable Python names in project files.
 
-## Explicit version-1 support boundary
+## Supported project fields and compatibility
 
 `template.registry()` is a caller-owned allowlist. It names a trusted Python
 factory, the fixed instance IDs `alice`, `bob`, `conversation`, and the supported
@@ -83,10 +89,17 @@ reference field. Imported text cannot import Python or instantiate components.
 
 The document contains:
 
-- `schema_version: 1`, `template: "conversation-v1"`;
+- `schema_version: 1`, `template: "conversation-v2"`;
 - `premise` (text), `max_steps` (integer 1–1000);
 - `instances`, each with stable `id`, registered `prefab`, fixed `role`, and
   the template's exact initial `params`.
+
+`schema_version: 1` identifies the JSON document format, not a Concordia
+release. The template key identifies its fixed cast and editable fields. New
+projects use `conversation-v2` (minimal Alice, basic Bob). Existing
+`conversation-v1` files still open and run with their original two minimal
+actors, including Bob’s saved instructions; importing never silently replaces
+his prefab or drops a field. Both use the same JSON format.
 
 The adapter gets scalar fields/default types from the factory's actual
 Config/InstanceConfig values. It does not introspect or serialize arbitrary
