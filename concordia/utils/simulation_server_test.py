@@ -148,12 +148,14 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertFalse(payload['is_running'])
 
   def test_post_play_resumes_and_get_status_reflects_it(self):
+    self.server.set_simulation(_FakeSimulation())
     status, payload = _request(self.base_url + '/play', method='POST')
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'playing')
     self.assertTrue(self.server.step_controller.is_running)
 
   def test_post_pause(self):
+    self.server.set_simulation(_FakeSimulation())
     self.server.step_controller.play()
     status, payload = _request(self.base_url + '/pause', method='POST')
     self.assertEqual(status, 200)
@@ -161,6 +163,7 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertTrue(self.server.step_controller.is_paused)
 
   def test_get_based_cmd_endpoints_mirror_post_endpoints(self):
+    self.server.set_simulation(_FakeSimulation())
     status, payload = _request(self.base_url + '/cmd/play')
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'playing')
@@ -177,6 +180,8 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(cm.exception.code, 404)
 
   def test_set_component_state_requires_paused(self):
+    fake_sim = _FakeSimulation()
+    self.server.set_simulation(fake_sim)
     self.server.step_controller.play()
     status, payload = _request(
         self.base_url + '/cmd/set_component_state',
@@ -191,6 +196,45 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'error')
     self.assertIn('paused', payload['message'])
+    self.assertEmpty(fake_sim.set_calls)
+    self.assertIsNone(self.server.cached_entity_info)
+
+  def test_rejected_malformed_body_preserves_state_error_and_recovers(self):
+    fake_sim = _FakeSimulation()
+    # Read both rejection responses fully, including when the body is too
+    # malformed to decode. State guards still take precedence over parsing.
+    for message in ('No simulation', 'paused'):
+      with self.subTest(message=message):
+        if message == 'paused':
+          self.server.set_simulation(fake_sim)
+          self.server.step_controller.play()
+        req = urllib.request.Request(
+            self.base_url + '/cmd/set_component_state',
+            data=b'not JSON: ' + bytes([255]) * 65536,
+            headers={'Content-Type': 'application/json'},
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+          self.assertEqual(response.status, 200)
+          payload = json.loads(response.read().decode('utf-8'))
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn(message, payload['message'])
+        self.assertEmpty(fake_sim.set_calls)
+        self.assertIsNone(self.server.cached_entity_info)
+
+    self.server.step_controller.pause()
+    status, payload = _request(
+        self.base_url + '/cmd/set_component_state',
+        method='POST',
+        data={
+            'entity_name': 'alice',
+            'component_name': 'memory',
+            'key': 'foo',
+            'value': 'bar',
+        },
+    )
+    self.assertEqual(status, 200)
+    self.assertEqual(payload['status'], 'ok')
+    self.assertEqual(fake_sim.set_calls, [('alice', 'memory', 'foo', 'bar')])
 
   def test_set_component_state_requires_simulation(self):
     self.assertTrue(self.server.step_controller.is_paused)
