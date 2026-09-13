@@ -94,6 +94,29 @@ mutually exclusive. Omitting both leaves the library's default `ConcatActCompone
 (including its ordering and choice/name-prefix options) unchanged. No parallel
 copy or subclass of the basic prefab is maintained.
 
+## Standard simulation composition
+
+`adventure.configuration(reader, ...)` returns an ordinary prefab `Config`.
+`adventure.build_simulation(model, reader, ...)` constructs the standard
+`concordia.prefabs.simulation.generic.Simulation` without running it. That
+Simulation owns the cast, separate entity banks, shared GM bank, configured
+`Sequential` engine and raw log; `adventure.play(...)` calls its `play` method.
+The GM bank therefore follows the standard Simulation's duplicate-observation
+policy. This is not a new human-play simulation class or a copied engine loop.
+
+Two small example-owned prefab wrappers bind the existing HumanAct policy and
+Auric Vesper's standard SwitchAct/fixed-order components. The ordinary NPC
+prefabs are unchanged. Reader bindings stay outside serialized instance params;
+fresh builds do not copy or share their context components or memory banks.
+`build_cast(...)` remains a compatibility helper backed by the same constructor.
+
+The transport adapter still saves a standard structured-log snapshot after each
+completed step and on interruption, using the Simulation's public raw-log API
+and owned memories. It also delivers the final player-visible observation before
+closing a completed chapter. An interrupted chapter keeps its completed-step
+artifacts without being reported as successful. This refactor does not add
+checkpoint continuation or migrate an existing running game.
+
 ## Phone access on an existing tailnet
 
 The web server binds **only to 127.0.0.1**. Use Tailscale Serve, not Funnel. Inspect

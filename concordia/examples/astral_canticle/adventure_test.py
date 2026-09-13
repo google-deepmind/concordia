@@ -20,8 +20,11 @@ from unittest import mock
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import human_act_component
 from concordia.examples.astral_canticle import adventure
+from concordia.examples.astral_canticle import human_io
 from concordia.language_model import no_language_model
+from concordia.prefabs.simulation import generic
 from concordia.typing import entity as entity_lib
+from concordia.utils import structured_logging
 import pytest
 
 
@@ -161,3 +164,86 @@ def test_basic_selection_keeps_automated_player_when_human_is_gm():
 def test_unknown_player_prefab_is_rejected():
   with pytest.raises(ValueError, match='Unknown player prefab'):
     adventure.build_cast(None, None, player_prefab='typo')
+
+
+def test_simulation_owns_the_run_and_exports_each_completed_step(tmp_path):
+  model = mock.Mock(wraps=no_language_model.NoLanguageModel())
+  model.sample_text.return_value = 'A final visible consequence at the cradle.'
+  session = mock.Mock(return_value='LOOK')
+  built = []
+  builder = adventure.build_simulation
+
+  def capture(*args, **kwargs):
+    simulation = builder(*args, **kwargs)
+    built.append(simulation)
+    return simulation
+
+  def saved_before_progress(step, actor):
+    del actor
+    log = structured_logging.SimulationLog.from_json(
+        (tmp_path / 'simulation.json').read_text()
+    )
+    assert len(log.get_steps()) == step
+    assert log.get_entity_memories(adventure.PLAYER)
+    assert (tmp_path / 'log.html').read_text().startswith('<!DOCTYPE html>')
+
+  session.progress.side_effect = saved_before_progress
+  with mock.patch.object(adventure, 'build_simulation', side_effect=capture):
+    adventure.play(model, session, tmp_path, max_steps=3)
+  assert len(built) == 1
+  simulation = built[0]
+  assert type(simulation) is generic.Simulation
+  assert len(simulation.get_raw_log()) == 3
+  assert simulation.get_entity_prefab_config(adventure.PLAYER).prefab == (
+      'human_player'
+  )
+  assert len(simulation.get_game_masters()) == 1
+  session.add_observation.assert_called_once()
+  assert (
+      'final visible consequence' in session.add_observation.call_args.args[0]
+  )
+  session.finish.assert_called_once()
+  assert not list(tmp_path.glob('*.tmp'))
+
+
+@pytest.mark.parametrize('failure', [human_io.InputClosed, RuntimeError])
+def test_interrupted_input_keeps_completed_steps_without_claiming_completion(
+    tmp_path, failure
+):
+  model = mock.Mock(wraps=no_language_model.NoLanguageModel())
+  model.sample_text.return_value = 'The cradle is visible.'
+  session = mock.Mock(side_effect=['LOOK', failure('Stopped at next prompt')])
+  with pytest.raises(failure):
+    adventure.play(model, session, tmp_path, max_steps=4)
+  assert session.progress.call_count == 3
+  log = structured_logging.SimulationLog.from_json(
+      (tmp_path / 'simulation.json').read_text()
+  )
+  assert len(log.get_steps()) == 3
+  assert log.get_game_master_memories()
+  session.finish.assert_not_called()
+  session.add_observation.assert_not_called()
+  assert not list(tmp_path.glob('*.tmp'))
+
+
+@pytest.mark.parametrize('role', ['player', 'gm'])
+def test_real_transport_is_not_copied_and_builds_have_fresh_components(role):
+  def answer():
+    session.submit(session.snapshot()['pending']['id'], 'LOOK')
+
+  session = human_io.HumanSession(role=role, on_request=answer)
+  model = no_language_model.NoLanguageModel()
+  a = adventure.build_simulation(model, session, role=role)
+  b = adventure.build_simulation(model, session, role=role)
+  cast_a = a.get_entities() + a.get_game_masters()
+  cast_b = b.get_entities() + b.get_game_masters()
+  for first, second in zip(cast_a, cast_b):
+    for key, component in first.get_all_context_components().items():
+      assert component is not second.get_component(key)
+  assert a.game_master_memory_bank is not b.game_master_memory_bank
+  controlled = cast_a[0] if role == 'player' else cast_a[-1]
+  assert (
+      controlled.act(entity_lib.free_action_spec(call_to_action='Your move'))
+      == 'LOOK'
+  )
+  assert session.snapshot()['entries'][-1]['text'] == 'LOOK'
