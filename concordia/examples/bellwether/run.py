@@ -47,8 +47,8 @@ def main(argv=None):
       choices=('slice', 'fixture', 'live'),
       default='slice',
       help=(
-          'slice: original one-turn demo; fixture: scripted full night; live:'
-          ' local model residents'
+          'slice: one-turn shared-service demo; fixture: scripted full night;'
+          ' live: local model residents'
       ),
   )
   parser.add_argument(

@@ -135,8 +135,8 @@ def configuration(
     def build(self, model, memory_bank, *, action_model=bound_action_model):
       return super().build(model, memory_bank, action_model=action_model)
 
-  class Coordinator(prefab_lib.Prefab):
-    """Use the transport-neutral human policy with standard context."""
+  class BellwetherIslandCoordinator(prefab_lib.Prefab):
+    """Bellwether-specific human role using the standard human policy."""
 
     description = 'Human emergency coordinator.'
 
@@ -260,7 +260,7 @@ def configuration(
       default_max_steps=64,
       default_premise='',
       prefabs={
-          'coordinator': Coordinator(),
+          'coordinator': BellwetherIslandCoordinator(),
           'resident': ConfiguredResident(),
           'game_master': GameMaster(),
       },

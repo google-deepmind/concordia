@@ -1,9 +1,9 @@
 # Last Light at Bellwether
 
 **Full three-watch game:** see [GAME.md](GAME.md) for the playable fixture and
-local live-resident modes, the two strategies, and measured validation limits.
+configured live-resident modes, the two strategies, and measured validation limits.
 
-## Original shared-service slice (retained with --mode slice)
+## One-turn shared-service slice (--mode slice)
 
 A **one-turn fixture**, not the complete live game or a research experiment.
 This example teaches a reusable boundary between a human player, the standard
@@ -140,7 +140,7 @@ A separate manually launched one-turn fixture walkthrough verifies human input,
 standard sequential resolution and logs. Automated checks are not human usability
 or social/scientific validation.
 
-**Beyond the original one-turn mode:** three-watch accounting, consent/work,
+**Beyond the one-turn mode:** three-watch accounting, consent/work,
 live residents, two strategies and dawn are now provided by [GAME.md](GAME.md).
 Human 15–25 minute usability remains unmeasured. Still backlog: project authoring,
 full editor-family parity, assets/undo/breakpoints, isolated checkpoint continuation,

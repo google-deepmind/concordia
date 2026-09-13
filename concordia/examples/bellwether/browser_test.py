@@ -133,6 +133,18 @@ def test_gui_cli_semantics_reconnect_and_player_privacy(tmp_path):
         playwright.expect(page.locator('#op-status')).to_contain_text(
             'Connected'
         )
+        # The one-turn transport has no public/private or watch metadata.
+        # Text search must not label its received human context as public.
+        gui.inbox.add_observation('SLICE_SEARCH_SENTINEL: received context')
+        gui.operations.publish({'kind': 'test.received_entry'})
+        player.fill('#journal-search', 'slice_search_sentinel')
+        playwright.expect(
+            player.locator('#journal .story:visible')
+        ).to_have_count(1)
+        playwright.expect(player.locator('#journal-audience')).to_be_disabled()
+        playwright.expect(player.locator('#journal-watch')).to_be_disabled()
+        assert player.locator('#journal [data-audience="public"]').count() == 0
+        player.get_by_role('button', name='Clear filters').click()
         page.locator('#op-snapshot summary').click()
         page.select_option('#op-preview-field', 'target')
         playwright.expect(page.locator('#op-state')).to_contain_text(

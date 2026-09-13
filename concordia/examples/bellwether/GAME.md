@@ -6,8 +6,9 @@ per watch. Looking at the coastal map and resident cards is free. A refused
 request may cost a choice; an ambiguous command does not.
 
 This is a fictional interactive scenario demonstrating standard Concordia
-composition, not a model validated against human behavior. The original
-one-turn `--mode slice` remains available; it is not the full game.
+composition, not a model validated against human behavior. The separate
+one-turn `--mode slice` demonstrates shared editor/player operations; it is not
+the full game.
 
 ## Start from this contribution's source checkout
 
@@ -21,16 +22,18 @@ developer editor. **Begin the night** (or the editor's `run.start`) starts
 exactly one run. Reopening a tab does not restart it. The fixture banner denotes
 deliberately cooperative, programmed responses, never a live model.
 
-For live residents, first make an existing local Ollama model available:
+For live residents, configure your model service before starting:
 
 ```sh
-python -m concordia.examples.bellwether.run --mode live --model llama3.2:3b --resident-prefab minimal --editor-port 8786 --player-port 8787 --output runs/bellwether-live
+python -m concordia.examples.bellwether.run --mode live --resident-prefab minimal --editor-port 8786 --player-port 8787 --output runs/bellwether-live
 ```
 
-No paid backend is required. This command uses the existing Ollama adapter;
-requests have a 90-second HTTP timeout, 256 output-token cap, and a 256-call
-wrapper limit. The standard per-run profiler records timings and token
-**estimates**, not measured billing. Exhausted/invalid output cannot grant
+Use `--model` to select an available resident model. The CLI uses its configured
+default when omitted; the scenario does not require a particular LLM. Python
+callers can pass an existing Concordia `LanguageModel` to `Game(model=...)`.
+The CLI bounds requests with a 90-second HTTP timeout, a 256 output-token cap,
+and a 256-call wrapper limit. The standard per-run profiler records timings and
+token **estimates**, not measured billing. Exhausted/invalid output cannot grant
 consent. Model failures end the run with the retained journal and developer
 error; there is no hidden fixture fallback. Use Ctrl-C to close the owned
 listeners. A new process starts a new night; checkpoint continuation is not
@@ -53,7 +56,7 @@ an embedding-capable model separately in your existing Ollama service:
 
 ```sh
 ollama pull all-minilm
-python -m concordia.examples.bellwether.run --mode live --model llama3.2:3b --resident-prefab basic --embedding-model all-minilm --output runs/bellwether-embeddings
+python -m concordia.examples.bellwether.run --mode live --resident-prefab basic --embedding-model all-minilm --output runs/bellwether-embeddings
 ```
 
 The optional adapter feeds the standard `generic.Simulation` callable-embedder
@@ -77,9 +80,18 @@ model or placeholder; checkpoint compatibility/continuation is not implemented.
 
 Trusted Python callers can instead pass `embedder=callable` to `Game` or
 `SharedGame`, using their existing embedding library. No web configuration can
-load arbitrary Python callables. Slice mode keeps its original fixture default.
+load arbitrary Python callables. Slice mode uses its one-turn fixture.
 
 ## Playing
+
+Use **Search the account** to find words in entries already visible to your
+role. **Audience** and **Watch** narrow the results; **Clear filters** restores
+the full received account. Matching ignores case, preserves literal text, and
+updates as events arrive without changing your action draft. Search stays in
+this page, sends no request, and costs no choice. Role changes clear the filters
+and any entries no longer available to that role. The one-turn slice supports
+text search only: it does not assign audience or watch labels to received
+context.
 
 Select suggestions to fill the input, or enter a command and your own words.
 There is deliberately a small, conservative physical-action vocabulary.
@@ -163,7 +175,8 @@ without imposing scalar trust or a single psychological theory.
 The existing `OperationService`, `SimulationServer` and attached
 `concordia-session` CLI remain the authority. The player GUI uses the same
 `human.respond` handler available on its listener. Developer GUI/CLI edits use
-the same designated `component.edit` as [the original slice](README.md).
+the same designated `component.edit` as the
+[one-turn shared-service slice](README.md).
 
 Additional operations:
 
@@ -222,7 +235,7 @@ the explicit night result, per-step timings, model profile and backend label.
 The 15–25 minute human experience is a target, **not yet measured**. The full
 Bellwether editor/showcase A–H, isolated checkpoint branches, experiments,
 authoring assets/undo/breakpoints, every editor-family parity and fresh
-environment export remain subsequent work. No original workflow acceptance
+environment export remain subsequent work. No broader workflow acceptance
 baseline is upgraded merely because this bounded game now reaches dawn.
 
 ### Standard basic extensions
@@ -417,10 +430,10 @@ phone-network reliability or physical-device usability results.
 
 ### Live basic residents and action-only structured output
 
-The live launcher uses two views of the same local model. The ordinary model
-serves standard basic self-perception, situation-perception and
+The live launcher uses two views of the selected resident model. The ordinary
+model serves standard basic self-perception, situation-perception and
 person-by-situation questions as prose. Only the final standard ConcatAct policy
-uses Ollama's JSON-schema output for the existing decision/speech contract.
+uses schema-constrained output for the existing decision/speech contract.
 The schema permits every existing decision (including refusal and revocation);
 it does not determine consent, truth or material consequences. The game still
 validates actions and enforces the same resource and commitment rules.
@@ -431,9 +444,9 @@ with its previous true default unchanged; basic already supports it. Human
 readers take precedence over the model-backed policy. The action-model binding
 is runtime-only, not a serialized object or an imported module from a project.
 
-For already installed local models, select --mode live --resident-prefab basic
---model llama3.2:3b --embedding-model all-minilm in the normal source-checkout
-launch command. Use unused private ports and a distinct output directory.
+Select `--mode live --resident-prefab basic` in the source-checkout launch
+command, with `--model` and `--embedding-model` selecting your available models.
+Use unused private ports and a distinct output directory.
 Sequential remains the engine. Each HTTP request is limited to 90 seconds and
 256 generated tokens; the existing call-limit wrappers reserve 192 context
 calls and 64 action calls, at most 256 total. The shared standard profiler counts

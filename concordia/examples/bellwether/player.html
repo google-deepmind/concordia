@@ -21,6 +21,7 @@ button:disabled{opacity:.5;cursor:default}#begin,#act{background:var(--gold);col
 pre,.story{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.story{border-top:1px solid #304852;padding:13px 0;margin:0}
 .story small{display:block}.private{border-left:2px solid #7ca6ba;padding-left:12px}
 #journal{max-height:600px;overflow:auto;padding-right:10px}
+#journal-search{display:block;width:100%;margin:8px 0}#journal-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end}#journal-filters label{display:flex;flex-direction:column;gap:6px}
 textarea{width:100%;min-height:116px;padding:12px;background:#102732;color:inherit;border:1px solid #819ca1;border-radius:8px;font:inherit;resize:vertical}
 #choices{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}#choices button{font-size:.85rem}
 #error{color:#ffc1a8;white-space:pre-wrap}#epilogue{background:#192f37;border:1px solid #ad9e77;border-radius:12px;padding:20px;margin-top:26px}
@@ -57,7 +58,12 @@ input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819
 <button id="listen" type="button" disabled>Read latest observation</button> <button id="stop-audio" type="button" disabled>Stop audio</button><p id="latest-spoken" class="subtle"></p>
 <button id="dictate" type="button" disabled>Dictate on this device</button> <button id="finish-dictation" type="button" disabled>Finish dictation</button> <button id="cancel-dictation" type="button" disabled>Cancel dictation</button>
 <label for="transcript">Transcript · review and edit before adding</label><textarea id="transcript" placeholder="Your speech transcript stays here until you add it to your action draft."></textarea><button id="use-transcript" type="button" disabled>Add to action draft</button><p id="voice-status" role="status">Voice is off. Text always works.</p></details>
-<h2>The night’s account</h2><div id="journal" aria-live="polite"></div>
+<h2>The night’s account</h2>
+<label for="journal-search">Search the account</label><input id="journal-search" type="search" placeholder="Find words in your received entries" autocomplete="off" aria-controls="journal" aria-describedby="journal-count">
+<div id="journal-filters"><label for="journal-audience">Audience<select id="journal-audience" aria-controls="journal"><option value="all">All received entries</option><option value="public">Public</option><option value="private">Private to your role</option></select></label>
+<label for="journal-watch">Watch<select id="journal-watch" aria-controls="journal"><option value="all">All watches</option><option value="0">Early evening</option><option value="1">High Tide</option><option value="2">Before Dawn</option><option value="3">Dawn</option></select></label>
+<button id="journal-clear" type="button">Clear filters</button></div>
+<p id="journal-count" class="subtle" role="status"></p><div id="journal" aria-live="polite"></div>
 <details id="agreements" hidden><summary>Commitments and institutions</summary><div id="commitments"></div><div id="institutions"></div></details>
 <details><summary>Your available context</summary><pre id="context"></pre></details>
 <section id="public-account" hidden><h2>Keep a public account</h2>
@@ -116,6 +122,27 @@ input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819
 
  // Preserve native focus; reset retained presentation at every role boundary.
  const rendered=new Map();let journalRows=[];
+ // Search only the server's recipient-scoped projection, never a broader account.
+ function resetJournalFilters(){
+  $('journal-search').value='';$('journal-audience').value='all';$('journal-watch').value='all';$('journal-count').textContent='';
+ }
+ function journalIsFiltered(){return Boolean($('journal-search').value.trim()||$('journal-audience').value!=='all'||$('journal-watch').value!=='all')}
+ function filterJournal(){
+  const query=$('journal-search').value.trim().normalize('NFC').toLocaleLowerCase();
+  const audience=$('journal-audience').value,watch=$('journal-watch').value;
+  const rows=[...$('journal').children];let visible=0;
+  for(const row of rows){
+   const match=row.textContent.normalize('NFC').toLocaleLowerCase().includes(query)&&(audience==='all'||row.dataset.audience===audience)&&(watch==='all'||row.dataset.watch===watch);
+   if(row.hidden===match)row.hidden=!match;
+   if(match)visible++;
+  }
+  const message=visible+' of '+rows.length+' received entries'+(visible?' shown.':rows.length?'. No matches. Clear filters to see your account.':'. No entries yet.');
+  if($('journal-count').textContent!==message)$('journal-count').textContent=message;
+ }
+ $('journal-search').oninput=filterJournal;
+ $('journal-audience').onchange=$('journal-watch').onchange=filterJournal;
+ $('journal-clear').onclick=()=>{resetJournalFilters();filterJournal();$('journal-search').focus()};
+
  function refresh(id,value,draw){const key=JSON.stringify(value);if(rendered.get(id)===key)return;rendered.set(id,key);draw();}
  const labels=['Harbor beacon','Storm shelter','Cooperative cold store','Generator yard'];
  const watches=['Dusk','High Tide','Before Dawn'];let serviceHistoryKey='';
@@ -283,7 +310,7 @@ input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819
  function render(data){
   if(!data||(current&&data.revision<current.revision))return;current=data;
   const state=data.result;
-  if(state.lobby){rendered.clear();journalRows=[];voice.disconnect();visualNotes.disconnect();invalidatePreview();previewScope='';$('join').hidden=false;$('play').hidden=true;$('jump-action').hidden=true;
+  if(state.lobby){rendered.clear();journalRows=[];resetJournalFilters();voice.disconnect();visualNotes.disconnect();invalidatePreview();previewScope='';$('join').hidden=false;$('play').hidden=true;$('jump-action').hidden=true;
    for(const id of ['context','journal','prompt','outcome','responses'])$(id).replaceChildren();
    if(identity){$('action').value='';identity='';}resetSubmission();$('join-submit').disabled=!connected||navigator.onLine===false;ownJoin();return;}
   $('join').hidden=true;$('play').hidden=false;
@@ -291,7 +318,7 @@ input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819
   const failed=state.phase==='failed',completed=state.phase==='completed',closed=runIsClosed(state);
   const role=state.role||'Coordinator',spectator=role==='spectator',isResident=state.multiplayer&&role!=='Coordinator'&&!spectator;
   const nextIdentity=data.references.session_id+':'+role;
-  if(identity!==nextIdentity){resetSubmission();rendered.clear();journalRows=[];$('journal').replaceChildren();identity=nextIdentity;draftKey='bellwether-draft:'+identity;$('action').value=sessionStorage.getItem(draftKey)||'';retry=null;}
+  if(identity!==nextIdentity){resetSubmission();rendered.clear();journalRows=[];resetJournalFilters();$('journal').replaceChildren();identity=nextIdentity;draftKey='bellwether-draft:'+identity;$('action').value=sessionStorage.getItem(draftKey)||'';retry=null;}
   $('role-badge').textContent=night?(state.multiplayer?(spectator?'Spectator · public events only':'Shared night · You are '+roleLabel(role)+' · Two human roles and '+(state.fixture?'three scripted residents':'three AI residents')):'Single player · You are Coordinator Alice · '+(state.fixture?'Four scripted residents':'Four AI residents')):'One-turn fixture · You are Coordinator Alice';
   $('first-play').hidden=!night;
   $('role-guide').textContent=spectator?'Watch public events and material consequences. Private journals and action controls are not available to spectators.':isResident?'You control Nell’s words and decisions. Accept, decline or offer different terms when addressed. Accepting records consent; Coordinator Alice still has to carry out any transfer. Only you can submit your turn. Reloading keeps your approved browser role.':'You play Alice, the Coordinator. Early evening is the first watch, recorded as Dusk in the account. Coordinate three watches of service. Ask for consent, arrange transfers and work, and choose what to supply. A request, an accepted commitment and a performed action are different. Every valid sent attempt costs one choice, including refusal. Looking around and checking an interpretation are free. Send only when ready; partial outcomes are possible.';
@@ -348,11 +375,15 @@ input,select{font:inherit;background:#102732;color:inherit;border:1px solid #819
   if(journalRows.length>rows.length||journalRows.some((row,index)=>row!==rows[index])){journal.replaceChildren();journalRows=[];}
   for(const entry of entries.slice(journalRows.length)){
    const p=text(journal,'p','','story'+(entry.recipients?.length<5?' private':''));
+   p.dataset.audience=night?(entry.recipients?.length<5?'private':'public'):'received';p.dataset.watch=night?String(entry.watch):'';
    if(night)text(p,'small',(entry.watch<3?watchLabel(watches[entry.watch]):'Dawn')+(entry.recipients.length<5?' · Private':''));
    text(p,'span',entry.text);
   }
   journalRows=rows;
-  if(atEnd)journal.scrollTop=journal.scrollHeight;
+  $('journal-audience').disabled=$('journal-watch').disabled=!night;
+  if(!night){$('journal-audience').value='all';$('journal-watch').value='all';}
+  filterJournal();
+  if(atEnd&&!journalIsFiltered())journal.scrollTop=journal.scrollHeight;
   const context=human.pending?.context||'';if($('context').textContent!==context)$('context').textContent=context;
   $('prompt').textContent=failed?'This run has stopped':completed?'The night has ended':human.finished?'No further actions are accepted':human.pending?.prompt||(night?'The island is responding…':'Waiting for the next prompt');
   $('role-wait').textContent=isResident&&!closed&&!human.pending?'Waiting for a conversation or request addressed to Nell. Other players cannot act for you.':'';
