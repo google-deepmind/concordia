@@ -94,6 +94,23 @@ class ActingPolicyInjectionTest(parameterized.TestCase):
       normal_model.reset_mock()
       script_model.reset_mock()
 
+  @parameterized.parameters(
+      ({}, 'Player '),
+      ({'prefix_entity_name': True}, 'Player '),
+      ({'prefix_entity_name': False}, ''),
+  )
+  def test_minimal_free_response_prefix_is_configurable_with_same_default(
+      self, options, prefix
+  ):
+    model = mock.Mock(wraps=no_language_model.NoLanguageModel())
+    model.sample_text.return_value = '{"decision": "decline"}'
+    actor = minimal.Entity(params={'name': 'Player', **options}).build(
+        model, _memory()
+    )
+    self.assertEqual(actor.act(), prefix + '{"decision": "decline"}')
+    prompt = model.sample_text.call_args.kwargs['prompt']
+    self.assertTrue(prompt.endswith('Answer: ' + prefix))
+
   @parameterized.parameters(basic, minimal)
   def test_prebuilt_policy_identity_and_mutually_exclusive_arguments(
       self, prefab

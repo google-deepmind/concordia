@@ -21,6 +21,7 @@ from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as agent_components
 from concordia.language_model import language_model
+from concordia.prefabs.entity import component_options
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
@@ -32,7 +33,11 @@ _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH = 5
 
 @dataclasses.dataclass
 class Entity(prefab_lib.Prefab):
-  """A prefab implementing a basic actor entity."""
+  """A basic actor supporting the minimal prefab’s optional extra components.
+
+  Uses the same component extension semantics as the minimal prefab. Omitted
+  extensions leave the standard perception chain, memory and order unchanged.
+  """
 
   description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking '
@@ -185,7 +190,7 @@ class Entity(prefab_lib.Prefab):
         ),
     )
 
-    components_of_agent = {
+    components_of_agent: dict[str, entity_component.ContextComponent] = {
         instructions_key: instructions,
         observation_to_memory_key: observation_to_memory,
         self_perception_key: self_perception,
@@ -196,6 +201,9 @@ class Entity(prefab_lib.Prefab):
     }
 
     component_order = list(components_of_agent.keys())
+    component_options.add_extra_components(
+        components_of_agent, component_order, self.params
+    )
 
     if overarching_goal is not None:
       components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
