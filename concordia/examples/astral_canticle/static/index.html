@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111923" />
+    <meta
+      name="description"
+      content="A small command, a city of consequences. A human-controlled science-fantasy adventure."
+    />
+    <title>The Astral Canticle · Play</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="static/style.css" />
+    <script src="static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="The Astral Canticle"
+        ><span class="sigil" aria-hidden="true">✳</span
+        ><span>THE ASTRAL<br /><b>CANTICLE</b></span></a
+      >
+      <nav aria-label="Adventure tools">
+        <button id="font" aria-label="Toggle larger story text">Aa</button
+        ><button id="help-button" aria-expanded="false" aria-controls="help">
+          Guide</button
+        ><a href="api/journal" download>Journal ↗</a>
+      </nav>
+    </header>
+    <main>
+      <section class="opening" aria-labelledby="title">
+        <div class="eyebrow">
+          <span class="line"></span>AURIC VESPER · A SCIENCE-FANTASY ADVENTURE
+        </div>
+        <h1 id="title">
+          A small command.<br /><em>A city of consequences.</em>
+        </h1>
+        <p class="lede">
+          A sleeping moon. A fractured star-loom. And you, with a lantern in
+          your hand.
+        </p>
+        <div class="character">
+          <span class="portrait" aria-hidden="true">IV</span>
+          <div>
+            <small id="role-label">YOU ARE</small
+            ><strong id="character-name">Ilyra Venn</strong
+            ><span id="character-detail"
+              >Astromancer · Engineer · Entirely your own mind</span
+            >
+          </div>
+        </div>
+      </section>
+      <section id="help" class="help" hidden aria-label="How to play">
+        <h2>The world listens to ordinary words.</h2>
+        <p>
+          Describe one thing you try. Explore, speak, experiment. The world
+          answers; your companions make their own choices.
+        </p>
+        <dl>
+          <dt>LOOK / EXAMINE cradle</dt>
+          <dd>Notice your surroundings and search for clues.</dd>
+          <dt>INVENTORY / TAKE tuning fork</dt>
+          <dd>Check or change what you carry.</dd>
+          <dt>WEST / TALK TO Sable-9</dt>
+          <dd>Follow an exit or begin a conversation.</dd>
+          <dt>USE tuning fork ON cradle</dt>
+          <dd>Try an idea. Exact phrasing is never required.</dd>
+        </dl>
+        <p>
+          Closing this page is fine. Return on this device to continue the same
+          adventure while the host is running. Your draft stays here; submitted
+          actions are never repeated automatically.
+        </p>
+      </section>
+      <div class="chapter">
+        <span>CHAPTER I</span><span>THE DISSONANT THREAD</span
+        ><span aria-hidden="true">✧</span>
+      </div>
+      <section
+        id="story"
+        aria-label="Adventure transcript"
+        aria-live="polite"
+        aria-relevant="additions"
+      ></section>
+      <section id="entity-context" hidden aria-labelledby="context-title">
+        <h2 id="context-title">Your context</h2>
+        <pre id="context"></pre>
+      </section>
+      <div id="waiting" class="waiting" role="status">
+        <span class="pulse" aria-hidden="true"></span
+        ><span id="status">Connecting to Auric Vesper…</span>
+      </div>
+      <p id="ending" hidden>
+        This chapter is yours to keep. Download your journal above.
+      </p>
+      <div id="new-entry" hidden>
+        <button id="jump">↓ Return to the latest passage</button>
+      </div>
+    </main>
+    <section class="composer" aria-label="Your next action">
+      <div class="composer-inner">
+        <div class="turnline">
+          <label id="prompt" for="command">What do you do?</label
+          ><span id="connection">CONNECTING</span>
+        </div>
+        <div
+          id="choices"
+          class="choices"
+          aria-label="Available choices"
+          hidden
+        ></div>
+        <div id="spec-builder" hidden>
+          <label
+            >Ask the next actor<input
+              id="spec-prompt"
+              value="What do you do next?"
+              maxlength="4000"
+          /></label>
+          <label
+            >Response kind<select id="spec-type">
+              <option value="free">Free text</option>
+              <option value="choice">Choice</option>
+              <option value="float">Number</option>
+              <option value="skip_this_step">Skip</option>
+            </select></label
+          >
+          <label
+            >Choices (one per line)<textarea
+              id="spec-options"
+              rows="2"
+            ></textarea>
+          </label>
+          <button id="build-spec" type="button">Use this action request</button>
+        </div>
+        <form id="action-form">
+          <span class="chevron" aria-hidden="true">›</span>
+          <textarea
+            id="command"
+            name="command"
+            rows="2"
+            maxlength="8000"
+            aria-describedby="feedback"
+            placeholder="Examine the resonance cradle…"
+            autocomplete="off"
+            enterkeyhint="send"
+          ></textarea>
+          <button id="send" type="submit" disabled aria-label="Submit action">
+            Act <span aria-hidden="true">↵</span>
+          </button>
+        </form>
+        <p id="feedback" role="alert"></p>
+        <div class="shortcuts" aria-label="Command ideas">
+          <button data-command="Look around">Look</button
+          ><button data-command="Check my inventory">Inventory</button
+          ><button data-command="Examine the resonance cradle">Examine</button
+          ><button data-command="Talk to Sable-9">Talk</button
+          ><span>YOUR WORDS. YOUR CHOICE.</span>
+        </div>
+      </div>
+    </section>
+    <noscript
+      >This adventure needs JavaScript to submit actions. Enable it and reload;
+      no action has been sent.</noscript
+    >
+  </body>
+</html>
