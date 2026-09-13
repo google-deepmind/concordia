@@ -20,6 +20,38 @@ from concordia.components.agent import action_spec_ignored
 from concordia.typing import entity_component
 
 
+def validate_component_order(
+    component_order: Sequence[str] | None,
+) -> tuple[str, ...] | None:
+  """Snapshot an acting component's order, rejecting duplicate keys."""
+  order = tuple(component_order) if component_order is not None else None
+  if order is not None and len(set(order)) != len(order):
+    raise ValueError(
+        'The component order contains duplicate components: ' + ', '.join(order)
+    )
+  return order
+
+
+def concat_contexts(
+    contexts: entity_component.ComponentContextMapping,
+    component_order: Sequence[str] | None = None,
+) -> str:
+  """Assemble pre-act contexts using ConcatAct's ordering and whitespace rules.
+
+  None uses mapping iteration order. An explicit order (including an empty
+  sequence) appends unspecified keys in sorted order. Empty values are omitted;
+  labels, whitespace and line breaks inside other values are kept verbatim.
+  Explicit keys absent from contexts raise KeyError. Constructors validate and
+  snapshot the order with validate_component_order.
+  """
+  if component_order is None:
+    return '\n'.join(context for context in contexts.values() if context)
+  order = tuple(component_order) + tuple(
+      sorted(set(contexts.keys()) - set(component_order))
+  )
+  return '\n'.join(contexts[name] for name in order if contexts[name])
+
+
 class Concatenate(
     action_spec_ignored.ActionSpecIgnored, entity_component.ComponentWithLogging
 ):
