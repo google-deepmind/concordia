@@ -183,7 +183,7 @@ def run_simulation(
                 "alignment": p.alignment.value,
                 "setup_intro": player_intros[p.name],
                 "strategy": strategy_prompt,
-                "player_can_pass": player_can_pass,
+                "player_can_pass": player_can_pass,  # pyrefly: ignore[bad-assignment]
             },
         )
     )
@@ -195,7 +195,7 @@ def run_simulation(
           role=prefab_lib.Role.GAME_MASTER,
           params={  # pyrefly: ignore[bad-argument-type]
               "name": "Game Master",
-              "extra_components": {
+              "extra_components": {  # pyrefly: ignore[bad-assignment]
                   "__terminate__": game_master_component,
                   "__make_observation__": game_master_component,
                   "__next_acting__": game_master_component,
