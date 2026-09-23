@@ -209,6 +209,16 @@ For **human users**, the easiest way to browse logs interactively is to open
 `utils/log_viewer.html` in a browser and load the structured log JSON file.
 The viewer renders inline images and supports lazy expansion of large entries.
 
+To create a portable HTML file with the structured log already loaded, use:
+
+```bash
+concordia-log bundle sim_structured.json --output sim_viewer.html
+```
+
+The generated viewer is self-contained and can be opened offline or shared as a
+single file. It includes all component data, prompts, and memories from the
+source log, so review the log contents before sharing it.
+
 ---
 
 ## Secondary Approach: Python API
