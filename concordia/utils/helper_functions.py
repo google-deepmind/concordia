@@ -289,6 +289,43 @@ def remove_duplicate_dicts(
   return unique_dicts
 
 
+def _make_hashable(value: Any) -> Any:
+  """Returns a hashable stand-in for `value`, recursing into containers."""
+  if isinstance(value, dict):
+    return frozenset((k, _make_hashable(v)) for k, v in value.items())
+  if isinstance(value, (list, tuple)):
+    return tuple(_make_hashable(v) for v in value)
+  if isinstance(value, (set, frozenset)):
+    return frozenset(_make_hashable(v) for v in value)
+  try:
+    hash(value)
+  except TypeError:
+    return repr(value)
+  return value
+
+
+def remove_duplicate_values(values: Sequence[Any]) -> Sequence[Any]:
+  """Removes duplicate values from a list, preserving first-seen order.
+
+  Unlike `remove_duplicate_dicts`, this works for any mix of dicts, lists and
+  scalar values.
+
+  Args:
+    values: the values to deduplicate.
+
+  Returns:
+    The values with duplicates removed, in first-seen order.
+  """
+  seen = set()
+  unique_values = []
+  for value in values:
+    hashable = _make_hashable(value)
+    if hashable not in seen:
+      unique_values.append(value)
+      seen.add(hashable)
+  return unique_values
+
+
 def find_data_in_nested_structure(
     data: Sequence[Any] | dict[str, Any],
     key: str,
@@ -300,12 +337,16 @@ def find_data_in_nested_structure(
     for k, v in data.items():
       if k == key:
         results.append(v)
-      results.extend(find_data_in_nested_structure(v, key))
+      results.extend(
+          find_data_in_nested_structure(v, key, remove_duplicates=False)
+      )
   elif isinstance(data, list):
     for item in data:
-      results.extend(find_data_in_nested_structure(item, key))
+      results.extend(
+          find_data_in_nested_structure(item, key, remove_duplicates=False)
+      )
   if remove_duplicates:
-    return remove_duplicate_dicts(results)
+    return remove_duplicate_values(results)
   return results
 
 
