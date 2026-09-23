@@ -97,15 +97,13 @@ class Measurements:
     """Closes the channel for the given name.
 
     Args:
-      channel: The channel to close. If the channel doesn't exist yet, it will
-        be created.
+      channel: The channel to close. If the channel doesn't exist, this is a
+        no-op.
     """
     with self._channels_lock:
-      del self._channels[channel]
+      self._channels.pop(channel, None)
 
   def close(self) -> None:
     """Closes all channels."""
     with self._channels_lock:
-      for channel in self._channels:
-        self.close_channel(channel)
       self._channels.clear()
