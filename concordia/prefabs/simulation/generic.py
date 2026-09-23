@@ -19,6 +19,7 @@ import copy
 import functools
 import json
 import os
+import tempfile
 from typing import Any
 
 from absl import logging
@@ -33,7 +34,6 @@ from concordia.typing import prefab as prefab_lib
 from concordia.typing import simulation as simulation_lib
 from concordia.utils import structured_logging
 import numpy as np
-
 
 Config = prefab_lib.Config
 Role = prefab_lib.Role
@@ -520,7 +520,11 @@ class Simulation(simulation_lib.Simulation):
     )
 
   def save_checkpoint(self, step: int, checkpoint_path: str):
-    """Saves the state of all entities at the current step."""
+    """Publish a complete checkpoint file, preserving the old file on failure.
+
+    Uses same-directory replacement after JSON serialization and file closure.
+    This is not a power-loss durability or atomic in-memory restore guarantee.
+    """
     if not checkpoint_path and not self._get_state_callback:
       return
 
@@ -536,12 +540,31 @@ class Simulation(simulation_lib.Simulation):
     checkpoint_file = os.path.join(
         checkpoint_path, f"step_{step}_checkpoint.json"
     )
+    temporary_path = None
     try:
-      with open(checkpoint_file, "w") as f:
+      with tempfile.NamedTemporaryFile(
+          mode="w",
+          encoding="utf-8",
+          dir=checkpoint_path,
+          prefix=f".step_{step}_checkpoint_",
+          suffix=".tmp",
+          delete=False,
+      ) as f:
+        temporary_path = f.name
         json.dump(checkpoint_data, f, indent=2)
+      os.replace(temporary_path, checkpoint_file)
+      temporary_path = None
       logging.info("Step %s: Saved checkpoint to %s", step, checkpoint_file)
     except IOError as e:
       logging.error("Error saving checkpoint at step %s: %s", step, e)
+    finally:
+      if temporary_path is not None:
+        try:
+          os.remove(temporary_path)
+        except FileNotFoundError:
+          pass
+        except OSError as e:
+          logging.warning("Could not remove checkpoint staging file: %s", e)
 
   def load_from_checkpoint(
       self,

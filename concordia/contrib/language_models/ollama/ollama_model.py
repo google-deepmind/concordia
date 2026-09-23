@@ -14,15 +14,15 @@
 
 """Ollama Language Model, a wrapper for models running on the local machine."""
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
+import copy
 import json
-from typing import override
+from typing import Any, Literal, override, TypedDict
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import ollama
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
@@ -39,6 +39,10 @@ _DEFAULT_SYSTEM_MESSAGE = (
 )
 
 
+class _TextFormatOptions(TypedDict, total=False):
+  format: Literal['json'] | dict[str, Any]
+
+
 class OllamaLanguageModel(language_model.LanguageModel):
   """Language Model that uses Ollama LLM models."""
 
@@ -49,6 +53,9 @@ class OllamaLanguageModel(language_model.LanguageModel):
       system_message: str = _DEFAULT_SYSTEM_MESSAGE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      request_timeout: float | None = None,
+      max_output_tokens: int | None = None,
+      response_format: str | Mapping[str, Any] | None = None,
   ) -> None:
     """Initializes the instance.
 
@@ -59,9 +66,28 @@ class OllamaLanguageModel(language_model.LanguageModel):
           model.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
+        request_timeout: Optional HTTP timeout in seconds for local requests.
+        max_output_tokens: Upper bound, including callers with larger limits.
+        response_format: Optional sample_text format: 'json' or an Ollama JSON
+          schema. Omitted by default; sample_choice retains its own format.
+          The provider constrains shape, not factual or semantic correctness.
     """
+    if (
+        response_format is not None
+        and response_format != 'json'
+        and not (isinstance(response_format, Mapping))
+    ):
+      raise ValueError("response_format must be 'json', a schema or None")
+    self._text_format_options: _TextFormatOptions = {}
+    if isinstance(response_format, Mapping):
+      self._text_format_options['format'] = copy.deepcopy(dict(response_format))
+    elif response_format == 'json':
+      self._text_format_options['format'] = 'json'
     self._model_name = model_name
-    self._client = ollama.Client()
+    self._client = ollama.Client(timeout=request_timeout)
+    if max_output_tokens is not None and max_output_tokens <= 0:
+      raise ValueError('max_output_tokens must be positive')
+    self._max_output_tokens = max_output_tokens
     self._system_message = system_message
     self._terminators = []
 
@@ -81,7 +107,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del timeout, seed  # HTTP timeout is configured on the shared client.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -92,11 +118,17 @@ class OllamaLanguageModel(language_model.LanguageModel):
         prompt=prompt_with_system_message,
         options={
             'stop': terminators,
+            'num_predict': (
+                min(max_tokens, self._max_output_tokens)
+                if self._max_output_tokens is not None
+                else max_tokens
+            ),
             'temperature': temperature,
             'top_p': top_p,
             'top_k': top_k,
         },
         keep_alive='10m',
+        **self._text_format_options,
     )
     result = response['response']
 
@@ -132,7 +164,15 @@ class OllamaLanguageModel(language_model.LanguageModel):
               f'{prompt_with_system_message}.\n'
               f'Use the following json template: {json.dumps(template)}.'
           ),
-          options={'stop': (), 'temperature': temperature},
+          options={
+              'stop': (),
+              'temperature': temperature,
+              **(
+                  {'num_predict': self._max_output_tokens}
+                  if self._max_output_tokens is not None
+                  else {}
+              ),
+          },
           format='json',
           keep_alive='10m',
       )

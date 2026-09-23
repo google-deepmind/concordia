@@ -14,13 +14,15 @@
 
 """A prefab implementing an entity with a minimal set of components."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as agent_components
 from concordia.language_model import language_model
+from concordia.prefabs.entity import component_options
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
 DEFAULT_INSTRUCTIONS_COMPONENT_KEY = 'Instructions'
@@ -50,6 +52,7 @@ class Entity(prefab_lib.Prefab):
           # will be inserted at the end of the component order.
           'extra_components_index': {},
           'randomize_choices': True,
+          'prefix_entity_name': True,
       }
   )
 
@@ -57,19 +60,36 @@ class Entity(prefab_lib.Prefab):
       self,
       model: language_model.LanguageModel,
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
+      *,
+      act_component: entity_component.ActingComponent | None = None,
+      act_component_factory: (
+          Callable[[Sequence[str]], entity_component.ActingComponent] | None
+      ) = None,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     """Build an agent.
 
     Args:
       model: The language model to use.
       memory_bank: The agent's memory_bank object.
+      act_component: Optional runtime acting policy, e.g. HumanActComponent.
+        Context components and logging are unchanged. Omitted by default,
+        preserving the normal LLM policy.
+      act_component_factory: Optional runtime factory receiving the exact
+        prefab context order. Use for an order-aware replacement policy.
+        Cannot be combined with act_component.
 
     Returns:
       An entity.
     """
 
+    if act_component is not None and act_component_factory is not None:
+      raise ValueError(
+          'Provide act_component or act_component_factory, not both.'
+      )
+
     agent_name = self.params.get('name', 'Alice')
     randomize_choices = self.params.get('randomize_choices', True)
+    prefix_entity_name = self.params.get('prefix_entity_name', True)
 
     custom_instructions = self.params.get('custom_instructions', None)
     if custom_instructions is not None:
@@ -90,7 +110,7 @@ class Entity(prefab_lib.Prefab):
         history_length=100, pre_act_label=observation_label
     )
 
-    components_of_agent = {
+    components_of_agent: dict[str, entity_component.ContextComponent] = {
         DEFAULT_INSTRUCTIONS_COMPONENT_KEY: instructions,
         'observation_to_memory': observation_to_memory,
         agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (
@@ -103,28 +123,9 @@ class Entity(prefab_lib.Prefab):
 
     component_order = list(components_of_agent.keys())
 
-    # Add the extra components to the end of the component order.
-    extra_components = self.params.get('extra_components', {})
-    extra_components_index = self.params.get('extra_components_index', {})
-
-    # Check that extra_components_index is a dict.
-    if not isinstance(extra_components_index, dict) or not isinstance(
-        extra_components, dict
-    ):
-      raise ValueError(
-          'extra_components_index and extra_components must be dict. Got'
-          f' {type(extra_components_index)} and {type(extra_components)}'
-      )
-
-    if extra_components:
-      if not extra_components_index:
-        extra_components_index = {
-            component_name: -1
-            for component_name in extra_components.keys()
-        }
-      for component_name, index in extra_components_index.items():
-        components_of_agent[component_name] = extra_components[component_name]
-        component_order.insert(index, component_name)
+    component_options.add_extra_components(
+        components_of_agent, component_order, self.params
+    )
 
     if self.params.get('goal', ''):
       goal_key = DEFAULT_GOAL_COMPONENT_KEY
@@ -136,11 +137,16 @@ class Entity(prefab_lib.Prefab):
       # Place goal after the instructions.
       component_order.insert(1, goal_key)
 
-    act_component = agent_components.concat_act_component.ConcatActComponent(
-        model=model,
-        component_order=component_order,
-        randomize_choices=randomize_choices,  # pyrefly: ignore[bad-argument-type]
-    )
+    if act_component_factory is not None:
+      act_component = act_component_factory(tuple(component_order))
+    elif act_component is None:
+      act_component = agent_components.concat_act_component.ConcatActComponent(
+          model=model,
+          component_order=component_order,
+          randomize_choices=randomize_choices,  # pyrefly: ignore[bad-argument-type]
+          # pyrefly: ignore[bad-argument-type]
+          prefix_entity_name=prefix_entity_name,
+      )
 
     agent = entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=agent_name,
