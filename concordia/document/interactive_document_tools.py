@@ -387,7 +387,7 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
       original_indices = list(range(len(answers)))
 
     letters = 'abcdefghijklmnopqrstuvwxyz'
-    options = {
+    options: dict[str, Any] = {
         letters[i]: answers[idx] for i, idx in enumerate(original_indices)
     }
 
@@ -418,14 +418,25 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
 
       if tool_call is None:
         # Not a tool call - try to parse as answer choice
-        # Look for a letter choice in the response
         response_lower = response.lower().strip()
-        for letter in options.keys():
-          if letter in response_lower:
-            self._model_response(f'({letter})\n')
-            # Find the original index
-            letter_idx = list(options.keys()).index(letter)
-            return original_indices[letter_idx]
+        option_letters = ''.join(options)
+        standalone_choice = re.fullmatch(
+            rf'([{option_letters}])', response_lower
+        )
+        parenthesized_choices = set(
+            re.findall(rf'\(([{option_letters}])\)', response_lower)
+        )
+        if standalone_choice is not None:
+          letter = standalone_choice.group(1)
+        elif len(parenthesized_choices) == 1:
+          letter = parenthesized_choices.pop()
+        else:
+          letter = None
+        if letter is not None:
+          self._model_response(f'({letter})\n')
+          # Find the original index
+          letter_idx = list(options.keys()).index(letter)
+          return original_indices[letter_idx]
 
         # Couldn't parse - treat as final response and use sample_choice
         self._model_response(response + '\n')

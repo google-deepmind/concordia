@@ -54,7 +54,7 @@ class Document:
     Args:
       contents: Initial contents of the document.
     """
-    # TODO: b/311191572 - be more efficient if contents is a tupel iter.
+    # TODO: b/311191572 - be more efficient if contents is a tuple iter.
     self._contents = tuple(contents)
 
   # TODO: b/311191905 - implement __iadd__, __add__?
@@ -128,9 +128,9 @@ class Document:
   def edit(self: T) -> Iterator[T]:
     """Edits the current document.
 
-    Creates a edit based on the current document. Once the context is completed,
-    the edit will be committed to the document. If you wish not to commit the
-    edit call edit.clear() before leavign the context.
+    Creates an edit based on the current document. Once the context is
+    completed, the edit will be committed to the document. If you wish not to
+    commit the edit call edit.clear() before leaving the context.
 
     Yields:
       The document being edited.
