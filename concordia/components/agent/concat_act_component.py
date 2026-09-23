@@ -15,8 +15,10 @@
 """A simple acting component that aggregates contexts from components."""
 
 from collections.abc import Sequence
+from typing import cast
 from typing import override
 
+from concordia.components.agent import concat
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -52,9 +54,8 @@ class ConcatActComponent(
         assembled in the iteration order of the `ComponentContextMapping` passed
         to `get_action_attempt`. If the component order is specified, but does
         not contain all the components passed to `get_action_attempt`, the
-        missing components will be appended at the end in the iteration order of
-        the `ComponentContextMapping` passed to `get_action_attempt`. The same
-        component cannot appear twice in the component order. All components in
+        missing components will be appended at the end in sorted key order.
+        The same component cannot appear twice in the component order. All components in
         the component order must be in the `ComponentContextMapping` passed to
         `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
@@ -70,28 +71,13 @@ class ConcatActComponent(
     self._model = model
     self._prefix_entity_name = prefix_entity_name
     self._randomize_choices = randomize_choices
-    if component_order is None:
-      self._component_order = None
-    else:
-      self._component_order = tuple(component_order)
-    if self._component_order is not None:
-      if len(set(self._component_order)) != len(self._component_order):
-        raise ValueError(
-            'The component order contains duplicate components: '
-            + ', '.join(self._component_order)
-        )
+    self._component_order = concat.validate_component_order(component_order)
 
   def _context_for_action(
       self,
       contexts: entity_component.ComponentContextMapping,
   ) -> str:
-    if self._component_order is None:
-      return '\n'.join(context for context in contexts.values() if context)
-    else:
-      order = self._component_order + tuple(
-          sorted(set(contexts.keys()) - set(self._component_order))
-      )
-      return '\n'.join(contexts[name] for name in order if contexts[name])
+    return concat.concat_contexts(contexts, self._component_order)
 
   @override
   def get_action_attempt(
@@ -179,8 +165,8 @@ class ConcatActComponent(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     if 'component_order' in state:
-      order = state['component_order']
-      self._component_order = tuple(order) if order else None  # pyrefly: ignore[bad-argument-type]
+      order = cast(Sequence[str] | None, state['component_order'])
+      self._component_order = tuple(order) if order else None
     if 'prefix_entity_name' in state:
       self._prefix_entity_name = state['prefix_entity_name']  # pyrefly: ignore[bad-assignment]
     if 'randomize_choices' in state:
