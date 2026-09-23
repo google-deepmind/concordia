@@ -49,21 +49,11 @@ def parse_duration_seconds(duration_str: str) -> int:
   duration_str = duration_str.strip()
   if not duration_str or duration_str == '0':
     return 0
-  hours = 0
-  minutes = 0
-  parsed = False
-  if 'h' in duration_str:
-    parts = duration_str.split('h', 1)
-    hours = int(parts[0])
-    rest = parts[1]
-    parsed = True
-  else:
-    rest = duration_str
-  if rest.endswith('m'):
-    minutes = int(rest[:-1])
-    parsed = True
-  if not parsed:
+  match = re.fullmatch(r'(?:(\d+)h)?(?:(\d+)m)?', duration_str)
+  if match is None or not any(match.groups()):
     return 3600  # Default fallback: 1 hour.
+  hours = int(match.group(1) or 0)
+  minutes = int(match.group(2) or 0)
   return hours * 3600 + minutes * 60
 
 

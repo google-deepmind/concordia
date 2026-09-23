@@ -26,6 +26,8 @@ class ParseDurationSecondsTest(parameterized.TestCase):
 
   @parameterized.parameters(
       ('0m', 0),
+      ('0h', 0),
+      ('0h0m', 0),
       ('0', 0),
       ('5m', 300),
       ('2h', 7200),
@@ -40,9 +42,17 @@ class ParseDurationSecondsTest(parameterized.TestCase):
         expected,
     )
 
-  def test_unparseable_defaults_to_one_hour(self):
+  @parameterized.parameters(
+      'abc',
+      '1hour',
+      '1h30mx',
+      '1hgarbage',
+      'h',
+      'm',
+  )
+  def test_unparseable_defaults_to_one_hour(self, input_str):
     self.assertEqual(
-        interrupt_time_model.parse_duration_seconds('abc'),
+        interrupt_time_model.parse_duration_seconds(input_str),
         3600,
     )
 
