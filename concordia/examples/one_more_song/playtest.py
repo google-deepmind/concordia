@@ -166,8 +166,11 @@ def main():
         if turn < 2:
           page.wait_for_function(
               '() => document.querySelectorAll(".entry").length >='
-              f' {(turn+1)*3}'
+              f' {(turn+1)*3} || document.querySelector("#form").hidden'
           )
+          assert not page.locator('#form').is_hidden(), page.locator(
+              '#status'
+          ).inner_text()
           page.wait_for_function(
               '() => !document.querySelector("#send").disabled'
           )
@@ -175,7 +178,10 @@ def main():
               path=str(a.output / f'after-action-{turn+1}.png'), full_page=True
           )
         else:
-          page.wait_for_selector('#result:not([hidden])')
+          page.wait_for_function('() => document.querySelector("#form").hidden')
+          assert page.locator('#result').is_visible(), page.locator(
+              '#status'
+          ).inner_text()
         timings.append(round(time.monotonic() - turn_start, 3))
       if not a.real:
         assert 'Encore agreed' in page.locator('#ending').inner_text()

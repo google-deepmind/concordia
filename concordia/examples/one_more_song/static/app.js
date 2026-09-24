@@ -23,6 +23,7 @@ function render(state) {
     }
     lastRevision = state.revision;
   }
+  $('journal').hidden = !g.events.length;
   $('result').hidden = !g.ending;
   if (g.ending) { $('ending').textContent = g.ending; $('votes').textContent = Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote}`).join(' · '); }
 }
