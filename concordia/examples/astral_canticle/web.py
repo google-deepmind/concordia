@@ -50,6 +50,9 @@ def create_app(
     runner=None,
     allowed_hosts=('127.0.0.1', 'localhost'),
     root_path='',
+    static_path: pathlib.Path | None = None,
+    journal_title='THE ASTRAL CANTICLE',
+    journal_filename='astral-canticle-journal.txt',
 ) -> FastAPI:
   """Create a browser adapter; the optional runner owns one adventure process.
 
@@ -57,6 +60,8 @@ def create_app(
   simulation. Bind to loopback and use a private authenticated reverse proxy
   such as Tailscale Serve. All permitted tailnet users share this one controller.
   """
+
+  static_path = static_path or _STATIC
 
   @contextlib.asynccontextmanager
   async def lifespan(app):
@@ -143,7 +148,7 @@ def create_app(
 
   @app.get('/')
   def index():
-    return FileResponse(_STATIC / 'index.html')
+    return FileResponse(static_path / 'index.html')
 
   @app.get('/api/state')
   def state():
@@ -162,21 +167,23 @@ def create_app(
   @app.get('/api/journal')
   def journal():
     snapshot = session.snapshot()
-    text = 'THE ASTRAL CANTICLE\n\n' + '\n\n'.join(
-        ('> ' if entry['kind'] == 'action' else '') + entry['text']
-        for entry in snapshot['entries']
+    text = (
+        journal_title
+        + '\n\n'
+        + '\n\n'.join(
+            ('> ' if entry['kind'] == 'action' else '') + entry['text']
+            for entry in snapshot['entries']
+        )
     )
     return Response(
         text,
         media_type='text/plain',
         headers={
-            'Content-Disposition': (
-                'attachment; filename="astral-canticle-journal.txt"'
-            )
+            'Content-Disposition': f'attachment; filename="{journal_filename}"'
         },
     )
 
-  app.mount('/static', StaticFiles(directory=_STATIC), name='static')
+  app.mount('/static', StaticFiles(directory=static_path), name='static')
   return app
 
 
