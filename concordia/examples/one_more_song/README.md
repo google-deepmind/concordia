@@ -124,3 +124,10 @@ the causal effect of an intervention.
 The driver requires a new game for each complete journey; it does not reset,
 start, stop or silently substitute models. The fixture is deliberately scripted
 and always accepts. Its votes cannot validate negotiation quality.
+
+Every journey captures a Playwright `trace.zip` (open with `playwright show-trace`).
+On failure, `failure.json` preserves the error and available public state, with
+`failure.png` when capture is possible; the command still exits unsuccessfully.
+Treat traces as private: designer journeys can include component state, and all
+journeys include the entered conversation. Failure capture never starts a server
+or silently retries a simulation.
