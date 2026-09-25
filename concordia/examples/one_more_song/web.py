@@ -46,7 +46,18 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--port', type=int, default=8820)
   parser.add_argument('--editor-port', type=int)
+  parser.add_argument('--allowed-host', action='append', default=[])
+  parser.add_argument('--root-path', default='')
   parser.add_argument('--model', default='qwen3:8b')
+  parser.add_argument(
+      '--think',
+      action=argparse.BooleanOptionalAction,
+      default=None,
+      help=(
+          'Enable/disable thinking on supported Ollama models; omitted uses'
+          ' provider default.'
+      ),
+  )
   parser.add_argument(
       '--fixture',
       action='store_true',
@@ -58,6 +69,13 @@ def main():
       help='New run directory (default: a timestamped folder under runs/).',
   )
   args = parser.parse_args()
+  args.root_path = args.root_path.rstrip('/')
+  if args.root_path and (
+      not args.root_path.startswith('/')
+      or '?' in args.root_path
+      or '#' in args.root_path
+  ):
+    parser.error('--root-path must be a URL path such as /one-more-song.')
   if not 1 <= args.port <= 65535:
     parser.error('--port must be between 1 and 65535')
   if args.editor_port is not None and not 1 <= args.editor_port <= 65535:
@@ -89,7 +107,16 @@ def main():
   model = (
       FixtureModel()
       if args.fixture
-      else ollama_model.OllamaLanguageModel(model_name=args.model)
+      else ollama_model.OllamaLanguageModel(
+          model_name=args.model,
+          think=args.think,
+          system_message=(
+              'Simulate the speaker specified in the supplied context. Follow'
+              " that character's identity, goal and observations. Output only"
+              " the requested response in that character's voice, not a copy"
+              " of another speaker's words or the question."
+          ),
+      )
   )
   config, simulation = game.build(model, session)
   editor = None
@@ -112,8 +139,13 @@ def main():
       static_path=pathlib.Path(__file__).with_name('static'),
       journal_title='ONE MORE SONG',
       journal_filename='one-more-song.txt',
+      allowed_hosts=['127.0.0.1', 'localhost', *args.allowed_host],
+      root_path=args.root_path,
   )
-  print(f'Play One More Song: http://127.0.0.1:{args.port}/', flush=True)
+  print(
+      f'Play One More Song: http://127.0.0.1:{args.port}{args.root_path}/',
+      flush=True,
+  )
   print(f'Run saved to: {args.output.resolve()}', flush=True)
   print(
       'Reload reconnects. Stop this server and relaunch for a fresh game.',

@@ -5,6 +5,14 @@ let request = null, busy = false, lastRevision = -1;
 let waitingSince = null, lastEventCount = -1;
 const storage = safeStorage('sessionStorage');
 let draftKey = null, uncertainSubmission = null, previousDraft = null;
+function keepPreviousDraft(text, source = 'suggestion') {
+  previousDraft = text || null;
+  $('restore-draft').hidden = previousDraft === null;
+  $('restore-draft').textContent = source === 'previous-game' ? 'Use draft from previous game' : 'Restore previous draft';
+  if (!draftKey) return;
+  if (previousDraft) storage.set(draftKey + ':previous', JSON.stringify({text:previousDraft, source}));
+  else storage.remove(draftKey + ':previous');
+}
 function saveSubmission() {
   if (!draftKey) return;
   if (uncertainSubmission) storage.set(draftKey + ':submission', JSON.stringify(uncertainSubmission));
@@ -22,6 +30,7 @@ function render(state) {
   const nextDraftKey = `one-more-song:${location.pathname}:${g.session_id}`;
   if (nextDraftKey !== draftKey) {
     // Each new host run has its own drafts; never carry an old offer into it.
+    const priorGameDraft = draftKey === null ? '' : ($('reply').value || previousDraft || '');
     const typedBeforeConnect = draftKey === null ? $('reply').value : '';
     draftKey = nextDraftKey;
     $('reply').value = storage.get(draftKey) || typedBeforeConnect;
@@ -31,8 +40,10 @@ function render(state) {
       const saved = JSON.parse(storage.get(draftKey + ':submission'));
       if (saved && typeof saved.id === 'string' && typeof saved.response === 'string') uncertainSubmission = saved;
     } catch {}
-    alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : '');
-    previousDraft = null; $('restore-draft').hidden = true;
+    let undo = null;
+    try { undo = JSON.parse(storage.get(draftKey + ':previous')); } catch {}
+    keepPreviousDraft(priorGameDraft || (undo && typeof undo.text === 'string' ? undo.text : ''), priorGameDraft ? 'previous-game' : undo?.source);
+    alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : priorGameDraft ? 'The host started a fresh game. Your previous draft is available below if you want to use it; review it for this new conversation.' : '');
     lastRevision = -1;
     $('conversation').replaceChildren();
   }
@@ -51,6 +62,16 @@ function render(state) {
   const sendLabel = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
   if ($('send').textContent !== sendLabel) $('send').textContent = sendLabel;
   $('form').hidden = state.finished;
+  // The last turn must contain an offer: don't suggest spending it on another
+  // opening question. Suggestions still only fill an editable draft.
+  const suggestions = document.querySelectorAll('[data-draft]');
+  suggestions[0].hidden = g.turn === 3;
+  const finalTurn = g.turn === 3;
+  const suggestionLabel = finalTurn ? 'Suggest a final offer' : 'Suggest a compromise';
+  if (suggestions[1].textContent !== suggestionLabel) suggestions[1].textContent = suggestionLabel;
+  suggestions[1].dataset.draft = finalTurn ?
+    'My final offer: one quiet, unamplified song lasting at most two minutes, then silence. Do you both agree?' :
+    'Could we agree to one quiet, unamplified song with a firm end time?';
   document.querySelector('.start-link').hidden = !!g.events.length || state.finished;
   if (state.revision !== lastRevision) {
     // Recorded events are append-only. Keep existing nodes so a screen reader
@@ -105,7 +126,7 @@ $('form').addEventListener('submit', async event => {
       return;
     }
     uncertainSubmission = null; saveSubmission();
-    previousDraft = null; $('restore-draft').hidden = true;
+    keepPreviousDraft(null);
     if ($('reply').value.trim() === attempt.response) { $('reply').value = ''; saveDraft(); }
     request = null; alertText('error','');
   } catch (_) {
@@ -115,16 +136,16 @@ $('form').addEventListener('submit', async event => {
 document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => {
   const before = $('reply').value;
   if (before === button.dataset.draft) { $('reply').focus(); return; }
-  previousDraft = before || null;
-  $('restore-draft').hidden = previousDraft === null;
+  keepPreviousDraft(before);
   $('reply').value = button.dataset.draft; saveDraft(); $('reply').focus();
 }));
 $('restore-draft').addEventListener('click', () => {
   if (previousDraft === null) return;
-  $('reply').value = previousDraft; previousDraft = null;
-  $('restore-draft').hidden = true; saveDraft(); $('reply').focus();
+  $('reply').value = previousDraft; keepPreviousDraft(null);
+  if ($('error').textContent.startsWith('The host started a fresh game.')) alertText('error', '');
+  saveDraft(); $('reply').focus();
 });
 $('reply').addEventListener('input', () => {
-  previousDraft = null; $('restore-draft').hidden = true; saveDraft();
+  keepPreviousDraft(null); saveDraft();
 });
 poll();

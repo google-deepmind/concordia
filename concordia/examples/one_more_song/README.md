@@ -51,7 +51,11 @@ already contains a run is rejected rather than overwritten.
 `--fixture` uses plainly labelled scripted test replies. It is for UI/mechanics
 validation, **not** evidence of generative play. Real mode uses the standard
 local Ollama model wrapper, defaulting to `qwen3:8b`. Use `--model llama3.2:3b`
-for a smaller/faster alternative with weaker dialogue in our observed samples. There are four free-text calls and two choice calls;
+for a smaller/faster alternative with weaker dialogue in our observed samples. For models supporting the provider option, `--no-think` disables thinking and
+`--think` enables it. Omitting both preserves the provider default. In our eight
+scripted user-profile journeys, no-thinking was much faster but often repeated
+or copied dialogue; it is an explicit quality/latency tradeoff, not the default.
+There are four free-text calls and two choice calls;
 choice sampling may retry. Actual end-to-end time depends on the machine/model
 and human deliberation. No paid model service is required.
 
@@ -59,6 +63,21 @@ The server binds loopback only. Phone sharing requires the host's separately
 configured authenticated proxy; this example does not alter routes, ACLs or
 other games. The designer port is private and must not be exposed with the player
 page. Everyone who can reach the player endpoint shares one human controller.
+For an already configured private host, pass its exact hostname and mount path
+through the **existing** browser transport:
+
+```sh
+python -m concordia.examples.one_more_song.web --allowed-host your-host.your-tailnet.ts.net --root-path /one-more-song
+```
+
+The host’s proxy must route only that player path to the loopback player port,
+not the private designer. Open the shared URL with a trailing slash, for example
+`https://your-host.your-tailnet.ts.net/one-more-song/`. These flags do not create
+or change a proxy, open a port, or provide per-visitor sessions. Inspect and
+preserve existing proxy routes; see the existing
+[Astral phone-access guide](../astral_canticle/README.md#phone-access-on-an-existing-tailnet)
+for the underlying transport setup. Use an authenticated private route, not a
+public unauthenticated game URL.
 
 ## First-time player and host walkthrough
 
@@ -150,7 +169,10 @@ investigating that question.
 The page keeps turn/wait instructions beside the reply controls as the
 conversation grows, and keeps unsent drafts through disconnection and reload in the same tab.
 Drafts use browser session storage, isolated by the host run; a fresh game does
-not reuse an earlier offer. When browser policy blocks storage, the open tab
+not automatically reuse an earlier offer. If the host restarts while you have a
+draft, the page offers **Use draft from previous game**; review it before choosing
+to restore it. Undoing a suggestion also survives same-tab reload when storage
+is available. When browser policy blocks storage, the open tab
 still keeps its draft, but reloading cannot recover it.
 Stalled network requests time out and reconnect; a timed-out submission keeps
 the draft and offers **Check last send**, because the server may already have
@@ -184,11 +206,18 @@ the actual designer controls at a separate 1280px desktop viewport, even when
 the player viewport is mobile-sized. This does not claim a phone-sized designer
 journey. Its evidence contains the old private goal: keep
 that output private. Omit it for an unintervened baseline. For a fresh mobile-size
-fixture, use `--width 390` (emulation, not a physical phone). For a fresh local-model
+fixture, use `--width 390` (emulation, not a physical phone). Use `--browser webkit`
+or `--browser firefox` after installing that engine with `playwright install webkit`
+or `playwright install firefox`; the default is Chromium. The evidence records
+the actual engine, not a claim of physical Safari/Android testing. For a fresh local-model
 game, add `--real`; `--scenario compromise`, `demand`, `revision`, or `ambiguous`
 selects the human utterances. Real runs record the votes **without asserting a
 preferred outcome**. A single playthrough cannot establish model reliability or
-the causal effect of an intervention.
+the causal effect of an intervention. The default per-wait timeout is 180 seconds
+for real models and 30 for fixtures. If a slower host needs more observation time,
+set `--timeout-seconds 360`; this changes only browser waits, not the provider’s
+request deadline or the game. Failure evidence records elapsed browser time and
+the last public state rather than claiming the game itself failed.
 
 `--network-faults` additionally holds a real polling request until the page
 reports disconnection, then restores it. It also forwards the first submission

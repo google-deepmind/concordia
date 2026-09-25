@@ -30,8 +30,19 @@ def main():
   p = argparse.ArgumentParser()
   p.add_argument('--port', type=int, default=8820)
   p.add_argument('--width', type=int, default=1280)
+  p.add_argument(
+      '--browser', choices=['chromium', 'webkit', 'firefox'], default='chromium'
+  )
   p.add_argument('--output', type=Path, required=True)
   p.add_argument('--real', action='store_true')
+  p.add_argument(
+      '--timeout-seconds',
+      type=float,
+      help=(
+          'Per browser wait; defaults to 180 for live models and 30 for'
+          ' fixtures.'
+      ),
+  )
   p.add_argument('--editor-port', type=int)
   p.add_argument(
       '--network-faults',
@@ -49,6 +60,13 @@ def main():
       help='JSON array of three player utterances; overrides --scenario.',
   )
   a = p.parse_args()
+  timeout_seconds = (
+      a.timeout_seconds
+      if a.timeout_seconds is not None
+      else (180 if a.real else 30)
+  )
+  if not 0 < timeout_seconds < float('inf'):
+    p.error('--timeout-seconds must be a positive finite number.')
   custom_actions = None
   if a.actions_file:
     try:
@@ -78,12 +96,13 @@ def main():
         'then run playwright install chromium.'
     )
   with playwright.sync_playwright() as pw:
-    browser = pw.chromium.launch()
+    browser = getattr(pw, a.browser).launch()
     context = browser.new_context(viewport={'width': a.width, 'height': 900})
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
     page = context.new_page()
+    browser_started = time.monotonic()
     try:
-      page.set_default_timeout(180000 if a.real else 30000)
+      page.set_default_timeout(timeout_seconds * 1000)
       errors = []
       page.on('pageerror', lambda e: errors.append(str(e)))
       page.goto(f'http://127.0.0.1:{a.port}/')
@@ -323,19 +342,27 @@ def main():
       assert state['pending'] is None
       assert not errors, errors
       page.screenshot(path=str(a.output / 'ending.png'), full_page=True)
-      journal = page.request.get(
-          f'http://127.0.0.1:{a.port}/api/journal'
-      ).text()
+      # Exercise the guest's actual download control, not only the HTTP route.
+      with page.expect_download() as download_event:
+        page.locator('#journal a').click()
+      download = download_event.value
+      assert download.failure() is None
+      assert download.suggested_filename == 'one-more-song.txt'
+      journal_path = a.output / 'conversation.txt'
+      download.save_as(journal_path)
+      journal = journal_path.read_text(encoding='utf-8')
       for event in state['game']['events']:
         assert event['text'] in journal
       (a.output / 'result.json').write_text(
           json.dumps(
               {
-                  'browser': 'Chromium',
+                  'browser': a.browser,
                   'viewport_width': a.width,
+                  'timeout_seconds': timeout_seconds,
                   'fixture': not a.real,
                   'physical_phone': False,
                   'page_errors': errors,
+                  'download_filename': download.suggested_filename,
                   'network_faults': network_evidence,
                   'scenario': (
                       'custom' if custom_actions is not None else a.scenario
@@ -354,6 +381,11 @@ def main():
       # Preserve the original failure even if the server/browser also vanished.
       failure = {
           'error': str(error),
+          'browser': a.browser,
+          'timeout_seconds': timeout_seconds,
+          'browser_elapsed_seconds': round(
+              time.monotonic() - browser_started, 3
+          ),
           'fixture': not a.real,
           'viewport_width': a.width,
           'scenario': 'custom' if custom_actions is not None else a.scenario,
