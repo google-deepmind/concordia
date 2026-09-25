@@ -244,6 +244,17 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(payload['status'], 'error')
     self.assertIn('paused', payload['message'])
 
+  def test_rejected_edit_reads_request_body_before_replying(self):
+    # Replying without consuming the body can reset the client's connection
+    # (observed intermittently for small bodies; reliable for large ones).
+    status, payload = _request(
+        self.base_url + '/cmd/set_component_state',
+        method='POST',
+        data={'entity_name': 'alice', 'value': 'x' * 4_000_000},
+    )
+    self.assertEqual(status, 200)
+    self.assertIn('No simulation', payload['message'])
+
   def test_set_component_state_requires_simulation(self):
     self.assertTrue(self.server.step_controller.is_paused)
     status, payload = _request(
