@@ -286,7 +286,7 @@ def main():
               f'http://127.0.0.1:{a.editor_port}/status'
           ).json()
           assert status['is_paused'] and status['current_step'] == 1, status
-          editor.locator('.entity-card').filter(has_text='Maya').click()
+          editor.locator('.entity-card[data-entity-name="Maya"]').click()
           editor.locator('.component-item-header').filter(
               has_text='Goal'
           ).click()
