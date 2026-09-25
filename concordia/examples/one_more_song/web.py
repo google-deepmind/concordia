@@ -148,7 +148,11 @@ def main():
       session,
       runner=lambda: game.play(simulation, session, args.output, editor=editor),
       static_path=pathlib.Path(__file__).with_name('static'),
-      journal_title='ONE MORE SONG',
+      journal_title=(
+          'ONE MORE SONG\nSCRIPTED UI PREVIEW — not AI-generated.'
+          if args.fixture
+          else f'ONE MORE SONG\nAI-generated characters: {args.model}'
+      ),
       journal_filename='one-more-song.txt',
       allowed_hosts=['127.0.0.1', 'localhost', *args.allowed_host],
       root_path=args.root_path,

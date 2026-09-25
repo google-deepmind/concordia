@@ -194,7 +194,8 @@ Mobile viewport emulation is not physical-phone verification.
 The example-specific `playtest` driver uses maintained Playwright primitives;
 there is no separate journey engine. It attaches to an **already running fresh
 game**, submits all three human turns, captures screenshots and public state,
-checks offline draft recovery and the downloaded transcript, and records elapsed
+checks offline draft recovery and the downloaded transcript (including its
+explicit live-model or scripted-preview label), and records elapsed
 time from each submission until the next human turn or ending. These timings
 include browser polling and persistence, not just inference. Install the optional
 test dependencies with `pip install playwright pytest` and

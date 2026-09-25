@@ -373,6 +373,9 @@ def main():
       journal_path = a.output / 'conversation.txt'
       download.save_as(journal_path)
       journal = journal_path.read_text(encoding='utf-8')
+      assert (
+          'AI-generated characters:' if a.real else 'SCRIPTED UI PREVIEW'
+      ) in journal
       for event in state['game']['events']:
         assert event['text'] in journal
       (a.output / 'result.json').write_text(
