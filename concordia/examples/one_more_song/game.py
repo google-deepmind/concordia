@@ -119,14 +119,13 @@ class PlayerSession(human_io.HumanSession):
     }
 
   def record(self, step, elapsed):
-    if (
-        step.step < 8
-        and step.acting_entity != PLAYER
-        and not step.action.removeprefix(step.acting_entity + ':').strip()
-    ):
+    content = step.action.removeprefix(step.acting_entity + ':').strip()
+    if step.step < 8 and step.acting_entity != PLAYER and not content:
       # This scenario asks for spoken dialogue. A provider returning no text
       # must not silently consume the player's remaining negotiation turns.
       raise ValueError(f'{step.acting_entity} returned an empty spoken reply.')
+    if step.step >= 8 and content not in (ACCEPT, DECLINE):
+      raise ValueError('Ballot must be a validated choice, not narrative.')
     with self._public_lock:
       self._public['events'].append({
           'step': step.step,
@@ -136,10 +135,7 @@ class PlayerSession(human_io.HumanSession):
       self._public['latencies_seconds'].append(round(elapsed, 3))
       self._public['turn'] = min(3, step.step // 3 + 1)
       if step.step >= 8:
-        vote = step.action.removeprefix(step.acting_entity + ':').strip()
-        if vote not in (ACCEPT, DECLINE):
-          raise ValueError('Ballot must be a validated choice, not narrative.')
-        self._public['votes'][step.acting_entity] = vote
+        self._public['votes'][step.acting_entity] = content
 
   def conclude(self):
     with self._public_lock:
@@ -351,12 +347,14 @@ def play(simulation, session, output: pathlib.Path, *, editor=None):
   def step_done(step):
     nonlocal last
     now = time.monotonic()
+    # Validate this scenario's output before advancing its phase or publishing
+    # an observation. Rejected output remains in the private standard log.
+    session.record(step, now - last)
     phase.completed = step.step
     # Ballots are public results, not further dialogue. Each character should
     # judge the final proposal without first observing the other's vote.
     if step.step < 8:
       observation.add_to_queue('all', step.action)
-    session.record(step, now - last)
     session.progress(step.step, step.acting_entity)
     simulation.save_checkpoint(step.step, str(output / 'checkpoints'))
     last = now

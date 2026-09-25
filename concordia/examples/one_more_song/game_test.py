@@ -150,6 +150,10 @@ class BallotTest(absltest.TestCase):
       with self.assertRaisesRegex(ValueError, 'empty spoken reply'):
         game.play(simulation, session, output)
       saved = json.loads((output / 'public.json').read_text())
+      self.assertEqual(
+          json.loads((output / 'timing.json').read_text())['completed_steps'],
+          len(saved['game']['events']),
+      )
     self.assertTrue(saved['finished'])
     self.assertIsNone(saved['pending'])
     self.assertIsNone(saved['game']['ending'])
@@ -199,6 +203,7 @@ class BallotTest(absltest.TestCase):
           0.1,
       )
     self.assertEmpty(session.snapshot()['game']['votes'])
+    self.assertEmpty(session.snapshot()['game']['events'])
 
 
 if __name__ == '__main__':
