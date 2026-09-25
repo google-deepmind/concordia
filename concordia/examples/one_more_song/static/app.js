@@ -130,6 +130,7 @@ function render(state) {
   $('latest').hidden = !latestReply || state.finished;
   if (latestReply) $('latest-link').href = `#event-${latestReply.step}`;
   $('journal').hidden = !g.events.length;
+  setText('journal-link', g.ending ? 'Save this conversation' : 'Save your conversation so far');
   $('result').hidden = !g.ending;
   if (g.ending) {
     setText('ending', g.ending);

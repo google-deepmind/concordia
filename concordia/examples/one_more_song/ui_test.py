@@ -157,15 +157,33 @@ def test_wait_elapsed_does_not_restart_when_the_player_reloads(public_page):
 
 
 @pytest.mark.parametrize(
-    ('finished', 'ending', 'label', 'target'),
+    ('finished', 'ending', 'label', 'target', 'save'),
     [
-        (False, None, 'Conversation underway', '#conversation'),
-        (True, 'No shared agreement', 'Conversation complete', '#result'),
-        (True, None, 'Conversation stopped', '#conversation'),
+        (
+            False,
+            None,
+            'Conversation underway',
+            '#conversation',
+            'Save your conversation so far',
+        ),
+        (
+            True,
+            'No shared agreement',
+            'Conversation complete',
+            '#result',
+            'Save this conversation',
+        ),
+        (
+            True,
+            None,
+            'Conversation stopped',
+            '#conversation',
+            'Save your conversation so far',
+        ),
     ],
 )
 def test_late_arrival_can_find_existing_conversation_without_reset(
-    public_page, finished, ending, label, target
+    public_page, finished, ending, label, target, save
 ):
   page, state, submissions = public_page
   state.update(revision=8, finished=finished, pending=None)
@@ -193,6 +211,7 @@ def test_late_arrival_can_find_existing_conversation_without_reset(
   arrival.click()
   expect(page.locator(target)).to_be_in_viewport()
   assert page.locator('#conversation article').count() == 7
+  expect(page.locator('#journal a')).to_have_text(save)
   assert not submissions
 
 
