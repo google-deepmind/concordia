@@ -52,17 +52,25 @@ function render(state) {
     try { undo = JSON.parse(storage.get(draftKey + ':previous')); } catch {}
     keepPreviousDraft(priorGameDraft || (undo && typeof undo.text === 'string' ? undo.text : ''), priorGameDraft ? 'previous-game' : undo?.source);
     alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : priorGameDraft ? 'The host started a fresh game. Your previous draft is available below if you want to use it; review it for this new conversation.' : changedGame ? 'The host started a fresh game. This page now shows the new conversation.' : '');
-    lastRevision = -1;
+    lastRevision = -1; waitingSince = null; lastEventCount = -1;
     $('conversation').replaceChildren();
   }
   $('mode').hidden = g.mode !== 'fixture';
   setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote.');
   $('ai-explainer').hidden = g.mode === 'fixture';
   setText('status', state.status);
-  if (request || state.finished) waitingSince = null;
-  else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
+  const waitKey = draftKey + ':waiting';
+  if (request || state.finished) { waitingSince = null; storage.remove(waitKey); }
+  else if (waitingSince === null || g.events.length !== lastEventCount) {
+    waitingSince = Date.now();
+    try {
+      const saved = JSON.parse(storage.get(waitKey));
+      if (saved && saved.events === g.events.length && Number.isFinite(saved.since) && saved.since > 0 && saved.since <= waitingSince) waitingSince = saved.since;
+    } catch {}
+    storage.set(waitKey, JSON.stringify({events:g.events.length, since:waitingSince}));
+  }
   lastEventCount = g.events.length;
-  const waitingSeconds = waitingSince === null ? 0 : Math.floor((Date.now() - waitingSince) / 1000);
+  const waitingSeconds = waitingSince === null ? 0 : Math.max(0, Math.floor((Date.now() - waitingSince) / 1000));
   const waitingFor = nextVoice[g.events.at(-1)?.step] || 'the next voice';
   const phaseText = state.finished ?
     (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?

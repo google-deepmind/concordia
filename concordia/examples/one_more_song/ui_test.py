@@ -19,6 +19,7 @@ Install Playwright and its Chromium browser to run them.
 """
 
 import pathlib
+import re
 
 import pytest
 
@@ -132,3 +133,22 @@ def test_return_after_host_restart_offers_draft_without_resending(
   expect(page.locator('#reply')).to_have_value(draft)
   expect(page.locator('#restore-draft')).to_be_hidden()
   assert len(submissions) == int(uncertain_send)
+
+
+def test_wait_elapsed_does_not_restart_when_the_player_reloads(public_page):
+  page, state, _ = public_page
+  state.update(revision=2, pending=None, status='Waiting')
+  state['game']['events'] = [
+      {'step': 1, 'actor': 'You', 'text': 'You: Could we have one last song?'}
+  ]
+  expect(page.locator('#phase')).to_contain_text('Maya’s reply')
+  expect(page.locator('#phase')).to_contain_text(re.compile(r'\((?:[2-9]|[1-9]\d+)s\)'))
+  before_match = re.search(r'\((\d+)s\)', page.locator('#phase').inner_text())
+  assert before_match is not None
+  before = int(before_match[1])
+  page.reload()
+  expect(page.locator('#phase')).to_contain_text('Maya’s reply')
+  after_match = re.search(r'\((\d+)s\)', page.locator('#phase').inner_text())
+  assert after_match is not None
+  after = int(after_match[1])
+  assert after >= before

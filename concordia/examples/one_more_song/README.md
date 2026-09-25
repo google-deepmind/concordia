@@ -108,7 +108,9 @@ launch command. This is a labelled scripted preview, not an AI playthrough.
 
 - **The browser cannot connect:** keep the host terminal running and use the
   exact player port it prints. A loopback URL works on that host only.
-- **The conversation is waiting:** the page shows elapsed time. Local inference
+- **The conversation is waiting:** the page names the expected reply/vote and
+  shows approximate elapsed waiting time, retained across same-tab reloads when
+  session storage is available. Local inference
   can be slow; reloading reconnects rather than restarting or speeding up a turn.
 - **The run stopped:** the host should inspect the terminal log, check that the
   Ollama server is running, and verify the selected model with `ollama list`.
