@@ -23,12 +23,15 @@ and local-model dependencies:
 ```sh
 python -m pip install -e . fastapi uvicorn ollama
 ollama pull qwen3:8b
-python -m concordia.examples.one_more_song.web --port 8820 --editor-port 8821 --output runs/one-more-song
+python -m concordia.examples.one_more_song.web --port 8820 --editor-port 8821
 ```
 
 Open `http://127.0.0.1:8820/`. The game waits for your first line. Reloading
 reconnects to the same pending turn; it does not start another game. A new
-process is a new game. Use a new output directory for each run.
+process is a new game. The default creates a separate timestamped directory under
+`runs/`, printed at startup, so trying again preserves earlier conversations.
+For an explicit location use `--output runs/my-first-encore`; a directory that
+already contains a run is rejected rather than overwritten.
 
 `--fixture` uses plainly labelled scripted test replies. It is for UI/mechanics
 validation, **not** evidence of generative play. Real mode uses the standard
@@ -41,6 +44,28 @@ The server binds loopback only. Phone sharing requires the host's separately
 configured authenticated proxy; this example does not alter routes, ACLs or
 other games. The designer port is private and must not be exposed with the player
 page. Everyone who can reach the player endpoint shares one human controller.
+
+## First-time player and host walkthrough
+
+1. Open the player URL printed in the terminal (not the private designer URL).
+   No model setup or account is needed on the player’s browser; the host runs the
+   local model. On a phone-sized screen, **Start the conversation** takes you to
+   the reply field; keyboard users can use **Skip to your reply**.
+2. Ask what Maya and Leon need, or write your own proposal. Suggestions fill a
+   draft; **Say it** submits it. You have three turns, not an unlimited chat.
+3. Read the replies before revising your offer. **Read the latest replies** next
+   to the controls takes you to the new dialogue without moving you
+   automatically while you read or type. A reply phase can take over a minute.
+4. Make the third turn a concrete final offer. The result shows each recorded
+   vote. Read the transcript to understand it; the page does not invent a reason
+   for either vote. Save the public conversation if you want to compare attempts.
+5. For a fresh attempt, the host stops the server with Ctrl-C and runs the same
+   launch command again. Existing tabs reconnect to the host’s one shared game;
+   reloading a tab does not restart the scenario. Keep private designer logs
+   separate from the public journal when sharing evidence.
+
+To inspect the UI before downloading/running a model, add `--fixture` to the
+launch command. This is a labelled scripted preview, not an AI playthrough.
 
 ## What this demonstrates
 

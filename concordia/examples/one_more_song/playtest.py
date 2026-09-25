@@ -69,6 +69,12 @@ def main():
       assert page.locator('#mode').is_visible() != a.real
       assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
       page.screenshot(path=str(a.output / 'opening.png'), full_page=True)
+      # Exercise the discoverable path to the controls, not only direct locators.
+      page.locator('.start-link').click()
+      assert page.locator('#reply').evaluate(
+          '(node) => node.getBoundingClientRect().top < innerHeight'
+      )
+      assert page.locator('#conversation').get_attribute('role') == 'log'
       network_evidence = {}
       if a.network_faults:
         # Hold the actual request, rather than mocking a disconnected state.
@@ -253,6 +259,10 @@ def main():
           page.wait_for_function(
               '() => !document.querySelector("#send").disabled'
           )
+          page.locator('#latest-link').click()
+          assert page.evaluate(
+              '() => document.activeElement.classList.contains("entry")'
+          ), 'Latest-replies link must reach and focus the recorded dialogue'
           page.screenshot(
               path=str(a.output / f'after-action-{turn+1}.png'), full_page=True
           )

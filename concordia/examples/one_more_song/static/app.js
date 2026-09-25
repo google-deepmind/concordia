@@ -19,16 +19,24 @@ function render(state) {
   $('send').disabled = !request || busy;
   $('send').textContent = request ? 'Say it' : 'Waiting…';
   $('form').hidden = state.finished;
+  document.querySelector('.start-link').hidden = !!g.events.length || state.finished;
   if (state.revision !== lastRevision) {
-    $('conversation').replaceChildren();
-    for (const e of g.events) {
-      const item = document.createElement('article'); item.className = 'entry' + (e.actor === 'You' ? ' player' : '');
+    // Recorded events are append-only. Keep existing nodes so a screen reader
+    // announces only new dialogue and reading/selection isn't reset.
+    const transcript = $('conversation');
+    if (g.events.length < transcript.children.length) transcript.replaceChildren();
+    for (const e of g.events.slice(transcript.children.length)) {
+      const item = document.createElement('article'); item.id = `event-${e.step}`; item.tabIndex = -1; item.className = 'entry' + (e.actor === 'You' ? ' player' : '');
       const who = document.createElement('strong'); who.textContent = e.actor;
       const text = document.createElement('p'); text.textContent = e.text.startsWith(e.actor + ':') ? e.text.slice(e.actor.length + 1).trim() : e.text;
       item.append(who, text); $('conversation').append(item);
     }
     lastRevision = state.revision;
   }
+  const lastHuman = g.events.findLastIndex(e => e.actor === 'You');
+  const latestReply = g.events.slice(lastHuman + 1).find(e => e.actor !== 'You' && e.step < 8);
+  $('latest').hidden = !latestReply || state.finished;
+  if (latestReply) $('latest-link').href = `#event-${latestReply.step}`;
   $('journal').hidden = !g.events.length;
   $('result').hidden = !g.ending;
   if (g.ending) { $('ending').textContent = g.ending; $('votes').textContent = Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote}`).join(' · '); }

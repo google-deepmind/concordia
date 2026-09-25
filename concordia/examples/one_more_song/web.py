@@ -15,6 +15,7 @@
 """Launch One More Song, reusing the existing human browser transport."""
 
 import argparse
+import datetime
 import pathlib
 
 from concordia.contrib.language_models.ollama import ollama_model
@@ -52,7 +53,9 @@ def main():
       help='Scripted test responses; never presented as AI.',
   )
   parser.add_argument(
-      '--output', type=pathlib.Path, default=pathlib.Path('runs/one-more-song')
+      '--output',
+      type=pathlib.Path,
+      help='New run directory (default: a timestamped folder under runs/).',
   )
   args = parser.parse_args()
   if not 1 <= args.port <= 65535:
@@ -61,6 +64,27 @@ def main():
     parser.error('--editor-port must be between 1 and 65535')
   if args.editor_port == args.port:
     parser.error('Player and editor ports must differ')
+  if args.output is None:
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        '%Y%m%dT%H%M%S%fZ'
+    )
+    args.output = pathlib.Path('runs') / f'one-more-song-{stamp}'
+  if args.output.exists() and (
+      not args.output.is_dir()
+      or any(
+          (args.output / name).exists()
+          for name in (
+              'public.json',
+              'simulation.json',
+              'log.html',
+              'checkpoints',
+          )
+      )
+  ):
+    parser.error(
+        '--output already contains a run. Choose a new directory to'
+        ' preserve it.'
+    )
   session = game.PlayerSession('fixture' if args.fixture else args.model)
   model = (
       FixtureModel()
@@ -88,6 +112,12 @@ def main():
       static_path=pathlib.Path(__file__).with_name('static'),
       journal_title='ONE MORE SONG',
       journal_filename='one-more-song.txt',
+  )
+  print(f'Play One More Song: http://127.0.0.1:{args.port}/', flush=True)
+  print(f'Run saved to: {args.output.resolve()}', flush=True)
+  print(
+      'Reload reconnects. Stop this server and relaunch for a fresh game.',
+      flush=True,
   )
   try:
     uvicorn.run(app, host='127.0.0.1', port=args.port)
