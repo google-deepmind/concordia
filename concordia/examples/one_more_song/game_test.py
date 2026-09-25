@@ -115,7 +115,10 @@ class BallotTest(absltest.TestCase):
     self.assertLen(entries, 4)
     self.assertEqual(entries[1]['text'], 'Maya: ACCEPT')
     self.assertEqual(entries[2]['text'], 'Leon: DECLINE')
-    self.assertStartsWith(entries[3]['text'], 'No shared agreement')
+    self.assertEqual(
+        entries[3]['text'],
+        'No shared agreement — Leon declined your final proposal.',
+    )
     self.assertNotIn('private', str(entries))
 
   def test_failed_run_saves_terminal_public_state_without_private_error(self):

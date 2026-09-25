@@ -141,13 +141,20 @@ class PlayerSession(human_io.HumanSession):
     with self._public_lock:
       votes = self._public['votes']
       success = len(votes) == 2 and all(v == ACCEPT for v in votes.values())
-      self._public['ending'] = (
-          'Agreement reached — both accepted your final proposal.'
-          if success
-          else (
-              'No shared agreement — not everyone accepted the final proposal.'
-          )
-      )
+      declined = [name for name in CAST[1:] if votes.get(name) == DECLINE]
+      if success:
+        ending = 'Agreement reached — both accepted your final proposal.'
+      elif len(declined) == 2:
+        ending = 'No shared agreement — both declined your final proposal.'
+      elif declined:
+        ending = (
+            f'No shared agreement — {declined[0]} declined your final proposal.'
+        )
+      else:
+        ending = (
+            'No shared agreement — not everyone accepted the final proposal.'
+        )
+      self._public['ending'] = ending
       message = self._public['ending']
     self.finish(message)
 
