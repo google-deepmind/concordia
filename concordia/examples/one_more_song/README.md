@@ -59,6 +59,8 @@ There are four free-text calls and two choice calls;
 choice sampling may retry. Actual end-to-end time depends on the machine/model
 and human deliberation. No paid model service is required.
 
+### Optional private phone access
+
 The server binds loopback only. Phone sharing requires the host's separately
 configured authenticated proxy; this example does not alter routes, ACLs or
 other games. The designer port is private and must not be exposed with the player

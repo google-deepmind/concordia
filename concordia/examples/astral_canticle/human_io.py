@@ -128,7 +128,10 @@ class HumanSession:
       self._revision += 1
 
   def finish(self, message: str) -> None:
+    """Close once, retaining the runner's terminal result through cleanup."""
     with self._condition:
+      if self._closed:
+        return
       self._status = message
       self._closed = True
       self._pending = None

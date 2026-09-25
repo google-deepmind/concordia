@@ -30,6 +30,25 @@ TestClient = pytest.importorskip('fastapi.testclient').TestClient
 HEADERS = {'Origin': 'http://localhost', 'X-Astral-Client': '1'}
 
 
+def test_runner_terminal_message_survives_error_handler_and_shutdown():
+  session = human_io.HumanSession()
+
+  def runner():
+    session.finish('Run interrupted. The recorded conversation is saved.')
+    raise RuntimeError('private provider diagnostic')
+
+  with TestClient(
+      web.create_app(session, runner=runner), base_url='http://localhost'
+  ) as client:
+    assert client.get('/api/state').status_code == 200
+  state = session.snapshot()
+  assert state['finished']
+  assert state['status'] == (
+      'Run interrupted. The recorded conversation is saved.'
+  )
+  assert 'private provider diagnostic' not in str(state)
+
+
 def request(spec=None, id='first'):
   return human_input.HumanInputRequest(
       request_id=id,

@@ -57,6 +57,8 @@ function render(state) {
   $('phase').textContent = state.finished ?
     (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
+    g.events.some(e => e.step >= 7) ?
+    `Waiting for final votes (${waitingSeconds}s). Your final offer is submitted. Slower models can take a minute or more.` :
     `Waiting for the next voice (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
   $('send').disabled = (!request && !uncertainSubmission) || busy;
   const sendLabel = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
