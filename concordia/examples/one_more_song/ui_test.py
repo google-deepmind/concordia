@@ -142,7 +142,9 @@ def test_wait_elapsed_does_not_restart_when_the_player_reloads(public_page):
       {'step': 1, 'actor': 'You', 'text': 'You: Could we have one last song?'}
   ]
   expect(page.locator('#phase')).to_contain_text('Maya’s reply')
-  expect(page.locator('#phase')).to_contain_text(re.compile(r'\((?:[2-9]|[1-9]\d+)s\)'))
+  expect(page.locator('#phase')).to_contain_text(
+      re.compile(r'\((?:[2-9]|[1-9]\d+)s\)')
+  )
   before_match = re.search(r'\((\d+)s\)', page.locator('#phase').inner_text())
   assert before_match is not None
   before = int(before_match[1])
@@ -152,3 +154,37 @@ def test_wait_elapsed_does_not_restart_when_the_player_reloads(public_page):
   assert after_match is not None
   after = int(after_match[1])
   assert after >= before
+
+
+@pytest.mark.parametrize(
+    ('finished', 'ending', 'label', 'target'),
+    [
+        (False, None, 'Conversation underway', '#conversation'),
+        (True, 'No shared agreement', 'Conversation complete', '#result'),
+        (True, None, 'Conversation stopped', '#conversation'),
+    ],
+)
+def test_late_arrival_can_find_existing_conversation_without_reset(
+    public_page, finished, ending, label, target
+):
+  page, state, submissions = public_page
+  state.update(revision=8, finished=finished, pending=None)
+  state['game'].update(
+      turn=3,
+      ending=ending,
+      events=[
+          {
+              'step': i,
+              'actor': 'Maya',
+              'text': 'Maya: ' + 'A recorded reply. ' * 20,
+          }
+          for i in range(1, 8)
+      ],
+  )
+  page.reload()
+  arrival = page.locator('.start-link')
+  expect(arrival).to_contain_text(label)
+  arrival.click()
+  expect(page.locator(target)).to_be_in_viewport()
+  assert page.locator('#conversation article').count() == 7
+  assert not submissions

@@ -93,7 +93,12 @@ function render(state) {
   suggestions[1].dataset.draft = finalTurn ?
     'My final offer: one quiet, unamplified song lasting at most two minutes, then silence. Do you both agree?' :
     'Could we agree to one quiet, unamplified song with a firm end time?';
-  document.querySelector('.start-link').hidden = !!g.events.length || state.finished;
+  // A late visitor shares this run, not a fresh game. Keep the existing
+  // arrival link useful when the ending or earlier dialogue is below the fold.
+  const arrival = document.querySelector('.start-link');
+  const arrivalText = state.finished ? (g.ending ? 'Conversation complete — view the ending ↓' : 'Conversation stopped — read what happened ↓') : g.events.length ? 'Conversation underway — catch up ↓' : 'Start the conversation ↓';
+  if (arrival.textContent !== arrivalText) arrival.textContent = arrivalText;
+  arrival.href = state.finished && g.ending ? '#result' : g.events.length || state.finished ? '#conversation' : '#reply';
   if (state.revision !== lastRevision) {
     // Recorded events are append-only. Keep existing nodes so a screen reader
     // announces only new dialogue and reading/selection isn't reset.
