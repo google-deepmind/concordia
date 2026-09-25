@@ -343,6 +343,14 @@ class SimulationServer:
 
       def _handle_set_component_state(self) -> None:
         """Handle POST /cmd/set_component_state for dynamic editing."""
+        # Consume the request before any reply: closing the connection with
+        # unread body data can reset it before the client reads the error.
+        try:
+          content_length = int(self.headers.get('Content-Length', 0))
+        except ValueError:
+          content_length = 0
+        body = self.rfile.read(content_length)
+
         if not server.step_controller.is_paused:
           self._send_json({
               'status': 'error',
@@ -358,8 +366,6 @@ class SimulationServer:
           return
 
         try:
-          content_length = int(self.headers.get('Content-Length', 0))
-          body = self.rfile.read(content_length)
           data = json.loads(body.decode('utf-8'))
 
           entity_name = data['entity_name']
