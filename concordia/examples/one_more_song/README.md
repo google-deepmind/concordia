@@ -12,6 +12,7 @@ is no claim that a pleasing conversation validates the agents' psychology.
 
 This example builds on the existing human-play APIs in PRs #302, #304 and #306,
 including Astral Canticle's reconnectable `HumanSession` and browser boundary.
+Local Ollama ballots also require the choice-contract fix in PR #378.
 It does **not** require the Bellwether or consolidated editor stacks. The example
 branch integrates current main and that explicit dependency. Do not cherry-pick
 just this example into a release without those APIs.
@@ -131,3 +132,30 @@ On failure, `failure.json` preserves the error and available public state, with
 Treat traces as private: designer journeys can include component state, and all
 journeys include the entered conversation. Failure capture never starts a server
 or silently retries a simulation.
+
+## Live playtest observations (25 September 2026)
+
+Four automated Chromium journeys against local `llama3.2:3b`, with the neutral
+shared scene and first-person speech configuration, all completed nine steps.
+Each used a fresh server; no outcome was forced by the driver:
+
+| Human approach | Maya | Leon | Submission-to-ending time |
+| --- | --- | --- | --- |
+| Quiet two-minute compromise | ACCEPT | DECLINE | 12.220 s |
+| One-hour amplified demand | DECLINE | DECLINE | 8.581 s |
+| Withdraw demand, offer quiet farewell | ACCEPT | DECLINE | 9.176 s |
+| Ambiguous/off-topic offer | ACCEPT | DECLINE | 10.429 s |
+
+These timings exclude human reading, typing and deliberation; they **do not**
+prove a 5–10-minute human playthrough. The machine/model may behave differently.
+The adapter fix eliminates the reproduced invalid-choice failure in these
+samples, not every possible provider failure.
+
+Small-model dialogue still sometimes invents details, refers to itself in the
+third person, or adds conditions the player did not propose. A reasonable offer
+is not guaranteed acceptance, and variation between runs is not evidence of
+psychological realism. The shared scene deliberately does not tell every actor
+that they are the organiser. The speaker prefab reuses standard
+`ConcatActComponent(prefix_entity_name=False)` so Sequential's existing actor
+label is not duplicated. Neither change rewrites generated speech or forces a
+vote. Inspect the actual transcript, not just the final score.

@@ -20,6 +20,7 @@ import threading
 import time
 from typing import Any
 
+from concordia.components.agent import concat_act_component
 from concordia.components.agent import human_act_component
 from concordia.components.game_master import event_resolution
 from concordia.components.game_master import make_observation
@@ -40,11 +41,12 @@ import numpy as np
 PLAYER = 'You'
 CAST = ('You', 'Maya', 'Leon')
 PREMISE = (
-    'You organise a neighbourhood benefit concert. It is closing time. '
-    'Maya, the singer, wants one final song. Leon lives next door and needs '
-    'quiet. Your goal: find an encore plan BOTH will accept. You have three '
-    'speaking turns: ask what matters, negotiate, then make your final offer. '
-    'They each speak twice, then independently vote ACCEPT or DECLINE. '
+    'A neighbourhood benefit concert is at closing time. The organiser '
+    '(whose speaker label is "You") wants an encore plan that both Maya '
+    'and Leon will accept. Maya is the singer; Leon lives next door and '
+    'needs quiet. The organiser has three speaking turns: ask what matters, '
+    'negotiate, then make a final offer. Maya and Leon each speak twice, '
+    'then independently vote ACCEPT or DECLINE on that final offer. '
     'Everyone hears what is said. Words are proposals and promises, not proof '
     'that anyone has already performed an action. No one can speak for another.'
 )
@@ -53,8 +55,10 @@ DECLINE = 'DECLINE'
 SPEECH = entity.free_action_spec(
     call_to_action=(
         'What does {name} say to the others? Respond to their actual words; '
-        'state a concern, question or concrete proposal in at most 45 words. '
-        'Do not narrate other people, invent agreement or use analysis.'
+        'speak directly in first person in at most 45 words. Address the '
+        'current proposal before adding a concern or alternative. Output only '
+        'your spoken words, without a speaker label. Do not narrate other '
+        'people, invent earlier conversations or agreement, or use analysis.'
     )
 )
 BALLOT = entity.choice_action_spec(
@@ -173,6 +177,23 @@ def configuration(reader):
           ),
       )
 
+  class Speaker(prefab.Prefab):
+    description = (
+        'Minimal agent speaking directly, without a second name prefix.'
+    )
+
+    def build(self, model, memory_bank):
+      return minimal.Entity(params=self.params).build(
+          model,
+          memory_bank,
+          act_component_factory=lambda order: concat_act_component.ConcatActComponent(
+              model=model,
+              component_order=order,
+              prefix_entity_name=False,
+              randomize_choices=False,
+          ),
+      )
+
   class Conversation(prefab.Prefab):
     description = 'Public conversation with a fixed order and explicit ballot.'
 
@@ -213,7 +234,10 @@ def configuration(reader):
       prefab.InstanceConfig(
           prefab='human',
           role=prefab.Role.ENTITY,
-          params={'name': PLAYER, 'custom_instructions': PREMISE},
+          params={
+              'name': PLAYER,
+              'custom_instructions': PREMISE + ' You are the organiser.',
+          },
       )
   ]
   for name, identity, goal in (
@@ -242,11 +266,13 @@ def configuration(reader):
         'name': name,
         'goal': goal,
         'randomize_choices': False,
-        'custom_instructions': f'You are {name}. {identity} {PREMISE}',
+        'custom_instructions': (
+            f'{PREMISE} You are {name}. {identity} Speak only as {name}.'
+        ),
     }
     instances.append(
         prefab.InstanceConfig(
-            prefab='minimal',
+            prefab='speaker',
             role=prefab.Role.ENTITY,
             params=params,
         )
@@ -260,7 +286,7 @@ def configuration(reader):
   )
   return prefab.Config(
       prefabs={
-          'minimal': minimal.Entity(),
+          'speaker': Speaker(),
           'human': Human(),
           'conversation': Conversation(),
       },
