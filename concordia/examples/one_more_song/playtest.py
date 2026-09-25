@@ -286,16 +286,17 @@ def main():
               f'http://127.0.0.1:{a.editor_port}/status'
           ).json()
           assert status['is_paused'] and status['current_step'] == 1, status
-          editor.locator('.entity-card').filter(has_text='Leon').click()
+          editor.locator('.entity-card').filter(has_text='Maya').click()
           editor.locator('.component-item-header').filter(
               has_text='Goal'
           ).click()
           field = editor.locator('#dyn_Goal_state')
           old = field.input_value()
           new = (
-              'Protect a sleeping child from amplification. Welcome a quiet'
-              ' two-minute unamplified farewell with a firm finish. Decide'
-              ' independently.'
+              'Protect your voice for tomorrow. You strongly prefer not to'
+              ' sing any more tonight, even quietly. Find a warm, inclusive'
+              ' farewell without singing, such as a silent wave or written'
+              ' thanks. Decide independently; do not agree automatically.'
           )
           field.fill(new)
           with editor.expect_response('**/cmd/set_component_state') as saved:
@@ -303,7 +304,7 @@ def main():
           result = saved.value.json()
           assert result['status'] == 'ok', result
           intervention = {
-              'entity': 'Leon',
+              'entity': 'Maya',
               'component': 'Goal',
               'old': old,
               'new': new,

@@ -147,11 +147,21 @@ For a safe, reproducible boundary:
 1. While the first human prompt is waiting, press **Pause** in the designer.
 2. Submit the first human line in the player page. Wait for step 1 in the
    designer: that human action finishes, then the engine is paused before Maya.
-3. Select **Leon**, expand **Goal**, change its dynamic `state` field and Save.
-   For example make a quiet, firmly timed encore more acceptable. Record the old
-   and new values as an explicit designer intervention, not an emergent change.
+3. Select **Maya**, expand **Goal**, change its dynamic `state` field and Save.
+   For a clear counterfactual, make protecting her voice more important than
+   another song: “Protect your voice for tomorrow. Prefer no more singing
+   tonight, even quietly. Find a warm, inclusive farewell without singing,
+   such as a silent wave or written thanks. Decide independently.” Record the
+   old and new values as a deliberate designer edit, not an emergent event.
 4. Press **Play**. Maya and Leon continue using their existing memories and the
-   edited goal. Inspect the next action's context in the standard designer log.
+   edited goal. Inspect Maya’s next action context in the standard designer log,
+   then consider whether her public response reflects the changed priority.
+
+In one live Qwen8B check, Maya's first reply explicitly refused further singing
+and proposed a silent wave, with the edited goal verified in her action context.
+Her later reply and acceptance vote nevertheless contradicted that priority.
+This demonstrates a real intervention, not guaranteed coherent compliance;
+inspect the subsequent dialogue as well as the edited component.
 
 The standard controller's paused flag alone is not proof that a currently
 in-flight human/model action has finished; wait for the step boundary. The
@@ -214,7 +224,7 @@ For a fixture started with both ports above:
 python -m concordia.examples.one_more_song.playtest --port 8820 --editor-port 8821 --output runs/desktop-evidence
 ```
 
-`--editor-port` also performs the documented paused Leon goal intervention using
+`--editor-port` also performs the documented paused Maya voice-rest goal intervention using
 the actual designer controls at a separate 1280px desktop viewport, even when
 the player viewport is mobile-sized. This does not claim a phone-sized designer
 journey. Its evidence contains the old private goal: keep
