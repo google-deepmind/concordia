@@ -43,7 +43,12 @@ class _ThinkingOptions(TypedDict, total=False):
 
 
 class OllamaLanguageModel(language_model.LanguageModel):
-  """Language Model that uses Ollama LLM models."""
+  """Language Model that uses Ollama LLM models.
+
+  Explicit sampling seeds are forwarded to the provider. They can help compare
+  repeated prompts on one host/model, but do not guarantee reproducibility
+  across provider versions, hardware, or concurrent inference.
+  """
 
   def __init__(
       self,
@@ -94,7 +99,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del max_tokens, timeout  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -108,6 +113,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
             'temperature': temperature,
             'top_p': top_p,
             'top_k': top_k,
+            **({'seed': seed} if seed is not None else {}),
         },
         keep_alive='10m',
         **self._thinking_options,
@@ -129,7 +135,6 @@ class OllamaLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    del seed  # Unused.
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
     if not responses:
       raise ValueError('responses must not be empty')
@@ -156,7 +161,11 @@ class OllamaLanguageModel(language_model.LanguageModel):
               'Return a JSON object with a choice field containing exactly one '
               f'of these response values: {json.dumps(list(responses))}.'
           ),
-          options={'stop': (), 'temperature': temperature},
+          options={
+              'stop': (),
+              'temperature': temperature,
+              **({'seed': seed} if seed is not None else {}),
+          },
           format=choice_schema,
           keep_alive='10m',
           **self._thinking_options,

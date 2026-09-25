@@ -87,6 +87,29 @@ class OllamaChoiceTest(parameterized.TestCase):
       self.model.sample_choice('(a) ACCEPT (b) DECLINE', ['a', 'b'])
     self.assertEqual(self.client.generate.call_count, 20)
 
+  @parameterized.parameters(None, 0, 20260925)
+  def test_sampling_seed_is_forwarded_without_changing_default(self, seed):
+    self.client.generate.return_value = {'response': 'Hello'}
+    self.assertEqual(self.model.sample_text('speak', seed=seed), 'Hello')
+    text_options = self.client.generate.call_args.kwargs['options']
+    self.client.generate.side_effect = [
+        {'response': 'invalid'},
+        {'response': '{"choice":"b"}'},
+    ]
+    self.assertEqual(
+        self.model.sample_choice('choose', ['a', 'b'], seed=seed)[:2],
+        (1, 'b'),
+    )
+    options = [text_options] + [
+        call.kwargs['options']
+        for call in self.client.generate.call_args_list[-2:]
+    ]
+    for option in options:
+      if seed is None:
+        self.assertNotIn('seed', option)
+      else:
+        self.assertEqual(option['seed'], seed)
+
   @parameterized.parameters(None, False, True)
   def test_optional_thinking_control_applies_to_text_and_choice(self, think):
     model = ollama_model.OllamaLanguageModel('test-model', think=think)
