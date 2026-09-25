@@ -21,7 +21,6 @@ simulation updates via Server-Sent Events (SSE).
 import http.server
 import json
 import queue
-import socketserver
 import sys
 import threading
 from typing import Any
@@ -66,7 +65,8 @@ class SimulationServer:
     self._current_step_data: dict[str, Any] = {}
     self._cached_entity_info: dict[str, Any] | None = None
     self._simulation: Any = None
-    self._server: socketserver.TCPServer | None = None
+    self._server: http.server.ThreadingHTTPServer | None = None
+    self._stopping = threading.Event()
     self._server_thread: threading.Thread | None = None
     print(f'[SERVER INIT] SimulationServer initialized on port {port}')
     sys.stdout.flush()
@@ -211,6 +211,7 @@ class SimulationServer:
   def _create_handler(self):
     """Create a request handler class with access to server state."""
     server = self
+    stopping = self._stopping
 
     class Handler(http.server.BaseHTTPRequestHandler):
       """HTTP request handler for simulation server."""
@@ -310,23 +311,23 @@ class SimulationServer:
         with server.server_sent_events_lock:
           server.server_sent_events_queues.append(server_sent_events_queue)
 
-        if server.current_step_data:
-          initial = f'data: {json.dumps(server.current_step_data)}\n\n'
-          self.wfile.write(initial.encode('utf-8'))
-          self.wfile.flush()
-
-        # Send cached entity info if available
-        if server.cached_entity_info:
-          entity_info_msg = (
-              f'data: {json.dumps(server.cached_entity_info)}\n\n'
-          )
-          self.wfile.write(entity_info_msg.encode('utf-8'))
-          self.wfile.flush()
-
         try:
-          while True:
+          if server.current_step_data:
+            initial = f'data: {json.dumps(server.current_step_data)}\n\n'
+            self.wfile.write(initial.encode('utf-8'))
+            self.wfile.flush()
+
+          # Send cached entity info if available
+          if server.cached_entity_info:
+            entity_info_msg = (
+                f'data: {json.dumps(server.cached_entity_info)}\n\n'
+            )
+            self.wfile.write(entity_info_msg.encode('utf-8'))
+            self.wfile.flush()
+
+          while not stopping.is_set():
             try:
-              message = server_sent_events_queue.get(timeout=30)
+              message = server_sent_events_queue.get(timeout=1)
               self.wfile.write(message.encode('utf-8'))
               self.wfile.flush()
             except queue.Empty:
@@ -335,6 +336,7 @@ class SimulationServer:
         except (BrokenPipeError, ConnectionResetError):
           pass
         finally:
+          self.close_connection = True
           with server.server_sent_events_lock:
             if server_sent_events_queue in server.server_sent_events_queues:
               server.server_sent_events_queues.remove(server_sent_events_queue)
@@ -400,11 +402,13 @@ class SimulationServer:
 
   def start(self) -> None:
     """Start the HTTP server in a background thread."""
+    if self._server is not None:
+      raise RuntimeError('Server is already running.')
+    self._stopping = threading.Event()
     handler = self._create_handler()
-    self._server = socketserver.ThreadingTCPServer(
+    self._server = http.server.ThreadingHTTPServer(
         (self._host, self._port), handler
     )
-    self._server.allow_reuse_address = True
     self._server_thread = threading.Thread(target=self._server.serve_forever)
     self._server_thread.daemon = True
     self._server_thread.start()
@@ -412,8 +416,10 @@ class SimulationServer:
 
   def stop(self) -> None:
     """Stop the HTTP server."""
+    self._stopping.set()
     if self._server:
       self._server.shutdown()
+      self._server.server_close()
       self._server = None
     if self._server_thread:
       self._server_thread.join(timeout=5)
