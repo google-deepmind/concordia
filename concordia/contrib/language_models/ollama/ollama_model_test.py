@@ -87,6 +87,32 @@ class OllamaChoiceTest(parameterized.TestCase):
       self.model.sample_choice('(a) ACCEPT (b) DECLINE', ['a', 'b'])
     self.assertEqual(self.client.generate.call_count, 20)
 
+  @parameterized.parameters(None, False, True)
+  def test_optional_thinking_control_applies_to_text_and_choice(self, think):
+    model = ollama_model.OllamaLanguageModel('test-model', think=think)
+    self.client.generate.return_value = {
+        'response': 'Hello',
+        'thinking': 'private reasoning',
+    }
+    self.assertEqual(model.sample_text('speak'), 'Hello')
+    text_args = self.client.generate.call_args.kwargs
+    self.client.generate.return_value = {
+        'response': '{"choice":"a"}',
+        'thinking': 'private reasoning',
+    }
+    self.assertEqual(model.sample_choice('choose', ['a', 'b'])[:2], (0, 'a'))
+    choice_args = self.client.generate.call_args.kwargs
+    for args in (text_args, choice_args):
+      if think is None:
+        self.assertNotIn('think', args)
+      else:
+        self.assertIs(args['think'], think)
+
+  @parameterized.parameters({'value': 1}, {'value': 'false'}, {'value': []})
+  def test_invalid_thinking_control_is_rejected(self, value):
+    with self.assertRaisesRegex(ValueError, 'think must'):
+      ollama_model.OllamaLanguageModel('test-model', think=value)
+
   def test_empty_choices_fail_before_model_request(self):
     with self.assertRaises(ValueError):
       self.model.sample_choice('choose', [])
