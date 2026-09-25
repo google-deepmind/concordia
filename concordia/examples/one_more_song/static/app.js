@@ -56,7 +56,7 @@ function render(state) {
     $('conversation').replaceChildren();
   }
   $('mode').hidden = g.mode !== 'fixture';
-  setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote.');
+  setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote. Allow a few minutes: an AI reply can take a minute or more.');
   $('ai-explainer').hidden = g.mode === 'fixture';
   setText('status', state.status);
   const waitKey = draftKey + ':waiting';
