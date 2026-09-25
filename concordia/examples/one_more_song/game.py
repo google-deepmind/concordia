@@ -119,6 +119,14 @@ class PlayerSession(human_io.HumanSession):
     }
 
   def record(self, step, elapsed):
+    if (
+        step.step < 8
+        and step.acting_entity != PLAYER
+        and not step.action.removeprefix(step.acting_entity + ':').strip()
+    ):
+      # This scenario asks for spoken dialogue. A provider returning no text
+      # must not silently consume the player's remaining negotiation turns.
+      raise ValueError(f'{step.acting_entity} returned an empty spoken reply.')
     with self._public_lock:
       self._public['events'].append({
           'step': step.step,

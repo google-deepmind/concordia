@@ -140,6 +140,23 @@ class BallotTest(absltest.TestCase):
           json.loads((output / 'timing.json').read_text())['completed_steps'], 0
       )
 
+  def test_empty_model_reply_stops_with_partial_public_conversation(self):
+    session = game.PlayerSession('empty-model-test')
+    _, simulation = game.build(
+        no_language_model.NoLanguageModel(), lambda _: 'What matters to you?'
+    )
+    with tempfile.TemporaryDirectory() as directory:
+      output = pathlib.Path(directory)
+      with self.assertRaisesRegex(ValueError, 'empty spoken reply'):
+        game.play(simulation, session, output)
+      saved = json.loads((output / 'public.json').read_text())
+    self.assertTrue(saved['finished'])
+    self.assertIsNone(saved['pending'])
+    self.assertIsNone(saved['game']['ending'])
+    self.assertEmpty(saved['game']['votes'])
+    self.assertLen(saved['game']['events'], 1)
+    self.assertIn('What matters to you?', saved['game']['events'][0]['text'])
+
   def test_ballots_do_not_observe_another_characters_vote(self):
     session = game.PlayerSession('fixture')
     offers = iter([
@@ -147,12 +164,13 @@ class BallotTest(absltest.TestCase):
         'I could ask for a ballad.',
         'My final offer is one quiet two-minute song.',
     ])
-    _, simulation = game.build(
-        no_language_model.NoLanguageModel(),
-        lambda _: next(offers),
-    )
+    model = no_language_model.NoLanguageModel()
+    _, simulation = game.build(model, lambda _: next(offers))
     with tempfile.TemporaryDirectory() as directory:
-      game.play(simulation, session, pathlib.Path(directory))
+      with mock.patch.object(
+          model, 'sample_text', return_value='A recorded test reply.'
+      ):
+        game.play(simulation, session, pathlib.Path(directory))
     log = structured_logging.SimulationLog.from_raw_log(
         simulation.get_raw_log()
     )

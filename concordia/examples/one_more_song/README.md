@@ -114,7 +114,9 @@ launch command. This is a labelled scripted preview, not an AI playthrough.
   can be slow; reloading reconnects rather than restarting or speeding up a turn.
 - **The run stopped:** the host should inspect the terminal log, check that the
   Ollama server is running, and verify the selected model with `ollama list`.
-  Save the partial public conversation before starting a fresh run.
+  Save the partial public conversation before starting a fresh run. An empty
+  model reply stops the run instead of silently consuming more player turns
+  with name-only dialogue.
 - **A send was not confirmed:** use **Check last send**. It checks the original
   turn safely; do not paste the old reply into the next turn as a retry.
 - **Someone else has taken a turn:** all browsers on this URL share one organiser.
