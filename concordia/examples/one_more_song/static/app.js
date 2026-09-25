@@ -35,7 +35,7 @@ function render(state) {
 }
 async function poll() {
   try {
-    const response = await fetch('api/state', {cache:'no-store'});
+    const response = await fetch('api/state', {cache:'no-store', signal:AbortSignal.timeout(12000)});
     if (!response.ok) throw new Error('Connection unavailable');
     render(await response.json()); alertText('network', '');
   } catch (_) {
@@ -49,12 +49,12 @@ $('form').addEventListener('submit', async event => {
   if (!draft) { alertText('error', 'Write something to say first.'); $('reply').focus(); return; }
   const id = request.id; busy = true; $('send').disabled = true;
   try {
-    const response = await fetch('api/action', {method:'POST', headers:{'Content-Type':'application/json','X-Astral-Client':'1'}, body:JSON.stringify({request_id:id,response:draft})});
+    const response = await fetch('api/action', {method:'POST', headers:{'Content-Type':'application/json','X-Astral-Client':'1'}, body:JSON.stringify({request_id:id,response:draft}), signal:AbortSignal.timeout(15000)});
     const data = await response.json();
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'The reply could not be accepted.');
     if ($('reply').value.trim() === draft) $('reply').value = '';
     request = null; alertText('error','');
-  } catch (error) { alertText('error', error.message + ' Your draft is kept.'); }
+  } catch (error) { alertText('error', (error.name === 'TimeoutError' || error instanceof TypeError ? 'Could not confirm submission. Check the conversation before trying again.' : error.message) + ' Your draft is kept.'); }
   finally { busy = false; }
 });
 document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => { $('reply').value = button.dataset.draft; $('reply').focus(); }));

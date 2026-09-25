@@ -92,7 +92,11 @@ investigating that question.
 - `timing.json`: observed wall time including human waits; per-step durations in
   public state also include waits and persistence overhead, not pure model time.
 
-The page reports waiting/disconnection and keeps unsent drafts in the open tab.
+The page keeps turn/wait instructions beside the reply controls as the
+conversation grows, and keeps unsent drafts in the open tab during disconnection.
+Stalled network requests time out and reconnect; a timed-out submission keeps
+the draft and asks you to check the conversation before retrying, because the
+server may already have accepted it. Submissions are never automatically replayed.
 It does not store drafts across browser/process restarts. Host/provider errors
 end the session with a visible message; partial standard logs are saved.
 Changing a local model or re-running does not promise the same conversation.
@@ -124,6 +128,13 @@ game, add `--real`; `--scenario compromise`, `demand`, `revision`, or `ambiguous
 selects the human utterances. Real runs record the votes **without asserting a
 preferred outcome**. A single playthrough cannot establish model reliability or
 the causal effect of an intervention.
+
+`--network-faults` additionally holds a real polling request until the page
+reports disconnection, then restores it. It also forwards the first submission
+but withholds its acknowledgment, verifying that the draft survives, only one
+human action is recorded, and the journey can continue. These fault checks add
+around 30 seconds to the journey; do not compare their timings with normal
+model-latency runs. They use Playwright routing, not a replacement transport.
 
 The driver requires a new game for each complete journey; it does not reset,
 start, stop or silently substitute models. The fixture is deliberately scripted
@@ -177,3 +188,10 @@ when responsiveness matters more than the observed quality tradeoff.
 If a run fails, `public.json` now marks it stopped, with no fabricated ending or
 votes; raw provider diagnostics remain in private host logs. The page likewise
 distinguishes an interrupted conversation from a completed ballot.
+
+A further 390px Qwen revised-offer journey deliberately stalled polling and
+withheld the first accepted submission’s response. The page detected the stalled
+poll after 12.917s, kept the unconfirmed draft, did not replay it automatically,
+and completed all nine steps with no page errors (ACCEPT/ACCEPT). Submission-to-
+ending time was 130.691s, excluding the initial polling fault and human thought.
+This tests recovery with one observed live model run, not network reliability.

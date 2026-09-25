@@ -34,6 +34,11 @@ def main():
   p.add_argument('--real', action='store_true')
   p.add_argument('--editor-port', type=int)
   p.add_argument(
+      '--network-faults',
+      action='store_true',
+      help='Exercise stalled polling and an accepted POST with a lost reply.',
+  )
+  p.add_argument(
       '--scenario',
       choices=['compromise', 'demand', 'revision', 'ambiguous'],
       default='compromise',
@@ -64,6 +69,28 @@ def main():
       assert page.locator('#mode').is_visible() != a.real
       assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
       page.screenshot(path=str(a.output / 'opening.png'), full_page=True)
+      network_evidence = {}
+      if a.network_faults:
+        # Hold the actual request, rather than mocking a disconnected state.
+        held = []
+        page.route('**/api/state', lambda route: held.append(route))
+        page.locator('#reply').fill('Keep this draft through a stalled request')
+        poll_start = time.monotonic()
+        page.wait_for_selector('#network:not([hidden])', timeout=20000)
+        assert page.locator('#send').is_disabled()
+        assert page.locator('#reply').input_value() == (
+            'Keep this draft through a stalled request'
+        )
+        network_evidence['stalled_poll_detected_seconds'] = round(
+            time.monotonic() - poll_start, 3
+        )
+        for route in held:
+          route.abort()
+        page.unroute('**/api/state')
+        page.wait_for_function(
+            '() => !document.querySelector("#send").disabled'
+        )
+        page.locator('#reply').fill('')
       page.locator('#send').click()
       assert 'Write something' in page.locator('#error').inner_text()
       page.locator('#reply').fill('Draft remains during disconnection')
@@ -136,9 +163,49 @@ def main():
       timings = []
       started = time.monotonic()
       for turn, action in enumerate(actions):
+        page.locator('#reply').scroll_into_view_if_needed()
+        assert page.locator('#phase').evaluate(
+            '(node) => {const r=node.getBoundingClientRect();'
+            'return r.top >= 0 && r.bottom <= innerHeight;}'
+        ), 'Turn/wait instructions must stay visible beside reply controls'
+        accepted_posts = []
+        if turn == 0 and a.network_faults:
+
+          def lose_acknowledgment(route):
+            response = route.fetch()
+            assert response.ok
+            accepted_posts.append(route)
+
+          page.route('**/api/action', lose_acknowledgment)
         turn_start = time.monotonic()
         page.locator('#reply').fill(action)
         page.locator('#send').click()
+        if turn == 0 and a.network_faults:
+          page.wait_for_function(
+              '() => document.querySelector("#error").textContent.includes('
+              '"Could not confirm submission")',
+              timeout=22000,
+          )
+          assert page.locator('#reply').input_value() == action
+          assert len(accepted_posts) == 1
+          for route in accepted_posts:
+            route.abort()
+          page.unroute('**/api/action')
+          state_after_timeout = page.request.get(
+              f'http://127.0.0.1:{a.port}/api/state'
+          ).json()
+          assert (
+              sum(
+                  event['actor'] == 'You'
+                  for event in state_after_timeout['game']['events']
+              )
+              == 1
+          )
+          network_evidence['lost_acknowledgment'] = {
+              'draft_preserved': True,
+              'accepted_posts': len(accepted_posts),
+              'automatic_retries': 0,
+          }
         if turn == 0 and editor:
           page.wait_for_function(
               '() => document.querySelectorAll(".entry").length === 1'
@@ -220,6 +287,7 @@ def main():
                   'fixture': not a.real,
                   'physical_phone': False,
                   'page_errors': errors,
+                  'network_faults': network_evidence,
                   'scenario': a.scenario,
                   'turn_seconds': timings,
                   'journey_seconds': round(time.monotonic() - started, 3),
