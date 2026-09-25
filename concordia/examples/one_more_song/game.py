@@ -357,6 +357,15 @@ def play(simulation, session, output: pathlib.Path, *, editor=None):
       session.conclude()
     else:
       session.finish('The host stopped this run before the ballot finished.')
+  except Exception:
+    # Mark the public artifact terminal before saving it. The browser runner
+    # also handles exceptions, but only after this finally block has run.
+    # Keep provider diagnostics private and preserve the original exception.
+    session.finish(
+        'The run stopped before completion. Your recorded conversation is'
+        ' saved.'
+    )
+    raise
   finally:
     save()
     (output / 'timing.json').write_text(

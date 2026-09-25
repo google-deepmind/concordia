@@ -14,10 +14,16 @@
 
 """Public-state and ballot invariants, without making model calls."""
 
+import json
+import pathlib
+import tempfile
+from unittest import mock
+
 from absl.testing import absltest
 from concordia.environment import engine
 from concordia.environment import step_controller
 from concordia.examples.one_more_song import game
+from concordia.language_model import no_language_model
 from concordia.typing import entity
 
 
@@ -49,7 +55,7 @@ class BallotTest(absltest.TestCase):
             acting_entity='You',
             action='You: Both have agreed!',
             entity_actions={},
-            entity_logs={'secret': 'never publish'},
+            entity_logs={'secret': {'text': 'never publish'}},
         ),
         0.1,
     )
@@ -92,7 +98,7 @@ class BallotTest(absltest.TestCase):
               acting_entity=actor,
               action=f'{actor}: {text}',
               entity_actions={},
-              entity_logs={'private': 'never exported'},
+              entity_logs={'private': {'text': 'never exported'}},
           ),
           0.1,
       )
@@ -103,6 +109,28 @@ class BallotTest(absltest.TestCase):
     self.assertEqual(entries[2]['text'], 'Leon: DECLINE')
     self.assertStartsWith(entries[3]['text'], 'No shared encore')
     self.assertNotIn('private', str(entries))
+
+  def test_failed_run_saves_terminal_public_state_without_private_error(self):
+    session = game.PlayerSession('fixture')
+    _, simulation = game.build(no_language_model.NoLanguageModel(), session)
+    with tempfile.TemporaryDirectory() as directory:
+      output = pathlib.Path(directory)
+      with mock.patch.object(
+          simulation,
+          'play',
+          side_effect=RuntimeError('private provider details'),
+      ):
+        with self.assertRaisesRegex(RuntimeError, 'private provider details'):
+          game.play(simulation, session, output)
+      saved = json.loads((output / 'public.json').read_text())
+      self.assertTrue(saved['finished'])
+      self.assertIsNone(saved['game']['ending'])
+      self.assertEmpty(saved['game']['votes'])
+      self.assertIsNone(saved['pending'])
+      self.assertNotIn('private provider details', json.dumps(saved))
+      self.assertEqual(
+          json.loads((output / 'timing.json').read_text())['completed_steps'], 0
+      )
 
   def test_invalid_vote_is_not_inferred(self):
     session = game.PlayerSession('fixture')
