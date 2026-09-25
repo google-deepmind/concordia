@@ -16,7 +16,7 @@
 
 from collections.abc import Collection, Sequence
 import json
-from typing import override
+from typing import override, TypedDict
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
@@ -38,6 +38,10 @@ _DEFAULT_SYSTEM_MESSAGE = (
 )
 
 
+class _ThinkingOptions(TypedDict, total=False):
+  think: bool
+
+
 class OllamaLanguageModel(language_model.LanguageModel):
   """Language Model that uses Ollama LLM models."""
 
@@ -46,6 +50,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       model_name: str,
       *,
       system_message: str = _DEFAULT_SYSTEM_MESSAGE,
+      think: bool | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ) -> None:
@@ -56,9 +61,18 @@ class OllamaLanguageModel(language_model.LanguageModel):
           https://github.com/ollama/ollama.
         system_message: System message to prefix to requests when prompting the
           model.
+        think: Optional provider thinking control for supported Ollama models.
+          None preserves the provider default and omits the request field.
+          False can reduce response latency; it can also change answer quality.
+          Reasoning traces are never returned as the sampled answer.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
     """
+    if think is not None and type(think) is not bool:
+      raise ValueError('think must be a boolean or None')
+    self._thinking_options: _ThinkingOptions = {}
+    if think is not None:
+      self._thinking_options['think'] = think
     self._model_name = model_name
     self._client = ollama.Client()
     self._system_message = system_message
@@ -96,6 +110,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
             'top_k': top_k,
         },
         keep_alive='10m',
+        **self._thinking_options,
     )
     result = response['response']
 
@@ -144,6 +159,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
           options={'stop': (), 'temperature': temperature},
           format=choice_schema,
           keep_alive='10m',
+          **self._thinking_options,
       )
       try:
         json_data_response = json.loads(response['response'])
