@@ -159,9 +159,11 @@ For a safe, reproducible boundary:
 
 In one live Qwen8B check, Maya's first reply explicitly refused further singing
 and proposed a silent wave, with the edited goal verified in her action context.
-Her later reply and acceptance vote nevertheless contradicted that priority.
-This demonstrates a real intervention, not guaranteed coherent compliance;
-inspect the subsequent dialogue as well as the edited component.
+She later accepted an offer that did not explicitly name its singer. That
+ambiguous outcome does not prove she agreed to sing herself or consistently
+followed the changed priority. This demonstrates a real intervention, not
+guaranteed control: name the performer clearly and inspect the whole dialogue
+as well as the edited component.
 
 The standard controller's paused flag alone is not proof that a currently
 in-flight human/model action has finished; wait for the step boundary. The

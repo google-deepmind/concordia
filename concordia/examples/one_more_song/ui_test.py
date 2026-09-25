@@ -188,3 +188,21 @@ def test_late_arrival_can_find_existing_conversation_without_reset(
   expect(page.locator(target)).to_be_in_viewport()
   assert page.locator('#conversation article').count() == 7
   assert not submissions
+
+
+def test_final_suggestion_names_the_performer_but_does_not_submit(public_page):
+  page, state, submissions = public_page
+  state.update(revision=7, pending={'id': 'final-request'})
+  state['game']['turn'] = 3
+  suggestion = page.get_by_role('button', name='Suggest a final offer')
+  expect(suggestion).to_be_visible()
+  page.locator('#reply').fill('My own careful proposal.')
+  suggestion.click()
+  expect(page.locator('#reply')).to_have_value(
+      'My final offer: Maya sings one quiet, unamplified song lasting at most'
+      ' two minutes, then silence. Do you both agree?'
+  )
+  assert not submissions
+  page.get_by_role('button', name='Restore previous draft').click()
+  expect(page.locator('#reply')).to_have_value('My own careful proposal.')
+  assert not submissions

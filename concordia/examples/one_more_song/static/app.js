@@ -91,8 +91,8 @@ function render(state) {
   const suggestionLabel = finalTurn ? 'Suggest a final offer' : 'Suggest a compromise';
   if (suggestions[1].textContent !== suggestionLabel) suggestions[1].textContent = suggestionLabel;
   suggestions[1].dataset.draft = finalTurn ?
-    'My final offer: one quiet, unamplified song lasting at most two minutes, then silence. Do you both agree?' :
-    'Could we agree to one quiet, unamplified song with a firm end time?';
+    'My final offer: Maya sings one quiet, unamplified song lasting at most two minutes, then silence. Do you both agree?' :
+    'Could Maya sing one quiet, unamplified song with a firm end time?';
   // A late visitor shares this run, not a fresh game. Keep the existing
   // arrival link useful when the ending or earlier dialogue is below the fold.
   const arrival = document.querySelector('.start-link');
