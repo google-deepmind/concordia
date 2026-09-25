@@ -14,8 +14,9 @@ is no claim that a pleasing conversation validates the agents' psychology.
 This example builds on the existing human-play APIs in PRs #302, #304 and #306,
 including Astral Canticle's reconnectable `HumanSession` and browser boundary.
 Local Ollama ballots also require the choice-contract fix in PR #378.
+The standard designer restart lifecycle fix is isolated in PR #379.
 It does **not** require the Bellwether or consolidated editor stacks. The example
-branch integrates current main and that explicit dependency. Do not cherry-pick
+branch integrates current main and these explicit dependencies. Do not cherry-pick
 just this example into a release without those APIs.
 
 Run the following from the repository root in a Python 3.12+ environment.
@@ -166,6 +167,14 @@ ambiguous outcome does not prove she agreed to sing herself or consistently
 followed the changed priority. This demonstrates a real intervention, not
 guaranteed control: name the performer clearly and inspect the whole dialogue
 as well as the edited component.
+
+A follow-up with an explicit “Maya herself sings” final offer recorded Maya
+declining after that same voice-rest edit. A separate run that respected her
+new preference and proposed a silent wave recorded both accepting. These are
+observed local-model examples, not deterministic outcomes or a controlled
+causal study. Leon also accepted a one-minute offer after asking for 30 seconds
+in one run: inspect votes against the actual dialogue rather than treating a
+valid choice as proof of consistency.
 
 The standard controller's paused flag alone is not proof that a currently
 in-flight human/model action has finished; wait for the step boundary. The
