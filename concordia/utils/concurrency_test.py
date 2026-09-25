@@ -12,10 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+from concurrent import futures
+import contextlib
 import functools
 import time
+from unittest import mock
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from concordia.utils import concurrency
 
 
@@ -121,6 +126,57 @@ class ConcurrencyTest(absltest.TestCase):
         return_after, [1, 0.5, 0.1], ['a', 'b', 'c']
     )
     self.assertEqual(results, ['a', 'b', 'c'])
+
+
+class TaskErrorLoggingTest(parameterized.TestCase):
+
+  @parameterized.product(
+      exception_type=(
+          KeyboardInterrupt,
+          SystemExit,
+          GeneratorExit,
+          asyncio.CancelledError,
+          ValueError,
+          RuntimeError,
+          futures.CancelledError,
+      ),
+      background=(False, True),
+      reuse_executor=(False, True),
+  )
+  def test_only_ordinary_exceptions_are_logged(
+      self, exception_type, background, reuse_executor
+  ):
+    error = exception_type('expected task failure')
+
+    def fail():
+      raise error
+
+    executor_context = (
+        futures.ThreadPoolExecutor(max_workers=1)
+        if reuse_executor
+        else contextlib.nullcontext(None)
+    )
+    with executor_context as executor:
+      with mock.patch.object(concurrency.logging, 'exception') as log_error:
+        if background:
+          results, errors = concurrency.run_tasks_in_background(
+              {'task': fail}, executor=executor
+          )
+          self.assertEmpty(results)
+          self.assertIs(errors['task'], error)
+        else:
+          with self.assertRaises(exception_type) as caught:
+            concurrency.run_tasks({'task': fail}, executor=executor)
+          self.assertIs(caught.exception, error)
+
+        if isinstance(error, Exception):
+          log_error.assert_called_once_with('Error in task %s', 'task')
+        else:
+          log_error.assert_not_called()
+
+      # Externally owned executors must remain usable after a failed task.
+      if executor is not None:
+        self.assertEqual(executor.submit(lambda: 42).result(timeout=5), 42)
 
 
 if __name__ == '__main__':
