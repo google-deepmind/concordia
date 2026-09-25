@@ -149,6 +149,12 @@ similarity or semantic search.
 
 ## Example usage
 
+Prefer to play a short conversation first?
+[**One More Song**](concordia/examples/one_more_song/README.md) lets you negotiate
+with two generative characters in three turns, using a browser and a local model.
+Its guide includes a scripted UI preview, host setup, and a mapping from the
+experience to standard Concordia components.
+
 Find below an illustrative social simulation where 4 friends are stuck in a
 snowed in pub. Two of them have a dispute over a crashed car.
 

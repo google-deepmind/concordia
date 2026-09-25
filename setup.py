@@ -64,7 +64,13 @@ setuptools.setup(
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
     packages=setuptools.find_packages(include=['concordia', 'concordia.*']),
-    package_data={'concordia.utils': ['log_viewer.html']},
+    package_data={
+        'concordia.utils': ['log_viewer.html'],
+        'concordia.examples.one_more_song': ['static/*', 'README.md'],
+        'concordia.examples.astral_canticle': [
+            'static/*', 'README.md', 'requirements*.txt',
+        ],
+    },
     python_requires='>=3.12',
     install_requires=(
         'absl-py',
