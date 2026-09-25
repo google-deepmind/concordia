@@ -25,6 +25,7 @@ from concordia.environment import step_controller
 from concordia.examples.one_more_song import game
 from concordia.language_model import no_language_model
 from concordia.typing import entity
+from concordia.utils import structured_logging
 
 
 class BallotTest(absltest.TestCase):
@@ -138,6 +139,33 @@ class BallotTest(absltest.TestCase):
       self.assertEqual(
           json.loads((output / 'timing.json').read_text())['completed_steps'], 0
       )
+
+  def test_ballots_do_not_observe_another_characters_vote(self):
+    session = game.PlayerSession('fixture')
+    offers = iter([
+        'Could we agree on one more song?',
+        'I could ask for a ballad.',
+        'My final offer is one quiet two-minute song.',
+    ])
+    _, simulation = game.build(
+        no_language_model.NoLanguageModel(),
+        lambda _: next(offers),
+    )
+    with tempfile.TemporaryDirectory() as directory:
+      game.play(simulation, session, pathlib.Path(directory))
+    log = structured_logging.SimulationLog.from_raw_log(
+        simulation.get_raw_log()
+    )
+    context = structured_logging.AIAgentLogInterface(
+        log
+    ).get_entity_action_context('Leon', 9)
+    self.assertIsNotNone(context)
+    assert context is not None
+    observations = str(context['observations'])
+    self.assertIn('one quiet two-minute song', observations)
+    self.assertNotIn('Maya: ACCEPT', observations)
+    self.assertNotIn('Maya: DECLINE', observations)
+    self.assertLen(session.snapshot()['game']['votes'], 2)
 
   def test_invalid_vote_is_not_inferred(self):
     session = game.PlayerSession('fixture')

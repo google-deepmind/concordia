@@ -15,7 +15,7 @@ function saveDraft() {
   if ($('reply').value) storage.set(draftKey, $('reply').value);
   else storage.remove(draftKey);
 }
-function alertText(id, text) { $(id).textContent = text; $(id).hidden = !text; }
+function alertText(id, text) { if ($(id).textContent !== text) $(id).textContent = text; $(id).hidden = !text; }
 function render(state) {
   request = state.pending;
   const g = state.game;
@@ -38,7 +38,7 @@ function render(state) {
   }
   $('mode').hidden = g.mode !== 'fixture';
   $('ai-explainer').hidden = g.mode === 'fixture';
-  $('status').textContent = state.status;
+  if ($('status').textContent !== state.status) $('status').textContent = state.status;
   if (request || state.finished) waitingSince = null;
   else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
   lastEventCount = g.events.length;
@@ -48,7 +48,8 @@ function render(state) {
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
     `Waiting for the next voice (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
   $('send').disabled = (!request && !uncertainSubmission) || busy;
-  $('send').textContent = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
+  const sendLabel = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
+  if ($('send').textContent !== sendLabel) $('send').textContent = sendLabel;
   $('form').hidden = state.finished;
   document.querySelector('.start-link').hidden = !!g.events.length || state.finished;
   if (state.revision !== lastRevision) {

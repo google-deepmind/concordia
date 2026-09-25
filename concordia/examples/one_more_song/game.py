@@ -139,8 +139,7 @@ class PlayerSession(human_io.HumanSession):
           'Agreement reached — both accepted your final proposal.'
           if success
           else (
-              'No shared agreement — not everyone accepted the final'
-              ' proposal.'
+              'No shared agreement — not everyone accepted the final proposal.'
           )
       )
       message = self._public['ending']
@@ -342,7 +341,10 @@ def play(simulation, session, output: pathlib.Path, *, editor=None):
     nonlocal last
     now = time.monotonic()
     phase.completed = step.step
-    observation.add_to_queue('all', step.action)
+    # Ballots are public results, not further dialogue. Each character should
+    # judge the final proposal without first observing the other's vote.
+    if step.step < 8:
+      observation.add_to_queue('all', step.action)
     session.record(step, now - last)
     session.progress(step.step, step.acting_entity)
     simulation.save_checkpoint(step.step, str(output / 'checkpoints'))

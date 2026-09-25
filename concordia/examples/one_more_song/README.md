@@ -2,7 +2,8 @@
 
 You organise a neighbourhood benefit concert. Persuade a singer and a tired
 neighbour to agree on one final song. Ask, negotiate, then make your final offer:
-three human turns, four AI replies, two independently sampled AI votes. Both must
+three human turns, four AI replies, two separately sampled AI votes. Neither
+character sees the other’s ballot before voting. Both must
 explicitly accept. A story saying "everyone agrees" cannot win the game.
 
 This is an engine demonstration, not a model of real people's behaviour. There
@@ -17,11 +18,25 @@ It does **not** require the Bellwether or consolidated editor stacks. The exampl
 branch integrates current main and that explicit dependency. Do not cherry-pick
 just this example into a release without those APIs.
 
-From a Python 3.12+ checkout, install Concordia plus the existing optional browser
-and local-model dependencies:
+Run the following from the repository root in a Python 3.12+ environment.
+First install Concordia and its optional browser/local-model clients:
 
 ```sh
 python -m pip install -e . fastapi uvicorn ollama
+```
+
+For a quick **scripted UI preview**, no model server or download is needed:
+
+```sh
+python -m concordia.examples.one_more_song.web --fixture
+```
+
+For **live AI dialogue**, install and start [Ollama](https://ollama.com/download)
+itself; `pip install ollama` installs only its Python client, not the server.
+Check `ollama list` for models already installed. If needed, download the model,
+then start the demo (stop the preview with Ctrl-C first if using the same port):
+
+```sh
 ollama pull qwen3:8b
 python -m concordia.examples.one_more_song.web --port 8820 --editor-port 8821
 ```
@@ -49,7 +64,8 @@ page. Everyone who can reach the player endpoint shares one human controller.
 
 1. Open the player URL printed in the terminal (not the private designer URL).
    No model setup or account is needed on the player’s browser; the host runs the
-   local model. On a phone-sized screen, **Start the conversation** takes you to
+   local model. A phone needs the host’s player URL, not the Mac’s `127.0.0.1` address.
+   On a phone-sized screen, **Start the conversation** takes you to
    the reply field; keyboard users can use **Skip to your reply**.
 2. Ask what Maya and Leon need, or write your own proposal. Suggestions fill a
    draft; **Say it** submits it. You have three turns, not an unlimited chat.
@@ -66,6 +82,20 @@ page. Everyone who can reach the player endpoint shares one human controller.
 
 To inspect the UI before downloading/running a model, add `--fixture` to the
 launch command. This is a labelled scripted preview, not an AI playthrough.
+
+## If something does not work
+
+- **The browser cannot connect:** keep the host terminal running and use the
+  exact player port it prints. A loopback URL works on that host only.
+- **The conversation is waiting:** the page shows elapsed time. Local inference
+  can be slow; reloading reconnects rather than restarting or speeding up a turn.
+- **The run stopped:** the host should inspect the terminal log, check that the
+  Ollama server is running, and verify the selected model with `ollama list`.
+  Save the partial public conversation before starting a fresh run.
+- **A send was not confirmed:** use **Check last send**. It checks the original
+  turn safely; do not paste the old reply into the next turn as a retry.
+- **Someone else has taken a turn:** all browsers on this URL share one organiser.
+  This is a single-controller demo, not separate per-visitor games.
 
 ## What this demonstrates
 
