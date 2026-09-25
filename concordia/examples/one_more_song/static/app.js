@@ -61,7 +61,7 @@ function render(state) {
   // While waiting, name what just happened. The shared transport's generic
   // "<actor> has acted. The story continues…" reads "You has acted" here and
   // suggests more to come after both ballots.
-  const votesRecorded = !state.finished && Object.keys(g.votes).length === 2;
+  const votesRecorded = !state.finished && Object.keys(g.votes || {}).length === 2;
   const last = g.events.at(-1);
   setText('status', state.finished || request || !last ? state.status :
     votesRecorded ? 'Both votes are in.' :
