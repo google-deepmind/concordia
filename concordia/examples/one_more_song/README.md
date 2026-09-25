@@ -118,11 +118,14 @@ investigating that question.
   public state also include waits and persistence overhead, not pure model time.
 
 The page keeps turn/wait instructions beside the reply controls as the
-conversation grows, and keeps unsent drafts in the open tab during disconnection.
+conversation grows, and keeps unsent drafts through disconnection and reload in the same tab.
+Drafts use browser session storage, isolated by the host run; a fresh game does
+not reuse an earlier offer. When browser policy blocks storage, the open tab
+still keeps its draft, but reloading cannot recover it.
 Stalled network requests time out and reconnect; a timed-out submission keeps
 the draft and asks you to check the conversation before retrying, because the
 server may already have accepted it. Submissions are never automatically replayed.
-It does not store drafts across browser/process restarts. Host/provider errors
+Tab-scoped storage is not a permanent backup; losing the browser session loses unsent drafts. Host/provider errors
 end the session with a visible message; partial standard logs are saved.
 Changing a local model or re-running does not promise the same conversation.
 Mobile viewport emulation is not physical-phone verification.
@@ -160,6 +163,13 @@ but withholds its acknowledgment, verifying that the draft survives, only one
 human action is recorded, and the journey can continue. These fault checks add
 around 30 seconds to the journey; do not compare their timings with normal
 model-latency runs. They use Playwright routing, not a replacement transport.
+
+For a different imagined player journey, pass `--actions-file my-offers.json`
+containing exactly three nonempty strings (up to 8000 characters each). This
+replaces the named scenario without editing driver code. The evidence records
+the actual utterances; it does not judge their quality or assert winning votes.
+Use this for clearly labelled simulated-user hypotheses, not as a substitute
+for observing human players.
 
 The driver requires a new game for each complete journey; it does not reset,
 start, stop or silently substitute models. The fixture is deliberately scripted

@@ -43,7 +43,30 @@ def main():
       choices=['compromise', 'demand', 'revision', 'ambiguous'],
       default='compromise',
   )
+  p.add_argument(
+      '--actions-file',
+      type=Path,
+      help='JSON array of three player utterances; overrides --scenario.',
+  )
   a = p.parse_args()
+  custom_actions = None
+  if a.actions_file:
+    try:
+      custom_actions = json.loads(a.actions_file.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as error:
+      p.error(f'Cannot read --actions-file: {error}')
+    if not (
+        isinstance(custom_actions, list)
+        and len(custom_actions) == 3
+        and all(
+            isinstance(action, str) and action.strip() and len(action) <= 8000
+            for action in custom_actions
+        )
+    ):
+      p.error(
+          '--actions-file must contain exactly three nonempty strings, each at'
+          ' most 8000 characters.'
+      )
   a.output.mkdir(parents=True, exist_ok=True)
   try:
     playwright = importlib.import_module('playwright.sync_api')
@@ -100,6 +123,12 @@ def main():
       page.locator('#send').click()
       assert 'Write something' in page.locator('#error').inner_text()
       page.locator('#reply').fill('Draft remains during disconnection')
+      page.reload()
+      page.wait_for_function('() => !document.querySelector("#send").disabled')
+      assert (
+          page.locator('#reply').input_value()
+          == 'Draft remains during disconnection'
+      )
       context.set_offline(True)
       page.wait_for_selector('#network:not([hidden])')
       assert (
@@ -166,6 +195,8 @@ def main():
               ),
           ],
       }[a.scenario]
+      if custom_actions is not None:
+        actions = custom_actions
       timings = []
       started = time.monotonic()
       for turn, action in enumerate(actions):
@@ -298,7 +329,10 @@ def main():
                   'physical_phone': False,
                   'page_errors': errors,
                   'network_faults': network_evidence,
-                  'scenario': a.scenario,
+                  'scenario': (
+                      'custom' if custom_actions is not None else a.scenario
+                  ),
+                  'player_actions': actions,
                   'turn_seconds': timings,
                   'journey_seconds': round(time.monotonic() - started, 3),
                   'intervention': intervention,

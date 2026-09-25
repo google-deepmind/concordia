@@ -207,6 +207,12 @@ def test_proxy_mount_serves_index_api_and_assets_with_either_prefix(prefix):
   session = human_io.HumanSession()
   app = web.create_app(session, root_path='/astral-canticle-play')
   with TestClient(app, base_url='http://localhost') as client:
-    for suffix in ('/', '/api/state', '/static/app.js', '/static/style.css'):
+    for suffix in (
+        '/',
+        '/api/state',
+        '/static/app.js',
+        '/static/style.css',
+        '/shared/browser-storage.js',
+    ):
       response = client.get(prefix + suffix)
       assert response.status_code == 200, (prefix, suffix, response.text)

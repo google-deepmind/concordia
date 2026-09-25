@@ -150,6 +150,10 @@ def create_app(
   def index():
     return FileResponse(static_path / 'index.html')
 
+  @app.get('/shared/browser-storage.js')
+  def browser_storage():
+    return FileResponse(_STATIC / 'browser-storage.js')
+
   @app.get('/api/state')
   def state():
     return session.snapshot()

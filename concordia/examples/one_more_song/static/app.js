@@ -1,12 +1,31 @@
+import {safeStorage} from '../shared/browser-storage.js';
 'use strict';
 const $ = id => document.getElementById(id);
 let request = null, busy = false, lastRevision = -1;
 let waitingSince = null, lastEventCount = -1;
+const storage = safeStorage('sessionStorage');
+let draftKey = null;
+function saveDraft() {
+  if (!draftKey) return;
+  if ($('reply').value) storage.set(draftKey, $('reply').value);
+  else storage.remove(draftKey);
+}
 function alertText(id, text) { $(id).textContent = text; $(id).hidden = !text; }
 function render(state) {
   request = state.pending;
   const g = state.game;
+  const nextDraftKey = `one-more-song:${location.pathname}:${g.session_id}`;
+  if (nextDraftKey !== draftKey) {
+    // Each new host run has its own drafts; never carry an old offer into it.
+    const typedBeforeConnect = draftKey === null ? $('reply').value : '';
+    draftKey = nextDraftKey;
+    $('reply').value = storage.get(draftKey) || typedBeforeConnect;
+    saveDraft();
+    lastRevision = -1;
+    $('conversation').replaceChildren();
+  }
   $('mode').hidden = g.mode !== 'fixture';
+  $('ai-explainer').hidden = g.mode === 'fixture';
   $('status').textContent = state.status;
   if (request || state.finished) waitingSince = null;
   else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
@@ -39,7 +58,12 @@ function render(state) {
   if (latestReply) $('latest-link').href = `#event-${latestReply.step}`;
   $('journal').hidden = !g.events.length;
   $('result').hidden = !g.ending;
-  if (g.ending) { $('ending').textContent = g.ending; $('votes').textContent = Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote}`).join(' · '); }
+  if (g.ending) {
+    $('ending').textContent = g.ending;
+    const offer = g.events[lastHuman];
+    $('final-offer').textContent = offer ? offer.text.replace(/^You:\s*/, '') : '';
+    $('votes').textContent = Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote === 'ACCEPT' ? 'accepted' : 'declined'}`).join(' · ');
+  }
 }
 async function poll() {
   try {
@@ -60,10 +84,11 @@ $('form').addEventListener('submit', async event => {
     const response = await fetch('api/action', {method:'POST', headers:{'Content-Type':'application/json','X-Astral-Client':'1'}, body:JSON.stringify({request_id:id,response:draft}), signal:AbortSignal.timeout(15000)});
     const data = await response.json();
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'The reply could not be accepted.');
-    if ($('reply').value.trim() === draft) $('reply').value = '';
+    if ($('reply').value.trim() === draft) { $('reply').value = ''; saveDraft(); }
     request = null; alertText('error','');
   } catch (error) { alertText('error', (error.name === 'TimeoutError' || error instanceof TypeError ? 'Could not confirm submission. Check the conversation before trying again.' : error.message) + ' Your draft is kept.'); }
   finally { busy = false; }
 });
-document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => { $('reply').value = button.dataset.draft; $('reply').focus(); }));
+document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => { $('reply').value = button.dataset.draft; saveDraft(); $('reply').focus(); }));
+$('reply').addEventListener('input', saveDraft);
 poll();

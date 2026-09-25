@@ -29,6 +29,13 @@ from concordia.typing import entity
 
 class BallotTest(absltest.TestCase):
 
+  def test_browser_draft_identity_is_stable_and_distinct_per_run(self):
+    first = game.PlayerSession('fixture')
+    second = game.PlayerSession('fixture')
+    identity = first.snapshot()['game']['session_id']
+    self.assertEqual(first.snapshot()['game']['session_id'], identity)
+    self.assertNotEqual(second.snapshot()['game']['session_id'], identity)
+
   def test_phase_and_state_validation(self):
     phase = game.BallotPhase()
     request = entity.ActionSpec(

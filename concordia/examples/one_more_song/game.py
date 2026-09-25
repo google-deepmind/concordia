@@ -19,6 +19,7 @@ import pathlib
 import threading
 import time
 from typing import Any
+import uuid
 
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import human_act_component
@@ -107,6 +108,7 @@ class PlayerSession(human_io.HumanSession):
     self._public_lock = threading.Lock()
     self._public: dict[str, Any] = {
         'mode': mode,
+        'session_id': uuid.uuid4().hex,
         'turn': 1,
         'votes': {},
         'ending': None,
@@ -136,7 +138,10 @@ class PlayerSession(human_io.HumanSession):
       self._public['ending'] = (
           'Encore agreed — both accepted your final proposal.'
           if success
-          else 'No shared encore plan — the concert closes without an encore.'
+          else (
+              'No shared encore plan — not everyone accepted the final'
+              ' proposal.'
+          )
       )
       message = self._public['ending']
     self.finish(message)

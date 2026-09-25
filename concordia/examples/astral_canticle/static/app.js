@@ -1,3 +1,4 @@
+import {safeStorage} from '../shared/browser-storage.js';
 "use strict";
 const $ = (id) => document.getElementById(id);
 let current = null,
@@ -6,25 +7,7 @@ let current = null,
   rendered = 0,
   revision = -1;
 let lastRequest = null;
-const storage = {
-  get(k) {
-    try {
-      return localStorage.getItem(k);
-    } catch {
-      return null;
-    }
-  },
-  set(k, v) {
-    try {
-      localStorage.setItem(k, v);
-    } catch {}
-  },
-  remove(k) {
-    try {
-      localStorage.removeItem(k);
-    } catch {}
-  },
-};
+const storage = safeStorage('localStorage');
 const draftKey = "astral-canticle-draft:" + location.pathname;
 function saveDraft() {
   storage.set(
