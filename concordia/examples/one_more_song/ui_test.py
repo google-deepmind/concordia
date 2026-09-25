@@ -212,3 +212,27 @@ def test_final_suggestion_names_the_performer_but_does_not_submit(public_page):
   page.get_by_role('button', name='Restore previous draft').click()
   expect(page.locator('#reply')).to_have_value('My own careful proposal.')
   assert not submissions
+
+
+def test_recorded_votes_are_not_followed_by_a_wait_for_another_voice(
+    public_page,
+):
+  # Observed live: after Leon's vote appeared, the page briefly said it was
+  # waiting for "the next voice" until the host concluded the game.
+  page, state, _ = public_page
+  state.update(
+      revision=9, pending=None, status='Leon has acted. The story continues…'
+  )
+  state['game'].update(
+      turn=3,
+      votes={'Maya': 'ACCEPT', 'Leon': 'DECLINE'},
+      events=[
+          {'step': 7, 'actor': 'You', 'text': 'You: Final offer.'},
+          {'step': 8, 'actor': 'Maya', 'text': 'Maya: ACCEPT'},
+          {'step': 9, 'actor': 'Leon', 'text': 'Leon: DECLINE'},
+      ],
+  )
+  expect(page.locator('#phase')).to_have_text(
+      'Both votes are recorded. Preparing the result…'
+  )
+  expect(page.locator('#status')).to_have_text('Both votes are in.')

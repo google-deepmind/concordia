@@ -58,7 +58,10 @@ function render(state) {
   $('mode').hidden = g.mode !== 'fixture';
   setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote. Allow a few minutes: an AI reply can take a minute or more.');
   $('ai-explainer').hidden = g.mode === 'fixture';
-  setText('status', state.status);
+  // After both ballots the host is only saving and concluding; the shared
+  // transport's "story continues" status would wrongly suggest more to come.
+  const votesRecorded = !state.finished && Object.keys(g.votes).length === 2;
+  setText('status', votesRecorded ? 'Both votes are in.' : state.status);
   const waitKey = draftKey + ':waiting';
   if (request || state.finished) { waitingSince = null; storage.remove(waitKey); }
   else if (waitingSince === null || g.events.length !== lastEventCount) {
@@ -75,6 +78,7 @@ function render(state) {
   const phaseText = state.finished ?
     (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : g.turn === 2 ? 'Turn 2 of 3 · Respond to what they said and negotiate.' : 'Turn 1 of 3 · Ask what matters to them, in your own words.') :
+    votesRecorded ? 'Both votes are recorded. Preparing the result…' :
     g.events.some(e => e.step >= 7) ?
     `Waiting for ${waitingFor} (${waitingSeconds}s). Your final offer is submitted. Slower models can take a minute or more.` :
     `Waiting for ${waitingFor} (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
