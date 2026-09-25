@@ -173,7 +173,9 @@ conversation grows, and keeps unsent drafts through disconnection and reload in 
 Drafts use browser session storage, isolated by the host run; a fresh game does
 not automatically reuse an earlier offer. If the host restarts while you have a
 draft, the page offers **Use draft from previous game**; review it before choosing
-to restore it. Undoing a suggestion also survives same-tab reload when storage
+to restore it. This also works when the same tab returns after the host has
+restarted, provided session storage remains available. An unconfirmed send from
+the old game is never retried against the new game. Undoing a suggestion also survives same-tab reload when storage
 is available. When browser policy blocks storage, the open tab
 still keeps its draft, but reloading cannot recover it.
 Stalled network requests time out and reconnect; a timed-out submission keeps
@@ -195,7 +197,13 @@ game**, submits all three human turns, captures screenshots and public state,
 checks offline draft recovery and the downloaded transcript, and records elapsed
 time from each submission until the next human turn or ending. These timings
 include browser polling and persistence, not just inference. Install the optional
-test dependency with `pip install playwright` and `playwright install chromium`.
+test dependencies with `pip install playwright pytest` and
+`playwright install chromium`. Controlled-state browser regressions (no simulation
+or model) also run with:
+
+```sh
+python -m pytest concordia/examples/one_more_song/ui_test.py
+```
 
 For a fixture started with both ports above:
 

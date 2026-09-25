@@ -114,6 +114,9 @@ def main():
       page.wait_for_function('() => !document.querySelector("#send").disabled')
       assert page.locator('h1').inner_text() == 'One More Song'
       assert page.locator('#mode').is_visible() != a.real
+      assert ('AI characters' if a.real else 'scripted replies') in (
+          page.locator('#reply-kind').inner_text()
+      )
       assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
       page.screenshot(path=str(a.output / 'opening.png'), full_page=True)
       # Exercise the discoverable path to the controls, not only direct locators.

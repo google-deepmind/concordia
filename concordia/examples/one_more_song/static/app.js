@@ -32,11 +32,15 @@ function render(state) {
   request = state.pending;
   const g = state.game;
   const nextDraftKey = `one-more-song:${location.pathname}:${g.session_id}`;
+  const lastGameKey = `one-more-song:${location.pathname}:last-run`;
   if (nextDraftKey !== draftKey) {
     // Each new host run has its own drafts; never carry an old offer into it.
-    const priorGameDraft = draftKey === null ? '' : ($('reply').value || previousDraft || '');
+    const previousGameKey = draftKey || storage.get(lastGameKey);
+    const changedGame = !!previousGameKey && previousGameKey !== nextDraftKey;
+    const priorGameDraft = changedGame ? (draftKey === null ? storage.get(previousGameKey) || '' : $('reply').value || previousDraft || '') : '';
     const typedBeforeConnect = draftKey === null ? $('reply').value : '';
     draftKey = nextDraftKey;
+    storage.set(lastGameKey, draftKey);
     $('reply').value = storage.get(draftKey) || typedBeforeConnect;
     saveDraft();
     uncertainSubmission = null;
@@ -47,11 +51,12 @@ function render(state) {
     let undo = null;
     try { undo = JSON.parse(storage.get(draftKey + ':previous')); } catch {}
     keepPreviousDraft(priorGameDraft || (undo && typeof undo.text === 'string' ? undo.text : ''), priorGameDraft ? 'previous-game' : undo?.source);
-    alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : priorGameDraft ? 'The host started a fresh game. Your previous draft is available below if you want to use it; review it for this new conversation.' : '');
+    alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : priorGameDraft ? 'The host started a fresh game. Your previous draft is available below if you want to use it; review it for this new conversation.' : changedGame ? 'The host started a fresh game. This page now shows the new conversation.' : '');
     lastRevision = -1;
     $('conversation').replaceChildren();
   }
   $('mode').hidden = g.mode !== 'fixture';
+  setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote.');
   $('ai-explainer').hidden = g.mode === 'fixture';
   setText('status', state.status);
   if (request || state.finished) waitingSince = null;
