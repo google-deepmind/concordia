@@ -58,10 +58,15 @@ function render(state) {
   $('mode').hidden = g.mode !== 'fixture';
   setText('reply-kind', g.mode === 'fixture' ? 'This preview uses scripted replies and votes.' : 'The two AI characters reply in their own words, then each casts a final vote. Allow a few minutes: an AI reply can take a minute or more.');
   $('ai-explainer').hidden = g.mode === 'fixture';
-  // After both ballots the host is only saving and concluding; the shared
-  // transport's "story continues" status would wrongly suggest more to come.
+  // While waiting, name what just happened. The shared transport's generic
+  // "<actor> has acted. The story continues…" reads "You has acted" here and
+  // suggests more to come after both ballots.
   const votesRecorded = !state.finished && Object.keys(g.votes).length === 2;
-  setText('status', votesRecorded ? 'Both votes are in.' : state.status);
+  const last = g.events.at(-1);
+  setText('status', state.finished || request || !last ? state.status :
+    votesRecorded ? 'Both votes are in.' :
+    last.actor === 'You' ? 'Your words are sent.' :
+    last.step >= 8 ? `${last.actor} has voted.` : `${last.actor} has replied.`);
   const waitKey = draftKey + ':waiting';
   if (request || state.finished) { waitingSince = null; storage.remove(waitKey); }
   else if (waitingSince === null || g.events.length !== lastEventCount) {

@@ -236,3 +236,28 @@ def test_recorded_votes_are_not_followed_by_a_wait_for_another_voice(
       'Both votes are recorded. Preparing the result…'
   )
   expect(page.locator('#status')).to_have_text('Both votes are in.')
+
+
+@pytest.mark.parametrize(
+    ('actor', 'step', 'status'),
+    [
+        ('You', 1, 'Your words are sent.'),
+        ('Maya', 2, 'Maya has replied.'),
+        ('Maya', 8, 'Maya has voted.'),
+    ],
+)
+def test_waiting_status_names_what_just_happened(
+    public_page, actor, step, status
+):
+  # Observed live: the shared transport's heading read "You has acted. The
+  # story continues…" during every wait.
+  page, state, _ = public_page
+  state.update(
+      revision=2,
+      pending=None,
+      status=f'{actor} has acted. The story continues…',
+  )
+  state['game']['events'] = [
+      {'step': step, 'actor': actor, 'text': f'{actor}: Words.'}
+  ]
+  expect(page.locator('#status')).to_have_text(status)
