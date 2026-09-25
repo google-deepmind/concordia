@@ -261,10 +261,11 @@ def configuration(reader):
           'Leon',
           'A tired, practical neighbour who still wants the event to succeed.',
           (
-              'Protect a sleeping child from amplified music and leave'
-              ' promptly. You might accept a brief unamplified encore with a'
-              ' clear end. A vague assurance is not enough. You decide for'
-              ' yourself.'
+              'Get quiet now so your child can keep sleeping. Ending without'
+              ' another song would suit you best; you do not need a musical'
+              ' farewell yourself. You are willing to compromise on a very'
+              ' brief unamplified encore if its end is concrete. A vague'
+              ' assurance is not enough. You decide for yourself.'
           ),
       ),
   ):
