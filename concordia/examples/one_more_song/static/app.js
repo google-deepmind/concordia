@@ -99,6 +99,10 @@ function render(state) {
   const arrivalText = state.finished ? (g.ending ? 'Conversation complete — view the ending ↓' : 'Conversation stopped — read what happened ↓') : g.events.length ? 'Conversation underway — catch up ↓' : 'Start the conversation ↓';
   if (arrival.textContent !== arrivalText) arrival.textContent = arrivalText;
   arrival.href = state.finished && g.ending ? '#result' : g.events.length || state.finished ? '#conversation' : '#reply';
+  const skip = document.querySelector('.skip');
+  skip.href = state.finished && g.ending ? '#result' : request ? '#reply' : '#conversation';
+  const skipLabel = state.finished && g.ending ? 'Skip to the ending' : request ? 'Skip to your reply' : 'Skip to the conversation';
+  if (skip.textContent !== skipLabel) skip.textContent = skipLabel;
   if (state.revision !== lastRevision) {
     // Recorded events are append-only. Keep existing nodes so a screen reader
     // announces only new dialogue and reading/selection isn't reset.

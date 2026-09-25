@@ -182,6 +182,12 @@ def test_late_arrival_can_find_existing_conversation_without_reset(
       ],
   )
   page.reload()
+  expect(page.locator('.start-link')).to_contain_text(label)
+  page.keyboard.press('Tab')
+  expect(page.locator('.skip')).to_be_focused()
+  page.keyboard.press('Enter')
+  expect(page.locator(target)).to_be_focused()
+  expect(page.locator(target)).to_be_in_viewport()
   arrival = page.locator('.start-link')
   expect(arrival).to_contain_text(label)
   arrival.click()
