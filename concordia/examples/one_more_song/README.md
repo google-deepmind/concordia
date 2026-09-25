@@ -239,6 +239,10 @@ The driver requires a new game for each complete journey; it does not reset,
 start, stop or silently substitute models. The fixture is deliberately scripted
 and always accepts. Its votes cannot validate negotiation quality.
 
+Use a new or empty `--output` directory for each journey; the driver refuses
+to overwrite earlier evidence. Keep custom action files outside that output
+directory. This makes before/after comparisons inspectable.
+
 Every journey captures a Playwright `trace.zip` (open with `playwright show-trace`).
 On failure, `failure.json` preserves the error and available public state, with
 `failure.png` when capture is possible; the command still exits unsuccessfully.

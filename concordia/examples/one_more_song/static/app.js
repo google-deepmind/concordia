@@ -26,7 +26,8 @@ function saveDraft() {
   if ($('reply').value) storage.set(draftKey, $('reply').value);
   else storage.remove(draftKey);
 }
-function alertText(id, text) { if ($(id).textContent !== text) $(id).textContent = text; $(id).hidden = !text; }
+function setText(id, text) { if ($(id).textContent !== text) $(id).textContent = text; }
+function alertText(id, text) { setText(id, text); $(id).hidden = !text; }
 function render(state) {
   request = state.pending;
   const g = state.game;
@@ -52,21 +53,22 @@ function render(state) {
   }
   $('mode').hidden = g.mode !== 'fixture';
   $('ai-explainer').hidden = g.mode === 'fixture';
-  if ($('status').textContent !== state.status) $('status').textContent = state.status;
+  setText('status', state.status);
   if (request || state.finished) waitingSince = null;
   else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
   lastEventCount = g.events.length;
   const waitingSeconds = waitingSince === null ? 0 : Math.floor((Date.now() - waitingSince) / 1000);
   const waitingFor = nextVoice[g.events.at(-1)?.step] || 'the next voice';
-  $('phase').textContent = state.finished ?
+  const phaseText = state.finished ?
     (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
     g.events.some(e => e.step >= 7) ?
     `Waiting for ${waitingFor} (${waitingSeconds}s). Your final offer is submitted. Slower models can take a minute or more.` :
     `Waiting for ${waitingFor} (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
+  setText('phase', phaseText);
   $('send').disabled = (!request && !uncertainSubmission) || busy;
   const sendLabel = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
-  if ($('send').textContent !== sendLabel) $('send').textContent = sendLabel;
+  setText('send', sendLabel);
   $('form').hidden = state.finished;
   // The last turn must contain an offer: don't suggest spending it on another
   // opening question. Suggestions still only fill an editable draft.
@@ -99,10 +101,10 @@ function render(state) {
   $('journal').hidden = !g.events.length;
   $('result').hidden = !g.ending;
   if (g.ending) {
-    $('ending').textContent = g.ending;
+    setText('ending', g.ending);
     const offer = g.events[lastHuman];
-    $('final-offer').textContent = offer ? offer.text.replace(/^You:\s*/, '') : '';
-    $('votes').textContent = Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote === 'ACCEPT' ? 'accepted' : 'declined'}`).join(' · ');
+    setText('final-offer', offer ? offer.text.replace(/^You:\s*/, '') : '');
+    setText('votes', Object.entries(g.votes).map(([name, vote]) => `${name}: ${vote === 'ACCEPT' ? 'accepted' : 'declined'}`).join(' · '));
   }
 }
 async function poll() {

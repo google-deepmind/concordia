@@ -85,6 +85,11 @@ def main():
           '--actions-file must contain exactly three nonempty strings, each at'
           ' most 8000 characters.'
       )
+  if a.output.exists() and (not a.output.is_dir() or any(a.output.iterdir())):
+    p.error(
+        '--output must be a new or empty directory; keep earlier journey'
+        ' evidence for comparison.'
+    )
   a.output.mkdir(parents=True, exist_ok=True)
   try:
     playwright = importlib.import_module('playwright.sync_api')
@@ -342,6 +347,20 @@ def main():
       assert state['pending'] is None
       assert not errors, errors
       page.screenshot(path=str(a.output / 'ending.png'), full_page=True)
+      # A player may copy their final offer while the completed page still polls.
+      # Unchanged state must not replace the selected text node on every poll.
+      selected = page.locator('#final-offer').inner_text()
+      page.locator('#final-offer').evaluate(
+          '(node) => {const range=document.createRange();'
+          'range.selectNodeContents(node);const'
+          ' selection=window.getSelection();'
+          'selection.removeAllRanges();selection.addRange(range);}'
+      )
+      page.wait_for_timeout(
+          1400
+      )  # More than two ordinary 600ms poll intervals.
+      assert page.evaluate('window.getSelection().toString()') == selected
+      page.evaluate('window.getSelection().removeAllRanges()')
       # Exercise the guest's actual download control, not only the HTTP route.
       with page.expect_download() as download_event:
         page.locator('#journal a').click()

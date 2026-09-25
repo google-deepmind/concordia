@@ -42,14 +42,15 @@ import numpy as np
 PLAYER = 'You'
 CAST = ('You', 'Maya', 'Leon')
 PREMISE = (
-    'A neighbourhood benefit concert is at closing time. The organiser '
-    '(whose speaker label is "You") wants an encore plan that both Maya '
-    'and Leon will accept. Maya is the singer; Leon lives next door and '
-    'needs quiet. The organiser has three speaking turns: ask what matters, '
-    'negotiate, then make a final offer. Maya and Leon each speak twice, '
-    'then independently vote ACCEPT or DECLINE on that final offer. '
-    'Everyone hears what is said. Words are proposals and promises, not proof '
-    'that anyone has already performed an action. No one can speak for another.'
+    'A neighbourhood benefit concert is at closing time. The organiser (whose'
+    ' speaker label is "You") wants an encore plan that both Maya and Leon will'
+    ' accept. Maya is the singer; Leon lives next door and needs quiet. The'
+    ' organiser has three speaking turns: ask what matters, negotiate, then'
+    ' make a final offer. Maya and Leon each speak twice, then independently'
+    ' vote ACCEPT or DECLINE on that final offer. No specific clock time is'
+    ' established; negotiate any extra time as a duration from now. Everyone'
+    ' hears what is said. Words are proposals and promises, not proof that'
+    ' anyone has already performed an action. No one can speak for another.'
 )
 ACCEPT = 'ACCEPT'
 DECLINE = 'DECLINE'
