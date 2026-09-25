@@ -16,6 +16,7 @@
 
 import argparse
 import datetime
+import json
 import pathlib
 
 from concordia.contrib.language_models.ollama import ollama_model
@@ -94,6 +95,7 @@ def main():
           for name in (
               'public.json',
               'simulation.json',
+              'timing.json',
               'log.html',
               'checkpoints',
           )
@@ -104,6 +106,15 @@ def main():
         ' preserve it.'
     )
   session = game.PlayerSession('fixture' if args.fixture else args.model)
+  args.output.mkdir(parents=True, exist_ok=True)
+  try:
+    with (args.output / 'public.json').open('x', encoding='utf-8') as saved:
+      json.dump(session.snapshot(), saved, ensure_ascii=False)
+  except FileExistsError:
+    parser.error(
+        '--output already contains a run. Choose a new directory to'
+        ' preserve it.'
+    )
   model = (
       FixtureModel()
       if args.fixture

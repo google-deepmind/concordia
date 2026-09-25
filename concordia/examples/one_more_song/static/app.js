@@ -4,6 +4,9 @@ const $ = id => document.getElementById(id);
 let request = null, busy = false, lastRevision = -1;
 let waitingSince = null, lastEventCount = -1;
 const storage = safeStorage('sessionStorage');
+// Public labels for this example's fixed nine-step conversation, not a second
+// turn controller. The standard Sequential engine remains authoritative.
+const nextVoice = {1:'Maya’s reply', 2:'Leon’s reply', 4:'Maya’s reply', 5:'Leon’s reply', 7:'Maya’s vote', 8:'Leon’s vote'};
 let draftKey = null, uncertainSubmission = null, previousDraft = null;
 function keepPreviousDraft(text, source = 'suggestion') {
   previousDraft = text || null;
@@ -54,12 +57,13 @@ function render(state) {
   else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
   lastEventCount = g.events.length;
   const waitingSeconds = waitingSince === null ? 0 : Math.floor((Date.now() - waitingSince) / 1000);
+  const waitingFor = nextVoice[g.events.at(-1)?.step] || 'the next voice';
   $('phase').textContent = state.finished ?
     (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
     g.events.some(e => e.step >= 7) ?
-    `Waiting for final votes (${waitingSeconds}s). Your final offer is submitted. Slower models can take a minute or more.` :
-    `Waiting for the next voice (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
+    `Waiting for ${waitingFor} (${waitingSeconds}s). Your final offer is submitted. Slower models can take a minute or more.` :
+    `Waiting for ${waitingFor} (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
   $('send').disabled = (!request && !uncertainSubmission) || busy;
   const sendLabel = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
   if ($('send').textContent !== sendLabel) $('send').textContent = sendLabel;

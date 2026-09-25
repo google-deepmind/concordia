@@ -56,8 +56,9 @@ DECLINE = 'DECLINE'
 SPEECH = entity.free_action_spec(
     call_to_action=(
         'What does {name} say to the others? Respond to their actual words; '
-        'speak directly in first person in at most 45 words. Address the '
-        'current proposal before adding a concern or alternative. Output only '
+        'speak directly in first person in at most 45 words. Answer their '
+        'question or respond to their offer before adding a concern or '
+        'alternative. Output only '
         'your spoken words, without a speaker label. Do not narrate other '
         'people, invent earlier conversations or agreement, or use analysis.'
     )

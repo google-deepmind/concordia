@@ -27,6 +27,25 @@ from concordia.examples.one_more_song import web
 
 class LaunchTest(absltest.TestCase):
 
+  def test_unplayed_run_reserves_output_before_first_action(self):
+    with tempfile.TemporaryDirectory() as directory:
+      output = pathlib.Path(directory) / 'game'
+      with mock.patch.object(
+          sys, 'argv', ['web', '--fixture', '--output', str(output)]
+      ):
+        with mock.patch.object(
+            web.game, 'build', return_value=(None, None)
+        ) as build:
+          with mock.patch.object(web.human_web, 'create_app'):
+            with mock.patch.object(web.uvicorn, 'run'):
+              with contextlib.redirect_stdout(io.StringIO()):
+                web.main()
+                with contextlib.redirect_stderr(io.StringIO()):
+                  with self.assertRaises(SystemExit) as stopped:
+                    web.main()
+      self.assertEqual(stopped.exception.code, 2)
+      self.assertEqual(build.call_count, 1)
+
   def test_existing_run_is_rejected_before_build_and_kept_intact(self):
     with tempfile.TemporaryDirectory() as directory:
       output = pathlib.Path(directory)
@@ -46,16 +65,18 @@ class LaunchTest(absltest.TestCase):
 
   def test_default_replays_use_separate_output_directories(self):
     outputs = []
-    with mock.patch.object(sys, 'argv', ['web', '--fixture']):
-      with mock.patch.object(web.game, 'build', return_value=(None, None)):
-        with mock.patch.object(web.game, 'play') as play:
-          with mock.patch.object(web.human_web, 'create_app') as create:
-            with mock.patch.object(web.uvicorn, 'run'):
-              with contextlib.redirect_stdout(io.StringIO()) as text:
-                for _ in range(2):
-                  web.main()
-                  create.call_args.kwargs['runner']()
-                  outputs.append(play.call_args.args[2])
+    with tempfile.TemporaryDirectory() as directory:
+      with contextlib.chdir(directory):
+        with mock.patch.object(sys, 'argv', ['web', '--fixture']):
+          with mock.patch.object(web.game, 'build', return_value=(None, None)):
+            with mock.patch.object(web.game, 'play') as play:
+              with mock.patch.object(web.human_web, 'create_app') as create:
+                with mock.patch.object(web.uvicorn, 'run'):
+                  with contextlib.redirect_stdout(io.StringIO()) as text:
+                    for _ in range(2):
+                      web.main()
+                      create.call_args.kwargs['runner']()
+                      outputs.append(play.call_args.args[2])
     self.assertNotEqual(outputs[0], outputs[1])
     self.assertTrue(all(p.parent == pathlib.Path('runs') for p in outputs))
     self.assertIn('http://127.0.0.1:8820/', text.getvalue())
