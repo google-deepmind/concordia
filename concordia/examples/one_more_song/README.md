@@ -22,7 +22,7 @@ and local-model dependencies:
 
 ```sh
 python -m pip install -e . fastapi uvicorn ollama
-ollama pull llama3.2:3b
+ollama pull qwen3:8b
 python -m concordia.examples.one_more_song.web --port 8820 --editor-port 8821 --output runs/one-more-song
 ```
 
@@ -32,7 +32,8 @@ process is a new game. Use a new output directory for each run.
 
 `--fixture` uses plainly labelled scripted test replies. It is for UI/mechanics
 validation, **not** evidence of generative play. Real mode uses the standard
-local Ollama model wrapper. There are four free-text calls and two choice calls;
+local Ollama model wrapper, defaulting to `qwen3:8b`. Use `--model llama3.2:3b`
+for a smaller/faster alternative with weaker dialogue in our observed samples. There are four free-text calls and two choice calls;
 choice sampling may retry. Actual end-to-end time depends on the machine/model
 and human deliberation. No paid model service is required.
 
@@ -114,7 +115,9 @@ python -m concordia.examples.one_more_song.playtest --port 8820 --editor-port 88
 ```
 
 `--editor-port` also performs the documented paused Leon goal intervention using
-the actual designer controls. Its evidence contains the old private goal: keep
+the actual designer controls at a separate 1280px desktop viewport, even when
+the player viewport is mobile-sized. This does not claim a phone-sized designer
+journey. Its evidence contains the old private goal: keep
 that output private. Omit it for an unintervened baseline. For a fresh mobile-size
 fixture, use `--width 390` (emulation, not a physical phone). For a fresh local-model
 game, add `--real`; `--scenario compromise`, `demand`, `revision`, or `ambiguous`
@@ -159,3 +162,18 @@ that they are the organiser. The speaker prefab reuses standard
 `ConcatActComponent(prefix_entity_name=False)` so Sequential's existing actor
 label is not duplicated. Neither change rewrites generated speech or forces a
 vote. Inspect the actual transcript, not just the final score.
+
+The default `qwen3:8b` was selected after comparison with already-installed local
+models, not from a scripted successful outcome. With the same prompts, its
+revised-offer journey took 131.253 s and recorded ACCEPT/ACCEPT; the one-sided
+demand took 95.400 s and recorded DECLINE/DECLINE. The ambiguous journey took
+235.609 s and recorded ACCEPT/ACCEPT after the characters themselves proposed a
+specific quiet encore. That does not prove the final vague wording was prudent:
+interpret the transcript, not a predetermined pass/fail label. A larger local
+model can take over a minute per reply phase on CPU; the page shows elapsed wait
+without claiming a completion percentage. Choose the smaller model explicitly
+when responsiveness matters more than the observed quality tradeoff.
+
+If a run fails, `public.json` now marks it stopped, with no fabricated ending or
+votes; raw provider diagnostics remain in private host logs. The page likewise
+distinguishes an interrupted conversation from a completed ballot.

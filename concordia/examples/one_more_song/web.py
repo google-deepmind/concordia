@@ -45,7 +45,7 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--port', type=int, default=8820)
   parser.add_argument('--editor-port', type=int)
-  parser.add_argument('--model', default='llama3.2:3b')
+  parser.add_argument('--model', default='qwen3:8b')
   parser.add_argument(
       '--fixture',
       action='store_true',

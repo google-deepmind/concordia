@@ -17,6 +17,7 @@
 import json
 from unittest import mock
 
+from concordia.agents import entity_agent
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import human_act_component
 from concordia.examples.astral_canticle import adventure
@@ -194,9 +195,9 @@ def test_simulation_owns_the_run_and_exports_each_completed_step(tmp_path):
   simulation = built[0]
   assert type(simulation) is generic.Simulation
   assert len(simulation.get_raw_log()) == 3
-  assert simulation.get_entity_prefab_config(adventure.PLAYER).prefab == (
-      'human_player'
-  )
+  player_config = simulation.get_entity_prefab_config(adventure.PLAYER)
+  assert player_config is not None
+  assert player_config.prefab == 'human_player'
   assert len(simulation.get_game_masters()) == 1
   session.add_observation.assert_called_once()
   assert (
@@ -238,6 +239,8 @@ def test_real_transport_is_not_copied_and_builds_have_fresh_components(role):
   cast_a = a.get_entities() + a.get_game_masters()
   cast_b = b.get_entities() + b.get_game_masters()
   for first, second in zip(cast_a, cast_b):
+    assert isinstance(first, entity_agent.EntityAgent)
+    assert isinstance(second, entity_agent.EntityAgent)
     for key, component in first.get_all_context_components().items():
       assert component is not second.get_component(key)
   assert a.game_master_memory_bank is not b.game_master_memory_bank

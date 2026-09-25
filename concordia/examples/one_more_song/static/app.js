@@ -1,15 +1,21 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let request = null, busy = false, lastRevision = -1;
+let waitingSince = null, lastEventCount = -1;
 function alertText(id, text) { $(id).textContent = text; $(id).hidden = !text; }
 function render(state) {
   request = state.pending;
   const g = state.game;
   $('mode').hidden = g.mode !== 'fixture';
   $('status').textContent = state.status;
-  $('phase').textContent = state.finished ? 'Conversation complete.' : request ?
+  if (request || state.finished) waitingSince = null;
+  else if (waitingSince === null || g.events.length !== lastEventCount) waitingSince = Date.now();
+  lastEventCount = g.events.length;
+  const waitingSeconds = waitingSince === null ? 0 : Math.floor((Date.now() - waitingSince) / 1000);
+  $('phase').textContent = state.finished ?
+    (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Your recorded dialogue is available below.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
-    'Waiting for the next voice. Your draft stays here; no need to resend.';
+    `Waiting for the next voice (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
   $('send').disabled = !request || busy;
   $('send').textContent = request ? 'Say it' : 'Waiting…';
   $('form').hidden = state.finished;

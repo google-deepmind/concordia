@@ -19,10 +19,10 @@ journeys capture evidence without asserting that a particular proposal must win.
 """
 
 import argparse
+import importlib
 import json
 import time
 from pathlib import Path
-from playwright.sync_api import sync_playwright
 
 
 def main():
@@ -40,7 +40,16 @@ def main():
   )
   a = p.parse_args()
   a.output.mkdir(parents=True, exist_ok=True)
-  with sync_playwright() as pw:
+  try:
+    playwright = importlib.import_module('playwright.sync_api')
+  except ModuleNotFoundError as error:
+    if error.name not in ('playwright', 'playwright.sync_api'):
+      raise
+    p.error(
+        'Install the optional browser dependency with pip install playwright, '
+        'then run playwright install chromium.'
+    )
+  with playwright.sync_playwright() as pw:
     browser = pw.chromium.launch()
     context = browser.new_context(viewport={'width': a.width, 'height': 900})
     context.tracing.start(screenshots=True, snapshots=True, sources=True)
@@ -71,6 +80,9 @@ def main():
       intervention = None
       if a.editor_port:
         editor = context.new_page()
+        # The private designer is operated on the host, separately from the
+        # phone-sized player page. Do not claim mobile designer coverage.
+        editor.set_viewport_size({'width': 1280, 'height': 900})
         editor.goto(f'http://127.0.0.1:{a.editor_port}/')
         editor.locator('#btn-pause').click()
         editor.wait_for_function(
@@ -212,6 +224,7 @@ def main():
                   'turn_seconds': timings,
                   'journey_seconds': round(time.monotonic() - started, 3),
                   'intervention': intervention,
+                  'designer_viewport_width': 1280 if editor else None,
                   'state': state,
               },
               indent=2,
