@@ -228,6 +228,13 @@ def main():
           for route in accepted_posts:
             route.abort()
           page.unroute('**/api/action')
+          # A user retry must recheck the original ID, not consume turn two.
+          page.reload()
+          page.get_by_role('button', name='Check last send', exact=True).click()
+          page.wait_for_function(
+              '() => document.querySelector("#error").hidden'
+          )
+          assert page.locator('#reply').input_value() == ''
           state_after_timeout = page.request.get(
               f'http://127.0.0.1:{a.port}/api/state'
           ).json()
@@ -242,6 +249,7 @@ def main():
               'draft_preserved': True,
               'accepted_posts': len(accepted_posts),
               'automatic_retries': 0,
+              'manual_recheck_after_reload_did_not_consume_turn': True,
           }
         if turn == 0 and editor:
           page.wait_for_function(
@@ -304,7 +312,7 @@ def main():
           ).inner_text()
         timings.append(round(time.monotonic() - turn_start, 3))
       if not a.real:
-        assert 'Encore agreed' in page.locator('#ending').inner_text()
+        assert 'Agreement reached' in page.locator('#ending').inner_text()
       assert page.locator('.entry').count() == 9
       assert not page.locator('#form').is_visible()
       state = page.request.get(f'http://127.0.0.1:{a.port}/api/state').json()
@@ -348,7 +356,7 @@ def main():
           'error': str(error),
           'fixture': not a.real,
           'viewport_width': a.width,
-          'scenario': a.scenario,
+          'scenario': 'custom' if custom_actions is not None else a.scenario,
       }
       try:
         page.screenshot(path=str(a.output / 'failure.png'), full_page=True)

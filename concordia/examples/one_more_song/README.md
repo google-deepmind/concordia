@@ -123,8 +123,11 @@ Drafts use browser session storage, isolated by the host run; a fresh game does
 not reuse an earlier offer. When browser policy blocks storage, the open tab
 still keeps its draft, but reloading cannot recover it.
 Stalled network requests time out and reconnect; a timed-out submission keeps
-the draft and asks you to check the conversation before retrying, because the
-server may already have accepted it. Submissions are never automatically replayed.
+the draft and offers **Check last send**, because the server may already have
+accepted it. That button rechecks the original request ID using the existing
+inbox’s idempotency; it cannot consume the next speaking turn. The pending
+confirmation survives a same-tab reload when session storage is available.
+Submissions are never automatically replayed.
 Tab-scoped storage is not a permanent backup; losing the browser session loses unsent drafts. Host/provider errors
 end the session with a visible message; partial standard logs are saved.
 Changing a local model or re-running does not promise the same conversation.

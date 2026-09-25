@@ -136,10 +136,10 @@ class PlayerSession(human_io.HumanSession):
       votes = self._public['votes']
       success = len(votes) == 2 and all(v == ACCEPT for v in votes.values())
       self._public['ending'] = (
-          'Encore agreed — both accepted your final proposal.'
+          'Agreement reached — both accepted your final proposal.'
           if success
           else (
-              'No shared encore plan — not everyone accepted the final'
+              'No shared agreement — not everyone accepted the final'
               ' proposal.'
           )
       )

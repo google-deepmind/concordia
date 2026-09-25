@@ -4,7 +4,12 @@ const $ = id => document.getElementById(id);
 let request = null, busy = false, lastRevision = -1;
 let waitingSince = null, lastEventCount = -1;
 const storage = safeStorage('sessionStorage');
-let draftKey = null;
+let draftKey = null, uncertainSubmission = null, previousDraft = null;
+function saveSubmission() {
+  if (!draftKey) return;
+  if (uncertainSubmission) storage.set(draftKey + ':submission', JSON.stringify(uncertainSubmission));
+  else storage.remove(draftKey + ':submission');
+}
 function saveDraft() {
   if (!draftKey) return;
   if ($('reply').value) storage.set(draftKey, $('reply').value);
@@ -21,6 +26,13 @@ function render(state) {
     draftKey = nextDraftKey;
     $('reply').value = storage.get(draftKey) || typedBeforeConnect;
     saveDraft();
+    uncertainSubmission = null;
+    try {
+      const saved = JSON.parse(storage.get(draftKey + ':submission'));
+      if (saved && typeof saved.id === 'string' && typeof saved.response === 'string') uncertainSubmission = saved;
+    } catch {}
+    alertText('error', uncertainSubmission ? 'A previous send was not confirmed in this tab. Check last send before taking another turn. Your draft is kept.' : '');
+    previousDraft = null; $('restore-draft').hidden = true;
     lastRevision = -1;
     $('conversation').replaceChildren();
   }
@@ -32,11 +44,11 @@ function render(state) {
   lastEventCount = g.events.length;
   const waitingSeconds = waitingSince === null ? 0 : Math.floor((Date.now() - waitingSince) / 1000);
   $('phase').textContent = state.finished ?
-    (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Your recorded dialogue is available below.') : request ?
+    (g.ending ? 'Conversation complete.' : 'Conversation stopped before the ending. Use the conversation download to keep the dialogue recorded so far.') : request ?
     (g.turn === 3 ? 'Turn 3 of 3 · Make your final proposal. Their votes follow.' : `Turn ${g.turn} of 3 · Listen, then speak in your own words.`) :
     `Waiting for the next voice (${waitingSeconds}s). Slower models can take a minute or more. Your draft stays here; no need to resend.`;
-  $('send').disabled = !request || busy;
-  $('send').textContent = request ? 'Say it' : 'Waiting…';
+  $('send').disabled = (!request && !uncertainSubmission) || busy;
+  $('send').textContent = busy ? 'Sending…' : uncertainSubmission ? 'Check last send' : request ? 'Say it' : 'Waiting…';
   $('form').hidden = state.finished;
   document.querySelector('.start-link').hidden = !!g.events.length || state.finished;
   if (state.revision !== lastRevision) {
@@ -76,19 +88,42 @@ async function poll() {
   } finally { setTimeout(poll, 600); }
 }
 $('form').addEventListener('submit', async event => {
-  event.preventDefault(); if (!request || busy) return;
-  const draft = $('reply').value.trim();
-  if (!draft) { alertText('error', 'Write something to say first.'); $('reply').focus(); return; }
-  const id = request.id; busy = true; $('send').disabled = true;
+  event.preventDefault(); if ((!request && !uncertainSubmission) || busy) return;
+  const attempt = uncertainSubmission || {id:request.id, response:$('reply').value.trim()};
+  if (!attempt.response) { alertText('error', 'Write something to say first.'); $('reply').focus(); return; }
+  // The existing HumanSession inbox makes retries of this exact ID and response
+  // idempotent. Never retry an uncertain send using the next turn's request ID.
+  uncertainSubmission = attempt; saveSubmission();
+  busy = true; $('send').disabled = true;
   try {
-    const response = await fetch('api/action', {method:'POST', headers:{'Content-Type':'application/json','X-Astral-Client':'1'}, body:JSON.stringify({request_id:id,response:draft}), signal:AbortSignal.timeout(15000)});
+    const response = await fetch('api/action', {method:'POST', headers:{'Content-Type':'application/json','X-Astral-Client':'1'}, body:JSON.stringify({request_id:attempt.id,response:attempt.response}), signal:AbortSignal.timeout(15000)});
     const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'The reply could not be accepted.');
-    if ($('reply').value.trim() === draft) { $('reply').value = ''; saveDraft(); }
+    if (!response.ok) {
+      uncertainSubmission = null; saveSubmission();
+      alertText('error', (typeof data.detail === 'string' ? data.detail : 'The reply could not be accepted.') + ' Review your draft before taking another turn.');
+      return;
+    }
+    uncertainSubmission = null; saveSubmission();
+    previousDraft = null; $('restore-draft').hidden = true;
+    if ($('reply').value.trim() === attempt.response) { $('reply').value = ''; saveDraft(); }
     request = null; alertText('error','');
-  } catch (error) { alertText('error', (error.name === 'TimeoutError' || error instanceof TypeError ? 'Could not confirm submission. Check the conversation before trying again.' : error.message) + ' Your draft is kept.'); }
-  finally { busy = false; }
+  } catch (_) {
+    alertText('error', 'Could not confirm submission. Use Check last send to check the same turn safely. Your draft is kept.');
+  } finally { busy = false; }
 });
-document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => { $('reply').value = button.dataset.draft; saveDraft(); $('reply').focus(); }));
-$('reply').addEventListener('input', saveDraft);
+document.querySelectorAll('[data-draft]').forEach(button => button.addEventListener('click', () => {
+  const before = $('reply').value;
+  if (before === button.dataset.draft) { $('reply').focus(); return; }
+  previousDraft = before || null;
+  $('restore-draft').hidden = previousDraft === null;
+  $('reply').value = button.dataset.draft; saveDraft(); $('reply').focus();
+}));
+$('restore-draft').addEventListener('click', () => {
+  if (previousDraft === null) return;
+  $('reply').value = previousDraft; previousDraft = null;
+  $('restore-draft').hidden = true; saveDraft(); $('reply').focus();
+});
+$('reply').addEventListener('input', () => {
+  previousDraft = null; $('restore-draft').hidden = true; saveDraft();
+});
 poll();
