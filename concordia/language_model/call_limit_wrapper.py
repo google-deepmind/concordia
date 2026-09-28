@@ -15,6 +15,7 @@
 """Wrapper to limit calls to an underlying language model."""
 
 from collections.abc import Collection, Mapping, Sequence
+import threading
 from typing import Any, override
 
 from absl import logging
@@ -44,6 +45,7 @@ class CallLimitLanguageModel(language_model.LanguageModel):
     self._model = model
     self._max_calls = max_calls
     self._calls = 0
+    self._calls_lock = threading.Lock()
 
   @override
   def sample_text(
@@ -58,17 +60,17 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    if self._calls >= self._max_calls:
-      logging.warning(
-          'Call limit of %s reached. All further sample_text calls will be'
-          ' replaced with empty strings and sample_choice calls with the first'
-          ' response',
-          self._max_calls,
-      )
+    with self._calls_lock:
+      if self._calls >= self._max_calls:
+        logging.warning(
+            'Call limit of %s reached. All further sample_text calls will be'
+            ' replaced with empty strings and sample_choice calls with the'
+            ' first response',
+            self._max_calls,
+        )
+        return ''
+      self._calls += 1
 
-      return ''
-
-    self._calls += 1
     return self._model.sample_text(
         prompt,
         max_tokens=max_tokens,
@@ -88,14 +90,15 @@ class CallLimitLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
-    if self._calls >= self._max_calls:
-      logging.warning(
-          'Call limit of %s reached. All further sample_text calls will be'
-          ' replaced with empty strings and sample_choice calls with the first'
-          ' response',
-          self._max_calls,
-      )
-      return 0, responses[0], {}
+    with self._calls_lock:
+      if self._calls >= self._max_calls:
+        logging.warning(
+            'Call limit of %s reached. All further sample_text calls will be'
+            ' replaced with empty strings and sample_choice calls with the'
+            ' first response',
+            self._max_calls,
+        )
+        return 0, responses[0], {}
+      self._calls += 1
 
-    self._calls += 1
     return self._model.sample_choice(prompt, responses, seed=seed)

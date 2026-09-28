@@ -34,13 +34,13 @@ import sys
 from concordia.contrib import language_models
 import sentence_transformers
 
-
 _AVAILABLE_GAMES = (
     "haggling",
     "haggling_multi_item",
     "labor_collective_action",
     "pub_coordination",
     "reality_show",
+    "social_deception",
     "state_formation",
 )
 
@@ -52,6 +52,7 @@ _DEFAULT_SCENARIOS = {
     "reality_show": (
         "circa_2003_american_reality_show__prisoners_dilemma_3_players"
     ),
+    "social_deception": "basic_epistemic_town",
     "state_formation": "pre_state_villages",
 }
 

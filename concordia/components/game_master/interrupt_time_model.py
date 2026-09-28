@@ -49,21 +49,11 @@ def parse_duration_seconds(duration_str: str) -> int:
   duration_str = duration_str.strip()
   if not duration_str or duration_str == '0':
     return 0
-  hours = 0
-  minutes = 0
-  parsed = False
-  if 'h' in duration_str:
-    parts = duration_str.split('h', 1)
-    hours = int(parts[0])
-    rest = parts[1]
-    parsed = True
-  else:
-    rest = duration_str
-  if rest.endswith('m'):
-    minutes = int(rest[:-1])
-    parsed = True
-  if not parsed:
+  match = re.fullmatch(r'(?:(\d+)h)?(?:(\d+)m)?', duration_str)
+  if match is None or not any(match.groups()):
     return 3600  # Default fallback: 1 hour.
+  hours = int(match.group(1) or 0)
+  minutes = int(match.group(2) or 0)
   return hours * 3600 + minutes * 60
 
 
@@ -312,8 +302,9 @@ class GenerativeTimeModel(TimeModel):
 
     Prompts the LLM to convert the entity's absolute time specification into
     a number of seconds from now, then adds that offset to ``current_time``.
-    If the result is not strictly after ``current_time``, one simulated day
-    (86400 seconds) is added on the assumption the entity meant "tomorrow".
+    A non-positive offset is reduced modulo one simulated day. Exact multiples
+    of a day map to the following day, so the result is strictly after
+    ``current_time``.
 
     Args:
       time_str: An absolute time string, e.g. ``'8:00'``.
@@ -346,10 +337,11 @@ class GenerativeTimeModel(TimeModel):
       raise ValueError(
           f'Cannot parse LLM absolute-time response: {response!r}'
       ) from e
-    result = current_time + offset
-    if result <= current_time:
-      result += 86400  # Assume "tomorrow".
-    return result
+    if offset <= 0:
+      offset %= 86400
+      if offset == 0:
+        offset = 86400
+    return current_time + offset
 
   def format_time(self, time: int) -> str:
     """Formats a timestamp using the LLM. Results are cached."""
