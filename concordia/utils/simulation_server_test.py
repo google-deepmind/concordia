@@ -15,6 +15,8 @@
 """Tests for SimulationServer covering loopback binding, SSE queues, and HTTP endpoints."""
 
 import json
+import socket
+import time
 import queue
 import urllib.error
 import urllib.request
@@ -46,6 +48,56 @@ def _request(url, method='GET', data=None):
     req.add_header('Content-Type', 'application/json')
   with urllib.request.urlopen(req, timeout=5) as response:
     return response.status, json.loads(response.read().decode('utf-8'))
+
+
+class ServerLifecycleTest(absltest.TestCase):
+
+  def test_stop_releases_port_and_supports_immediate_restart(self):
+    server = simulation_server.SimulationServer(port=0)
+    server.start()
+    port = server.bound_port
+    _request(f'http://127.0.0.1:{port}/status')
+    server.stop()
+    restarted = simulation_server.SimulationServer(port=port)
+    try:
+      restarted.start()
+      self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
+      with self.assertRaisesRegex(RuntimeError, 'already running'):
+        restarted.start()
+      self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
+    finally:
+      restarted.stop()
+      restarted.stop()
+
+  def test_restart_does_not_revive_old_event_stream(self):
+    server = simulation_server.SimulationServer(port=0)
+    server.start()
+    client = socket.create_connection(
+        ('127.0.0.1', server.bound_port), timeout=3
+    )
+    try:
+      client.sendall(b'GET /events HTTP/1.0\r\nHost: localhost\r\n\r\n')
+      self.assertIn(b'200 OK', client.recv(4096))
+      deadline = time.monotonic() + 3
+      while (
+          not server.server_sent_events_queues and time.monotonic() < deadline
+      ):
+        time.sleep(0.01)
+      self.assertLen(server.server_sent_events_queues, 1)
+      server.stop()
+      server.start()
+      while client.recv(4096):
+        pass
+      deadline = time.monotonic() + 3
+      while server.server_sent_events_queues and time.monotonic() < deadline:
+        time.sleep(0.01)
+      self.assertEmpty(server.server_sent_events_queues)
+      self.assertEqual(
+          _request(f'http://127.0.0.1:{server.bound_port}/status')[0], 200
+      )
+    finally:
+      client.close()
+      server.stop()
 
 
 class HostDefaultsTest(absltest.TestCase):
@@ -191,6 +243,17 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'error')
     self.assertIn('paused', payload['message'])
+
+  def test_rejected_edit_reads_request_body_before_replying(self):
+    # Replying without consuming the body can reset the client's connection
+    # (observed intermittently for small bodies; reliable for large ones).
+    status, payload = _request(
+        self.base_url + '/cmd/set_component_state',
+        method='POST',
+        data={'entity_name': 'alice', 'value': 'x' * 4_000_000},
+    )
+    self.assertEqual(status, 200)
+    self.assertIn('No simulation', payload['message'])
 
   def test_set_component_state_requires_simulation(self):
     self.assertTrue(self.server.step_controller.is_paused)
