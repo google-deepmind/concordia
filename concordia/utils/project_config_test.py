@@ -57,6 +57,8 @@ class ProjectConfigTest(parameterized.TestCase):
     self.doc['instances'][1]['params']['goal'] = 'Keep a shared music journal'
     reopened = self.registry.loads(self.registry.dumps(self.doc))
     alice, bob = run.build(self.registry.to_config(reopened)).get_entities()
+    assert isinstance(alice, entity_agent_with_logging.EntityAgentWithLogging)
+    assert isinstance(bob, entity_agent_with_logging.EntityAgentWithLogging)
     questions = {'SituationPerception', 'SelfPerception', 'PersonBySituation'}
     self.assertTrue(questions <= bob.get_all_context_components().keys())
     self.assertFalse(questions & alice.get_all_context_components().keys())
@@ -77,6 +79,7 @@ class ProjectConfigTest(parameterized.TestCase):
         [item.prefab for item in config.instances[:2]], ['minimal', 'minimal']
     )
     bob = run.build(config).get_entities()[1]
+    assert isinstance(bob, entity_agent_with_logging.EntityAgentWithLogging)
     self.assertNotIn('SelfPerception', bob.get_all_context_components())
     self.assertEqual(
         bob.get_component('Instructions').get_state()['state'], 'Saved Bob\n🎵'
@@ -210,6 +213,21 @@ class ProjectConfigTest(parameterized.TestCase):
     assert isinstance(b, entity_agent_with_logging.EntityAgentWithLogging)
     self.assertNotEqual(a.get_state(), b.get_state())
     self.assertEqual(json.loads(saved), self.doc)
+
+  def test_inspector_metadata_is_owned_and_reference_choices_use_ids(self):
+    metadata = self.registry.inspector(self.doc)
+    reference = metadata['conversation']['next_game_master_name']
+    self.assertEqual(
+        reference['choices'],
+        [{'value': 'conversation', 'label': 'Conversation'}],
+    )
+    reference['choices'][0]['value'] = 'corrupted'
+    self.assertEqual(
+        self.registry.inspector(self.doc)['conversation'][
+            'next_game_master_name'
+        ]['choices'][0]['value'],
+        'conversation',
+    )
 
 
 if __name__ == '__main__':

@@ -16,6 +16,8 @@
 
 import json
 import queue
+import socket
+import time
 import urllib.error
 import urllib.request
 
@@ -46,6 +48,47 @@ def _request(url, method='GET', data=None):
     req.add_header('Content-Type', 'application/json')
   with urllib.request.urlopen(req, timeout=5) as response:
     return response.status, json.loads(response.read().decode('utf-8'))
+
+
+class ListenerLifecycleTest(absltest.TestCase):
+  """PR #379 lifecycle contracts adapted to both editor transports."""
+
+  def test_same_port_restart_and_duplicate_start(self):
+    server = simulation_server.SimulationServer(port=0)
+    server.start()
+    port = server.bound_port
+    server.stop()
+    replacement = simulation_server.SimulationServer(port=port)
+    try:
+      replacement.start()
+      self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
+      with self.assertRaisesRegex(RuntimeError, 'already running'):
+        replacement.start()
+      self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
+    finally:
+      replacement.stop()
+      replacement.stop()
+
+  def test_restart_closes_old_stream_and_cleans_subscription(self):
+    server = simulation_server.SimulationServer(port=0)
+    server.start()
+    client = socket.create_connection(
+        ('127.0.0.1', server.bound_port), timeout=3
+    )
+    try:
+      client.sendall(b'GET /events HTTP/1.0\r\nHost: localhost\r\n\r\n')
+      self.assertIn(b'200 OK', client.recv(4096))
+      server.stop()
+      server.start()
+      while client.recv(4096):
+        pass
+      deadline = time.monotonic() + 3
+      while server.server_sent_events_queues and time.monotonic() < deadline:
+        time.sleep(0.01)
+      self.assertEmpty(server.server_sent_events_queues)
+    finally:
+      client.close()
+      server.stop()
 
 
 class HostDefaultsTest(absltest.TestCase):

@@ -23,7 +23,6 @@ import copy
 import http.server
 import json
 import queue
-import socketserver
 import sys
 import threading
 from typing import Any
@@ -34,6 +33,7 @@ from concordia.typing import prefab as prefab_lib
 from concordia.utils import browser_sessions as browser_sessions_lib
 from concordia.utils import operation_service as operation_service_lib
 from concordia.utils import project_config
+from concordia.utils import project_operations
 from concordia.utils import visual_interface
 
 
@@ -72,7 +72,8 @@ class SimulationServer:
       browser_sessions: Optional host-approved cookies instead of a fixed
         audience. Only the trusted developer listener may approve roles.
       public_origin: Exact HTTPS proxy origin for same-origin checks.
-        Forwarded headers are not trusted to choose it; never proxy the editor.
+        Forwarded headers are not trusted to choose it. An integrated developer
+        editor must only be proxied behind private, restricted access.
     """
     if (
         browser_sessions is not None
@@ -109,6 +110,8 @@ class SimulationServer:
     self._public_origin = public_origin
     self._operation_service = operation_service
     self._audience = audience
+    self._project_editor: project_operations.ProjectEditor | None = None
+    self._stopping = threading.Event()
     self._project_lock = threading.RLock()
     self._project_registry: project_config.Registry | None = None
     self._project_document: dict[str, Any] | None = None
@@ -117,6 +120,7 @@ class SimulationServer:
     self._project_runner: Callable[[prefab_lib.Config], None] | None = None
     self._project_thread: threading.Thread | None = None
     self._runtime_html = ''
+    self._project_title = 'Initial project'
     self._port = port
     self._html_content = html_content
     self._host = host
@@ -130,10 +134,15 @@ class SimulationServer:
     self._simulation: Any = None
     self._completed = False
     self._status_revision = 0
-    self._server: socketserver.TCPServer | None = None
+    self._server: http.server.ThreadingHTTPServer | None = None
     self._server_thread: threading.Thread | None = None
     print(f'[SERVER INIT] SimulationServer initialized on port {port}')
     sys.stdout.flush()
+
+  @property
+  def operation_service(self) -> operation_service_lib.OperationService | None:
+    """The configured capability service, also usable by in-process clients."""
+    return self._operation_service
 
   @property
   def is_serving(self) -> bool:
@@ -315,6 +324,9 @@ class SimulationServer:
           'control_status': self._status_locked(),
       })
 
+    if self._project_editor:
+      self._project_editor.record_step(current_step_data)
+
   def broadcast_completion(self) -> None:
     """Retain completion for status/reconnect and notify connected clients."""
     with self._server_sent_events_lock:
@@ -346,6 +358,9 @@ class SimulationServer:
         except queue.Full:
           pass
 
+    if self._project_editor:
+      self._project_editor.receive_checkpoint(checkpoint_data)
+
   def subscribe_to_events(self) -> queue.Queue[str]:
     """Subscribe with an atomic retained snapshot, including completion."""
     client: queue.Queue[str] = queue.Queue(maxsize=100)
@@ -366,6 +381,10 @@ class SimulationServer:
       registry: project_config.Registry,
       document: dict[str, Any],
       run: Callable[[prefab_lib.Config], None],
+      *,
+      integrated: bool = False,
+      title: str = 'Initial project',
+      preview: Callable[[prefab_lib.Config], dict[str, Any]] | None = None,
   ) -> None:
     """Enable initial-project authoring with a trusted, caller-owned runner.
 
@@ -373,7 +392,14 @@ class SimulationServer:
     It should bind the new standard Simulation to this server, provide its
     runtime visualization, and call Simulation.play with the existing controller
     and broadcast callbacks. Saving a draft never changes the bound simulation.
+    integrated enables the OperationService-backed phone editor; preview is an
+    optional trusted build-only callback returning make_checkpoint_data(), with
+    no model calls or simulation execution. Configure before starting the server.
     """
+    if integrated and (self.is_serving or self._operation_service is not None):
+      raise ValueError(
+          'Configure the integrated editor before starting a fresh listener.'
+      )
     normalized = registry.normalize(document)
     with self._project_lock:
       if self._project_registry is not None:
@@ -385,11 +411,19 @@ class SimulationServer:
       self._project_registry = registry
       self._project_document = normalized
       self._project_runner = run
+      self._project_title = title
+      if integrated:
+        editor = project_operations.ProjectEditor(self, registry, preview)
+        editor.definition_view = editor.prepare(normalized)
+        self._project_editor = editor
+        self._operation_service = editor.service
+        self._project_lock = editor.service.lock
       self.set_html_content(
           visual_interface.visualize_config_to_html(
               registry.to_config(normalized),
               project_mode=True,
-              title='Initial project',
+              title=self._project_title,
+              integrated=integrated,
           )
       )
 
@@ -411,18 +445,28 @@ class SimulationServer:
         raise ValueError('Initial-project authoring is not configured.')
       self._check_project_revision(revision)
       normalized = self._project_registry.loads(text)
+      prepared = (
+          self._project_editor.prepare(normalized)
+          if self._project_editor
+          else None
+      )
       html = visual_interface.visualize_config_to_html(
           self._project_registry.to_config(normalized),
-          title='Initial project',
+          title=self._project_title,
           project_mode=True,
+          integrated=self._project_editor is not None,
       )
+      if self._project_editor:
+        self._project_editor.definition_view = prepared
       self._project_document = normalized
       self.set_html_content(html)
       self._project_revision += 1
       return self.get_project()
 
   def _check_project_revision(self, revision: int) -> None:
-    if self._project_run['status'] == 'active':
+    if self._project_run['status'] == 'active' or (
+        self._project_thread is not None and self._project_thread.is_alive()
+    ):
       raise ValueError(
           'A run is active (including paused). Finish it before replacing or'
           ' running a project.'
@@ -459,6 +503,8 @@ class SimulationServer:
         self._status_revision += 1
         self._broadcast_locked(self._status_event_locked())
       self._runtime_html = ''
+      if self._project_editor:
+        self._project_editor.begin(config)
       self._project_thread = threading.Thread(
           target=self._run_project, args=(config,), daemon=True
       )
@@ -478,6 +524,8 @@ class SimulationServer:
         # Publish completion only after this run's controller is finalized.
         self._step_controller.pause()
         self._project_run.update(outcome)
+        if self._project_editor:
+          self._project_editor.finished()
 
   @property
   def runtime_html_content(self) -> str:
@@ -492,6 +540,7 @@ class SimulationServer:
     """Create a request handler class with access to server state."""
     server = self
     operation_service = self._operation_service
+    stopping = self._stopping
     audience = self._audience
     browser_sessions = self._browser_sessions
     public_origin = self._public_origin
@@ -723,15 +772,15 @@ class SimulationServer:
             if service is not None
             else server.subscribe_to_events()
         )
-        self.send_response(200)
-        self.send_header('Content-type', 'text/event-stream')
-        self.send_header('Cache-Control', 'no-cache')
-        self.send_header('Connection', 'keep-alive')
-        if service is None:
-          self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
         try:
-          while server.is_serving:
+          self.send_response(200)
+          self.send_header('Content-type', 'text/event-stream')
+          self.send_header('Cache-Control', 'no-cache')
+          self.send_header('Connection', 'keep-alive')
+          if service is None:
+            self.send_header('Access-Control-Allow-Origin', '*')
+          self.end_headers()
+          while not stopping.is_set():
             try:
               message = client.get(timeout=1)
               if service is not None:
@@ -848,11 +897,13 @@ class SimulationServer:
 
   def start(self) -> None:
     """Start the HTTP server in a background thread."""
+    if self._server is not None:
+      raise RuntimeError('Server is already running.')
+    self._stopping = threading.Event()
     handler = self._create_handler()
-    self._server = socketserver.ThreadingTCPServer(
+    self._server = http.server.ThreadingHTTPServer(
         (self._host, self._port), handler
     )
-    self._server.allow_reuse_address = True
     self._server_thread = threading.Thread(target=self._server.serve_forever)
     self._server_thread.daemon = True
     self._server_thread.start()
@@ -860,8 +911,10 @@ class SimulationServer:
 
   def stop(self) -> None:
     """Stop the HTTP server."""
+    self._stopping.set()
     if self._server:
       self._server.shutdown()
+      self._server.server_close()
       self._server = None
     if self._server_thread:
       self._server_thread.join(timeout=5)

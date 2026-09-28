@@ -435,6 +435,7 @@ def visualize_config_to_html(
     checkpoint_data: dict[str, Any] | None = None,
     *,
     project_mode: bool = False,
+    integrated: bool = False,
 ) -> str:
   """Generate a complete HTML page with the SVG visualization.
 
@@ -448,10 +449,12 @@ def visualize_config_to_html(
       class names in the Inspector.
     project_mode: Show the configured server initial-project controls instead of
       runtime controls. Requires SimulationServer.configure_project().
+    integrated: Use the capability-bound, single-page project editor.
 
   Returns:
     Complete HTML page as a string.
   """
+  project_mode = project_mode or integrated
   svg, entity_data = visualize_config(config, checkpoint_data)
   # Initial-project controls fetch data as JSON; never embed authored text.
   entity_data_json = (
@@ -459,6 +462,9 @@ def visualize_config_to_html(
   )
   project_style = project_view.STYLE if project_mode else ""
   project_script = project_view.SCRIPT if project_mode else ""
+  if integrated:
+    project_style = project_view.EDITOR_STYLE
+    project_script = project_view.EDITOR_SCRIPT
 
   html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1343,7 +1349,10 @@ def visualize_config_to_html(
       line.className = 'console-line ' + type;
       var now = new Date();
       var timestamp = now.toTimeString().split(' ')[0];
-      line.innerHTML = '<span class="timestamp">[' + timestamp + ']</span> ' + message;
+      const stamp = document.createElement('span');
+      stamp.className = 'timestamp';
+      stamp.textContent = '[' + timestamp + '] ';
+      line.append(stamp, document.createTextNode(String(message)));
       output.appendChild(line);
       output.scrollTop = output.scrollHeight;
     }}

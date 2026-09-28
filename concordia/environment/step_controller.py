@@ -18,6 +18,8 @@ This module provides a thread-safe controller for pausing, resuming, and
 stepping through simulations one step at a time.
 """
 
+from collections.abc import Iterator
+import contextlib
 import dataclasses
 import threading
 from typing import Any
@@ -67,6 +69,35 @@ class StepController:
     self._running = not start_paused
     self._step_requested = False
     self._stop_requested = False
+    self._waiting = False
+
+  @property
+  def at_pause_boundary(self) -> bool:
+    """Whether the engine has acknowledged pause and is waiting for permission."""
+    with self._lock:
+      return self._at_pause_boundary_locked()
+
+  def _at_pause_boundary_locked(self) -> bool:
+    return (
+        self._waiting
+        and not self._running
+        and not self._step_requested
+        and not self._stop_requested
+    )
+
+  @contextlib.contextmanager
+  def paused_boundary(self) -> Iterator[None]:
+    """Exclude resume/step/stop while editing at an acknowledged boundary.
+
+    The caller must not call controller methods inside this context. A pause
+    request alone is insufficient: the engine must actually be waiting.
+    """
+    with self._condition:
+      if not self._at_pause_boundary_locked():
+        raise ValueError(
+            'Wait for the engine to acknowledge pause before editing.'
+        )
+      yield
 
   @property
   def is_running(self) -> bool:
@@ -133,7 +164,11 @@ class StepController:
       while not self._running and not self._step_requested:
         if self._stop_requested:
           return False
-        self._condition.wait()
+        self._waiting = True
+        try:
+          self._condition.wait()
+        finally:
+          self._waiting = False
 
       if self._stop_requested:
         return False

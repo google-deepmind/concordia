@@ -59,6 +59,10 @@ class Template:
       default_factory=dict
   )
   validate: Callable[[dict[str, Any]], None] = lambda document: None
+  # Trusted presentation only; never interpreted as constructors or state codecs.
+  inspector: Mapping[str, Mapping[str, dict[str, Any]]] = dataclasses.field(
+      default_factory=dict
+  )
 
 
 class Registry:
@@ -71,6 +75,22 @@ class Registry:
     if key not in self._templates:
       raise ValidationError('$.template', 'unknown registered template')
     return self._templates[key]
+
+  def inspector(self, document: Any) -> dict[str, Any]:
+    """Return trusted labels/choices and role-safe reference choices."""
+    normalized = self.normalize(document)
+    template = self._template(normalized['template'])
+    result = {
+        key: copy.deepcopy(dict(fields))
+        for key, fields in template.inspector.items()
+    }
+    for (instance_id, field), role in template.references.items():
+      result.setdefault(instance_id, {}).setdefault(field, {})['choices'] = [
+          {'value': item['id'], 'label': item['params']['name']}
+          for item in normalized['instances']
+          if item['role'] == role.value
+      ]
+    return result
 
   def default_document(self, key: str) -> dict[str, Any]:
     """Export only explicitly supported initial values; reject objects."""

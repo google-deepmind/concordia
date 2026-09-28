@@ -353,3 +353,217 @@ def test_completed_project_can_start_a_fresh_controllable_run(
       assert not errors
     finally:
       finish.set()
+
+
+@pytest.fixture
+def integrated_editor():
+  """Real HTTP/browser surface, with all simulation execution forbidden."""
+  with (
+      mock.patch.object(generic.Simulation, 'play', side_effect=AssertionError),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError,
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError,
+      ),
+  ):
+    registry = template.registry()
+    server = simulation_server.SimulationServer(port=0)
+    server.configure_project(
+        registry,
+        registry.default_document(template.TEMPLATE_KEY),
+        lambda _: None,
+        integrated=True,
+        preview=lambda config: run.build(config).make_checkpoint_data(),
+    )
+    server.start()
+    try:
+      yield server, f'http://127.0.0.1:{server.bound_port}/'
+    finally:
+      server.step_controller.stop()
+      server.stop()
+
+
+@pytest.mark.parametrize('width', [360, 412])
+def test_integrated_portrait_definition_roundtrip(
+    browser, integrated_editor, tmp_path, width
+):
+  server, url = integrated_editor
+  with browser.new_context(
+      viewport={'width': width, 'height': 800}, has_touch=True
+  ) as context:
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(url)
+    page.locator('[data-instance-id="alice"]').click()
+    literal = (
+        'A quiet playlist\n\n"quotes" & 🎵'
+        ' </textarea><script>window.probe=1</script>'
+    )
+    page.locator('#editor-alice-custom_instructions').fill(literal)
+    assert page.get_by_role('button', name='Run', exact=True).is_disabled()
+    page.get_by_role('button', name='Save draft', exact=True).click()
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    assert (
+        server.get_project()['document']['instances'][0]['params'][
+            'custom_instructions'
+        ]
+        == literal
+    )
+    page.get_by_role('button', name='Hierarchy', exact=True).click()
+    page.locator('[data-instance-id="bob"]').click()
+    page.locator('#editor-bob-goal').fill('Find music both roommates enjoy.')
+    page.get_by_role('button', name='Save draft', exact=True).click()
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    assert page.locator('#toggle_comp_SelfPerception').count() == 1
+    with page.expect_download() as download:
+      page.get_by_role('button', name='Export JSON').click()
+    exported = tmp_path / 'project.json'
+    download.value.save_as(exported)
+    assert json.loads(exported.read_text()) == server.get_project()['document']
+    before = server.get_project()
+    page.locator('#editor-file').set_input_files(
+        {'name': 'bad.json', 'mimeType': 'application/json', 'buffer': b'{'}
+    )
+    browser_api.expect(page.locator('#editor-error')).not_to_be_empty()
+    assert server.get_project() == before
+    page.reload()
+    page.locator('#editor-file').set_input_files(str(exported))
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    page.locator('[data-instance-id="alice"]').click()
+    browser_api.expect(
+        page.locator('#editor-alice-custom_instructions')
+    ).to_have_value(literal)
+    page.set_viewport_size({'width': width, 'height': 480})
+    page.locator('#editor-alice-custom_instructions').focus()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    assert page.evaluate('window.probe') is None
+    page.screenshot(path=str(tmp_path / f'editor-{width}.png'), full_page=True)
+    assert not errors
+
+
+def test_integrated_multitab_draft_and_reconnect(browser, integrated_editor):
+  server, url = integrated_editor
+  with browser.new_context(viewport={'width': 412, 'height': 915}) as context:
+    a, b = context.new_page(), context.new_page()
+    a.goto(url)
+    b.goto(url)
+    for page in (a, b):
+      page.locator('[data-instance-id="alice"]').click()
+    a.locator('#editor-alice-goal').fill('First tab')
+    b.locator('#editor-alice-goal').fill('Keep this unsaved field')
+    a.get_by_role('button', name='Save draft').click()
+    browser_api.expect(b.locator('#editor-error')).to_contain_text(
+        'another tab'
+    )
+    browser_api.expect(b.locator('#editor-alice-goal')).to_have_value(
+        'Keep this unsaved field'
+    )
+    b.get_by_role('button', name='Save draft').click()
+    browser_api.expect(b.locator('#editor-error')).to_contain_text(
+        'another tab'
+    )
+    assert (
+        server.get_project()['document']['instances'][0]['params']['goal']
+        == 'First tab'
+    )
+    context.set_offline(True)
+    browser_api.expect(b.locator('#editor-status')).to_contain_text(
+        'Disconnected'
+    )
+    assert b.get_by_role('button', name='Save draft').is_disabled()
+    context.set_offline(False)
+    browser_api.expect(
+        b.get_by_role('button', name='Save draft')
+    ).to_be_enabled()
+    browser_api.expect(b.locator('#editor-alice-goal')).to_have_value(
+        'Keep this unsaved field'
+    )
+
+
+def test_integrated_controls_use_acknowledged_boundary(
+    browser, integrated_editor
+):
+  """Build-only runner plus permission waits; deliberately no Sequential run."""
+  server, url = integrated_editor
+  approach = threading.Event()
+
+  def runner(config):
+    simulation = run.build(config)
+    server.set_simulation(simulation)
+    server.broadcast_entity_info(simulation.make_checkpoint_data())
+    approach.wait(10)
+    count = 0
+    while count < 3 and server.step_controller.wait_for_step_permission():
+      count += 1
+      server.broadcast_step(
+          step_controller.StepData(
+              count, 'Alice', f'Fixture step {count}', {}, {}
+          )
+      )
+    server.broadcast_completion()
+
+  server._project_runner = runner
+  with browser.new_context(
+      viewport={'width': 360, 'height': 800}, has_touch=True
+  ) as context:
+    page = context.new_page()
+    page.goto(url)
+    page.get_by_role('button', name='Run', exact=True).click()
+    try:
+      browser_api.expect(
+          page.get_by_role('button', name='Pause', exact=True)
+      ).to_be_enabled()
+      page.get_by_role('button', name='Pause', exact=True).click()
+      browser_api.expect(page.locator('#editor-status')).to_contain_text(
+          'pausing'
+      )
+      assert page.get_by_role('button', name='Step', exact=True).is_disabled()
+      approach.set()
+      browser_api.expect(page.locator('#editor-status')).to_contain_text(
+          'paused'
+      )
+      page.get_by_role('button', name='Hierarchy', exact=True).click()
+      page.locator('[data-instance-id="alice"]').click()
+      page.locator('#toggle_comp_Instructions').click()
+      page.locator('#dyn_Instructions_state').fill('Runtime-only text')
+      page.locator('.dynamic-save-btn[data-component="Instructions"]').click()
+      browser_api.expect(page.locator('#dyn_Instructions_state')).to_have_value(
+          'Runtime-only text'
+      )
+      assert (
+          server.get_project()['document']['instances'][0]['params'][
+              'custom_instructions'
+          ]
+          != 'Runtime-only text'
+      )
+      page.get_by_role('button', name='Step', exact=True).click()
+      browser_api.expect(page.locator('#editor-status')).to_contain_text(
+          'Step 1'
+      )
+      browser_api.expect(
+          page.get_by_role('button', name='Resume', exact=True)
+      ).to_be_enabled()
+      page.get_by_role('button', name='Resume', exact=True).click()
+      browser_api.expect(page.locator('#editor-status')).to_contain_text(
+          'completed'
+      )
+      page.get_by_role('button', name='Reset', exact=True).click()
+      browser_api.expect(page.locator('#editor-status')).to_contain_text(
+          'ready'
+      )
+    finally:
+      approach.set()
+      server.step_controller.stop()
+      server._project_thread.join(3)
