@@ -134,6 +134,41 @@ def registry() -> project_config.Registry:
               ): prefab_lib.Role.GAME_MASTER
           },
           validate=validate,
+          inspector={
+              'alice': {
+                  'name': {'label': 'Entity name'},
+                  'custom_instructions': {
+                      'label': 'Instructions · initial text'
+                  },
+                  'goal': {
+                      'label': (
+                          'Goal · initial text (empty removes the optional'
+                          ' component)'
+                      )
+                  },
+                  'randomize_choices': {
+                      'label': 'Acting policy · randomize choices'
+                  },
+              },
+              'bob': {
+                  'name': {'label': 'Entity name'},
+                  'goal': {'label': 'Goal · initial text'},
+                  'randomize_choices': {
+                      'label': 'Acting policy · randomize choices'
+                  },
+              },
+              'conversation': {
+                  'name': {'label': 'Game master name'},
+                  'acting_order': {
+                      'label': 'Acting order',
+                      'choices': ['fixed', 'random', 'game_master_choice'],
+                  },
+                  'can_terminate_simulation': {
+                      'label': 'Allow the game master to end the conversation'
+                  },
+                  'next_game_master_name': {'label': 'Next game master'},
+              },
+          },
       )
       for key, factory in (
           (TEMPLATE_KEY, make_config),

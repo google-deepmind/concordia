@@ -1,142 +1,145 @@
-# Initial-project edit → save → reopen → run
+# What should the roommates play?
 
-This small example adds **a supported roommate-conversation template** to
-Concordia's existing visual interface and SimulationServer. Two university roommates discuss music, using the
-library's `minimal.Entity` (Alice), `basic.Entity` (Bob), and
-`dialogic.GameMaster` prefabs. No new engine,
-acting policy, component system, or web framework is involved.
+Edit a small Concordia simulation, run it, pause it, and inspect its components
+in one graphical editor. The same interface fits an Android portrait viewport
+and a desktop's hierarchy, scene, inspector, and log panes.
 
-The bundled **NoLanguageModel** is a development stub. Its output is not a
-plausible conversation, a social-model validation, or evidence about changing
-musical tastes. No paid account or model download is required.
+Alice uses standard `minimal.Entity`; Bob uses `basic.Entity`; their conversation
+uses `dialogic.GameMaster`. Execution uses `generic.Simulation` and
+`sequential.Sequential`. The bundled **NoLanguageModel is a free development
+stub**: the trace demonstrates editing and execution, not a realistic discussion
+or scientific evidence. No paid account, model download, or API key is needed.
 
-## From a fresh source checkout
+## Open the editor
 
-Use Python 3.12 or newer, in the repository root:
+From a source checkout with Python 3.12+ and Concordia installed:
 
 ```sh
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e .
 python -m examples.project_editor.run --port 8080 --output project-run
 ```
 
-Run these commands from the source checkout: the repository packages the
-library utilities, not its examples, in wheels.
+Open `http://127.0.0.1:8080/`. Opening, previewing, editing, and saving do not
+execute the simulation. **Run** is explicit. The mock example pauses for one
+second after each completed step to give a person time to use the controls;
+`--step-delay 0` disables this presentation delay.
 
-Open http://127.0.0.1:8080/. The server is loopback-only by default. Opening the
-page, editing, importing, or saving does **not** execute the simulation.
+In coordinated sessions, display the exact shell command and obtain the required
+launch acknowledgement before any actual simulation, including the validation
+command below or pressing Run in a served editor.
 
-1. Select **Alice**. Edit `custom_instructions` or `goal`. Text supports quotes,
-   line feeds, Unicode, angle brackets, ampersands, and empty strings.
-   Then select **Bob** and edit `goal`. His standard basic prefab adds
-   `SituationPerception`, `SelfPerception`, and `PersonBySituation` components;
-   Alice’s minimal prefab does not. After Run, compare their component cards in
-   the Runtime inspector. A real model would generate Bob’s intermediate
-   reasoning; the bundled stub only demonstrates the editor workflow.
-2. Select **Conversation** (the GM). Change `acting_order` to `random` or
-   `game_master_choice`, or change `can_terminate_simulation`. These are the real
-   dialogic prefab parameters, not a scripted outcome.
-3. Set the **Maximum steps** and initial premise.
-4. **Save project** validates and stores this initial draft on the server, then
-   downloads `concordia-project.json`. Failed validation leaves the last saved
-   draft intact and identifies the invalid field. Unsaved browser fields are
-   labelled; save them before Run. Download files are your durable project
-   artifacts; this example does not create an automatic project database.
-5. **Open project** selects that downloaded JSON. To prove portability, stop the
-   server with Ctrl-C, start it again with the same command, then import the file.
-   Actor/GM fields, stable IDs, and their supported JSON types survive reopening.
-6. Click **Run saved project**. Only the saved revision runs. This builds a fresh
-   standard `generic.Simulation`, with a fresh `Sequential`, from exactly the
-   reopened initial configuration. Run status is shown in the project view.
-   The **Runtime inspector** link opens the existing runtime visualization and
-   play/pause/step controls separately.
-7. On completion, inspect `project-run/initial-project.json`,
-   `project-run/log.json`, and `project-run/log.html`. These use the standard
-   SimulationLog APIs. Use a different `--output` directory to retain another
-   run's artifacts; the example replaces files in its chosen output directory.
+## Try the authoring journey
 
-You cannot import, save over, or Run another project while the run callback is
-active—even when paused. Finish/resume the active run first. Failed callbacks
-are shown and retain the initial document so it can be corrected. Runtime
-component edits do **not** change a saved initial project; Save is not a
-checkpoint, continuation, or experiment branch. Pause/edit timing follows the
-existing server's runtime contract, not a new locking protocol.
+1. In **Hierarchy**, choose Alice. Change **Instructions · initial text** to
+   describe a roommate who prefers quiet music. Set her **Goal** to find a song
+   both people enjoy. A nonempty goal builds the standard optional Goal component;
+   an empty goal omits it on the next build.
+2. Choose Bob and change his goal. Inspect his `SituationPerception`,
+   `SelfPerception`, and `PersonBySituation` components. Those standard basic
+   prefab components distinguish his architecture from Alice's minimal prefab.
+3. Choose **Simulation settings** to change the premise and maximum steps, then
+   **Conversation** to change acting order, termination permission, or its name.
+   The next-GM selector stores a stable instance reference, so renaming is safe.
+4. **Save draft** validates and stores the initial definition in server memory.
+   **Export JSON** downloads the saved definition. **Open JSON** validates and
+   imports it; try reopening it in a fresh editor process. Invalid edits retain
+   the last saved document and the unsaved fields for correction.
+5. Press **Run**, then **Pause**. The status first says `pausing`; `paused` means
+   the engine is actually waiting at its permission boundary. An in-flight step
+   can finish before pause is acknowledged.
+6. Select **Current runtime** and choose Alice's Instructions or Bob's Goal.
+   While paused, change the component's text and press its **Save** button.
+   These runtime edits do not alter the saved initial definition. Other component
+   values are read-only in this bounded demo.
+7. **Step** grants one engine step and returns to paused (or completes the run).
+   **Resume** continues. **Simulation** shows the current action; **Log** retains
+   the completed-step trace. No second browser tab is required.
+8. **Reset** stops the active runner and waits for it to exit, preserving the
+   saved initial definition and prior output. Press **Run** for fresh components
+   and memory. Changing names, premise, goals in the initial definition, or other
+   construction parameters requires finishing/resetting the active run first.
 
-The initial view uses stable project IDs for selection. The runtime view retains
-the existing runtime renderer and its separately maintained behavior.
+Each run writes its own directory under `--output` with `initial-project.json`,
+`log.json`, and `log.html`, using standard `SimulationLog` serialization. Reset
+and subsequent runs do not overwrite those artifacts. These are initial
+configuration and logs, not restartable checkpoints.
 
-## Same project without the editor
+A lost connection disables submission and retains browser drafts. The bounded
+server run continues. Reconnection reads authoritative state; it does not
+restart the run or replay button presses. A second tab cannot silently overwrite
+an older saved revision. **Reload saved** deliberately discards browser drafts.
+A process restart requires reopening an exported file; there is no project DB.
+
+## Private Android access
+
+The editor binds only to loopback. Use a private Tailscale Serve HTTPS endpoint
+with access restricted to the intended developer. The Android device must be
+connected to the same tailnet and permitted to reach that endpoint. Pass the
+exact HTTPS origin using `--public-origin` when configuring a proxy.
+
+Inspect existing Serve routes first and preserve them. Prefer an unused,
+dedicated HTTPS port with this application at `/`; the API URLs are root-relative.
+Do not mount it under a shared subpath without adding and testing base-path
+support. Do not enable Funnel or a public tunnel. The editor grants developer
+capabilities to anyone allowed onto its listener: tailnet membership alone is
+not a substitute for restricting access to the intended user.
+
+Physical acceptance must include typing with the Android keyboard, selecting
+components, exporting/reopening JSON, Run/Pause/Step/Reset, and returning after
+backgrounding or losing connectivity. Record the phone and Chrome versions.
+Chromium viewport emulation is a separate check, not physical-device evidence.
+
+## Supported definitions and compatibility
+
+`template.registry()` remains a Python-owned allowlist. JSON cannot import code
+or construct arbitrary Python objects. Schema version 1 supports the fixed
+`alice`, `bob`, and `conversation` instances, exact registered fields, literal
+strings, booleans, and safe integers. `max_steps` is 1–1000. Unknown fields,
+versions, templates, roles, IDs, duplicate names/keys, wrong types, and invalid
+references are rejected atomically. Inspector metadata supplies labels/choices;
+it does not relax the validator or change the document format.
+
+New projects use `conversation-v2` (minimal Alice, basic Bob).
+`conversation-v1` retains both original minimal actors and saved instructions.
+No silent prefab migration occurs. General entity/component CRUD, object codecs,
+checkpoint continuation, and full GUI/CLI parity are outside this example.
+
+The integrated listener uses existing `OperationService` operations and its
+scope/revision/retry ledger. It delegates to `SimulationServer` project methods
+and exposes only the capability routes. It does not combine these with legacy
+mutation endpoints. Existing callers can still use the legacy project mode.
+
+## Verification
+
+The following tests build previews and use controlled callbacks; they prohibit
+`Simulation.play()` and model calls:
+
+```sh
+python -m pytest -n 0 concordia/utils/project_config_test.py \
+  concordia/utils/project_operations_test.py \
+  concordia/utils/simulation_server_project_test.py \
+  examples/project_editor/run_test.py
+python -m pytest -n 0 concordia/utils/project_browser_test.py
+```
+
+After displaying the exact command and receiving the required launch
+acknowledgement, this separate bounded validation **executes real Sequential
+runs with NoLanguageModel**, without a network listener:
+
+```sh
+python -m examples.project_editor.engine_validation --output engine-validation
+```
+
+It checks pause acknowledgement, runtime-only text changes, one-step permission,
+resume/completion, Reset, new run identity/components, and retained run artifacts.
+The module is intentionally not an automatically collected pytest test.
+
+A headless run of the same saved initial definition is also explicit:
 
 ```sh
 python -m examples.project_editor.run --project concordia-project.json \
   --headless --output headless-run
 ```
 
-This uses the same `Registry.loads → Registry.to_config → build → Simulation.play`
-path. JSON/config equality is not a promise of identical outputs: existing
-components may randomize examples or decisions, and hosted models are not
-generally deterministic under seeds. No continuation is implied.
-
-To use an already configured real model and embedder, adapt the Python `build`
-function; do not put credentials or importable Python names in project files.
-
-## Supported project fields and compatibility
-
-`template.registry()` is a caller-owned allowlist. It names a trusted Python
-factory, the fixed instance IDs `alice`, `bob`, `conversation`, and the supported
-reference field. Imported text cannot import Python or instantiate components.
-
-The document contains:
-
-- `schema_version: 1`, `template: "conversation-v2"`;
-- `premise` (text), `max_steps` (integer 1–1000);
-- `instances`, each with stable `id`, registered `prefab`, fixed `role`, and
-  the template's exact initial `params`.
-
-`schema_version: 1` identifies the JSON document format, not a Concordia
-release. The template key identifies its fixed cast and editable fields. New
-projects use `conversation-v2` (minimal Alice, basic Bob). Existing
-`conversation-v1` files still open and run with their original two minimal
-actors, including Bob’s saved instructions; importing never silently replaces
-his prefab or drops a field. Both use the same JSON format.
-
-The adapter gets scalar fields/default types from the factory's actual
-Config/InstanceConfig values. It does not introspect or serialize arbitrary
-constructors. This first contract supports text, booleans, and browser-safe
-integers, not floats, nulls, lists, component objects, callables, memory snapshots,
-or automatically discovered templates. Browser multiline controls use LF line
-endings for edited text.
-
-For `next_game_master_name`, the document value is the stable **target instance
-ID** `conversation`, not its display name. The adapter resolves it to the GM's
-current name only when constructing Config. Renaming and reordering imported
-instances preserve this reference; dangling/wrong-role references are rejected.
-
-Unknown versions/templates/IDs/prefabs/roles/fields, missing or duplicate
-instances, duplicate runtime names, invalid types/enums/ranges, malformed JSON,
-duplicate object keys, and unsupported object-bearing templates are rejected.
-Imports are atomic. Revision checks prevent a stale tab from silently overwriting
-another tab's saved draft. This is not full schema metadata, CRUD, undo, checkpoint
-support, or a generic exporter for existing object-bearing examples.
-
-## Verification
-
-```sh
-python -m pip install -e '.[dev]' pytest
-python -m pytest -n 0 concordia/utils/project_config_test.py \
-  concordia/utils/simulation_server_project_test.py
-python -m pip install playwright
-python -m playwright install chromium
-python -m pytest -n 0 concordia/utils/project_browser_test.py
-```
-
-The optional Chromium tests use the real editor/server and bound standard
-components. Their Run callback is **build-only**, guarded against model calls and
-Simulation.play; those tests do not prove a simulation ran. The command above is
-the separate bounded mock execution recipe.
-
-This supported-template workflow is separate from broader authoring acceptance
-for object-bearing philosophy/resource scenarios. It does not claim all
-Concordia templates are exportable or that a test count establishes workflow or
-scientific success.
+An application can supply its already configured Concordia model/embedder by
+adapting `build()`. Keep credentials out of project documents. The delivered
+example and validation require no paid provider.
