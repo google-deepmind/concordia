@@ -19,6 +19,7 @@ from concordia.components.agent import all_similar_memories
 from concordia.components.agent import concat
 from concordia.components.agent import concat_act_component
 from concordia.components.agent import constant
+from concordia.components.agent import human_act_component
 from concordia.components.agent import instructions
 from concordia.components.agent import memory
 from concordia.components.agent import observation
