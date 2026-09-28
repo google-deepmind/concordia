@@ -47,7 +47,10 @@ class _ScriptedPlayer(entity_lib.Entity):
   def name(self):
     return self._name
 
-  def act(self, action_spec):
+  def act(
+      self,
+      action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+  ) -> str:
     self.action_specs.append(action_spec)
     response = next(self._responses)
     if isinstance(response, Exception):
