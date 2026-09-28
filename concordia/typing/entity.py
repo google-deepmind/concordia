@@ -15,10 +15,11 @@
 """The abstract class that defines an Entity interface."""
 
 import abc
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 import dataclasses
 import enum
 import functools
+import types
 from typing import Any
 
 
@@ -80,12 +81,18 @@ class ActionSpec:
     output_type: type of output - FREE, CHOICE or FLOAT
     options: if multiple choice, then provide possible answers here
     tag: a tag to add to the activity memory (e.g. action, speech, etc.)
+    entity_actions: optional actor-to-action mapping for RESOLVE, preserving the
+      engine's action strings (including actor prefixes). None means no
+      structured handoff; an empty mapping means no actors supplied an action.
   """
 
   call_to_action: str
   output_type: OutputType
   options: Sequence[str] = ()
   tag: str | None = None
+  entity_actions: Mapping[str, str] | None = dataclasses.field(
+      default=None, repr=False, hash=False
+  )
 
   def __post_init__(self):
     if self.output_type in CHOICE_ACTION_TYPES:
@@ -96,6 +103,14 @@ class ActionSpec:
     elif self.options:
       raise ValueError('Options not supported for non-CHOICE output type.')
     object.__setattr__(self, 'options', tuple(self.options))
+    if self.entity_actions is not None:
+      if self.output_type != OutputType.RESOLVE:
+        raise ValueError('Entity actions are only supported for RESOLVE.')
+      object.__setattr__(
+          self,
+          'entity_actions',
+          types.MappingProxyType(dict(self.entity_actions)),
+      )
 
   def validate(self, action: str) -> None:
     """Validates the specified action against the action spec.
@@ -127,12 +142,15 @@ class ActionSpec:
       serialization.
     """
 
-    return {
+    result: dict[str, Any] = {
         'call_to_action': self.call_to_action,
         'output_type': self.output_type.value,
         'options': list(self.options),
         'tag': self.tag,
     }
+    if self.entity_actions is not None:
+      result['entity_actions'] = dict(self.entity_actions)
+    return result
 
 
 def action_spec_from_dict(action_spec_dict: dict[str, Any]) -> ActionSpec:

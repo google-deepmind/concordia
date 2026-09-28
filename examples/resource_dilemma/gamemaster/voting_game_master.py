@@ -353,17 +353,19 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
     )
     harvest_action_spec = entity_lib.ActionSpec(
-        call_to_action=(
+        call_to_action=self.params.get(
+            'call_to_action',
             'Remember that many participants share this resource. If the'
             ' resource stock is completely depleted, it collapses permanently'
             ' and everyone loses. How many units do you decide to harvest'
             ' this cycle (0-20)? State your decision as a single number.'
         ),
         output_type=entity_lib.OutputType.FREE,
-        tag='harvesting',
+        tag=self.params.get('tag', 'harvesting'),
     )
-    next_action_spec = gm_components.next_acting.FixedActionSpec(
+    next_action_spec = resource_components.ResourceHarvestActionSpec(
         action_spec=harvest_action_spec,
+        sim_state=sim_state,
     )
 
     # Terminate — check simulation state for depletion / cycle exhaustion

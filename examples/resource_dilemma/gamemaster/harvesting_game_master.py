@@ -16,8 +16,8 @@
 
 All agents act simultaneously each step. The Game Master resolves their combined
 actions using structured harvest resolution (ResourceHarvestResolution)
-which collects each agent's harvest decision concurrently and updates sim
-state directly.
+which applies the decisions collected by the engine and updates sim state
+directly.
 
 This is a generic harvesting Game Master that works with any CPR scenario. The
 scenario-specific call-to-action text is passed in via params.
@@ -46,7 +46,7 @@ class HarvestingGameMaster(prefab_lib.Prefab):
 
   All agents act simultaneously each step. The Game Master resolves
   their combined actions using ``ResourceHarvestResolution`` which
-  collects each agent's harvest decision concurrently and updates the
+  applies the decisions collected by the engine and updates the
   shared simulation state.
 
   Params:
@@ -74,15 +74,15 @@ class HarvestingGameMaster(prefab_lib.Prefab):
     name = self.params.get('name', 'harvesting rules')
     next_gm_name = self.params.get('next_game_master_name', name)
     phase = self.params.get('phase', self.phase)
-    all_player_names = [entity.name for entity in self.entities]
-
     active_player_names = self.params.get('active_players', [])
     if active_player_names:
-      player_names = [
-          name for name in all_player_names if name in active_player_names
+      players = [
+          entity for entity in self.entities
+          if entity.name in active_player_names
       ]
     else:
-      player_names = all_player_names
+      players = self.entities
+    player_names = [player.name for player in players]
 
     # --- Standard Game Master components ---
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
@@ -125,7 +125,7 @@ class HarvestingGameMaster(prefab_lib.Prefab):
         player_names=player_names,
     )
 
-    # Fixed action spec for decisions
+    # Keep the scenario prompt and add the current policy before players act.
     call_to_action = self.params.get(
         'call_to_action',
         'Remember that many users share this resource. If the resource is'
@@ -145,17 +145,18 @@ class HarvestingGameMaster(prefab_lib.Prefab):
     next_action_spec_key = (
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
     )
-    next_action_spec = gm_components.next_acting.FixedActionSpec(
+    sim_state = self.params.get('sim_state') or self.sim_state
+    next_action_spec = resource_components.ResourceHarvestActionSpec(
         action_spec=action_spec,
+        sim_state=sim_state,
     )
 
     # Harvest resolution — structured concurrent harvesting that is
     # compatible with NextActingAllEntities (unlike EventResolution which
     # calls get_currently_active_player()).
-    sim_state = self.params.get('sim_state') or self.sim_state
     event_resolution_key = switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
     harvest_comp = resource_components.ResourceHarvestResolution(
-        players=self.entities,
+        players=players,
         model=model,
         memory_bank=memory_bank,
         gm_name=name,

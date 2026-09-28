@@ -19,7 +19,8 @@ This module contains components shared across multiple GM prefabs:
   - ConstantNextGameMaster: Always returns a fixed next GM name.
   - ResourceVoterResolution: Runs concurrent voting and tallies results.
   - ResourcePolicyResolution: Runs concurrent policy generation.
-  - ResourceHarvestResolution: Runs concurrent harvesting and updates sim state.
+  - ResourceHarvestActionSpec: Adds the current policy to the harvest prompt.
+  - ResourceHarvestResolution: Resolves collected harvests and updates sim state.
   - ResourceSimStateUpdater: Parses resolved events and updates sim state.
   - TurnLimitedNextGameMaster: Forces GM transition after a turn limit.
   - ResourceTerminate: Terminates on stock depletion or cycle exhaustion.
@@ -27,6 +28,7 @@ This module contains components shared across multiple GM prefabs:
 
 import collections
 from collections.abc import Sequence
+import dataclasses
 import json
 import random
 import re
@@ -34,6 +36,7 @@ import re
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.components.game_master import next_game_master
+from concordia.environment import engine as engine_lib
 from examples.resource_dilemma import simulation_state as sim_state_lib
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
@@ -364,16 +367,49 @@ class ResourcePolicyResolution(
     pass
 
 
+class ResourceHarvestActionSpec(entity_component.ContextComponent):
+  """Adds the current policy to the original scenario action specification."""
+
+  def __init__(
+      self,
+      action_spec: entity_lib.ActionSpec,
+      sim_state: sim_state_lib.ResourceSimulationState | None = None,
+  ):
+    super().__init__()
+    self._action_spec = action_spec
+    self._sim_state = sim_state
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    if action_spec.output_type != entity_lib.OutputType.NEXT_ACTION_SPEC:
+      return ''
+    policy = self._sim_state.active_policy if self._sim_state else ''
+    call_to_action = self._action_spec.call_to_action
+    if policy:
+      call_to_action = f'The active policy is: {policy}. {call_to_action}'
+    return engine_lib.action_spec_to_string(
+        dataclasses.replace(self._action_spec, call_to_action=call_to_action)
+    )
+
+  def get_state(self) -> entity_component.ComponentState:
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    pass
+
+
 class ResourceHarvestResolution(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
-  """Runs a concurrent harvesting round among all agents during the RESOLVE phase.
+  """Resolves the engine-collected harvesting decisions during RESOLVE.
 
-  After collecting each agent's harvest decision, this component parses the
+  Using the current action spec's complete ``entity_actions``, this parses the
   numeric harvest amounts and updates the shared ``ResourceSimulationState``:
 
     - ``cycle_harvest_total`` is accumulated from individual harvests.
     - ``resource_level`` is reduced by the total harvest (clamped to 0).
+
+  Missing decisions raise before harvest records or simulation state change;
+  players are never asked to act again during resolution.
   """
 
   def __init__(
@@ -386,43 +422,14 @@ class ResourceHarvestResolution(
       call_to_action: str = '',
   ):
     super().__init__()
-    self._players = players
-    self._model = model
+    # Retained for callers using the previous constructor. Decisions and their
+    # prompts now come from the engine and ResourceHarvestActionSpec.
+    del model, call_to_action
+    self._player_names = tuple(player.name for player in players)
     self._memory_bank = memory_bank
     self._gm_name = gm_name
-    self._current_policy = ''
     self._sim_state = sim_state
     self._did_harvest = False
-    self._call_to_action = call_to_action
-
-  def _get_player_harvest(
-      self,
-      player: entity_agent_with_logging.EntityAgentWithLogging,
-  ) -> str:
-    """Asks a single player to harvest."""
-    call_to_action = self._call_to_action or (
-        f'{player.name}, remember that many users share this resource and'
-        ' the total usage from everyone combined determines whether the'
-        ' resource survives. If the resource is completely depleted, it'
-        ' collapses permanently and everyone loses — including you.'
-        ' How much do you decide to use this cycle (0-20)?'
-        ' You MUST end your response with your final decision on a new'
-        ' line in exactly this format: HARVEST X'
-        ' (where X is a single number).'
-    )
-    if self._current_policy:
-      call_to_action = (
-          f'The active policy is: {self._current_policy}. ' + call_to_action
-      )
-
-    action_spec = entity_lib.ActionSpec(
-        call_to_action=call_to_action,
-        output_type=entity_lib.OutputType.FREE,
-        tag='harvesting',
-    )
-    player.observe(f'It is time to harvest. {call_to_action}')
-    harvest = player.act(action_spec=action_spec)
-    return harvest
 
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if (
@@ -430,6 +437,25 @@ class ResourceHarvestResolution(
         or action_spec.output_type != entity_lib.OutputType.RESOLVE
     ):
       return ''
+
+    actions = action_spec.entity_actions
+    if actions is None:
+      raise ValueError('Harvest resolution requires current entity_actions.')
+    expected_names = set(self._player_names)
+    if set(actions) != expected_names:
+      raise ValueError(
+          'Harvest decisions must match active players: '
+          f'missing={sorted(expected_names - set(actions))}, '
+          f'unknown={sorted(set(actions) - expected_names)}.'
+      )
+    # The mapping, not lines in the response, identifies each speaker. Remove
+    # only the engine's leading attribution, preserving multiline decisions.
+    individual_actions = {}
+    for name in self._player_names:
+      harvest = actions[name]
+      if harvest.startswith(f'{name}:'):
+        harvest = harvest.removeprefix(f'{name}:').removeprefix(' ')
+      individual_actions[name] = harvest
 
     # Advance cycle from the PREVIOUS harvest so that the logger's
     # post_act (which runs in the same step as this pre_act) still
@@ -445,32 +471,12 @@ class ResourceHarvestResolution(
     # observe it, because the Simultaneous engine loop checks terminate()
     # AFTER resolve() has already run on the same GM.
 
-    # Retrieve the winning leader's policy from sim_state (set by the election
-    # phase).  Falls back to an empty string if no election was held this cycle.
-    if self._sim_state is not None:
-      self._current_policy = self._sim_state.active_policy
-      if self._current_policy:
-        print(
-            f'[{self._gm_name}] Active policy from'
-            f' {self._sim_state.election_winner}: {self._current_policy}'
-        )
-      else:
-        print(f'[{self._gm_name}] No active policy this cycle.')
-    else:
-      self._current_policy = ''
-
-    print(f'\n--- [{self._gm_name}] STARTING HARVEST ---')
-    harvests = concurrency.map_parallel(self._get_player_harvest, self._players)
-    print(f'--- [{self._gm_name}] HARVEST COMPLETE ---')
-
-    individual_actions = {}
     summary_lines = []
     total_harvest = 0.0
-    for player, harvest in zip(self._players, harvests):
-      individual_actions[player.name] = harvest
-      summary_lines.append(f'{player.name} decided to use: {harvest}')
+    for name, harvest in individual_actions.items():
+      summary_lines.append(f'{name} decided to use: {harvest}')
       self._memory_bank.add(
-          f'[{self._gm_name}] {player.name} decided to use: {harvest}'
+          f'[{self._gm_name}] {name} decided to use: {harvest}'
       )
       # Parse numeric harvest for sim state update
       parsed = extract_harvest_amount(harvest)
