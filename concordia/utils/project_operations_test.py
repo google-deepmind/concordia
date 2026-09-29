@@ -30,8 +30,8 @@ from concordia.utils import simulation_server
 import pytest
 
 
-@pytest.fixture
-def editor():
+@pytest.fixture(params=('fixed', 'structural'))
+def editor(request):
   with (
       mock.patch.object(generic.Simulation, 'play', side_effect=AssertionError),
       mock.patch.object(
@@ -45,11 +45,25 @@ def editor():
           side_effect=AssertionError,
       ),
   ):
-    registry = template.registry()
+    structural = request.param == 'structural'
+    registry = (
+        template.builder_registry() if structural else template.registry()
+    )
+    key = 'builder-v1' if structural else template.TEMPLATE_KEY
+    document = registry.default_document(key)
+    if structural:
+      actor = copy.deepcopy(document['instances'][0])
+      actor['id'] = 'charlie'
+      actor['params']['name'] = 'Charlie'
+      gm = copy.deepcopy(document['instances'][2])
+      gm['id'] = 'second-gm'
+      gm['params']['name'] = 'Second GM'
+      gm['params']['next_game_master_name'] = 'second-gm'
+      document['instances'].extend([actor, gm])
     server = simulation_server.SimulationServer(port=0)
     server.configure_project(
         registry,
-        registry.default_document(template.TEMPLATE_KEY),
+        document,
         mock.Mock(),
         integrated=True,
         preview=lambda config: template.build(config).make_checkpoint_data(),
@@ -168,6 +182,22 @@ def test_pause_ack_edit_step_retry_and_reset_wait_for_runner(editor):
       == edit['value']
   )
   assert server.get_project()['document'] == initial
+  if initial['schema_version'] == 2:
+    dispatch(
+        adapter,
+        'runtime.edit',
+        {**edit, 'instance_id': 'charlie', 'value': 'Third actor only'},
+    )
+    actors = {actor.name: actor for actor in server.simulation.get_entities()}
+    assert (
+        actors['Charlie'].get_component('Instructions').get_state()['state']
+        == 'Third actor only'
+    )
+    assert (
+        actors['Alice'].get_component('Instructions').get_state()['state']
+        == edit['value']
+    )
+    assert server.get_project()['document'] == initial
   with mock.patch.object(
       server.simulation,
       'make_checkpoint_data',
