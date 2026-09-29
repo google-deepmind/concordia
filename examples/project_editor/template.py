@@ -23,7 +23,8 @@ from concordia.prefabs.game_master import dialogic
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_config
 
-TEMPLATE_KEY = 'conversation-v2'
+TEMPLATE_KEY = 'scene-builder-v1'
+PREVIOUS_TEMPLATE_KEY = 'conversation-v2'
 LEGACY_TEMPLATE_KEY = 'conversation-v1'
 
 
@@ -107,22 +108,22 @@ def make_config() -> prefab_lib.Config:
 
 def validate(document: dict[str, Any]) -> None:
   """Constrain the actual dialogic prefab enum, not its generated behavior."""
-  gm = next(
-      item for item in document['instances'] if item['id'] == 'conversation'
-  )
-  if gm['params']['acting_order'] not in (
-      'fixed',
-      'random',
-      'game_master_choice',
-  ):
-    raise project_config.ValidationError(
-        '$.instances[conversation].params.acting_order',
-        'expected fixed, random or game_master_choice',
-    )
+  for gm in document['instances']:
+    if gm['role'] != prefab_lib.Role.GAME_MASTER.value:
+      continue
+    if gm['params']['acting_order'] not in (
+        'fixed',
+        'random',
+        'game_master_choice',
+    ):
+      raise project_config.ValidationError(
+          f"$.instances[{gm['id']}].params.acting_order",
+          'expected fixed, random or game_master_choice',
+      )
 
 
 def registry() -> project_config.Registry:
-  """Caller-owned fixed template registry; imported JSON chooses no code."""
+  """Trusted prefab prototypes; imported JSON chooses no Python constructors."""
   return project_config.Registry({
       key: project_config.Template(
           factory=factory,
@@ -134,6 +135,7 @@ def registry() -> project_config.Registry:
               ): prefab_lib.Role.GAME_MASTER
           },
           validate=validate,
+          editable_instances=key == TEMPLATE_KEY,
           inspector={
               'alice': {
                   'name': {'label': 'Entity name'},
@@ -172,6 +174,7 @@ def registry() -> project_config.Registry:
       )
       for key, factory in (
           (TEMPLATE_KEY, make_config),
+          (PREVIOUS_TEMPLATE_KEY, make_config),
           (LEGACY_TEMPLATE_KEY, _legacy_config),
       )
   })

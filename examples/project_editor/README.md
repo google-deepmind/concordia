@@ -27,6 +27,41 @@ In coordinated sessions, display the exact shell command and obtain the required
 launch acknowledgement before any actual simulation, including the validation
 command below or pressing Run in a served editor.
 
+## Build a project without source editing
+
+New projects use the registered `scene-builder-v1` template (document schema 2).
+Choose a minimal actor, basic actor, or dialogic GM prototype in **Registered
+prefab prototype**, then **Add instance**. **Duplicate** copies the selected
+instance's authored fields, gives it a new stable ID and unique name, and maps
+self-references to the copy. Change its name, Instructions or Goal in the
+inspector. An empty Goal omits that optional standard component on the next
+build; basic actors retain their standard perception/reasoning architecture.
+
+For a nontrivial project, duplicate Alice, name the new actor Charlie, and give
+Charlie distinct instructions and a goal. Add a second dialogic GM and choose
+its **Next game master** from the role-safe selector. Rename the original GM:
+references retain IDs and resolve to its new runtime name when built. **Move
+earlier/later** changes order within the selected role. Order is retained in
+JSON and passed to standard Config; it is not merely visual organization.
+**Remove** rejects referenced instances and the last actor or GM. Change incoming
+references first. The project supports at most 100 instances.
+
+**Undo/Redo** restores authored edits and structural operations, including IDs
+and selection. Typing in one focused field forms one history entry. History
+retains up to 50 entries in this browser tab; Save preserves it. Open JSON,
+Reload saved, and adopting another tab's saved revision while clean start a new
+history. Invalid drafts can be undone. Undo does not override stale revisions
+or change runtime state. Search finds names, IDs, prefab names and built
+component names. New components appear in the preview after **Save draft**;
+preview construction does not run a simulation. **Export JSON** exports the
+saved definition, so save pending changes first.
+
+Component composition is through these registered prefab parameters, including
+optional Goal. Arbitrary component constructors, scene/group object editing and
+custom Python imports are not supported. Existing `conversation-v1` and
+`conversation-v2` files retain their fixed instance schemas and are never
+silently migrated. Structural controls are hidden for those legacy projects.
+
 ## Try the authoring journey
 
 1. In **Hierarchy**, choose Alice. Change **Instructions · initial text** to
@@ -91,17 +126,15 @@ Chromium viewport emulation is a separate check, not physical-device evidence.
 ## Supported definitions and compatibility
 
 `template.registry()` remains a Python-owned allowlist. JSON cannot import code
-or construct arbitrary Python objects. Schema version 1 supports the fixed
-`alice`, `bob`, and `conversation` instances, exact registered fields, literal
-strings, booleans, and safe integers. `max_steps` is 1–1000. Unknown fields,
-versions, templates, roles, IDs, duplicate names/keys, wrong types, and invalid
-references are rejected atomically. Inspector metadata supplies labels/choices;
-it does not relax the validator or change the document format.
-
-New projects use `conversation-v2` (minimal Alice, basic Bob).
-`conversation-v1` retains both original minimal actors and saved instructions.
-No silent prefab migration occurs. General entity/component CRUD, object codecs,
-checkpoint continuation, and full GUI/CLI parity are outside this example.
+or construct arbitrary Python objects. Schema 1 retains the original fixed
+instances. Opt-in schema 2 adds a trusted prototype key per instance, allows
+stable IDs and authored ordering, and enforces the prototype's exact prefab,
+role and scalar field types. Both formats preserve literal strings, booleans
+and safe integers; `max_steps` is 1–1000. Unknown fields, versions, templates,
+prototypes, duplicate IDs/names/keys, wrong types, and invalid role references
+are rejected atomically. Inspector metadata supplies labels/choices and does
+not relax validation. Checkpoint continuation and arbitrary object codecs
+remain unsupported.
 
 The integrated listener uses existing `OperationService` operations and its
 scope/revision/retry ledger. It delegates to `SimulationServer` project methods

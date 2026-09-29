@@ -14,6 +14,7 @@
 
 """Example setup and export checks; no simulation/model execution."""
 
+import copy
 import json
 from pathlib import Path
 from unittest import mock
@@ -81,3 +82,33 @@ def test_each_export_preserves_definition_and_previous_log(tmp_path: Path):
         json.loads((directory / 'initial-project.json').read_text()) == document
     )
     assert (directory / 'log.json').read_text() == '{"fixture":true}'
+
+
+def test_builder_and_legacy_documents_remain_distinct():
+  registry = template.registry()
+  builder = registry.default_document(template.TEMPLATE_KEY)
+  assert builder['schema_version'] == 2
+  assert [x['prototype'] for x in builder['instances']] == [
+      'alice',
+      'bob',
+      'conversation',
+  ]
+  assert len(registry.catalog(builder)) == 3
+  for key in (template.LEGACY_TEMPLATE_KEY, template.PREVIOUS_TEMPLATE_KEY):
+    legacy = registry.default_document(key)
+    assert legacy['schema_version'] == 1
+    assert registry.loads(registry.dumps(legacy)) == legacy
+    assert registry.catalog(legacy) == []
+    assert all('prototype' not in item for item in legacy['instances'])
+
+
+def test_builder_validates_each_duplicated_gm():
+  registry = template.registry()
+  document = registry.default_document(template.TEMPLATE_KEY)
+  gm = copy.deepcopy(document['instances'][2])
+  gm['id'] = 'new-gm'
+  gm['params']['name'] = 'New GM'
+  gm['params']['acting_order'] = 'unsupported'
+  document['instances'].append(gm)
+  with pytest.raises(ValueError, match='new-gm'):
+    registry.normalize(document)
