@@ -56,18 +56,18 @@ class Entity(prefab_lib.Prefab):
       default_factory=lambda: {
           'name': 'Rational Agent',
           'goal': '',
-          'randomize_choices': True,
-          'prefix_entity_name': True,
+          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
+          'prefix_entity_name': True,  # pyrefly: ignore[bad-assignment]
           'observation_history_length':
-              _DEFAULT_OBSERVATION_HISTORY_LENGTH,
+              _DEFAULT_OBSERVATION_HISTORY_LENGTH,  # pyrefly: ignore[bad-assignment]
           'situation_perception_history_length': (
-              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
+              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
           'available_options_history_length': (
-              _DEFAULT_AVAILABLE_OPTIONS_HISTORY_LENGTH
+              _DEFAULT_AVAILABLE_OPTIONS_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
           'best_option_history_length': (
-              _DEFAULT_BEST_OPTION_HISTORY_LENGTH
+              _DEFAULT_BEST_OPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
       }
   )

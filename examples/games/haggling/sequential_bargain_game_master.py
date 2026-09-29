@@ -78,12 +78,12 @@ class SequentialBargainGameMaster(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': DEFAULT_NAME,
-          'scenes': (),
+          'scenes': (),  # pyrefly: ignore[bad-assignment]
           'buyer_name': '',
           'seller_name': '',
-          'action_to_scores': _default_action_to_scores,
-          'scores_to_observation': _default_scores_to_observation,
-          'seller_costs_registry': {},
+          'action_to_scores': _default_action_to_scores,  # pyrefly: ignore[bad-assignment]
+          'scores_to_observation': _default_scores_to_observation,  # pyrefly: ignore[bad-assignment]
+          'seller_costs_registry': {},  # pyrefly: ignore[bad-assignment]
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()

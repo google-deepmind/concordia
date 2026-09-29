@@ -45,12 +45,12 @@ class Entity(prefab_lib.Prefab):
           'goal': '',
           # A custom instruction to use instead of the default instructions.
           'custom_instructions': '',
-          'extra_components': {},
+          'extra_components': {},  # pyrefly: ignore[bad-assignment]
           # A mapping from component name to the index at which to insert it
           # in the component order. If not specified, the extra components
           # will be inserted at the end of the component order.
-          'extra_components_index': {},
-          'randomize_choices': True,
+          'extra_components_index': {},  # pyrefly: ignore[bad-assignment]
+          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
       }
   )
 

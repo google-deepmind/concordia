@@ -40,7 +40,7 @@ class Entity(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           "name": "Puppet Agent",
-          "fixed_responses": {},
+          "fixed_responses": {},  # pyrefly: ignore[bad-assignment]
           "goal": "",
       }
   )
