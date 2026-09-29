@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""HarvestingGameMaster prefab — concurrent resource harvesting phase.
+"""HarvestingGameMaster prefab — private choices with joint harvest resolution.
 
-All agents act simultaneously each step. The Game Master resolves their combined
-actions using structured harvest resolution (ResourceHarvestResolution)
-which applies the decisions collected by the engine and updates sim state
-directly.
+The Game Master collects one original decision per player without revealing
+earlier choices, then applies the complete round to the shared resource.
 
 This is a generic harvesting Game Master that works with any CPR scenario. The
 scenario-specific call-to-action text is passed in via params.
@@ -42,23 +40,18 @@ from concordia.typing import prefab as prefab_lib
 
 @dataclasses.dataclass
 class HarvestingGameMaster(prefab_lib.Prefab):
-  """A Game Master prefab for the concurrent harvesting phase.
-
-  All agents act simultaneously each step. The Game Master resolves
-  their combined actions using ``ResourceHarvestResolution`` which
-  applies the decisions collected by the engine and updates the
-  shared simulation state.
+  """A Game Master prefab for a private, jointly resolved harvesting round.
 
   Params:
     name: Name of this Game Master (default: 'harvesting rules').
     next_game_master_name: The Game Master to transition to after
-        each harvest step. If not set, stays on this Game Master
+        each complete harvest round. If not set, stays on this Game Master
         (self-loop for basic scenario).
     call_to_action: Scenario-specific prompt for agents.
     tag: Tag for the action spec (default: 'harvesting').
   """
 
-  description: str = 'Game master for concurrent resource harvesting phase.'  # pyrefly: ignore[bad-override]
+  description: str = 'Game master for private resource harvesting rounds.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -74,14 +67,12 @@ class HarvestingGameMaster(prefab_lib.Prefab):
     name = self.params.get('name', 'harvesting rules')
     next_gm_name = self.params.get('next_game_master_name', name)
     phase = self.params.get('phase', self.phase)
-    active_player_names = self.params.get('active_players', [])
-    if active_player_names:
-      players = [
-          entity for entity in self.entities
-          if entity.name in active_player_names
-      ]
-    else:
-      players = self.entities
+    active_player_names = self.params.get("active_players", [])
+    players = [
+        player
+        for player in self.entities
+        if not active_player_names or player.name in active_player_names
+    ]
     player_names = [player.name for player in players]
 
     # --- Standard Game Master components ---
@@ -119,13 +110,8 @@ class HarvestingGameMaster(prefab_lib.Prefab):
         ),
     )
 
-    # All entities act simultaneously each step (concurrent harvesting).
+    # The round component owns selection, private context and joint application.
     next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
-    next_actor = gm_components.next_acting.NextActingAllEntities(
-        player_names=player_names,
-    )
-
-    # Keep the scenario prompt and add the current policy before players act.
     call_to_action = self.params.get(
         'call_to_action',
         'Remember that many users share this resource. If the resource is'
@@ -146,14 +132,19 @@ class HarvestingGameMaster(prefab_lib.Prefab):
         gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
     )
     sim_state = self.params.get('sim_state') or self.sim_state
-    next_action_spec = resource_components.ResourceHarvestActionSpec(
-        action_spec=action_spec,
-        sim_state=sim_state,
-    )
+    # Terminate — check simulation state for depletion / cycle exhaustion
+    terminate_key = '__terminate__'
+    harvest_terminate: resource_components.ResourceTerminate | None = None
+    if sim_state is not None:
+      harvest_terminate = resource_components.ResourceTerminate(
+          sim_state=sim_state,
+      )
+      terminate_comp = harvest_terminate
+    else:
+      from concordia.components.game_master import terminate as terminate_components  # pylint: disable=g-import-not-at-top
 
-    # Harvest resolution — structured concurrent harvesting that is
-    # compatible with NextActingAllEntities (unlike EventResolution which
-    # calls get_currently_active_player()).
+      terminate_comp = terminate_components.NeverTerminate()
+
     event_resolution_key = switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY
     harvest_comp = resource_components.ResourceHarvestResolution(
         players=players,
@@ -161,22 +152,13 @@ class HarvestingGameMaster(prefab_lib.Prefab):
         memory_bank=memory_bank,
         gm_name=name,
         sim_state=sim_state,
+        action_spec=action_spec,
+        next_game_master_name=next_gm_name,
+        terminate_component=harvest_terminate,
     )
 
-    # Next game master — constant transition
     next_gm_key = switch_act.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
-    next_gm_comp = resource_components.ConstantNextGameMaster(next_gm_name)  # pyrefly: ignore[bad-argument-type]
-
-    # Terminate — check simulation state for depletion / cycle exhaustion
-    terminate_key = '__terminate__'
-    if sim_state is not None:
-      terminate_comp = resource_components.ResourceTerminate(
-          sim_state=sim_state,
-      )
-    else:
-      from concordia.components.game_master import terminate as terminate_components  # pylint: disable=g-import-not-at-top
-
-      terminate_comp = terminate_components.NeverTerminate()
+    make_observation_key = switch_act.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
 
     components_of_gm = {
         instructions_key: instructions,
@@ -186,10 +168,11 @@ class HarvestingGameMaster(prefab_lib.Prefab):
         observation_to_memory_key: observation_to_memory,
         display_events_key: display_events,
         memory_component_key: memory_component,
-        next_actor_key: next_actor,
-        next_action_spec_key: next_action_spec,
+        next_actor_key: harvest_comp,
+        next_action_spec_key: harvest_comp,
         event_resolution_key: harvest_comp,
-        next_gm_key: next_gm_comp,
+        next_gm_key: harvest_comp,
+        make_observation_key: harvest_comp,
         terminate_key: terminate_comp,
     }
 

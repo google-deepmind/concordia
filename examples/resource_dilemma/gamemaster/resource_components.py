@@ -19,8 +19,7 @@ This module contains components shared across multiple GM prefabs:
   - ConstantNextGameMaster: Always returns a fixed next GM name.
   - ResourceVoterResolution: Runs concurrent voting and tallies results.
   - ResourcePolicyResolution: Runs concurrent policy generation.
-  - ResourceHarvestActionSpec: Adds the current policy to the harvest prompt.
-  - ResourceHarvestResolution: Resolves collected harvests and updates sim state.
+  - ResourceHarvestResolution: Collects private choices and applies a complete round.
   - ResourceSimStateUpdater: Parses resolved events and updates sim state.
   - TurnLimitedNextGameMaster: Forces GM transition after a turn limit.
   - ResourceTerminate: Terminates on stock depletion or cycle exhaustion.
@@ -30,11 +29,14 @@ import collections
 from collections.abc import Sequence
 import dataclasses
 import json
+import math
 import random
 import re
+from typing import Any, cast
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
+from concordia.components.game_master import event_resolution
 from concordia.components.game_master import next_game_master
 from concordia.environment import engine as engine_lib
 from examples.resource_dilemma import simulation_state as sim_state_lib
@@ -367,49 +369,14 @@ class ResourcePolicyResolution(
     pass
 
 
-class ResourceHarvestActionSpec(entity_component.ContextComponent):
-  """Adds the current policy to the original scenario action specification."""
-
-  def __init__(
-      self,
-      action_spec: entity_lib.ActionSpec,
-      sim_state: sim_state_lib.ResourceSimulationState | None = None,
-  ):
-    super().__init__()
-    self._action_spec = action_spec
-    self._sim_state = sim_state
-
-  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    if action_spec.output_type != entity_lib.OutputType.NEXT_ACTION_SPEC:
-      return ''
-    policy = self._sim_state.active_policy if self._sim_state else ''
-    call_to_action = self._action_spec.call_to_action
-    if policy:
-      call_to_action = f'The active policy is: {policy}. {call_to_action}'
-    return engine_lib.action_spec_to_string(
-        dataclasses.replace(self._action_spec, call_to_action=call_to_action)
-    )
-
-  def get_state(self) -> entity_component.ComponentState:
-    return {}
-
-  def set_state(self, state: entity_component.ComponentState) -> None:
-    pass
-
-
 class ResourceHarvestResolution(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
-  """Resolves the engine-collected harvesting decisions during RESOLVE.
+  """Owns a private harvest round, from actor selection to joint resolution.
 
-  Using the current action spec's complete ``entity_actions``, this parses the
-  numeric harvest amounts and updates the shared ``ResourceSimulationState``:
-
-    - ``cycle_harvest_total`` is accumulated from individual harvests.
-    - ``resource_level`` is reduced by the total harvest (clamped to 0).
-
-  Missing decisions raise before harvest records or simulation state change;
-  players are never asked to act again during resolution.
+  Register this component for NEXT_ACTING, NEXT_ACTION_SPEC, MAKE_OBSERVATION,
+  NEXT_GAME_MASTER and RESOLVE. Each engine step collects one original choice.
+  No harvest is applied or published until all selected players have responded.
   """
 
   def __init__(
@@ -419,95 +386,183 @@ class ResourceHarvestResolution(
       memory_bank: associative_memory.AssociativeMemoryBank,
       gm_name: str,
       sim_state: sim_state_lib.ResourceSimulationState | None = None,
-      call_to_action: str = '',
+      call_to_action: str = "",
+      *,
+      action_spec: entity_lib.ActionSpec | None = None,
+      next_game_master_name: str | None = None,
+      terminate_component: "ResourceTerminate | None" = None,
   ):
     super().__init__()
-    # Retained for callers using the previous constructor. Decisions and their
-    # prompts now come from the engine and ResourceHarvestActionSpec.
-    del model, call_to_action
+    del model  # Choices come from the engine; resolution makes no model calls.
     self._player_names = tuple(player.name for player in players)
+    if (
+        not self._player_names
+        or len(set(self._player_names)) != len(self._player_names)
+    ):
+      raise ValueError("Harvest players must be nonempty and have unique names.")
     self._memory_bank = memory_bank
     self._gm_name = gm_name
+    self._next_gm_name = next_game_master_name or gm_name
+    self._terminate_component = terminate_component
     self._sim_state = sim_state
+    self._action_spec = action_spec or entity_lib.free_action_spec(
+        call_to_action=call_to_action or (
+            "How much do you decide to use this cycle (0-20)? "
+            "End your response with your final decision on a new line: HARVEST X."
+        ),
+        tag="harvesting",
+    )
     self._did_harvest = False
+    self._clear_round()
+
+  def _clear_round(self) -> None:
+    self._actions: dict[str, str] = {}
+    self._active_player: str | None = None
+    self._pending_event: str | None = None
+    self._round_action_spec: entity_lib.ActionSpec | None = None
+    self._round_observation = ""
+    self._round_complete = False
+
+  def pre_observe(self, observation: str) -> str:
+    if observation.startswith(event_resolution.PUTATIVE_EVENT_TAG):
+      self._pending_event = observation
+    return ""
 
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
-    if (
-        not action_spec
-        or action_spec.output_type != entity_lib.OutputType.RESOLVE
-    ):
-      return ''
+    output_type = action_spec.output_type
+    if output_type == entity_lib.OutputType.NEXT_GAME_MASTER:
+      return self._next_gm_name if self._round_complete else self._gm_name
+    if output_type == entity_lib.OutputType.NEXT_ACTING:
+      if self._round_complete:
+        self._clear_round()
+      if self._active_player is not None:
+        raise ValueError("The current harvest choice has not been resolved.")
+      if self._round_action_spec is None:
+        # The engine checks the previous GM before switching to this one. Finish
+        # the discussion boundary before freezing stock or asking any player.
+        if (
+            self._terminate_component is not None
+            and self._terminate_component.check_termination()
+            == entity_lib.BINARY_OPTIONS['affirmative']
+        ):
+          self._round_action_spec = entity_lib.skip_this_step_action_spec()
+          self._active_player = self._player_names[0]
+          return self._active_player
+        policy = self._sim_state.active_policy if self._sim_state else ""
+        prompt = self._action_spec.call_to_action
+        if policy:
+          prompt = f"The active policy is: {policy}. {prompt}"
+        self._round_action_spec = dataclasses.replace(
+            self._action_spec, call_to_action=prompt
+        )
+        self._round_observation = "It is time to choose your harvest privately."
+        if self._sim_state is not None:
+          self._round_observation += (
+              f" Resource stock is {self._sim_state.resource_level:g}."
+          )
+      self._active_player = self._player_names[len(self._actions)]
+      self._pending_event = None
+      return self._active_player
+    if output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
+      if self._round_action_spec is None or self._active_player is None:
+        raise ValueError("Select a harvest player before requesting a choice.")
+      return engine_lib.action_spec_to_string(self._round_action_spec)
+    if output_type == entity_lib.OutputType.MAKE_OBSERVATION:
+      # Never synthesize from GM memory: it may contain earlier private choices.
+      return self._round_observation
+    if output_type == entity_lib.OutputType.RESOLVE:
+      try:
+        return self._resolve_choice()
+      except Exception:
+        # A failed round cannot be completed later with an old partial decision.
+        self._clear_round()
+        raise
+    return ""
 
-    actions = action_spec.entity_actions
-    if actions is None:
-      raise ValueError('Harvest resolution requires current entity_actions.')
-    expected_names = set(self._player_names)
-    if set(actions) != expected_names:
+  def _resolve_choice(self) -> str:
+    name = self._active_player
+    observation = self._pending_event
+    self._pending_event = None
+    if name is None or observation is None:
       raise ValueError(
-          'Harvest decisions must match active players: '
-          f'missing={sorted(expected_names - set(actions))}, '
-          f'unknown={sorted(set(actions) - expected_names)}.'
+          "Harvest resolution requires a fresh selected-player choice."
       )
-    # The mapping, not lines in the response, identifies each speaker. Remove
-    # only the engine's leading attribution, preserving multiline decisions.
-    individual_actions = {}
-    for name in self._player_names:
-      harvest = actions[name]
-      if harvest.startswith(f'{name}:'):
-        harvest = harvest.removeprefix(f'{name}:').removeprefix(' ')
-      individual_actions[name] = harvest
+    prefix = f"{event_resolution.PUTATIVE_EVENT_TAG} {name}:"
+    if not observation.startswith(prefix):
+      raise ValueError(f"Missing current harvest choice from {name}.")
+    # There is exactly one selected actor, so the entire remainder is its reply.
+    # Do not split multiline text or search it for other actor names.
+    choice = observation.removeprefix(prefix).removeprefix(" ")
+    amount = extract_harvest_amount(choice)
+    if amount is None or not math.isfinite(amount):
+      raise ValueError(
+          f"No valid harvest amount in the current choice from {name}."
+      )
+    self._actions[name] = choice
+    self._active_player = None
+    if len(self._actions) < len(self._player_names):
+      return ""
 
-    # Advance cycle from the PREVIOUS harvest so that the logger's
-    # post_act (which runs in the same step as this pre_act) still
-    # sees the old cycle number.  Skipped on the very first harvest.
-    if self._did_harvest and self._sim_state is not None:
-      self._sim_state.current_cycle += 1
-      self._sim_state.cycle_harvest_total = 0.0
-    self._did_harvest = False
-
-    # NOTE: discussion_completed is reset by ResourceTerminate during the
-    # TERMINATE action spec, not here.  Resetting during RESOLVE would
-    # clear the flag before the next iteration's terminate check can
-    # observe it, because the Simultaneous engine loop checks terminate()
-    # AFTER resolve() has already run on the same GM.
-
+    # Validate the full round before changing operational state or its records.
+    amounts = [
+        extract_harvest_amount(self._actions[name])
+        for name in self._player_names
+    ]
+    if any(amount is None or not math.isfinite(amount) for amount in amounts):
+      raise ValueError("The harvest round contains an invalid amount.")
+    total_harvest = sum(amount for amount in amounts if amount is not None)
+    individual_actions = dict(self._actions)
     summary_lines = []
-    total_harvest = 0.0
-    for name, harvest in individual_actions.items():
-      summary_lines.append(f'{name} decided to use: {harvest}')
+    for player_name, harvest in individual_actions.items():
+      summary_lines.append(f"{player_name} decided to use: {harvest}")
       self._memory_bank.add(
-          f'[{self._gm_name}] {name} decided to use: {harvest}'
+          f"[{self._gm_name}] {player_name} decided to use: {harvest}"
       )
-      # Parse numeric harvest for sim state update
-      parsed = extract_harvest_amount(harvest)
-      if parsed is not None:
-        total_harvest += parsed
 
-    # Update simulation state with harvest results
     if self._sim_state is not None:
+      # Keep the cycle number stable while collecting and while the previous
+      # round's logger runs. Advance only when another complete harvest applies.
+      if self._did_harvest:
+        self._sim_state.current_cycle += 1
+        self._sim_state.cycle_harvest_total = 0.0
       self._sim_state.cycle_harvest_total += total_harvest
       self._sim_state.resource_level = max(
           0.0, self._sim_state.resource_level - total_harvest
       )
 
-    result_summary = '\n'.join(summary_lines)
-
     self._did_harvest = True
+    self._round_complete = True
+    self._actions = {}
     return json.dumps({
-        'summary': result_summary,
-        'individual_actions': individual_actions,
+        "summary": "\n".join(summary_lines),
+        "individual_actions": individual_actions,
     })
 
-  def post_act(self, action_attempt: str) -> str:
-    # Cycle increment is deferred to the start of the next pre_act(RESOLVE)
-    # so that the logger can read the current cycle in its own post_act.
-    return ''
-
   def get_state(self) -> entity_component.ComponentState:
-    return {}
+    return {
+        "actions": dict(self._actions),
+        "active_player": self._active_player,
+        "pending_event": self._pending_event,
+        "round_action_spec": (
+            self._round_action_spec.to_dict() if self._round_action_spec else None
+        ),
+        "round_observation": self._round_observation,
+        "round_complete": self._round_complete,
+        "did_harvest": self._did_harvest,
+    }
 
   def set_state(self, state: entity_component.ComponentState) -> None:
-    pass
+    self._clear_round()
+    self._actions = dict(cast(dict[str, str], state["actions"]))
+    self._active_player = cast(str | None, state["active_player"])
+    self._pending_event = cast(str | None, state["pending_event"])
+    spec = cast(dict[str, Any] | None, state["round_action_spec"])
+    self._round_action_spec = (
+        entity_lib.action_spec_from_dict(spec) if spec else None
+    )
+    self._round_observation = cast(str, state["round_observation"])
+    self._round_complete = cast(bool, state["round_complete"])
+    self._did_harvest = cast(bool, state["did_harvest"])
 
 
 class TurnLimitedNextGameMaster(next_game_master.NextGameMaster):
@@ -654,54 +709,54 @@ class ResourceTerminate(
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if action_spec.output_type == entity_lib.OutputType.TERMINATE:
-      s = self._sim_state
+      return self.check_termination()
+    return ''
 
-      # Never terminate during discussion — let the full turn limit run.
-      # Mark discussion as complete so the *next* phase can terminate.
-      if self._phase == 'discussion':
-        s.discussion_completed = True
+  def check_termination(self) -> str:
+    """Check the phase boundary before termination or a new harvest round."""
+    s = self._sim_state
+
+    # Never terminate during discussion — let the full turn limit run.
+    # Mark discussion as complete so the *next* phase can terminate.
+    if self._phase == 'discussion':
+      s.discussion_completed = True
+      return entity_lib.BINARY_OPTIONS['negative']
+
+    # If already terminated, propagate immediately.
+    if s.terminated:
+      return entity_lib.BINARY_OPTIONS['affirmative']
+
+    # Check termination conditions.
+    should_terminate = (
+        s.resource_level < self._threshold
+        or s.current_cycle >= s.total_cycles
+    )
+
+    if should_terminate:
+      # Defer until discussion has happened at least once this cycle.
+      if not s.discussion_completed:
         return entity_lib.BINARY_OPTIONS['negative']
+      s.terminated = True
+      return entity_lib.BINARY_OPTIONS['affirmative']
 
-      # If already terminated, propagate immediately.
-      if s.terminated:
-        return entity_lib.BINARY_OPTIONS['affirmative']
-
-      # Check termination conditions.
-      should_terminate = (
-          s.resource_level < self._threshold
-          or s.current_cycle >= s.total_cycles
+    # Not terminating — apply end-of-cycle regeneration (stock
+    # doubling) if a full cycle just completed (discussion finished).
+    # Regeneration doubles the remaining stock, capped at carrying
+    # capacity.  This only fires when discussion_completed is True,
+    # so it runs exactly once per cycle.
+    if s.discussion_completed:
+      before = s.resource_level
+      s.resource_level = min(s.resource_level * 2.0, s.carrying_capacity)
+      print(
+          f'[ResourceTerminate] Regeneration: {before:.1f}'
+          f' -> {s.resource_level:.1f}'
+          f' (cap {s.carrying_capacity:.0f})'
       )
 
-      if should_terminate:
-        # Defer until discussion has happened at least once this cycle.
-        if not s.discussion_completed:
-          return entity_lib.BINARY_OPTIONS['negative']
-        s.terminated = True
-        return entity_lib.BINARY_OPTIONS['affirmative']
-
-      # Not terminating — apply end-of-cycle regeneration (stock
-      # doubling) if a full cycle just completed (discussion finished).
-      # Regeneration doubles the remaining stock, capped at carrying
-      # capacity.  This only fires when discussion_completed is True,
-      # so it runs exactly once per cycle.
-      if s.discussion_completed:
-        before = s.resource_level
-        s.resource_level = min(s.resource_level * 2.0, s.carrying_capacity)
-        print(
-            f'[ResourceTerminate] Regeneration: {before:.1f}'
-            f' -> {s.resource_level:.1f}'
-            f' (cap {s.carrying_capacity:.0f})'
-        )
-
-      # Reset the discussion flag so that the NEXT cycle's terminate
-      # check will wait for discussion to complete again.  Doing this
-      # here (during TERMINATE) instead of in ResourceHarvestResolution
-      # (during RESOLVE) avoids a race: the engine's run_loop calls
-      # terminate() at the top of the loop, AFTER the previous
-      # iteration's resolve() already ran.
-      s.discussion_completed = False
-      return entity_lib.BINARY_OPTIONS['negative']
-    return ''
+    # Reset only at the boundary, before new choices. A later RESOLVE would
+    # clear this flag before the engine can check the completed discussion.
+    s.discussion_completed = False
+    return entity_lib.BINARY_OPTIONS['negative']
 
   def get_state(self) -> entity_component.ComponentState:
     return {

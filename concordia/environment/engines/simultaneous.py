@@ -161,8 +161,6 @@ class Simultaneous(engine_lib.Engine):
       game_master: entity_lib.Entity,
       putative_event: str,
       verbose: bool = False,
-      *,
-      entity_actions: Mapping[str, str] | None = None,
   ) -> None:
     """Resolve an event."""
     if verbose:
@@ -180,7 +178,6 @@ class Simultaneous(engine_lib.Engine):
         action_spec=entity_lib.ActionSpec(
             call_to_action=self._call_to_resolve,
             output_type=entity_lib.OutputType.RESOLVE,
-            entity_actions=entity_actions,
         )
     )
     game_master.observe(observation=f'{EVENT_TAG} {result}')
@@ -392,9 +389,7 @@ class Simultaneous(engine_lib.Engine):
         continue
 
       resolve_input = '\n'.join(actions.values())
-      self.resolve(
-          game_master, resolve_input, verbose=verbose, entity_actions=actions
-      )
+      self.resolve(game_master, resolve_input, verbose=verbose)
       if log is not None and hasattr(game_master, 'get_last_log'):
         assert hasattr(game_master, 'get_last_log')  # Assertion for pytype
         log_entry['resolve'] = game_master.get_last_log()

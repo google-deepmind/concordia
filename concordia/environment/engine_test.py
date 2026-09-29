@@ -24,53 +24,6 @@ from concordia.typing import entity as entity_lib
 
 class EngineTest(parameterized.TestCase):
 
-  @parameterized.parameters(
-      ({},), ({'Alice': 'Alice: HARVEST 1\nBob: a quote'},)
-  )
-  def test_resolution_actions_round_trip(self, actions):
-    spec = entity_lib.ActionSpec(
-        call_to_action='Resolve the decisions.',
-        output_type=entity_lib.OutputType.RESOLVE,
-        entity_actions=actions,
-    )
-    serialized = engine.action_spec_to_string(spec)
-    self.assertEqual(json.loads(serialized)['entity_actions'], actions)
-    restored = engine.action_spec_parser(serialized)
-    self.assertEqual(restored, spec)
-    self.assertIsNotNone(restored.entity_actions)
-
-  def test_resolution_actions_are_an_immutable_snapshot(self):
-    actions = {'Alice': 'HARVEST 1'}
-    spec = entity_lib.ActionSpec(
-        call_to_action='Resolve.',
-        output_type=entity_lib.OutputType.RESOLVE,
-        entity_actions=actions,
-    )
-    actions['Alice'] = 'HARVEST 9'
-    assert spec.entity_actions is not None
-    self.assertEqual(spec.entity_actions, {'Alice': 'HARVEST 1'})
-    with self.assertRaises(TypeError):
-      spec.entity_actions['Alice'] = 'HARVEST 9'  # pyrefly: ignore[unsupported-operation]
-    encoded = spec.to_dict()
-    encoded['entity_actions']['Alice'] = 'HARVEST 9'
-    self.assertEqual(spec.entity_actions['Alice'], 'HARVEST 1')
-
-  def test_legacy_resolution_spec_omits_actions(self):
-    spec = entity_lib.ActionSpec(
-        call_to_action='Resolve.', output_type=entity_lib.OutputType.RESOLVE
-    )
-    self.assertEqual(spec.to_dict(), {
-        'call_to_action': 'Resolve.', 'output_type': 'resolve',
-        'options': [], 'tag': None,
-    })
-
-  def test_entity_actions_require_resolution(self):
-    with self.assertRaisesRegex(ValueError, 'only supported for RESOLVE'):
-      entity_lib.ActionSpec(
-          call_to_action='Act.', output_type=entity_lib.OutputType.FREE,
-          entity_actions={},
-      )
-
   @parameterized.named_parameters(
       (
           'free',

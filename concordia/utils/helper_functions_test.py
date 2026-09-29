@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import types
 import unittest
 
 from absl.testing import absltest
@@ -115,6 +116,28 @@ class FindNestedDataTest(absltest.TestCase):
     data = {'left': {'event': value}, 'right': {'event': dict(value)}}
     self.assertEqual(
         helper_functions.find_data_in_nested_structure(data, 'event'), [value]
+    )
+
+
+class DeepCompareComponentsTest(absltest.TestCase):
+
+  def test_compares_nested_components_without_skip_keys(self):
+    first = types.SimpleNamespace(child=types.SimpleNamespace(value=1))
+    second = types.SimpleNamespace(child=types.SimpleNamespace(value=1))
+    helper_functions.deep_compare_components(first, second, self)
+
+  def test_reports_value_mismatch_without_skip_keys(self):
+    with self.assertRaises(AssertionError):
+      helper_functions.deep_compare_components(
+          types.SimpleNamespace(value=1), types.SimpleNamespace(value=2), self
+      )
+
+  def test_still_skips_requested_keys(self):
+    helper_functions.deep_compare_components(
+        types.SimpleNamespace(value=1),
+        types.SimpleNamespace(value=2),
+        self,
+        skip_keys={'value'},
     )
 
 

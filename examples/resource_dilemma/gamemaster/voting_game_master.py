@@ -296,7 +296,7 @@ class ResourcePolicyGameMaster(prefab_lib.Prefab):
 
 @dataclasses.dataclass
 class ResourceHarvestGameMaster(prefab_lib.Prefab):
-  """A Game Master prefab that runs concurrent harvesting and then transitions.
+  """A Game Master prefab for private choices and complete harvest resolution.
 
   Params:
     name: Name of this Game Master (default: 'harvest rules').
@@ -304,7 +304,7 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
         harvesting (required).
   """
 
-  description: str = 'Game master for concurrent harvesting phase.'  # pyrefly: ignore[bad-override]
+  description: str = 'Game master for private harvest rounds.'  # pyrefly: ignore[bad-override]
   params: dict[str, Any] = dataclasses.field(default_factory=dict)
   logger_state: resource_logger.ResourceLoggerState | None = None
   sim_state: sim_state_lib.ResourceSimulationState | None = None
@@ -321,7 +321,13 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
     if not next_gm_name:
       raise ValueError("Missing 'next_game_master_name' in params")
 
-    player_names = [entity.name for entity in self.entities]
+    active_player_names = self.params.get("active_players", [])
+    players = [
+        player
+        for player in self.entities
+        if not active_player_names or player.name in active_player_names
+    ]
+    player_names = [player.name for player in players]
 
     # Memory
     memory_component_key = actor_components.memory.DEFAULT_MEMORY_COMPONENT_KEY
@@ -329,61 +335,54 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
         memory_bank=memory_bank
     )
 
-    # Harvest resolution component
     sim_state = self.params.get('sim_state') or self.sim_state
-    harvest_comp = resource_components.ResourceHarvestResolution(
-        players=self.entities,
-        model=model,
-        memory_bank=memory_bank,
-        gm_name=gm_name,
-        sim_state=sim_state,
-    )
-
-    # Constant next GM
-    next_gm_key = switch_act.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
-    next_gm_comp = resource_components.ConstantNextGameMaster(next_gm_name)
-
-    # All entities act simultaneously (concurrent harvesting).
-    next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
-    next_actor = gm_components.next_acting.NextActingAllEntities(
-        player_names=player_names,
-    )
-
-    next_action_spec_key = (
-        gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
-    )
-    harvest_action_spec = entity_lib.ActionSpec(
-        call_to_action=self.params.get(
-            'call_to_action',
-            'Remember that many participants share this resource. If the'
-            ' resource stock is completely depleted, it collapses permanently'
-            ' and everyone loses. How many units do you decide to harvest'
-            ' this cycle (0-20)? State your decision as a single number.'
-        ),
-        output_type=entity_lib.OutputType.FREE,
-        tag=self.params.get('tag', 'harvesting'),
-    )
-    next_action_spec = resource_components.ResourceHarvestActionSpec(
-        action_spec=harvest_action_spec,
-        sim_state=sim_state,
-    )
-
     # Terminate — check simulation state for depletion / cycle exhaustion
     terminate_key = '__terminate__'
+    harvest_terminate: resource_components.ResourceTerminate | None = None
     if sim_state is not None:
-      terminate_comp = resource_components.ResourceTerminate(
+      harvest_terminate = resource_components.ResourceTerminate(
           sim_state=sim_state,
       )
+      terminate_comp = harvest_terminate
     else:
       from concordia.components.game_master import terminate as terminate_components  # pylint: disable=g-import-not-at-top
 
       terminate_comp = terminate_components.NeverTerminate()
 
+    next_gm_key = switch_act.DEFAULT_NEXT_GAME_MASTER_COMPONENT_KEY
+    next_actor_key = gm_components.next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY
+    next_action_spec_key = (
+        gm_components.next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
+    )
+    make_observation_key = switch_act.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY
+    harvest_action_spec = entity_lib.ActionSpec(
+        call_to_action=self.params.get(
+            "call_to_action",
+            "Remember that many participants share this resource. If the"
+            " resource stock is completely depleted, it collapses permanently"
+            " and everyone loses. How many units do you decide to harvest"
+            " this cycle (0-20)? State your decision as a single number.",
+        ),
+        output_type=entity_lib.OutputType.FREE,
+        tag=self.params.get("tag", "harvesting"),
+    )
+    harvest_comp = resource_components.ResourceHarvestResolution(
+        players=players,
+        model=model,
+        memory_bank=memory_bank,
+        gm_name=gm_name,
+        sim_state=sim_state,
+        action_spec=harvest_action_spec,
+        next_game_master_name=next_gm_name,
+        terminate_component=harvest_terminate,
+    )
+
     context_comps = {
         switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY: harvest_comp,
-        next_gm_key: next_gm_comp,
-        next_actor_key: next_actor,
-        next_action_spec_key: next_action_spec,
+        next_gm_key: harvest_comp,
+        next_actor_key: harvest_comp,
+        next_action_spec_key: harvest_comp,
+        make_observation_key: harvest_comp,
         memory_component_key: memory_component,
         terminate_key: terminate_comp,
     }
@@ -406,6 +405,7 @@ class ResourceHarvestGameMaster(prefab_lib.Prefab):
         switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY,
         terminate_key,
         next_gm_key,
+        make_observation_key,
     ]
 
     act_component = switch_act.SwitchAct(

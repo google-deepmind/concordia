@@ -20,20 +20,20 @@ resource dilemma scenarios (Pasture, Irrigation, Network, Fishery). It supports
 any language model provider available through concordia.contrib.language_models.
 
 Usage:
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=pasture \
     --api_type=openai \
     --model_name=gpt-4o \
     --num_cycles=6 \
     --mode=standard
 
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=irrigation \
     --api_type=gemini \
     --model_name=gemini-2.0-flash \
     --mode=election
 
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=network \
     --disable_language_model  # for testing with a mock model
 """
@@ -43,6 +43,7 @@ import logging
 import os
 
 from concordia.contrib.language_models import language_model_setup  # pyrefly: ignore[missing-import]
+from concordia.language_model import no_language_model
 from examples.resource_dilemma.personas import fishery_personas
 from examples.resource_dilemma.personas import irrigation_personas
 from examples.resource_dilemma.personas import network_personas
@@ -52,7 +53,6 @@ from examples.resource_dilemma.scenarios import irrigation
 from examples.resource_dilemma.scenarios import network
 from examples.resource_dilemma.scenarios import pasture
 import numpy as np
-import sentence_transformers
 
 SCENARIOS = {
     'pasture': {
@@ -76,6 +76,13 @@ SCENARIOS = {
         'leader_configs': fishery_personas.LEADERS,
     },
 }
+
+
+class MockHarvestModel(no_language_model.NoLanguageModel):
+  """Deterministic smoke-test model; its replies are not simulation evidence."""
+
+  def sample_text(self, *args, **kwargs) -> str:
+    return 'HARVEST 1'
 
 
 def main() -> None:
@@ -110,7 +117,7 @@ def main() -> None:
   parser.add_argument(
       '--disable_language_model',
       action='store_true',
-      help='Run with a mock language model (for testing).',
+      help='Run with deterministic HARVEST 1 mock replies (for testing).',
   )
   parser.add_argument(
       '--num_cycles',
@@ -152,16 +159,21 @@ def main() -> None:
 
   logging.basicConfig(level=logging.INFO)
 
-  model = language_model_setup(
-      api_type=args.api_type,
-      model_name=args.model_name,
-      api_key=args.api_key,
-      disable_language_model=args.disable_language_model,
-  )
+  if args.disable_language_model:
+    model = MockHarvestModel()
+    logging.info('Mock mode: all text replies are HARVEST 1; no model is called.')
+  else:
+    model = language_model_setup(
+        api_type=args.api_type,
+        model_name=args.model_name,
+        api_key=args.api_key,
+    )
 
   if args.use_dummy_embedder or args.disable_language_model:
     embedder = lambda _: np.ones(384)  # 384-dimensional dummy embedder
   else:
+    import sentence_transformers  # pylint: disable=g-import-not-at-top
+
     st_model = sentence_transformers.SentenceTransformer('all-mpnet-base-v2')
     embedder = lambda x: st_model.encode(x, show_progress_bar=False)
 
