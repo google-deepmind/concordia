@@ -25,11 +25,9 @@ from concordia.agents import entity_agent_with_logging
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
 from concordia.utils import operation_service
+from concordia.utils import project_test_support as template
 from concordia.utils import simulation_server
 import pytest
-
-from examples.project_editor import run
-from examples.project_editor import template
 
 
 @pytest.fixture
@@ -54,7 +52,7 @@ def editor():
         registry.default_document(template.TEMPLATE_KEY),
         mock.Mock(),
         integrated=True,
-        preview=lambda config: run.build(config).make_checkpoint_data(),
+        preview=lambda config: template.build(config).make_checkpoint_data(),
     )
     yield server, server._project_editor
     server.step_controller.stop()
@@ -115,7 +113,7 @@ def test_preview_roundtrip_invalid_and_stale_are_atomic(editor):
     assert adapter.snapshot() == before
   with pytest.raises(operation_service.OperationError, match='another tab'):
     dispatch(adapter, 'project.save', {'text': json.dumps(doc), 'revision': 0})
-  rebuilt = run.build(
+  rebuilt = template.build(
       adapter.registry.to_config(server.get_project()['document'])
   )
   actor = rebuilt.get_entities()[0]
@@ -134,7 +132,7 @@ def test_pause_ack_edit_step_retry_and_reset_wait_for_runner(editor):
   permissions = []
 
   def runner(config):
-    sim = run.build(config)
+    sim = template.build(config)
     server.set_simulation(sim)
     server.broadcast_entity_info(sim.make_checkpoint_data())
     bound.set()

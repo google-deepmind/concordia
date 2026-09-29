@@ -248,8 +248,75 @@ body {height:100dvh;}
 </style>
 """
 
-EDITOR_SCRIPT = r"""
-<script>
+# Shared with the integrated editor; contains no DOM or project constructors.
+DRAFT_HISTORY_SCRIPT = r"""
+class ProjectDraftHistory {
+  constructor(limit=50) { this.limit=limit; this.clear(); }
+  clear() { this.past=[]; this.future=[]; this.group=null; }
+  endGroup() { this.group=null; }
+  record(before, group=null) {
+    if(group===null || group!==this.group) {
+      this.past.push(structuredClone(before));
+      if(this.past.length>this.limit) this.past.shift();
+    }
+    this.future=[]; this.group=group;
+  }
+  move(from, to, current) {
+    if(!from.length) return null;
+    to.push(structuredClone(current)); this.endGroup();
+    return structuredClone(from.pop());
+  }
+  undo(current) { return this.move(this.past,this.future,current); }
+  redo(current) { return this.move(this.future,this.past,current); }
+}
+class ProjectDraftOperations {
+  static add(document, catalog, prototype, id, sourceId=null) {
+    const entry=catalog.find(x=>x.instance.prototype===prototype);
+    if(!entry) throw Error('Choose a registered prefab prototype.');
+    if(document.instances.length>=100) throw Error('A project supports at most 100 instances.');
+    if(document.instances.some(x=>x.id===id)) throw Error('Instance ID already exists.');
+    const source=sourceId ? document.instances.find(x=>x.id===sourceId) : entry.instance;
+    if(!source || source.prototype!==prototype) throw Error('Unknown source instance.');
+    const item=structuredClone(source);item.id=id;
+    const names=new Set(document.instances.map(x=>x.params.name));
+    const base=source.params.name;let name=base, suffix=2;
+    while(names.has(name)) name=base+' '+suffix++;
+    item.params.name=name;
+    for(const [field,role] of Object.entries(entry.references)) {
+      if(item.params[field]===source.id) item.params[field]=id;
+      else if(!document.instances.some(x=>x.id===item.params[field] && x.role===role)) {
+        const target=document.instances.find(x=>x.role===role);
+        if(!target) throw Error('Create a '+role+' reference target first.');
+        item.params[field]=target.id;
+      }
+    }
+    document.instances.push(item);return id;
+  }
+  static remove(document,catalog,id) {
+    const item=document.instances.find(x=>x.id===id);
+    if(!item) throw Error('Select an instance.');
+    if(['entity','game_master'].includes(item.role) && document.instances.filter(x=>x.role===item.role).length===1)
+      throw Error('Keep at least one actor and one game master.');
+    for(const other of document.instances.filter(x=>x.id!==id)) {
+      const entry=catalog.find(x=>x.instance.prototype===other.prototype);
+      for(const field of Object.keys(entry?.references || {}))
+        if(other.params[field]===id) throw Error(other.params.name+' references this instance through '+field+'. Change that reference first.');
+    }
+    document.instances=document.instances.filter(x=>x.id!==id);
+    return document.instances[0]?.id || 'simulation';
+  }
+  static move(document,id,offset) {
+    const index=document.instances.findIndex(x=>x.id===id);
+    if(index<0) return;
+    let target=index+offset;
+    while(target>=0 && target<document.instances.length && document.instances[target].role!==document.instances[index].role) target+=offset;
+    if(target<0 || target>=document.instances.length) return;
+    const [item]=document.instances.splice(index,1);document.instances.splice(target,0,item);
+  }
+}
+"""
+
+EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
 (() => {
   const $ = id => document.getElementById(id);
   const layout = document.querySelector('.layout');
@@ -260,6 +327,8 @@ EDITOR_SCRIPT = r"""
   let envelope, draft, draftRevision, selectedId, connected = false, sending = false;
   let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0;
   const runtimeDrafts = new Map();
+  const history = new ProjectDraftHistory();
+  const draftSnapshot = () => ({document:draft, selectedId});
   function button(label, action, parent=toolbar) {
     const b = document.createElement('button'); b.textContent=label;
     b.className='editor-button'; b.onclick=action; parent.append(b); return b;
@@ -271,8 +340,21 @@ EDITOR_SCRIPT = r"""
   const reset = button('Reset', () => dispatch('project.reset'));
   const save = button('Save draft', async () => {
     const ok = await dispatch('project.save', {text:JSON.stringify(draft), revision:draftRevision});
-    if (ok) {dirty=false; error.textContent=''; await refresh(); adopt();}
+    if (ok) {error.textContent=''; adopt(true);}
   });
+  const undo = button('Undo', () => restoreHistory('undo'));
+  const redo = button('Redo', () => restoreHistory('redo'));
+  const prototypePicker=document.createElement('select');prototypePicker.id='editor-prototype';
+  prototypePicker.setAttribute('aria-label','Registered prefab prototype');toolbar.append(prototypePicker);
+  const add=button('Add instance',()=>structural(next=>ProjectDraftOperations.add(next,catalog(),prototypePicker.value,crypto.randomUUID())));
+  const duplicate=button('Duplicate',()=>structural(next=>{
+    const source=next.instances.find(x=>x.id===selectedId);
+    if(!source) throw Error('Select an instance to duplicate.');
+    return ProjectDraftOperations.add(next,catalog(),source.prototype,crypto.randomUUID(),source.id);
+  }));
+  const remove=button('Remove',()=>structural(next=>ProjectDraftOperations.remove(next,catalog(),selectedId)));
+  const up=button('Move earlier',()=>structural(next=>{ProjectDraftOperations.move(next,selectedId,-1);return selectedId;}));
+  const down=button('Move later',()=>structural(next=>{ProjectDraftOperations.move(next,selectedId,1);return selectedId;}));
   const exportButton = button('Export JSON', () => {
     const blob = new Blob([JSON.stringify(state().document,null,2)+'\n'], {type:'application/json'});
     const url=URL.createObjectURL(blob), link=document.createElement('a');
@@ -311,13 +393,38 @@ EDITOR_SCRIPT = r"""
   }
   tab('hierarchy');
   const hierarchy=document.querySelector('.left-sidebar');hierarchy.replaceChildren();
+  const search=document.createElement('input');search.type='search';search.id='editor-search';
+  search.placeholder='Find actors, GMs or components';search.setAttribute('aria-label','Search hierarchy');
+  toolbar.append(search);search.oninput=()=>{renderHierarchy();controls();};
   const summary=document.createElement('div');summary.id='editor-step-summary';
   document.querySelector('.center-panel').prepend(summary);
   document.querySelector('.console-header').textContent='Simulation log';
   function state(){return envelope?.result;}
   function report(e){error.textContent=e.message || String(e);}
-  function adopt(){
+  function catalog(){return state()?.definition.catalog || [];}
+  function structural(change){
+    if(runtimeMode || !connected || sending || state()?.run.status==='active') return;
+    try {
+      const next=structuredClone(draft), selection=change(next);
+      if(JSON.stringify(next)===JSON.stringify(draft)) return;
+      history.record(draftSnapshot());draft=next;selectedId=selection;
+      dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+      error.textContent='';search.value='';renderedView='';render();tab('inspector');
+    } catch(e) {report(e);}
+  }
+  function restoreHistory(direction){
+    if(runtimeMode || !connected || sending || state()?.run.status==='active') return;
+    const restored=history[direction](draftSnapshot());
+    if(!restored) return;
+    draft=restored.document; selectedId=restored.selectedId;
+    dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+    error.textContent=''; renderedView=''; render();
+    // Keep the original draft revision: undo must not resolve a stale-tab conflict.
+    if(draftRevision!==state().revision) report(Error('Definition changed in another tab. Review before Reload saved.'));
+  }
+  function adopt(preserveHistory=false){
     if(!state()) return;
+    if(!preserveHistory) history.clear(); else history.endGroup();
     draft=structuredClone(state().document);draftRevision=state().revision;dirty=false;
     selectedId=selectedId || draft.instances[0].id;renderedView='';render();
   }
@@ -329,6 +436,17 @@ EDITOR_SCRIPT = r"""
     pause.disabled=unavailable || phase!=='running';step.disabled=unavailable || phase!=='paused';
     reset.disabled=unavailable || phase==='ready' || phase==='stopping';
     save.disabled=unavailable || active;open.disabled=unavailable || active;
+    undo.disabled=unavailable || active || runtimeMode || !history.past.length;
+    redo.disabled=unavailable || active || runtimeMode || !history.future.length;
+    const structureDisabled=unavailable || active || runtimeMode || !catalog().length;
+    for(const control of [prototypePicker,add,duplicate,remove,up,down]) {
+      control.hidden=!catalog().length;control.disabled=structureDisabled;
+    }
+    const position=draft?.instances.findIndex(x=>x.id===selectedId) ?? -1;
+    duplicate.disabled=remove.disabled=structureDisabled || position<0;
+    const role=draft?.instances[position]?.role;
+    up.disabled=structureDisabled || position<0 || !draft.instances.slice(0,position).some(x=>x.role===role);
+    down.disabled=structureDisabled || position<0 || !draft.instances.slice(position+1).some(x=>x.role===role);
     exportButton.disabled=!s;
     document.querySelectorAll('[data-definition-field]').forEach(x=>x.disabled=unavailable || active);
     document.querySelectorAll('.dynamic-save-btn').forEach(b=>{
@@ -353,7 +471,14 @@ EDITOR_SCRIPT = r"""
     }
     if(typeof value==='boolean'){input.type='checkbox';input.checked=value;}
     else {if(typeof value==='number') input.type='number';input.value=value;}
-    input.oninput=()=>{change(typeof value==='boolean'?input.checked:typeof value==='number'?(input.value===''?null:Number(input.value)):input.value);dirty=true;error.textContent='';controls();};
+    input.onblur=()=>history.endGroup();
+    input.oninput=()=>{
+      const before=structuredClone(draftSnapshot());
+      change(typeof value==='boolean'?input.checked:typeof value==='number'?(input.value===''?null:Number(input.value)):input.value);
+      if(JSON.stringify(before.document)!==JSON.stringify(draft)) history.record(before,id);
+      dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+      error.textContent='';renderHierarchy();controls();
+    };
     label.append(input);container.append(label);
   }
   function inspect(){
@@ -366,17 +491,27 @@ EDITOR_SCRIPT = r"""
       field(content,'Maximum steps (1–1000)',draft.max_steps,v=>draft.max_steps=v,'editor-max-steps');
       controls();return;
     }
-    const sameEntity=selectedEntity==='entity_'+index;
+    const previewIndex=state().document.instances.findIndex(x=>x.id===selectedId);
+    const sameEntity=selectedEntity==='entity_'+previewIndex;
     const expanded=sameEntity ? [...content.querySelectorAll('.component-state.expanded')].map(x=>x.id) : [];
     const focused=sameEntity && content.contains(document.activeElement) ? document.activeElement : null;
     const focusState=focused ? {id:focused.id,start:focused.selectionStart,end:focused.selectionEnd} : null;
-    selectedEntity='entity_'+index;
-    updateInspector(selectedEntity);
+    selectedEntity='entity_'+previewIndex;
+    if(previewIndex>=0) updateInspector(selectedEntity);
+    else {
+      content.replaceChildren();
+      const hint=document.createElement('p');hint.textContent='Save draft to build the component preview. No simulation is executed.';content.append(hint);
+    }
+    if(!runtimeMode) $('inspector-title').textContent=draft.instances[index].params.name;
     const item=draft.instances[index];
     $('inspector-subtitle').textContent=(runtimeMode?'Current runtime':'Initial definition')+' · '+item.prefab+' · '+item.id;
     if(!runtimeMode){
       const fields=document.createElement('section');fields.setAttribute('aria-label','Editable initial fields');
-      const specs=state().definition.inspector[item.id] || {};
+      const entry=catalog().find(x=>x.instance.prototype===item.prototype);
+      const specs=structuredClone(entry?.inspector || state().definition.inspector[item.id] || {});
+      for(const [field,role] of Object.entries(entry?.references || {})) {
+        specs[field]={...specs[field],choices:draft.instances.filter(x=>x.role===role).map(x=>({value:x.id,label:x.params.name}))};
+      }
       for(const [key,value] of Object.entries(item.params)) field(fields,key,value,v=>item.params[key]=v,'editor-'+item.id+'-'+key,specs[key]);
       content.prepend(fields);
     } else {
@@ -390,8 +525,33 @@ EDITOR_SCRIPT = r"""
     controls();
     if(focusState){const input=$(focusState.id);if(input && !input.disabled){input.focus({preventScroll:true});if(input.setSelectionRange && focusState.start!==null)input.setSelectionRange(focusState.start,focusState.end);}}
   }
-  function choose(id,component){selectedId=id;inspect();tab('inspector');
+  function choose(id,component){history.endGroup();selectedId=id;renderHierarchy();inspect();tab('inspector');
     if(component){const el=$('comp_'+component.replace(/[^a-zA-Z0-9]/g,'_'));if(el){el.classList.add('expanded');el.scrollIntoView({block:'nearest'});}}
+  }
+  function renderHierarchy(){
+    if(!draft) return;
+    hierarchy.replaceChildren();button('Simulation settings',()=>{runtimeMode=false;mode.value='definition';selectedId='simulation';renderedView='';render();tab('inspector');},hierarchy);
+    const query=search.value.trim().toLocaleLowerCase();let matches=0;
+    for(const role of ['entity','game_master','initializer']){
+      const rows=[];
+      for(const item of draft.instances.filter(x=>x.role===role)) {
+        const idx=state().document.instances.findIndex(x=>x.id===item.id);
+        const components=Object.keys(entityData['entity_'+idx]?.component_info?.context_components || {});
+        if(![item.params.name,item.id,item.prefab,...components].some(x=>x.toLocaleLowerCase().includes(query)))continue;
+        rows.push({item,components});
+      }
+      if(!rows.length)continue;
+      const title=document.createElement('h3');title.textContent={entity:'Actors',game_master:'Game masters',initializer:'Initializers'}[role];hierarchy.append(title);
+      for(const {item,components} of rows){
+        matches++;
+        const b=button(item.params.name,()=>choose(item.id),hierarchy);b.dataset.instanceId=item.id;
+        b.setAttribute('aria-pressed',String(item.id===selectedId));
+        for(const component of components) {
+          const c=button(component,()=>choose(item.id,component),hierarchy);c.classList.add('editor-component');
+        }
+      }
+    }
+    if(!matches){const empty=document.createElement('p');empty.textContent='No matching instances or components.';hierarchy.append(empty);}
   }
   function render(){
     if(!draft) return;
@@ -403,18 +563,14 @@ EDITOR_SCRIPT = r"""
       Object.assign(entityData,view?.entities || s.definition.entities);
       // SVG comes only from the standard escaped server renderer, never imported HTML.
       document.querySelector('.svg-container').innerHTML=view?.svg || s.definition.svg;
-      hierarchy.replaceChildren();button('Simulation settings',()=>{runtimeMode=false;mode.value='definition';selectedId='simulation';renderedView='';render();tab('inspector');},hierarchy);
-      for(const role of ['entity','game_master','initializer']){
-        const items=draft.instances.filter(x=>x.role===role);if(!items.length)continue;
-        const title=document.createElement('h3');title.textContent=role==='entity'?'Actors':'Game masters';hierarchy.append(title);
-        for(const item of items){
-          const b=button(item.params.name,()=>choose(item.id),hierarchy);b.dataset.instanceId=item.id;
-          const idx=draft.instances.findIndex(x=>x.id===item.id);
-          for(const component of Object.keys(entityData['entity_'+idx]?.component_info?.context_components || {})) {
-            const c=button(component,()=>choose(item.id,component),hierarchy);c.classList.add('editor-component');
-          }
-        }
+      const chosen=prototypePicker.value;prototypePicker.replaceChildren();
+      for(const entry of catalog()) {
+        const option=document.createElement('option');option.value=entry.instance.prototype;
+        option.textContent=entry.instance.prefab+' · '+entry.instance.role+' · '+entry.instance.params.name;
+        option.title=entry.description;prototypePicker.append(option);
       }
+      if(catalog().some(x=>x.instance.prototype===chosen)) prototypePicker.value=chosen;
+      renderHierarchy();
       inspect();
     }
     if(loggedRun!==envelope.references.run_id){loggedRun=envelope.references.run_id;loggedSteps=0;$('console-output').replaceChildren();}
@@ -426,7 +582,8 @@ EDITOR_SCRIPT = r"""
   document.addEventListener('click',event=>{
     const card=event.target.closest('.entity-card');if(!card || !draft)return;
     event.stopImmediatePropagation();const index=Number(card.dataset.entityId.split('_')[1]);
-    if(draft.instances[index])choose(draft.instances[index].id);
+    const id=state().document.instances[index]?.id;
+    if(draft.instances.some(x=>x.id===id))choose(id);
   },true);
   saveComponentState=async (_entity,component,_key,inputId)=>{
     const key=envelope.references.run_id+':'+selectedId+':'+inputId, saved=runtimeDrafts.get(key);

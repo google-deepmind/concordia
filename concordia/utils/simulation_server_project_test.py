@@ -22,9 +22,8 @@ from unittest import mock
 from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.environment import step_controller
+from concordia.utils import project_test_support as template
 from concordia.utils import simulation_server
-
-from examples.project_editor import template
 
 
 class ProjectServerTest(parameterized.TestCase):

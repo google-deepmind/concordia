@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compare standard minimal/basic actors through supported JSON fields."""
+"""Core-owned registered project fixtures; build only, never execute."""
 
 import dataclasses
 from typing import Any
 
+from concordia.environment.engines import sequential
+from concordia.language_model import no_language_model
 from concordia.prefabs.entity import basic
 from concordia.prefabs.entity import minimal
 from concordia.prefabs.game_master import dialogic
+from concordia.prefabs.simulation import generic
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_config
+import numpy as np
 
 TEMPLATE_KEY = 'conversation-v2'
 LEGACY_TEMPLATE_KEY = 'conversation-v1'
@@ -139,4 +143,43 @@ def registry() -> project_config.Registry:
           (TEMPLATE_KEY, make_config),
           (LEGACY_TEMPLATE_KEY, _legacy_config),
       )
+  })
+
+
+def build(config: prefab_lib.Config) -> generic.Simulation:
+  """Construct standard components for inspection without playing a simulation."""
+  return generic.Simulation(
+      config=config,
+      model=no_language_model.NoLanguageModel(),
+      embedder=lambda _: np.ones(8),
+      engine=sequential.Sequential(),
+  )
+
+
+def builder_registry() -> project_config.Registry:
+  """Opt-in reusable prototypes for structural authoring tests."""
+
+  def validate_all(document):
+    for item in document['instances']:
+      if item['role'] == 'game_master' and item['params'][
+          'acting_order'
+      ] not in ('fixed', 'random', 'game_master_choice'):
+        raise project_config.ValidationError(
+            '$.instances[' + item['id'] + '].params.acting_order',
+            'unsupported acting order',
+        )
+
+  return project_config.Registry({
+      'builder-v1': project_config.Template(
+          factory=make_config,
+          instance_ids=('alice', 'bob', 'conversation'),
+          references={
+              (
+                  'conversation',
+                  'next_game_master_name',
+              ): prefab_lib.Role.GAME_MASTER
+          },
+          editable_instances=True,
+          validate=validate_all,
+      ),
   })

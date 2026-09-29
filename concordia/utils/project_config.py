@@ -16,13 +16,15 @@
 
 Python callers register trusted Config factories. Documents cannot import Python
 or construct components. Version 1 edits the scalar parameters of a fixed set of
-instances; object-bearing templates require an explicit future codec.
+instances. Opt-in version 2 instantiates trusted prototypes with stable IDs;
+object-bearing templates still require an explicit future codec.
 """
 
 from collections.abc import Callable, Mapping
 import copy
 import dataclasses
 import json
+import re
 from typing import Any
 
 from concordia.typing import prefab as prefab_lib
@@ -53,6 +55,9 @@ class Template:
   ValidationError with an exact document path. It must not invoke a model.
   """
 
+  # Opt-in only: factory instances become reusable prototypes in schema v2.
+  # Validators must accept arbitrary IDs/order/count and validate every instance.
+  # Component construction remains entirely inside the registered prefabs.
   factory: Callable[[], prefab_lib.Config]
   instance_ids: tuple[str, ...]
   references: Mapping[tuple[str, str], prefab_lib.Role] = dataclasses.field(
@@ -63,6 +68,7 @@ class Template:
   inspector: Mapping[str, Mapping[str, dict[str, Any]]] = dataclasses.field(
       default_factory=dict
   )
+  editable_instances: bool = False
 
 
 class Registry:
@@ -81,16 +87,55 @@ class Registry:
     normalized = self.normalize(document)
     template = self._template(normalized['template'])
     result = {
-        key: copy.deepcopy(dict(fields))
-        for key, fields in template.inspector.items()
+        item['id']: copy.deepcopy(
+            dict(template.inspector.get(item.get('prototype', item['id']), {}))
+        )
+        for item in normalized['instances']
     }
-    for (instance_id, field), role in template.references.items():
+    for (instance_id, field), role in self._references(
+        template, normalized
+    ).items():
       result.setdefault(instance_id, {}).setdefault(field, {})['choices'] = [
           {'value': item['id'], 'label': item['params']['name']}
           for item in normalized['instances']
           if item['role'] == role.value
       ]
     return result
+
+  @staticmethod
+  def _references(template: Template, document: dict) -> dict:
+    if not template.editable_instances:
+      return dict(template.references)
+    return {
+        (item['id'], field): role
+        for item in document['instances']
+        for (prototype, field), role in template.references.items()
+        if item['prototype'] == prototype
+    }
+
+  def catalog(self, document: Any) -> list[dict[str, Any]]:
+    """Return owned, trusted prototypes for opt-in structural authoring."""
+    normalized = self.normalize(document)
+    template = self._template(normalized['template'])
+    if not template.editable_instances:
+      return []
+    defaults = self.default_document(normalized['template'])
+    config = template.factory()
+    return [
+        {
+            'instance': copy.deepcopy(item),
+            'description': config.prefabs[item['prefab']].description,
+            'inspector': copy.deepcopy(
+                dict(template.inspector.get(item['id'], {}))
+            ),
+            'references': {
+                field: role.value
+                for (prototype, field), role in template.references.items()
+                if prototype == item['id']
+            },
+        }
+        for item in defaults['instances']
+    ]
 
   def default_document(self, key: str) -> dict[str, Any]:
     """Export only explicitly supported initial values; reject objects."""
@@ -135,8 +180,11 @@ class Registry:
                 'template has a dangling runtime name reference',
             )
           item['params'][field] = names[target]
+    if template.editable_instances:
+      for item in instances:
+        item['prototype'] = item['id']
     return dict(
-        schema_version=1,
+        schema_version=2 if template.editable_instances else 1,
         template=key,
         instances=instances,
         premise=config.default_premise,
@@ -173,22 +221,28 @@ class Registry:
     """Validate atomically and return an owned, canonical document.
 
     Text is not stripped, coerced or interpolated. Instance order is canonical
-    template order; stable IDs select the corresponding trusted definition.
+    template order for v1; v2 preserves authored order and selects trusted
+    prototypes independently of instance IDs.
     """
     self._keys(
         document,
         {'schema_version', 'template', 'instances', 'premise', 'max_steps'},
         '$',
     )
-    if (
-        not _is_integer(document['schema_version'])
-        or document['schema_version'] != 1
-    ):
-      raise ValidationError('$.schema_version', 'only version 1 is supported')
+    if not _is_integer(document['schema_version']) or document[
+        'schema_version'
+    ] not in (1, 2):
+      raise ValidationError(
+          '$.schema_version', 'only versions 1 and 2 are supported'
+      )
     if not isinstance(document['template'], str):
       raise ValidationError('$.template', 'expected text')
     template = self._template(document['template'])
     baseline = self.default_document(document['template'])
+    if document['schema_version'] != baseline['schema_version']:
+      raise ValidationError(
+          '$.schema_version', 'must match registered template'
+      )
     self._scalar(document['premise'], '$.premise')
     if not isinstance(document['premise'], str):
       raise ValidationError('$.premise', 'expected text')
@@ -199,23 +253,47 @@ class Registry:
       raise ValidationError('$.max_steps', 'expected integer from 1 to 1000')
     if not isinstance(document['instances'], list):
       raise ValidationError('$.instances', 'expected an array')
+    if (
+        template.editable_instances
+        and not 1 <= len(document['instances']) <= 100
+    ):
+      raise ValidationError(
+          '$.instances', 'expected between 1 and 100 instances'
+      )
     expected = {item['id']: item for item in baseline['instances']}
     by_id = {}
     names = set()
     for index, item in enumerate(document['instances']):
       path = f'$.instances[{index}]'
-      self._keys(item, {'id', 'role', 'prefab', 'params'}, path)
+      keys = {'id', 'role', 'prefab', 'params'}
+      if template.editable_instances:
+        keys.add('prototype')
+      self._keys(item, keys, path)
       instance_id = item['id']
-      if not isinstance(instance_id, str) or instance_id not in expected:
-        raise ValidationError(path + '.id', 'unknown template instance ID')
+      if template.editable_instances:
+        if not isinstance(instance_id, str) or not re.fullmatch(
+            r'[A-Za-z0-9][A-Za-z0-9_-]{0,127}', instance_id
+        ):
+          raise ValidationError(
+              path + '.id', 'expected 1–128 letters, digits, _ or -'
+          )
+        prototype = item['prototype']
+        if not isinstance(prototype, str) or prototype not in expected:
+          raise ValidationError(
+              path + '.prototype', 'unknown registered prototype'
+          )
+      else:
+        prototype = instance_id
+        if not isinstance(instance_id, str) or instance_id not in expected:
+          raise ValidationError(path + '.id', 'unknown template instance ID')
       if instance_id in by_id:
         raise ValidationError(path + '.id', 'duplicate instance ID')
       for field in ('prefab', 'role'):
-        if item[field] != expected[instance_id][field]:
+        if item[field] != expected[prototype][field]:
           raise ValidationError(
               path + '.' + field, 'must match trusted template'
           )
-      defaults = expected[instance_id]['params']
+      defaults = expected[prototype]['params']
       self._keys(item['params'], set(defaults), path + '.params')
       for field, value in item['params'].items():
         self._scalar(value, path + '.params.' + field)
@@ -232,11 +310,19 @@ class Registry:
         raise ValidationError(path + '.params.name', 'duplicate runtime name')
       names.add(name)
       by_id[instance_id] = item
-    if set(by_id) != set(expected):
+    if not template.editable_instances and set(by_id) != set(expected):
       raise ValidationError(
           '$.instances', 'must contain every template instance'
       )
-    for (instance_id, field), role in template.references.items():
+    if template.editable_instances:
+      roles = {item['role'] for item in by_id.values()}
+      if not {'entity', 'game_master'} <= roles:
+        raise ValidationError(
+            '$.instances', 'requires an actor and game master'
+        )
+    for (instance_id, field), role in self._references(
+        template, document
+    ).items():
       path = f'$.instances[{instance_id}].params.{field}'
       if instance_id not in by_id or field not in by_id[instance_id]['params']:
         raise ValidationError(path, 'invalid trusted reference definition')
@@ -246,7 +332,8 @@ class Registry:
             path, 'expected target instance ID with role ' + role.value
         )
     result = copy.deepcopy(document)
-    result['instances'] = [copy.deepcopy(by_id[key]) for key in expected]
+    if not template.editable_instances:
+      result['instances'] = [copy.deepcopy(by_id[key]) for key in expected]
     template.validate(result)
     return result
 
@@ -258,11 +345,12 @@ class Registry:
     names = {
         item['id']: item['params']['name'] for item in normalized['instances']
     }
+    references = self._references(template, normalized)
     instances = []
     for item in normalized['instances']:
       params = copy.deepcopy(item['params'])
       for field in params:
-        if (item['id'], field) in template.references:
+        if (item['id'], field) in references:
           params[field] = names[params[field]]
       instances.append(
           prefab_lib.InstanceConfig(

@@ -115,6 +115,7 @@ class ProjectEditor:
         'svg': svg,
         'entities': entities,
         'inspector': self.registry.inspector(document),
+        'catalog': self.registry.catalog(document),
     }
 
   def begin(self, config: prefab_lib.Config) -> None:
