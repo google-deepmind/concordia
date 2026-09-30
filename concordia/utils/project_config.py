@@ -17,7 +17,8 @@
 Python callers register trusted Config factories. Documents cannot import Python
 or construct components. Version 1 edits the scalar parameters of a fixed set of
 instances. Opt-in version 2 instantiates trusted prototypes with stable IDs;
-object-bearing templates still require an explicit future codec.
+version 3 adds registered component recipes and optional literal scene records.
+Only trusted Python registrations construct objects at the Config boundary.
 """
 
 from collections.abc import Callable, Mapping
@@ -28,6 +29,8 @@ import re
 from typing import Any
 
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import project_components
+from concordia.utils import project_scenes
 
 
 def _is_integer(value: Any) -> bool:
@@ -69,6 +72,12 @@ class Template:
       default_factory=dict
   )
   editable_instances: bool = False
+  # Schema 3: literal defaults and trusted prototypes accepting standard scenes.
+  scene_defaults: Mapping[str, Any] | None = None
+  scene_prototypes: tuple[str, ...] = ()
+  component_types: Mapping[str, 'project_components.ComponentType'] = (
+      dataclasses.field(default_factory=dict)
+  )
 
 
 class Registry:
@@ -128,6 +137,7 @@ class Registry:
             'inspector': copy.deepcopy(
                 dict(template.inspector.get(item['id'], {}))
             ),
+            'accepts_scenes': item['id'] in template.scene_prototypes,
             'references': {
                 field: role.value
                 for (prototype, field), role in template.references.items()
@@ -136,6 +146,12 @@ class Registry:
         }
         for item in defaults['instances']
     ]
+
+  def component_catalog(self, document: Any) -> list[dict[str, Any]]:
+    normalized = self.normalize(document)
+    return project_components.catalog(
+        self._template(normalized['template']).component_types
+    )
 
   def default_document(self, key: str) -> dict[str, Any]:
     """Export only explicitly supported initial values; reject objects."""
@@ -150,6 +166,14 @@ class Registry:
       raise ValidationError('$.instances', 'template ID count mismatch')
     if len(set(template.instance_ids)) != len(template.instance_ids):
       raise ValidationError('$.instances', 'duplicate template IDs')
+    if template.component_types:
+      if not template.editable_instances:
+        raise ValidationError(
+            '$.template', 'component authoring requires editable instances'
+        )
+      project_components.validate_registration(
+          config, template.instance_ids, template.component_types
+      )
     instances = []
     for instance_id, instance in zip(template.instance_ids, config.instances):
       if not isinstance(instance_id, str) or not instance_id:
@@ -183,13 +207,29 @@ class Registry:
     if template.editable_instances:
       for item in instances:
         item['prototype'] = item['id']
-    return dict(
+    result = dict(
         schema_version=2 if template.editable_instances else 1,
         template=key,
         instances=instances,
         premise=config.default_premise,
         max_steps=config.default_max_steps,
     )
+    if template.scene_defaults is not None:
+      if not template.editable_instances or not template.scene_prototypes:
+        raise ValidationError(
+            '$.template',
+            'scene templates require editable scene-aware prototypes',
+        )
+      self._keys(
+          dict(template.scene_defaults),
+          project_scenes.FIELDS,
+          '$.template.scene_defaults',
+      )
+      result.update(copy.deepcopy(dict(template.scene_defaults)))
+    if template.scene_defaults is not None or template.component_types:
+      result['schema_version'] = 3
+      result['components'] = []
+    return result
 
   @staticmethod
   def _scalar(value: Any, path: str) -> None:
@@ -224,16 +264,21 @@ class Registry:
     template order for v1; v2 preserves authored order and selects trusted
     prototypes independently of instance IDs.
     """
-    self._keys(
-        document,
-        {'schema_version', 'template', 'instances', 'premise', 'max_steps'},
-        '$',
-    )
+    keys = {'schema_version', 'template', 'instances', 'premise', 'max_steps'}
+    if isinstance(document, dict) and document.get('schema_version') == 3:
+      keys |= {'components'}
+      template_key = document.get('template')
+      if (
+          isinstance(template_key, str)
+          and self._template(template_key).scene_defaults is not None
+      ):
+        keys |= project_scenes.FIELDS
+    self._keys(document, keys, '$')
     if not _is_integer(document['schema_version']) or document[
         'schema_version'
-    ] not in (1, 2):
+    ] not in (1, 2, 3):
       raise ValidationError(
-          '$.schema_version', 'only versions 1 and 2 are supported'
+          '$.schema_version', 'only versions 1, 2 and 3 are supported'
       )
     if not isinstance(document['template'], str):
       raise ValidationError('$.template', 'expected text')
@@ -334,6 +379,10 @@ class Registry:
     result = copy.deepcopy(document)
     if not template.editable_instances:
       result['instances'] = [copy.deepcopy(by_id[key]) for key in expected]
+    if template.scene_defaults is not None:
+      project_scenes.validate(result, template.scene_prototypes)
+    if baseline['schema_version'] == 3:
+      project_components.validate(result, template.component_types)
     template.validate(result)
     return result
 
@@ -352,6 +401,20 @@ class Registry:
       for field in params:
         if (item['id'], field) in references:
           params[field] = names[params[field]]
+      if (
+          template.scene_defaults is not None
+          and item['prototype'] in template.scene_prototypes
+      ):
+        params['scenes'] = project_scenes.to_scenes(normalized)
+      if template.component_types:
+        extras = project_components.build(
+            normalized, item['id'], template.component_types
+        )
+        if extras:
+          params['extra_components'] = extras
+          # Standard minimal prefab otherwise inserts extras at -1.
+          # A large index appends in the authored order without replacing keys.
+          params['extra_components_index'] = {key: 100000 for key in extras}
       instances.append(
           prefab_lib.InstanceConfig(
               prefab=item['prefab'],

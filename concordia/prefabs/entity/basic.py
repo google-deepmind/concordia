@@ -44,6 +44,8 @@ class Entity(prefab_lib.Prefab):
           'goal': '',
           'randomize_choices': True,
           'prefix_entity_name': True,
+          'extra_components': {},
+          'extra_components_index': {},
           'observation_history_length':
               _DEFAULT_OBSERVATION_HISTORY_LENGTH,
           'situation_perception_history_length': (
@@ -201,6 +203,28 @@ class Entity(prefab_lib.Prefab):
       components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
       # Place goal after the instructions.
       component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
+
+    # Use the same extra-component contract as the minimal entity prefab.
+    extra_components = self.params.get('extra_components', {})
+    extra_indices = self.params.get('extra_components_index', {})
+    if not isinstance(extra_components, dict) or not isinstance(
+        extra_indices, dict
+    ):
+      raise ValueError(
+          'extra_components and extra_components_index must be dicts'
+      )
+    if extra_indices and extra_indices.keys() != extra_components.keys():
+      raise ValueError(
+          'extra_components_index must have the same keys as extra_components'
+      )
+    if components_of_agent.keys() & extra_components.keys():
+      raise ValueError('extra_components must not replace built-in components')
+    for key, component in extra_components.items():
+      index = extra_indices.get(key, len(component_order))
+      if type(index) is not int:
+        raise ValueError('extra_components_index values must be integers')
+      components_of_agent[key] = component
+      component_order.insert(index, key)
 
     if act_component_factory is not None:
       act_component = act_component_factory(tuple(component_order))

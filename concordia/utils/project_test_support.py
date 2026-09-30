@@ -22,8 +22,10 @@ from concordia.language_model import no_language_model
 from concordia.prefabs.entity import basic
 from concordia.prefabs.entity import minimal
 from concordia.prefabs.game_master import dialogic
+from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.simulation import generic
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import project_components
 from concordia.utils import project_config
 import numpy as np
 
@@ -182,4 +184,67 @@ def builder_registry() -> project_config.Registry:
           editable_instances=True,
           validate=validate_all,
       ),
+  })
+
+
+def scene_config():
+  base = make_config()
+  gm_params: dict[str, Any] = {
+      'name': 'Conversation',
+      'allow_llm_fallback': False,
+  }
+  return dataclasses.replace(
+      base,
+      prefabs={
+          **base.prefabs,
+          'dramaturgic': dialogic_and_dramaturgic.GameMaster(),
+      },
+      instances=[
+          *base.instances[:2],
+          prefab_lib.InstanceConfig(
+              prefab='dramaturgic',
+              role=prefab_lib.Role.GAME_MASTER,
+              params=gm_params,
+          ),
+      ],
+  )
+
+
+def scene_defaults():
+  return {
+      'groups': [{
+          'id': 'ensemble',
+          'name': 'Roommates',
+          'participants': ['alice', 'bob'],
+      }],
+      'scene_types': [{
+          'id': 'discussion',
+          'name': 'Kitchen discussion',
+          'game_master': 'conversation',
+          'group': 'ensemble',
+          'premise': 'Listen to one another.',
+      }],
+      'scenes': [{
+          'id': 'opening',
+          'name': 'First conversation',
+          'scene_type': 'discussion',
+          'participants': ['alice', 'bob'],
+          'num_rounds': 2,
+          'premise': None,
+      }],
+  }
+
+
+def scene_registry():
+  return project_config.Registry({
+      'scenes-v1': project_config.Template(
+          factory=scene_config,
+          instance_ids=('alice', 'bob', 'conversation'),
+          editable_instances=True,
+          scene_defaults=scene_defaults(),
+          scene_prototypes=('conversation',),
+          component_types=project_components.standard_types(
+              ('alice', 'bob'), ('alice', 'bob', 'conversation')
+          ),
+      )
   })
