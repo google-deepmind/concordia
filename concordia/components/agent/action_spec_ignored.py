@@ -56,17 +56,19 @@ class ActionSpecIgnored(
     Raises:
       ValueError: If the entity is not in the `PRE_ACT` or `POST_ACT` phase.
     """
-    if (
-        self.get_entity().get_phase() != entity_component.Phase.PRE_ACT
-        and self.get_entity().get_phase() != entity_component.Phase.POST_ACT
-    ):
-      raise ValueError(
-          "You can only access the pre-act value in the `PRE_ACT` or "
-          "`POST_ACT` phase. The entity is currently in the "
-          f"{self.get_entity().get_phase()} phase."
-      )
-
     with self._lock:
+      # Check the phase while holding the lock: a call that was waiting for it
+      # while a failed step was being cleaned up must not cache a value from
+      # that step after `update` has cleared it.
+      if (
+          self.get_entity().get_phase() != entity_component.Phase.PRE_ACT
+          and self.get_entity().get_phase() != entity_component.Phase.POST_ACT
+      ):
+        raise ValueError(
+            "You can only access the pre-act value in the `PRE_ACT` or "
+            "`POST_ACT` phase. The entity is currently in the "
+            f"{self.get_entity().get_phase()} phase."
+        )
       if self._pre_act_value is None:
         self._pre_act_value = self._make_pre_act_value()
       return self._pre_act_value

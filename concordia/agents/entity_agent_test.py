@@ -52,6 +52,9 @@ class _CachedValue(action_spec_ignored.ActionSpecIgnored):
     self.computed.set()
     return value
 
+  def cache_lock(self) -> threading.Lock:
+    return self._lock
+
 
 class _FailingContext(_StatelessMixin, entity_component.ContextComponent):
   """Raises from the selected hook while `fail` is set."""
@@ -111,6 +114,33 @@ class EntityAgentFailedStepTest(absltest.TestCase):
     cached.step = 1
     failing.fail = False
     self.assertEqual(agent.act(), 'cached:\nstep 1')
+
+  def test_call_waiting_on_cache_lock_does_not_cache_after_step_ends(self):
+    # A component's pre_act can still be running when the step fails, because
+    # the agent does not wait for it. If it is waiting for the cache lock while
+    # the step is cleaned up, it must not cache a value once it gets the lock.
+    cached = _CachedValue()
+    agent = entity_agent.EntityAgent(
+        'Alice', _EchoActComponent(), {'cached': cached}
+    )
+    agent.set_phase(entity_component.Phase.PRE_ACT)
+    errors = []
+
+    def read_value():
+      try:
+        cached.get_pre_act_value()
+      except ValueError as error:
+        errors.append(error)
+
+    with cached.cache_lock():
+      reader = threading.Thread(target=read_value)
+      reader.start()
+      reader.join(timeout=0.1)  # Let the reader block on the lock.
+      agent.set_phase(entity_component.Phase.READY)
+    reader.join(timeout=5)
+
+    self.assertLen(errors, 1)
+    self.assertFalse(cached.computed.is_set())
 
   def test_failed_act_reraises_the_original_exception(self):
     error = RuntimeError('model call failed')
