@@ -5,7 +5,7 @@ in one graphical editor. The same interface fits an Android portrait viewport
 and a desktop's hierarchy, scene, inspector, and log panes.
 
 Alice uses standard `minimal.Entity`; Bob uses `basic.Entity`; their conversation
-uses `dialogic.GameMaster`. Execution uses `generic.Simulation` and
+uses `dialogic_and_dramaturgic.GameMaster` with standard scene tracking. Execution uses `generic.Simulation` and
 `sequential.Sequential`. The bundled **NoLanguageModel is a free development
 stub**: the trace demonstrates editing and execution, not a realistic discussion
 or scientific evidence. No paid account, model download, or API key is needed.
@@ -29,8 +29,8 @@ command below or pressing Run in a served editor.
 
 ## Build a project without source editing
 
-New projects use the registered `scene-builder-v1` template (document schema 2).
-Choose a minimal actor, basic actor, or dialogic GM prototype in **Registered
+New projects use the registered `scene-builder-v2` template (document schema 3).
+Choose a minimal actor, basic actor, or scene-aware GM prototype in **Registered
 prefab prototype**, then **Add instance**. **Duplicate** copies the selected
 instance's authored fields, gives it a new stable ID and unique name, and maps
 self-references to the copy. Change its name, Instructions or Goal in the
@@ -38,8 +38,8 @@ inspector. An empty Goal omits that optional standard component on the next
 build; basic actors retain their standard perception/reasoning architecture.
 
 For a nontrivial project, duplicate Alice, name the new actor Charlie, and give
-Charlie distinct instructions and a goal. Add a second dialogic GM and choose
-its **Next game master** from the role-safe selector. Rename the original GM:
+Charlie distinct instructions and a goal. Add a second scene-aware GM and select it in a scene type’s **Game master** field.
+Rename the original GM:
 references retain IDs and resolve to its new runtime name when built. **Move
 earlier/later** changes order within the selected role. Order is retained in
 JSON and passed to standard Config; it is not merely visual organization.
@@ -56,11 +56,29 @@ component names. New components appear in the preview after **Save draft**;
 preview construction does not run a simulation. **Export JSON** exports the
 saved definition, so save pending changes first.
 
-Component composition is through these registered prefab parameters, including
-optional Goal. Arbitrary component constructors, scene/group object editing and
-custom Python imports are not supported. Existing `conversation-v1` and
-`conversation-v2` files retain their fixed instance schemas and are never
-silently migrated. Structural controls are hidden for those legacy projects.
+Select an actor or GM and use **Component catalogue → Add component**. Both actor
+prefabs support `constant` context and `recent-observations`; the scene-aware GM
+supports `constant`. Select the new component in Hierarchy to edit its display
+name, context label, and literal text or observation count (1–1000). The display
+name is independent of the stable component ID. **Duplicate**, **Move earlier/later**,
+and **Remove** apply to the selected authored component; ordering is within its
+owner. Duplicating an actor copies its authored components with fresh IDs. Save
+rebuilds the standard components and their acting-context order. Built-in memory,
+perception, and GM control components retain their prefab-defined structure;
+Instructions and optional Goal remain configured through the owner’s fields.
+
+Scene types select a scene-aware GM and a participant group. Scenes select a
+type, participants, round count, and optional literal premise override. Groups
+are reusable participant lists. Referenced objects must be unlinked before
+removal. These controls construct standard SceneTypeSpec/SceneSpec objects.
+
+The catalogue permits only registered scalar recipes and verified prefab hosts.
+Recent observations use the owner’s standard memory; project files cannot
+supply imports, Python, constructors, callables, or arbitrary dependencies.
+Authored component settings never edit a running entity. Existing
+`conversation-v1`/`conversation-v2` schema-1 files and `scene-builder-v1` schema-2
+files keep their contracts; no implicit migration occurs. Component composition
+is available in the new schema-3 template.
 
 ## Try the authoring journey
 
@@ -129,7 +147,8 @@ Chromium viewport emulation is a separate check, not physical-device evidence.
 or construct arbitrary Python objects. Schema 1 retains the original fixed
 instances. Opt-in schema 2 adds a trusted prototype key per instance, allows
 stable IDs and authored ordering, and enforces the prototype's exact prefab,
-role and scalar field types. Both formats preserve literal strings, booleans
+role and scalar field types. Schema 3 adds registered component records and optional literal scene/group records.
+All formats preserve literal strings, booleans
 and safe integers; `max_steps` is 1–1000. Unknown fields, versions, templates,
 prototypes, duplicate IDs/names/keys, wrong types, and invalid role references
 are rejected atomically. Inspector metadata supplies labels/choices and does

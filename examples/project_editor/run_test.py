@@ -49,11 +49,9 @@ def test_open_builds_preview_without_running():
     state = service.snapshot('developer')['result']
     assert state['state'] == 'ready'
     fields = state['definition']['inspector']['conversation']
-    assert fields['acting_order']['choices'] == [
-        'fixed',
-        'random',
-        'game_master_choice',
-    ]
+    assert 'allow_llm_fallback' in fields
+    assert state['document']['schema_version'] == 3
+    assert state['document']['scenes'][0]['participants'] == ['alice', 'bob']
     assert (
         'Goal'
         in state['definition']['entities']['entity_1']['component_info'][
@@ -87,13 +85,16 @@ def test_each_export_preserves_definition_and_previous_log(tmp_path: Path):
 def test_builder_and_legacy_documents_remain_distinct():
   registry = template.registry()
   builder = registry.default_document(template.TEMPLATE_KEY)
-  assert builder['schema_version'] == 2
+  assert builder['schema_version'] == 3
   assert [x['prototype'] for x in builder['instances']] == [
       'alice',
       'bob',
       'conversation',
   ]
   assert len(registry.catalog(builder)) == 3
+  old_builder = registry.default_document(template.STRUCTURAL_TEMPLATE_KEY)
+  assert old_builder['schema_version'] == 2
+  assert registry.loads(registry.dumps(old_builder)) == old_builder
   for key in (template.LEGACY_TEMPLATE_KEY, template.PREVIOUS_TEMPLATE_KEY):
     legacy = registry.default_document(key)
     assert legacy['schema_version'] == 1
@@ -104,7 +105,7 @@ def test_builder_and_legacy_documents_remain_distinct():
 
 def test_builder_validates_each_duplicated_gm():
   registry = template.registry()
-  document = registry.default_document(template.TEMPLATE_KEY)
+  document = registry.default_document(template.STRUCTURAL_TEMPLATE_KEY)
   gm = copy.deepcopy(document['instances'][2])
   gm['id'] = 'new-gm'
   gm['params']['name'] = 'New GM'
@@ -112,3 +113,67 @@ def test_builder_validates_each_duplicated_gm():
   document['instances'].append(gm)
   with pytest.raises(ValueError, match='new-gm'):
     registry.normalize(document)
+
+
+@pytest.mark.parametrize(
+    ('owner', 'kind'),
+    [
+        ('alice', 'constant'),
+        ('alice', 'recent-observations'),
+        ('bob', 'constant'),
+        ('bob', 'recent-observations'),
+        ('conversation', 'constant'),
+    ],
+)
+def test_catalogue_components_reach_each_example_prefab(owner, kind):
+  registry = template.registry()
+  document = registry.default_document(template.TEMPLATE_KEY)
+  spec = next(
+      x for x in registry.component_catalog(document) if x['key'] == kind
+  )
+  params = dict(spec['defaults'])
+  params['pre_act_label'] = 'Example context'
+  params['state' if kind == 'constant' else 'history_length'] = (
+      'Literal example 🎵' if kind == 'constant' else 4
+  )
+  document['components'] = [
+      dict(
+          id='example-context',
+          instance=owner,
+          type=kind,
+          name='Example component',
+          params=params,
+      )
+  ]
+  with (
+      mock.patch.object(generic.Simulation, 'play', side_effect=AssertionError),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError,
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError,
+      ),
+  ):
+    simulation = run.build(
+        registry.to_config(registry.loads(registry.dumps(document)))
+    )
+    name = next(
+        x['params']['name'] for x in document['instances'] if x['id'] == owner
+    )
+    entity = next(
+        x
+        for x in [*simulation.get_entities(), *simulation.get_game_masters()]
+        if x.name == name
+    )
+    component = entity.get_component('authored_example-context')
+    assert all(
+        component.get_state()[key] == value for key, value in params.items()
+    )
+    assert (
+        entity.get_act_component().get_state()['component_order'][-1]
+        == 'authored_example-context'
+    )
