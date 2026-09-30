@@ -148,6 +148,29 @@ class EntityAgent(entity_component.EntityWithComponents):
 
     return types.MappingProxyType(final_results)
 
+  def _recover_from_failed_step(self) -> None:
+    """Returns the agent to `READY` after `act` or `observe` raised.
+
+    A failed step never reaches the `UPDATE` phase, so without this, components
+    would keep any per-step values they cached (e.g. the pre-act value of
+    `ActionSpecIgnored`) and silently reuse them on the next step. Giving them
+    their `update` call lets them drop that state.
+
+    Errors raised by `update` here are logged instead of raised, so that they
+    never replace the exception that aborted the step. Phases are set without
+    validation because the step may have failed in any phase.
+    """
+    self.set_phase(entity_component.Phase.UPDATE)
+    try:
+      self._parallel_call_('update')
+    except Exception:  # pylint: disable=broad-exception-caught
+      logging.warning(
+          'Error in update() while recovering %s from a failed step.',
+          self._agent_name,
+      )
+    finally:
+      self.set_phase(entity_component.Phase.READY)
+
   @override
   def act(
       self, action_spec: entity.ActionSpec = entity.DEFAULT_ACTION_SPEC
@@ -177,9 +200,7 @@ class EntityAgent(entity_component.EntityWithComponents):
 
         return action_attempt
       except Exception:
-        # Ensure correct error handling in the case of multiple threads
-        # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        self._recover_from_failed_step()
         raise
       finally:
         self._active_capture_key = self._agent_name
@@ -205,9 +226,7 @@ class EntityAgent(entity_component.EntityWithComponents):
 
         self._set_phase(entity_component.Phase.READY)
       except Exception:
-        # Ensure correct error handling in the case of multiple threads
-        # using the same entity by setting the phase to ready before raising.
-        self.set_phase(entity_component.Phase.READY)
+        self._recover_from_failed_step()
         raise
       finally:
         self._active_capture_key = self._agent_name
