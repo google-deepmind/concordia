@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import types
 import unittest
 
 from absl.testing import absltest
@@ -52,6 +53,91 @@ class TestPrettyPrintFunction(unittest.TestCase):
     self.assertEqual(
         helper_functions.print_pretty_prefabs(test_dict),
         EXPECTED_OUTPUT_STANDARD_CASE,
+    )
+
+
+class FindNestedDataTest(absltest.TestCase):
+
+  def test_preserves_nested_duplicates_when_disabled(self):
+    value = {'name': 'Alice'}
+    data = {'outer': [{'event': value}, {'event': value}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            data, 'event', remove_duplicates=False
+        ),
+        [value, value],
+    )
+
+  def test_preserves_nested_scalar_values_when_disabled(self):
+    data = {'outer': [{'event': 'Alice'}, {'event': 'Alice'}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            data, 'event', remove_duplicates=False
+        ),
+        ['Alice', 'Alice'],
+    )
+
+  def test_default_removes_duplicates_across_nested_branches(self):
+    value = {'name': 'Alice'}
+    data = {'left': {'event': value}, 'right': [{'event': value}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), [value]
+    )
+
+  def test_default_handles_top_level_scalar_value(self):
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(
+            {'event': 'Alice'}, 'event'
+        ),
+        ['Alice'],
+    )
+
+  def test_default_removes_duplicate_scalar_values(self):
+    data = {'outer': [{'event': 'Alice'}, {'event': 'Alice'}]}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'),
+        ['Alice'],
+    )
+
+  def test_default_removes_duplicates_across_mixed_value_types(self):
+    data = {
+        'a': {'event': {'name': 'Alice'}},
+        'b': {'event': 'Alice'},
+        'c': [{'event': {'name': 'Alice'}}, {'event': ['x', 'y']}],
+        'd': {'event': ['x', 'y']},
+    }
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'),
+        [{'name': 'Alice'}, 'Alice', ['x', 'y']],
+    )
+
+  def test_default_removes_duplicates_of_dicts_with_unhashable_values(self):
+    value = {'name': 'Alice', 'tags': ['x']}
+    data = {'left': {'event': value}, 'right': {'event': dict(value)}}
+    self.assertEqual(
+        helper_functions.find_data_in_nested_structure(data, 'event'), [value]
+    )
+
+
+class DeepCompareComponentsTest(absltest.TestCase):
+
+  def test_compares_nested_components_without_skip_keys(self):
+    first = types.SimpleNamespace(child=types.SimpleNamespace(value=1))
+    second = types.SimpleNamespace(child=types.SimpleNamespace(value=1))
+    helper_functions.deep_compare_components(first, second, self)
+
+  def test_reports_value_mismatch_without_skip_keys(self):
+    with self.assertRaises(AssertionError):
+      helper_functions.deep_compare_components(
+          types.SimpleNamespace(value=1), types.SimpleNamespace(value=2), self
+      )
+
+  def test_still_skips_requested_keys(self):
+    helper_functions.deep_compare_components(
+        types.SimpleNamespace(value=1),
+        types.SimpleNamespace(value=2),
+        self,
+        skip_keys={'value'},
     )
 
 

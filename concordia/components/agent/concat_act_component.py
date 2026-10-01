@@ -15,8 +15,7 @@
 """A simple acting component that aggregates contexts from components."""
 
 from collections.abc import Sequence
-from typing import cast
-from typing import override
+from typing import cast, override
 
 from concordia.components.agent import concat
 from concordia.document import interactive_document
@@ -54,10 +53,10 @@ class ConcatActComponent(
         assembled in the iteration order of the `ComponentContextMapping` passed
         to `get_action_attempt`. If the component order is specified, but does
         not contain all the components passed to `get_action_attempt`, the
-        missing components will be appended at the end in sorted key order.
-        The same component cannot appear twice in the component order. All components in
-        the component order must be in the `ComponentContextMapping` passed to
-        `get_action_attempt`.
+        missing components will be appended at the end in sorted key order. The
+        same component cannot appear twice in the component order. All
+        components in the component order must be in the
+        `ComponentContextMapping` passed to `get_action_attempt`.
       prefix_entity_name: Whether to prefix the entity name to the output of
         `get_action_attempt` when the `action_spec` output type is `FREE`.
       randomize_choices: Whether to randomize the choices in the

@@ -43,6 +43,13 @@ def concat_contexts(
   labels, whitespace and line breaks inside other values are kept verbatim.
   Explicit keys absent from contexts raise KeyError. Constructors validate and
   snapshot the order with validate_component_order.
+
+  Args:
+    contexts: Mapping from component name to pre-act context text.
+    component_order: Optional explicit sequence of component names.
+
+  Returns:
+    Assembled newline-joined context text.
   """
   if component_order is None:
     return '\n'.join(context for context in contexts.values() if context)
@@ -75,16 +82,19 @@ class Concatenate(
   def get_component_pre_act_label(self, component_name: str) -> str:
     """Returns the pre-act label of a named component of the parent entity."""
     return (
-        self.get_entity().get_component(
+        self.get_entity()
+        .get_component(
             component_name, type_=action_spec_ignored.ActionSpecIgnored
-        ).get_pre_act_label()
+        )
+        .get_pre_act_label()
     )
 
   def _component_pre_act_display(self, key: str) -> str:
     """Returns the pre-act label and value of a named component."""
     return (
         f'{self.get_component_pre_act_label(key)}:\n'
-        f'{self.get_named_component_pre_act_value(key)}')
+        f'{self.get_named_component_pre_act_value(key)}'
+    )
 
   def _make_pre_act_value(self) -> str:
     result = '\n'.join(

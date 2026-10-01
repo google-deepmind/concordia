@@ -19,8 +19,7 @@ import dataclasses
 import json
 import math
 import types
-from typing import cast
-from typing import override
+from typing import cast, override
 import uuid
 
 from concordia.components.agent import concat
@@ -40,6 +39,10 @@ def validate_response(
   Unlike language model sampling, human input must not silently fall back to
   an invented action, a different choice, or NaN. Choices are exact option
   values (not indices); free text and numbers are returned without rewriting.
+
+  Args:
+    response: The raw human response text to validate.
+    action_spec: The action specification describing the expected output format.
 
   Raises:
     ValueError: If the human can correct an invalid response.

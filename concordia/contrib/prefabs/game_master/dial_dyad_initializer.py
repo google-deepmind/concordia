@@ -42,9 +42,9 @@ class GameMaster(prefab_lib.Prefab):
           'next_game_master_name': 'conversation rules',
           # Provide a comma-separated list of shared memories to pass verbatim
           # to all entities and game masters.
-          'shared_memories': [],
-          'player_specific_context': {},
-          'player_specific_memories': {},
+          'shared_memories': [],  # pyrefly: ignore[bad-assignment]
+          'player_specific_context': {},  # pyrefly: ignore[bad-assignment]
+          'player_specific_memories': {},  # pyrefly: ignore[bad-assignment]
       }
   )
   entities: Sequence[entity_agent_with_logging.EntityAgentWithLogging] = ()

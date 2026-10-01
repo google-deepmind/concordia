@@ -43,21 +43,21 @@ class Entity(prefab_lib.Prefab):
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
-          'randomize_choices': True,
-          'prefix_entity_name': True,
-          'image_model': None,
+          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
+          'prefix_entity_name': True,  # pyrefly: ignore[bad-assignment]
+          'image_model': None,  # pyrefly: ignore[bad-assignment]
           'image_mode': 'choice',
-          'image_prompt_question': None,
-          'image_from_text_question': None,
-          'observation_history_length': _DEFAULT_OBSERVATION_HISTORY_LENGTH,
+          'image_prompt_question': None,  # pyrefly: ignore[bad-assignment]
+          'image_from_text_question': None,  # pyrefly: ignore[bad-assignment]
+          'observation_history_length': _DEFAULT_OBSERVATION_HISTORY_LENGTH,  # pyrefly: ignore[bad-assignment]
           'situation_perception_history_length': (
-              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
+              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
           'self_perception_history_length': (
-              _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH
+              _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
           'person_by_situation_history_length': (
-              _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH
+              _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
           ),
       }
   )

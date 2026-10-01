@@ -11,6 +11,7 @@ allow_unsafe = true
 generate_hashes = true
 reuse_hashes = true
 strip_extras = true
+pip-args = "--only-binary=:all:"
 
 [tool.pyink]
 line-length = 80

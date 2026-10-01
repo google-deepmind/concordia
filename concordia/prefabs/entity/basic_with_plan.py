@@ -38,7 +38,7 @@ class Entity(prefab_lib.Prefab):
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
-          'force_time_horizon': False,
+          'force_time_horizon': False,  # pyrefly: ignore[bad-assignment]
       }
   )
 

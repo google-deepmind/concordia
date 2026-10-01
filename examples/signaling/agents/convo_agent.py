@@ -300,7 +300,7 @@ class ConversationalAgent(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': 'Debra',
-          'randomize_choices': True,
+          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
       }
   )
 
