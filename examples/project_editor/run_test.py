@@ -17,6 +17,7 @@
 import copy
 import json
 from pathlib import Path
+import sys
 from unittest import mock
 
 from concordia.language_model import no_language_model
@@ -25,6 +26,50 @@ import pytest
 
 from examples.project_editor import run
 from examples.project_editor import template
+
+
+@pytest.mark.parametrize(
+    ('port', 'bound_port', 'public_origin', 'expected_url'),
+    [
+        (8081, 8081, None, 'http://127.0.0.1:8081/'),
+        (0, 49152, None, 'http://127.0.0.1:49152/'),
+        (
+            8081,
+            8081,
+            'https://editor.example:10000',
+            'https://editor.example:10000/',
+        ),
+    ],
+)
+def test_main_advertises_browser_origin_without_starting_listener(
+    port,
+    bound_port,
+    public_origin,
+    expected_url,
+    capsys,
+):
+  server = mock.Mock(spec=run.simulation_server.SimulationServer)
+  server.bound_port = bound_port
+  args = ['project_editor', '--port', str(port)]
+  if public_origin:
+    args += ['--public-origin', public_origin]
+  with (
+      mock.patch.object(sys, 'argv', args),
+      mock.patch.object(run, 'create_editor', return_value=server) as create,
+      mock.patch.object(
+          run, 'build', side_effect=AssertionError('No simulation')
+      ),
+      mock.patch.object(run.time, 'sleep', side_effect=KeyboardInterrupt),
+  ):
+    run.main()
+  assert create.call_args.kwargs['port'] == port
+  assert create.call_args.kwargs['public_origin'] == public_origin
+  server.start.assert_called_once_with()  # Mock only; never binds a socket.
+  server.stop.assert_called_once_with()
+  output = capsys.readouterr().out
+  assert f'Mock editor: {expected_url}' in output
+  if public_origin:
+    assert 'http://127.0.0.1:' not in output
 
 
 def test_open_builds_preview_without_running():

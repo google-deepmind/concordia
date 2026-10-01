@@ -71,7 +71,8 @@ class SimulationServer:
       audience: Fixed audience for this listener, never supplied by a request.
       browser_sessions: Optional host-approved cookies instead of a fixed
         audience. Only the trusted developer listener may approve roles.
-      public_origin: Exact HTTPS proxy origin for same-origin checks.
+      public_origin: Exact HTTPS proxy origin browsers must use for mutations.
+        Omit for direct HTTP access using the request's Host header.
         Forwarded headers are not trusted to choose it. An integrated developer
         editor must only be proxied behind private, restricted access.
     """
@@ -700,11 +701,14 @@ class SimulationServer:
         if (origin and origin != expected_origin) or (
             browser_sessions is not None and origin != expected_origin
         ):
+          message = 'Same-origin requests only.'
+          if public_origin is not None:
+            message += f' Open the editor at {public_origin}/'
           self._send_json(
               {
                   'error': {
                       'code': 'origin',
-                      'message': 'Same-origin requests only.',
+                      'message': message,
                   }
               },
               403,

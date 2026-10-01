@@ -23,6 +23,10 @@ execute the simulation. **Run** is explicit. The mock example pauses for one
 second after each completed step to give a person time to use the controls;
 `--step-delay 0` disables this presentation delay.
 
+For direct local access, omit `--public-origin`. If you choose `--port 8081`,
+open `http://127.0.0.1:8081/` instead. `http://localhost:8081/` also works when
+opened directly, but hostname and port must match the browser's request origin.
+
 In coordinated sessions, display the exact shell command and obtain the required
 launch acknowledgement before any actual simulation, including the validation
 command below or pressing Run in a served editor.
@@ -82,9 +86,11 @@ Select an actor or GM and use **Component catalogue → Add component**. Both ac
 prefabs support `constant` context and `recent-observations`; the scene-aware GM
 supports `constant`. Select the new component in Hierarchy to edit its display
 name, context label, and literal text or observation count (1–1000). The display
-name is independent of the stable component ID. **Duplicate**, **Move earlier/later**,
-and **Remove** apply to the selected authored component; ordering is within its
-owner. **Move component to → Move component** relocates a configured component
+name is independent of the stable component ID. **Duplicate** and **Remove**
+apply to the selected authored component.
+Saved scene, participant, instance and component order is preserved; the toolbar
+has no generic reordering controls. **Move component to → Move component**
+relocates a configured component
 only to a compatible registered actor or GM, keeping its stable ID, display name,
 and settings. It becomes the last authored component of its new owner; **Undo**
 restores the former owner and order, and **Redo** reapplies the move. Save and
@@ -156,6 +162,15 @@ The editor binds only to loopback. Use a private Tailscale Serve HTTPS endpoint
 with access restricted to the intended developer. The Android device must be
 connected to the same tailnet and permitted to reach that endpoint. Pass the
 exact HTTPS origin using `--public-origin` when configuring a proxy.
+
+With `--public-origin`, use that HTTPS address on **both the Mac and Android**.
+The startup message prints the browser address, not the proxy's local backend.
+Opening the backend's `http://127.0.0.1:PORT/` may display the editor, but Run,
+Save, and other mutations are rejected with **Same-origin requests only**.
+Use the configured HTTPS address, or restart in local-only mode without
+`--public-origin` if remote access is not needed. The scheme, hostname and port
+are part of the origin; localhost aliases are not interchangeable origins.
+Forwarded headers do not override this check.
 
 Inspect existing Serve routes first and preserve them. Prefer an unused,
 dedicated HTTPS port with this application at `/`; the API URLs are root-relative.

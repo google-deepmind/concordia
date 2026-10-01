@@ -123,7 +123,11 @@ def main() -> None:
       help='Mock-only delay after each step (0–5 seconds)',
   )
   parser.add_argument(
-      '--public-origin', help='Exact private HTTPS proxy origin'
+      '--public-origin',
+      help=(
+          'Exact private HTTPS origin browsers must use; '
+          'omit for direct local HTTP access'
+      ),
   )
   parser.add_argument(
       '--headless',
@@ -149,8 +153,9 @@ def main() -> None:
       public_origin=args.public_origin,
   )
   server.start()
+  editor_origin = args.public_origin or f'http://127.0.0.1:{server.bound_port}'
   print(
-      f'Mock editor: http://127.0.0.1:{server.bound_port}/ — Run is explicit; '
+      f'Mock editor: {editor_origin}/ — Run is explicit; '
       'output is a development stub. Private access only.',
       flush=True,
   )

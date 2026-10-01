@@ -511,7 +511,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
   const heading=document.createElement('strong'); heading.id='editor-heading';
   heading.textContent=document.querySelector('.header h1').textContent; toolbar.append(heading);
   let envelope, draft, draftRevision, draftDefinition, draftBaseDocument, selectedId, connected = false, sending = false;
-  let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0;
+  let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0, loggedFailure;
   const runtimeDrafts = new Map();
   const history = new ProjectDraftHistory();
   const draftSnapshot = () => ({document:draft, selectedId});
@@ -540,8 +540,6 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
     return ProjectDraftOperations.add(next,catalog(),source.prototype,crypto.randomUUID(),source.id);
   }));
   const remove=button('Remove',()=>structural(next=>ProjectSceneOperations.locate(next,selectedId)?ProjectSceneOperations.remove(next,selectedId):ProjectDraftOperations.remove(next,catalog(),selectedId)));
-  const up=button('Move earlier',()=>structural(next=>{moveSelection(next,-1);return selectedId;}));
-  const down=button('Move later',()=>structural(next=>{moveSelection(next,1);return selectedId;}));
   const exportButton = button('Export JSON', () => {
     const blob = new Blob([JSON.stringify(state().document,null,2)+'\n'], {type:'application/json'});
     const url=URL.createObjectURL(blob), link=document.createElement('a');
@@ -587,8 +585,9 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
   document.querySelector('.center-panel').prepend(summary);
   document.querySelector('.console-header').textContent='Simulation log';
   function state(){return envelope?.result;}
-  function report(e){
+  function report(e, operation){
     error.textContent=e.message || String(e);
+    if(operation) logConsole(`${operation} failed: ${error.textContent}`, 'error');
     if(e.validationTarget){
       const target=e.validationTarget, submitted=JSON.stringify(draft);
       const link=button(target.field?'Show invalid field':'Show invalid item',()=>{
@@ -602,10 +601,6 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
     }
   }
   function catalog(){return draftDefinition?.catalog || [];}
-  function moveSelection(next,offset){
-    if(ProjectSceneOperations.locate(next,selectedId)) ProjectSceneOperations.move(next,selectedId,offset);
-    else ProjectDraftOperations.move(next,selectedId,offset);
-  }
   function structural(change){
     if(runtimeMode || !connected || sending || state()?.run.status==='active') return;
     try {
@@ -644,24 +639,13 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
     undo.disabled=unavailable || active || runtimeMode || !history.past.length;
     redo.disabled=unavailable || active || runtimeMode || !history.future.length;
     const structureDisabled=unavailable || active || runtimeMode || !catalog().length;
-    for(const control of [prototypePicker,add,duplicate,remove,up,down]) {
+    for(const control of [prototypePicker,add,duplicate,remove]) {
       control.hidden=!catalog().length;control.disabled=structureDisabled;
     }
     const position=draft?.instances.findIndex(x=>x.id===selectedId) ?? -1;
     duplicate.disabled=remove.disabled=structureDisabled || position<0;
-    const role=draft?.instances[position]?.role;
-    up.disabled=structureDisabled || position<0 || !draft.instances.slice(0,position).some(x=>x.role===role);
-    down.disabled=structureDisabled || position<0 || !draft.instances.slice(position+1).some(x=>x.role===role);
     const world=draft && ProjectSceneOperations.locate(draft,selectedId);
-    if(world){
-      duplicate.disabled=remove.disabled=structureDisabled;
-      up.disabled=structureDisabled || world.index===0;
-      down.disabled=structureDisabled || world.index===draft[world.kind].length-1;
-      if(world.kind==='components'){
-        up.disabled=structureDisabled || !draft.components.slice(0,world.index).some(x=>x.instance===world.item.instance);
-        down.disabled=structureDisabled || !draft.components.slice(world.index+1).some(x=>x.instance===world.item.instance);
-      }
-    }
+    if(world) duplicate.disabled=remove.disabled=structureDisabled;
     document.querySelectorAll('[data-author-action]').forEach(x=>x.disabled=structureDisabled);
     document.querySelectorAll('[data-validation-action]').forEach(x=>x.disabled=runtimeMode || !draft);
     exportButton.disabled=!s;
@@ -893,9 +877,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       renderHierarchy();
       inspect();
     }
-    if(loggedRun!==envelope.references.run_id){loggedRun=envelope.references.run_id;loggedSteps=0;$('console-output').replaceChildren();}
-    for(const entry of s.steps.slice(loggedSteps)) logConsole(`Step ${entry.step} · ${entry.acting_entity}\n${entry.action}`,'info');
-    loggedSteps=s.steps.length;
+    renderSimulationLog(envelope);
     const latest=s.steps.at(-1);summary.textContent=latest?`Step ${latest.step} · ${latest.acting_entity}\n${latest.action}`:'Edit the initial definition, save, then Run.';
     controls();
   }
@@ -911,6 +893,21 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       runtimeDrafts.delete(key);renderedView='';await refresh();
     }
   };
+  function renderSimulationLog(next){
+    const s=next.result;
+    const runKey=JSON.stringify([next.references.session_id,next.references.run_id]);
+    if(loggedRun!==runKey){
+      loggedRun=runKey;loggedSteps=0;loggedFailure=null;
+      $('console-output').replaceChildren();
+    }
+    for(const entry of s.steps.slice(loggedSteps)) logConsole(`Step ${entry.step} · ${entry.acting_entity}\n${entry.action}`,'info');
+    loggedSteps=s.steps.length;
+    const failure=s.run.message || 'Unknown runner error.';
+    if(s.run.status==='failed' && loggedFailure!==failure){
+      logConsole(`Run failed at step ${s.current_step}: ${failure}`,'error');
+      loggedFailure=failure;
+    }
+  }
   function receive(next){
     if(envelope && next.references.session_id===envelope.references.session_id && next.revision<envelope.revision)return;
     const newSession=envelope && next.references.session_id!==envelope.references.session_id;
@@ -943,7 +940,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       }
       if(operation==='project.run'){runtimeMode=true;mode.value='runtime';tab('simulation');}
       await refresh();return true;
-    }catch(e){report(e);await refresh();return false;}
+    }catch(e){report(e,operation);await refresh();return false;}
     finally{sending=false;controls();}
   }
   let events, timer, polling=false;
