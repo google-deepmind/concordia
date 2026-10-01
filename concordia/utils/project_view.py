@@ -476,6 +476,17 @@ class ProjectComponentOperations {
     document.components.push({id,instance:instanceId,type,name,params:structuredClone(spec.defaults)});
     return 'components:'+id;
   }
+  static moveOwner(document,catalog,id,targetId) {
+    const item=document.components?.find(x=>x.id===id);
+    if(!item) throw Error('Component no longer exists.');
+    const spec=catalog.find(x=>x.key===item.type);
+    const target=document.instances.find(x=>x.id===targetId);
+    if(!target || !spec?.prototypes.includes(target.prototype)) throw Error('Choose a compatible component owner.');
+    if(item.instance===targetId) return 'components:'+id;
+    document.components.splice(document.components.indexOf(item),1);
+    item.instance=targetId;document.components.push(item);
+    return 'components:'+id;
+  }
   static configure(document,id,field,value) {
     const item=document.components?.find(x=>x.id===id);
     if(!item) throw Error('Component no longer exists.');
@@ -723,6 +734,15 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       for(const [key,value] of Object.entries(item.params))field(content,key,value,v=>ProjectComponentOperations.configure(draft,item.id,key,v),'component-param-'+key,{label:({state:'Context text',pre_act_label:'Context label',history_length:'Recent observations (1–1000)'})[key] || key});
       const owner=draft.instances.find(x=>x.id===item.instance);
       button('Owner: '+owner.params.name,()=>choose(owner.id),content);
+      const targets=draft.instances.filter(x=>x.id!==owner.id && spec.prototypes.includes(x.prototype));
+      if(targets.length){
+        const label=document.createElement('label');label.className='editor-field';label.textContent='Move component to';
+        const picker=document.createElement('select');picker.id='component-owner';picker.dataset.definitionField='true';
+        for(const target of targets){const option=document.createElement('option');option.value=target.id;option.textContent=target.params.name;picker.append(option);}
+        label.append(picker);content.append(label);
+        const hint=document.createElement('p');hint.textContent='Keeps the component ID and settings; places it last among the new owner’s authored components. Undo restores its previous owner and order.';content.append(hint);
+        const move=button('Move component',()=>structural(next=>ProjectComponentOperations.moveOwner(next,draftDefinition.component_catalog,item.id,picker.value)),content);move.dataset.authorAction='true';
+      }
       controls();return;
     }
     const hint=document.createElement('p');hint.textContent=kind==='groups'?'Reusable possible participants, not a simulated institution.':kind==='scene_types'?'A standard scene type selects its GM and possible participants.':'Ordered scene rounds and participants. Runtime scheduling uses standard SceneTracker.';content.append(hint);
