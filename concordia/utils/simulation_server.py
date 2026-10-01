@@ -798,6 +798,9 @@ class SimulationServer:
         except (BrokenPipeError, ConnectionResetError):
           pass
         finally:
+          # send_header('Connection', 'keep-alive') clears this flag. Close the
+          # old transport once streaming ends, including after listener restart.
+          self.close_connection = True
           if service is not None:
             service.unsubscribe(client)
           else:
