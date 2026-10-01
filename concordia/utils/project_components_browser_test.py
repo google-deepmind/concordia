@@ -131,11 +131,14 @@ def test_component_crud_dom(width, tmp_path):
       page.locator('#component-type').select_option('recent-observations')
       page.get_by_role('button', name='Add component', exact=True).click()
       page.locator('#component-param-history_length').fill('3')
-      page.get_by_role('button', name='Move earlier', exact=True).click()
+      for label in ('Move earlier', 'Move later'):
+        browser_api.expect(
+            page.get_by_role('button', name=label, exact=True)
+        ).to_have_count(0)
       save()
       records = server.get_project()['document']['components']
-      assert [r['type'] for r in records] == ['recent-observations', 'constant']
-      assert records[1]['params']['state'] == literal
+      assert [r['type'] for r in records] == ['constant', 'recent-observations']
+      assert records[0]['params']['state'] == literal
       assert page.evaluate('window.probe') is None
       page.get_by_role('button', name='Hierarchy', exact=True).click()
       page.locator('[data-component-id="' + first_id + '"]').click()

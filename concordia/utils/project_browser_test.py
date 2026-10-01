@@ -612,12 +612,16 @@ def test_structure_history_search_and_roundtrip(
     browser_api.expect(
         page.locator('[data-definition-field][id$="-goal"]')
     ).to_have_value(added['params']['goal'])
-    page.get_by_role('button', name='Move earlier', exact=True).click()
+    for label in ('Move earlier', 'Move later'):
+      browser_api.expect(
+          page.get_by_role('button', name=label, exact=True)
+      ).to_have_count(0)
     page.get_by_role('button', name='Save draft', exact=True).click()
     browser_api.expect(page.locator('#editor-status')).to_contain_text(
         'saved definition'
     )
     expected = server.get_project()['document']
+    assert expected['instances'] == saved['instances']
     page.locator('#editor-search').fill('Charlie')
     page.get_by_role('button', name='Hierarchy', exact=True).click()
     assert page.locator('[data-instance-id]').count() == 1

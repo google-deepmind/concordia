@@ -239,3 +239,97 @@ def test_fresh_editor_reopen_and_stale_revision():
   with pytest.raises(ValueError, match='another tab'):
     second.replace_project(registry.dumps(document), 0)
   assert second.get_project() == saved
+
+
+def test_integrated_editor_has_no_generic_move_controls():
+  registry, document = world()
+  server = simulation_server.SimulationServer(port=0)
+  server.configure_project(
+      registry,
+      document,
+      mock.Mock(side_effect=AssertionError('no run')),
+      integrated=True,
+  )
+  html = server.html_content
+  for removed in (
+      'Move earlier',
+      'Move later',
+      'moveSelection(',
+      'up.disabled',
+      'down.disabled',
+  ):
+    assert removed not in html
+  assert 'Scene sequence' in html
+  assert 'renderSimulationLog(envelope)' in html
+  assert server.get_project()['document'] == document
+  assert server.simulation is None
+
+
+def test_save_reopen_preserves_authored_order_without_move_controls():
+  registry, document = world()
+  document['instances'] = list(reversed(document['instances']))
+  document['groups'][0]['participants'] = ['bob', 'alice']
+  second_type = copy.deepcopy(document['scene_types'][0])
+  second_type.update(id='second-type', name='Second type')
+  document['scene_types'].insert(0, second_type)
+  second_scene = copy.deepcopy(document['scenes'][0])
+  second_scene.update(id='second-scene', scene_type='second-type', num_rounds=3)
+  second_scene['participants'] = ['bob', 'alice']
+  document['scenes'].insert(0, second_scene)
+  document['components'] = [
+      dict(
+          id=key,
+          instance='alice',
+          type='constant',
+          name=key,
+          params={'state': key, 'pre_act_label': key},
+      )
+      for key in ('last', 'first')
+  ]
+  runner = mock.Mock(side_effect=AssertionError('no run'))
+  server = simulation_server.SimulationServer(port=0)
+  server.configure_project(
+      registry,
+      registry.default_document('scenes-v1'),
+      runner,
+      integrated=True,
+  )
+  server.replace_project(registry.dumps(document), 0)
+  saved = server.get_project()['document']
+  assert saved == document
+  reopened = simulation_server.SimulationServer(port=0)
+  reopened.configure_project(
+      registry,
+      registry.loads(registry.dumps(saved)),
+      runner,
+      integrated=True,
+  )
+  assert reopened.get_project()['document'] == document
+  config = registry.to_config(reopened.get_project()['document'])
+  assert [x.params['name'] for x in config.instances] == [
+      'Conversation',
+      'Bob',
+      'Alice',
+  ]
+  scenes = config.instances[0].params['scenes']
+  assert [x.scene_type.name for x in scenes] == [
+      'Second type',
+      'Kitchen discussion',
+  ]
+  assert [x.num_rounds for x in scenes] == [3, 2]
+  assert scenes[0].participants == ['Bob', 'Alice']
+  assert scenes[0].scene_type.possible_participants == ['Bob', 'Alice']
+  assert list(config.instances[2].params['extra_components']) == [
+      'authored_last',
+      'authored_first',
+  ]
+  simulation = fixtures.build(config)
+  actor = simulation.get_entities()[1]
+  assert actor.name == 'Alice'
+  assert actor.get_act_component().get_state()['component_order'][-2:] == [
+      'authored_last',
+      'authored_first',
+  ]
+  runner.assert_not_called()
+  assert server.simulation is None
+  assert reopened.simulation is None
