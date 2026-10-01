@@ -70,6 +70,14 @@ component names. New components appear in the preview after **Save draft**;
 preview construction does not run a simulation. **Export JSON** exports the
 saved definition, so save pending changes first.
 
+If **Save draft** rejects a value, use **Show invalid field** in the error message
+to open its inspector and focus the field. Errors applying to a whole record
+offer **Show invalid item**. Your draft and the last valid saved definition stay
+intact. Navigation is offered only when the error identifies an unambiguous item
+in the exact draft you submitted; errors from importing a different file or a
+stale saved revision do not point into the current draft. Correct the value and
+save again. Runtime errors retain their normal messages.
+
 Select an actor or GM and use **Component catalogue → Add component**. Both actor
 prefabs support `constant` context and `recent-observations`; the scene-aware GM
 supports `constant`. Select the new component in Hierarchy to edit its display
