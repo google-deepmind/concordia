@@ -49,6 +49,6 @@ def dynamically_adjust_temperature(
   temperature = 0.0
   if attempts > 1 and attempts < (max_attempts / 2.0):
     temperature = 0.5
-  elif attempts > (max_attempts / 2.0):
+  elif attempts >= (max_attempts / 2.0):
     temperature = 0.75
   return temperature

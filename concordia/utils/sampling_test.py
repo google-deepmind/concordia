@@ -50,7 +50,7 @@ class DynamicallyAdjustTemperatureTest(parameterized.TestCase):
       ('first_attempt', 1, 10, 0.0),
       ('second_attempt_below_midpoint', 2, 10, 0.5),
       ('just_below_midpoint', 4, 10, 0.5),
-      ('exactly_at_midpoint', 5, 10, 0.0),
+      ('exactly_at_midpoint', 5, 10, 0.75),
       ('just_above_midpoint', 6, 10, 0.75),
       ('final_attempt', 10, 10, 0.75),
       ('zero_attempts', 0, 10, 0.0),
