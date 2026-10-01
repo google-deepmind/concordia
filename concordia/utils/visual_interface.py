@@ -230,7 +230,7 @@ def _render_entity_svg(
       'style="font-family: Arial, sans-serif; font-size: 11px; color: #ccc; '
       "font-style: italic; padding: 6px; background: rgba(0,0,0,0.4); "
       "border-radius: 6px; word-wrap: break-word; max-height: 190px; "
-      'overflow-y: auto;">(waiting...)</div>'
+      'overflow-y: auto;">No action recorded yet.</div>'
       "</foreignObject>"
   )
 
@@ -1290,7 +1290,7 @@ def visualize_config_to_html(
       updateStepCounter(status.current_step);
       updateControlState();
       if (status.is_completed && !wasCompleted) {{
-        logConsole('✓ Simulation completed', 'success');
+        logConsole('✓ Simulation completed: ' + (status.completion_reason || 'Runner completed.'), 'success');
       }}
     }}
 
@@ -1347,6 +1347,7 @@ def visualize_config_to_html(
       var output = document.getElementById('console-output');
       var line = document.createElement('div');
       line.className = 'console-line ' + type;
+      // Browser wall-clock time of display, including replay after reconnect.
       var now = new Date();
       var timestamp = now.toTimeString().split(' ')[0];
       const stamp = document.createElement('span');

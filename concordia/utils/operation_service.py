@@ -12,11 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared, in-process operation registry for attached editor/CLI transports.
+"""Register named operations that editor and command-line clients can discover.
 
-This is not a scheduler or checkpoint manager. Registered handlers own domain
-validation and must fail before mutation. A service serializes dispatch and
-publishes audience-specific snapshots. Never register an unguarded engine edit.
+Each Operation describes its arguments, authorized audiences and Python handler.
+OperationService validates requests, serializes handler calls, rejects stale
+mutations and remembers retry results. Handlers validate domain rules before
+changing state. Registered view functions provide audience-specific snapshots.
+
+project_operations registers project save/run and runtime controls here.
+simulation_server exposes the service through HTTP and server-sent events;
+command_line_interface.concordia_session and the browser editor use that same
+operation schema and dispatch contract.
 """
 
 from collections.abc import Callable, Mapping
@@ -70,7 +76,12 @@ class Parameter:
 
 @dataclasses.dataclass(frozen=True)
 class Operation:
-  """One shared query/mutation definition, not a separate CLI implementation."""
+  """A named callable with an argument schema and permitted client audiences.
+
+  OperationService dispatches validated argument dictionaries to handler.
+  mutation enables revision/reference checks and retry protection;
+  audience_handlers can provide different implementations for each audience.
+  """
 
   name: str
   description: str

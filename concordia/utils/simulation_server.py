@@ -134,6 +134,7 @@ class SimulationServer:
     self._cached_entity_info: dict[str, Any] | None = None
     self._simulation: Any = None
     self._completed = False
+    self._completion_reason = ''
     self._status_revision = 0
     self._server: http.server.ThreadingHTTPServer | None = None
     self._server_thread: threading.Thread | None = None
@@ -244,6 +245,7 @@ class SimulationServer:
         'is_running': state == 'running',
         'is_paused': not running,
         'is_completed': self._completed,
+        'completion_reason': self._completion_reason,
         'current_step': self._current_step_data.get('step', 0),
         'revision': self._status_revision,
     }
@@ -261,7 +263,7 @@ class SimulationServer:
   def _status_event_locked(self) -> dict[str, Any]:
     event: dict[str, Any] = {'control_status': self._status_locked()}
     if self._completed:
-      event.update(completion=True, message='Simulation completed!')
+      event.update(completion=True, message=self._completion_reason)
     return event
 
   def _broadcast_locked(self, data: dict[str, Any]) -> None:
@@ -328,10 +330,11 @@ class SimulationServer:
     if self._project_editor:
       self._project_editor.record_step(current_step_data)
 
-  def broadcast_completion(self) -> None:
+  def broadcast_completion(self, reason: str = 'Runner completed.') -> None:
     """Retain completion for status/reconnect and notify connected clients."""
     with self._server_sent_events_lock:
       self._completed = True
+      self._completion_reason = reason
       self._step_controller.pause()
       self._status_revision += 1
       self._broadcast_locked(self._status_event_locked())
@@ -499,6 +502,7 @@ class SimulationServer:
         )
         self._simulation = None
         self._completed = False
+        self._completion_reason = ''
         self._current_step_data = {}
         self._cached_entity_info = None
         self._status_revision += 1
@@ -524,6 +528,10 @@ class SimulationServer:
       with self._project_lock:
         # Publish completion only after this run's controller is finalized.
         self._step_controller.pause()
+        if outcome['status'] == 'completed':
+          outcome['message'] = (
+              self.get_status()['completion_reason'] or 'Runner completed.'
+          )
         self._project_run.update(outcome)
         if self._project_editor:
           self._project_editor.finished()

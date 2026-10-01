@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Restricted initial-project documents, not simulation checkpoints.
+"""Save, validate and rebuild editable simulation definitions as JSON.
 
-Python callers register trusted Config factories. Documents cannot import Python
-or construct components. Version 1 edits the scalar parameters of a fixed set of
-instances. Opt-in version 2 instantiates trusted prototypes with stable IDs;
-version 3 adds registered component recipes and optional literal scene records.
-Only trusted Python registrations construct objects at the Config boundary.
+A Python caller registers Template objects containing Config factories and
+allowed prefab prototypes, component recipes and scene settings. Registry
+creates default documents, validates imported or edited JSON and converts a
+valid document back into a Config for standard prefab construction. Editors
+use its field metadata to present permitted parameters and references.
+
+Templates can expose fixed instance parameters or allow users to add instances,
+components and scenes with stable IDs. The schema_version field identifies the
+saved JSON layout for compatibility. Construction uses only registered Python
+objects; imported text cannot choose arbitrary imports or constructors.
 """
 
 from collections.abc import Callable, Mapping
@@ -72,7 +77,7 @@ class Template:
       default_factory=dict
   )
   editable_instances: bool = False
-  # Schema 3: literal defaults and trusted prototypes accepting standard scenes.
+  # Initial group/scene records and prefab prototypes that accept SceneSpecs.
   scene_defaults: Mapping[str, Any] | None = None
   scene_prototypes: tuple[str, ...] = ()
   component_types: Mapping[str, 'project_components.ComponentType'] = (

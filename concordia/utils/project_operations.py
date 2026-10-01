@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Capability adapter for the existing project server and graphical editor.
+"""Connect project authoring and simulation controls to editor API operations.
 
-No execution loop or serialization codec lives here. Server project transactions,
-OperationService's retry ledger, standard visual_interface rendering and the
-StepController's acknowledged boundary own those responsibilities.
+SimulationServer.configure_project(integrated=True) creates a ProjectEditor.
+It registers save, run, reset, pause, step and component-edit handlers with
+OperationService, and supplies snapshots containing the saved definition,
+rendered prefab/component views, runtime status and recorded actions. The
+project_view browser UI consumes these snapshots and dispatches operations
+through SimulationServer HTTP endpoints. CLI clients can use the same service.
+
+Use this adapter to let clients edit a registered Config, run it through a
+caller-supplied runner and inspect the result. Runtime component edits require
+the standard StepController to acknowledge a paused boundary.
 """
 
 from collections.abc import Callable
