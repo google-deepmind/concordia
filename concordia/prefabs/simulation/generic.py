@@ -547,7 +547,18 @@ class Simulation(simulation_lib.Simulation):
       self,
       checkpoint: dict[str, Any],
   ):
-    """Loads entity and game master states from a checkpoint dict."""
+    """Loads entity and game master states from an owned checkpoint copy.
+
+    Component setters may retain nested mutable state, and parameter fallback
+    may modify dictionaries. Keep both isolated from the caller and other
+    restores of the same checkpoint. This does not restore engine cursors or
+    make arbitrary components, shared external services or models deterministic.
+
+    Args:
+      checkpoint: the checkpoint data to restore from. A deep copy is taken, so
+        the caller's dictionary is never mutated.
+    """
+    checkpoint = copy.deepcopy(checkpoint)
 
     # Load entities
     entity_states = checkpoint.get("entities", {})

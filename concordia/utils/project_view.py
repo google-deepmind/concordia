@@ -248,8 +248,250 @@ body {height:100dvh;}
 </style>
 """
 
-EDITOR_SCRIPT = r"""
-<script>
+# Shared with the integrated editor; contains no DOM or project constructors.
+DRAFT_HISTORY_SCRIPT = r"""
+class ProjectDraftHistory {
+  constructor(limit=50) { this.limit=limit; this.clear(); }
+  clear() { this.past=[]; this.future=[]; this.group=null; }
+  endGroup() { this.group=null; }
+  record(before, group=null) {
+    if(group===null || group!==this.group) {
+      this.past.push(structuredClone(before));
+      if(this.past.length>this.limit) this.past.shift();
+    }
+    this.future=[]; this.group=group;
+  }
+  move(from, to, current) {
+    if(!from.length) return null;
+    to.push(structuredClone(current)); this.endGroup();
+    return structuredClone(from.pop());
+  }
+  undo(current) { return this.move(this.past,this.future,current); }
+  redo(current) { return this.move(this.future,this.past,current); }
+}
+class ProjectDraftOperations {
+  static add(document, catalog, prototype, id, sourceId=null) {
+    const entry=catalog.find(x=>x.instance.prototype===prototype);
+    if(!entry) throw Error('Choose a registered prefab prototype.');
+    if(document.instances.length>=100) throw Error('A project supports at most 100 instances.');
+    if(document.instances.some(x=>x.id===id)) throw Error('Instance ID already exists.');
+    const source=sourceId ? document.instances.find(x=>x.id===sourceId) : entry.instance;
+    if(!source || source.prototype!==prototype) throw Error('Unknown source instance.');
+    const item=structuredClone(source);item.id=id;
+    const names=new Set(document.instances.map(x=>x.params.name));
+    const base=source.params.name;let name=base, suffix=2;
+    while(names.has(name)) name=base+' '+suffix++;
+    item.params.name=name;
+    for(const [field,role] of Object.entries(entry.references)) {
+      if(item.params[field]===source.id) item.params[field]=id;
+      else if(!document.instances.some(x=>x.id===item.params[field] && x.role===role)) {
+        const target=document.instances.find(x=>x.role===role);
+        if(!target) throw Error('Create a '+role+' reference target first.');
+        item.params[field]=target.id;
+      }
+    }
+    const owned=(document.components || []).filter(x=>x.instance===sourceId);
+    if((document.components?.length || 0)+owned.length>100) throw Error('At most 100 authored components.');
+    document.instances.push(item);
+    if(sourceId && document.components) {
+      for(const component of owned) document.components.push({...structuredClone(component),id:crypto.randomUUID(),instance:id});
+    }
+    return id;
+  }
+  static remove(document,catalog,id) {
+    const item=document.instances.find(x=>x.id===id);
+    if((document.groups || []).some(x=>x.participants.includes(id)) ||
+       (document.scenes || []).some(x=>x.participants.includes(id)) ||
+       (document.scene_types || []).some(x=>x.game_master===id))
+      throw Error('This instance is referenced by a participant group or scene. Update those references first.');
+    if(!item) throw Error('Select an instance.');
+    if(['entity','game_master'].includes(item.role) && document.instances.filter(x=>x.role===item.role).length===1)
+      throw Error('Keep at least one actor and one game master.');
+    for(const other of document.instances.filter(x=>x.id!==id)) {
+      const entry=catalog.find(x=>x.instance.prototype===other.prototype);
+      for(const field of Object.keys(entry?.references || {}))
+        if(other.params[field]===id) throw Error(other.params.name+' references this instance through '+field+'. Change that reference first.');
+    }
+    document.instances=document.instances.filter(x=>x.id!==id);
+    if(document.components)document.components=document.components.filter(x=>x.instance!==id);
+    return document.instances[0]?.id || 'simulation';
+  }
+  static move(document,id,offset) {
+    const index=document.instances.findIndex(x=>x.id===id);
+    if(index<0) return;
+    let target=index+offset;
+    while(target>=0 && target<document.instances.length && document.instances[target].role!==document.instances[index].role) target+=offset;
+    if(target<0 || target>=document.instances.length) return;
+    const [item]=document.instances.splice(index,1);document.instances.splice(target,0,item);
+  }
+}
+class ProjectSceneOperations {
+  static locate(document, selection) {
+    const [kind,id]=String(selection).split(':');
+    if(!['groups','scene_types','scenes','components'].includes(kind)) return null;
+    const index=document[kind]?.findIndex(x=>x.id===id) ?? -1;
+    return index<0 ? null : {kind,index,item:document[kind][index]};
+  }
+  static add(document,catalog,kind,id) {
+    if(!document[kind] || document[kind].length>=100) throw Error('At most 100 records per section.');
+    const actors=document.instances.filter(x=>x.role==='entity').map(x=>x.id);
+    const masters=document.instances.filter(x=>catalog.some(c=>c.instance.prototype===x.prototype && c.accepts_scenes));
+    let item;
+    if(kind==='groups') item={id,name:'Participant group',participants:actors};
+    if(kind==='scene_types') {
+      if(!masters.length || !document.groups.length) throw Error('Create a scene-aware GM and participant group first.');
+      item={id,name:'Scene type',game_master:masters[0].id,group:document.groups[0].id,premise:''};
+    }
+    if(kind==='scenes') {
+      const type=document.scene_types[0], group=document.groups.find(x=>x.id===type?.group);
+      if(!type || !group) throw Error('Create a scene type and participant group first.');
+      item={id,name:'Scene',scene_type:type.id,participants:[...group.participants],num_rounds:1,premise:null};
+    }
+    if(!item) throw Error('Unknown scene structure.');
+    const base=item.name;let n=2;while(document[kind].some(x=>x.name===item.name))item.name=base+' '+n++;
+    document[kind].push(item);return kind+':'+id;
+  }
+  static remove(document,selection) {
+    const found=this.locate(document,selection);
+    if(!found) throw Error('Select a scene, type or group.');
+    const {kind,item}=found;
+    if(kind!=='components' && document[kind].length===1) throw Error('Keep at least one '+kind.replaceAll('_',' ')+'.');
+    if(kind==='groups' && document.scene_types.some(x=>x.group===item.id)) throw Error('This group is used by a scene type. Change that reference first.');
+    if(kind==='scene_types' && document.scenes.some(x=>x.scene_type===item.id)) throw Error('This scene type is used by a scene. Change that reference first.');
+    document[kind].splice(found.index,1);return kind==='components'?item.instance:kind+':'+document[kind][0].id;
+  }
+  static duplicate(document,selection,id) {
+    const found=this.locate(document,selection);
+    if(!found) throw Error('Selection no longer exists.');
+    const {kind,item}=found;
+    ProjectComponentOperations.checkId(document[kind],id);
+    if(document[kind].length>=100) throw Error('At most 100 records per section.');
+    const copy=structuredClone(item);copy.id=id;const base=copy.name+' copy';copy.name=base;let n=2;while(document[kind].some(x=>x.name===copy.name))copy.name=base+' '+n++;document[kind].push(copy);return kind+':'+id;
+  }
+  static move(document,selection,offset) {
+    const found=this.locate(document,selection);
+    if(!found) throw Error('Selection no longer exists.');
+    if(offset!==1 && offset!==-1) throw Error('Move one position at a time.');
+    const {kind,index,item}=found;let target=index+offset;
+    while(kind==='components' && target>=0 && target<document[kind].length && document[kind][target].instance!==item.instance) target+=offset;
+    if(target<0 || target>=document[kind].length) return;
+    document[kind].splice(index,1);document[kind].splice(target,0,item);
+  }
+}
+
+class ProjectValidation {
+  static target(document,message) {
+    // Registry paths contain either list positions or stable IDs. Never guess
+    // when a numeric ID could denote a different record at that position.
+    const root=/^\$\.(premise|max_steps): /.exec(message);
+    if(root) return {selection:'simulation',field:root[1]==='premise'?'editor-premise':'editor-max-steps'};
+    const match=/^\$\.(instances|components|groups|scene_types|scenes)\[([A-Za-z0-9_-]{1,128})\](?:\.([A-Za-z0-9_.-]+))?: /.exec(message);
+    if(!match) return null;
+    const [,kind,key,path='']=match, records=document[kind] || [];
+    const candidates=records.filter(x=>x.id===key);
+    const index=/^(0|[1-9][0-9]*)$/.test(key)?Number(key):-1;
+    if(records[index] && !candidates.includes(records[index])) candidates.push(records[index]);
+    if(candidates.length!==1) return null;
+    const item=candidates[0];
+    if(typeof item.id!=='string' || records.filter(x=>x.id===item.id).length!==1) return null;
+    let field=null;
+    if(kind==='instances' && path.startsWith('params.') && item.params && Object.hasOwn(item.params,path.slice(7))) field='editor-'+item.id+'-'+path.slice(7);
+    if(kind==='components' && path.startsWith('params.') && item.params && Object.hasOwn(item.params,path.slice(7))) field='component-param-'+path.slice(7);
+    if(kind!=='instances' && path==='name') field='world-name';
+    const fields=kind==='scene_types'?{game_master:'world-game-master',group:'world-group',premise:'world-premise'}:
+      kind==='scenes'?{scene_type:'world-type',num_rounds:'world-rounds',premise:item.premise===null?'world-inherit':'world-premise'}:{};
+    if(Object.hasOwn(fields,path)) field=fields[path];
+    return {selection:kind==='instances'?item.id:kind+':'+item.id,field};
+  }
+  static forSave(document,operation,args,error) {
+    if(operation!=='project.save' || error?.code!=='invalid_edit' || args.text!==JSON.stringify(document)) return null;
+    return this.target(document,error.message);
+  }
+}
+
+class ProjectReferences {
+  static uses(document,catalog,selection) {
+    const uses=[];
+    const add=(owner,field,label,owned=false)=>uses.push({selection:owner,field,label,owned});
+    const instance=document.instances.find(x=>x.id===selection);
+    if(instance){
+      for(const item of document.instances){
+        const spec=catalog.find(x=>x.instance.prototype===item.prototype);
+        for(const field of Object.keys(spec?.references || {}))
+          if(item.params[field]===instance.id) add(item.id,field,item.params.name+' · '+field);
+      }
+      for(const kind of ['groups','scenes']) for(const item of document[kind] || [])
+        if(item.participants.includes(instance.id)) add(kind+':'+item.id,'participants',item.name+' · participants');
+      for(const item of document.scene_types || [])
+        if(item.game_master===instance.id) add('scene_types:'+item.id,'game_master',item.name+' · game master');
+      for(const item of document.components || [])
+        if(item.instance===instance.id) add('components:'+item.id,'instance',item.name+' · owned component',true);
+    } else {
+      const found=ProjectSceneOperations.locate(document,selection);
+      if(found?.kind==='groups') for(const item of document.scene_types || [])
+        if(item.group===found.item.id) add('scene_types:'+item.id,'group',item.name+' · participant group');
+      if(found?.kind==='scene_types') for(const item of document.scenes || [])
+        if(item.scene_type===found.item.id) add('scenes:'+item.id,'scene_type',item.name+' · scene type');
+    }
+    return uses;
+  }
+  static candidates(document,catalog,id) {
+    const source=document.instances.find(x=>x.id===id);
+    if(!source || !catalog.some(x=>x.instance.prototype===source.prototype)) return [];
+    const needsScenes=(document.scene_types || []).some(x=>x.game_master===id);
+    return document.instances.filter(x=>x.id!==id && x.role===source.role &&
+      catalog.some(c=>c.instance.prototype===x.prototype && c.instance.role===x.role && (!needsScenes || c.accepts_scenes)));
+  }
+  static replace(document,catalog,id,targetId) {
+    if(!this.candidates(document,catalog,id).some(x=>x.id===targetId))
+      throw Error('Choose an existing compatible reference target. Scene types require a scene-aware game master.');
+    const uses=this.uses(document,catalog,id).filter(x=>!x.owned);
+    if(!uses.length) throw Error('This instance has no replaceable references.');
+    // Plan against a copy so a stale/invalid request never partially edits a draft.
+    const next=structuredClone(document);
+    for(const use of uses){
+      const instance=next.instances.find(x=>x.id===use.selection);
+      const owner=instance?.params || ProjectSceneOperations.locate(next,use.selection)?.item;
+      if(!owner || !Object.hasOwn(owner,use.field)) throw Error('Reference no longer exists.');
+      owner[use.field]=Array.isArray(owner[use.field])
+        ? [...new Set(owner[use.field].map(x=>x===id?targetId:x))] : targetId;
+    }
+    Object.assign(document,next);
+    return id;
+  }
+}
+
+class ProjectComponentOperations {
+  static checkId(records,id) {
+    if(typeof id!=='string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id) || records.some(x=>x.id===id))
+      throw Error('Choose a unique stable component ID.');
+  }
+  static add(document,catalog,instanceId,type,id) {
+    const instance=document.instances.find(x=>x.id===instanceId), spec=catalog.find(x=>x.key===type);
+    if(!instance || !spec?.prototypes.includes(instance.prototype)) throw Error('Choose a compatible registered component.');
+    if(!Array.isArray(document.components)) throw Error('This template does not support component authoring.');
+    this.checkId(document.components,id);
+    if(document.components.length>=100) throw Error('At most 100 authored components.');
+    let name=type,n=2;while(document.components.some(x=>x.instance===instanceId && x.name===name))name=type+' '+n++;
+    document.components.push({id,instance:instanceId,type,name,params:structuredClone(spec.defaults)});
+    return 'components:'+id;
+  }
+  static configure(document,id,field,value) {
+    const item=document.components?.find(x=>x.id===id);
+    if(!item) throw Error('Component no longer exists.');
+    if(!Object.hasOwn(item.params,field)) throw Error('Unknown component parameter.');
+    item.params[field]=value;
+  }
+  static rename(document,id,name) {
+    const item=document.components?.find(x=>x.id===id);
+    if(!item) throw Error('Component no longer exists.');
+    item.name=name;
+  }
+}
+
+"""
+
+EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
 (() => {
   const $ = id => document.getElementById(id);
   const layout = document.querySelector('.layout');
@@ -257,9 +499,11 @@ EDITOR_SCRIPT = r"""
   document.querySelector('.header').append(toolbar);
   const heading=document.createElement('strong'); heading.id='editor-heading';
   heading.textContent=document.querySelector('.header h1').textContent; toolbar.append(heading);
-  let envelope, draft, draftRevision, selectedId, connected = false, sending = false;
+  let envelope, draft, draftRevision, draftDefinition, draftBaseDocument, selectedId, connected = false, sending = false;
   let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0;
   const runtimeDrafts = new Map();
+  const history = new ProjectDraftHistory();
+  const draftSnapshot = () => ({document:draft, selectedId});
   function button(label, action, parent=toolbar) {
     const b = document.createElement('button'); b.textContent=label;
     b.className='editor-button'; b.onclick=action; parent.append(b); return b;
@@ -271,8 +515,22 @@ EDITOR_SCRIPT = r"""
   const reset = button('Reset', () => dispatch('project.reset'));
   const save = button('Save draft', async () => {
     const ok = await dispatch('project.save', {text:JSON.stringify(draft), revision:draftRevision});
-    if (ok) {dirty=false; error.textContent=''; await refresh(); adopt();}
+    if (ok) {error.textContent=''; adopt(true);}
   });
+  const undo = button('Undo', () => restoreHistory('undo'));
+  const redo = button('Redo', () => restoreHistory('redo'));
+  const prototypePicker=document.createElement('select');prototypePicker.id='editor-prototype';
+  prototypePicker.setAttribute('aria-label','Registered prefab prototype');toolbar.append(prototypePicker);
+  const add=button('Add instance',()=>structural(next=>ProjectDraftOperations.add(next,catalog(),prototypePicker.value,crypto.randomUUID())));
+  const duplicate=button('Duplicate',()=>structural(next=>{
+    if(ProjectSceneOperations.locate(next,selectedId)) return ProjectSceneOperations.duplicate(next,selectedId,crypto.randomUUID());
+    const source=next.instances.find(x=>x.id===selectedId);
+    if(!source) throw Error('Select an instance to duplicate.');
+    return ProjectDraftOperations.add(next,catalog(),source.prototype,crypto.randomUUID(),source.id);
+  }));
+  const remove=button('Remove',()=>structural(next=>ProjectSceneOperations.locate(next,selectedId)?ProjectSceneOperations.remove(next,selectedId):ProjectDraftOperations.remove(next,catalog(),selectedId)));
+  const up=button('Move earlier',()=>structural(next=>{moveSelection(next,-1);return selectedId;}));
+  const down=button('Move later',()=>structural(next=>{moveSelection(next,1);return selectedId;}));
   const exportButton = button('Export JSON', () => {
     const blob = new Blob([JSON.stringify(state().document,null,2)+'\n'], {type:'application/json'});
     const url=URL.createObjectURL(blob), link=document.createElement('a');
@@ -311,13 +569,56 @@ EDITOR_SCRIPT = r"""
   }
   tab('hierarchy');
   const hierarchy=document.querySelector('.left-sidebar');hierarchy.replaceChildren();
+  const search=document.createElement('input');search.type='search';search.id='editor-search';
+  search.placeholder='Find actors, GMs or components';search.setAttribute('aria-label','Search hierarchy');
+  toolbar.append(search);search.oninput=()=>{renderHierarchy();controls();};
   const summary=document.createElement('div');summary.id='editor-step-summary';
   document.querySelector('.center-panel').prepend(summary);
   document.querySelector('.console-header').textContent='Simulation log';
   function state(){return envelope?.result;}
-  function report(e){error.textContent=e.message || String(e);}
-  function adopt(){
+  function report(e){
+    error.textContent=e.message || String(e);
+    if(e.validationTarget){
+      const target=e.validationTarget, submitted=JSON.stringify(draft);
+      const link=button(target.field?'Show invalid field':'Show invalid item',()=>{
+        if(runtimeMode) return;
+        if(JSON.stringify(draft)!==submitted){report(Error('Draft changed since validation. Save again to locate the current error.'));return;}
+        search.value='';choose(target.selection);
+        const input=target.field && $(target.field);
+        if(input){input.focus();input.scrollIntoView({block:'center'});}
+      },error);
+      link.dataset.validationAction='true';
+    }
+  }
+  function catalog(){return draftDefinition?.catalog || [];}
+  function moveSelection(next,offset){
+    if(ProjectSceneOperations.locate(next,selectedId)) ProjectSceneOperations.move(next,selectedId,offset);
+    else ProjectDraftOperations.move(next,selectedId,offset);
+  }
+  function structural(change){
+    if(runtimeMode || !connected || sending || state()?.run.status==='active') return;
+    try {
+      const next=structuredClone(draft), selection=change(next);
+      if(JSON.stringify(next)===JSON.stringify(draft)) return;
+      history.record(draftSnapshot());draft=next;selectedId=selection;
+      dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+      error.textContent='';search.value='';renderedView='';render();tab('inspector');
+    } catch(e) {report(e);}
+  }
+  function restoreHistory(direction){
+    if(runtimeMode || !connected || sending || state()?.run.status==='active') return;
+    const restored=history[direction](draftSnapshot());
+    if(!restored) return;
+    draft=restored.document; selectedId=restored.selectedId;
+    dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+    error.textContent=''; renderedView=''; render();
+    // Keep the original draft revision: undo must not resolve a stale-tab conflict.
+    if(draftRevision!==state().revision) report(Error('Definition changed in another tab. Review before Reload saved.'));
+  }
+  function adopt(preserveHistory=false){
     if(!state()) return;
+    if(!preserveHistory) history.clear(); else history.endGroup();
+    draftDefinition=state().definition;draftBaseDocument=state().document;
     draft=structuredClone(state().document);draftRevision=state().revision;dirty=false;
     selectedId=selectedId || draft.instances[0].id;renderedView='';render();
   }
@@ -329,8 +630,31 @@ EDITOR_SCRIPT = r"""
     pause.disabled=unavailable || phase!=='running';step.disabled=unavailable || phase!=='paused';
     reset.disabled=unavailable || phase==='ready' || phase==='stopping';
     save.disabled=unavailable || active;open.disabled=unavailable || active;
+    undo.disabled=unavailable || active || runtimeMode || !history.past.length;
+    redo.disabled=unavailable || active || runtimeMode || !history.future.length;
+    const structureDisabled=unavailable || active || runtimeMode || !catalog().length;
+    for(const control of [prototypePicker,add,duplicate,remove,up,down]) {
+      control.hidden=!catalog().length;control.disabled=structureDisabled;
+    }
+    const position=draft?.instances.findIndex(x=>x.id===selectedId) ?? -1;
+    duplicate.disabled=remove.disabled=structureDisabled || position<0;
+    const role=draft?.instances[position]?.role;
+    up.disabled=structureDisabled || position<0 || !draft.instances.slice(0,position).some(x=>x.role===role);
+    down.disabled=structureDisabled || position<0 || !draft.instances.slice(position+1).some(x=>x.role===role);
+    const world=draft && ProjectSceneOperations.locate(draft,selectedId);
+    if(world){
+      duplicate.disabled=remove.disabled=structureDisabled;
+      up.disabled=structureDisabled || world.index===0;
+      down.disabled=structureDisabled || world.index===draft[world.kind].length-1;
+      if(world.kind==='components'){
+        up.disabled=structureDisabled || !draft.components.slice(0,world.index).some(x=>x.instance===world.item.instance);
+        down.disabled=structureDisabled || !draft.components.slice(world.index+1).some(x=>x.instance===world.item.instance);
+      }
+    }
+    document.querySelectorAll('[data-author-action]').forEach(x=>x.disabled=structureDisabled);
+    document.querySelectorAll('[data-validation-action]').forEach(x=>x.disabled=runtimeMode || !draft);
     exportButton.disabled=!s;
-    document.querySelectorAll('[data-definition-field]').forEach(x=>x.disabled=unavailable || active);
+    document.querySelectorAll('[data-definition-field]').forEach(x=>x.disabled=unavailable || active || runtimeMode);
     document.querySelectorAll('.dynamic-save-btn').forEach(b=>{
       const data=entityData[selectedEntity], component=data?.component_info?.context_components?.[b.dataset.component];
       const supported=['Instructions','Goal'].includes(b.dataset.component) && component?.class_name==='Constant' && b.dataset.stateKey==='state';
@@ -353,11 +677,85 @@ EDITOR_SCRIPT = r"""
     }
     if(typeof value==='boolean'){input.type='checkbox';input.checked=value;}
     else {if(typeof value==='number') input.type='number';input.value=value;}
-    input.oninput=()=>{change(typeof value==='boolean'?input.checked:typeof value==='number'?(input.value===''?null:Number(input.value)):input.value);dirty=true;error.textContent='';controls();};
+    input.onblur=()=>history.endGroup();
+    input.oninput=()=>{
+      const before=structuredClone(draftSnapshot());
+      change(typeof value==='boolean'?input.checked:typeof value==='number'?(input.value===''?null:Number(input.value)):input.value);
+      if(JSON.stringify(before.document)!==JSON.stringify(draft)) history.record(before,id);
+      dirty=JSON.stringify(draft)!==JSON.stringify(state().document);
+      error.textContent='';renderHierarchy();if(spec.refresh)inspect();controls();
+    };
     label.append(input);container.append(label);
+  }
+  function inspectReferences(content,selection){
+    if(runtimeMode || !catalog().length) return;
+    const section=document.createElement('section');section.setAttribute('aria-label','Used by');
+    const heading=document.createElement('h3');heading.textContent='Used by';section.append(heading);
+    const uses=ProjectReferences.uses(draft,catalog(),selection);
+    for(const use of uses){
+      const link=button(use.label,()=>choose(use.selection),section);link.dataset.referenceSource=use.selection;
+    }
+    if(!uses.length){const hint=document.createElement('p');hint.textContent='No incoming authored references.';section.append(hint);}
+    const replaceable=uses.filter(x=>!x.owned);
+    const instance=draft.instances.find(x=>x.id===selection);
+    if(instance && catalog().length && replaceable.length){
+      const choices=ProjectReferences.candidates(draft,catalog(),selection);
+      const hint=document.createElement('p');hint.textContent='Replace '+replaceable.length+' reference(s) in this draft. Owned components stay with this instance. Undo restores all affected references.';section.append(hint);
+      if(choices.length){
+        const label=document.createElement('label');label.className='editor-field';label.textContent='Replacement instance';
+        const picker=document.createElement('select');picker.id='reference-target';picker.dataset.definitionField='true';
+        for(const item of choices){const option=document.createElement('option');option.value=item.id;option.textContent=item.params.name;picker.append(option);}
+        label.append(picker);section.append(label);
+        const replace=button('Replace references',()=>structural(next=>ProjectReferences.replace(next,catalog(),selection,picker.value)),section);replace.dataset.authorAction='true';
+      } else {const hint=document.createElement('p');hint.textContent='Create another compatible instance before replacing references.';section.append(hint);}
+    }
+    content.append(section);
+  }
+  function inspectWorld(world){
+    const {kind,item}=world, content=$('inspector-content');
+    content.replaceChildren();content.style.display='block';$('inspector-empty').style.display='none';
+    $('inspector-title').textContent=item.name;
+    $('inspector-subtitle').textContent='Initial definition · '+kind.replaceAll('_',' ')+' · '+item.id;
+    if(kind==='components'){
+      const spec=draftDefinition.component_catalog.find(x=>x.key===item.type);
+      const description=document.createElement('p');description.textContent=spec.description+' Requires: '+(spec.dependencies.length?'the owner’s memory':'no other components')+'. Name is an editor label; context label controls the text supplied to the actor or GM. Save to rebuild the preview. Runtime edits are separate.';content.append(description);
+      field(content,'Component name',item.name,v=>ProjectComponentOperations.rename(draft,item.id,v),'world-name');
+      for(const [key,value] of Object.entries(item.params))field(content,key,value,v=>ProjectComponentOperations.configure(draft,item.id,key,v),'component-param-'+key,{label:({state:'Context text',pre_act_label:'Context label',history_length:'Recent observations (1–1000)'})[key] || key});
+      const owner=draft.instances.find(x=>x.id===item.instance);
+      button('Owner: '+owner.params.name,()=>choose(owner.id),content);
+      controls();return;
+    }
+    const hint=document.createElement('p');hint.textContent=kind==='groups'?'Reusable possible participants, not a simulated institution.':kind==='scene_types'?'A standard scene type selects its GM and possible participants.':'Ordered scene rounds and participants. Runtime scheduling uses standard SceneTracker.';content.append(hint);
+    field(content,'Name',item.name,v=>item.name=v,'world-name');
+    const choices=items=>items.map(x=>({value:x.id,label:x.name ?? x.params.name}));
+    if(kind==='scene_types'){
+      const masters=draft.instances.filter(x=>catalog().some(c=>c.instance.prototype===x.prototype && c.accepts_scenes));
+      field(content,'Game master',item.game_master,v=>item.game_master=v,'world-game-master',{choices:choices(masters)});
+      field(content,'Participant group',item.group,v=>item.group=v,'world-group',{choices:choices(draft.groups)});
+      field(content,'Default premise for each participant',item.premise,v=>item.premise=v,'world-premise');
+    }
+    if(kind==='scenes'){
+      field(content,'Scene type',item.scene_type,v=>item.scene_type=v,'world-type',{choices:choices(draft.scene_types),refresh:true});
+      field(content,'Number of rounds',item.num_rounds,v=>item.num_rounds=v,'world-rounds');
+      field(content,'Use scene type premise',item.premise===null,v=>item.premise=v?null:'','world-inherit',{refresh:true});
+      if(item.premise!==null)field(content,'Premise override for each participant',item.premise,v=>item.premise=v,'world-premise');
+    }
+    if(kind==='groups' || kind==='scenes'){
+      const heading=document.createElement('h3');heading.textContent='Participants';content.append(heading);
+      const group=kind==='scenes'?draft.groups.find(x=>x.id===draft.scene_types.find(t=>t.id===item.scene_type)?.group):null;
+      for(const actor of draft.instances.filter(x=>x.role==='entity')){
+        const label=actor.params.name+(group && !group.participants.includes(actor.id)?' (outside selected group)':'');
+        field(content,label,item.participants.includes(actor.id),v=>{
+          item.participants=v?[...item.participants,actor.id]:item.participants.filter(x=>x!==actor.id);
+        },'world-participant-'+actor.id);
+      }
+    }
+    inspectReferences(content,selectedId);controls();
   }
   function inspect(){
     if(!draft) return;
+    const world=ProjectSceneOperations.locate(draft,selectedId);
+    if(world){inspectWorld(world);return;}
     const index=draft.instances.findIndex(x=>x.id===selectedId);
     const content=$('inspector-content');content.style.display='block';$('inspector-empty').style.display='none';
     if(index<0){
@@ -366,19 +764,41 @@ EDITOR_SCRIPT = r"""
       field(content,'Maximum steps (1–1000)',draft.max_steps,v=>draft.max_steps=v,'editor-max-steps');
       controls();return;
     }
-    const sameEntity=selectedEntity==='entity_'+index;
+    const previewIndex=(runtimeMode?state().document:draftBaseDocument).instances.findIndex(x=>x.id===selectedId);
+    const sameEntity=selectedEntity==='entity_'+previewIndex;
     const expanded=sameEntity ? [...content.querySelectorAll('.component-state.expanded')].map(x=>x.id) : [];
     const focused=sameEntity && content.contains(document.activeElement) ? document.activeElement : null;
     const focusState=focused ? {id:focused.id,start:focused.selectionStart,end:focused.selectionEnd} : null;
-    selectedEntity='entity_'+index;
-    updateInspector(selectedEntity);
+    selectedEntity='entity_'+previewIndex;
+    if(previewIndex>=0) updateInspector(selectedEntity);
+    else {
+      content.replaceChildren();
+      const hint=document.createElement('p');hint.textContent='Save draft to build the component preview. No simulation is executed.';content.append(hint);
+    }
+    if(!runtimeMode) $('inspector-title').textContent=draft.instances[index].params.name;
     const item=draft.instances[index];
     $('inspector-subtitle').textContent=(runtimeMode?'Current runtime':'Initial definition')+' · '+item.prefab+' · '+item.id;
     if(!runtimeMode){
       const fields=document.createElement('section');fields.setAttribute('aria-label','Editable initial fields');
-      const specs=state().definition.inspector[item.id] || {};
+      const entry=catalog().find(x=>x.instance.prototype===item.prototype);
+      const specs=structuredClone(entry?.inspector || draftDefinition.inspector[item.id] || {});
+      for(const [field,role] of Object.entries(entry?.references || {})) {
+        specs[field]={...specs[field],choices:draft.instances.filter(x=>x.role===role).map(x=>({value:x.id,label:x.params.name})),refresh:true};
+      }
       for(const [key,value] of Object.entries(item.params)) field(fields,key,value,v=>item.params[key]=v,'editor-'+item.id+'-'+key,specs[key]);
       content.prepend(fields);
+      const entries=(draftDefinition.component_catalog || []).filter(x=>x.prototypes.includes(item.prototype));
+      if(entries.length){
+        const section=document.createElement('section'), heading=document.createElement('h3');heading.textContent='Component catalogue';section.append(heading);
+        const picker=document.createElement('select');picker.id='component-type';picker.setAttribute('aria-label','Registered component type');picker.dataset.definitionField='true';
+        for(const entry of entries){const option=document.createElement('option');option.value=entry.key;option.textContent=entry.key;picker.append(option);}
+        const description=document.createElement('p');
+        const describe=()=>{const spec=entries.find(x=>x.key===picker.value);description.textContent=spec.description+' Dependencies: '+(spec.dependencies.join(', ') || 'none');};
+        picker.onchange=describe;describe();section.append(picker,description);
+        const addComponent=button('Add component',()=>structural(next=>ProjectComponentOperations.add(next,entries,item.id,picker.value,crypto.randomUUID())),section);addComponent.dataset.authorAction='true';
+        content.prepend(section);
+      }
+      inspectReferences(content,selectedId);
     } else {
       content.querySelectorAll('.dynamic-input').forEach(input=>{
         const key=envelope.references.run_id+':'+selectedId+':'+input.id;
@@ -390,31 +810,67 @@ EDITOR_SCRIPT = r"""
     controls();
     if(focusState){const input=$(focusState.id);if(input && !input.disabled){input.focus({preventScroll:true});if(input.setSelectionRange && focusState.start!==null)input.setSelectionRange(focusState.start,focusState.end);}}
   }
-  function choose(id,component){selectedId=id;inspect();tab('inspector');
+  function choose(id,component){history.endGroup();selectedId=id;renderHierarchy();inspect();tab('inspector');
     if(component){const el=$('comp_'+component.replace(/[^a-zA-Z0-9]/g,'_'));if(el){el.classList.add('expanded');el.scrollIntoView({block:'nearest'});}}
+  }
+  function renderHierarchy(){
+    if(!draft) return;
+    hierarchy.replaceChildren();button('Simulation settings',()=>{runtimeMode=false;mode.value='definition';selectedId='simulation';renderedView='';render();tab('inspector');},hierarchy);
+    const query=search.value.trim().toLocaleLowerCase();let matches=0;
+    for(const [kind,title] of [['scenes','Scene sequence'],['scene_types','Scene types'],['groups','Participant groups']]){
+      if(!draft[kind])continue;
+      const heading=document.createElement('h3');heading.textContent=title;hierarchy.append(heading);
+      const action=button('Add '+({scenes:'scene',scene_types:'scene type',groups:'group'}[kind]),()=>structural(next=>ProjectSceneOperations.add(next,catalog(),kind,crypto.randomUUID())),hierarchy);action.dataset.authorAction='true';
+      draft[kind].forEach((item,index)=>{
+        if(![item.name,item.id].some(x=>x.toLocaleLowerCase().includes(query)))return;
+        matches++;
+        const label=kind==='scenes'?`${index+1}. ${item.name} · ${item.num_rounds} rounds`:item.name;
+        const b=button(label,()=>choose(kind+':'+item.id),hierarchy);b.dataset.worldId=kind+':'+item.id;
+        b.setAttribute('aria-pressed',String(selectedId===kind+':'+item.id));
+      });
+    }
+    for(const role of ['entity','game_master','initializer']){
+      const rows=[];
+      for(const item of draft.instances.filter(x=>x.role===role)) {
+        const idx=(runtimeMode?state().document:draftBaseDocument).instances.findIndex(x=>x.id===item.id);
+        const components=Object.keys(entityData['entity_'+idx]?.component_info?.context_components || {});
+        if(![item.params.name,item.id,item.prefab,...components,...(draft.components || []).filter(c=>c.instance===item.id).flatMap(c=>[c.name,c.type])].some(x=>x.toLocaleLowerCase().includes(query)))continue;
+        rows.push({item,components});
+      }
+      if(!rows.length)continue;
+      const title=document.createElement('h3');title.textContent={entity:'Actors',game_master:'Game masters',initializer:'Initializers'}[role];hierarchy.append(title);
+      for(const {item,components} of rows){
+        matches++;
+        const b=button(item.params.name,()=>choose(item.id),hierarchy);b.dataset.instanceId=item.id;
+        b.setAttribute('aria-pressed',String(item.id===selectedId));
+        for(const component of (draft.components || []).filter(x=>x.instance===item.id)) {
+          const c=button(component.name+' · '+component.type,()=>choose('components:'+component.id),hierarchy);c.dataset.componentId=component.id;c.classList.add('editor-component');
+        }
+        for(const component of components.filter(x=>!x.startsWith('authored_'))) {
+          const c=button(component,()=>choose(item.id,component),hierarchy);c.classList.add('editor-component');
+        }
+      }
+    }
+    if(!matches){const empty=document.createElement('p');empty.textContent='No matching instances or components.';hierarchy.append(empty);}
   }
   function render(){
     if(!draft) return;
-    const s=state(), view=runtimeMode?s.runtime:s.definition;
+    const s=state(), view=runtimeMode?s.runtime:draftDefinition;
     const signature=JSON.stringify([runtimeMode,view]);
     if(signature!==renderedView){
       renderedView=signature;
       for(const key of Object.keys(entityData)) delete entityData[key];
-      Object.assign(entityData,view?.entities || s.definition.entities);
+      Object.assign(entityData,view?.entities || draftDefinition.entities);
       // SVG comes only from the standard escaped server renderer, never imported HTML.
-      document.querySelector('.svg-container').innerHTML=view?.svg || s.definition.svg;
-      hierarchy.replaceChildren();button('Simulation settings',()=>{runtimeMode=false;mode.value='definition';selectedId='simulation';renderedView='';render();tab('inspector');},hierarchy);
-      for(const role of ['entity','game_master','initializer']){
-        const items=draft.instances.filter(x=>x.role===role);if(!items.length)continue;
-        const title=document.createElement('h3');title.textContent=role==='entity'?'Actors':'Game masters';hierarchy.append(title);
-        for(const item of items){
-          const b=button(item.params.name,()=>choose(item.id),hierarchy);b.dataset.instanceId=item.id;
-          const idx=draft.instances.findIndex(x=>x.id===item.id);
-          for(const component of Object.keys(entityData['entity_'+idx]?.component_info?.context_components || {})) {
-            const c=button(component,()=>choose(item.id,component),hierarchy);c.classList.add('editor-component');
-          }
-        }
+      document.querySelector('.svg-container').innerHTML=view?.svg || draftDefinition.svg;
+      const chosen=prototypePicker.value;prototypePicker.replaceChildren();
+      for(const entry of catalog()) {
+        const option=document.createElement('option');option.value=entry.instance.prototype;
+        option.textContent=entry.instance.prefab+' · '+entry.instance.role+' · '+entry.instance.params.name;
+        option.title=entry.description;prototypePicker.append(option);
       }
+      if(catalog().some(x=>x.instance.prototype===chosen)) prototypePicker.value=chosen;
+      renderHierarchy();
       inspect();
     }
     if(loggedRun!==envelope.references.run_id){loggedRun=envelope.references.run_id;loggedSteps=0;$('console-output').replaceChildren();}
@@ -426,7 +882,8 @@ EDITOR_SCRIPT = r"""
   document.addEventListener('click',event=>{
     const card=event.target.closest('.entity-card');if(!card || !draft)return;
     event.stopImmediatePropagation();const index=Number(card.dataset.entityId.split('_')[1]);
-    if(draft.instances[index])choose(draft.instances[index].id);
+    const id=(runtimeMode?state().document:draftBaseDocument).instances[index]?.id;
+    if(draft.instances.some(x=>x.id===id))choose(id);
   },true);
   saveComponentState=async (_entity,component,_key,inputId)=>{
     const key=envelope.references.run_id+':'+selectedId+':'+inputId, saved=runtimeDrafts.get(key);
@@ -458,7 +915,12 @@ EDITOR_SCRIPT = r"""
     const from=source || envelope;
     try{
       const response=await fetch('/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation,arguments:args,revision:from.revision,references:from.references,retry_key:crypto.randomUUID()})});
-      const result=await response.json();if(!response.ok)throw Error(result.error.message);
+      const result=await response.json();
+      if(!response.ok){
+        const failure=Error(result.error.message);
+        failure.validationTarget=ProjectValidation.forSave(draft,operation,args,result.error);
+        throw failure;
+      }
       if(operation==='project.run'){runtimeMode=true;mode.value='runtime';tab('simulation');}
       await refresh();return true;
     }catch(e){report(e);await refresh();return false;}

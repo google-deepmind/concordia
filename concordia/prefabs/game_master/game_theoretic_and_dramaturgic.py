@@ -128,12 +128,12 @@ class GameMaster(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
       default_factory=lambda: {
           'name': DEFAULT_NAME,
-          'scenes': (),
-          'action_to_scores': _default_action_to_scores,
-          'scores_to_observation': _default_scores_to_observation,
+          'scenes': (),  # pyrefly: ignore[bad-assignment]
+          'action_to_scores': _default_action_to_scores,  # pyrefly: ignore[bad-assignment]
+          'scores_to_observation': _default_scores_to_observation,  # pyrefly: ignore[bad-assignment]
           # Optional shared ObservationQueue for cross-GM observation
           # persistence.
-          'external_queue': None,
+          'external_queue': None,  # pyrefly: ignore[bad-assignment]
       }
   )
   entities: (

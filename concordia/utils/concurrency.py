@@ -55,10 +55,10 @@ def _executor(**kwargs) -> Iterator[futures.ThreadPoolExecutor]:
 
 
 def _run_task(key: str, fn: Callable[[], _T]) -> Callable[[], _T]:
-  """Returns fn() and logs any error."""
+  """Returns fn() and logs ordinary exceptions."""
   try:
     return fn()  # pyrefly: ignore[bad-return]
-  except:
+  except Exception:
     logging.exception('Error in task %s', key)
     raise
 

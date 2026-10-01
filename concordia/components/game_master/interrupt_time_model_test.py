@@ -26,6 +26,8 @@ class ParseDurationSecondsTest(parameterized.TestCase):
 
   @parameterized.parameters(
       ('0m', 0),
+      ('0h', 0),
+      ('0h0m', 0),
       ('0', 0),
       ('5m', 300),
       ('2h', 7200),
@@ -40,9 +42,17 @@ class ParseDurationSecondsTest(parameterized.TestCase):
         expected,
     )
 
-  def test_unparseable_defaults_to_one_hour(self):
+  @parameterized.parameters(
+      'abc',
+      '1hour',
+      '1h30mx',
+      '1hgarbage',
+      'h',
+      'm',
+  )
+  def test_unparseable_defaults_to_one_hour(self, input_str):
     self.assertEqual(
-        interrupt_time_model.parse_duration_seconds('abc'),
+        interrupt_time_model.parse_duration_seconds(input_str),
         3600,
     )
 
@@ -144,7 +154,7 @@ class DatetimeTimeModelTest(absltest.TestCase):
     self.assertEqual(t1, t1)
 
 
-class GenerativeTimeModelTest(absltest.TestCase):
+class GenerativeTimeModelTest(parameterized.TestCase):
 
   def _make_model(self, format_response='narrated time'):
     """Creates a GenerativeTimeModel with a mock LLM."""
@@ -217,6 +227,19 @@ class GenerativeTimeModelTest(absltest.TestCase):
     model = self._make_model(format_response='-500')
     result = model.parse_absolute_time('8:00', 1000)
     self.assertEqual(result, 86900)  # 1000 + (-500) + 86400
+
+  @parameterized.parameters(
+      (-86400, 87400),
+      (-172800, 87400),
+      (-172900, 87300),
+  )
+  def test_parse_absolute_time_large_negative_offset_is_future(
+      self, offset, expected
+  ):
+    model = self._make_model(format_response=str(offset))
+    result = model.parse_absolute_time('8:00', 1000)
+    self.assertEqual(result, expected)
+    self.assertGreater(result, 1000)
 
   def test_parse_absolute_time_bad_llm_response_raises(self):
     model = self._make_model(format_response='not a number')

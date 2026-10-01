@@ -26,12 +26,10 @@ from unittest import mock
 from concordia.environment import step_controller
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
+from concordia.utils import project_test_support as template
 from concordia.utils import simulation_server
 from concordia.utils import visual_interface
 import pytest
-
-from examples.project_editor import run
-from examples.project_editor import template
 
 browser_api = pytest.importorskip('playwright.sync_api')
 
@@ -100,7 +98,7 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    with editor(lambda config: built.append(run.build(config))) as (
+    with editor(lambda config: built.append(template.build(config))) as (
         server,
         url,
     ):
@@ -141,7 +139,10 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
       assert page.evaluate('window.projectProbe') is None
 
     # A distinct server starts from the template, not the prior Python draft.
-    with editor(lambda config: built.append(run.build(config))) as (fresh, url):
+    with editor(lambda config: built.append(template.build(config))) as (
+        fresh,
+        url,
+    ):
       page.goto(url)
       browser_api.expect(page.locator('#project-alice-name')).to_have_value(
           'Alice'
@@ -275,7 +276,7 @@ def test_completed_project_can_start_a_fresh_controllable_run(
   finish = threading.Event()
 
   def fixture(config):
-    simulation = run.build(config)
+    simulation = template.build(config)
     built.append(simulation)
     server.set_simulation(simulation)
     checkpoint = simulation.make_checkpoint_data()
@@ -356,7 +357,7 @@ def test_completed_project_can_start_a_fresh_controllable_run(
 
 
 @pytest.fixture
-def integrated_editor():
+def integrated_editor(request):
   """Real HTTP/browser surface, with all simulation execution forbidden."""
   with (
       mock.patch.object(generic.Simulation, 'play', side_effect=AssertionError),
@@ -371,14 +372,18 @@ def integrated_editor():
           side_effect=AssertionError,
       ),
   ):
-    registry = template.registry()
+    structural = getattr(request, 'param', '') == 'structural'
+    registry = (
+        template.builder_registry() if structural else template.registry()
+    )
+    key = 'builder-v1' if structural else template.TEMPLATE_KEY
     server = simulation_server.SimulationServer(port=0)
     server.configure_project(
         registry,
-        registry.default_document(template.TEMPLATE_KEY),
+        registry.default_document(key),
         lambda _: None,
         integrated=True,
-        preview=lambda config: run.build(config).make_checkpoint_data(),
+        preview=lambda config: template.build(config).make_checkpoint_data(),
     )
     server.start()
     try:
@@ -500,7 +505,7 @@ def test_integrated_controls_use_acknowledged_boundary(
   approach = threading.Event()
 
   def runner(config):
-    simulation = run.build(config)
+    simulation = template.build(config)
     server.set_simulation(simulation)
     server.broadcast_entity_info(simulation.make_checkpoint_data())
     approach.wait(10)
@@ -567,3 +572,71 @@ def test_integrated_controls_use_acknowledged_boundary(
       approach.set()
       server.step_controller.stop()
       server._project_thread.join(3)
+
+
+@pytest.mark.parametrize('integrated_editor', ['structural'], indirect=True)
+@pytest.mark.parametrize('width', [360, 1280])
+def test_structure_history_search_and_roundtrip(
+    browser, integrated_editor, tmp_path, width
+):
+  server, url = integrated_editor
+  with browser.new_context(
+      viewport={'width': width, 'height': 900}, accept_downloads=True
+  ) as context:
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto(url)
+    page.locator('[data-instance-id="alice"]').click()
+    page.get_by_role('button', name='Duplicate', exact=True).click()
+    name = page.locator('[data-definition-field][id$="-name"]')
+    browser_api.expect(name).to_have_value('Alice 2')
+    name.fill('Charlie 🎵')
+    page.locator('[data-definition-field][id$="-goal"]').fill(
+        'Listen\n"carefully" <script>window.probe=1</script>'
+    )
+    page.get_by_role('button', name='Save draft', exact=True).click()
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    saved = server.get_project()['document']
+    assert len(saved['instances']) == 4
+    added = saved['instances'][-1]
+    assert added['prototype'] == 'alice'
+    assert added['params']['name'] == 'Charlie 🎵'
+    page.get_by_role('button', name='Undo', exact=True).click()
+    browser_api.expect(
+        page.locator('[data-definition-field][id$="-goal"]')
+    ).to_have_value('')
+    page.get_by_role('button', name='Redo', exact=True).click()
+    browser_api.expect(
+        page.locator('[data-definition-field][id$="-goal"]')
+    ).to_have_value(added['params']['goal'])
+    page.get_by_role('button', name='Move earlier', exact=True).click()
+    page.get_by_role('button', name='Save draft', exact=True).click()
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    expected = server.get_project()['document']
+    page.locator('#editor-search').fill('Charlie')
+    page.get_by_role('button', name='Hierarchy', exact=True).click()
+    assert page.locator('[data-instance-id]').count() == 1
+    page.locator('[data-instance-id]').click()
+    page.get_by_role('button', name='Remove', exact=True).click()
+    page.get_by_role('button', name='Undo', exact=True).click()
+    with page.expect_download() as download:
+      page.get_by_role('button', name='Export JSON').click()
+    path = tmp_path / 'structural.json'
+    download.value.save_as(path)
+    assert json.loads(path.read_text()) == expected
+    page.locator('#editor-file').set_input_files(str(path))
+    browser_api.expect(page.locator('#editor-status')).to_contain_text(
+        'saved definition'
+    )
+    assert server.get_project()['document'] == expected
+    browser_api.expect(
+        page.get_by_role('button', name='Undo', exact=True)
+    ).to_be_disabled()
+    assert page.evaluate('window.probe') is None
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    assert not errors

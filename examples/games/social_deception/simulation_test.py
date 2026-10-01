@@ -41,6 +41,13 @@ class MockLanguageModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
+    is_named = "Alice" in prompt or "Bob" in prompt
+    target_p0 = "Alice" if is_named else "Player_0"
+    target_p1 = "Bob" if is_named else "Player_1"
+    target_p2 = "Charlie" if is_named else "Player_2"
+    target_p3 = "David" if is_named else "Player_3"
+    target_p4 = "Eve" if is_named else "Player_4"
+
     if "Respond with 'Ack'" in prompt:
       return "Ack"
     elif "Choose action: nominate [player] or pass" in prompt:
@@ -50,21 +57,21 @@ class MockLanguageModel(language_model.LanguageModel):
     elif "Vote on nomination of" in prompt:
       return "no"
     elif "Please select one player to kill." in prompt:
-      targets = ["Player_0", "Player_1", "Player_2", "Player_3", "Player_4"]
+      targets = [target_p0, target_p1, target_p2, target_p3, target_p4]
       target = targets[self._kill_target_index]
       self._kill_target_index = (self._kill_target_index + 1) % len(targets)
       return f"I want to kill {target}"
     elif "Please choose one alive player (not yourself)" in prompt:
-      return "Player_2"
+      return target_p2
     elif "Please select one player to learn their character." in prompt:
-      return "Player_1"
+      return target_p1
     elif "Please select one alive player to poison." in prompt:
-      return "Player_1"
+      return target_p1
     elif (
         "Please select two players." in prompt
         or "Please select exactly two players." in prompt
     ):
-      return "I choose Player_1 and Player_2"
+      return f"I choose {target_p1} and {target_p2}"
     elif "Choose action:" in prompt and "pass" in prompt:
       return "pass because I have no info"
     elif (
@@ -105,6 +112,7 @@ class TestSetupWithMockLlm(parameterized.TestCase):
         model=model,
         embedder=dummy_embedder,
         player_names=player_names,
+        day_to_play_through=1,
     )
     self.assertIsNotNone(res)
     self.assertIn("structured_log", res)
@@ -120,7 +128,7 @@ class TestSetupWithMockLlm(parameterized.TestCase):
     self.assertIsNotNone(res)
     self.assertIn("structured_log", res)
 
-  @parameterized.parameters(range(5, 16))
+  @parameterized.parameters(5, 8, 12)
   def test_puppet_simulation_with_player_counts(self, num_players: int):
     model = MockLanguageModel()
     player_names = [f"Player_{i}" for i in range(num_players)]

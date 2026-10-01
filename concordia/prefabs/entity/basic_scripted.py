@@ -35,7 +35,7 @@ class Entity(prefab_lib.Prefab):
   params: Mapping[str, str] = dataclasses.field(default_factory=lambda: {  # pyrefly: ignore[bad-assignment]
       'name': 'Alice',
       'goal': '',
-      'script': [],
+      'script': [],  # pyrefly: ignore[bad-assignment]
   })
 
   def build(

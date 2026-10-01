@@ -834,7 +834,10 @@ class SimulationServer:
       def _handle_set_component_state(self) -> None:
         """Handle POST /cmd/set_component_state for dynamic editing."""
         try:
-          content_length = int(self.headers.get('Content-Length', 0))
+          try:
+            content_length = int(self.headers.get('Content-Length', 0))
+          except ValueError:
+            content_length = 0
           body = self.rfile.read(content_length)
           # Consume the framed request before replying, even when editing is
           # unavailable. Closing with unread body bytes can reset the socket

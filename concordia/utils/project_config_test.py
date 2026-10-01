@@ -23,9 +23,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from concordia.agents import entity_agent_with_logging
 from concordia.utils import project_config
-
-from examples.project_editor import run
-from examples.project_editor import template
+from concordia.utils import project_test_support as template
 
 
 class ProjectConfigTest(parameterized.TestCase):
@@ -56,7 +54,9 @@ class ProjectConfigTest(parameterized.TestCase):
   def test_distinct_prefabs_build_their_real_context_components(self):
     self.doc['instances'][1]['params']['goal'] = 'Keep a shared music journal'
     reopened = self.registry.loads(self.registry.dumps(self.doc))
-    alice, bob = run.build(self.registry.to_config(reopened)).get_entities()
+    alice, bob = template.build(
+        self.registry.to_config(reopened)
+    ).get_entities()
     assert isinstance(alice, entity_agent_with_logging.EntityAgentWithLogging)
     assert isinstance(bob, entity_agent_with_logging.EntityAgentWithLogging)
     questions = {'SituationPerception', 'SelfPerception', 'PersonBySituation'}
@@ -78,7 +78,7 @@ class ProjectConfigTest(parameterized.TestCase):
     self.assertEqual(
         [item.prefab for item in config.instances[:2]], ['minimal', 'minimal']
     )
-    bob = run.build(config).get_entities()[1]
+    bob = template.build(config).get_entities()[1]
     assert isinstance(bob, entity_agent_with_logging.EntityAgentWithLogging)
     self.assertNotIn('SelfPerception', bob.get_all_context_components())
     self.assertEqual(
@@ -190,7 +190,7 @@ class ProjectConfigTest(parameterized.TestCase):
     first = self.registry.to_config(self.doc)
     second = self.registry.to_config(self.registry.loads(saved))
     self.assertEqual(dataclasses.asdict(first), dataclasses.asdict(second))
-    sim_a, sim_b = run.build(first), run.build(second)
+    sim_a, sim_b = template.build(first), template.build(second)
     for a, b in zip(
         sim_a.get_entities() + sim_a.get_game_masters(),
         sim_b.get_entities() + sim_b.get_game_masters(),
