@@ -46,6 +46,20 @@ JSON and passed to standard Config; it is not merely visual organization.
 **Remove** rejects referenced instances and the last actor or GM. Change incoming
 references first. The project supports at most 100 instances.
 
+The initial-definition inspector's **Used by** section lists incoming registered
+references, group/scene participation and owned components. Select a listed use
+to inspect that record. For an actor or GM, choose a **Replacement instance** and
+**Replace references** to update all incoming references in one undoable edit.
+Only compatible instances are offered; scene types require a scene-aware GM.
+Replacing a participant already in a group or scene keeps one occurrence and
+preserves the order of the resulting participant list. Component ownership,
+component text and other literal fields stay unchanged. You can then remove the
+old instance separately; removing it also removes its owned authored components.
+**Undo** restores each edit, and **Save draft** validates the complete result.
+Groups and scene types offer navigation to their uses; edit those references in
+the linked inspector. These controls apply only to authored definitions, never
+to a running simulation. Fixed schema-1 templates retain their existing editors.
+
 **Undo/Redo** restores authored edits and structural operations, including IDs
 and selection. Typing in one focused field forms one history entry. History
 retains up to 50 entries in this browser tab; Save preserves it. Open JSON,
