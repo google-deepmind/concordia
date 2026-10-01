@@ -130,6 +130,32 @@ def test_component_crud_dom(width, tmp_path):
       browser_api.expect(page.locator('#component-param-state')).to_have_value(
           literal
       )
+      page.get_by_role('button', name='Owner: Bob', exact=True).click()
+      browser_api.expect(page.locator('#inspector-title')).to_have_text('Bob')
+      select_owner('alice')
+      page.locator('[data-reference-source="groups:ensemble"]').click()
+      browser_api.expect(page.locator('#world-name')).to_have_value('Roommates')
+      select_owner('alice')
+      page.locator('#reference-target').select_option('bob')
+      page.get_by_role('button', name='Replace references', exact=True).click()
+      browser_api.expect(
+          page.locator('[aria-label="Used by"]')
+      ).to_contain_text('No incoming authored references.')
+      page.get_by_role('button', name='Undo', exact=True).click()
+      browser_api.expect(
+          page.locator('[data-reference-source="groups:ensemble"]')
+      ).to_be_visible()
+      page.get_by_role('button', name='Redo', exact=True).click()
+      save()
+      replaced = server.get_project()['document']
+      assert replaced['groups'][0]['participants'] == ['bob']
+      assert replaced['scenes'][0]['participants'] == ['bob']
+      assert replaced['components'][1]['params']['state'] == literal
+      page.reload()
+      select_owner('alice')
+      browser_api.expect(
+          page.locator('[aria-label="Used by"]')
+      ).to_contain_text('No incoming authored references.')
       with page.expect_download() as download:
         page.get_by_role('button', name='Export JSON', exact=True).click()
       exported = json.loads(Path(download.value.path()).read_text())

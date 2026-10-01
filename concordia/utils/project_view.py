@@ -379,6 +379,58 @@ class ProjectSceneOperations {
   }
 }
 
+class ProjectReferences {
+  static uses(document,catalog,selection) {
+    const uses=[];
+    const add=(owner,field,label,owned=false)=>uses.push({selection:owner,field,label,owned});
+    const instance=document.instances.find(x=>x.id===selection);
+    if(instance){
+      for(const item of document.instances){
+        const spec=catalog.find(x=>x.instance.prototype===item.prototype);
+        for(const field of Object.keys(spec?.references || {}))
+          if(item.params[field]===instance.id) add(item.id,field,item.params.name+' · '+field);
+      }
+      for(const kind of ['groups','scenes']) for(const item of document[kind] || [])
+        if(item.participants.includes(instance.id)) add(kind+':'+item.id,'participants',item.name+' · participants');
+      for(const item of document.scene_types || [])
+        if(item.game_master===instance.id) add('scene_types:'+item.id,'game_master',item.name+' · game master');
+      for(const item of document.components || [])
+        if(item.instance===instance.id) add('components:'+item.id,'instance',item.name+' · owned component',true);
+    } else {
+      const found=ProjectSceneOperations.locate(document,selection);
+      if(found?.kind==='groups') for(const item of document.scene_types || [])
+        if(item.group===found.item.id) add('scene_types:'+item.id,'group',item.name+' · participant group');
+      if(found?.kind==='scene_types') for(const item of document.scenes || [])
+        if(item.scene_type===found.item.id) add('scenes:'+item.id,'scene_type',item.name+' · scene type');
+    }
+    return uses;
+  }
+  static candidates(document,catalog,id) {
+    const source=document.instances.find(x=>x.id===id);
+    if(!source || !catalog.some(x=>x.instance.prototype===source.prototype)) return [];
+    const needsScenes=(document.scene_types || []).some(x=>x.game_master===id);
+    return document.instances.filter(x=>x.id!==id && x.role===source.role &&
+      catalog.some(c=>c.instance.prototype===x.prototype && c.instance.role===x.role && (!needsScenes || c.accepts_scenes)));
+  }
+  static replace(document,catalog,id,targetId) {
+    if(!this.candidates(document,catalog,id).some(x=>x.id===targetId))
+      throw Error('Choose an existing compatible reference target. Scene types require a scene-aware game master.');
+    const uses=this.uses(document,catalog,id).filter(x=>!x.owned);
+    if(!uses.length) throw Error('This instance has no replaceable references.');
+    // Plan against a copy so a stale/invalid request never partially edits a draft.
+    const next=structuredClone(document);
+    for(const use of uses){
+      const instance=next.instances.find(x=>x.id===use.selection);
+      const owner=instance?.params || ProjectSceneOperations.locate(next,use.selection)?.item;
+      if(!owner || !Object.hasOwn(owner,use.field)) throw Error('Reference no longer exists.');
+      owner[use.field]=Array.isArray(owner[use.field])
+        ? [...new Set(owner[use.field].map(x=>x===id?targetId:x))] : targetId;
+    }
+    Object.assign(document,next);
+    return id;
+  }
+}
+
 class ProjectComponentOperations {
   static checkId(records,id) {
     if(typeof id!=='string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(id) || records.some(x=>x.id===id))
@@ -591,6 +643,30 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
     };
     label.append(input);container.append(label);
   }
+  function inspectReferences(content,selection){
+    if(runtimeMode || !catalog().length) return;
+    const section=document.createElement('section');section.setAttribute('aria-label','Used by');
+    const heading=document.createElement('h3');heading.textContent='Used by';section.append(heading);
+    const uses=ProjectReferences.uses(draft,catalog(),selection);
+    for(const use of uses){
+      const link=button(use.label,()=>choose(use.selection),section);link.dataset.referenceSource=use.selection;
+    }
+    if(!uses.length){const hint=document.createElement('p');hint.textContent='No incoming authored references.';section.append(hint);}
+    const replaceable=uses.filter(x=>!x.owned);
+    const instance=draft.instances.find(x=>x.id===selection);
+    if(instance && catalog().length && replaceable.length){
+      const choices=ProjectReferences.candidates(draft,catalog(),selection);
+      const hint=document.createElement('p');hint.textContent='Replace '+replaceable.length+' reference(s) in this draft. Owned components stay with this instance. Undo restores all affected references.';section.append(hint);
+      if(choices.length){
+        const label=document.createElement('label');label.className='editor-field';label.textContent='Replacement instance';
+        const picker=document.createElement('select');picker.id='reference-target';picker.dataset.definitionField='true';
+        for(const item of choices){const option=document.createElement('option');option.value=item.id;option.textContent=item.params.name;picker.append(option);}
+        label.append(picker);section.append(label);
+        const replace=button('Replace references',()=>structural(next=>ProjectReferences.replace(next,catalog(),selection,picker.value)),section);replace.dataset.authorAction='true';
+      } else {const hint=document.createElement('p');hint.textContent='Create another compatible instance before replacing references.';section.append(hint);}
+    }
+    content.append(section);
+  }
   function inspectWorld(world){
     const {kind,item}=world, content=$('inspector-content');
     content.replaceChildren();content.style.display='block';$('inspector-empty').style.display='none';
@@ -601,6 +677,8 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       const description=document.createElement('p');description.textContent=spec.description+' Requires: '+(spec.dependencies.length?'the owner’s memory':'no other components')+'. Name is an editor label; context label controls the text supplied to the actor or GM. Save to rebuild the preview. Runtime edits are separate.';content.append(description);
       field(content,'Component name',item.name,v=>ProjectComponentOperations.rename(draft,item.id,v),'world-name');
       for(const [key,value] of Object.entries(item.params))field(content,key,value,v=>ProjectComponentOperations.configure(draft,item.id,key,v),'component-param-'+key,{label:({state:'Context text',pre_act_label:'Context label',history_length:'Recent observations (1–1000)'})[key] || key});
+      const owner=draft.instances.find(x=>x.id===item.instance);
+      button('Owner: '+owner.params.name,()=>choose(owner.id),content);
       controls();return;
     }
     const hint=document.createElement('p');hint.textContent=kind==='groups'?'Reusable possible participants, not a simulated institution.':kind==='scene_types'?'A standard scene type selects its GM and possible participants.':'Ordered scene rounds and participants. Runtime scheduling uses standard SceneTracker.';content.append(hint);
@@ -628,7 +706,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
         },'world-participant-'+actor.id);
       }
     }
-    controls();
+    inspectReferences(content,selectedId);controls();
   }
   function inspect(){
     if(!draft) return;
@@ -661,7 +739,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       const entry=catalog().find(x=>x.instance.prototype===item.prototype);
       const specs=structuredClone(entry?.inspector || draftDefinition.inspector[item.id] || {});
       for(const [field,role] of Object.entries(entry?.references || {})) {
-        specs[field]={...specs[field],choices:draft.instances.filter(x=>x.role===role).map(x=>({value:x.id,label:x.params.name}))};
+        specs[field]={...specs[field],choices:draft.instances.filter(x=>x.role===role).map(x=>({value:x.id,label:x.params.name})),refresh:true};
       }
       for(const [key,value] of Object.entries(item.params)) field(fields,key,value,v=>item.params[key]=v,'editor-'+item.id+'-'+key,specs[key]);
       content.prepend(fields);
@@ -676,6 +754,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
         const addComponent=button('Add component',()=>structural(next=>ProjectComponentOperations.add(next,entries,item.id,picker.value,crypto.randomUUID())),section);addComponent.dataset.authorAction='true';
         content.prepend(section);
       }
+      inspectReferences(content,selectedId);
     } else {
       content.querySelectorAll('.dynamic-input').forEach(input=>{
         const key=envelope.references.run_id+':'+selectedId+':'+input.id;

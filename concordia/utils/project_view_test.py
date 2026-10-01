@@ -17,9 +17,11 @@
 import json
 import shutil
 import subprocess
+from unittest import mock
 
 from concordia.utils import project_test_support
 from concordia.utils import project_view
+from concordia.utils import simulation_server
 import pytest
 
 
@@ -31,6 +33,7 @@ def javascript(source):
       [node, '-e', source], capture_output=True, text=True, check=False
   )
   assert result.returncode == 0, result.stderr
+  return result.stdout
 
 
 def test_history_literal_types_selection_coalescing_and_branch():
@@ -225,5 +228,149 @@ for(const action of [
  ()=>ProjectSceneOperations.duplicate(d,'components:copy','recent'),
  ()=>ProjectSceneOperations.remove(d,'components:missing'),
 ]){assert.throws(action);assert.deepEqual(d,before);}
+"""
+  )
+
+
+def test_reference_replacement_roundtrip_and_atomic_history():
+  registry = project_test_support.scene_registry()
+  initial = registry.default_document('scenes-v1')
+  script = (
+      project_view.DRAFT_HISTORY_SCRIPT
+      + 'const d='
+      + json.dumps(initial)
+      + ';\n'
+      + 'const catalog='
+      + json.dumps(registry.catalog(initial))
+      + ';\n'
+      + 'const components='
+      + json.dumps(registry.component_catalog(initial))
+      + ';\n'
+      + r"""
+const assert=require('node:assert/strict');
+ProjectComponentOperations.add(d,components,'alice','constant','identity');
+d.components[0].params.state='alice'; // Literal text is never a reference.
+const before={document:structuredClone(d),selectedId:'alice'};
+const history=new ProjectDraftHistory();
+history.record(before);
+assert.deepEqual(ProjectReferences.uses(d,catalog,'alice').map(x=>x.selection),
+  ['groups:ensemble','scenes:opening','components:identity']);
+const selection=ProjectReferences.replace(d,catalog,'alice','bob');
+assert.equal(selection,'alice');
+assert.deepEqual(d.groups[0].participants,['bob']);
+assert.deepEqual(d.scenes[0].participants,['bob']);
+assert.deepEqual(d.components,before.document.components);
+const final={document:structuredClone(d),selectedId:selection};
+const previous=history.undo(final);assert.deepEqual(previous,before);
+assert.deepEqual(history.redo(previous),final);
+// Normal removal still owns component deletion; replacement never deletes it.
+const removed=structuredClone(d);ProjectDraftOperations.remove(removed,catalog,'alice');
+assert.equal(removed.components.length,0);
+console.log(JSON.stringify(d));
+"""
+  )
+  document = json.loads(javascript(script))
+  assert registry.loads(registry.dumps(document)) == document
+  config = registry.to_config(document)
+  scenes = config.instances[-1].params['scenes']
+  assert scenes[0].participants == ['Bob']
+  assert scenes[0].scene_type.possible_participants == ['Bob']
+  assert document['components'][0]['instance'] == 'alice'
+  first = simulation_server.SimulationServer(port=0)
+  first.configure_project(
+      registry,
+      initial,
+      mock.Mock(side_effect=AssertionError('no run')),
+      integrated=True,
+  )
+  first.replace_project(registry.dumps(document), 0)
+  reopened = simulation_server.SimulationServer(port=0)
+  reopened.configure_project(
+      registry,
+      registry.loads(registry.dumps(first.get_project()['document'])),
+      mock.Mock(side_effect=AssertionError('no run')),
+      integrated=True,
+  )
+  assert reopened.get_project()['document'] == document
+  saved = first.get_project()
+  with pytest.raises(ValueError, match='another tab'):
+    first.replace_project(registry.dumps(initial), 0)
+  assert first.get_project() == saved
+  assert first.simulation is None
+  assert reopened.simulation is None
+
+
+def test_reference_replacement_v2_registered_fields_only():
+  registry = project_test_support.builder_registry()
+  initial = registry.default_document('builder-v1')
+  document = json.loads(
+      javascript(
+          project_view.DRAFT_HISTORY_SCRIPT
+          + 'const d='
+          + json.dumps(initial)
+          + ';\n'
+          + 'const catalog='
+          + json.dumps(registry.catalog(initial))
+          + ';\n'
+          + r"""
+const assert=require('node:assert/strict');
+ProjectDraftOperations.add(d,catalog,'conversation','other','conversation');
+d.instances[0].params.goal='conversation';
+d.instances.at(-1).params.next_game_master_name='conversation';
+assert.equal(ProjectReferences.uses(d,catalog,'conversation').length,2);
+ProjectReferences.replace(d,catalog,'conversation','other');
+assert.equal(d.instances[0].params.goal,'conversation');
+assert.equal(d.instances[2].params.next_game_master_name,'other');
+assert.equal(d.instances[3].params.next_game_master_name,'other');
+console.log(JSON.stringify(d));
+"""
+      )
+  )
+  assert registry.loads(registry.dumps(document)) == document
+  config = registry.to_config(document)
+  assert config.instances[2].params['next_game_master_name'] == 'Conversation 2'
+
+
+def test_reference_namespaces_and_invalid_requests_are_atomic():
+  registry = project_test_support.scene_registry()
+  initial = registry.default_document('scenes-v1')
+  javascript(
+      project_view.DRAFT_HISTORY_SCRIPT
+      + 'const d='
+      + json.dumps(initial)
+      + ';\n'
+      + 'const catalog='
+      + json.dumps(registry.catalog(initial))
+      + ';\n'
+      + r"""
+const assert=require('node:assert/strict');
+// IDs are unique within a section, not across all sections.
+d.groups[0].id='alice';d.scene_types[0].group='alice';
+d.scene_types[0].id='alice';d.scenes[0].scene_type='alice';
+assert.deepEqual(ProjectReferences.uses(d,catalog,'alice').map(x=>x.selection),
+  ['groups:alice','scenes:opening']);
+assert.deepEqual(ProjectReferences.uses(d,catalog,'groups:alice').map(x=>x.selection),['scene_types:alice']);
+assert.deepEqual(ProjectReferences.uses(d,catalog,'scene_types:alice').map(x=>x.selection),['scenes:opening']);
+assert.deepEqual(ProjectReferences.uses(d,catalog,'groups:missing'),[]);
+ProjectDraftOperations.add(d,catalog,'conversation','other','conversation');
+const legacy=structuredClone(catalog.find(x=>x.instance.prototype==='conversation'));
+legacy.instance.prototype='legacy';legacy.accepts_scenes=false;catalog.push(legacy);
+ProjectDraftOperations.add(d,catalog,'legacy','legacy-gm');
+assert.deepEqual(ProjectReferences.candidates(d,catalog,'conversation').map(x=>x.id),['other']);
+const before=structuredClone(d);
+for(const [source,target] of [
+  ['missing','bob'],['alice','missing'],['alice','alice'],['alice','conversation'],
+  ['conversation','legacy-gm'],['other','conversation'],['groups:alice','bob'],
+]){
+  assert.throws(()=>ProjectReferences.replace(d,catalog,source,target));
+  assert.deepEqual(d,before);
+}
+assert.throws(()=>ProjectReferences.replace(d,[],'alice','bob'));
+assert.deepEqual(d,before);
+ProjectReferences.replace(d,catalog,'conversation','other');
+assert.equal(d.scene_types[0].game_master,'other');
+// An unsaved draft that once referenced Alice must not preserve stale controls.
+ProjectReferences.replace(d,catalog,'alice','bob');
+assert.throws(()=>ProjectReferences.replace(d,catalog,'alice','bob'),/no replaceable/);
 """
   )
