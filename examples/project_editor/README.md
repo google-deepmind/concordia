@@ -197,11 +197,14 @@ Chromium viewport emulation is a separate check, not physical-device evidence.
 
 ## Supported definitions and compatibility
 
-`template.registry()` remains a Python-owned allowlist. JSON cannot import code
-or construct arbitrary Python objects. Schema 1 retains the original fixed
-instances. Opt-in schema 2 adds a trusted prototype key per instance, allows
-stable IDs and authored ordering, and enforces the prototype's exact prefab,
-role and scalar field types. Schema 3 adds registered component records and optional literal scene/group records.
+`template.registry()` is a Python-owned allowlist. JSON cannot import code
+or construct arbitrary Python objects. The saved `schema_version` identifies
+the JSON layout; the `template` key selects the registered cast and editable
+fields. Fixed-template documents (schema 1) expose parameters on a predefined
+cast. Structural documents (schema 2) add trusted prefab prototypes, stable
+instance IDs and authored ordering. Component-and-scene documents (schema 3)
+also contain registered component recipes and optional scene/group records.
+Each format validates the permitted prefab, role and field types.
 All formats preserve literal strings, booleans
 and safe integers; `max_steps` is 1–1000. Unknown fields, versions, templates,
 prototypes, duplicate IDs/names/keys, wrong types, and invalid role references
