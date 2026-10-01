@@ -96,8 +96,9 @@ def make_config() -> prefab_lib.Config:
       params={
           'name': 'Bob',
           'goal': (
-              'As a university roommate, find music that both you and Alice'
-              ' enjoy without assuming either person changes their tastes.'
+              'Bob is a university student who enjoys acoustic folk music.'
+              ' He wants to find music he and Alice can both enjoy without'
+              ' assuming that either roommate changes their tastes.'
           ),
           'randomize_choices': False,  # pyrefly: ignore[bad-assignment]
       },
@@ -105,7 +106,21 @@ def make_config() -> prefab_lib.Config:
   return dataclasses.replace(
       legacy,
       prefabs={**legacy.prefabs, 'basic': basic.Entity()},
-      instances=[legacy.instances[0], bob, legacy.instances[2]],
+      instances=[
+          dataclasses.replace(
+              legacy.instances[0],
+              params={
+                  **legacy.instances[0].params,
+                  'custom_instructions': (
+                      'Alice is a university student who loves dubstep.'
+                      ' She cares little about what others think of her music,'
+                      ' but shares a kitchen with her roommate Bob.'
+                  ),
+              },
+          ),
+          bob,
+          legacy.instances[2],
+      ],
   )
 
 
@@ -133,6 +148,7 @@ def scene_config() -> prefab_lib.Config:
   config = make_config()
   return dataclasses.replace(
       config,
+      default_max_steps=40,
       prefabs={
           **config.prefabs,
           'dramaturgic': dialogic_and_dramaturgic.GameMaster(),
@@ -142,7 +158,11 @@ def scene_config() -> prefab_lib.Config:
           prefab_lib.InstanceConfig(
               prefab='dramaturgic',
               role=prefab_lib.Role.GAME_MASTER,
-              params={'name': 'Conversation', 'allow_llm_fallback': False},
+              params={
+                  'name': 'Conversation',
+                  # The prefab accepts bool; InstanceConfig annotates str.
+                  'allow_llm_fallback': False,  # pyrefly: ignore[bad-assignment]
+              },
           ),
       ],
   )
@@ -170,7 +190,7 @@ def scene_defaults():
           'name': 'Meet in the kitchen',
           'scene_type': 'music-discussion',
           'participants': ['alice', 'bob'],
-          'num_rounds': 2,
+          'num_rounds': 40,
           'premise': None,
       }],
   }

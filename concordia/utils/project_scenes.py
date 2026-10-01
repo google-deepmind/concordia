@@ -12,10 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Literal scene documents projected onto standard Concordia scene specs.
+"""Validate editor scene records and build standard Concordia scene specs.
 
-No reflection, Python imports from data, callables, clocks or action-spec codecs.
-Groups are authoring participant sets, not additional simulation entities.
+A group is a named, reusable set of actor IDs, such as the residents of a house.
+Scene types use a group to define possible participants; each scene selects
+participants from that set. Groups let an author reuse a cast across scenes
+and validate membership in one place. They are authoring records rather than
+actors or simulated institutions.
+
+Registry calls validate before to_scenes resolves IDs to runtime names and
+builds SceneTypeSpec and SceneSpec objects for standard SceneTracker scheduling.
 """
 
 import re

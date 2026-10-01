@@ -96,14 +96,28 @@ def create_editor(
     log = sim.play(step_controller=controller, step_callback=completed_step)
     destination = save_result(registry, saved_definition, log, output)
     print(f'Mock run artifacts: {destination}', flush=True)
-    server.broadcast_completion()
+    steps = server.get_status()['current_step']
+    if controller.should_stop():
+      reason = 'Stop requested through the run controls.'
+    elif steps >= config.default_max_steps:
+      reason = f'Configured step limit reached ({config.default_max_steps}).'
+    else:
+      reason = (
+          'Game master ended the run before the step limit; with the default'
+          ' scene-aware prefab this happens when its scene sequence is'
+          ' exhausted.'
+      )
+    server.broadcast_completion(reason)
 
   server.configure_project(
       registry,
       initial,
       run,
       integrated=True,
-      title=f'Roommate music lab · Free mock · {step_delay:g}s pacing',
+      title=(
+          f'Roommate music lab · Free mock · {step_delay:g}s pacing · '
+          'Name-only actions such as Alice: Alice are development stubs'
+      ),
       preview=lambda config: build(config).make_checkpoint_data(),
   )
   return server

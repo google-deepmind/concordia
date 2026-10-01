@@ -20,6 +20,8 @@ from pathlib import Path
 import sys
 from unittest import mock
 
+from concordia.agents import entity_agent
+from concordia.environment import step_controller
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
 import pytest
@@ -95,6 +97,8 @@ def test_open_builds_preview_without_running():
     assert state['state'] == 'ready'
     fields = state['definition']['inspector']['conversation']
     assert 'allow_llm_fallback' in fields
+    assert state['document']['max_steps'] == 40
+    assert state['document']['scenes'][0]['num_rounds'] == 40
     assert state['document']['schema_version'] == 3
     assert state['document']['scenes'][0]['participants'] == ['alice', 'bob']
     assert (
@@ -214,11 +218,82 @@ def test_catalogue_components_reach_each_example_prefab(owner, kind):
         for x in [*simulation.get_entities(), *simulation.get_game_masters()]
         if x.name == name
     )
+    assert isinstance(entity, entity_agent.EntityAgent)
     component = entity.get_component('authored_example-context')
     assert all(
         component.get_state()[key] == value for key, value in params.items()
     )
-    assert (
-        entity.get_act_component().get_state()['component_order'][-1]
-        == 'authored_example-context'
+    order = entity.get_act_component().get_state()['component_order']
+    assert isinstance(order, list)
+    assert order[-1] == 'authored_example-context'
+
+
+@pytest.mark.parametrize(
+    ('steps', 'stop', 'reason'),
+    [
+        (40, False, 'Configured step limit reached (40).'),
+        (2, False, 'Game master ended the run before the step limit'),
+        (1, True, 'Stop requested through the run controls.'),
+    ],
+)
+def test_runner_completion_reason_with_mocked_simulation(steps, stop, reason):
+  fake = mock.Mock()
+  fake.make_checkpoint_data.return_value = {'entities': {}, 'game_masters': {}}
+  with (
+      mock.patch.object(run, 'build', return_value=fake),
+      mock.patch.object(run, 'save_result', return_value=Path('mock-result')),
+      mock.patch.object(generic.Simulation, 'play', side_effect=AssertionError),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError,
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError,
+      ),
+  ):
+    server = run.create_editor(step_delay=0)
+
+    def mock_play(**kwargs):
+      kwargs['step_callback'](
+          step_controller.StepData(
+              step=steps,
+              acting_entity='Alice',
+              action='Alice: Alice',
+              entity_actions={'Alice': 'Alice: Alice'},
+              entity_logs={},
+          )
+      )
+      if stop:
+        kwargs['step_controller'].stop()
+      return mock.Mock()
+
+    fake.play.side_effect = mock_play
+    server.run_project(0)
+    assert server._project_thread is not None
+    server._project_thread.join(3)
+    assert not server._project_thread.is_alive()
+    assert server.get_project()['run']['message'].startswith(reason)
+    assert server.get_project()['run']['status'] == (
+        'stopped' if stop else 'completed'
     )
+
+
+def test_new_personas_use_third_person_and_old_saved_text_is_preserved():
+  registry = template.registry()
+  document = registry.default_document(template.TEMPLATE_KEY)
+  assert document['instances'][0]['params']['custom_instructions'].startswith(
+      'Alice is'
+  )
+  assert document['instances'][1]['params']['goal'].startswith('Bob is')
+  old = registry.default_document(template.LEGACY_TEMPLATE_KEY)
+  text = old['instances'][0]['params']['custom_instructions']
+  assert text.startswith('You are Alice')
+  assert (
+      registry.loads(registry.dumps(old))['instances'][0]['params'][
+          'custom_instructions'
+      ]
+      == text
+  )

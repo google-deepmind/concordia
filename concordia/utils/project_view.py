@@ -511,7 +511,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
   const heading=document.createElement('strong'); heading.id='editor-heading';
   heading.textContent=document.querySelector('.header h1').textContent; toolbar.append(heading);
   let envelope, draft, draftRevision, draftDefinition, draftBaseDocument, selectedId, connected = false, sending = false;
-  let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0, loggedFailure;
+  let dirty = false, runtimeMode = false, renderedView = '', loggedRun, loggedSteps = 0, loggedFailure, loggedCompletion;
   const runtimeDrafts = new Map();
   const history = new ProjectDraftHistory();
   const draftSnapshot = () => ({document:draft, selectedId});
@@ -584,10 +584,15 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
   const summary=document.createElement('div');summary.id='editor-step-summary';
   document.querySelector('.center-panel').prepend(summary);
   document.querySelector('.console-header').textContent='Simulation log';
+  const logHelp=document.createElement('p');logHelp.id='editor-log-help';
+  logHelp.textContent='Entries show engine-reported actor actions, not dialogue transcripts. Timestamps are browser-local display times, including replay after reconnect; they are not simulation time.';
+  document.querySelector('.console-output').before(logHelp);
+  const limit=document.createElement('p');limit.id='editor-run-limit';
+  summary.before(limit);
   function state(){return envelope?.result;}
   function report(e, operation){
     error.textContent=e.message || String(e);
-    if(operation) logConsole(`${operation} failed: ${error.textContent}`, 'error');
+    logConsole(`${operation ? operation+' failed: ' : ''}${error.textContent}`, 'error');
     if(e.validationTarget){
       const target=e.validationTarget, submitted=JSON.stringify(draft);
       const link=button(target.field?'Show invalid field':'Show invalid item',()=>{
@@ -878,6 +883,9 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       inspect();
     }
     renderSimulationLog(envelope);
+    renderEntityActions(s);
+    limit.textContent=`Saved run limit: ${s.document.max_steps} engine steps. The game master may end earlier.`+
+      (s.document.scenes?.length ? ` Scene sequence: ${s.document.scenes.reduce((total,scene)=>total+scene.num_rounds,0)} rounds. With Sequential and SceneTracker, each resolved actor action advances one round, not a whole cast turn.` : '');
     const latest=s.steps.at(-1);summary.textContent=latest?`Step ${latest.step} · ${latest.acting_entity}\n${latest.action}`:'Edit the initial definition, save, then Run.';
     controls();
   }
@@ -893,15 +901,34 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       runtimeDrafts.delete(key);renderedView='';await refresh();
     }
   };
+  function renderEntityActions(s){
+    const actions=new Map();
+    if(runtimeMode) for(const entry of s.steps) {
+      // StepData.action is the acting entity's action, not the GM resolution.
+      if(entry.acting_entity) actions.set(entry.acting_entity,entry.action);
+    }
+    for(const card of document.querySelectorAll('.entity-card')) {
+      const data=entityData[card.dataset.entityId];
+      const action=card.querySelector('foreignObject div');
+      if(!data || !action) continue;
+      if(!runtimeMode) action.textContent='Initial definition · actions appear in Current runtime.';
+      else if(actions.has(data.name)) action.textContent=actions.get(data.name) || 'Empty action reported.';
+      else action.textContent=s.run.status==='active' ? 'No action recorded yet.' : 'No action recorded in this run.';
+    }
+  }
   function renderSimulationLog(next){
     const s=next.result;
     const runKey=JSON.stringify([next.references.session_id,next.references.run_id]);
     if(loggedRun!==runKey){
-      loggedRun=runKey;loggedSteps=0;loggedFailure=null;
+      loggedRun=runKey;loggedSteps=0;loggedFailure=null;loggedCompletion=null;
       $('console-output').replaceChildren();
     }
-    for(const entry of s.steps.slice(loggedSteps)) logConsole(`Step ${entry.step} · ${entry.acting_entity}\n${entry.action}`,'info');
+    for(const entry of s.steps.slice(loggedSteps)) logConsole(`Step ${entry.step} · Actor action · ${entry.acting_entity || 'No actor'}\n${entry.action || 'Empty action reported.'}`,'info');
     loggedSteps=s.steps.length;
+    if(['completed','stopped'].includes(s.run.status) && loggedCompletion!==s.run.status){
+      logConsole(`${s.run.status==='completed'?'Completed':'Stopped'} at step ${s.current_step}: ${s.run.message || 'Runner returned.'}`,'info');
+      loggedCompletion=s.run.status;
+    }
     const failure=s.run.message || 'Unknown runner error.';
     if(s.run.status==='failed' && loggedFailure!==failure){
       logConsole(`Run failed at step ${s.current_step}: ${failure}`,'error');

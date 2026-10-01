@@ -27,9 +27,20 @@ For direct local access, omit `--public-origin`. If you choose `--port 8081`,
 open `http://127.0.0.1:8081/` instead. `http://localhost:8081/` also works when
 opened directly, but hostname and port must match the browser's request origin.
 
-In coordinated sessions, display the exact shell command and obtain the required
-launch acknowledgement before any actual simulation, including the validation
-command below or pressing Run in a served editor.
+New projects have **40 scene rounds and a 40-step limit**. Standard Sequential
+resolves one actor action per step; SceneTracker advances one round per resolved
+action, not once per full cast turn. At the default pacing this gives roughly
+40 seconds to observe repeated actions and try Pause/Step. Editing either limit
+can shorten the run; the game master can also end it earlier. The saved limit
+and completion reason appear in the editor and completion is retained in the log.
+
+The Simulation log labels engine-reported **actor actions**, not dialogue or GM
+resolution. The mock model returns empty text; standard action formatting can
+produce name-only stubs such as `Alice: Alice` or `Bob: Bob`. These are not a
+conversation. Card actions are restored from the recorded steps in Current
+runtime; Initial definition has an explicit empty state. Log timestamps are the
+browser’s local wall-clock time when an entry is displayed, including replay
+after reconnect. They are not simulated time or stored event timestamps.
 
 ## Build a project without source editing
 
@@ -44,9 +55,9 @@ build; basic actors retain their standard perception/reasoning architecture.
 For a nontrivial project, duplicate Alice, name the new actor Charlie, and give
 Charlie distinct instructions and a goal. Add a second scene-aware GM and select it in a scene type’s **Game master** field.
 Rename the original GM:
-references retain IDs and resolve to its new runtime name when built. **Move
-earlier/later** changes order within the selected role. Order is retained in
-JSON and passed to standard Config; it is not merely visual organization.
+references retain IDs and resolve to its new runtime name when built. Authored
+order is retained in JSON and passed to standard Config. The toolbar has no
+generic reorder controls.
 **Remove** rejects referenced instances and the last actor or GM. Change incoming
 references first. The project supports at most 100 instances.
 
