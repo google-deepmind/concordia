@@ -379,6 +379,36 @@ class ProjectSceneOperations {
   }
 }
 
+class ProjectValidation {
+  static target(document,message) {
+    // Registry paths contain either list positions or stable IDs. Never guess
+    // when a numeric ID could denote a different record at that position.
+    const root=/^\$\.(premise|max_steps): /.exec(message);
+    if(root) return {selection:'simulation',field:root[1]==='premise'?'editor-premise':'editor-max-steps'};
+    const match=/^\$\.(instances|components|groups|scene_types|scenes)\[([A-Za-z0-9_-]{1,128})\](?:\.([A-Za-z0-9_.-]+))?: /.exec(message);
+    if(!match) return null;
+    const [,kind,key,path='']=match, records=document[kind] || [];
+    const candidates=records.filter(x=>x.id===key);
+    const index=/^(0|[1-9][0-9]*)$/.test(key)?Number(key):-1;
+    if(records[index] && !candidates.includes(records[index])) candidates.push(records[index]);
+    if(candidates.length!==1) return null;
+    const item=candidates[0];
+    if(typeof item.id!=='string' || records.filter(x=>x.id===item.id).length!==1) return null;
+    let field=null;
+    if(kind==='instances' && path.startsWith('params.') && item.params && Object.hasOwn(item.params,path.slice(7))) field='editor-'+item.id+'-'+path.slice(7);
+    if(kind==='components' && path.startsWith('params.') && item.params && Object.hasOwn(item.params,path.slice(7))) field='component-param-'+path.slice(7);
+    if(kind!=='instances' && path==='name') field='world-name';
+    const fields=kind==='scene_types'?{game_master:'world-game-master',group:'world-group',premise:'world-premise'}:
+      kind==='scenes'?{scene_type:'world-type',num_rounds:'world-rounds',premise:item.premise===null?'world-inherit':'world-premise'}:{};
+    if(Object.hasOwn(fields,path)) field=fields[path];
+    return {selection:kind==='instances'?item.id:kind+':'+item.id,field};
+  }
+  static forSave(document,operation,args,error) {
+    if(operation!=='project.save' || error?.code!=='invalid_edit' || args.text!==JSON.stringify(document)) return null;
+    return this.target(document,error.message);
+  }
+}
+
 class ProjectReferences {
   static uses(document,catalog,selection) {
     const uses=[];
@@ -546,7 +576,20 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
   document.querySelector('.center-panel').prepend(summary);
   document.querySelector('.console-header').textContent='Simulation log';
   function state(){return envelope?.result;}
-  function report(e){error.textContent=e.message || String(e);}
+  function report(e){
+    error.textContent=e.message || String(e);
+    if(e.validationTarget){
+      const target=e.validationTarget, submitted=JSON.stringify(draft);
+      const link=button(target.field?'Show invalid field':'Show invalid item',()=>{
+        if(runtimeMode) return;
+        if(JSON.stringify(draft)!==submitted){report(Error('Draft changed since validation. Save again to locate the current error.'));return;}
+        search.value='';choose(target.selection);
+        const input=target.field && $(target.field);
+        if(input){input.focus();input.scrollIntoView({block:'center'});}
+      },error);
+      link.dataset.validationAction='true';
+    }
+  }
   function catalog(){return draftDefinition?.catalog || [];}
   function moveSelection(next,offset){
     if(ProjectSceneOperations.locate(next,selectedId)) ProjectSceneOperations.move(next,selectedId,offset);
@@ -609,6 +652,7 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
       }
     }
     document.querySelectorAll('[data-author-action]').forEach(x=>x.disabled=structureDisabled);
+    document.querySelectorAll('[data-validation-action]').forEach(x=>x.disabled=runtimeMode || !draft);
     exportButton.disabled=!s;
     document.querySelectorAll('[data-definition-field]').forEach(x=>x.disabled=unavailable || active || runtimeMode);
     document.querySelectorAll('.dynamic-save-btn').forEach(b=>{
@@ -871,7 +915,12 @@ EDITOR_SCRIPT = '<script>\n' + DRAFT_HISTORY_SCRIPT + r"""
     const from=source || envelope;
     try{
       const response=await fetch('/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation,arguments:args,revision:from.revision,references:from.references,retry_key:crypto.randomUUID()})});
-      const result=await response.json();if(!response.ok)throw Error(result.error.message);
+      const result=await response.json();
+      if(!response.ok){
+        const failure=Error(result.error.message);
+        failure.validationTarget=ProjectValidation.forSave(draft,operation,args,result.error);
+        throw failure;
+      }
       if(operation==='project.run'){runtimeMode=true;mode.value='runtime';tab('simulation');}
       await refresh();return true;
     }catch(e){report(e);await refresh();return false;}

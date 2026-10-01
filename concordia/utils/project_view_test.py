@@ -19,6 +19,7 @@ import shutil
 import subprocess
 from unittest import mock
 
+from concordia.utils import project_config
 from concordia.utils import project_test_support
 from concordia.utils import project_view
 from concordia.utils import simulation_server
@@ -374,3 +375,89 @@ ProjectReferences.replace(d,catalog,'alice','bob');
 assert.throws(()=>ProjectReferences.replace(d,catalog,'alice','bob'),/no replaceable/);
 """
   )
+
+
+@pytest.mark.parametrize(
+    ('path', 'value', 'selection', 'field'),
+    [
+        (('max_steps',), 0, 'simulation', 'editor-max-steps'),
+        (('premise',), None, 'simulation', 'editor-premise'),
+        (('instances', 1, 'params', 'name'), '', 'bob', 'editor-bob-name'),
+        (('components', 0, 'name'), '', 'components:note', 'world-name'),
+        (
+            ('components', 0, 'params', 'state'),
+            7,
+            'components:note',
+            'component-param-state',
+        ),
+        (('scenes', 0, 'num_rounds'), 0, 'scenes:opening', 'world-rounds'),
+        (('scenes', 0, 'participants'), [], 'scenes:opening', None),
+        (('groups', 0, 'participants'), [], 'groups:ensemble', None),
+        (
+            ('scene_types', 0, 'game_master'),
+            'missing',
+            'scene_types:discussion',
+            'world-game-master',
+        ),
+    ],
+)
+def test_save_validation_navigation_uses_actual_registry_errors(
+    path, value, selection, field
+):
+  registry = project_test_support.scene_registry()
+  document = registry.default_document('scenes-v1')
+  document['components'] = [{
+      'id': 'note',
+      'instance': 'alice',
+      'type': 'constant',
+      'name': 'Note',
+      'params': {'state': 'Literal </script> 🎵', 'pre_act_label': 'Context'},
+  }]
+  owner = document
+  for part in path[:-1]:
+    owner = owner[part]
+  owner[path[-1]] = value
+  with pytest.raises(project_config.ValidationError) as caught:
+    registry.normalize(document)
+  result = json.loads(
+      javascript(
+          project_view.DRAFT_HISTORY_SCRIPT
+          + 'const d='
+          + json.dumps(document)
+          + ';\n'
+          + 'const error='
+          + json.dumps({'code': 'invalid_edit', 'message': str(caught.value)})
+          + ';\n'
+          + "console.log(JSON.stringify(ProjectValidation.forSave(d,'project.save',{text:JSON.stringify(d)},error)));"
+      )
+  )
+  assert result == {'selection': selection, 'field': field}
+
+
+def test_validation_navigation_rejects_stale_imports_and_ambiguous_paths():
+  javascript(project_view.DRAFT_HISTORY_SCRIPT + r"""
+const assert=require('node:assert/strict');
+const d={instances:[{id:'alice',params:{name:'A'}},{id:'0',params:{name:'B'}}]};
+const original=structuredClone(d);
+assert.equal(ProjectValidation.target(d,'$.instances[0].params.name: error'),null);
+assert.equal(ProjectValidation.target(d,'$.instances[missing].params.name: error'),null);
+assert.equal(ProjectValidation.target(d,'$.instances[999999].params.name: error'),null);
+assert.equal(ProjectValidation.target(d,'<script>alert(1)</script>: error'),null);
+assert.equal(ProjectValidation.target(d,'$.template: unknown template'),null);
+assert.equal(ProjectValidation.target(d,'Definition changed in another tab.'),null);
+const error={code:'invalid_edit',message:'$.instances[alice].params.name: empty'};
+assert.deepEqual(ProjectValidation.forSave(d,'project.save',{text:JSON.stringify(d)},error),
+  {selection:'alice',field:'editor-alice-name'});
+// An imported file is a different document; never jump into the current draft.
+assert.equal(ProjectValidation.forSave(d,'project.save',{text:'{}'},error),null);
+assert.equal(ProjectValidation.forSave(d,'runtime.edit',{text:JSON.stringify(d)},error),null);
+assert.equal(ProjectValidation.forSave(d,'project.save',{text:JSON.stringify(d)},
+  {...error,code:'stale_revision'}),null);
+assert.deepEqual(ProjectValidation.target({scenes:[{id:'opening'}]},'$.scenes[opening].constructor: error'),
+  {selection:'scenes:opening',field:null});
+const args={text:JSON.stringify(d)};d.instances[0].params.name='changed while saving';
+assert.equal(ProjectValidation.forSave(d,'project.save',args,error),null);
+d.instances[0].params.name='A';assert.deepEqual(d,original);
+d.instances.push(structuredClone(d.instances[0]));
+assert.equal(ProjectValidation.target(d,error.message),null);
+""")

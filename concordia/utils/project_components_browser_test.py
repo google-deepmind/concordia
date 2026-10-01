@@ -21,6 +21,7 @@ from urllib.parse import urlsplit
 
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
+from concordia.utils import operation_service
 from concordia.utils import project_test_support as fixtures
 from concordia.utils import simulation_server
 import pytest
@@ -73,10 +74,17 @@ def test_component_crud_dom(width, tmp_path):
         if path == '/api/state':
           request.fulfill(json=server.operation_service.snapshot('developer'))
         elif path == '/api/dispatch':
-          result = server.operation_service.dispatch(
-              'developer', request.request.post_data_json
-          )
-          request.fulfill(json=result)
+          try:
+            result = server.operation_service.dispatch(
+                'developer', request.request.post_data_json
+            )
+          except operation_service.OperationError as error:
+            request.fulfill(
+                status=409,
+                json={'error': {'code': error.code, 'message': str(error)}},
+            )
+          else:
+            request.fulfill(json=result)
         elif path == '/':
           request.fulfill(content_type='text/html', body=server.html_content)
         else:
@@ -84,6 +92,21 @@ def test_component_crud_dom(width, tmp_path):
 
       page.route('**/*', route)
       page.goto('http://localhost/')
+
+      page.locator('[data-world-id="scenes:opening"]').click()
+      page.locator('#world-rounds').fill('0')
+      page.get_by_role('button', name='Save draft', exact=True).click()
+      browser_api.expect(page.locator('#editor-error')).to_contain_text(
+          'expected integer from 1 to 1000'
+      )
+      page.get_by_role('button', name='Hierarchy', exact=True).click()
+      page.locator('[data-instance-id="bob"]').click()
+      page.get_by_role('button', name='Show invalid field', exact=True).click()
+      browser_api.expect(page.locator('#world-rounds')).to_be_focused()
+      browser_api.expect(page.locator('#world-rounds')).to_have_value('0')
+      assert server.get_project()['document']['scenes'][0]['num_rounds'] == 2
+      page.locator('#world-rounds').fill('2')
+      browser_api.expect(page.locator('#editor-error')).to_be_empty()
 
       def select_owner(owner):
         page.get_by_role('button', name='Hierarchy', exact=True).click()
