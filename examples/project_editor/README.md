@@ -84,7 +84,13 @@ supports `constant`. Select the new component in Hierarchy to edit its display
 name, context label, and literal text or observation count (1–1000). The display
 name is independent of the stable component ID. **Duplicate**, **Move earlier/later**,
 and **Remove** apply to the selected authored component; ordering is within its
-owner. Duplicating an actor copies its authored components with fresh IDs. Save
+owner. **Move component to → Move component** relocates a configured component
+only to a compatible registered actor or GM, keeping its stable ID, display name,
+and settings. It becomes the last authored component of its new owner; **Undo**
+restores the former owner and order, and **Redo** reapplies the move. Save and
+reopen to retain the new ownership. This changes the initial definition, never
+an active runtime entity. Duplicating an actor copies its authored components
+with fresh IDs. Save
 rebuilds the standard components and their acting-context order. Built-in memory,
 perception, and GM control components retain their prefab-defined structure;
 Instructions and optional Goal remain configured through the owner’s fields.

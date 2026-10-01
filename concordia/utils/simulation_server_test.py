@@ -97,7 +97,8 @@ class MergeLifecycleTest(parameterized.TestCase):
         handler = object.__new__(handler_type)
         handler._request_audience = 'developer'
         handler.send_response = mock.Mock()
-        handler.send_header = mock.Mock()
+        handler.request_version = 'HTTP/1.1'
+        # Use real send_header: Connection: keep-alive changes close_connection.
         handler.end_headers = mock.Mock()
         handler.wfile = io.BytesIO()
         if service:

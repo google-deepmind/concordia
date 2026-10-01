@@ -461,3 +461,50 @@ d.instances[0].params.name='A';assert.deepEqual(d,original);
 d.instances.push(structuredClone(d.instances[0]));
 assert.equal(ProjectValidation.target(d,error.message),null);
 """)
+
+
+def test_component_move_owner_preserves_configuration_history_and_reopen():
+  registry = project_test_support.scene_registry()
+  document = registry.default_document('scenes-v1')
+  result = javascript(
+      project_view.DRAFT_HISTORY_SCRIPT
+      + 'let d='
+      + json.dumps(document)
+      + ';const catalog='
+      + json.dumps(registry.component_catalog(document))
+      + r""";
+const assert=require('node:assert/strict');
+ProjectComponentOperations.add(d,catalog,'bob','recent-observations','recent');
+ProjectComponentOperations.configure(d,'recent','history_length',7);
+ProjectComponentOperations.rename(d,'recent','My observations');
+ProjectComponentOperations.add(d,catalog,'alice','constant','existing');
+const before={document:structuredClone(d),selectedId:'components:recent'};
+const history=new ProjectDraftHistory();history.record(before);
+const selectedId=ProjectComponentOperations.moveOwner(d,catalog,'recent','alice');
+assert.equal(selectedId,'components:recent');
+assert.deepEqual(d.components.map(x=>x.id),['existing','recent']);
+assert.deepEqual(d.components[1],{...before.document.components[0],instance:'alice'});
+const after={document:structuredClone(d),selectedId};
+assert.deepEqual(history.undo(after),before);
+assert.deepEqual(history.redo(before),after);
+for(const [id,target] of [['missing','bob'],['recent','missing'],['recent','conversation']]){
+  assert.throws(()=>ProjectComponentOperations.moveOwner(d,catalog,id,target));
+  assert.deepEqual(d,after.document);
+}
+ProjectComponentOperations.moveOwner(d,catalog,'recent','alice');
+assert.deepEqual(d,after.document);
+assert.throws(()=>ProjectComponentOperations.moveOwner(d,[],'recent','bob'));
+assert.deepEqual(d,after.document);
+console.log(JSON.stringify(d));
+"""
+  )
+  moved = registry.loads(result)
+  assert registry.loads(registry.dumps(moved)) == moved
+  built = project_test_support.build(registry.to_config(moved))
+  actors = {actor.name: actor for actor in built.get_entities()}
+  assert 'authored_recent' not in actors['Bob'].get_all_context_components()
+  recent = actors['Alice'].get_component('authored_recent')
+  assert recent.get_state()['history_length'] == 7
+  assert actors['Alice'].get_act_component().get_state()['component_order'][
+      -2:
+  ] == ['authored_existing', 'authored_recent']

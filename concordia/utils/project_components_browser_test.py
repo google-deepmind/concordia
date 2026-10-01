@@ -153,6 +153,33 @@ def test_component_crud_dom(width, tmp_path):
       browser_api.expect(page.locator('#component-param-state')).to_have_value(
           literal
       )
+      page.locator('#component-owner').select_option('alice')
+      page.get_by_role('button', name='Move component', exact=True).click()
+      browser_api.expect(
+          page.get_by_role('button', name='Owner: Alice', exact=True)
+      ).to_be_visible()
+      page.get_by_role('button', name='Undo', exact=True).click()
+      browser_api.expect(
+          page.get_by_role('button', name='Owner: Bob', exact=True)
+      ).to_be_visible()
+      page.get_by_role('button', name='Redo', exact=True).click()
+      save()
+      moved = next(
+          x
+          for x in server.get_project()['document']['components']
+          if x['id'] == first_id
+      )
+      assert moved['instance'] == 'alice'
+      assert moved['params']['state'] == literal
+      page.reload()
+      page.get_by_role('button', name='Hierarchy', exact=True).click()
+      page.locator('[data-component-id="' + first_id + '"]').click()
+      browser_api.expect(
+          page.get_by_role('button', name='Owner: Alice', exact=True)
+      ).to_be_visible()
+      page.locator('#component-owner').select_option('bob')
+      page.get_by_role('button', name='Move component', exact=True).click()
+      save()
       page.get_by_role('button', name='Owner: Bob', exact=True).click()
       browser_api.expect(page.locator('#inspector-title')).to_have_text('Bob')
       select_owner('alice')
