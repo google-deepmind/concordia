@@ -241,6 +241,8 @@ def friendly(args):
         past=[],
         future=[],
         session_id=envelope['references']['session_id'],
+        selectedId=state['document']['instances'][0]['id'],
+        view='definition',
     )
     result = {
         'message': 'Reloaded saved definition; local draft/history discarded.'

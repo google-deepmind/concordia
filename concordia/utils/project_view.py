@@ -560,7 +560,7 @@ class ProjectDraftCommands {
     }
     const item=id==='simulation'?document:ProjectSceneOperations.locate(document,id)?.item || document.instances.find(x=>x.id===id);
     if(!item)throw Error('Unknown selection.');
-    if(id==='simulation' || !document.instances.includes(item))return item;
+    if(id==='simulation' || !document.instances.includes(item)){if(args[1])throw Error('Component inspection requires an instance ID.');return item;}
     const index=(base?.instances || document.instances).findIndex(x=>x.id===id);
     if(view==='runtime' && !runtime)throw Error('No current runtime to inspect.');
     const entity=(view==='runtime'?runtime:metadata)?.entities?.['entity_'+index];
