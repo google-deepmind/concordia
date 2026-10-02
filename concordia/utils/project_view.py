@@ -724,6 +724,7 @@ EDITOR_SCRIPT = (
     connectionKnown=true;connected=value;
   }
   function state(){return envelope?.result;}
+  function inspectionDocument(){return runtimeMode?(state().runtime?.document || state().document):draftBaseDocument;}
   function report(e, operation){
     const message=`${operation ? operation+' failed: ' : ''}${e.message || String(e)}`;
     const key=operation?undefined:'error:'+message+':'+JSON.stringify(e.validationTarget?draft:null);
@@ -929,7 +930,7 @@ EDITOR_SCRIPT = (
       field(content,'Simulation maximum steps (1–1000)',draft.max_steps,v=>draft.max_steps=v,'editor-max-steps');
       controls();return;
     }
-    const previewIndex=(runtimeMode?state().document:draftBaseDocument).instances.findIndex(x=>x.id===selectedId);
+    const previewIndex=inspectionDocument().instances.findIndex(x=>x.id===selectedId);
     const sameEntity=selectedEntity==='entity_'+previewIndex;
     const expanded=sameEntity ? [...content.querySelectorAll('.component-state.expanded')].map(x=>x.id) : [];
     const focused=sameEntity && content.contains(document.activeElement) ? document.activeElement : null;
@@ -997,7 +998,7 @@ EDITOR_SCRIPT = (
     for(const role of ['entity','game_master','initializer']){
       const rows=[];
       for(const item of draft.instances.filter(x=>x.role===role)) {
-        const idx=(runtimeMode?state().document:draftBaseDocument).instances.findIndex(x=>x.id===item.id);
+        const idx=inspectionDocument().instances.findIndex(x=>x.id===item.id);
         const components=Object.keys(entityData['entity_'+idx]?.component_info?.context_components || {});
         if(!ProjectDraftCommands.matches(item,query,components,(draft.components || []).filter(c=>c.instance===item.id)))continue;
         rows.push({item,components});
@@ -1052,7 +1053,7 @@ EDITOR_SCRIPT = (
   document.addEventListener('click',event=>{
     const card=event.target.closest('.entity-card');if(!card || !draft)return;
     event.stopImmediatePropagation();const index=Number(card.dataset.entityId.split('_')[1]);
-    const id=(runtimeMode?state().document:draftBaseDocument).instances[index]?.id;
+    const id=inspectionDocument().instances[index]?.id;
     if(draft.instances.some(x=>x.id===id))choose(id);
   },true);
   saveComponentState=async (_entity,component,_key,inputId)=>{
@@ -1154,7 +1155,7 @@ EDITOR_SCRIPT = (
       return;
     }
     const action=plan.action,args=plan.args.map(x=>x==='.'?selectedId:x);
-    if(['catalog','list','locate'].includes(action)){const result=ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,action,args);if(action==='locate'){runtimeMode=false;mode.value='definition';choose(result.selection);if(result.field)$(result.field)?.focus();}notice(JSON.stringify(result,null,2));return;}
+    if(['catalog','list','locate'].includes(action)){const result=ProjectDraftCommands.read(draft,draftDefinition,inspectionDocument(),state().runtime,mode.value,selectedId,action,args);if(action==='locate'){runtimeMode=false;mode.value='definition';choose(result.selection);if(result.field)$(result.field)?.focus();}notice(JSON.stringify(result,null,2));return;}
     if(action==='layout'){notice(JSON.stringify(editorLayout(args),null,2));return;}
     if(plan.operation){
       if(action==='edit' && runtimeDrafts.size)throw Error('Save pending runtime fields before a typed edit. No runtime draft was discarded.');
@@ -1173,10 +1174,10 @@ EDITOR_SCRIPT = (
       const id=args[0] || selectedId;
       if(id!=='simulation' && !draft.instances.some(x=>x.id===id) && !ProjectSceneOperations.locate(draft,id))throw Error('Unknown selection.');
       if(id==='simulation'){runtimeMode=false;mode.value='definition';}
-      if(args[1])ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,'inspect',args);
+      if(args[1])ProjectDraftCommands.read(draft,draftDefinition,inspectionDocument(),state().runtime,mode.value,selectedId,'inspect',args);
       choose(id,args[1]);if(action==='select')notice('Selected '+id+(args[1]?' · '+args[1]:''));
       if(action==='inspect' && runtimeMode && !state().runtime)throw Error('No current runtime to inspect.');
-      if(action==='inspect')notice(JSON.stringify(ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,action,args),null,2));
+      if(action==='inspect')notice(JSON.stringify(ProjectDraftCommands.read(draft,draftDefinition,inspectionDocument(),state().runtime,mode.value,selectedId,action,args),null,2));
       return;
     }
     if(action==='references'){notice(JSON.stringify(ProjectReferences.uses(draft,catalog(),args[0]),null,2));return;}

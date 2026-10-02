@@ -63,9 +63,12 @@ def editor_browser():
     else:
       route.fulfill(status=404, body='No external network')
 
-  with mock.patch.object(
-      server, 'start', side_effect=AssertionError('No listener')
-  ), browser_api.sync_playwright() as playwright:
+  with (
+      mock.patch.object(
+          server, 'start', side_effect=AssertionError('No listener')
+      ),
+      browser_api.sync_playwright() as playwright,
+  ):
     browser = playwright.chromium.launch()
 
     def open_page(**kwargs):
@@ -319,3 +322,155 @@ def test_shared_catalog_inspection_creation_and_layout_commands(editor_browser):
   send("locate '$.instances[charlie].params.name: name needed'")
   expect(page.locator('#editor-charlie-name')).to_be_focused()
   context.close()
+
+
+def test_loaded_reordered_draft_keeps_runtime_actor_identity(tmp_path):
+  """Typed inspection follows snapshot identity before and after draft Save."""
+  import json
+
+  from concordia.command_line_interface import concordia_session
+  from concordia.utils import session_commands_test
+
+  browser_api = pytest.importorskip('playwright.sync_api')
+  registry = project_test_support.scene_registry()
+  original = registry.default_document('scenes-v1')
+  checkpoint = {
+      'entities': {
+          name: {
+              'component_info': {
+                  'context_components': {
+                      name
+                      + 'Only': {
+                          'class_name': 'FixtureComponent',
+                          'state': {'text': name + ' retained runtime'},
+                      }
+                  }
+              }
+          }
+          for name in ('Alice', 'Bob')
+      }
+  }
+  server = simulation_server.SimulationServer(port=0)
+  server.configure_project(
+      registry,
+      original,
+      integrated=True,
+      run=mock.Mock(side_effect=AssertionError('No simulation')),
+      preview=lambda _: checkpoint,
+  )
+  adapter = server._project_editor
+  assert adapter is not None
+  # Populate the real snapshot pipeline directly; never start a runner/engine.
+  adapter.begin(registry.to_config(original))
+  adapter.receive_checkpoint(checkpoint)
+  service = server.operation_service
+  assert service is not None
+  reordered = json.loads(json.dumps(original))
+  reordered['instances'][:2] = list(reversed(reordered['instances'][:2]))
+  source = tmp_path / 'reordered.json'
+  source.write_text(json.dumps(reordered))
+
+  def intercept(route):
+    path = urlsplit(route.request.url).path
+    if path == '/':
+      route.fulfill(content_type='text/html', body=server.html_content)
+    elif path == '/api/state':
+      route.fulfill(json=service.snapshot('developer'))
+    elif path == '/api/dispatch':
+      route.fulfill(
+          json=service.dispatch('developer', route.request.post_data_json)
+      )
+    else:
+      route.fulfill(status=404, body='No external network')
+
+  with (
+      mock.patch.object(
+          server, 'start', side_effect=AssertionError('No listener')
+      ),
+      browser_api.sync_playwright() as playwright,
+  ):
+    browser = playwright.chromium.launch()
+    with browser.new_context(
+        viewport={'width': 1400, 'height': 950}
+    ) as context:
+      context.route('**/*', intercept)
+      context.add_init_script('window.EventSource=class {close(){}};')
+      page = context.new_page()
+      errors = []
+      page.on('pageerror', lambda error: errors.append(str(error)))
+      page.goto('http://localhost/')
+      expect = browser_api.expect
+      expect(page.locator('#editor-status')).to_contain_text('saved definition')
+      command = page.get_by_role('textbox', name='Simulation log command')
+      output = page.get_by_role('log', name='Simulation log')
+
+      def send(line):
+        command.fill(line)
+        command.press('Enter')
+        expect(
+            page.get_by_role('button', name='Send', exact=True)
+        ).to_be_enabled()
+
+      with page.expect_file_chooser() as chooser:
+        send('load')
+      chooser.value.set_files(source)
+      expect(output).to_contain_text('Loaded local draft')
+      assert server.get_project()['document'] == original
+      send('inspect bob BobOnly')
+      expect(output.locator('.console-line').last).to_contain_text(
+          'Bob retained runtime'
+      )
+      send('view runtime')
+      send('select bob BobOnly')
+      expect(output).to_contain_text('Selected bob · BobOnly')
+      send('inspect bob BobOnly')
+      expect(output.locator('.console-line').last).to_contain_text(
+          'Bob retained runtime'
+      )
+      send('inspect alice AliceOnly')
+      expect(output.locator('.console-line').last).to_contain_text(
+          'Alice retained runtime'
+      )
+      send('view definition')
+      send('save')
+      expect(page.locator('#editor-status')).to_contain_text('saved definition')
+      assert server.get_project()['document']['instances'][0]['id'] == 'bob'
+      assert adapter.runtime_view is not None
+      assert adapter.runtime_view['document']['instances'][0]['id'] == 'alice'
+      send('view runtime')
+      send('inspect bob BobOnly')
+      expect(output.locator('.console-line').last).to_contain_text(
+          'Bob retained runtime'
+      )
+      assert not errors
+    browser.close()
+
+  # External CLI consumes the same retained mapping after the saved order changes.
+  with mock.patch.object(
+      concordia_session.urllib.request,
+      'urlopen',
+      side_effect=session_commands_test.fake_http(server),
+  ):
+    import argparse
+
+    args = argparse.Namespace(
+        url='http://fixture',
+        timeout=1,
+        line='view runtime',
+        draft=tmp_path / 'journal.json',
+        file=None,
+        output=None,
+    )
+    concordia_session.friendly(args)
+    args.line = 'inspect bob BobOnly'
+    assert (
+        concordia_session.friendly(args)['state']['text']
+        == 'Bob retained runtime'
+    )
+
+  adapter.begin(registry.to_config(reordered))
+  assert adapter.runtime_view is None
+  adapter.receive_checkpoint(checkpoint)
+  assert adapter.runtime_view is not None
+  assert adapter.runtime_view['document']['instances'][0]['id'] == 'bob'
+  assert adapter.runtime_view['entities']['entity_0']['name'] == 'Bob'

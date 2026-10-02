@@ -282,7 +282,10 @@ def friendly(args):
     ):
       raise ValueError('Authoring unavailable while a run is active.')
     applied = session_draft.apply(
-        journal, plan, state.get('runtime'), state['document']
+        journal,
+        plan,
+        state.get('runtime'),
+        (state.get('runtime') or {}).get('document', state['document']),
     )
     journal, result = applied['journal'], applied['result']
   # Replace the complete journal atomically: a failed write must not truncate

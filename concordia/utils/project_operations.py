@@ -60,6 +60,7 @@ class ProjectEditor:
     self.definition_view: dict[str, Any] | None = None
     self.runtime_view: dict[str, Any] | None = None
     self.runtime_config: prefab_lib.Config | None = None
+    self.runtime_document: dict[str, Any] | None = None
     self.steps: list[dict[str, Any]] = []
     self.reset_requested = False
     self.stepping = False
@@ -246,6 +247,7 @@ class ProjectEditor:
     # Called under the same lock as dispatch, before the run thread starts.
     self.service.references['run_id'] = str(uuid.uuid4())
     self.runtime_config = config
+    self.runtime_document = self.server.get_project()['document']
     self.structured_log = None
     self.runtime_view = None
     self.steps = []
@@ -284,7 +286,11 @@ class ProjectEditor:
         svg, entities = visual_interface.visualize_config(
             self.runtime_config, checkpoint
         )
-        self.runtime_view = {'svg': svg, 'entities': entities}
+        self.runtime_view = {
+            'svg': svg,
+            'entities': entities,
+            'document': self.runtime_document,
+        }
         self.service.publish({'kind': 'runtime.snapshot'})
 
   def record_step(self, step: dict[str, Any]) -> None:
