@@ -57,9 +57,12 @@ const document={getElementById:id=>{assert.equal(id,'console-output');return out
   createElement:()=>new Element(),createTextNode:text=>({textContent:text})};
 const $=id=>document.getElementById(id);
 const messages=()=>output.children.map(line=>line.children.at(-1).textContent);
+const selectedTabs=[];const tab=name=>selectedTabs.push(name);
 let loggedRun,loggedSteps=0,loggedFailure,loggedCompletion;
 """
       + sink
+      + 'const notices=new Set();\n'
+      + function(project_view.EDITOR_SCRIPT, 'notice(', '  let connectionKnown')
       + function(
           project_view.EDITOR_SCRIPT,
           'renderSimulationLog(',
@@ -112,17 +115,18 @@ renderSimulationLog(snapshot);
 const first=messages();
 assert.match(first.at(-1),/^Run failed at step [01]: Repair scene <script>/);
 assert.equal(output.children.at(-1).className,'console-line error');
+assert.deepEqual(selectedTabs,['log']);
 assert.equal(first.length,snapshot.result.steps.length+1);
 renderSimulationLog(snapshot);renderSimulationLog(snapshot);
 assert.deepEqual(messages(),first); // Polling/SSE do not duplicate errors.
 // A reconnect/new page can replay the retained failure.
 loggedRun=undefined;renderSimulationLog(snapshot);assert.deepEqual(messages(),first);
-// A new Run clears previous output, and the same error can be reported again.
+// A new Run retains previous output, and a new run error can be reported.
 snapshot.references.run_id='next-run';snapshot.result.steps=[];
 snapshot.result.run={status:'active'};renderSimulationLog(snapshot);
-assert.deepEqual(messages(),[]);
+assert.deepEqual(messages(),[...first,'New run attached.']);
 snapshot.result.run={status:'failed',message:'Again'};renderSimulationLog(snapshot);
-assert.deepEqual(messages(),[`Run failed at step ${snapshot.result.current_step}: Again`]);
+assert.deepEqual(messages(),[...first,'New run attached.',`Run failed at step ${snapshot.result.current_step}: Again`]);
 """
   )
 
@@ -173,7 +177,8 @@ const fetch=async()=>{
   assert.equal(await dispatch(operation),false);
   assert.equal(sending,false);
   assert.equal(messages().length,1);
-  assert.equal(messages()[0],operation+' failed: '+error.textContent);
+  assert.equal(error.textContent,''); // No duplicate toolbar destination.
+  assert.ok(messages()[0].startsWith(operation+' failed: '));
   assert.match(messages()[0],network?/Network unavailable/:/Same-origin requests only/);
   assert.equal(output.children[0].className,'console-line error');
 })().catch(e=>{console.error(e);process.exitCode=1;});
@@ -193,7 +198,7 @@ renderSimulationLog(snapshot);assert.equal(messages().length,2);
 loggedRun=undefined;renderSimulationLog(snapshot);assert.equal(messages().length,2);
 snapshot.references.run_id='two';snapshot.result.steps=[];
 snapshot.result.run={status:'active'};renderSimulationLog(snapshot);
-assert.equal(messages().length,0);
+assert.equal(messages().length,3);assert.equal(messages().at(-1),'New run attached.');
 """)
 
 

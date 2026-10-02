@@ -28,3 +28,10 @@ HTML.
 
 To browse a log without creating a new file, open `log_viewer.html` and select
 the structured JSON file using the file picker.
+
+## Editor session commands
+
+The integrated editor and `concordia-session command --line` share a safe command
+language, operation validation and registered authoring actions. See
+[Editor and session commands](../docs/editor-commands.md) for commands, local
+draft/history semantics, structured-log analysis and client-side exports.

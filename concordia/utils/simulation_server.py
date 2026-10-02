@@ -119,6 +119,9 @@ class SimulationServer:
     self._project_revision = 0
     self._project_run: dict[str, Any] = {'status': 'not_started'}
     self._project_runner: Callable[[prefab_lib.Config], None] | None = None
+    self._project_runner_with_steps: (
+        Callable[[prefab_lib.Config, int], None] | None
+    ) = None
     self._project_thread: threading.Thread | None = None
     self._runtime_html = ''
     self._project_title = 'Initial project'
@@ -380,19 +383,31 @@ class SimulationServer:
         client.put_nowait(f'data: {json.dumps(event)}\n\n')
     return client
 
+  def set_project_log(self, log) -> None:
+    """Retain the runner's standard SimulationLog for session log analysis."""
+    with self._project_lock:
+      if self._project_editor is not None:
+        self._project_editor.structured_log = log
+
   def configure_project(
       self,
       registry: project_config.Registry,
       document: dict[str, Any],
-      run: Callable[[prefab_lib.Config], None],
+      run: Callable[[prefab_lib.Config], None] | None = None,
       *,
       integrated: bool = False,
+      run_with_steps: Callable[[prefab_lib.Config, int], None] | None = None,
       title: str = 'Initial project',
       preview: Callable[[prefab_lib.Config], dict[str, Any]] | None = None,
   ) -> None:
     """Enable initial-project authoring with a trusted, caller-owned runner.
 
-    The runner receives a fresh Config and is invoked only by explicit Run.
+    Supply exactly one runner. The legacy run callback receives a fresh Config.
+    run_with_steps receives that unchanged Config and a requested step count,
+    validated against Config.default_max_steps. Pass the count to the standard
+    Simulation.play(max_steps=...) method. This enables the editor's per-run
+    length control, initially min(10, Config.default_max_steps).
+    Both callbacks are invoked only by explicit Run.
     It should bind the new standard Simulation to this server, provide its
     runtime visualization, and call Simulation.play with the existing controller
     and broadcast callbacks. Saving a draft never changes the bound simulation.
@@ -400,6 +415,8 @@ class SimulationServer:
     optional trusted build-only callback returning make_checkpoint_data(), with
     no model calls or simulation execution. Configure before starting the server.
     """
+    if (run is None) == (run_with_steps is None):
+      raise ValueError('Supply exactly one of run or run_with_steps.')
     if integrated and (self.is_serving or self._operation_service is not None):
       raise ValueError(
           'Configure the integrated editor before starting a fresh listener.'
@@ -415,6 +432,7 @@ class SimulationServer:
       self._project_registry = registry
       self._project_document = normalized
       self._project_runner = run
+      self._project_runner_with_steps = run_with_steps
       self._project_title = title
       if integrated:
         editor = project_operations.ProjectEditor(self, registry, preview)
@@ -440,6 +458,16 @@ class SimulationServer:
           'document': self._project_document,
           'revision': self._project_revision,
           'run': self._project_run,
+          'run_limits': (
+              {
+                  'maximum_steps': self._project_document['max_steps'],
+                  'default_requested_steps': min(
+                      10, self._project_document['max_steps']
+                  ),
+              }
+              if self._project_runner_with_steps is not None
+              else None
+          ),
       })
 
   def replace_project(self, text: str, revision: int) -> dict[str, Any]:
@@ -485,14 +513,38 @@ class SimulationServer:
           ' saving.'
       )
 
-  def run_project(self, revision: int) -> dict[str, Any]:
+  def run_project(
+      self, revision: int, requested_steps: int | None = None
+  ) -> dict[str, Any]:
     """Start the saved revision, rejecting concurrent runs."""
     with self._project_lock:
-      if self._project_registry is None or self._project_runner is None:
+      if self._project_registry is None or (
+          self._project_runner is None
+          and self._project_runner_with_steps is None
+      ):
         raise ValueError('Initial-project authoring is not configured.')
       self._check_project_revision(revision)
       config = self._project_registry.to_config(self._project_document)
+      if self._project_runner_with_steps is not None:
+        if requested_steps is None:
+          requested_steps = min(10, config.default_max_steps)
+        if (
+            not isinstance(requested_steps, int)
+            or isinstance(requested_steps, bool)
+            or not 1 <= requested_steps <= config.default_max_steps
+        ):
+          raise ValueError(
+              'Requested steps must be an integer from 1 to'
+              f' {config.default_max_steps}.'
+          )
+      elif requested_steps is not None:
+        raise ValueError('This runner does not support requested steps.')
       self._project_run = {'status': 'active', 'revision': revision}
+      if requested_steps is not None:
+        self._project_run.update(
+            requested_steps=requested_steps,
+            maximum_steps=config.default_max_steps,
+        )
       with self._server_sent_events_lock:
         # The saved draft starts a new run, not a continuation of the old one.
         # Do not expose its terminal flag, retained state or controls while the
@@ -511,16 +563,22 @@ class SimulationServer:
       if self._project_editor:
         self._project_editor.begin(config)
       self._project_thread = threading.Thread(
-          target=self._run_project, args=(config,), daemon=True
+          target=self._run_project, args=(config, requested_steps), daemon=True
       )
       self._project_thread.start()
       return self.get_project()
 
-  def _run_project(self, config: prefab_lib.Config) -> None:
+  def _run_project(
+      self, config: prefab_lib.Config, requested_steps: int | None = None
+  ) -> None:
     outcome = {'status': 'completed'}
     try:
-      assert self._project_runner is not None
-      self._project_runner(config)
+      if self._project_runner_with_steps is not None:
+        assert requested_steps is not None
+        self._project_runner_with_steps(config, requested_steps)
+      else:
+        assert self._project_runner is not None
+        self._project_runner(config)
     except Exception as error:  # pylint: disable=broad-exception-caught
       # Retain a failed draft for correction/export, not a lost thread.
       outcome = {'status': 'failed', 'message': str(error)}
@@ -831,7 +889,9 @@ class SimulationServer:
             )
           request = json.loads(self.rfile.read(length).decode('utf-8'))
           if self.path == '/project/run':
-            result = server.run_project(request['revision'])
+            result = server.run_project(
+                request['revision'], request.get('requested_steps')
+            )
           else:
             result = server.replace_project(
                 request['text'], request['revision']

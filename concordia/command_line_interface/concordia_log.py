@@ -31,6 +31,7 @@ Add --json for structured JSON output.
 """
 
 import argparse
+import contextvars
 import json
 import pathlib
 import re
@@ -38,6 +39,18 @@ import sys
 
 from concordia.utils import log_viewer
 from concordia.utils import structured_logging
+
+_OUTPUT: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    'log_output', default=None
+)
+
+
+def _emit(*values, sep=' ', end='\n', file=None):
+  output = _OUTPUT.get()
+  if output is None:
+    print(*values, sep=sep, end=end, file=file)
+  else:
+    output.append(sep.join(str(value) for value in values) + end)
 
 
 _IMAGE_MARKDOWN_PATTERN = re.compile(r'!\[([^\]]*)\]\(data:image/[^)]+\)')
@@ -60,14 +73,16 @@ def _format_text(text: str, include_images: bool = False) -> str:
 
 
 def _load_log(
-    path: str,
+    path: str | structured_logging.SimulationLog,
 ) -> structured_logging.SimulationLog:
+  if isinstance(path, structured_logging.SimulationLog):
+    return path
   with open(path) as f:
     return structured_logging.SimulationLog.from_json(f.read())
 
 
 def _load_interface(
-    path: str,
+    path: str | structured_logging.SimulationLog,
 ) -> tuple[
     structured_logging.AIAgentLogInterface,
     structured_logging.SimulationLog,
@@ -83,7 +98,7 @@ def _print_json(data, include_images: bool = False):
   text = json.dumps(data, indent=2, default=_default, ensure_ascii=False)
   if not include_images:
     text = _strip_images(text)
-  print(text)
+  _emit(text)
 
 
 def cmd_overview(args):
@@ -93,16 +108,16 @@ def cmd_overview(args):
   if args.json:
     _print_json(overview)
   else:
-    print(f"Steps: {overview.get('total_steps', 0)}")
-    print(f"Entries: {overview.get('total_entries', 0)}")
+    _emit(f"Steps: {overview.get('total_steps', 0)}")
+    _emit(f"Entries: {overview.get('total_entries', 0)}")
     entities = overview.get('entities', [])
-    print(f"Entities ({len(entities)}): {', '.join(entities)}")
+    _emit(f"Entities ({len(entities)}): {', '.join(entities)}")
     components = overview.get('components', [])
     if components:
-      print(f"Log sources: {', '.join(components)}")
+      _emit(f"Log sources: {', '.join(components)}")
     entry_types = overview.get('entry_types', [])
     if entry_types:
-      print(f"Entry types: {', '.join(entry_types)}")
+      _emit(f"Entry types: {', '.join(entry_types)}")
 
 
 def cmd_entities(args):
@@ -114,7 +129,7 @@ def cmd_entities(args):
     _print_json(entities)
   else:
     for name in entities:
-      print(name)
+      _emit(name)
 
 
 def cmd_actions(args):
@@ -125,14 +140,14 @@ def cmd_actions(args):
     _print_json(actions, include_images=args.include_images)
   else:
     if not actions:
-      print(f"No actions found for entity '{args.entity}'.", file=sys.stderr)
+      _emit(f"No actions found for entity '{args.entity}'.", file=sys.stderr)
       return
     for a in actions:
       action_text = _format_text(
           a.get('action', ''), include_images=args.include_images
       )
       action_text = action_text.replace('\n', ' ').strip()
-      print(f"Step {a.get('step', '?')}: {action_text}")
+      _emit(f"Step {a.get('step', '?')}: {action_text}")
 
 
 def cmd_context(args):
@@ -143,7 +158,7 @@ def cmd_context(args):
     _print_json(ctx, include_images=args.include_images)
   else:
     if not ctx:
-      print(
+      _emit(
           f"No context found for '{args.entity}' at step {args.step}.",
           file=sys.stderr,
       )
@@ -151,27 +166,27 @@ def cmd_context(args):
     action = _format_text(
         ctx.get('action', ''), include_images=args.include_images
     )
-    print(f'Action: {action}')
+    _emit(f'Action: {action}')
     observations = ctx.get('observations', '')
     if observations:
-      print(
+      _emit(
           f'\nObservations:\n{_format_text(observations, include_images=args.include_images)}'
       )
     prompt = ctx.get('action_prompt', '')
     if prompt:
-      print(
+      _emit(
           f'\nPrompt:\n{_format_text(prompt, include_images=args.include_images)}'
       )
     all_components = ctx.get('all_components', {})
     if all_components:
-      print('\nComponents:')
+      _emit('\nComponents:')
       for key, val in all_components.items():
         if key in ('__act__', '__observation__'):
           continue
         val_str = _format_text(str(val), include_images=args.include_images)
         if len(val_str) > 200:
           val_str = val_str[:200] + '...'
-        print(f'  {key}: {val_str}')
+        _emit(f'  {key}: {val_str}')
 
 
 def cmd_step(args):
@@ -182,7 +197,7 @@ def cmd_step(args):
     _print_json(entries, include_images=args.include_images)
   else:
     if not entries:
-      print(f'No entries for step {args.step_num}.', file=sys.stderr)
+      _emit(f'No entries for step {args.step_num}.', file=sys.stderr)
       return
     for e in entries:
       entity = e.get('entity_name', '?')
@@ -190,7 +205,7 @@ def cmd_step(args):
       summary = _format_text(
           e.get('summary', ''), include_images=args.include_images
       )
-      print(f'[{entity}] ({entry_type}): {summary}')
+      _emit(f'[{entity}] ({entry_type}): {summary}')
 
 
 def cmd_timeline(args):
@@ -203,14 +218,14 @@ def cmd_timeline(args):
     _print_json(timeline, include_images=args.include_images)
   else:
     if not timeline:
-      print(f"No timeline entries for '{args.entity}'.", file=sys.stderr)
+      _emit(f"No timeline entries for '{args.entity}'.", file=sys.stderr)
       return
     for e in timeline:
       step = e.get('step', '?')
       summary = _format_text(
           e.get('summary', ''), include_images=args.include_images
       )
-      print(f'Step {step}: {summary}')
+      _emit(f'Step {step}: {summary}')
 
 
 def cmd_search(args):
@@ -221,7 +236,7 @@ def cmd_search(args):
     _print_json(results, include_images=args.include_images)
   else:
     if not results:
-      print(f"No entries matching '{args.query}'.", file=sys.stderr)
+      _emit(f"No entries matching '{args.query}'.", file=sys.stderr)
       return
     for e in results:
       step = e.get('step', '?')
@@ -229,7 +244,7 @@ def cmd_search(args):
       summary = _format_text(
           e.get('summary', ''), include_images=args.include_images
       )
-      print(f'Step {step} [{entity}]: {summary}')
+      _emit(f'Step {step} [{entity}]: {summary}')
 
 
 def cmd_memories(args):
@@ -240,11 +255,11 @@ def cmd_memories(args):
     _print_json(memories, include_images=args.include_images)
   else:
     if not memories:
-      print(f"No memories for '{args.entity}'.", file=sys.stderr)
+      _emit(f"No memories for '{args.entity}'.", file=sys.stderr)
       return
     for i, mem in enumerate(memories):
       mem_text = _format_text(str(mem), include_images=args.include_images)
-      print(f'  {i + 1}. {mem_text}')
+      _emit(f'  {i + 1}. {mem_text}')
 
 
 def _discover_components(log, entity_name=None, step=None):
@@ -272,7 +287,7 @@ def cmd_components(args):
         log, entity_name=args.entity, step=args.step
     )
     if not value_dict or not isinstance(value_dict, dict):
-      print('No entity entries found.', file=sys.stderr)
+      _emit('No entity entries found.', file=sys.stderr)
       return
     component_info = {}
     for comp_name, comp_val in value_dict.items():
@@ -283,10 +298,10 @@ def cmd_components(args):
     if args.json:
       _print_json(component_info)
     else:
-      print(f'Components for {entity} at step {step}:')
+      _emit(f'Components for {entity} at step {step}:')
       for comp_name, comp_keys in component_info.items():
         keys_str = ', '.join(comp_keys)
-        print(f'  {comp_name}: {keys_str}')
+        _emit(f'  {comp_name}: {keys_str}')
     return
 
   if args.key is None:
@@ -294,20 +309,20 @@ def cmd_components(args):
         log, entity_name=args.entity, step=args.step
     )
     if not isinstance(value_dict, dict):
-      print(f"Component '{args.component}' not found.", file=sys.stderr)
+      _emit(f"Component '{args.component}' not found.", file=sys.stderr)
       return
     comp = value_dict.get(args.component, {})
     if not isinstance(comp, dict) or not comp:
-      print(f"Component '{args.component}' not found.", file=sys.stderr)
+      _emit(f"Component '{args.component}' not found.", file=sys.stderr)
       return
     keys = sorted(comp.keys())
     if args.json:
       _print_json(keys)
     else:
-      print(f'Keys for {args.component} (step {step}, {entity}):')
+      _emit(f'Keys for {args.component} (step {step}, {entity}):')
       for k in keys:
         val_preview = str(comp[k])[:80]
-        print(f'  {k}: {val_preview}')
+        _emit(f'  {k}: {val_preview}')
     return
 
   step_range = None
@@ -325,7 +340,7 @@ def cmd_components(args):
     _print_json(values, include_images=args.include_images)
   else:
     if not values:
-      print(f"No values for component '{args.component}'.", file=sys.stderr)
+      _emit(f"No values for component '{args.component}'.", file=sys.stderr)
       return
     for v in values:
       step = v.get('step', '?')
@@ -335,7 +350,7 @@ def cmd_components(args):
       )
       if len(val) > 200:
         val = val[:200] + '...'
-      print(f'Step {step} [{entity}]: {val}')
+      _emit(f'Step {step} [{entity}]: {val}')
 
 
 def cmd_dump(args):
@@ -366,7 +381,7 @@ def cmd_dump(args):
   text = json.dumps(inflated, indent=2, ensure_ascii=False, default=str)
   if not args.include_images:
     text = _strip_images(text)
-  print(text)
+  _emit(text)
 
 
 def cmd_bundle(args):
@@ -379,19 +394,17 @@ def cmd_bundle(args):
       else input_path.with_name(f'{input_path.stem}_viewer.html')
   )
   output_path.write_text(
-      log_viewer.build_self_contained_viewer(
-          log, log_name=input_path.name
-      ),
+      log_viewer.build_self_contained_viewer(log, log_name=input_path.name),
       encoding='utf-8',
   )
   if args.json:
     _print_json({'output': str(output_path)})
   else:
-    print(f'Wrote self-contained log viewer to {output_path}')
+    _emit(f'Wrote self-contained log viewer to {output_path}')
 
 
-def main(argv=None):
-  parser = argparse.ArgumentParser(
+def build_parser(parser_class=argparse.ArgumentParser):
+  parser = parser_class(
       prog='concordia-log',
       description='Analyze Concordia simulation logs from the command line.',
       formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -538,8 +551,10 @@ def main(argv=None):
       help='Output HTML path (default: <log_file>_viewer.html)',
   )
 
-  args = parser.parse_args(argv)
+  return parser
 
+
+def execute(args):
   commands = {
       'overview': cmd_overview,
       'entities': cmd_entities,
@@ -554,6 +569,66 @@ def main(argv=None):
       'bundle': cmd_bundle,
   }
   commands[args.command](args)
+
+
+def analyze(log, command, arguments):
+  """Run the existing analysis against an explicit in-memory log, without files."""
+  from concordia.utils import session_commands  # Avoid command-line exit in API.
+
+  if any(
+      value in ('--output', '-o') or value.startswith('--output=')
+      for value in arguments
+  ):
+    raise ValueError(
+        'Server log commands cannot write paths; use client exports.'
+    )
+  if any(value in ('--help', '-h') for value in arguments):
+    raise ValueError('Use help or concordia-log --help for analysis syntax.')
+  parser = build_parser(session_commands.CommandParser)
+  flags = [
+      value for value in arguments if value in ('--json', '--include-images')
+  ]
+  remaining = [
+      value
+      for value in arguments
+      if value not in ('--json', '--include-images')
+  ]
+  args = parser.parse_args(['--json', *flags, command, '<session>', *remaining])
+  if getattr(args, 'output', None):
+    raise ValueError('Use client exports, not a server output path.')
+  if command == 'bundle':
+    return {
+        'text': 'Structured log bundle ready.',
+        'download': {
+            'name': 'log.html',
+            'type': 'text/html',
+            'content': log_viewer.build_self_contained_viewer(
+                log, log_name='Session log'
+            ),
+        },
+    }
+  args.log_file = log
+  output = []
+  token = _OUTPUT.set(output)
+  try:
+    execute(args)
+  finally:
+    _OUTPUT.reset(token)
+  text = ''.join(output)
+  if command == 'dump':
+    return {
+        'text': 'Inflated log JSON ready.',
+        'download': {
+            'name': 'log-dump.json',
+            'type': 'application/json',
+            'content': text,
+        },
+    }
+  return {'text': text}
+
+
+def main(argv=None):
+  execute(build_parser().parse_args(argv))
 
 
 if __name__ == '__main__':
