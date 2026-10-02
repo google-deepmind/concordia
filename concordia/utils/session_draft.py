@@ -27,7 +27,7 @@ from concordia.utils import project_view
 _SCRIPT = r"""
 const fs=require('node:fs');
 const crypto=require('node:crypto');
-const {journal,plan,runtime}=JSON.parse(fs.readFileSync(0,'utf8'));
+const {journal,plan,runtime,savedDocument}=JSON.parse(fs.readFileSync(0,'utf8'));
 const history=new ProjectDraftHistory();history.past=journal.past || [];history.future=journal.future || [];
 const current={document:journal.document,selectedId:journal.selectedId};
 const action=plan.action,args=plan.args;
@@ -35,18 +35,19 @@ let result;
 if(action==='undo' || action==='redo'){
   const next=history[action](current);if(!next)throw Error('No '+action+' available.');
   journal.document=next.document;journal.selectedId=next.selectedId;
-}else if(action==='select' || action==='inspect'){
-  const id=args[0] || journal.selectedId;
-  const item=id==='simulation'?journal.document:ProjectSceneOperations.locate(journal.document,id)?.item || journal.document.instances.find(x=>x.id===id);
-  if(!item)throw Error('Unknown selection.');journal.selectedId=id;result=item;
-  if(action==='inspect' && journal.view==='runtime'){if(!runtime)throw Error('No current runtime to inspect.');result=runtime;}
-}else if(action==='references')result=ProjectReferences.uses(journal.document,journal.metadata.catalog,args[0]);
-else if(action==='view')journal.view=args[0];
-else if(action==='panel')journal.panel=args[0];
+ }else if(['select','inspect','catalog','list','locate','panel'].includes(action)){
+  const readAction=action==='panel'?(args[0]==='inspector'?'inspect':'list'):action==='select'?'inspect':action;
+  const readArgs=action==='panel'?[]:args;
+  result=ProjectDraftCommands.read(journal.document,journal.metadata,journal.view==='runtime'?savedDocument:(journal.preview_document || journal.base),runtime,journal.view,journal.selectedId,readAction,readArgs);
+  if(action==='select' || action==='inspect') {journal.selectedId=args[0]==='.'?journal.selectedId:args[0] || journal.selectedId;journal.component=args[1] || null;}
+  if(action==='locate') {journal.selectedId=result.selection;journal.view='definition';}
+  if(action==='panel')journal.panel=args[0];
+}else if(action==='references')result=ProjectReferences.uses(journal.document,journal.metadata.catalog,args[0]==='.'?journal.selectedId:args[0]);
+else if(action==='view'){journal.view=args[0];result={view:journal.view,message:'Client inspection source changed.'};}
 else if(action==='search'){
   journal.search=args[0];
-  result=[...journal.document.instances,...(journal.document.groups || []),...(journal.document.scene_types || []),...(journal.document.scenes || [])].filter(item=>{
-    const index=(journal.base?.instances || journal.document.instances).findIndex(x=>x.id===item.id);
+  result=[...journal.document.instances,...(journal.document.components || []),...(journal.document.groups || []),...(journal.document.scene_types || []),...(journal.document.scenes || [])].filter(item=>{
+    const index=((journal.view==='runtime'?savedDocument:journal.preview_document || journal.base)?.instances || journal.document.instances).findIndex(x=>x.id===item.id);
     const entities=journal.view==='runtime'?runtime?.entities:journal.metadata.entities;
     const components=Object.keys(entities?.['entity_'+index]?.component_info?.context_components || {});
     return ProjectDraftCommands.matches(item,args[0],components,(journal.document.components || []).filter(c=>c.instance===item.id));
@@ -54,7 +55,7 @@ else if(action==='search'){
 }else{
   if(journal.view==='runtime')throw Error('Use view definition before changing an authored draft.');
   const next=structuredClone(journal.document);
-  const selection=ProjectDraftCommands.apply(next,journal.metadata,journal.selectedId,action,args);
+  const selection=ProjectDraftCommands.apply(next,journal.metadata,journal.selectedId,action,args,plan.id);
   if(JSON.stringify(next)!==JSON.stringify(journal.document)){history.record(current);journal.document=next;journal.selectedId=selection || journal.selectedId;journal.search='';}
   else result={message:'No draft change.'};
 }
@@ -63,7 +64,7 @@ process.stdout.write(JSON.stringify({journal,result:result || {message:'Client d
 """
 
 
-def apply(journal, plan, runtime=None):
+def apply(journal, plan, runtime=None, saved_document=None):
   node = shutil.which('node')
   if node is None:
     raise ValueError(
@@ -73,9 +74,12 @@ def apply(journal, plan, runtime=None):
   try:
     result = subprocess.run(
         [node, '-e', project_view.DRAFT_HISTORY_SCRIPT + _SCRIPT],
-        input=json.dumps(
-            {'journal': journal, 'plan': plan, 'runtime': runtime}
-        ),
+        input=json.dumps({
+            'journal': journal,
+            'plan': plan,
+            'runtime': runtime,
+            'savedDocument': saved_document,
+        }),
         capture_output=True,
         text=True,
         timeout=15,

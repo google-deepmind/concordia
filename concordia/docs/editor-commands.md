@@ -88,7 +88,7 @@ the local draft, **without saving to the session**. It refuses to overwrite an
 unsaved draft. Save/export it first or explicitly `reload --discard`. Load and
 reload reset local undo history. A newly loaded file remains local until Save.
 
-Runtime `inspect` reads the current runtime view. `edit` uses the existing paused
+Runtime `inspect ID [COMPONENT]` reads the selected entity/component from the current runtime view. `edit` uses the existing paused
 runtime edit operation and supports the same Instructions/Goal text fields as
 the inspector. The browser rejects a typed edit if it would conflict with pending
 runtime input fields; save those fields first. Runtime edits never change the
@@ -113,6 +113,7 @@ log timeline --source current Alice --verbose
 log search --source imported "music"
 log memories --source current Alice
 log components --source current --entity Alice --component Instructions
+log export --source current
 log dump --source current
 log bundle --source imported
 ```
@@ -236,3 +237,22 @@ zoom/text sizing remains enabled. SVG graphs use their native layout width in re
 rather than expanding to fill a wide panel. Touch/narrow layouts apply an explicit
 1.4 scale for graph legibility; smaller panels scroll the graph instead of
 shrinking its labels. Root text sizing scales the graph as well.
+
+For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
+see the [simulation design CLI tutorial](../command_line_interface/README.md).
+
+New shared discovery/navigation commands: `catalog [templates|prefabs|components]`,
+`list [instances|components|groups|scene_types|scenes]`, `locate "MESSAGE"`,
+`move ID up|down`. Creation accepts optional `--id STABLE_ID`; `.` selects the
+current local draft record. `layout` reports browser bounds;
+`layout left|right|terminal PIXELS` uses the same bounded/persisted splitters.
+The external CLI rejects browser sizing explicitly.
+
+Use `concordia-session --url http://127.0.0.1:8080 interactive --draft draft.json`
+to keep connection arguments and a client journal across commands. This prompt
+adds explicit `load PATH`, `export PATH`, `log import PATH` and log
+`--output PATH`, plus `files`, in-memory `history`, display-only `!N`, and `exit`.
+It has no asynchronous stream: `watch` blocks until interrupt/timeout/EOF.
+
+`log export` uses standard SimulationLog serialization for reimportable JSON;
+`log dump` remains inflated analysis JSON and is not an import archive.

@@ -798,3 +798,66 @@ def test_prompted_key_not_in_preview_snapshot_or_document():
   assert key not in json.dumps(server.get_project())
   assert server.operation_service is not None
   assert key not in json.dumps(server.operation_service.snapshot('developer'))
+
+
+def test_public_cli_tutorial_against_actual_example(tmp_path, capsys):
+  """Execute the published authoring block verbatim, never a simulation."""
+  from concordia.command_line_interface import concordia_session
+  from concordia.utils import session_commands_test
+
+  readme = (
+      Path(__file__).parents[2] / 'concordia/command_line_interface/README.md'
+  ).read_text()
+  start = readme.index('```text\nset alice params.goal') + len('```text\n')
+  lines = readme[start : readme.index('```', start)].strip().splitlines()
+  with (
+      mock.patch.object(
+          generic.Simulation,
+          'play',
+          side_effect=AssertionError('No simulation'),
+      ),
+      mock.patch.object(
+          run.simulation_server.SimulationServer,
+          'start',
+          side_effect=AssertionError('No listener'),
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError('No model'),
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError('No model'),
+      ),
+      mock.patch.object(
+          run.ModelSelection,
+          'create_model',
+          side_effect=AssertionError('No provider initialization'),
+      ),
+  ):
+    server = run.create_editor(output=tmp_path / 'runs', port=0)
+    with (
+        mock.patch('builtins.input', side_effect=[*lines, 'exit']),
+        mock.patch.object(
+            concordia_session.urllib.request,
+            'urlopen',
+            side_effect=session_commands_test.fake_http(server),
+        ),
+    ):
+      assert (
+          concordia_session.main([
+              '--url',
+              'http://fixture',
+              'interactive',
+              '--draft',
+              str(tmp_path / 'draft.json'),
+          ])
+          == 0
+      )
+    assert server.get_project()['document']['scenes'][0]['id'] == 'encore'
+    assert (
+        server.get_project()['document']['components'][0]['instance'] == 'bob'
+    )
+  assert 'Error:' not in capsys.readouterr().out

@@ -185,3 +185,6 @@ If you use Concordia in your work, please cite the accompanying article:
 ## Disclaimer
 
 This is not an officially supported Google product.
+
+For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
+see the [simulation design CLI tutorial](concordia/command_line_interface/README.md).

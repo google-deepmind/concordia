@@ -412,3 +412,7 @@ key. Check the key/account/endpoint configuration in your own shell. Restart you
 own editor from that same credential-bearing shell after correction. Manual key
 prompting is optional and is not required by this diagnostic workflow. There are
 no model/authentication probes on page load, preview or save.
+
+For a step-by-step terminal authoring journey, see the
+[interactive CLI design tutorial](../../concordia/command_line_interface/README.md),
+including the explicit editor/CLI coverage matrix and client-local draft rules.

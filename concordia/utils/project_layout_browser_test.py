@@ -283,3 +283,39 @@ def test_responsive_typography_touch_and_untrusted_saved_sizes(
   expect(handle).to_be_visible()
   assert page.locator('.center-panel').bounding_box()['width'] >= 160
   touch.close()
+
+
+def test_shared_catalog_inspection_creation_and_layout_commands(editor_browser):
+  open_page, expect = editor_browser
+  context, page = open_page(viewport={'width': 1400, 'height': 950})
+  command = page.get_by_role('textbox', name='Simulation log command')
+  output = page.get_by_role('log', name='Simulation log')
+
+  def send(line):
+    command.fill(line)
+    command.press('Enter')
+    expect(page.get_by_role('button', name='Send', exact=True)).to_be_enabled()
+
+  send('catalog components')
+  expect(output).to_contain_text('dependencies')
+  send('inspect alice Fixture')
+  expect(output).to_contain_text('Inspector detail fixture')
+  send('add instance alice --id charlie')
+  send('set . params.name \'"Charlie"\'')
+  send('inspect charlie')
+  expect(output).to_contain_text('Charlie')
+  send('layout terminal 99999')
+  separator = page.get_by_role('separator', name='Simulation log height')
+  assert separator.get_attribute('aria-valuenow') == separator.get_attribute(
+      'aria-valuemax'
+  )
+  send('layout left 260')
+  assert (
+      page.get_by_role('separator', name='Hierarchy width').get_attribute(
+          'aria-valuenow'
+      )
+      == '260'
+  )
+  send("locate '$.instances[charlie].params.name: name needed'")
+  expect(page.locator('#editor-charlie-name')).to_be_focused()
+  context.close()

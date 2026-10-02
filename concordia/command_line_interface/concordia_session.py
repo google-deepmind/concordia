@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Attach noninteractively to the same operation API used by the editor.
+"""Design interactively or attach with JSON to the editor operation API.
 
-No engine or domain behavior lives here. JSON output is always machine-readable.
+No engine or domain behavior lives here. One-shot output is machine-readable; interactive mode adds a local prompt.
 """
 
 import argparse
 import json
 import pathlib
+import shlex
 import sys
+import tempfile
 from typing import Any
 import urllib.error
 import urllib.request
@@ -34,6 +36,17 @@ def friendly(args):
   """Execute a shared safe command; files and drafts belong to this CLI client."""
   if not args.line:
     raise ValueError('command requires --line. Use --line help.')
+  for destination in (args.file, args.output):
+    if (
+        args.draft
+        and destination
+        and destination.resolve() == args.draft.resolve()
+    ):
+      raise ValueError(
+          'The draft journal and import/export file must be different paths.'
+      )
+  if args.file and args.output and args.file.resolve() == args.output.resolve():
+    raise ValueError('Import and output paths must be different.')
   plan = session_commands.parse(args.line)
   if plan['kind'] == 'text':
     return plan
@@ -48,10 +61,12 @@ def friendly(args):
       with urllib.request.urlopen(req, timeout=args.timeout) as response:
         return json.loads(response.read())
     except urllib.error.HTTPError as error:
-      value = json.loads(error.read())
-      raise ValueError(
-          value.get('error', {}).get('message', str(error))
-      ) from error
+      try:
+        value = json.loads(error.read())
+        message = value.get('error', {}).get('message', 'Operation failed.')
+      except (ValueError, AttributeError):
+        message = 'Service returned a non-JSON error.'
+      raise ValueError(f'HTTP {error.code}: {message}') from None
 
   if plan.get('action') == 'discover':
     return request('operations')['result']
@@ -91,7 +106,8 @@ def friendly(args):
     if result.get('download'):
       if args.output is None:
         raise ValueError(
-            'Log dump/bundle requires --output DESTINATION on this CLI client.'
+            'Log export/dump/bundle requires --output DESTINATION on this CLI'
+            ' client.'
         )
       args.output.write_text(
           result.pop('download')['content'], encoding='utf-8'
@@ -123,6 +139,7 @@ def friendly(args):
       journal = {
           'document': state['document'],
           'base': state['document'],
+          'preview_document': state['document'],
           'revision': state['revision'],
           'metadata': state['definition'],
           'selectedId': state['document']['instances'][0]['id'],
@@ -140,6 +157,18 @@ def friendly(args):
         'Server session changed; export your local draft or reload --discard'
         ' before continuing.'
     )
+  if action == 'layout':
+    raise ValueError(
+        'layout sizes browser panes only. Resize your terminal window; this CLI'
+        ' does not control another client.'
+    )
+  if action == 'panel' and plan['args'][0] in ('simulation', 'log'):
+    return {
+        'run': state['run'],
+        'state': state['state'],
+        'steps': state.get('steps', []),
+        'hint': 'Use watch for events or log commands for structured analysis.',
+    }
   if action == 'state':
     return {'session': state, 'client': journal}
   if plan['kind'] == 'call':
@@ -164,7 +193,17 @@ def friendly(args):
       raise ValueError(
           'Unsaved or stale client draft: save or explicitly reload before run.'
       )
-    return dispatch(*operation)
+    result = dispatch(*operation)
+    if action == 'run':
+      return {
+          'message': (
+              'Run accepted; completion is not implied. Use state or watch for'
+              ' waiting, progress and failure.'
+          ),
+          'result': result,
+          'status': request('state')['result']['run'],
+      }
+    return result
   if action == 'log-import':
     raise ValueError(
         'CLI log imports use --file LOG.json with log COMMAND --source'
@@ -189,12 +228,14 @@ def friendly(args):
     result = dispatch('project.' + action, values)
     if action == 'save':
       journal['base'] = result['document']
+      journal['preview_document'] = result['document']
       journal['revision'] = result['revision']
       journal['metadata'] = request('state')['result']['definition']
   elif action == 'reload':
     journal.update(
         document=state['document'],
         base=state['document'],
+        preview_document=state['document'],
         revision=state['revision'],
         metadata=state['definition'],
         past=[],
@@ -215,6 +256,7 @@ def friendly(args):
     preview = dispatch('project.preview', {'text': text})
     journal['metadata'] = preview['definition']
     journal['document'] = preview['document']
+    journal['preview_document'] = preview['document']
     journal['selectedId'] = preview['document']['instances'][0]['id']
     journal['view'] = 'definition'
     journal['past'] = []
@@ -232,19 +274,159 @@ def friendly(args):
         'view',
         'panel',
         'references',
+        'catalog',
+        'list',
+        'locate',
     ):
       raise ValueError('Authoring unavailable while a run is active.')
-    applied = session_draft.apply(journal, plan, state.get('runtime'))
+    applied = session_draft.apply(
+        journal, plan, state.get('runtime'), state['document']
+    )
     journal, result = applied['journal'], applied['result']
-  args.draft.write_text(json.dumps(journal, indent=2), encoding='utf-8')
+  # Replace the complete journal atomically: a failed write must not truncate
+  # an existing unsaved draft. Temporary files stay on the same filesystem.
+  temporary = None
+  try:
+    with tempfile.NamedTemporaryFile(
+        mode='w', encoding='utf-8', dir=args.draft.parent, delete=False
+    ) as stream:
+      temporary = pathlib.Path(stream.name)
+      json.dump(journal, stream, indent=2)
+    temporary.replace(args.draft)
+  finally:
+    if temporary is not None:
+      temporary.unlink(missing_ok=True)
   return result
+
+
+def interactive(args) -> int:
+  """Persistent client context, explicit journal, no shell or automatic replay."""
+  print(
+      'Concordia session. help for commands; files for local paths; history;'
+      ' exit.\nOnly save publishes a draft. No commands are replayed after'
+      ' errors.\nRun is asynchronous: use state, or watch (Ctrl-C returns'
+      ' here).'
+  )
+  # Do not load/write readline history, or let terminal input enter its global
+  # history. Only explicit submitted commands enter this loop’s memory history,
+  # restored to its previous state on exit. No history file is accessed.
+  try:
+    import readline  # pylint: disable=import-outside-toplevel
+  except ImportError:
+    readline = None
+  previous_history = []
+  if readline is not None:
+    previous_history = [
+        readline.get_history_item(i + 1)
+        for i in range(readline.get_current_history_length())
+    ]
+    readline.clear_history()
+    readline.set_auto_history(False)
+  history = []
+  imported = None
+  try:
+    while True:
+      try:
+        line = input('concordia> ').strip()
+      except EOFError:
+        print(
+            'Disconnected locally. Journal retained; no save/reset performed.'
+        )
+        return 0
+      except KeyboardInterrupt:
+        print('\nInput cancelled. Use exit to leave; session unchanged.')
+        continue
+      if not line:
+        continue
+      if line in ('exit', 'quit'):
+        print('Journal retained; no save/reset performed.')
+        return 0
+      if line == 'history':
+        print('\n'.join(f'{i + 1}: {value}' for i, value in enumerate(history)))
+        continue
+      if line == 'files':
+        print(
+            'load PATH | export PATH | log import PATH\nlog dump|bundle'
+            ' --source current|imported --output PATH\nPaths are on this CLI'
+            ' client. No shell expansion. No overwrite of journal/import.'
+        )
+        continue
+      if line.startswith('!'):
+        try:
+          number = int(line[1:])
+          if not 1 <= number <= len(history):
+            raise ValueError()
+          line = history[number - 1]
+          print('Recall only (not executed): ' + line)
+          print('Copy it to the prompt to execute explicitly.')
+        except ValueError:
+          print('Use !NUMBER to display a history entry; nothing is executed.')
+        continue
+      history.append(line)
+      if readline is not None:
+        readline.add_history(line)
+      local = argparse.Namespace(**vars(args))
+      local.file, local.output = None, None
+      try:
+        words = shlex.split(line)
+        if words[:2] == ['log', 'import']:
+          if len(words) != 3:
+            raise ValueError('Use log import PATH.')
+          candidate = pathlib.Path(words[2])
+          # Parse now to report missing/invalid files without changing selection.
+          value = json.loads(candidate.read_text(encoding='utf-8'))
+          if not isinstance(value, dict):
+            raise ValueError('Expected a structured JSON log object.')
+          imported = candidate
+          print('Imported log selected on this client; no project change.')
+          continue
+        if words[0] in ('load', 'export') and len(words) == 2:
+          local.file = pathlib.Path(words.pop())
+        if words[0] == 'log':
+          if '--output' in words:
+            index = words.index('--output')
+            if index + 1 >= len(words):
+              raise ValueError('--output requires a local path.')
+            local.output = pathlib.Path(words[index + 1])
+            del words[index : index + 2]
+          if 'imported' in words:
+            local.file = imported
+        local.line = shlex.join(words)
+        if words == ['watch']:
+          main(['--url', args.url, '--timeout', str(args.timeout), 'watch'])
+          print('Watch ended. No reconnect/replay; use state to refresh.')
+        else:
+          result = friendly(local)
+          print(
+              result['text']
+              if isinstance(result, dict) and result.get('kind') == 'text'
+              else json.dumps(result, indent=2, ensure_ascii=False)
+          )
+      except KeyboardInterrupt:
+        print(
+            '\nInterrupted. A submitted operation may have been accepted;'
+            ' inspect state before retrying.'
+        )
+      except (OSError, ValueError, urllib.error.URLError) as error:
+        print(
+            f'Error: {error}\nDraft retained. Commands are not retried; inspect'
+            ' state after transport failure.'
+        )
+  finally:
+    if readline is not None:
+      readline.clear_history()
+      for item in previous_history:
+        if item is not None:
+          readline.add_history(item)
+      readline.set_auto_history(True)
 
 
 def main(argv=None) -> int:
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('--url', required=True, help='Trusted local service URL')
   parser.add_argument(
-      'command', choices=('discover', 'state', 'call', 'watch', 'command')
+      'command',
+      choices=('discover', 'state', 'call', 'watch', 'command', 'interactive'),
   )
   parser.add_argument(
       '--input', default='-', help='JSON request file or - for stdin'
@@ -268,6 +450,10 @@ def main(argv=None) -> int:
   )
   parser.add_argument('--timeout', type=float, default=15)
   args = parser.parse_args(argv)
+  if args.command == 'interactive':
+    if args.draft is None:
+      parser.error('interactive requires --draft JOURNAL.json.')
+    return interactive(args)
   if args.command == 'command':
     try:
       if session_commands.parse(args.line or '').get('action') == 'watch':

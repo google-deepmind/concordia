@@ -24,6 +24,8 @@ from urllib.parse import urlsplit
 from concordia.command_line_interface import concordia_log
 from concordia.command_line_interface import concordia_log_test
 from concordia.command_line_interface import concordia_session
+from concordia.language_model import no_language_model
+from concordia.prefabs.simulation import generic
 from concordia.utils import operation_service
 from concordia.utils import project_run_steps_test
 from concordia.utils import project_test_support
@@ -31,6 +33,33 @@ from concordia.utils import session_commands
 from concordia.utils import session_draft
 from concordia.utils import simulation_server
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def no_provider_or_simulation():
+  with (
+      mock.patch.object(
+          generic.Simulation,
+          'play',
+          side_effect=AssertionError('No simulation'),
+      ),
+      mock.patch.object(
+          simulation_server.SimulationServer,
+          'start',
+          side_effect=AssertionError('No listener'),
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError('No model'),
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError('No model'),
+      ),
+  ):
+    yield
 
 
 @pytest.mark.parametrize(
@@ -648,3 +677,401 @@ def test_log_parser_review_errors_never_exit_or_print(arguments, capsys):
         concordia_log_test._create_sample_log(), 'overview', arguments
     )
   assert capsys.readouterr() == ('', '')
+
+
+def test_interactive_tutorial_transcript(tmp_path, capsys):
+  registry = project_test_support.scene_registry()
+  server = simulation_server.SimulationServer(port=0)
+  server.configure_project(
+      registry,
+      registry.default_document('scenes-v1'),
+      integrated=True,
+      run=mock.Mock(side_effect=AssertionError('No simulation')),
+  )
+  draft = tmp_path / 'draft.json'
+  exported = tmp_path / 'project.json'
+  lines = [
+      'help',
+      'files',
+      'catalog templates',
+      'catalog prefabs',
+      'catalog components',
+      'list instances',
+      'inspect alice',
+      'select alice',
+      'set . params.goal \'"Find music everyone enjoys"\'',
+      'add instance alice --id charlie',
+      'set . params.name \'"Charlie"\'',
+      'set charlie params.custom_instructions \'"Charlie listens carefully."\'',
+      'add component constant charlie --id reminder',
+      'set components:reminder params.state \'"Listen before replying."\'',
+      'move-component components:reminder bob',
+      'add group --id trio',
+      'set groups:trio participants \'["alice","bob","charlie"]\'',
+      'add scene-type --id meeting',
+      'set scene_types:meeting group \'"trio"\'',
+      'set scene_types:meeting game_master \'"conversation"\'',
+      'set scene_types:meeting premise \'"Choose a song together."\'',
+      'add scene --id encore',
+      'set scenes:encore scene_type \'"meeting"\'',
+      'set scenes:encore participants \'["alice","bob","charlie"]\'',
+      'set scenes:encore num_rounds 3',
+      'set scenes:encore premise null',
+      'move scenes:encore up',
+      'undo',
+      'redo',
+      'set simulation max_steps 40',
+      'validate',
+      'save',
+      f'export {shlex.quote(str(exported))}',
+      'reload --discard',
+      f'load {shlex.quote(str(exported))}',
+      'references charlie',
+      'search Charlie',
+      'panel inspector',
+      "locate '$.instances[charlie].params.goal: fix this'",
+      'history',
+      '!1',
+      'exit',
+  ]
+  with (
+      mock.patch('builtins.input', side_effect=lines),
+      mock.patch.object(
+          concordia_session.urllib.request,
+          'urlopen',
+          side_effect=fake_http(server),
+      ),
+      mock.patch.object(
+          simulation_server.SimulationServer,
+          'start',
+          side_effect=AssertionError('No listener'),
+      ),
+  ):
+    assert (
+        concordia_session.main(
+            ['--url', 'http://fixture', 'interactive', '--draft', str(draft)]
+        )
+        == 0
+    )
+  output = capsys.readouterr().out
+  assert 'Error:' not in output
+  assert 'Recall only (not executed): help' in output
+  saved = server.get_project()['document']
+  assert saved['scenes'][0]['id'] == 'encore'
+  assert saved['components'][0]['instance'] == 'bob'
+  assert saved == json.loads(exported.read_text())
+  journal = json.loads(draft.read_text())
+  assert journal['selectedId'] == 'charlie'
+  assert journal['past'] == []  # load explicitly resets history
+  assert 'history' not in journal
+
+
+def test_interactive_errors_interrupts_and_no_replay(tmp_path, capsys):
+  server = project_run_steps_test.editor()
+  count = [0]
+  request = fake_http(server)
+
+  def failing(req, **kwargs):
+    count[0] += 1
+    if count[0] == 1:
+      raise OSError('fixture offline')
+    return request(req, **kwargs)
+
+  with (
+      mock.patch(
+          'builtins.input',
+          side_effect=[
+              'state',
+              KeyboardInterrupt(),
+              'nonsense',
+              'catalog',
+              'history',
+              EOFError(),
+          ],
+      ),
+      mock.patch.object(
+          concordia_session.urllib.request, 'urlopen', side_effect=failing
+      ),
+  ):
+    assert (
+        concordia_session.main([
+            '--url',
+            'http://fixture',
+            'interactive',
+            '--draft',
+            str(tmp_path / 'draft.json'),
+        ])
+        == 0
+    )
+  out = capsys.readouterr().out
+  assert 'fixture offline' in out and 'Unknown command' in out
+  assert 'Input cancelled' in out and 'Journal retained' in out
+  assert count[0] == 2  # failed state and successful catalog, no replay
+
+
+def test_focused_component_inspection_and_stable_ids():
+  registry = project_test_support.scene_registry()
+  document = registry.default_document('scenes-v1')
+  journal = {
+      'document': document,
+      'base': document,
+      'selectedId': 'alice',
+      'metadata': {
+          'catalog': registry.catalog(document),
+          'component_catalog': registry.component_catalog(document),
+          'entities': {
+              'entity_0': {
+                  'component_info': {
+                      'context_components': {
+                          'Instructions': {
+                              'state': {'text': 'Initial instructions'}
+                          }
+                      }
+                  }
+              }
+          },
+      },
+  }
+  result = session_draft.apply(
+      journal, session_commands.parse('inspect alice Instructions')
+  )
+  assert result['result']['state']['text'] == 'Initial instructions'
+  assert result['journal']['component'] == 'Instructions'
+  journal['view'] = 'runtime'
+  runtime = {
+      'entities': {
+          'entity_0': {
+              'component_info': {
+                  'context_components': {
+                      'Goal': {'state': {'text': 'Runtime goal'}}
+                  }
+              }
+          }
+      }
+  }
+  assert (
+      session_draft.apply(
+          journal, session_commands.parse('inspect alice Goal'), runtime
+      )['result']['state']['text']
+      == 'Runtime goal'
+  )
+  with pytest.raises(ValueError, match='Unknown component'):
+    session_draft.apply(
+        journal, session_commands.parse('inspect alice Missing'), runtime
+    )
+  journal['view'] = 'definition'
+  for line in ['add instance alice --id alice', 'add group --id ../bad']:
+    with pytest.raises(ValueError, match='stable component ID'):
+      session_draft.apply(journal, session_commands.parse(line))
+
+
+@pytest.mark.parametrize(
+    'line',
+    [
+        'move alice sideways',
+        'layout left 0',
+        'layout right nope',
+        'catalog unknown',
+        'list unknown',
+        'inspect a b c',
+    ],
+)
+def test_parity_invalid_syntax(line):
+  with pytest.raises(ValueError):
+    session_commands.parse(line)
+
+
+def test_cli_files_cannot_overwrite_journal_or_import(tmp_path):
+  journal = tmp_path / 'draft.json'
+  journal.write_text('preserve')
+  args = argparse.Namespace(
+      url='http://fixture',
+      timeout=1,
+      line='log dump --source imported',
+      draft=journal,
+      file=tmp_path / 'log.json',
+      output=journal,
+  )
+  with mock.patch.object(
+      concordia_session.urllib.request,
+      'urlopen',
+      side_effect=AssertionError('No request'),
+  ):
+    with pytest.raises(ValueError, match='different paths'):
+      concordia_session.friendly(args)
+  assert journal.read_text() == 'preserve'
+
+
+def test_interactive_log_files_and_watch_interrupt(tmp_path, capsys):
+  server = project_run_steps_test.editor()
+  server.set_project_log(concordia_log_test._create_sample_log())
+  target = tmp_path / 'log.json'
+  bundle = tmp_path / 'viewer.html'
+  request = fake_http(server)
+  streams = []
+
+  def transport(req, **kwargs):
+    if req.full_url.endswith('/events'):
+      streams.append(req)
+      raise KeyboardInterrupt()
+    return request(req, **kwargs)
+
+  lines = [
+      f'log export --source current --output {target}',
+      f'log import {target}',
+      'log overview --source imported',
+      f'log bundle --source imported --output {bundle}',
+      'watch',
+      'state',
+      'exit',
+  ]
+  with (
+      mock.patch('builtins.input', side_effect=lines),
+      mock.patch.object(
+          concordia_session.urllib.request, 'urlopen', side_effect=transport
+      ),
+  ):
+    assert (
+        concordia_session.main([
+            '--url',
+            'http://fixture',
+            'interactive',
+            '--draft',
+            str(tmp_path / 'journal.json'),
+        ])
+        == 0
+    )
+  assert len(streams) == 1
+  assert json.loads(target.read_text())
+  assert '<html' in bundle.read_text().lower()
+  assert 'Error:' not in capsys.readouterr().out
+
+
+def test_interactive_stale_dirty_and_file_errors_recover(tmp_path, capsys):
+  server = project_run_steps_test.editor()
+  request = fake_http(server)
+  lines = iter([
+      'set alice params.goal \'"local"\'',
+      'load missing.json',
+      'save',
+      'export recovery.json',
+      'exit',
+  ])
+  draft = tmp_path / 'draft.json'
+  export = tmp_path / 'recovery.json'
+
+  def read(_prompt):
+    line = next(lines)
+    if line == 'save':
+      document = server.get_project()['document']
+      document['premise'] = 'Other client change'
+      server.replace_project(json.dumps(document), 0)
+    if line.startswith('export'):
+      return f'export {export}'
+    return line
+
+  with (
+      mock.patch('builtins.input', side_effect=read),
+      mock.patch.object(
+          concordia_session.urllib.request, 'urlopen', side_effect=request
+      ),
+  ):
+    assert (
+        concordia_session.main(
+            ['--url', 'http://fixture', 'interactive', '--draft', str(draft)]
+        )
+        == 0
+    )
+  out = capsys.readouterr().out
+  assert 'Unsaved draft' in out
+  assert 'Error:' in out
+  assert (
+      json.loads(export.read_text())['instances'][0]['params']['goal']
+      == 'local'
+  )
+  assert server.get_project()['document']['premise'] == 'Other client change'
+
+
+def test_inspection_uses_preview_and_runtime_order_not_stale_draft_order():
+  document = {'instances': [{'id': 'alice'}, {'id': 'bob'}]}
+  reversed_document = {'instances': list(reversed(document['instances']))}
+  entities = {
+      'entity_1': {
+          'component_info': {
+              'context_components': {'Goal': {'state': {'text': 'Alice goal'}}}
+          }
+      }
+  }
+  journal = {
+      'document': document,
+      'base': document,
+      'preview_document': reversed_document,
+      'selectedId': 'alice',
+      'metadata': {'entities': entities},
+  }
+  plan = session_commands.parse('inspect alice Goal')
+  assert (
+      session_draft.apply(journal, plan)['result']['state']['text']
+      == 'Alice goal'
+  )
+  journal['view'] = 'runtime'
+  assert (
+      session_draft.apply(
+          journal, plan, {'entities': entities}, reversed_document
+      )['result']['state']['text']
+      == 'Alice goal'
+  )
+
+
+def test_failed_journal_replace_preserves_existing_draft(tmp_path):
+  server = project_run_steps_test.editor()
+  args = argparse.Namespace(
+      url='http://fixture',
+      timeout=1,
+      line='set alice params.goal \'"kept"\'',
+      draft=tmp_path / 'draft.json',
+      file=None,
+      output=None,
+  )
+  with mock.patch.object(
+      concordia_session.urllib.request, 'urlopen', side_effect=fake_http(server)
+  ):
+    concordia_session.friendly(args)
+    before = args.draft.read_bytes()
+    args.line = 'set alice params.goal \'"not persisted"\''
+    with mock.patch.object(
+        concordia_session.pathlib.Path,
+        'replace',
+        side_effect=OSError('fixture disk failure'),
+    ):
+      with pytest.raises(OSError, match='disk failure'):
+        concordia_session.friendly(args)
+    assert args.draft.read_bytes() == before
+    assert list(tmp_path.iterdir()) == [args.draft]
+
+
+def test_interactive_readline_history_is_memory_only_and_restored(tmp_path):
+  readline = mock.Mock()
+  readline.get_current_history_length.return_value = 1
+  readline.get_history_item.return_value = 'prior process history'
+  with (
+      mock.patch.dict('sys.modules', {'readline': readline}),
+      mock.patch('builtins.input', side_effect=['help', 'exit']),
+  ):
+    assert (
+        concordia_session.main([
+            '--url',
+            'http://fixture',
+            'interactive',
+            '--draft',
+            str(tmp_path / 'draft.json'),
+        ])
+        == 0
+    )
+  readline.read_history_file.assert_not_called()
+  readline.write_history_file.assert_not_called()
+  assert readline.add_history.call_args_list == [
+      mock.call('help'),
+      mock.call('prior process history'),
+  ]
+  assert readline.clear_history.call_count == 2
