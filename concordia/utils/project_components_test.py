@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from typing import Any, cast
 from unittest import mock
 
 from concordia.components.agent import constant
@@ -122,7 +123,7 @@ def test_each_offered_prefab_consumes_parameters_and_order(owner, kind):
   name = next(
       x['params']['name'] for x in document['instances'] if x['id'] == owner
   )
-  entity = entities[name]
+  entity = fixtures.as_agent(entities[name])
   component = entity.get_component('authored_context')
   assert isinstance(
       component,
@@ -135,7 +136,7 @@ def test_each_offered_prefab_consumes_parameters_and_order(owner, kind):
     assert state[key] == value
   if kind == 'recent-observations':
     assert state['memory_component_key'] in entity.get_all_context_components()
-  order = entity.get_act_component().get_state()['component_order']
+  order = fixtures.component_order(entity)
   assert order[-2:] == ['authored_context', 'authored_second']
   # Rename is a display label; stable keys, literal context and built-ins survive.
   document['components'][0]['name'] = 'Renamed 🎵'
@@ -146,7 +147,8 @@ def test_each_offered_prefab_consumes_parameters_and_order(owner, kind):
       for e in [*again.get_entities(), *again.get_game_masters()]
       if e.name == name
   )
-  assert other.get_act_component().get_state()['component_order'][-2:] == [
+  other = fixtures.as_agent(other)
+  assert fixtures.component_order(other)[-2:] == [
       'authored_second',
       'authored_context',
   ]
@@ -299,8 +301,9 @@ def test_component_only_template_and_legacy_compatibility():
   document['components'] = [record('bob')]
   assert registry.loads(registry.dumps(document)) == document
   assert (
-      fixtures.build(registry.to_config(document))
-      .get_entities()[1]
+      fixtures.as_agent(
+          fixtures.build(registry.to_config(document)).get_entities()[1]
+      )
       .get_component('authored_context')
       .get_state()['state']
       == document['components'][0]['params']['state']
@@ -326,10 +329,13 @@ def test_basic_prefab_factory_order_and_rejected_collisions():
   policy = mock.Mock()
   factory = mock.Mock(return_value=policy)
   prefab = basic.Entity(
-      params={
-          'name': 'Player',
-          'extra_components': {'custom': constant.Constant('context')},
-      }
+      params=cast(
+          Any,
+          {
+              'name': 'Player',
+              'extra_components': {'custom': constant.Constant('context')},
+          },
+      )
   )
   entity = prefab.build(
       no_language_model.NoLanguageModel(),
@@ -340,7 +346,7 @@ def test_basic_prefab_factory_order_and_rejected_collisions():
   assert factory.call_args.args[0][-1] == 'custom'
   assert 'SelfPerception' in factory.call_args.args[0]
   assert (
-      simulation.get_entities()[1]
+      fixtures.as_agent(simulation.get_entities()[1])
       .get_act_component()
       .get_state()['component_order']
   )
@@ -349,10 +355,13 @@ def test_basic_prefab_factory_order_and_rejected_collisions():
       ({'custom': constant.Constant('x')}, {'other': 0}),
       ({'custom': constant.Constant('x')}, {'custom': True}),
   ]:
-    prefab.params = {
-        'extra_components': extras,
-        'extra_components_index': indices,
-    }
+    prefab.params = cast(
+        Any,
+        {
+            'extra_components': extras,
+            'extra_components_index': indices,
+        },
+    )
     with pytest.raises(ValueError):
       prefab.build(no_language_model.NoLanguageModel(), memory_bank)
 

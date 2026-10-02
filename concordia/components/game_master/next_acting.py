@@ -690,7 +690,9 @@ class NextActionSpecFromSceneSpec(
         scene_action_spec = entity_lib.DEFAULT_ACTION_SPEC
       elif isinstance(scene_action_spec, Mapping):
         player = self.get_current_active_player()
-        scene_action_spec = scene_action_spec.get(player)
+        scene_action_spec = (
+            scene_action_spec.get(player) if player is not None else None
+        )
         if scene_action_spec is None:
           raise ValueError(
               f'Scene {scene_type_spec.name!r} has no action spec for active'

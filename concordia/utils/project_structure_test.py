@@ -74,7 +74,10 @@ def test_structure_roundtrip_order_reference_and_real_components():
       == 'Renamed conversation'
   )
   simulation = fixtures.build(config)
-  actors = {actor.name: actor for actor in simulation.get_entities()}
+  actors = {
+      actor.name: fixtures.as_agent(actor)
+      for actor in simulation.get_entities()
+  }
   assert len(actors) == 3
   assert (
       actors['Charlie 🎵'].get_component('Goal').get_state()['state']

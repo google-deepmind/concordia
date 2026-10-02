@@ -15,8 +15,9 @@
 """Core-owned registered project fixtures; build only, never execute."""
 
 import dataclasses
-from typing import Any
+from typing import Any, cast
 
+from concordia.agents import entity_agent
 from concordia.environment.engines import sequential
 from concordia.language_model import no_language_model
 from concordia.prefabs.entity import basic
@@ -248,3 +249,17 @@ def scene_registry():
           ),
       )
   })
+
+
+def as_agent(entity) -> entity_agent.EntityAgent:
+  """Check the concrete agent produced by the registered test prefabs."""
+  assert isinstance(entity, entity_agent.EntityAgent)
+  return entity
+
+
+def component_order(entity) -> list[str]:
+  """Read and validate an acting component's serialized order in tests."""
+  value = as_agent(entity).get_act_component().get_state()['component_order']
+  assert isinstance(value, list)
+  assert all(isinstance(item, str) for item in value)
+  return cast(list[str], value)

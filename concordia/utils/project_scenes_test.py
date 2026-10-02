@@ -94,15 +94,18 @@ def test_scene_specs_references_text_components_and_fresh_builds():
   assert isinstance(scenes[0].scene_type, scene_lib.SceneTypeSpec)
   assert scenes[0].scene_type.game_master_name == 'Renamed GM'
   assert scenes[0].participants == ['Renamed actor 🎵', 'Bob']
+  assert scenes[0].scene_type.default_premise is not None
   assert scenes[0].scene_type.default_premise['Renamed actor 🎵'] == [literal]
   assert scenes[0].premise is None
+  assert scenes[1].premise is not None
   assert scenes[1].premise['Renamed actor 🎵'] == ['']
   first, second = fixtures.build(first_config), fixtures.build(second_config)
-  gm = first.get_game_masters()[0]
+  gm = fixtures.as_agent(first.get_game_masters()[0])
   tracker = gm.get_component('__next_game_master__')
   assert isinstance(tracker, scene_tracker.SceneTracker)
   assert set(tracker.get_participants()) == {'Renamed actor 🎵', 'Bob'}
-  actor, other = first.get_entities()[0], second.get_entities()[0]
+  actor = fixtures.as_agent(first.get_entities()[0])
+  other = fixtures.as_agent(second.get_entities()[0])
   context = actor.get_component('authored_context')
   recent = actor.get_component('authored_recent')
   assert isinstance(context, constant.Constant)
@@ -161,6 +164,7 @@ def test_invalid_scene_data_keeps_document_and_preview(mutate):
       preview=lambda c: fixtures.build(c).make_checkpoint_data(),
   )
   before = server.get_project()
+  assert server.operation_service is not None
   snapshot = server.operation_service.snapshot('developer')
   invalid = copy.deepcopy(document)
   mutate(invalid)
@@ -324,9 +328,9 @@ def test_save_reopen_preserves_authored_order_without_move_controls():
       'authored_first',
   ]
   simulation = fixtures.build(config)
-  actor = simulation.get_entities()[1]
+  actor = fixtures.as_agent(simulation.get_entities()[1])
   assert actor.name == 'Alice'
-  assert actor.get_act_component().get_state()['component_order'][-2:] == [
+  assert fixtures.component_order(actor)[-2:] == [
       'authored_last',
       'authored_first',
   ]
