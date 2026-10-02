@@ -30,6 +30,14 @@ from examples.project_editor import run
 from examples.project_editor import template
 
 
+@pytest.fixture(autouse=True)
+def isolate_together_credentials(monkeypatch):
+  """Tests use only synthetic provider credentials."""
+  monkeypatch.delenv('TOGETHER_API_KEY', raising=False)
+  monkeypatch.delenv('TOGETHER_AI_API_KEY', raising=False)
+
+
+@pytest.mark.parametrize('live', [False, True])
 @pytest.mark.parametrize(
     ('port', 'bound_port', 'public_origin', 'expected_url'),
     [
@@ -49,10 +57,13 @@ def test_main_advertises_browser_origin_without_starting_listener(
     public_origin,
     expected_url,
     capsys,
+    live,
 ):
   server = mock.Mock(spec=run.simulation_server.SimulationServer)
   server.bound_port = bound_port
   args = ['project_editor', '--port', str(port)]
+  if live:
+    args += ['--model-backend', 'together_ai', '--model-name', 'provider/model']
   if public_origin:
     args += ['--public-origin', public_origin]
   with (
@@ -69,7 +80,13 @@ def test_main_advertises_browser_origin_without_starting_listener(
   server.start.assert_called_once_with()  # Mock only; never binds a socket.
   server.stop.assert_called_once_with()
   output = capsys.readouterr().out
-  assert f'Mock editor: {expected_url}' in output
+  mode = 'Live' if live else 'Mock'
+  assert f'{mode} editor: {expected_url}' in output
+  assert create.call_args.kwargs['model_selection'] == (
+      run.ModelSelection('together_ai', 'provider/model')
+      if live
+      else run.ModelSelection()
+  )
   if public_origin:
     assert 'http://127.0.0.1:' not in output
 
@@ -95,6 +112,7 @@ def test_open_builds_preview_without_running():
     assert service is not None
     state = service.snapshot('developer')['result']
     assert state['state'] == 'ready'
+    assert 'Free mock' in server.html_content
     fields = state['definition']['inspector']['conversation']
     assert 'allow_llm_fallback' in fields
     assert state['document']['max_steps'] == 40
@@ -231,7 +249,7 @@ def test_catalogue_components_reach_each_example_prefab(owner, kind):
 @pytest.mark.parametrize(
     ('steps', 'stop', 'reason'),
     [
-        (40, False, 'Configured step limit reached (40).'),
+        (10, False, 'Requested step limit reached (10).'),
         (2, False, 'Game master ended the run before the step limit'),
         (1, True, 'Stop requested through the run controls.'),
     ],
@@ -297,3 +315,486 @@ def test_new_personas_use_third_person_and_old_saved_text_is_preserved():
       ]
       == text
   )
+
+
+def test_default_selection_uses_standard_no_model():
+  assert isinstance(
+      run.ModelSelection().create_model(), no_language_model.NoLanguageModel
+  )
+  assert 'Free mock' in run.ModelSelection().label
+
+
+@pytest.mark.parametrize(
+    'backend,name',
+    [
+        ('none', 'unused'),
+        ('together_ai', None),
+        ('together_ai', ' '),
+        ('', None),
+    ],
+)
+def test_invalid_model_selection(backend, name):
+  with pytest.raises(ValueError):
+    run.ModelSelection(backend, name)
+
+
+def test_live_selection_uses_standard_factory_without_sampling():
+  selection = run.ModelSelection('together_ai', 'provider/model')
+  with mock.patch.object(
+      run.language_models, 'language_model_setup'
+  ) as factory:
+    assert selection.create_model() is factory.return_value
+  factory.assert_called_once_with(
+      api_type='together_ai',
+      model_name='provider/model',
+      api_key=None,
+      disable_language_model=False,
+  )
+  assert 'Free mock' not in selection.label
+  assert 'together_ai' in selection.label
+  assert 'provider/model' in selection.label
+
+
+def test_live_preview_edit_save_never_initializes_provider():
+  with (
+      mock.patch.object(
+          run.os, 'getenv', side_effect=AssertionError('No credential lookup')
+      ),
+      mock.patch.object(
+          run.language_models,
+          'language_model_setup',
+          side_effect=AssertionError('No provider initialization'),
+      ),
+      mock.patch.object(
+          generic.Simulation, 'play', side_effect=AssertionError('No execution')
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_text',
+          side_effect=AssertionError('No sampling'),
+      ),
+      mock.patch.object(
+          no_language_model.NoLanguageModel,
+          'sample_choice',
+          side_effect=AssertionError('No sampling'),
+      ),
+  ):
+    server = run.create_editor(
+        model_selection=run.ModelSelection('together_ai', 'provider/model')
+    )
+    assert 'Live model configured' in server.html_content
+    assert 'together_ai' in server.html_content
+    assert 'provider/model' in server.html_content
+    assert 'Free mock' not in server.html_content
+    document = server.get_project()['document']
+    document['instances'][0]['params']['goal'] = 'Alice wants a quiet evening.'
+    saved = server.replace_project(template.registry().dumps(document), 0)
+    assert saved['revision'] == 1
+    assert saved['document'] == document
+    assert not server.is_serving
+    assert server.simulation is None
+
+
+def test_build_passes_supplied_model_to_standard_simulation():
+  selected = mock.Mock()
+  with mock.patch.object(run.generic, 'Simulation') as simulation:
+    run.build(
+        template.registry().to_config(
+            template.registry().default_document(template.TEMPLATE_KEY)
+        ),
+        model=selected,
+    )
+  assert simulation.call_args.kwargs['model'] is selected
+
+
+@pytest.mark.parametrize('requested', [None, 3, 40])
+def test_editor_run_uses_selected_model_with_mock_execution(requested):
+  selected = mock.Mock()
+  fake = mock.Mock()
+  fake.make_checkpoint_data.return_value = {'entities': {}, 'game_masters': {}}
+  with (
+      mock.patch.object(
+          run.language_models, 'language_model_setup', return_value=selected
+      ) as factory,
+      mock.patch.object(run, 'build', return_value=fake) as build,
+      mock.patch.object(run, 'save_result'),
+  ):
+    server = run.create_editor(
+        step_delay=0,
+        model_selection=run.ModelSelection('together_ai', 'provider/model'),
+    )
+    factory.assert_not_called()
+    server.run_project(0, requested)
+    assert server._project_thread is not None
+    server._project_thread.join(3)
+    assert not server._project_thread.is_alive()
+    assert build.call_args.kwargs['model'] is selected
+    factory.assert_called_once()
+    fake.play.assert_called_once()
+    assert fake.play.call_args.kwargs['max_steps'] == (
+        10 if requested is None else requested
+    )
+    assert server.get_project()['run']['status'] == 'completed'
+
+
+@pytest.mark.parametrize(
+    'error',
+    [
+        ValueError('Unrecognized api_type: invalid'),
+        ImportError('Install provider dependency'),
+        ValueError('Provider configuration missing'),
+    ],
+)
+def test_provider_setup_error_is_retained_without_mock_fallback(error):
+  with (
+      mock.patch.object(
+          run.language_models, 'language_model_setup', side_effect=error
+      ),
+      mock.patch.object(
+          generic.Simulation, 'play', side_effect=AssertionError('No execution')
+      ),
+  ):
+    server = run.create_editor(
+        model_selection=run.ModelSelection('invalid', 'model')
+    )
+    server.run_project(0)
+    assert server._project_thread is not None
+    server._project_thread.join(3)
+    assert not server._project_thread.is_alive()
+    result = server.get_project()
+    assert result['run']['status'] == 'failed'
+    assert result['run']['message'] == str(error)
+    assert server.simulation is None
+    assert result['document']['max_steps'] == 40
+
+
+def test_headless_cli_selection_and_limit_without_execution(capsys):
+  selected = mock.Mock()
+  with (
+      mock.patch.object(
+          sys,
+          'argv',
+          [
+              'editor',
+              '--headless',
+              '--model-backend',
+              'together_ai',
+              '--model-name',
+              'provider/model',
+          ],
+      ),
+      mock.patch.object(
+          run.language_models, 'language_model_setup', return_value=selected
+      ),
+      mock.patch.object(run, 'build') as build,
+      mock.patch.object(run, 'save_result') as save,
+      mock.patch.object(
+          run, 'create_editor', side_effect=AssertionError('No server')
+      ),
+  ):
+    run.main()
+  assert build.call_args.kwargs['model'] is selected
+  assert build.call_args.args[0].default_max_steps == 40
+  build.return_value.play.assert_called_once_with(max_steps=10)
+  assert save.call_args.args[1]['max_steps'] == 40
+  assert 'Live model configured' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['--model-name', 'model'],
+        ['--model-backend', 'together_ai'],
+        ['--max-steps', '0'],
+        ['--max-steps', '1001'],
+    ],
+)
+def test_cli_rejects_invalid_selection_before_initialization(args):
+  with (
+      mock.patch.object(sys, 'argv', ['editor', *args]),
+      mock.patch.object(run.language_models, 'language_model_setup') as factory,
+      mock.patch.object(run, 'create_editor') as create,
+      pytest.raises(SystemExit) as result,
+  ):
+    run.main()
+  assert result.value.code == 2
+  factory.assert_not_called()
+  create.assert_not_called()
+
+
+def test_headless_default_and_provider_failure_without_execution():
+  with (
+      mock.patch.object(sys, 'argv', ['editor', '--headless']),
+      mock.patch.object(run, 'build') as build,
+      mock.patch.object(run, 'save_result'),
+  ):
+    run.main()
+  assert isinstance(
+      build.call_args.kwargs['model'], no_language_model.NoLanguageModel
+  )
+  with (
+      mock.patch.object(
+          sys,
+          'argv',
+          [
+              'editor',
+              '--headless',
+              '--model-backend',
+              'unknown',
+              '--model-name',
+              'model',
+          ],
+      ),
+      mock.patch.object(run, 'build') as build,
+      pytest.raises(ValueError, match='Unrecognized api_type: unknown'),
+  ):
+    run.main()
+  build.assert_not_called()
+
+
+@pytest.mark.parametrize('sdk_key', [None, '', 'synthetic-sdk-key'])
+@pytest.mark.parametrize('adapter_key', [None, 'synthetic-adapter-key'])
+def test_together_sdk_environment_bridge(monkeypatch, sdk_key, adapter_key):
+  if sdk_key is not None:
+    monkeypatch.setenv('TOGETHER_API_KEY', sdk_key)
+  if adapter_key is not None:
+    monkeypatch.setenv('TOGETHER_AI_API_KEY', adapter_key)
+  with mock.patch.object(
+      run.language_models, 'language_model_setup'
+  ) as factory:
+    run.ModelSelection('together_ai', 'provider/model').create_model()
+  factory.assert_called_once_with(
+      api_type='together_ai',
+      model_name='provider/model',
+      api_key=sdk_key or None,
+      disable_language_model=False,
+  )
+  # None leaves the existing adapter's TOGETHER_AI_API_KEY fallback intact.
+  assert run.os.getenv('TOGETHER_AI_API_KEY') == adapter_key
+
+
+@pytest.mark.parametrize('backend,name', [('none', None), ('openai', 'model')])
+def test_other_backends_do_not_read_or_forward_together_key(backend, name):
+  with (
+      mock.patch.object(
+          run.os,
+          'getenv',
+          side_effect=AssertionError('No Together credential lookup'),
+      ),
+      mock.patch.object(run.language_models, 'language_model_setup') as factory,
+  ):
+    run.ModelSelection(backend, name).create_model()
+  assert factory.call_args.kwargs['api_key'] is None
+
+
+def test_headless_clamps_to_imported_maximum_without_rewriting(tmp_path):
+  document = template.registry().default_document(template.TEMPLATE_KEY)
+  document['max_steps'] = 4
+  project = tmp_path / 'project.json'
+  project.write_text(json.dumps(document))
+  with (
+      mock.patch.object(
+          sys, 'argv', ['editor', '--headless', '--project', str(project)]
+      ),
+      mock.patch.object(run, 'build') as build,
+      mock.patch.object(run, 'save_result') as save,
+  ):
+    run.main()
+  build.return_value.play.assert_called_once_with(max_steps=4)
+  assert save.call_args.args[1] == document
+
+
+@pytest.mark.parametrize(
+    'flags',
+    [
+        [],
+        ['--model-backend', 'other', '--model-name', 'm'],
+        ['--model-backend', 'together_ai'],
+        [
+            '--model-backend',
+            'together_ai',
+            '--model-name',
+            'm',
+            '--step-delay',
+            'nan',
+        ],
+        ['--model-backend', 'together_ai', '--model-name', 'm', '--port', '-1'],
+        [
+            '--model-backend',
+            'together_ai',
+            '--model-name',
+            'm',
+            '--public-origin',
+            'http://wrong',
+        ],
+    ],
+)
+def test_prompt_validates_flags_before_input_or_server(flags):
+  with (
+      mock.patch.object(sys, 'argv', ['editor', '--prompt-api-key', *flags]),
+      mock.patch.object(run.getpass, 'getpass') as prompt,
+      mock.patch.object(run, 'create_editor') as create,
+      pytest.raises(SystemExit) as error,
+  ):
+    run.main()
+  assert error.value.code == 2
+  prompt.assert_not_called()
+  create.assert_not_called()
+
+
+def test_prompt_rejects_non_tty_before_reading():
+  with (
+      mock.patch.object(sys.stdin, 'isatty', return_value=False),
+      mock.patch.object(run.getpass, 'getpass') as prompt,
+      pytest.raises(ValueError, match='local interactive terminal'),
+  ):
+    run.prompt_api_key()
+  prompt.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    'result',
+    [
+        '',
+        '  ',
+        EOFError(),
+        KeyboardInterrupt(),
+        OSError('synthetic-key-must-not-appear'),
+    ],
+)
+def test_prompt_failure_is_clean_and_before_server(result, capsys):
+  with (
+      mock.patch.object(
+          sys,
+          'argv',
+          [
+              'editor',
+              '--prompt-api-key',
+              '--model-backend',
+              'together_ai',
+              '--model-name',
+              'm',
+          ],
+      ),
+      mock.patch.object(sys.stdin, 'isatty', return_value=True),
+      mock.patch.object(
+          run.getpass,
+          'getpass',
+          side_effect=result if isinstance(result, BaseException) else None,
+          return_value=result,
+      ),
+      mock.patch.object(run, 'create_editor') as create,
+      pytest.raises(SystemExit) as error,
+  ):
+    run.main()
+  assert error.value.code == 2
+  create.assert_not_called()
+  assert 'synthetic-key-must-not-appear' not in capsys.readouterr().err
+
+
+def test_getpass_warning_prevents_echo_fallback():
+  fallback = mock.Mock()
+
+  def fake_getpass(_):
+    run.warnings.warn('Cannot control echo', run.getpass.GetPassWarning)
+    fallback()
+
+  with (
+      mock.patch.object(sys.stdin, 'isatty', return_value=True),
+      mock.patch.object(run.getpass, 'getpass', side_effect=fake_getpass),
+      pytest.raises(ValueError, match='unavailable'),
+  ):
+    run.prompt_api_key()
+  fallback.assert_not_called()
+
+
+def test_prompted_selection_redaction_and_factory_forwarding():
+  key = 'synthetic-local-input'
+  selection = run.ModelSelection('together_ai', 'm', api_key=key)
+  assert key not in repr(selection)
+  assert key not in selection.label
+  assert run.dataclasses.asdict(selection) == {
+      'backend': 'together_ai',
+      'model_name': 'm',
+  }
+  with (
+      mock.patch.object(
+          run.os, 'getenv', side_effect=AssertionError('Do not consult env')
+      ),
+      mock.patch.object(run.language_models, 'language_model_setup') as factory,
+  ):
+    selection.create_model()
+  assert factory.call_args.kwargs['api_key'] == key
+  with (
+      mock.patch.object(
+          run.language_models,
+          'language_model_setup',
+          side_effect=RuntimeError(key),
+      ),
+      pytest.raises(ValueError) as error,
+  ):
+    selection.create_model()
+  assert key not in str(error.value)
+
+
+def test_explicit_prompt_forwards_to_editor_in_memory_only(capsys):
+  server = mock.Mock()
+  server.bound_port = 8080
+  key = 'synthetic-local-input'
+  with (
+      mock.patch.object(
+          sys,
+          'argv',
+          [
+              'editor',
+              '--prompt-api-key',
+              '--model-backend',
+              'together_ai',
+              '--model-name',
+              'm',
+          ],
+      ),
+      mock.patch.object(sys.stdin, 'isatty', return_value=True),
+      mock.patch.object(
+          run.os, 'putenv', side_effect=AssertionError('No environment writes')
+      ),
+      mock.patch.object(run.getpass, 'getpass', return_value=key) as prompt,
+      mock.patch.object(run, 'create_editor', return_value=server) as create,
+      mock.patch.object(run.time, 'sleep', side_effect=KeyboardInterrupt),
+      mock.patch.object(run.language_models, 'language_model_setup') as factory,
+  ):
+    run.main()
+  prompt.assert_called_once()
+  factory.assert_not_called()
+  selection = create.call_args.kwargs['model_selection']
+  assert selection._runtime_api_key == key
+  assert key not in repr(create.call_args)
+  assert key not in ''.join(capsys.readouterr())
+
+
+def test_absent_prompt_flag_never_reads_input():
+  with (
+      mock.patch.object(sys, 'argv', ['editor', '--headless']),
+      mock.patch.object(
+          run.getpass, 'getpass', side_effect=AssertionError('No prompt')
+      ) as prompt,
+      mock.patch.object(run, 'build'),
+      mock.patch.object(run, 'save_result'),
+  ):
+    run.main()
+  prompt.assert_not_called()
+
+
+def test_prompted_key_not_in_preview_snapshot_or_document():
+  key = 'synthetic-local-input'
+  selection = run.ModelSelection('together_ai', 'm', api_key=key)
+  with mock.patch.object(
+      run.language_models,
+      'language_model_setup',
+      side_effect=AssertionError('No provider during preview'),
+  ):
+    server = run.create_editor(model_selection=selection)
+  assert key not in server.html_content
+  assert key not in json.dumps(server.get_project())
+  assert server.operation_service is not None
+  assert key not in json.dumps(server.operation_service.snapshot('developer'))
