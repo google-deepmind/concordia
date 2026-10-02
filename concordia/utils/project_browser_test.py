@@ -169,12 +169,14 @@ def test_save_reopen_actor_and_gm(browser, tmp_path, literal):
           json.dumps(dict(saved, max_steps=True)),
       ]:
         upload(page, bad)
-        browser_api.expect(page.locator('#project-error')).not_to_be_empty()
+        browser_api.expect(
+            page.locator('#console-output .error').last
+        ).not_to_be_empty()
         assert fresh.get_project() == before
       invalid_ref = json.loads(json.dumps(saved))
       invalid_ref['instances'][2]['params']['next_game_master_name'] = 'missing'
       upload(page, json.dumps(invalid_ref))
-      browser_api.expect(page.locator('#project-error')).to_contain_text(
+      browser_api.expect(page.locator('#console-output')).to_contain_text(
           'expected target'
       )
       assert fresh.get_project() == before
@@ -235,7 +237,7 @@ def test_two_tabs_reject_stale_and_active_draft(browser):
       a.get_by_role('button', name='Save project', exact=True).click()
     b.locator('#project-alice-goal').fill('Stale second tab')
     b.get_by_role('button', name='Save project', exact=True).click()
-    browser_api.expect(b.locator('#project-error')).to_contain_text(
+    browser_api.expect(b.locator('#console-output')).to_contain_text(
         'another tab'
     )
     before = server.get_project()
@@ -439,7 +441,9 @@ def test_integrated_portrait_definition_roundtrip(
     page.locator('#editor-file').set_input_files(
         {'name': 'bad.json', 'mimeType': 'application/json', 'buffer': b'{'}
     )
-    browser_api.expect(page.locator('#editor-error')).not_to_be_empty()
+    browser_api.expect(
+        page.locator('#console-output .error').last
+    ).not_to_be_empty()
     assert server.get_project() == before
     page.reload()
     page.locator('#editor-file').set_input_files(str(exported))
@@ -469,14 +473,14 @@ def test_integrated_multitab_draft_and_reconnect(browser, integrated_editor):
     a.locator('#editor-alice-goal').fill('First tab')
     b.locator('#editor-alice-goal').fill('Keep this unsaved field')
     a.get_by_role('button', name='Save draft').click()
-    browser_api.expect(b.locator('#editor-error')).to_contain_text(
+    browser_api.expect(b.locator('#console-output')).to_contain_text(
         'another tab'
     )
     browser_api.expect(b.locator('#editor-alice-goal')).to_have_value(
         'Keep this unsaved field'
     )
     b.get_by_role('button', name='Save draft').click()
-    browser_api.expect(b.locator('#editor-error')).to_contain_text(
+    browser_api.expect(b.locator('#console-output')).to_contain_text(
         'another tab'
     )
     assert (

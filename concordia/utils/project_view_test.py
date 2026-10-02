@@ -501,10 +501,14 @@ console.log(JSON.stringify(d));
   moved = registry.loads(result)
   assert registry.loads(registry.dumps(moved)) == moved
   built = project_test_support.build(registry.to_config(moved))
-  actors = {actor.name: actor for actor in built.get_entities()}
+  actors = {
+      actor.name: project_test_support.as_agent(actor)
+      for actor in built.get_entities()
+  }
   assert 'authored_recent' not in actors['Bob'].get_all_context_components()
   recent = actors['Alice'].get_component('authored_recent')
   assert recent.get_state()['history_length'] == 7
-  assert actors['Alice'].get_act_component().get_state()['component_order'][
-      -2:
-  ] == ['authored_existing', 'authored_recent']
+  assert project_test_support.component_order(actors['Alice'])[-2:] == [
+      'authored_existing',
+      'authored_recent',
+  ]

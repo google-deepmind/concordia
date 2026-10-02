@@ -1032,7 +1032,7 @@ def visualize_config_to_html(
     <!-- Bottom Panel - Console -->
     <div class="bottom-panel">
       <div class="console-header">Console</div>
-      <div class="console-output" id="console-output">
+      <div class="console-output" id="console-output" role="log" aria-live="polite" aria-relevant="additions" aria-label="Simulation log">
         <div class="console-line info"><span class="timestamp">[--:--:--]</span> Ready. Select an entity to inspect its components.</div>
       </div>
     </div>
@@ -1354,8 +1354,12 @@ def visualize_config_to_html(
       stamp.className = 'timestamp';
       stamp.textContent = '[' + timestamp + '] ';
       line.append(stamp, document.createTextNode(String(message)));
-      output.appendChild(line);
-      output.scrollTop = output.scrollHeight;
+      const following = output.scrollHeight - output.scrollTop - output.clientHeight < 48;
+      const prompt = output.lastElementChild;
+      if (prompt && prompt.id === 'editor-command-form') output.insertBefore(line, prompt);
+      else output.appendChild(line);
+      if (following) output.scrollTop = output.scrollHeight;
+      return line;
     }}
 
     function updateControlState() {{
@@ -1469,9 +1473,9 @@ def visualize_config_to_html(
       }};
 
       eventSource.onerror = function(err) {{
+        if (isConnected) logConsole('Disconnected; reconnecting without replaying commands.', 'warning');
         isConnected = false;
         updateControlState();
-        console.log('SSE connection error, reconnecting...');
       }};
     }}
 
@@ -1536,7 +1540,7 @@ def visualize_operations_to_html(config, *, title="Attached editor") -> str:
   <label>Operation <select id="op-name"></select></label>
   <p id="op-description"></p><form id="op-form"><div id="op-fields"></div>
   <button id="op-submit" disabled>Apply operation</button></form>
-  <p id="op-error" role="alert"></p><h2>Received state</h2>
+  <h2>Received state</h2>
   <p>Inspect an abbreviated preview or download the full received JSON.
   This developer snapshot may contain private entity information.</p>
   <button id="op-snapshot-download" disabled>Download received JSON</button>
@@ -1546,7 +1550,7 @@ def visualize_operations_to_html(config, *, title="Attached editor") -> str:
   <button id="op-preview-refresh" disabled>Refresh preview</button>
   <pre id="op-state" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto"></pre>
   </details>
-  <details><summary>Last operation result</summary><pre id="op-result" style="white-space:pre-wrap"></pre></details>
+
   </section><script>
   (() => {
     let current, definitions = [], dirty = false, draftRevision, draftRefs;
@@ -1642,7 +1646,7 @@ def visualize_operations_to_html(config, *, title="Attached editor") -> str:
     $('op-name').onchange = fields;
     $('op-form').onsubmit = async e => {
       e.preventDefault(); if (!current || !connected || sending) return;
-      $('op-error').textContent = '';
+
       const arguments_ = {};
       for (const field of $('op-fields').querySelectorAll('[data-key]'))
         arguments_[field.dataset.key] = field.dataset.type === 'integer' ? Number(field.value) : field.value;
@@ -1654,19 +1658,19 @@ def visualize_operations_to_html(config, *, title="Attached editor") -> str:
         const response = await fetch('/api/dispatch', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
         const value = await response.json();
         if (!response.ok) throw new Error(value.error.message);
-        $('op-result').textContent = JSON.stringify(value, null, 2); dirty = false;
-      } catch(error) { $('op-error').textContent = error.message; }
+        logConsole(JSON.stringify(value, null, 2), 'success'); dirty = false;
+      } catch(error) { logConsole(error.message, 'error'); }
       finally { sending = false; $('op-submit').disabled = !connected; }
     };
     fetch('/api/operations').then(r=>r.json()).then(value=>{
       definitions = value.result.operations;
       for (const op of definitions) { const option=document.createElement('option'); option.value=op.name;option.textContent=op.name;$('op-name').append(option); }
       fields();
-    }).catch(error=>{$('op-error').textContent=error.message});
+    }).catch(error=>{logConsole(error.message, 'error')});
     const events = new EventSource('/api/events');
-    events.onmessage = e => {connected = true; show(JSON.parse(e.data), e.data);};
-    events.onerror = () => {connected = false; $('op-submit').disabled = true;
-      $('op-status').textContent='Disconnected · reconnecting; drafts kept'};
+    events.onmessage = e => {if(!connected)logConsole('Connected to editor.', 'info');connected = true; show(JSON.parse(e.data), e.data);};
+    events.onerror = () => {if(connected)logConsole('Disconnected; drafts kept. Commands are not replayed.', 'warning');connected = false; $('op-submit').disabled = true;
+      $('op-status').textContent='Disconnected'};
   })();
   </script>"""
   return page.replace("</body>", panel + "</body>")

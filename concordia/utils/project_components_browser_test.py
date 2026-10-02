@@ -69,13 +69,16 @@ def test_component_crud_dom(width, tmp_path):
       # Production HTML/JS and operation service, with HTTP/SSE replaced.
       page.add_init_script('window.EventSource=class {close(){}};')
 
+      service = server.operation_service
+      assert service is not None
+
       def route(request):
         path = urlsplit(request.request.url).path
         if path == '/api/state':
-          request.fulfill(json=server.operation_service.snapshot('developer'))
+          request.fulfill(json=service.snapshot('developer'))
         elif path == '/api/dispatch':
           try:
-            result = server.operation_service.dispatch(
+            result = service.dispatch(
                 'developer', request.request.post_data_json
             )
           except operation_service.OperationError as error:
@@ -96,17 +99,21 @@ def test_component_crud_dom(width, tmp_path):
       page.locator('[data-world-id="scenes:opening"]').click()
       page.locator('#world-rounds').fill('0')
       page.get_by_role('button', name='Save draft', exact=True).click()
-      browser_api.expect(page.locator('#editor-error')).to_contain_text(
+      browser_api.expect(page.locator('#console-output')).to_contain_text(
           'expected integer from 1 to 1000'
       )
       page.get_by_role('button', name='Hierarchy', exact=True).click()
       page.locator('[data-instance-id="bob"]').click()
+      page.get_by_role('button', name='Log', exact=True).click()
       page.get_by_role('button', name='Show invalid field', exact=True).click()
       browser_api.expect(page.locator('#world-rounds')).to_be_focused()
       browser_api.expect(page.locator('#world-rounds')).to_have_value('0')
       assert server.get_project()['document']['scenes'][0]['num_rounds'] == 2
       page.locator('#world-rounds').fill('2')
-      browser_api.expect(page.locator('#editor-error')).to_be_empty()
+      assert page.locator('#editor-error').count() == 0
+      browser_api.expect(page.locator('#console-output')).to_contain_text(
+          'expected integer from 1 to 1000'
+      )
 
       def select_owner(owner):
         page.get_by_role('button', name='Hierarchy', exact=True).click()

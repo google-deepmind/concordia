@@ -31,10 +31,13 @@ import copy
 from typing import Any, TYPE_CHECKING
 import uuid
 
+from concordia.command_line_interface import concordia_log
 from concordia.components.agent import constant
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import operation_service as ops
 from concordia.utils import project_config
+from concordia.utils import session_commands
+from concordia.utils import structured_logging
 from concordia.utils import visual_interface
 
 if TYPE_CHECKING:
@@ -60,6 +63,7 @@ class ProjectEditor:
     self.steps: list[dict[str, Any]] = []
     self.reset_requested = False
     self.stepping = False
+    self.structured_log = None
     self.service.set_view('developer', self.snapshot)
     string = ops.Parameter('string', 'Literal text')
     self._register(
@@ -70,12 +74,48 @@ class ProjectEditor:
         },
         lambda args: server.replace_project(args['text'], args['revision']),
     )
+    run_parameters = {
+        'revision': ops.Parameter('integer', 'Saved project revision'),
+    }
+    if server.get_project()['run_limits'] is not None:
+      run_parameters['requested_steps'] = ops.Parameter(
+          'integer',
+          'Steps for this run, within the saved configuration maximum',
+      )
     self._register(
         'project.run',
+        run_parameters,
+        lambda args: server.run_project(
+            args['revision'], args.get('requested_steps')
+        ),
+    )
+    self._register(
+        'session.plan', {'line': string}, self.command_plan, mutation=False
+    )
+    draft_text = {
+        'text': ops.Parameter('string', 'Registered project JSON', 900000)
+    }
+    self._register(
+        'project.validate',
+        draft_text,
+        lambda args: self.registry.loads(args['text']),
+        mutation=False,
+    )
+    self._register(
+        'project.preview', draft_text, self.preview_draft, mutation=False
+    )
+    self._register(
+        'log.query',
         {
-            'revision': ops.Parameter('integer', 'Saved project revision'),
+            'command': string,
+            'source': string,
+            'arguments': string,
+            'imported': ops.Parameter(
+                'string', 'Client-owned structured log JSON', 900000
+            ),
         },
-        lambda args: server.run_project(args['revision']),
+        self.query_log,
+        mutation=False,
     )
     self._register('project.reset', {}, lambda _: self.reset())
     for command in ('play', 'pause', 'step'):
@@ -94,13 +134,75 @@ class ProjectEditor:
         self.edit,
     )
 
-  def _register(self, name, parameters, handler):
+  def preview_draft(self, arguments):
+    document = self.registry.loads(arguments['text'])
+    return {'document': document, 'definition': self.prepare(document)}
+
+  def command_plan(self, arguments):
+    plan = session_commands.parse(arguments['line'])
+    operation = session_commands.operation(plan, self.snapshot())
+    if operation is not None:
+      plan['operation'], plan['arguments'] = operation
+    return plan
+
+  def query_log(self, arguments):
+    import json
+
+    source = arguments['source']
+    if source == 'imported':
+      log = structured_logging.SimulationLog.from_json(arguments['imported'])
+    elif source == 'current':
+      if self.structured_log is not None:
+        log = self.structured_log
+      else:
+        simulation = self.server.simulation
+        if simulation is None:
+          raise ValueError(
+              'No current structured log. Run a project or use log import.'
+          )
+        if self.server.get_project()['run']['status'] == 'active':
+          raise ValueError(
+              'Current structured log is available after the run finishes; use'
+              ' an imported log meanwhile.'
+          )
+        log = structured_logging.SimulationLog.from_raw_log(
+            simulation.get_raw_log()
+        )
+    else:
+      raise ValueError('Log source must be current or imported.')
+    command = arguments['command']
+    allowed = (
+        'overview',
+        'entities',
+        'actions',
+        'context',
+        'step',
+        'timeline',
+        'search',
+        'memories',
+        'components',
+        'dump',
+        'bundle',
+    )
+    if command not in allowed:
+      raise ValueError('Unknown log analysis command.')
+    values = json.loads(arguments['arguments'])
+    if not isinstance(values, list) or not all(
+        isinstance(value, str) for value in values
+    ):
+      raise ValueError('Log arguments must be a JSON string list.')
+    result = concordia_log.analyze(log, command, values)
+    result['source'] = source
+    return result
+
+  def _register(self, name, parameters, handler, *, mutation=True):
     def invoke(arguments):
       try:
         result = handler(arguments)
       except (ValueError, KeyError, TypeError, RuntimeError) as error:
         raise ops.OperationError('invalid_edit', str(error)) from error
-      self.service.publish({'kind': name})
+      if mutation:
+        self.service.publish({'kind': name})
       return result
 
     self.service.register(
@@ -109,7 +211,7 @@ class ProjectEditor:
             description=name,
             parameters=parameters,
             handler=invoke,
-            mutation=True,
+            mutation=mutation,
         )
     )
 
@@ -130,6 +232,7 @@ class ProjectEditor:
     # Called under the same lock as dispatch, before the run thread starts.
     self.service.references['run_id'] = str(uuid.uuid4())
     self.runtime_config = config
+    self.structured_log = None
     self.runtime_view = None
     self.steps = []
     self.reset_requested = False

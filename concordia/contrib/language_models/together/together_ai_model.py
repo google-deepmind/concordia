@@ -22,6 +22,7 @@ The list of models we have tested with this implementation is as follows:
 DeepSeek family:
 - deepseek-ai/DeepSeek-V4-Pro (default)
 - deepseek-ai/DeepSeek-V3
+- deepseek-ai/DeepSeek-V4.1-Flash (reasoning disabled for text and choices)
 
 Gemma 4 family:
 - google/gemma-4-31B-it
@@ -43,9 +44,7 @@ from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import together
 
-
-_MAX_ATTEMPTS = 20
-_NUM_SILENT_ATTEMPTS = 3
+_MAX_ATTEMPTS = 3
 _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED = 2
 _JITTER_SECONDS = 0.25
 
@@ -57,6 +56,10 @@ _JITTER_SECONDS = 0.25
 # content. The model still respects natural stop conditions, so raising the
 # ceiling does not inflate cost — only unblocks the response.
 _GEMMA4_MIN_MAX_TOKENS = 2048
+
+# Only this exact model has a verified reasoning toggle. Keep short Concordia
+# text/choice budgets for visible output rather than internal reasoning.
+_REASONING_DISABLED_MODELS = frozenset({'deepseek-ai/DeepSeek-V4.1-Flash'})
 
 _GUESS_CHARS_PER_TOKEN = 4
 # Use `_NUM_INITIAL_TOKENS` from the start of the prompt if possible when
@@ -124,7 +127,6 @@ def _ensure_prompt_not_too_long(
         'end, resulting in %d characters',
         len(new_prompt),
     )
-    logging.debug('Trimmed prompt: %s', new_prompt)
     return new_prompt
 
   # This happens if len(prompt) > max_prompt_chars <= num_initial_chars.
@@ -132,8 +134,18 @@ def _ensure_prompt_not_too_long(
   logging.info(
       'Prompt too long, truncated it to last %d characters.', max_prompt_chars
   )
-  logging.debug('Truncated prompt: %s', new_prompt)
   return new_prompt
+
+
+def _visible_text(content: object) -> str:
+  """Enforce the text contract without retrying a content-less paid response."""
+  if not isinstance(content, str) or not content.strip():
+    raise language_model.InvalidResponseError(
+        'Together returned no visible text: message.content must be a nonempty'
+        ' string. Request not retried; check model reasoning support and'
+        ' response budget.'
+    )
+  return content
 
 
 def _create_together_client(api_key: str) -> TogetherClient:
@@ -146,7 +158,7 @@ def _create_together_client(api_key: str) -> TogetherClient:
     A Together AI client.
   """
   # pyrefly: ignore [bad-return]
-  return together.Together(api_key=api_key)
+  return together.Together(api_key=api_key, max_retries=0)
 
 
 def _get_together_errors():
@@ -163,22 +175,55 @@ def _get_together_errors():
   return (together.TogetherError,)
 
 
-def _is_retriable_api_error(err) -> bool:
-  """Check if the error suggests the prompt should be trimmed and retried.
+def _handle_api_error(error: Exception, attempt: int) -> None:
+  """Retry only known transient failures; never expose provider exception data."""
+  status = getattr(error, 'status_code', None)
+  status = status if type(status) is int and 100 <= status <= 599 else None
+  transient = isinstance(error, together.APIConnectionError) or (
+      status in (408, 429) or status is not None and status >= 500
+  )
+  if transient and attempt + 1 < _MAX_ATTEMPTS:
+    return
+  prefix = (
+      f'Together HTTP {status}'
+      if status is not None
+      else 'Together transport/protocol'
+  )
+  if transient:
+    detail = (
+        f'transient failure after {_MAX_ATTEMPTS} attempts; retry later or'
+        ' check connectivity/service availability.'
+    )
+  elif status == 401:
+    detail = (
+        'authentication failed; verify the selected API key is valid for the'
+        ' configured endpoint and account. No'
+        ' automatic retry.'
+    )
+  elif status == 403:
+    detail = (
+        'permission denied; check account and model access. No automatic retry.'
+    )
+  elif status in (400, 404, 422):
+    detail = (
+        'request/model rejected; check model availability, request options and'
+        ' context budget. No automatic retry.'
+    )
+  else:
+    detail = 'request failed; check provider configuration. No automatic retry.'
+  raise language_model.InvalidResponseError(prefix + ': ' + detail) from None
 
-  In Together SDK 2.x, context-length / malformed-request errors surface as
-  `BadRequestError` (HTTP 400) or `UnprocessableEntityError` (HTTP 422). For
-  these we re-run the trimming with a more pessimistic chars-per-token guess.
-  Other errors (rate limit, timeout, 5xx) are retried as-is.
 
-  Args:
-    err: The error to check.
-
-  Returns:
-    True if the error suggests the prompt should be trimmed and retried.
-  """
-  return isinstance(err, (together.BadRequestError,
-                          together.UnprocessableEntityError))
+def _response_text(response: object) -> str:
+  try:
+    # pyrefly: ignore [missing-attribute]
+    content = response.choices[0].message.content
+  except (AttributeError, IndexError, TypeError):
+    raise language_model.InvalidResponseError(
+        'Together returned no visible text: invalid response structure. Request'
+        ' not retried.'
+    ) from None
+  return _visible_text(content)
 
 
 class Gemma4Chat(language_model.LanguageModel):
@@ -234,7 +279,6 @@ class Gemma4Chat(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    original_prompt = prompt
     # Callers occasionally pass huge `max_tokens` values (e.g. 1_000_000) as a
     # "give me as much as possible" signal. Clamp to half the context window
     # so both the prompt and the response have meaningful room — without this,
@@ -262,11 +306,6 @@ class Gemma4Chat(language_model.LanguageModel):
         seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.info(
-              'Sleeping for %s seconds... attempt: %s / %s',
-              seconds_to_sleep, attempts, _MAX_ATTEMPTS
-          )
         time.sleep(seconds_to_sleep)
       try:
         response = self._client.chat.completions.create(
@@ -292,42 +331,18 @@ class Gemma4Chat(language_model.LanguageModel):
             reasoning_effort='low',
         )
       except _get_together_errors() as err:  # pylint: disable=catching-non-exception
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.warning('  Exception: %s', err)
-          logging.debug('  Text exception prompt: %s', prompt)
-        if _is_retriable_api_error(err):
-          # If hit the error that arises from a prompt that is too long then
-          # re-run the trimming function with a more pessimistic guess of the
-          # the number of characters per token.
-          prompt = _ensure_prompt_not_too_long(
-              original_prompt,
-              max_tokens,
-              guess_chars_per_token=1,
-              max_allowed_tokens=self._max_allowed_tokens,
-          )
+        _handle_api_error(err, attempts)
         continue
       else:
         # pyrefly: ignore [missing-attribute]
-        result = response.choices[0].message.content or ''
-        if not result:
-          # Reasoning model consumed the entire budget on thinking and produced
-          # no content. Log and retry with the normal backoff loop.
-          logging.warning(
-              '  Empty content from %s (finish_reason=%s,'
-              ' completion_tokens=%s). Retrying.',
-              self._model_name,
-              # pyrefly: ignore [missing-attribute]
-              response.choices[0].finish_reason,
-              # pyrefly: ignore [missing-attribute]
-              getattr(response.usage, 'completion_tokens', '?'),
-          )
-          continue
+        result = _response_text(response)
         # Apply caller-supplied terminators client-side, since we didn't pass
         # them to the API (see note on the create() call above).
         for terminator in terminators:
           idx = result.find(terminator)
           if idx >= 0:
             result = result[:idx]
+        result = _visible_text(result)
         break
 
     if self._measurements is not None:
@@ -369,7 +384,6 @@ class Gemma4Chat(language_model.LanguageModel):
         + '.'
     )
 
-    sample = ''
     answer = ''
     for attempts in range(_MAX_ATTEMPTS):
       temperature = sampling.dynamically_adjust_temperature(
@@ -401,10 +415,9 @@ class Gemma4Chat(language_model.LanguageModel):
           )
         return idx, responses[idx], {}
 
-    raise language_model.InvalidResponseError((
-        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
-        + f'extracted: {answer}'
-    ))
+    raise language_model.InvalidResponseError(
+        f'Together returned no valid choice after {_MAX_ATTEMPTS} attempts.'
+    )
 
 
 class DeepSeekModel(language_model.LanguageModel):
@@ -463,7 +476,6 @@ class DeepSeekModel(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    original_prompt = prompt
     # Callers occasionally pass huge `max_tokens` values (e.g. 1_000_000) as a
     # "give me as much as possible" signal. Clamp to half the context window
     # so both the prompt and the response have meaningful room — without this,
@@ -491,11 +503,6 @@ class DeepSeekModel(language_model.LanguageModel):
         seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.info(
-              'Sleeping for %s seconds... attempt: %s / %s',
-              seconds_to_sleep, attempts, _MAX_ATTEMPTS
-          )
         time.sleep(seconds_to_sleep)
       try:
         response = self._client.chat.completions.create(
@@ -509,25 +516,18 @@ class DeepSeekModel(language_model.LanguageModel):
             stop=list(terminators) if terminators else None,
             seed=seed,
             stream=False,
+            **(
+                {'reasoning': {'enabled': False}}
+                if self._model_name in _REASONING_DISABLED_MODELS
+                else {}
+            ),
         )
       except _get_together_errors() as err:  # pylint: disable=catching-non-exception
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.warning('  Exception: %s', err)
-          logging.debug('  Text exception prompt: %s', prompt)
-        if _is_retriable_api_error(err):
-          # If hit the error that arises from a prompt that is too long then
-          # re-run the trimming function with a more pessimistic guess of the
-          # the number of characters per token.
-          prompt = _ensure_prompt_not_too_long(
-              original_prompt,
-              max_tokens,
-              guess_chars_per_token=1,
-              max_allowed_tokens=self._max_allowed_tokens,
-          )
+        _handle_api_error(err, attempts)
         continue
       else:
         # pyrefly: ignore [missing-attribute]
-        result = response.choices[0].message.content
+        result = _response_text(response)
         break
 
     if self._measurements is not None:
@@ -569,7 +569,6 @@ class DeepSeekModel(language_model.LanguageModel):
         + '.'
     )
 
-    sample = ''
     answer = ''
     for attempts in range(_MAX_ATTEMPTS):
       temperature = sampling.dynamically_adjust_temperature(
@@ -601,10 +600,9 @@ class DeepSeekModel(language_model.LanguageModel):
           )
         return idx, responses[idx], {}
 
-    raise language_model.InvalidResponseError((
-        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
-        + f'extracted: {answer}'
-    ))
+    raise language_model.InvalidResponseError(
+        f'Together returned no valid choice after {_MAX_ATTEMPTS} attempts.'
+    )
 
 
 class OpenWeightsOpenAI(language_model.LanguageModel):
@@ -660,7 +658,6 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
       timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
       seed: int | None = None,
   ) -> str:
-    original_prompt = prompt
     prompt = _ensure_prompt_not_too_long(
         prompt, max_tokens, max_allowed_tokens=self._max_allowed_tokens
     )
@@ -694,11 +691,6 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
         seconds_to_sleep = _SECONDS_TO_SLEEP_WHEN_RATE_LIMITED + random.uniform(
             -_JITTER_SECONDS, _JITTER_SECONDS
         )
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.info(
-              'Sleeping for %s seconds... attempt: %s / %s',
-              seconds_to_sleep, attempts, _MAX_ATTEMPTS
-          )
         time.sleep(seconds_to_sleep)
       try:
         response = self._client.chat.completions.create(
@@ -715,23 +707,11 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
             reasoning_effort='low',
         )
       except _get_together_errors() as err:  # pylint: disable=catching-non-exception
-        if attempts >= _NUM_SILENT_ATTEMPTS:
-          logging.warning('  Exception: %s', err)
-          logging.debug('  Text exception prompt: %s', prompt)
-        if _is_retriable_api_error(err):
-          # If hit the error that arises from a prompt that is too long then
-          # re-run the trimming function with a more pessimistic guess of the
-          # the number of characters per token.
-          prompt = _ensure_prompt_not_too_long(
-              original_prompt,
-              max_tokens,
-              guess_chars_per_token=1,
-              max_allowed_tokens=self._max_allowed_tokens,
-          )
+        _handle_api_error(err, attempts)
         continue
       else:
         # pyrefly: ignore [missing-attribute]
-        result = response.choices[0].message.content
+        result = _response_text(response)
         # pyrefly: ignore [missing-attribute]
         reasoning = getattr(response.choices[0].message, 'reasoning', '')
         break
@@ -759,7 +739,6 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
         + '.'
     )
 
-    sample = ''
     answer = ''
     for attempts in range(_MAX_ATTEMPTS):
       temperature = sampling.dynamically_adjust_temperature(
@@ -784,10 +763,9 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
         debug = {}
         return idx, responses[idx], debug
 
-    raise language_model.InvalidResponseError((
-        f'Too many multiple choice attempts.\nLast attempt: {sample}, '
-        + f'extracted: {answer}'
-    ))
+    raise language_model.InvalidResponseError(
+        f'Together returned no valid choice after {_MAX_ATTEMPTS} attempts.'
+    )
 
 
 _DEFAULT_MODEL_NAME = 'deepseek-ai/DeepSeek-V4-Pro'
