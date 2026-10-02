@@ -1075,3 +1075,35 @@ def test_interactive_readline_history_is_memory_only_and_restored(tmp_path):
       mock.call('prior process history'),
   ]
   assert readline.clear_history.call_count == 2
+
+
+def test_reload_resets_deleted_selection_and_rejects_nonentity_component(
+    tmp_path,
+):
+  registry = project_test_support.scene_registry()
+  server = simulation_server.SimulationServer(port=0)
+  server.configure_project(
+      registry,
+      registry.default_document('scenes-v1'),
+      integrated=True,
+      run=mock.Mock(side_effect=AssertionError('No simulation')),
+  )
+  args = argparse.Namespace(
+      url='http://fixture',
+      timeout=1,
+      line='add instance alice --id temporary',
+      draft=tmp_path / 'draft.json',
+      file=None,
+      output=None,
+  )
+  with mock.patch.object(
+      concordia_session.urllib.request, 'urlopen', side_effect=fake_http(server)
+  ):
+    concordia_session.friendly(args)
+    args.line = 'reload --discard'
+    concordia_session.friendly(args)
+    args.line = 'inspect'
+    assert concordia_session.friendly(args)['instance']['id'] == 'alice'
+    args.line = 'inspect simulation Missing'
+    with pytest.raises(ValueError, match='requires an instance'):
+      concordia_session.friendly(args)
