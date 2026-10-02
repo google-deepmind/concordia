@@ -32,9 +32,13 @@ Authoring: add instance PROTOTYPE | add component TYPE OWNER | add group | add s
   duplicate [ID], remove [ID], set ID FIELD JSON, references ID, replace SOURCE TARGET, move-component ID OWNER
   ID is an instance ID, simulation, or components:ID / groups:ID / scene_types:ID / scenes:ID.
   set uses a top-level record field or params.FIELD; values are JSON (quote strings).
+Discovery: catalog [templates|prefabs|components], list [instances|components|groups|scene_types|scenes]
+  inspect [ID [COMPONENT]], locate "VALIDATION MESSAGE", move ID up|down
+  add commands optionally accept --id STABLE_ID; . means current selection.
+Presentation: layout [left|right|terminal PIXELS] (browser only)
 View: select ID [COMPONENT], search TEXT, view definition|runtime, panel hierarchy|inspector|simulation|log, inspect [ID]
 Runtime: edit INSTANCE COMPONENT TEXT (paused only; Instructions/Goal)
-Logs: log import; log overview|entities|actions|context|step|timeline|search|memories|components|dump|bundle --source current|imported [concordia-log arguments]
+Logs: log import; log overview|entities|actions|context|step|timeline|search|memories|components|export|dump|bundle --source current|imported [concordia-log arguments]
   log step inspects a recorded step; step advances execution. Log dump/bundle export downloads in browser, explicit files in CLI.
 Files and draft/history are local to each client; commands never silently save or discard.
 """
@@ -75,6 +79,22 @@ def parse(line: str) -> dict:
     if args:
       raise ValueError(f'{name} takes no arguments.')
     return {'kind': 'action', 'action': name, 'args': []}
+  if name in ('catalog', 'list', 'layout'):
+    choices = {
+        'catalog': ('templates', 'prefabs', 'components'),
+        'list': ('instances', 'components', 'groups', 'scene_types', 'scenes'),
+        'layout': ('left', 'right', 'terminal'),
+    }
+    if args and args[0] not in choices[name]:
+      raise ValueError(f'{name}: choose from {choices[name]}.')
+    if name == 'layout':
+      if args and (
+          len(args) != 2 or not args[1].isdigit() or int(args[1]) <= 0
+      ):
+        raise ValueError('Use layout or layout left|right|terminal PIXELS.')
+    elif len(args) > 1:
+      raise ValueError(f'{name} accepts at most one section.')
+    return {'kind': 'action', 'action': name, 'args': args}
   if name == 'call':
     if len(args) != 2:
       raise ValueError('Use call OPERATION followed by a quoted JSON object.')
@@ -100,6 +120,7 @@ def parse(line: str) -> dict:
         'search',
         'memories',
         'components',
+        'export',
         'dump',
         'bundle',
     ):
@@ -122,15 +143,21 @@ def parse(line: str) -> dict:
       'search': (1, 1),
       'view': (1, 1),
       'panel': (1, 1),
-      'inspect': (0, 1),
+      'inspect': (0, 2),
       'set': (3, 3),
       'references': (1, 1),
       'replace': (2, 2),
       'move-component': (2, 2),
       'edit': (3, 3),
       'reload': (1, 1),
+      'locate': (1, 1),
+      'move': (2, 2),
   }
+  identifier = None
   if name == 'add':
+    if len(args) >= 3 and args[-2] == '--id':
+      identifier = args[-1]
+      args = args[:-2]
     kinds = {
         'instance': 2,
         'component': 3,
@@ -158,7 +185,12 @@ def parse(line: str) -> dict:
       'log',
   ):
     raise ValueError('Unknown editor panel.')
-  return {'kind': 'action', 'action': name, 'args': args}
+  if name == 'move' and args[1] not in ('up', 'down'):
+    raise ValueError('move requires up or down.')
+  plan = {'kind': 'action', 'action': name, 'args': args}
+  if identifier is not None:
+    plan['id'] = identifier
+  return plan
 
 
 def operation(plan: dict, snapshot: dict) -> tuple[str, dict] | None:

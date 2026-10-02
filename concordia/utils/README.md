@@ -35,3 +35,6 @@ The integrated editor and `concordia-session command --line` share a safe comman
 language, operation validation and registered authoring actions. See
 [Editor and session commands](../docs/editor-commands.md) for commands, local
 draft/history semantics, structured-log analysis and client-side exports.
+
+For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
+see the [simulation design CLI tutorial](../command_line_interface/README.md).

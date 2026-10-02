@@ -546,16 +546,43 @@ class ProjectComponentOperations {
 
 class ProjectDraftCommands {
   static matches(item,query,components=[],owned=[]){
-    const values=item.params?[item.params.name,item.id,item.prefab,...components,...owned.flatMap(c=>[c.name,c.type])]:[item.name,item.id];
+    const values=item.params?[item.params.name,item.name,item.type,item.id,item.prefab,...components,...owned.flatMap(c=>[c.name,c.type])]:[item.name,item.id];
     return values.some(value=>String(value).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   }
-  static apply(document,metadata,selection,action,args){
+  static read(document,metadata,base,runtime,view,selection,action,args){
+    const id=args[0]==='.'?selection:(args[0] || selection);
+    if(action==='catalog')return args[0]==='templates'?(metadata.templates || [document.template]):args[0]==='components'?metadata.component_catalog:args[0]==='prefabs'?metadata.catalog:{template:document.template,prefabs:metadata.catalog,components:metadata.component_catalog};
+    if(action==='list')return args.length?(document[args[0]] || []):Object.fromEntries(['instances','components','groups','scene_types','scenes'].map(k=>[k,document[k] || []]));
+    if(action==='locate'){
+      const target=ProjectValidation.target(document,args[0]);
+      if(!target)throw Error('No unambiguous field in this draft matches that validation message.');
+      return target;
+    }
+    const item=id==='simulation'?document:ProjectSceneOperations.locate(document,id)?.item || document.instances.find(x=>x.id===id);
+    if(!item)throw Error('Unknown selection.');
+    if(id==='simulation' || !document.instances.includes(item))return item;
+    const index=(base?.instances || document.instances).findIndex(x=>x.id===id);
+    if(view==='runtime' && !runtime)throw Error('No current runtime to inspect.');
+    const entity=(view==='runtime'?runtime:metadata)?.entities?.['entity_'+index];
+    const components=entity?.component_info?.context_components || {};
+    if(args[1]){if(!Object.hasOwn(components,args[1]))throw Error('Unknown component; inspect the instance to list available components.');return components[args[1]];}
+    return {instance:item,fields:metadata.catalog?.find(x=>x.instance.prototype===item.prototype)?.inspector,entity:entity || null,authored_components:(document.components || []).filter(c=>c.instance===id),preview_note:view==='runtime'?'Current runtime state.':entity?'Preview reflects the last save/load.':'Save to build a component preview.'};
+  }
+  static apply(document,metadata,selection,action,args,identifier=null){
     const catalog=metadata.catalog || [], components=metadata.component_catalog || [];
+    args=args.map(x=>x==='.'?selection:x);
     const id=args[0] || selection;
+    if(action==='move'){
+      if(ProjectSceneOperations.locate(document,id))ProjectSceneOperations.move(document,id,args[1]==='up'?-1:1);
+      else {if(!document.instances.some(x=>x.id===id))throw Error('Unknown instance.');ProjectDraftOperations.move(document,id,args[1]==='up'?-1:1);}
+      return id;
+    }
     if(action==='add') {
-      if(args[0]==='instance') return ProjectDraftOperations.add(document,catalog,args[1],crypto.randomUUID());
-      if(args[0]==='component') return ProjectComponentOperations.add(document,components,args[2],args[1],crypto.randomUUID());
-      return ProjectSceneOperations.add(document,catalog,{'group':'groups','scene-type':'scene_types','scene':'scenes'}[args[0]],crypto.randomUUID());
+      identifier=identifier ?? crypto.randomUUID();
+      ProjectComponentOperations.checkId([...document.instances,...(document.components || []),...(document.groups || []),...(document.scene_types || []),...(document.scenes || [])],identifier);
+      if(args[0]==='instance') return ProjectDraftOperations.add(document,catalog,args[1],identifier);
+      if(args[0]==='component') return ProjectComponentOperations.add(document,components,args[2],args[1],identifier);
+      return ProjectSceneOperations.add(document,catalog,{'group':'groups','scene-type':'scene_types','scene':'scenes'}[args[0]],identifier);
     }
     if(action==='duplicate') {
       if(ProjectSceneOperations.locate(document,id)) return ProjectSceneOperations.duplicate(document,id,crypto.randomUUID());
@@ -1126,7 +1153,9 @@ EDITOR_SCRIPT = (
       if(result.download)download(result.download.content,result.download.name,result.download.type);
       return;
     }
-    const action=plan.action,args=plan.args;
+    const action=plan.action,args=plan.args.map(x=>x==='.'?selectedId:x);
+    if(['catalog','list','locate'].includes(action)){const result=ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,action,args);if(action==='locate'){runtimeMode=false;mode.value='definition';choose(result.selection);if(result.field)$(result.field)?.focus();}notice(JSON.stringify(result,null,2));return;}
+    if(action==='layout'){notice(JSON.stringify(editorLayout(args),null,2));return;}
     if(plan.operation){
       if(action==='edit' && runtimeDrafts.size)throw Error('Save pending runtime fields before a typed edit. No runtime draft was discarded.');
       if(action==='run' && dirty)throw Error('Unsaved draft: save before run. No changes were discarded.');
@@ -1144,9 +1173,10 @@ EDITOR_SCRIPT = (
       const id=args[0] || selectedId;
       if(id!=='simulation' && !draft.instances.some(x=>x.id===id) && !ProjectSceneOperations.locate(draft,id))throw Error('Unknown selection.');
       if(id==='simulation'){runtimeMode=false;mode.value='definition';}
+      if(args[1])ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,'inspect',args);
       choose(id,args[1]);if(action==='select')notice('Selected '+id+(args[1]?' · '+args[1]:''));
       if(action==='inspect' && runtimeMode && !state().runtime)throw Error('No current runtime to inspect.');
-      if(action==='inspect')notice(JSON.stringify(runtimeMode?state().runtime:ProjectSceneOperations.locate(draft,id)?.item || draft.instances.find(x=>x.id===id) || draft,null,2));
+      if(action==='inspect')notice(JSON.stringify(ProjectDraftCommands.read(draft,draftDefinition,draftBaseDocument,state().runtime,mode.value,selectedId,action,args),null,2));
       return;
     }
     if(action==='references'){notice(JSON.stringify(ProjectReferences.uses(draft,catalog(),args[0]),null,2));return;}
@@ -1164,7 +1194,7 @@ EDITOR_SCRIPT = (
       if(!(action==='undo'?history.past:history.future).length)throw Error('No '+action+' available.');
       restoreHistory(action);return;
     }
-    if(!structural(next=>ProjectDraftCommands.apply(next,draftDefinition,selectedId,action,args),true))notice('No draft change.');
+    if(!structural(next=>ProjectDraftCommands.apply(next,draftDefinition,selectedId,action,args,plan.id),true))notice('No draft change.');
   }
   const commandForm=document.createElement('form');commandForm.id='editor-command-form';
   const commandInput=document.createElement('input');commandInput.id='editor-command';commandInput.type='text';commandInput.autocomplete='off';
@@ -1211,6 +1241,7 @@ EDITOR_SCRIPT = (
     finally{sending=false;controls();}
   }
 
+  let editorLayout;
   function installEditorLayout(){
     const key='concordia.editor.layout.v1', narrow=matchMedia('(max-width:700px)');
     const sizes={left:.22,right:.28,terminal:.25};
@@ -1279,6 +1310,7 @@ EDITOR_SCRIPT = (
     }
     const observer=new ResizeObserver(apply);observer.observe(layout);observer.observe(document.querySelector('.header'));
     narrow.addEventListener('change',apply);apply();
+    editorLayout=args=>{if(args.length){if(narrow.matches)throw Error('Use panel tabs on narrow screens; resizing is unavailable.');change(args[0],Number(args[1]));store();}return {narrow:narrow.matches,panels:Object.fromEntries(Object.entries(handles).map(([name,h])=>[name,{pixels:Number(h.getAttribute('aria-valuenow')),min:Number(h.getAttribute('aria-valuemin')),max:Number(h.getAttribute('aria-valuemax'))}]))};};
   }
   let events, timer, polling=false;
   function connect(){

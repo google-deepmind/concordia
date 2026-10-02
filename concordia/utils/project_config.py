@@ -91,6 +91,10 @@ class Registry:
   def __init__(self, templates: Mapping[str, Template]):
     self._templates = dict(templates)
 
+  def template_keys(self) -> list[str]:
+    """Names allowed by this registry; does not construct or run any prefab."""
+    return sorted(self._templates)
+
   def _template(self, key: str) -> Template:
     if key not in self._templates:
       raise ValidationError('$.template', 'unknown registered template')

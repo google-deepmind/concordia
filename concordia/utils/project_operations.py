@@ -181,6 +181,7 @@ class ProjectEditor:
         'search',
         'memories',
         'components',
+        'export',
         'dump',
         'bundle',
     )
@@ -191,7 +192,19 @@ class ProjectEditor:
         isinstance(value, str) for value in values
     ):
       raise ValueError('Log arguments must be a JSON string list.')
-    result = concordia_log.analyze(log, command, values)
+    if command == 'export':
+      if values:
+        raise ValueError('log export accepts no analysis arguments.')
+      result = {
+          'text': 'Structured SimulationLog JSON ready for import.',
+          'download': {
+              'name': 'simulation-log.json',
+              'type': 'application/json',
+              'content': log.to_json(),
+          },
+      }
+    else:
+      result = concordia_log.analyze(log, command, values)
     result['source'] = source
     return result
 
@@ -224,6 +237,7 @@ class ProjectEditor:
         'svg': svg,
         'entities': entities,
         'inspector': self.registry.inspector(document),
+        'templates': self.registry.template_keys(),
         'catalog': self.registry.catalog(document),
         'component_catalog': self.registry.component_catalog(document),
     }
