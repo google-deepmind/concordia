@@ -15,8 +15,7 @@
 """A simple acting component that aggregates contexts from components."""
 
 from collections.abc import Sequence
-from typing import cast
-from typing import override
+from typing import cast, override
 
 from concordia.components.agent import concat
 from concordia.document import interactive_document
