@@ -52,14 +52,14 @@ def editor(request):
     key = 'builder-v1' if structural else template.TEMPLATE_KEY
     document = registry.default_document(key)
     if structural:
-      actor = copy.deepcopy(document['instances'][0])
-      actor['id'] = 'charlie'
-      actor['params']['name'] = 'Charlie'
+      player = copy.deepcopy(document['instances'][0])
+      player['id'] = 'charlie'
+      player['params']['name'] = 'Charlie'
       gm = copy.deepcopy(document['instances'][2])
       gm['id'] = 'second-gm'
       gm['params']['name'] = 'Second GM'
       gm['params']['next_game_master_name'] = 'second-gm'
-      document['instances'].extend([actor, gm])
+      document['instances'].extend([player, gm])
     server = simulation_server.SimulationServer(port=0)
     server.configure_project(
         registry,
@@ -130,10 +130,10 @@ def test_preview_roundtrip_invalid_and_stale_are_atomic(editor):
   rebuilt = template.build(
       adapter.registry.to_config(server.get_project()['document'])
   )
-  actor = rebuilt.get_entities()[0]
-  assert isinstance(actor, entity_agent_with_logging.EntityAgentWithLogging)
+  player = rebuilt.get_entities()[0]
+  assert isinstance(player, entity_agent_with_logging.EntityAgentWithLogging)
   assert (
-      actor.get_component('Instructions').get_state()['state']
+      player.get_component('Instructions').get_state()['state']
       == '</script>\n🎵 & literal'
   )
 
@@ -186,15 +186,17 @@ def test_pause_ack_edit_step_retry_and_reset_wait_for_runner(editor):
     dispatch(
         adapter,
         'runtime.edit',
-        {**edit, 'instance_id': 'charlie', 'value': 'Third actor only'},
+        {**edit, 'instance_id': 'charlie', 'value': 'Third player only'},
     )
-    actors = {actor.name: actor for actor in server.simulation.get_entities()}
+    players = {
+        player.name: player for player in server.simulation.get_entities()
+    }
     assert (
-        actors['Charlie'].get_component('Instructions').get_state()['state']
-        == 'Third actor only'
+        players['Charlie'].get_component('Instructions').get_state()['state']
+        == 'Third player only'
     )
     assert (
-        actors['Alice'].get_component('Instructions').get_state()['state']
+        players['Alice'].get_component('Instructions').get_state()['state']
         == edit['value']
     )
     assert server.get_project()['document'] == initial

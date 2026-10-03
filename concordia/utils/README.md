@@ -37,4 +37,4 @@ language, operation validation and registered authoring actions. See
 draft/history semantics, structured-log analysis and client-side exports.
 
 For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
-see the [simulation design CLI tutorial](../command_line_interface/README.md).
+see the [GUI and CLI entity-component guide](../command_line_interface/README.md).

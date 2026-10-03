@@ -222,6 +222,12 @@ class SimulationServer:
     Args:
       simulation: The Simulation instance.
     """
+    if self._project_editor is not None:
+      document = (
+          self._project_editor.runtime_document
+          or self.get_project()['document']
+      )
+      project_config.Registry.apply_dynamic_states(document, simulation)
     with self._server_sent_events_lock:
       self._simulation = simulation
       self._status_revision += 1
@@ -398,7 +404,8 @@ class SimulationServer:
       integrated: bool = False,
       run_with_steps: Callable[[prefab_lib.Config, int], None] | None = None,
       title: str = 'Initial project',
-      preview: Callable[[prefab_lib.Config], dict[str, Any]] | None = None,
+      preview: Callable[[prefab_lib.Config], Any] | None = None,
+      viewers: dict[str, Callable[[], str] | str] | None = None,
   ) -> None:
     """Enable initial-project authoring with a trusted, caller-owned runner.
 
@@ -412,8 +419,11 @@ class SimulationServer:
     runtime visualization, and call Simulation.play with the existing controller
     and broadcast callbacks. Saving a draft never changes the bound simulation.
     integrated enables the OperationService-backed phone editor; preview is an
-    optional trusted build-only callback returning make_checkpoint_data(), with
-    no model calls or simulation execution. Configure before starting the server.
+    optional trusted build-only callback returning a fresh Simulation (enabling
+    initial dynamic field overrides) or make_checkpoint_data() for inspection, with
+    no model calls or simulation execution. viewers maps labels to trusted HTML
+    providers or HTTP(S) URLs for an isolated central iframe. Configure before
+    starting the server.
     """
     if (run is None) == (run_with_steps is None):
       raise ValueError('Supply exactly one of run or run_with_steps.')
@@ -435,7 +445,9 @@ class SimulationServer:
       self._project_runner_with_steps = run_with_steps
       self._project_title = title
       if integrated:
-        editor = project_operations.ProjectEditor(self, registry, preview)
+        editor = project_operations.ProjectEditor(
+            self, registry, preview, viewers=viewers
+        )
         editor.definition_view = editor.prepare(normalized)
         self._project_editor = editor
         self._operation_service = editor.service

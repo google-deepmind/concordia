@@ -46,7 +46,7 @@ if(action==='undo' || action==='redo'){
 else if(action==='view'){journal.view=args[0];result={view:journal.view,message:'Client inspection source changed.'};}
 else if(action==='search'){
   journal.search=args[0];
-  result=[...journal.document.instances,...(journal.document.components || []),...(journal.document.groups || []),...(journal.document.scene_types || []),...(journal.document.scenes || [])].filter(item=>{
+  result=[...journal.document.instances,...(journal.document.components || [])].filter(item=>{
     const index=((journal.view==='runtime'?savedDocument:journal.preview_document || journal.base)?.instances || journal.document.instances).findIndex(x=>x.id===item.id);
     const entities=journal.view==='runtime'?runtime?.entities:journal.metadata.entities;
     const components=Object.keys(entities?.['entity_'+index]?.component_info?.context_components || {});

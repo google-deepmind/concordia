@@ -409,8 +409,8 @@ def visualize_config(
     return row_y + _SECTION_GAP
 
   # Render each group
-  current_y = render_group(entities, "ENTITIES (Agents)", current_y)
-  current_y = render_group(game_masters, "GAME MASTERS", current_y)
+  current_y = render_group(entities, "PLAYER ENTITIES", current_y)
+  current_y = render_group(game_masters, "GAME MASTER ENTITIES", current_y)
   current_y = render_group(initializers, "INITIALIZERS", current_y)
 
   # Build entity data for JavaScript
@@ -979,11 +979,11 @@ def visualize_config_to_html(
       <div class="legend">
         <div class="legend-item">
           <div class="legend-color" style="background: #3B82F6;"></div>
-          <span>Entity</span>
+          <span>Player entity</span>
         </div>
         <div class="legend-item">
           <div class="legend-color" style="background: #10B981;"></div>
-          <span>Game Master</span>
+          <span>Game master entity</span>
         </div>
         <div class="legend-item">
           <div class="legend-color" style="background: #F59E0B;"></div>
@@ -1119,9 +1119,10 @@ def visualize_config_to_html(
 
             // State section (initially hidden)
             html += `<div class="component-state" id="${{compId}}">`;
-            if (comp.state && Object.keys(comp.state).length > 0) {{
+            const visibleState = {{...(comp.state || {{}}), ...(comp.dynamic_state || {{}})}};
+            if (Object.keys(visibleState).length > 0) {{
               const dynamicKeys = comp.dynamic_state ? Object.keys(comp.dynamic_state) : [];
-              for (const [stateKey, stateVal] of Object.entries(comp.state)) {{
+              for (const [stateKey, stateVal] of Object.entries(visibleState)) {{
                 const isDynamic = dynamicKeys.includes(stateKey);
                 if (isDynamic) {{
                   // Editable dynamic field
@@ -1133,9 +1134,10 @@ def visualize_config_to_html(
                   html += '</div>';
                   html += '<div class="dynamic-row-editor">';
                   const valStr = typeof stateVal === 'object' ? JSON.stringify(stateVal) : String(stateVal);
-                  html += `<textarea class="dynamic-input" id="${{inputId}}" rows="3"></textarea>`;
+                  html += `<textarea class="dynamic-input" id="${{escapeHtml(inputId)}}" rows="3"></textarea>`;
+                  html += `<label><input type="checkbox" class="dynamic-json" id="json_${{escapeHtml(inputId)}}" aria-label="JSON value for ${{escapeHtml(key)}}.${{escapeHtml(stateKey)}}" ${{typeof stateVal !== 'string' ? 'checked' : ''}}>JSON value</label>`;
                   dynamicValues.push({{id: inputId, value: valStr}});
-                  html += `<button class="dynamic-save-btn" data-entity="${{escapeHtml(data.name)}}" data-component="${{escapeHtml(key)}}" data-state-key="${{escapeHtml(stateKey)}}" data-input-id="${{inputId}}">Save</button>`;
+                  html += `<button class="dynamic-save-btn" data-entity="${{escapeHtml(data.name)}}" data-component="${{escapeHtml(key)}}" data-state-key="${{escapeHtml(stateKey)}}" data-input-id="${{escapeHtml(inputId)}}">Save</button>`;
                   html += '</div>';
                   html += '</div>';
                 }} else {{
@@ -1190,7 +1192,12 @@ def visualize_config_to_html(
       // Assign prose as a DOM value: quotes and markup stay literal, and
       // textarea controls preserve multiline text through Save and SSE refresh.
       dynamicValues.forEach(({{id, value}}) => {{
-        document.getElementById(id).value = value;
+        const input = document.getElementById(id);
+        input.value = value;
+        document.getElementById('json_' + id).onchange = event => {{
+          if (event.target.checked) input.value = JSON.stringify(input.value);
+          else {{try {{const parsed = JSON.parse(input.value);if(typeof parsed === 'string')input.value = parsed;}}catch (_){{}}}}
+        }};
       }});
 
       content.querySelectorAll('.dynamic-save-btn').forEach(btn => {{
@@ -1228,7 +1235,9 @@ def visualize_config_to_html(
     function saveComponentState(entityName, componentName, stateKey, inputId) {{
       const input = document.getElementById(inputId);
       if (!input) return;
-      const value = input.value;
+      let value = input.value;
+      try {{if(document.getElementById('json_' + inputId)?.checked)value = JSON.parse(value);}}
+      catch (error) {{logConsole('Invalid JSON field value: ' + error.message, 'error');return;}}
       logConsole(`Saving ${{componentName}}.${{stateKey}}...`, 'info');
 
       const payload = {{
