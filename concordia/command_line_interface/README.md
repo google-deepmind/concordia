@@ -12,8 +12,10 @@ operating-system terminal with `concordia-session`.
 ## Understand what you are editing
 
 **Parameters** are settings used when constructing that component or entity.
-A **prefab** is a reusable starting configuration: it chooses components and how
-they work together.
+A **prefab** is a prebuilt entity template: it chooses components and how they
+work together. Instantiate it to make an entity, then override parameters such as
+its name or instructions. Each instance has its own settings. **Duplicate** copies
+an existing entity’s edited definition.
 
 | Example entity | Components chosen by its prefab | What they contribute |
 |---|---|---|
@@ -94,8 +96,9 @@ draft rather than creating Charlie twice in the same draft.
 2. Enter `Find music everyone enjoys` in **Goal · initial text (empty removes the
    optional component)** and press **Save draft**. Expand the newly added **Goal**
    component to see that text. The prefab has built a component from your setting.
-3. Choose Alice's minimal prefab in **Registered prefab prototype** and press
-   **Add instance**. The new entity is selected and has its own generated ID.
+3. In **Prefab or named preset**, choose **minimal · player entity · prefab**
+   and press **Add instance**. The new entity uses minimal’s starting settings
+   and has its own generated ID. Its initial goal and custom instructions are empty.
 4. Set **Entity name** to `Charlie` and **Instructions · initial text** to
    `Charlie listens carefully.` in the Inspector.
 5. Under **Component catalogue**, choose **constant** and press **Add component**.
@@ -117,7 +120,7 @@ draft rather than creating Charlie twice in the same draft.
 
 Start with the example's original saved definition, which contains the stable IDs
 `alice`, `bob` and `conversation`. Discover the
-available starting configurations and component settings:
+available prefab templates, named presets and component settings:
 
 ```text
 catalog prefabs
@@ -126,23 +129,31 @@ list instances
 inspect alice
 ```
 
+The creation key `minimal` selects a prefab; `Charlie` is the new entity’s
+case-sensitive stable ID. `--id` uses two hyphens. The GUI generates an ID for you.
 These commands create named IDs so you can copy the exercise. `params.FIELD` means a field inside that record's initial parameters.
 `components:reminder` selects a component record; the prefix distinguishes it
 from an entity.
 
 ```text
 set alice params.goal '"Find music everyone enjoys"'
-add instance alice --id charlie
-set charlie params.name '"Charlie"'
-set charlie params.custom_instructions '"Charlie listens carefully."'
-add component constant charlie --id reminder
+add instance minimal --id Charlie
+set Charlie params.name '"Charlie"'
+set Charlie params.custom_instructions '"Charlie listens carefully."'
+add component constant Charlie --id reminder
 set components:reminder params.state '"Listen before replying."'
 set components:reminder params.pre_act_label '"Reminder"'
 set simulation max_steps 40
 validate
 save
-inspect charlie
+inspect Charlie
 ```
+
+`minimal` uses the registered prefab’s defaults for the editable parameters.
+The catalog also retains named presets such as `alice`, which use the example’s
+original starting settings. Changing Alice does not change either template.
+Registered references (for example the next game master entity) stay valid
+through the project’s configuration.
 
 Use `run --steps 10` when ready, then `state` to see progress. `pause`, `step` and
 `play` correspond to Pause, Step and Resume. Run reports acceptance first;

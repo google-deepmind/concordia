@@ -5,8 +5,12 @@ for a complete exercise: inspect Alice's components, create Charlie, add a text
 component, edit its state, save and run. The
 [command reference](../../concordia/docs/editor-commands.md) covers all controls.
 
-This example registers Alice's standard minimal prefab, Bob's basic prefab and
-Conversation's dialogic-and-dramaturgic prefab. The simulation config assigns
+The **Prefab or named preset** picker offers **minimal**, **basic** and
+**dialogic** as prefab templates. For example, `add instance minimal --id Charlie`
+creates an entity you can name and configure. The original Alice, Bob and
+Conversation presets remain available separately; **Duplicate** copies a current
+entity's edits. Alice starts from standard minimal, Bob from basic and Conversation
+from dialogic-and-dramaturgic. The simulation config assigns
 Alice and Bob the player entity role and Conversation the game master entity
 role. Their chosen components supply the behavior required for those roles.
 

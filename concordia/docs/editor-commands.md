@@ -47,7 +47,7 @@ validate
 save
 undo
 redo
-add instance alice
+add instance minimal --id Charlie
 add component constant alice
 duplicate alice
 remove INSTANCE_ID
@@ -264,7 +264,7 @@ they do not establish physical Android usability or live provider behavior.
 |---|---|---|
 | Registered prefab picker, template/component descriptions/defaults/dependencies | `catalog`, `catalog templates`, `catalog prefabs`, `catalog components` | Same structured catalogs, restricted to registered/current-template entries |
 | Player entity/game master entity/initializer fields, name/persona/goal/reference choices | `inspect ID`, `set ID params.FIELD JSON` | Same fields and registry validation; inspect lists field metadata |
-| Add/duplicate/remove player entity or game master entity; minimum-role guard | `add instance PROTOTYPE [--id ID]`, `duplicate [ID]`, `remove [ID]` | Same helpers/undo; generated result becomes selection |
+| Add/duplicate/remove player entity or game master entity; minimum-role guard | `add instance PREFAB_OR_PRESET [--id ID]`, `duplicate [ID]`, `remove [ID]` | Same helpers/undo; generated result becomes selection |
 | Component CRUD, name/params/ownership | `add component TYPE OWNER [--id ID]`, `set components:ID name JSON`, `set components:ID params.FIELD JSON`, `duplicate`, `remove`, `move-component components:ID OWNER` | Same compatibility and dependency constraints |
 | Built component list/expanded state and params | `inspect ID [COMPONENT]`, `select ID COMPONENT` | Focused JSON state/params; no graphical expand/collapse animation |
 | Incoming references, reference navigation/replacement | `references ID`, `select TARGET`, `replace SOURCE TARGET` | Same references and compatible replacement; does not move another tab |
@@ -388,3 +388,28 @@ cross-origin failure, so the log explains opening that URL separately. Switching
 views retains editor draft, selection, run and log, while reloading a view resets
 that embedded page's own script state. HTML is fetched only on explicit selection
 or refresh; it is not polled or used to start a simulation.
+
+
+### Prefab creation keys and named presets
+
+`catalog prefabs` lists each creation `key`, its `kind` (`prefab` or `preset`),
+role, trusted prefab description and starting parameters. The **Prefab or named
+preset** picker uses the same keys. In the roommate example, `add instance minimal
+--id Charlie` creates a player entity from minimal; `set Charlie params.name
+'"Charlie"'` overrides its name. `duplicate alice` copies Alice's current draft,
+including authored components and state overrides.
+
+Hosts opt in with `Template(prefab_prototypes={'minimal': 'alice', ...})`.
+Each mapping explicitly binds a registered prefab name to an existing prototype's
+editing/reference/component contract. Editable scalar defaults come from the
+registered `Config.prefabs[name].params`; registered reference IDs and fixed
+constructor values retain their host-owned contract. Fields without compatible
+prefab defaults are rejected. For example, mapping `dialogic` to `conversation`
+retains the registered next-game-master reference instead of inventing a target
+from the prefab's example name. Runtime names are made unique when adding.
+
+Existing preset keys and saved `prototype` IDs remain unchanged; no schema bump
+or saved-file migration is needed. Multiple presets can use one prefab: the host
+must explicitly select the contract for its prefab creation key. No first-match
+inference occurs. A creation key colliding with a preset is a registration error.
+Catalog keys and entity IDs are case-sensitive and have distinct meanings.

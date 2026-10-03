@@ -78,6 +78,9 @@ class Template:
   )
   editable_instances: bool = False
   editable_state: bool = False
+  # Explicit prefab name -> existing prototype contract. Creation uses the
+  # registered Prefab.params, while saved prototype IDs and presets stay stable.
+  prefab_prototypes: Mapping[str, str] = dataclasses.field(default_factory=dict)
   # Trusted constructor values kept out of editable scalar parameters. Their
   # components can expose their editable surface through get_dynamic_state.
   fixed_parameters: Mapping[str, tuple[str, ...]] = dataclasses.field(
@@ -142,8 +145,10 @@ class Registry:
       return []
     defaults = self.default_document(normalized['template'])
     config = template.factory()
-    return [
+    presets = [
         {
+            'key': item['prototype'],
+            'kind': 'preset',
             'instance': copy.deepcopy(item),
             'description': config.prefabs[item['prefab']].description,
             'inspector': copy.deepcopy(
@@ -157,6 +162,36 @@ class Registry:
         }
         for item in defaults['instances']
     ]
+    by_key = {entry['key']: entry for entry in presets}
+    prefabs = []
+    for name, prototype in template.prefab_prototypes.items():
+      path = '$.template.prefab_prototypes'
+      if name in by_key:
+        raise ValidationError(path, 'prefab name collides with a preset key')
+      if prototype not in by_key or name not in config.prefabs:
+        raise ValidationError(path, 'unknown prefab or prototype')
+      entry = copy.deepcopy(by_key[prototype])
+      if entry['instance']['prefab'] != name:
+        raise ValidationError(path, 'prototype must use the named prefab')
+      params = entry['instance']['params']
+      prefab_params = config.prefabs[name].params
+      for field, previous in params.items():
+        # References keep their explicitly registered document IDs, rather than
+        # treating a prefab's example runtime name as a document reference.
+        if field in entry['references']:
+          continue
+        if field not in prefab_params:
+          raise ValidationError(path, 'prefab has no default for ' + field)
+        value = prefab_params[field]
+        self._scalar(value, path + '.' + name + '.' + field)
+        if type(value) is not type(previous):
+          raise ValidationError(
+              path, 'prefab default type differs for ' + field
+          )
+        params[field] = copy.deepcopy(value)
+      entry.update(key=name, kind='prefab')
+      prefabs.append(entry)
+    return prefabs + presets
 
   def component_catalog(self, document: Any) -> list[dict[str, Any]]:
     normalized = self.normalize(document)

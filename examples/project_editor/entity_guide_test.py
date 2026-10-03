@@ -112,12 +112,24 @@ def test_graphical_guide_matches_copied_cli_design(tmp_path):
       ).fill('Find music everyone enjoys')
       save()
       expect(page.locator('#comp_Goal')).to_be_attached()
-      page.locator('#editor-prototype').select_option('alice')
+      page.get_by_label('Prefab or named preset', exact=True).select_option(
+          label='minimal · player entity · prefab'
+      )
       page.get_by_role('button', name='Add instance', exact=True).click()
       name_input = page.get_by_label('Entity name', exact=True)
       field_id = name_input.get_attribute('id')
       assert field_id is not None
       charlie_id = field_id[len('editor-') : -len('-name')]
+      # The picker creates the prefab defaults, not edited Alice's Goal.
+      expect(
+          page.get_by_label(
+              'Goal · initial text (empty removes the optional component)',
+              exact=True,
+          )
+      ).to_have_value('')
+      expect(
+          page.get_by_label('Instructions · initial text', exact=True)
+      ).to_have_value('')
       name_input.fill('Charlie')
       page.get_by_label('Instructions · initial text', exact=True).fill(
           'Charlie listens carefully.'
@@ -130,6 +142,12 @@ def test_graphical_guide_matches_copied_cli_design(tmp_path):
       page.get_by_label('Context label', exact=True).fill('Reminder')
       save()
       graphical = server.get_project()['document']
+      created = next(
+          item for item in graphical['instances'] if item['id'] == charlie_id
+      )
+      assert created['params']['randomize_choices'] is True
+      assert graphical['instances'][0]['params']['randomize_choices'] is False
+      assert created['params']['goal'] == ''
       assert 'groups' not in graphical
       assert (
           page.get_by_role('button', name='Add group', exact=True).count() == 0
@@ -172,8 +190,8 @@ def test_graphical_guide_matches_copied_cli_design(tmp_path):
         == 0
     )
   typed = other.get_project()['document']
-  graphical['instances'][-1]['id'] = 'charlie'
-  graphical['components'][0]['instance'] = 'charlie'
+  graphical['instances'][-1]['id'] = 'Charlie'
+  graphical['components'][0]['instance'] = 'Charlie'
   graphical['components'][0]['id'] = typed['components'][0]['id']
   assert graphical == typed
   # Copy the guide's generic dynamic field block as well.

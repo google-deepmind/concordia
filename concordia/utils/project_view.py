@@ -329,12 +329,13 @@ class ProjectComponentState {
 }
 class ProjectDraftOperations {
   static add(document, catalog, prototype, id, sourceId=null) {
-    const entry=catalog.find(x=>x.instance.prototype===prototype);
-    if(!entry) throw Error('Choose a registered prefab prototype.');
+    const matches=catalog.filter(x=>(x.key || x.instance.prototype)===prototype);
+    if(matches.length!==1) throw Error('Choose one unambiguous registered prefab or preset key from catalog prefabs.');
+    const entry=matches[0];
     if(document.instances.length>=100) throw Error('A project supports at most 100 instances.');
     if(document.instances.some(x=>x.id===id)) throw Error('Instance ID already exists.');
     const source=sourceId ? document.instances.find(x=>x.id===sourceId) : entry.instance;
-    if(!source || source.prototype!==prototype) throw Error('Unknown source instance.');
+    if(!source || source.prototype!==entry.instance.prototype) throw Error('Unknown source instance.');
     const item=structuredClone(source);item.id=id;
     const names=new Set(document.instances.map(x=>x.params.name));
     const base=source.params.name;let name=base, suffix=2;
@@ -649,7 +650,7 @@ EDITOR_SCRIPT = (
   const undo = button('Undo', () => restoreHistory('undo'));
   const redo = button('Redo', () => restoreHistory('redo'));
   const prototypePicker=document.createElement('select');prototypePicker.id='editor-prototype';
-  prototypePicker.setAttribute('aria-label','Registered prefab prototype');toolbar.append(prototypePicker);
+  prototypePicker.setAttribute('aria-label','Prefab or named preset');toolbar.append(prototypePicker);
   const add=button('Add instance',()=>structural(next=>ProjectDraftOperations.add(next,catalog(),prototypePicker.value,crypto.randomUUID())));
   const duplicate=button('Duplicate',()=>structural(next=>{
     if(ProjectRecordOperations.locate(next,selectedId)) return ProjectRecordOperations.duplicate(next,selectedId,crypto.randomUUID());
@@ -1033,11 +1034,12 @@ EDITOR_SCRIPT = (
       if(graph?.viewBox.baseVal.width)graph.style.setProperty('--editor-graph-width',graph.viewBox.baseVal.width/16+'rem');
       const chosen=prototypePicker.value;prototypePicker.replaceChildren();
       for(const entry of catalog()) {
-        const option=document.createElement('option');option.value=entry.instance.prototype;
-        option.textContent=entry.instance.prefab+' · '+entry.instance.role+' · '+entry.instance.params.name;
+        const option=document.createElement('option');option.value=entry.key || entry.instance.prototype;
+        const role=entry.instance.role==='entity'?'player entity':entry.instance.role==='game_master'?'game master entity':entry.instance.role;
+        option.textContent=(entry.key || entry.instance.prototype)+' · '+role+' · '+(entry.kind==='prefab'?'prefab':entry.instance.prefab+' preset');
         option.title=entry.description;prototypePicker.append(option);
       }
-      if(catalog().some(x=>x.instance.prototype===chosen)) prototypePicker.value=chosen;
+      if(catalog().some(x=>(x.key || x.instance.prototype)===chosen)) prototypePicker.value=chosen;
       renderHierarchy();
       inspect();
     }

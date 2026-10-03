@@ -157,7 +157,14 @@ def test_builder_and_legacy_documents_remain_distinct():
       'bob',
       'conversation',
   ]
-  assert len(registry.catalog(builder)) == 3
+  assert [entry['key'] for entry in registry.catalog(builder)] == [
+      'minimal',
+      'basic',
+      'dialogic',
+      'alice',
+      'bob',
+      'conversation',
+  ]
   old_builder = registry.default_document(template.STRUCTURAL_TEMPLATE_KEY)
   assert old_builder['schema_version'] == 2
   assert registry.loads(registry.dumps(old_builder)) == old_builder
@@ -861,6 +868,6 @@ def test_public_cli_tutorial_against_actual_example(tmp_path, capsys):
     assert 'scenes' not in server.get_project()['document']
     assert (
         server.get_project()['document']['components'][0]['instance']
-        == 'charlie'
+        == 'Charlie'
     )
   assert 'Error:' not in capsys.readouterr().out

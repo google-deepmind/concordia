@@ -149,6 +149,13 @@ def registry() -> project_config.Registry:
       key: project_config.Template(
           factory=factory,
           instance_ids=('alice', 'bob', 'conversation'),
+          prefab_prototypes={
+              'minimal': 'alice',
+              'basic': 'bob',
+              'dialogic': 'conversation',
+          }
+          if key == TEMPLATE_KEY
+          else {},
           component_types=project_components.standard_types(
               ('alice', 'bob'), ('alice', 'bob')
           )
