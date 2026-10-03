@@ -28,7 +28,7 @@ discover lists registered operations; call accepts a quoted JSON object of argum
 watch reports the browser live stream; CLI watch streams until interrupted/timeout.
 Run starts a fresh saved definition; play resumes a paused run. step grants one step.
 Draft: save, validate, load, export, reload --discard, undo, redo
-Authoring: add instance PROTOTYPE | add component TYPE OWNER
+Authoring: add instance PREFAB_OR_PRESET | add component TYPE OWNER
   duplicate [ID], remove [ID], set ID FIELD JSON, references ID, replace SOURCE TARGET, move-component ID OWNER
   ID is an instance ID, simulation, or components:ID.
   set uses a top-level record field or params.FIELD; values are JSON (quote strings).
@@ -173,7 +173,7 @@ def parse(line: str) -> dict:
     }
     if not args or len(args) != kinds.get(args[0]):
       raise ValueError(
-          'Use add instance PROTOTYPE or add component TYPE OWNER.'
+          'Use add instance PREFAB_OR_PRESET or add component TYPE OWNER.'
       )
   elif (
       name not in counts or not counts[name][0] <= len(args) <= counts[name][1]
