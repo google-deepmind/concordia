@@ -439,7 +439,7 @@ def visualize_config_to_html(
 ) -> str:
   """Generate a complete HTML page with the SVG visualization.
 
-  Features Unity-style layout with left, center, right, and bottom panels.
+  Arranges hierarchy, simulation view, inspector and log in separate panels.
   Clicking on entities shows their full details in the right sidebar.
 
   Args:
@@ -486,7 +486,7 @@ def visualize_config_to_html(
       overflow: hidden;
     }}
 
-    /* Unity-style layout */
+    /* Hierarchy, simulation, inspector and log layout */
     .layout {{
       display: grid;
       grid-template-columns: 250px 1fr 350px;
@@ -1536,7 +1536,7 @@ def visualize_config_to_html(
 def visualize_operations_to_html(config, *, title="Attached editor") -> str:
   """Extend the standard diagram/inspector with discovered service operations.
 
-  Legacy controls are read-only here: all mutations use the shared registry.
+  Direct runtime controls are read-only here: all mutations use the shared registry.
   The service supplies current state; text drafts are not an engine state store.
   """
   page = visualize_config_to_html(config, title=title)

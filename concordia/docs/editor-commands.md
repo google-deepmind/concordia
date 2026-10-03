@@ -131,7 +131,7 @@ and its log for inspection.
 
 ## External CLI
 
-Existing machine interfaces are unchanged:
+Machine interfaces:
 
 ```sh
 concordia-session --url http://127.0.0.1:8080 discover
@@ -192,10 +192,10 @@ Raw calls operate saved server state, never another client's draft.
 
 `watch` in the browser reports its existing live connection; it creates no new
 stream and never replays commands. Reconnection remains automatic. On the CLI,
-`command --line watch` is an alias for the existing `watch` transport: it emits
+`command --line watch` is an alias for the `watch` transport: it emits
 JSON event lines until interruption, EOF or transport timeout, using one stream.
-Legacy `discover`, `state`, `call --input FILE` (or stdin), and `watch` modes are
-unchanged. `command --line discover` and `command --line 'call ...'` emit JSON.
+One-shot `discover`, `state`, `call --input FILE` (or stdin), and `watch` modes
+are also available. `command --line discover` and `command --line 'call ...'` emit JSON.
 
 The graph summary contains only compact step/entity indicators. Narrative action
 text and commentary appear only in Simulation log. Entity inspector and component
@@ -208,9 +208,9 @@ Simulation log and its command prompt share one scrollport. The prompt is the
 last content line, not a fixed footer: scroll up to read older output and it
 scrolls out of view. New entries appear before the prompt. Output follows the
 bottom only when you are already near it; otherwise your reading position stays
-put. Output does not clear or replace a command you are composing. Enter,
-Up/Down history, IME input and Command help keep their existing behavior. This
-is still the restricted editor command language, not an operating-system shell.
+put. Output does not clear or replace a command you are composing. Enter submits a command; Up/Down recall history. Input-method composition is
+respected, and **Command help** lists commands. These commands operate the editor
+session.
 
 On wide layouts, drag the boundaries beside Hierarchy/Inspector or above
 Simulation log with a pointer or touch. The terminal can take most of the
@@ -219,10 +219,10 @@ arrow keys (Shift for larger increments), Home for its minimum, or End for its
 maximum. Minimum sizes preserve usable neighboring panes. Sizes are stored as
 ratios in this browser origin's localStorage and clamped to the current viewport;
 unavailable storage does not prevent resizing. At widths of 700 CSS pixels or
-less, the existing full-panel tabs replace adjacent panes and separators are
+less, full-panel tabs replace adjacent panes and separators are
 hidden. Desktop sizing is restored and bounded on return to a wide layout.
 
-Fine-pointer desktop preserves the inspector's established hierarchy: title
+Fine-pointer desktop uses this text hierarchy: title
 14px, section headers 12px, parameter rows 11px, component state/class text 10px
 at the default root size, all expressed in rem. Hierarchy and simulation controls
 use compact 12px text. Narrow screens and coarse pointers enlarge actual
@@ -236,7 +236,7 @@ shrinking its labels. Root text sizing scales the graph as well.
 For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
 see the [simulation design CLI tutorial](../command_line_interface/README.md).
 
-New shared discovery/navigation commands: `catalog [templates|prefabs|components]`,
+Shared discovery/navigation commands: `catalog [templates|prefabs|components]`,
 `list [instances|components]`, `locate "MESSAGE"`,
 `move ID up|down`. Creation accepts optional `--id STABLE_ID`; `.` selects the
 current local draft record. `layout` reports browser bounds;
@@ -290,18 +290,23 @@ they do not establish physical Android usability or live provider behavior.
 The CLI does not edit another browser's draft, pending runtime fields, layout,
 selection or imported-log choice. Browser-only file pickers, focus, graph, zoom,
 scrollback-follow and splitters have honest local/textual equivalents above,
-not no-op parity commands. See [editor commands](../docs/editor-commands.md) for
-GUI behavior and [utilities](../utils/README.md) for integration APIs.
+described in the table. See [utilities](../utils/README.md) for integration APIs.
 
-## File versions and recovery
+## Project files and recovery
 
-Version 4 contains initial `dynamic_states` keyed by entity ID, component key and
-field name, alongside authored component recipes. It has no scene-specific
-editor records. Versions 1 and 2 retain their registered contracts. Version 3
-requires explicit offline recovery: preserve the original file and use its
-original editor to export/read its settings, then recreate them in a version 4
-document. Merely changing the version number is insufficient. No saved files are
-rewritten on load and there is no bundled automatic migration tool.
+A project file selects a registered `template` and supplies its permitted fields.
+`schema_version` is a format discriminator validated by Registry; changing that
+number does not convert a file. Use an exported default document for the selected
+template as the field contract. The registry rejects unsupported layouts,
+unregistered identities, extra fields, incompatible parameter types and invalid
+references with a field path.
+
+Component-editable documents contain component recipes and `dynamic_states`,
+keyed by entity ID, component key and field name. The host's registration decides
+which fields and prefabs are supported. To recover a rejected file, keep a copy,
+load a fresh registered template, and transfer settings into its advertised fields.
+Validate and export the result before replacing any saved design. Loading validates
+the supplied document; it does not convert unsupported files or rewrite originals.
 
 ## Generic component state contract
 
@@ -309,7 +314,7 @@ rewritten on load and there is no bundled automatic migration tool.
 `validate` construct a fresh preview and apply it through
 `Simulation.set_component_dynamic_state`. Runtime `edit ID COMPONENT FIELD JSON`
 uses that same setter at an acknowledged pause boundary, for either entity role.
-The original `edit ID COMPONENT TEXT` remains shorthand for the `state` field.
+`edit ID COMPONENT TEXT` is shorthand for the `state` field.
 Components advertise editable fields with `get_dynamic_state()` and own validation
 in `set_state()`. JSON is preserved as objects/lists/numbers/booleans/null; text
 fields remain text. State fields that are not advertised are inspection-only.
@@ -322,8 +327,8 @@ removal clears them. Component display-name changes preserve the stable key.
 
 Hosts that want initial overrides set `Template.editable_state=True` (component
 recipe templates already enable them) and return a fresh standard Simulation
-from their `configure_project(preview=...)` callback. Existing checkpoint-only
-preview callbacks remain usable for inspection and reject initial state overrides.
+from their `configure_project(preview=...)` callback. Checkpoint-only
+preview callbacks are usable for inspection and reject initial state overrides.
 Trusted non-scalar constructor parameters can be named in
 `Template.fixed_parameters`, keyed by prototype ID; JSON never imports or replaces
 those Python objects. Their components may expose an editable dynamic surface.
@@ -400,7 +405,7 @@ preset** picker uses the same keys. In the roommate example, `add instance minim
 including authored components and state overrides.
 
 Hosts opt in with `Template(prefab_prototypes={'minimal': 'alice', ...})`.
-Each mapping explicitly binds a registered prefab name to an existing prototype's
+Each mapping explicitly binds a registered prefab name to a registered prototype's
 editing/reference/component contract. Editable scalar defaults come from the
 registered `Config.prefabs[name].params`; registered reference IDs and fixed
 constructor values retain their host-owned contract. Fields without compatible
@@ -408,8 +413,8 @@ prefab defaults are rejected. For example, mapping `dialogic` to `conversation`
 retains the registered next-game-master reference instead of inventing a target
 from the prefab's example name. Runtime names are made unique when adding.
 
-Existing preset keys and saved `prototype` IDs remain unchanged; no schema bump
-or saved-file migration is needed. Multiple presets can use one prefab: the host
+Preset keys identify registered starting settings; saved `prototype` IDs identify
+their editing contracts. Multiple presets can use one prefab: the host
 must explicitly select the contract for its prefab creation key. No first-match
 inference occurs. A creation key colliding with a preset is a registration error.
 Catalog keys and entity IDs are case-sensitive and have distinct meanings.

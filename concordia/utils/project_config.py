@@ -21,7 +21,7 @@ valid document back into a Config for standard prefab construction. Editors
 use its field metadata to present permitted parameters and references.
 
 Templates can expose fixed instance parameters or allow users to add instances,
-components with stable IDs. The schema_version field identifies the
+or components with stable IDs. The schema_version field identifies the
 saved JSON layout for compatibility. Construction uses only registered Python
 objects; imported text cannot choose arbitrary imports or constructors.
 """
@@ -63,7 +63,7 @@ class Template:
   ValidationError with an exact document path. It must not invoke a model.
   """
 
-  # Opt-in only: factory instances become reusable prototypes in schema v2.
+  # Opt-in only: factory instances define reusable editing contracts.
   # Validators must accept arbitrary IDs/order/count and validate every instance.
   # Component construction remains entirely inside the registered prefabs.
   factory: Callable[[], prefab_lib.Config]
@@ -277,7 +277,7 @@ class Registry:
 
   @staticmethod
   def _scalar(value: Any, path: str) -> None:
-    # Version 1 is intentionally finite. Do not stringify unknown values.
+    # Editable scalar parameters are finite. Do not stringify objects.
     if isinstance(value, str):
       try:
         value.encode('utf-8')

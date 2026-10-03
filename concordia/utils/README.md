@@ -31,8 +31,11 @@ the structured JSON file using the file picker.
 
 ## Editor session commands
 
-The integrated editor and `concordia-session command --line` share a safe command
-language, operation validation and registered authoring actions. See
+The integrated editor and `concordia-session` share a command language, operation
+validation and registered authoring actions. Use `concordia-session --url URL
+interactive --draft design.json` for a persistent prompt, or `command --line`
+for one command. In either prompt, `add instance minimal --id Charlie` creates
+an entity when the host registers the minimal prefab. See
 [Editor and session commands](../docs/editor-commands.md) for commands, local
 draft/history semantics, structured-log analysis and client-side exports.
 

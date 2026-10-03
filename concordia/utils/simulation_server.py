@@ -67,7 +67,7 @@ class SimulationServer:
         state) are unauthenticated. Pass '0.0.0.0' explicitly to accept
         connections from other machines on the network.
       operation_service: Optional shared operation registry. When set, only the
-        capability-bound API is exposed; legacy endpoints are disabled.
+        capability-bound API is exposed; direct runtime endpoints are disabled.
       audience: Fixed audience for this listener, never supplied by a request.
       browser_sessions: Optional host-approved cookies instead of a fixed
         audience. Only the trusted developer listener may approve roles.
@@ -409,7 +409,7 @@ class SimulationServer:
   ) -> None:
     """Enable initial-project authoring with a trusted, caller-owned runner.
 
-    Supply exactly one runner. The legacy run callback receives a fresh Config.
+    Supply exactly one runner. The run callback receives a fresh Config.
     run_with_steps receives that unchanged Config and a requested step count,
     validated against Config.default_max_steps. Pass the count to the standard
     Simulation.play(max_steps=...) method. This enables the editor's per-run
@@ -730,7 +730,7 @@ class SimulationServer:
           self.send_error(404)
 
       def _handle_operation_get(self) -> None:
-        # Dedicated capability-bound listeners NEVER fall through to legacy
+        # Dedicated capability-bound listeners NEVER fall through to direct runtime
         # checkpoint, status or mutation routes, including developer listeners.
         service = operation_service
         assert service is not None

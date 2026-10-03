@@ -318,7 +318,7 @@ class SceneTracker(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Validate and replace configuration atomically without resetting progress.
 
-    Omitted fields are preserved. Empty legacy checkpoints remain valid. Errors
+    Omitted fields are preserved. An empty checkpoint leaves configuration unchanged. Errors
     name the offending field without including arbitrary supplied state values.
     """
     if not state:
