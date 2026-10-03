@@ -160,3 +160,45 @@ def test_action_spec_mapping_and_none_roundtrip(action_spec):
     with pytest.raises(ValueError, match='action_spec.Alice'):
       component.set_state(proposed)
     assert component.get_dynamic_state() == value
+
+
+def test_empty_configuration_json_roundtrip_and_legacy_checkpoint():
+  component = scene_tracker.SceneTracker(
+      no_language_model.NoLanguageModel(), []
+  )
+  state = json.loads(json.dumps(component.get_state()))
+  assert state == {'scenes': []}
+  component.set_state(state)
+  component.set_state({})
+  assert component.get_state() == state
+  for malformed in (None, {}, [None], [{'num_rounds': 1}]):
+    with pytest.raises(ValueError, match='scenes'):
+      component.set_state({'scenes': malformed})
+    assert component.get_state() == state
+
+
+def test_empty_schedule_done_and_progress_constraint():
+  registry = fixtures.scene_registry()
+  simulation = fixtures.build(
+      registry.to_config(registry.default_document('scenes-v1'))
+  )
+  gm = fixtures.as_agent(simulation.get_game_masters()[0])
+  component = gm.get_component(
+      '__next_game_master__', type_=scene_tracker.SceneTracker
+  )
+  memory = gm.get_component('__memory__', type_=memory_lib.Memory)
+  original = component.get_state()
+  assert not component.is_done()
+  component.set_state({'scenes': []})
+  component.set_state(json.loads(json.dumps(component.get_state())))
+  assert component.is_done()
+  component.set_state(original)
+  assert not component.is_done()
+  memory.add('[scene counter](1)')
+  memory.update()
+  before = copy.deepcopy(memory.get_state())
+  with pytest.raises(ValueError, match='current progress'):
+    component.set_state({'scenes': []})
+  assert component.get_state() == original
+  assert memory.get_state() == before
+  assert not component.is_done()

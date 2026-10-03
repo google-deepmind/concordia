@@ -181,7 +181,7 @@ HTML scripts run in an isolated frame and can provide their own controls.
 
 `viewer` lists available views; `viewer NAME`, `viewer default` and
 `viewer-refresh` operate this browser's central panel. In a separate terminal,
-`viewer NAME` retrieves that registered view, and `--file view.html` exports its
+`viewer NAME` or `viewer-refresh NAME` retrieves that view; `--file view.html` exports its
 HTML. Terminal clients inspect data and files; they do not render a diagram or
 change another browser's selection. The [reference](../docs/editor-commands.md)
 shows how an application registers any HTML provider, including the standard

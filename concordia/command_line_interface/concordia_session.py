@@ -121,7 +121,12 @@ def friendly(args):
           'url': values[0],
           'message': 'Open this URL in your browser or its Viewer URL control.',
       }
-    if action == 'viewer-refresh' or not values:
+    if action == 'viewer-refresh' and not values:
+      raise ValueError(
+          'Use viewer-refresh NAME to fetch fresh HTML; a terminal has no'
+          ' selected browser viewer.'
+      )
+    if not values:
       return {
           'available': ['default', *state.get('viewers', [])],
           'message': (

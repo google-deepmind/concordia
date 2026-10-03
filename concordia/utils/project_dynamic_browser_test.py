@@ -326,7 +326,12 @@ def test_component_fields_and_generic_viewers_in_chromium(tmp_path):
           page.get_by_role('button', name='Send', exact=True)
       ).to_be_enabled()
 
+    send('viewer-refresh Notebook')
+    expect(
+        page.frame_locator('#editor-viewer-frame').locator('h1')
+    ).to_have_text('Notebook')
     send('viewer default')
+    send('viewer-refresh')
     expect(page.locator('.svg-container')).to_be_visible()
     page.get_by_role('button', name='Save draft', exact=True).click()
     expect(page.locator('#editor-status')).to_contain_text('saved definition')
@@ -459,6 +464,11 @@ def test_cli_registered_viewer_exports_explicit_file(tmp_path):
         'Forum fixture',
         'Notebook',
     ]
+    args.line = 'viewer-refresh'
+    with pytest.raises(ValueError, match='viewer-refresh NAME'):
+      concordia_session.friendly(args)
+    args.line = 'viewer-refresh Notebook'
+    assert '<h1>Notebook</h1>' in concordia_session.friendly(args)['html']
     args.line = 'viewer-url javascript:alert(1)'
     with pytest.raises(ValueError, match='HTTP'):
       concordia_session.friendly(args)
