@@ -31,7 +31,7 @@ LEGACY_TEMPLATE_KEY = 'conversation-v1'
 
 
 def _legacy_config() -> prefab_lib.Config:
-  """Preserve saved two-minimal-entity projects without changing their meaning."""
+  """Construct the registered two-minimal-entity configuration."""
   return prefab_lib.Config(
       prefabs={'minimal': minimal.Entity(), 'dialogic': dialogic.GameMaster()},
       instances=[

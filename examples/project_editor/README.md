@@ -7,18 +7,20 @@ component, edit its state, save and run. The
 
 The **Prefab or named preset** picker offers **minimal**, **basic** and
 **dialogic** as prefab templates. For example, `add instance minimal --id Charlie`
-creates an entity you can name and configure. The original Alice, Bob and
-Conversation presets remain available separately; **Duplicate** copies a current
-entity's edits. Alice starts from standard minimal, Bob from basic and Conversation
+creates an entity you can name and configure. Named Alice, Bob and
+Conversation presets are available separately; **Duplicate** copies a current
+entity's edited definition. Alice starts from standard minimal, Bob from basic and Conversation
 from dialogic-and-dramaturgic. The simulation config assigns
 Alice and Bob the player entity role and Conversation the game master entity
 role. Their chosen components supply the behavior required for those roles.
 
 ## Launch
 
-From the repository root in your Python environment:
+From the example checkout’s repository root, install Concordia into your Python
+environment and start the editor:
 
 ```sh
+python -m pip install -e .
 python -m examples.project_editor.run --port 8080 --model-backend none
 ```
 
@@ -88,13 +90,14 @@ shows the retained runtime. While paused, advertised dynamic component fields ch
 that runtime; Save draft changes the initial design. Each browser/CLI client owns
 its draft, selection and undo history, and publishes through explicit Save.
 
-Use `--project project.json` to open a saved design at launch. File version 4 includes
-registered components and `dynamic_states`, the component fields to apply on a
-fresh build. Version 3 files require explicit offline recovery; retain originals.
-Earlier registered version 1/2 contracts remain supported. The `template` key
-selects supported prefabs/fields; `schema_version` identifies the file layout.
-The [reference](../../concordia/docs/editor-commands.md#file-versions-and-recovery)
-explains validation and recovery.
+Use `--project project.json` to open a saved design at launch. The `template` key
+selects the registered prefabs and fields; `schema_version` is the validated file
+format discriminator. Component-editable documents include recipes and
+`dynamic_states`, the component fields applied on a fresh build. Export a default
+project to inspect the accepted shape. For a rejected file, keep a copy and
+transfer its settings into a fresh template using the advertised fields.
+The [input contract and recovery reference](../../concordia/docs/editor-commands.md#project-files-and-recovery)
+explains validation.
 
 `--headless` explicitly executes the saved design without a web editor, using the
 same model selection and default requested step limit. `--step-delay` controls

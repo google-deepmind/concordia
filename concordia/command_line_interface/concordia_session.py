@@ -14,7 +14,8 @@
 
 """Design interactively or attach with JSON to the editor operation API.
 
-No engine or domain behavior lives here. One-shot output is machine-readable; interactive mode adds a local prompt.
+One-shot commands return machine-readable output. Interactive mode provides a
+local prompt and draft journal using the shared editor operations.
 """
 
 import argparse

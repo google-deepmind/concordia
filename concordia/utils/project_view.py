@@ -199,7 +199,7 @@ SCRIPT = r"""
 """
 
 
-# Integrated mode preserves the legacy project surface for existing callers.
+# Integrated mode adds a single-page editor; project_html is the standalone form.
 EDITOR_STYLE = """
 <style>
 body {height:100dvh;}

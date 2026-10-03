@@ -99,7 +99,7 @@ def test_prefab_defaults_and_legacy_presets_use_distinct_creation_keys():
 
 
 def test_multiple_presets_require_explicit_binding_and_collision_is_rejected():
-  # The legacy factory has two minimal presets. There is no implicit first match.
+  # This factory has two minimal presets. There is no implicit first match.
   original = registry(factory=fixtures._legacy_config)
   document = original.default_document('builder-v1')
   journal = {

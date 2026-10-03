@@ -1,17 +1,22 @@
 # Build simulations with entities and components
 
 A simulation is built from entities. Each entity has components that hold state
-and contribute behavior. An entity is a container for these components, much like
-a Unity GameObject. You can change its behavior by changing component settings or
-adding a component, then see the result when the simulation runs.
+and contribute behavior. Instructions can describe what an entity should do;
+memory can retain what it observes. Change component settings or add a component,
+then see how those settings contribute to actions when the simulation runs.
 
 This guide uses Alice and Bob discussing music in a shared kitchen. You can design
 it in the graphical editor (GUI), in the editor's command input, or from an
 operating-system terminal with `concordia-session`.
 
+**Create an entity from a prefab:** `add instance minimal --id Charlie`.
+Enter this in **Simulation log command** or the connected `concordia>` prompt.
+It creates an independent entity from the minimal template. The two journeys
+below show the matching GUI action and how to set Charlie’s name and instructions.
+
 ## Understand what you are editing
 
-**Parameters** are settings used when constructing that component or entity.
+**Parameters** are settings used when constructing a component or entity.
 A **prefab** is a prebuilt entity template: it chooses components and how they
 work together. Instantiate it to make an entity, then override parameters such as
 its name or instructions. Each instance has its own settings. **Duplicate** copies
@@ -41,7 +46,7 @@ appropriate components for each assigned role.
 ## Open the example
 
 Install Concordia in a Python environment from a checkout containing the
-[project editor example](../../examples/project_editor/README.md):
+[project editor example](https://github.com/concordia-claw/concordia/blob/feat/android-project-editor-demo-001/examples/project_editor/README.md):
 
 ```sh
 python -m pip install -e .
@@ -52,7 +57,7 @@ Open **http://127.0.0.1:8080/** in a browser. Use another free port if needed.
 The launcher opens an editor service; Run starts the simulation. The default
 **NoLanguageModel** mode uses mock responses so you can explore the controls.
 A launcher configured with a live language model generates provider text when
-Run is pressed. [Example launch options](../../examples/project_editor/README.md)
+Run is pressed. [Example launch options](https://github.com/concordia-claw/concordia/blob/feat/android-project-editor-demo-001/examples/project_editor/README.md)
 explain how to select a model. The same design tools work in both modes.
 
 The editor has three main views and a log:
@@ -118,7 +123,7 @@ draft rather than creating Charlie twice in the same draft.
 
 ## Journey 2: build the same behavior from commands
 
-Start with the example's original saved definition, which contains the stable IDs
+Start with the example's initial saved definition, which contains the stable IDs
 `alice`, `bob` and `conversation`. Discover the
 available prefab templates, named presets and component settings:
 
@@ -150,8 +155,8 @@ inspect Charlie
 ```
 
 `minimal` uses the registered prefab’s defaults for the editable parameters.
-The catalog also retains named presets such as `alice`, which use the example’s
-original starting settings. Changing Alice does not change either template.
+The catalog also offers named presets such as `alice`, which use the example’s
+registered starting settings. Changing Alice does not change either template.
 Registered references (for example the next game master entity) stay valid
 through the project’s configuration.
 
@@ -228,8 +233,10 @@ Browser versions download these files.
   reapply the changes you want. A stale revision protects both designs.
 - **Pause pending:** an in-progress engine step finishes before editing is enabled.
 - **Disconnected:** your draft stays local; reconnect and inspect state before retrying.
-- **Older file version:** version 3 needs explicit offline conversion to version 4;
-  keep the original file. See [file recovery and command reference](../docs/editor-commands.md).
+- **Unsupported project file:** keep a copy, open a fresh registered template,
+  and recreate the settings you need using its fields. The [input contract and
+  recovery guide](../docs/editor-commands.md#project-files-and-recovery) explains
+  how to diagnose a rejected file.
 
 Use `help` for commands, `files` for terminal file operations, and `exit` or EOF to
 leave the prompt with your journal retained. History stays in memory during the

@@ -35,7 +35,9 @@ with external applications and services.
 
 A simulation is built from **entities**. Each entity contains **components**
 that supply behavior and state, such as instructions, memory and action selection.
-**Prefabs** provide reusable starting configurations for those components.
+**Prefabs** are prebuilt entity templates. Instantiate a prefab, then override
+parameters such as the entity’s name, instructions or goal. Its standard factory
+constructs the components from those settings.
 
 The **engine** organizes execution. For each `run_loop` call, entities are assigned
 player or game master roles. The engine requests player entity actions and asks
