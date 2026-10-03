@@ -14,15 +14,19 @@
 
 """Tests for SimulationServer covering loopback binding, SSE queues, and HTTP endpoints."""
 
+import io
 import json
+import queue
 import socket
 import time
-import queue
+from unittest import mock
 import urllib.error
 import urllib.request
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from concordia.environment import step_controller as step_controller_lib
+from concordia.utils import operation_service
 from concordia.utils import simulation_server
 
 
@@ -50,26 +54,88 @@ def _request(url, method='GET', data=None):
     return response.status, json.loads(response.read().decode('utf-8'))
 
 
-class ServerLifecycleTest(absltest.TestCase):
+class MergeLifecycleTest(parameterized.TestCase):
+  """Exercise merged handlers and restart boundaries without opening sockets."""
 
-  def test_stop_releases_port_and_supports_immediate_restart(self):
+  @parameterized.parameters('7', 'not-a-number')
+  def test_rejected_edit_consumes_framed_body_before_reply(self, length):
+    server = simulation_server.SimulationServer(port=0)
+    handler_type = server._create_handler()
+    handler = object.__new__(handler_type)
+    handler.headers = {'Content-Length': length}
+    handler.rfile = io.BytesIO(b'invalid')
+    handler._send_json = mock.Mock()
+    handler._handle_set_component_state()
+    self.assertEqual(handler.rfile.tell(), 7 if length == '7' else 0)
+    self.assertIn(
+        'No simulation', handler._send_json.call_args.args[0]['message']
+    )
+
+  @parameterized.parameters(False, True)
+  def test_old_handler_stays_stopped_and_unsubscribes_after_restart(
+      self, scoped
+  ):
+    service = (
+        operation_service.OperationService(project_id='test')
+        if scoped
+        else None
+    )
+    if service:
+      service.set_view('developer', lambda: {})
+    server = simulation_server.SimulationServer(
+        port=0, operation_service=service
+    )
+    with mock.patch.object(
+        simulation_server.http.server, 'ThreadingHTTPServer'
+    ) as listener:
+      server.start()
+      handler_type = server._create_handler()
+      server.stop()
+      listener.return_value.server_close.assert_called_once()
+      server.start()
+      try:
+        handler = object.__new__(handler_type)
+        handler._request_audience = 'developer'
+        handler.send_response = mock.Mock()
+        handler.request_version = 'HTTP/1.1'
+        # Use real send_header: Connection: keep-alive changes close_connection.
+        handler.end_headers = mock.Mock()
+        handler.wfile = io.BytesIO()
+        if service:
+          with mock.patch.object(
+              service, 'unsubscribe', wraps=service.unsubscribe
+          ) as unsubscribe:
+            handler._serve_server_sent_events()
+            unsubscribe.assert_called_once()
+        else:
+          handler._serve_server_sent_events()
+          self.assertEmpty(server.server_sent_events_queues)
+        self.assertEmpty(handler.wfile.getvalue())
+        self.assertTrue(handler.close_connection)
+      finally:
+        server.stop()
+
+
+class ListenerLifecycleTest(absltest.TestCase):
+  """PR #379 lifecycle contracts adapted to both editor transports."""
+
+  def test_same_port_restart_and_duplicate_start(self):
     server = simulation_server.SimulationServer(port=0)
     server.start()
     port = server.bound_port
-    _request(f'http://127.0.0.1:{port}/status')
     server.stop()
-    restarted = simulation_server.SimulationServer(port=port)
+    replacement = simulation_server.SimulationServer(port=port)
     try:
-      restarted.start()
+      replacement.start()
       self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
       with self.assertRaisesRegex(RuntimeError, 'already running'):
-        restarted.start()
+        replacement.start()
       self.assertEqual(_request(f'http://127.0.0.1:{port}/status')[0], 200)
     finally:
-      restarted.stop()
-      restarted.stop()
+      replacement.stop()
+      replacement.stop()
 
-  def test_restart_does_not_revive_old_event_stream(self):
+  def test_restart_closes_old_stream_and_cleans_subscription(self):
     server = simulation_server.SimulationServer(port=0)
     server.start()
     client = socket.create_connection(
@@ -200,12 +266,14 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertFalse(payload['is_running'])
 
   def test_post_play_resumes_and_get_status_reflects_it(self):
+    self.server.set_simulation(_FakeSimulation())
     status, payload = _request(self.base_url + '/play', method='POST')
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'playing')
     self.assertTrue(self.server.step_controller.is_running)
 
   def test_post_pause(self):
+    self.server.set_simulation(_FakeSimulation())
     self.server.step_controller.play()
     status, payload = _request(self.base_url + '/pause', method='POST')
     self.assertEqual(status, 200)
@@ -213,6 +281,7 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertTrue(self.server.step_controller.is_paused)
 
   def test_get_based_cmd_endpoints_mirror_post_endpoints(self):
+    self.server.set_simulation(_FakeSimulation())
     status, payload = _request(self.base_url + '/cmd/play')
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'playing')
@@ -229,6 +298,8 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(cm.exception.code, 404)
 
   def test_set_component_state_requires_paused(self):
+    fake_sim = _FakeSimulation()
+    self.server.set_simulation(fake_sim)
     self.server.step_controller.play()
     status, payload = _request(
         self.base_url + '/cmd/set_component_state',
@@ -243,6 +314,45 @@ class HttpEndpointsTest(absltest.TestCase):
     self.assertEqual(status, 200)
     self.assertEqual(payload['status'], 'error')
     self.assertIn('paused', payload['message'])
+    self.assertEmpty(fake_sim.set_calls)
+    self.assertIsNone(self.server.cached_entity_info)
+
+  def test_rejected_malformed_body_preserves_state_error_and_recovers(self):
+    fake_sim = _FakeSimulation()
+    # Read both rejection responses fully, including when the body is too
+    # malformed to decode. State guards still take precedence over parsing.
+    for message in ('No simulation', 'paused'):
+      with self.subTest(message=message):
+        if message == 'paused':
+          self.server.set_simulation(fake_sim)
+          self.server.step_controller.play()
+        req = urllib.request.Request(
+            self.base_url + '/cmd/set_component_state',
+            data=b'not JSON: ' + bytes([255]) * 65536,
+            headers={'Content-Type': 'application/json'},
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+          self.assertEqual(response.status, 200)
+          payload = json.loads(response.read().decode('utf-8'))
+        self.assertEqual(payload['status'], 'error')
+        self.assertIn(message, payload['message'])
+        self.assertEmpty(fake_sim.set_calls)
+        self.assertIsNone(self.server.cached_entity_info)
+
+    self.server.step_controller.pause()
+    status, payload = _request(
+        self.base_url + '/cmd/set_component_state',
+        method='POST',
+        data={
+            'entity_name': 'alice',
+            'component_name': 'memory',
+            'key': 'foo',
+            'value': 'bar',
+        },
+    )
+    self.assertEqual(status, 200)
+    self.assertEqual(payload['status'], 'ok')
+    self.assertEqual(fake_sim.set_calls, [('alice', 'memory', 'foo', 'bar')])
 
   def test_rejected_edit_reads_request_body_before_replying(self):
     # Replying without consuming the body can reset the client's connection

@@ -23,7 +23,7 @@ import json
 from typing import Any
 
 from concordia.typing import prefab as prefab_lib
-
+from concordia.utils import project_view
 
 # Color schemes for different roles
 _COLORS = {
@@ -230,7 +230,7 @@ def _render_entity_svg(
       'style="font-family: Arial, sans-serif; font-size: 11px; color: #ccc; '
       "font-style: italic; padding: 6px; background: rgba(0,0,0,0.4); "
       "border-radius: 6px; word-wrap: break-word; max-height: 190px; "
-      'overflow-y: auto;">(waiting...)</div>'
+      'overflow-y: auto;">No action recorded yet.</div>'
       "</foreignObject>"
   )
 
@@ -337,25 +337,33 @@ def visualize_config(
   Returns:
     Tuple of (SVG string, entity data dict for JavaScript).
   """
-  # Group instances by role
-  entities = [i for i in config.instances if i.role == prefab_lib.Role.ENTITY]
+  # Preserve config indices so grouped cards match _build_entity_data IDs.
+  indexed_instances = list(enumerate(config.instances))
+  entities = [
+      (index, instance)
+      for index, instance in indexed_instances
+      if instance.role == prefab_lib.Role.ENTITY
+  ]
   game_masters = [
-      i for i in config.instances if i.role == prefab_lib.Role.GAME_MASTER
+      (index, instance)
+      for index, instance in indexed_instances
+      if instance.role == prefab_lib.Role.GAME_MASTER
   ]
   initializers = [
-      i for i in config.instances if i.role == prefab_lib.Role.INITIALIZER
+      (index, instance)
+      for index, instance in indexed_instances
+      if instance.role == prefab_lib.Role.INITIALIZER
   ]
 
   svg_parts = []
   current_y = _PADDING
-  entity_id_counter = [0]  # Use list for nonlocal mutation
 
   # Calculate grid width
   max_cols = 4
   grid_width = max_cols * (_ENTITY_WIDTH + _GRID_GAP) - _GRID_GAP + 2 * _PADDING
 
   def render_group(
-      instances: list[prefab_lib.InstanceConfig],
+      instances: list[tuple[int, prefab_lib.InstanceConfig]],
       title: str,
       start_y: int,
   ) -> int:
@@ -381,10 +389,9 @@ def visualize_config(
     row_y = start_y
     row_max_height = 0
 
-    for instance in instances:
+    for index, instance in instances:
       x = _PADDING + col * (_ENTITY_WIDTH + _GRID_GAP)
-      entity_id = f"entity_{entity_id_counter[0]}"
-      entity_id_counter[0] += 1
+      entity_id = f"entity_{index}"
       entity_svg, height = _render_entity_svg(instance, x, row_y, entity_id)
       svg_parts.append(entity_svg)
       row_max_height = max(row_max_height, height)
@@ -402,8 +409,8 @@ def visualize_config(
     return row_y + _SECTION_GAP
 
   # Render each group
-  current_y = render_group(entities, "ENTITIES (Agents)", current_y)
-  current_y = render_group(game_masters, "GAME MASTERS", current_y)
+  current_y = render_group(entities, "PLAYER ENTITIES", current_y)
+  current_y = render_group(game_masters, "GAME MASTER ENTITIES", current_y)
   current_y = render_group(initializers, "INITIALIZERS", current_y)
 
   # Build entity data for JavaScript
@@ -426,10 +433,13 @@ def visualize_config_to_html(
     config: prefab_lib.Config,
     title: str = "Simulation Configuration",
     checkpoint_data: dict[str, Any] | None = None,
+    *,
+    project_mode: bool = False,
+    integrated: bool = False,
 ) -> str:
   """Generate a complete HTML page with the SVG visualization.
 
-  Features Unity-style layout with left, center, right, and bottom panels.
+  Arranges hierarchy, simulation view, inspector and log in separate panels.
   Clicking on entities shows their full details in the right sidebar.
 
   Args:
@@ -437,12 +447,24 @@ def visualize_config_to_html(
     title: Title for the HTML page.
     checkpoint_data: Optional checkpoint data from simulation to show component
       class names in the Inspector.
+    project_mode: Show the configured server initial-project controls instead of
+      runtime controls. Requires SimulationServer.configure_project().
+    integrated: Use the capability-bound, single-page project editor.
 
   Returns:
     Complete HTML page as a string.
   """
+  project_mode = project_mode or integrated
   svg, entity_data = visualize_config(config, checkpoint_data)
-  entity_data_json = json.dumps(entity_data)
+  # Initial-project controls fetch data as JSON; never embed authored text.
+  entity_data_json = (
+      "{}" if project_mode else json.dumps(entity_data).replace("<", "\\u003c")
+  )
+  project_style = project_view.STYLE if project_mode else ""
+  project_script = project_view.SCRIPT if project_mode else ""
+  if integrated:
+    project_style = project_view.EDITOR_STYLE
+    project_script = project_view.EDITOR_SCRIPT
 
   html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -464,7 +486,7 @@ def visualize_config_to_html(
       overflow: hidden;
     }}
 
-    /* Unity-style layout */
+    /* Hierarchy, simulation, inspector and log layout */
     .layout {{
       display: grid;
       grid-template-columns: 250px 1fr 350px;
@@ -706,6 +728,9 @@ def visualize_config_to_html(
       width: 100%;
       box-sizing: border-box;
       margin-top: 2px;
+      min-width: 0;
+      resize: vertical;
+      line-height: 1.4;
     }}
 
     .dynamic-input:focus {{
@@ -944,6 +969,7 @@ def visualize_config_to_html(
       text-overflow: ellipsis;
     }}
   </style>
+{project_style}
 </head>
 <body>
   <div class="layout">
@@ -953,11 +979,11 @@ def visualize_config_to_html(
       <div class="legend">
         <div class="legend-item">
           <div class="legend-color" style="background: #3B82F6;"></div>
-          <span>Entity</span>
+          <span>Player entity</span>
         </div>
         <div class="legend-item">
           <div class="legend-color" style="background: #10B981;"></div>
-          <span>Game Master</span>
+          <span>Game master entity</span>
         </div>
         <div class="legend-item">
           <div class="legend-color" style="background: #F59E0B;"></div>
@@ -966,6 +992,7 @@ def visualize_config_to_html(
       </div>
       <div class="sim-controls">
         <div class="status-indicator" id="status-indicator"></div>
+        <span id="run-status" role="status">Connecting</span>
         <button id="btn-play" onclick="simPlay()" title="Play">▶</button>
         <button id="btn-pause" onclick="simPause()" title="Pause">⏸</button>
         <button id="btn-step" onclick="simStep()" title="Step one timestep">1▶</button>
@@ -1005,7 +1032,7 @@ def visualize_config_to_html(
     <!-- Bottom Panel - Console -->
     <div class="bottom-panel">
       <div class="console-header">Console</div>
-      <div class="console-output" id="console-output">
+      <div class="console-output" id="console-output" role="log" aria-live="polite" aria-relevant="additions" aria-label="Simulation log">
         <div class="console-line info"><span class="timestamp">[--:--:--]</span> Ready. Select an entity to inspect its components.</div>
       </div>
     </div>
@@ -1056,6 +1083,7 @@ def visualize_config_to_html(
 
       // Build component sections
       let html = '';
+      const dynamicValues = [];
 
       // Component Info section (if available from checkpoint)
       if (data.component_info) {{
@@ -1091,9 +1119,10 @@ def visualize_config_to_html(
 
             // State section (initially hidden)
             html += `<div class="component-state" id="${{compId}}">`;
-            if (comp.state && Object.keys(comp.state).length > 0) {{
+            const visibleState = {{...(comp.state || {{}}), ...(comp.dynamic_state || {{}})}};
+            if (Object.keys(visibleState).length > 0) {{
               const dynamicKeys = comp.dynamic_state ? Object.keys(comp.dynamic_state) : [];
-              for (const [stateKey, stateVal] of Object.entries(comp.state)) {{
+              for (const [stateKey, stateVal] of Object.entries(visibleState)) {{
                 const isDynamic = dynamicKeys.includes(stateKey);
                 if (isDynamic) {{
                   // Editable dynamic field
@@ -1105,8 +1134,10 @@ def visualize_config_to_html(
                   html += '</div>';
                   html += '<div class="dynamic-row-editor">';
                   const valStr = typeof stateVal === 'object' ? JSON.stringify(stateVal) : String(stateVal);
-                  html += `<input class="dynamic-input" id="${{inputId}}" type="text" value="${{escapeHtml(valStr)}}" />`;
-                  html += `<button class="dynamic-save-btn" data-entity="${{escapeHtml(data.name)}}" data-component="${{escapeHtml(key)}}" data-state-key="${{escapeHtml(stateKey)}}" data-input-id="${{inputId}}">Save</button>`;
+                  html += `<textarea class="dynamic-input" id="${{escapeHtml(inputId)}}" rows="3"></textarea>`;
+                  html += `<label><input type="checkbox" class="dynamic-json" id="json_${{escapeHtml(inputId)}}" aria-label="JSON value for ${{escapeHtml(key)}}.${{escapeHtml(stateKey)}}" ${{typeof stateVal !== 'string' ? 'checked' : ''}}>JSON value</label>`;
+                  dynamicValues.push({{id: inputId, value: valStr}});
+                  html += `<button class="dynamic-save-btn" data-entity="${{escapeHtml(data.name)}}" data-component="${{escapeHtml(key)}}" data-state-key="${{escapeHtml(stateKey)}}" data-input-id="${{escapeHtml(inputId)}}">Save</button>`;
                   html += '</div>';
                   html += '</div>';
                 }} else {{
@@ -1158,6 +1189,17 @@ def visualize_config_to_html(
 
       content.innerHTML = html;
 
+      // Assign prose as a DOM value: quotes and markup stay literal, and
+      // textarea controls preserve multiline text through Save and SSE refresh.
+      dynamicValues.forEach(({{id, value}}) => {{
+        const input = document.getElementById(id);
+        input.value = value;
+        document.getElementById('json_' + id).onchange = event => {{
+          if (event.target.checked) input.value = JSON.stringify(input.value);
+          else {{try {{const parsed = JSON.parse(input.value);if(typeof parsed === 'string')input.value = parsed;}}catch (_){{}}}}
+        }};
+      }});
+
       content.querySelectorAll('.dynamic-save-btn').forEach(btn => {{
         btn.addEventListener('click', function() {{
           saveComponentState(
@@ -1187,13 +1229,15 @@ def visualize_config_to_html(
     function escapeHtml(text) {{
       const div = document.createElement('div');
       div.textContent = text;
-      return div.innerHTML;
+      return div.innerHTML.replace(/"/g, '&quot;');
     }}
 
     function saveComponentState(entityName, componentName, stateKey, inputId) {{
       const input = document.getElementById(inputId);
       if (!input) return;
-      const value = input.value;
+      let value = input.value;
+      try {{if(document.getElementById('json_' + inputId)?.checked)value = JSON.parse(value);}}
+      catch (error) {{logConsole('Invalid JSON field value: ' + error.message, 'error');return;}}
       logConsole(`Saving ${{componentName}}.${{stateKey}}...`, 'info');
 
       const payload = {{
@@ -1240,28 +1284,40 @@ def visualize_config_to_html(
     // Simulation control functions
     let isRunning = false;
     let eventSource = null;
+    let controlStatus = null;
+    let statusRevision = -1;
+    let isConnected = false;
+
+    function applyControlStatus(status) {{
+      // HTTP replies may arrive after a newer SSE transition.
+      if (status.revision < statusRevision) return;
+      const wasCompleted = controlStatus && controlStatus.is_completed;
+      statusRevision = status.revision;
+      controlStatus = status;
+      isConnected = true;
+      isRunning = status.is_running;
+      updateStepCounter(status.current_step);
+      updateControlState();
+      if (status.is_completed && !wasCompleted) {{
+        logConsole('✓ Simulation completed: ' + (status.completion_reason || 'Runner completed.'), 'success');
+      }}
+    }}
 
     function simPlay() {{
       sendCommand('/cmd/play', function(response) {{
-        logConsole('▶ Simulation playing', 'success');
-        isRunning = true;
-        updateControlState();
+        logConsole('▶ Continuous execution requested', 'success');
       }});
     }}
 
     function simPause() {{
       sendCommand('/cmd/pause', function(response) {{
-        logConsole('⏸ Simulation paused', 'success');
-        isRunning = false;
-        updateControlState();
+        logConsole('⏸ Pause requested (after the current step)', 'success');
       }});
     }}
 
     function simStep() {{
       sendCommand('/cmd/step', function(response) {{
-        logConsole('⏭ Step executed', 'success');
-        isRunning = false;
-        updateControlState();
+        logConsole('⏭ Single step requested', 'success');
       }});
     }}
 
@@ -1271,7 +1327,19 @@ def visualize_config_to_html(
       xhr.onreadystatechange = function() {{
         if (xhr.readyState === 4) {{
           if (xhr.status === 200) {{
-            successCallback(xhr.responseText);
+            try {{
+              const response = JSON.parse(xhr.responseText);
+              if (response.control_status) {{
+                applyControlStatus(response.control_status);
+              }}
+              if (response.status === 'error') {{
+                logConsole(response.message, 'error');
+              }} else {{
+                successCallback(response);
+              }}
+            }} catch (err) {{
+              logConsole('Invalid server response', 'error');
+            }}
           }} else {{
             logConsole('Command failed (status ' + xhr.status + ')', 'error');
           }}
@@ -1288,11 +1356,19 @@ def visualize_config_to_html(
       var output = document.getElementById('console-output');
       var line = document.createElement('div');
       line.className = 'console-line ' + type;
+      // Browser wall-clock time of display, including replay after reconnect.
       var now = new Date();
       var timestamp = now.toTimeString().split(' ')[0];
-      line.innerHTML = '<span class="timestamp">[' + timestamp + ']</span> ' + message;
-      output.appendChild(line);
-      output.scrollTop = output.scrollHeight;
+      const stamp = document.createElement('span');
+      stamp.className = 'timestamp';
+      stamp.textContent = '[' + timestamp + '] ';
+      line.append(stamp, document.createTextNode(String(message)));
+      const following = output.scrollHeight - output.scrollTop - output.clientHeight < 48;
+      const prompt = output.lastElementChild;
+      if (prompt && prompt.id === 'editor-command-form') output.insertBefore(line, prompt);
+      else output.appendChild(line);
+      if (following) output.scrollTop = output.scrollHeight;
+      return line;
     }}
 
     function updateControlState() {{
@@ -1301,17 +1377,20 @@ def visualize_config_to_html(
       const btnPause = document.getElementById('btn-pause');
       const btnStep = document.getElementById('btn-step');
 
-      if (isRunning) {{
-        indicator.className = 'status-indicator running';
-        btnPlay.classList.add('active');
-        btnPause.classList.remove('active');
-        btnStep.disabled = true;
-      }} else {{
-        indicator.className = 'status-indicator paused';
-        btnPlay.classList.remove('active');
-        btnPause.classList.add('active');
-        btnStep.disabled = false;
-      }}
+      const state = isConnected && controlStatus
+          ? controlStatus.state : 'disconnected';
+      const labels = {{
+        running: 'Running', paused: 'Paused', completed: 'Completed',
+        stopped: 'Stopped', empty: 'No simulation', disconnected: 'Disconnected'
+      }};
+      document.getElementById('run-status').textContent = labels[state];
+      indicator.className = 'status-indicator ' + state;
+      indicator.title = labels[state];
+      btnPlay.classList.toggle('active', state === 'running');
+      btnPause.classList.toggle('active', state === 'paused');
+      btnPlay.disabled = state !== 'paused';
+      btnPause.disabled = state !== 'running';
+      btnStep.disabled = state !== 'paused';
     }}
 
     function updateStepCounter(step) {{
@@ -1342,14 +1421,10 @@ def visualize_config_to_html(
       eventSource.onmessage = function(event) {{
         const data = JSON.parse(event.data);
 
-        // Handle simulation completion
-        if (data.completion) {{
-          logConsole('✓ Simulation completed', 'success');
-          document.querySelector('.step-counter').textContent = 'COMPLETE';
-          document.querySelector('.step-counter').style.color = '#00ff00';
-          isPlaying = false;
-          return;
+        if (data.control_status) {{
+          applyControlStatus(data.control_status);
         }}
+        if (data.completion) return;
 
         // Handle entity info update (component data from simulation)
         if (data.entity_info) {{
@@ -1377,6 +1452,7 @@ def visualize_config_to_html(
           return;
         }}
 
+        if (typeof data.step !== 'number') return;
         updateStepCounter(data.step);
         logConsole(`Step ${{data.step}}`, 'info');
 
@@ -1406,7 +1482,9 @@ def visualize_config_to_html(
       }};
 
       eventSource.onerror = function(err) {{
-        console.log('SSE connection error, reconnecting...');
+        if (isConnected) logConsole('Disconnected; reconnecting without replaying commands.', 'warning');
+        isConnected = false;
+        updateControlState();
       }};
     }}
 
@@ -1423,7 +1501,8 @@ def visualize_config_to_html(
       }}
     }}
 
-    // Initialize
+    // Initialize runtime controls only in the runtime view.
+    if (!{str(project_mode).lower()}) {{
     updateControlState();
 
     // Try to connect to SSE (will work when served from simulation server)
@@ -1434,6 +1513,7 @@ def visualize_config_to_html(
           return r.json();
         }})
         .then(data => {{
+          applyControlStatus(data);
           logConsole('Connected to simulation server', 'success');
         }})
         .catch(err => {{
@@ -1444,8 +1524,162 @@ def visualize_config_to_html(
     }} else {{
       logConsole('Running from file:// - server features disabled', 'warning');
     }}
+    }}
   </script>
+  {project_script}
 </body>
 </html>"""
 
   return html
+
+
+def visualize_operations_to_html(config, *, title="Attached editor") -> str:
+  """Extend the standard diagram/inspector with discovered service operations.
+
+  Direct runtime controls are read-only here: all mutations use the shared registry.
+  The service supplies current state; text drafts are not an engine state store.
+  """
+  page = visualize_config_to_html(config, title=title)
+  page = page.replace("if (window.location.protocol !== 'file:')", "if (false)")
+  panel = r"""
+  <section id="operations-panel" style="position:fixed;inset:0 0 0 55%;
+  background:#20232b;color:#eee;padding:24px;overflow:auto;z-index:20">
+  <h1>Attached editor</h1><p>Runtime operations · initial prefab configuration unchanged</p>
+  <p id="op-status" role="status">Connecting…</p>
+  <label>Operation <select id="op-name"></select></label>
+  <p id="op-description"></p><form id="op-form"><div id="op-fields"></div>
+  <button id="op-submit" disabled>Apply operation</button></form>
+  <h2>Received state</h2>
+  <p>Inspect an abbreviated preview or download the full received JSON.
+  This developer snapshot may contain private entity information.</p>
+  <button id="op-snapshot-download" disabled>Download received JSON</button>
+  <details id="op-snapshot"><summary>Snapshot preview (abbreviated)</summary>
+  <label>State section <select id="op-preview-field"><option value="">Whole envelope</option></select></label>
+  <p id="op-preview-status" role="status">No preview captured.</p>
+  <button id="op-preview-refresh" disabled>Refresh preview</button>
+  <pre id="op-state" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto"></pre>
+  </details>
+
+  </section><script>
+  (() => {
+    let current, definitions = [], dirty = false, draftRevision, draftRefs;
+    let connected = false, sending = false;
+    const $ = id => document.getElementById(id);
+    let receivedJSON, previewRevision, previewSection = 'Whole envelope', sectionKeys = [];
+    const abbreviated = value => {
+      let nodes = 0;
+      const walk = (item, depth) => {
+        if (++nodes > 100) return '[preview: remaining values omitted]';
+        if (typeof item === 'string') return item.length > 240
+          ? item.slice(0, 240) + '[preview: remaining text omitted]' : item;
+        if (typeof item === 'number' && Number.isInteger(item) && !Number.isSafeInteger(item))
+          return '[preview: number outside safe integer range; download original JSON]';
+        if (item === null || typeof item !== 'object') return item;
+        if (depth > 5) return '[preview: nested values omitted]';
+        if (Array.isArray(item)) {
+          const result = item.slice(0, 8).map(x => walk(x, depth + 1));
+          if (item.length > 8) result.push(`[preview: ${item.length - 8} more items]`);
+          return result;
+        }
+        const keys = Object.keys(item), result = Object.create(null);
+        for (const key of keys.slice(0, 12))
+          result[key.slice(0, 100)] = walk(item[key], depth + 1);
+        if (keys.length > 12) result['[preview: omitted fields]'] = keys.length - 12;
+        return result;
+      };
+      return JSON.stringify(walk(value, 0), null, 2).slice(0, 24000);
+    };
+    const previewStatus = () => {
+      if (previewRevision === undefined) return;
+      $('op-preview-status').textContent = `Preview revision ${previewRevision} · ${previewSection} · abbreviated, not a complete state` +
+        (current.revision !== previewRevision ? ' · a newer state has arrived; refresh to inspect it.' : '.');
+    };
+    const refreshPreview = () => {
+      if (!current) return;
+      const key = $('op-preview-field').value;
+      previewSection = key ? `result.${key}` : 'Whole envelope';
+      $('op-state').textContent = abbreviated(key ? current.result[key] : current);
+      previewRevision = current.revision; previewStatus();
+    };
+    $('op-snapshot').addEventListener('toggle', () => {
+      if ($('op-snapshot').open && previewRevision === undefined) refreshPreview();
+    });
+    $('op-preview-refresh').onclick = refreshPreview;
+    $('op-preview-field').onchange = refreshPreview;
+    $('op-snapshot-download').onclick = () => {
+      if (!current) return;
+      // Preserve the received wire representation: parsing/re-serializing
+      // would round integer identifiers larger than JavaScript's safe range.
+      const blob = new Blob([receivedJSON], {type:'application/json'});
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = `developer-received-revision-${current.revision}.json`;
+      link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    const show = (state, received) => {
+      if (current && state.revision < current.revision) return;
+      current = state; receivedJSON = received;
+      const keys = Object.keys(current.result || {});
+      if (keys.length !== sectionKeys.length || keys.some((key, i) => key !== sectionKeys[i])) {
+        const select = $('op-preview-field'), selected = select.value;
+        select.replaceChildren();
+        for (const key of ['', ...keys]) {
+          const option = document.createElement('option'); option.value = key;
+          option.textContent = key || 'Whole envelope'; select.append(option);
+        }
+        if (keys.includes(selected)) select.value = selected;
+        sectionKeys = keys;
+      }
+      $('op-snapshot-download').disabled = false;
+      $('op-preview-refresh').disabled = false; previewStatus();
+      $('op-status').textContent = `Connected · revision ${state.revision}`;
+      $('op-submit').disabled = sending;
+      for (const field of $('op-fields').querySelectorAll('[data-key]')) field.disabled = false;
+    };
+    function fields() {
+      dirty = false;
+      const op = definitions.find(x => x.name === $('op-name').value);
+      $('op-description').textContent = op.description;
+      $('op-fields').replaceChildren();
+      for (const [key, spec] of Object.entries(op.input.properties)) {
+        const label = document.createElement('label'); label.textContent = `${key}: ${spec.description}`;
+        const input = document.createElement(spec.type === 'string' ? 'textarea' : 'input');
+        input.dataset.key = key; input.dataset.type = spec.type; input.disabled = !connected;
+        if (spec.type !== 'string') input.type = 'number';
+        input.style.cssText = 'display:block;width:95%;min-height:60px;margin:8px 0;background:#131820;color:#eee';
+        input.addEventListener('input', () => {
+          if (!dirty) { draftRevision = current.revision; draftRefs = current.references; dirty = true; }
+        });
+        label.append(input); $('op-fields').append(label);
+      }
+    }
+    $('op-name').onchange = fields;
+    $('op-form').onsubmit = async e => {
+      e.preventDefault(); if (!current || !connected || sending) return;
+
+      const arguments_ = {};
+      for (const field of $('op-fields').querySelectorAll('[data-key]'))
+        arguments_[field.dataset.key] = field.dataset.type === 'integer' ? Number(field.value) : field.value;
+      const request = {operation: $('op-name').value, arguments: arguments_,
+        references: dirty ? draftRefs : current.references, revision: dirty ? draftRevision : current.revision,
+        retry_key: crypto.randomUUID()};
+      sending = true; $('op-submit').disabled = true;
+      try {
+        const response = await fetch('/api/dispatch', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+        const value = await response.json();
+        if (!response.ok) throw new Error(value.error.message);
+        logConsole(JSON.stringify(value, null, 2), 'success'); dirty = false;
+      } catch(error) { logConsole(error.message, 'error'); }
+      finally { sending = false; $('op-submit').disabled = !connected; }
+    };
+    fetch('/api/operations').then(r=>r.json()).then(value=>{
+      definitions = value.result.operations;
+      for (const op of definitions) { const option=document.createElement('option'); option.value=op.name;option.textContent=op.name;$('op-name').append(option); }
+      fields();
+    }).catch(error=>{logConsole(error.message, 'error')});
+    const events = new EventSource('/api/events');
+    events.onmessage = e => {if(!connected)logConsole('Connected to editor.', 'info');connected = true; show(JSON.parse(e.data), e.data);};
+    events.onerror = () => {if(connected)logConsole('Disconnected; drafts kept. Commands are not replayed.', 'warning');connected = false; $('op-submit').disabled = true;
+      $('op-status').textContent='Disconnected'};
+  })();
+  </script>"""
+  return page.replace("</body>", panel + "</body>")
