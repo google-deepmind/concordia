@@ -36,7 +36,6 @@ from concordia.language_model import no_language_model
 from concordia.utils import helper_functions
 import numpy as np
 
-
 DEFAULT_SKIP_KEYS = {"_model", "_lock"}
 
 embedder = lambda x: np.random.rand(3)
@@ -277,8 +276,19 @@ COMPONENT_FACTORIES = {
             "scenes": [],
         },
         "state_example": {
-            "round_idx_to_scene": {},
-            "max_rounds": 10,
+            "scenes": [{
+                "scene_type": {
+                    "name": "Conversation",
+                    "game_master_name": None,
+                    "default_premise": {"Alice": ["Welcome"]},
+                    "action_spec": None,
+                    "possible_participants": None,
+                },
+                "participants": ["Alice"],
+                "num_rounds": 10,
+                "start_time": None,
+                "premise": None,
+            }],
         },
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
