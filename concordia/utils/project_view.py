@@ -707,9 +707,9 @@ EDITOR_SCRIPT = (
   const localViewers=new Map();let currentViewer='default',viewerBlob=null;
   window.addEventListener('pagehide',()=>{if(viewerBlob)URL.revokeObjectURL(viewerBlob);});
   function offerViewer(name){if(![...viewerSelect.options].some(x=>x.value===name)){const option=document.createElement('option');option.value=name;option.textContent=name;viewerSelect.append(option);}}
-  async function showViewer(name,refresh=false){
-    if(name===currentViewer && !refresh)return;
-    if(name==='default'){viewerFrame.hidden=true;document.querySelector('.svg-container').hidden=false;viewerSelect.value=name;currentViewer=name;return;}
+  async function showViewer(name,force=false){
+    if(name===currentViewer && !force)return;
+    if(name==='default'){viewerFrame.hidden=true;document.querySelector('.svg-container').hidden=false;viewerSelect.value=name;currentViewer=name;if(force)await refresh();return;}
     const source=localViewers.get(name) || await query('viewer.read',{name});
     viewerFrame.removeAttribute('srcdoc');viewerFrame.removeAttribute('src');
     if(viewerBlob){URL.revokeObjectURL(viewerBlob);viewerBlob=null;}
@@ -1164,7 +1164,7 @@ EDITOR_SCRIPT = (
     if(action==='viewer'){if(args.length)await showViewer(args[0]);else notice(JSON.stringify({selected:currentViewer,available:[...viewerSelect.options].map(x=>x.value)}));return;}
     if(action==='viewer-load'){viewerFile.click();return;}
     if(action==='viewer-url'){await openViewerURL(args[0]);return;}
-    if(action==='viewer-refresh'){await showViewer(currentViewer,true);return;}
+    if(action==='viewer-refresh'){await showViewer(args[0] || currentViewer,true);return;}
     if(action==='layout'){notice(JSON.stringify(editorLayout(args),null,2));return;}
     if(plan.operation){
       if(action==='edit' && runtimeDrafts.size)throw Error('Save pending runtime fields before a typed edit. No runtime draft was discarded.');

@@ -106,16 +106,19 @@ class SceneTracker(
 
     self._max_rounds = round_idx
 
-  def _get_scene_step_and_scene(
-      self,
-  ) -> tuple[int, scene_lib.SceneSpec, int]:
+  def _get_scene_counter(self) -> int:
     memory_component = self.get_entity().get_component(
         self._memory_component_key, type_=memory_component_module.Memory
     )
     counter_states = memory_component.scan(
         lambda x: x.startswith(_SCENE_COUNTER_TAG)
     )
-    counter_state = len(counter_states)
+    return len(counter_states)
+
+  def _get_scene_step_and_scene(
+      self,
+  ) -> tuple[int, scene_lib.SceneSpec, int]:
+    counter_state = self._get_scene_counter()
     if counter_state == self._max_rounds:
       return -1, self._scenes[0], counter_state
     elif counter_state > self._max_rounds:
@@ -130,7 +133,7 @@ class SceneTracker(
     return step_within_scene, scene, counter_state
 
   def is_done(self) -> bool:
-    _, _, global_step = self._get_scene_step_and_scene()
+    global_step = self._get_scene_counter()
     if global_step >= self._max_rounds:
       return True
     return False
@@ -405,8 +408,8 @@ class SceneTracker(
       return result
 
     records: Any = state['scenes']
-    if not isinstance(records, list) or not records or len(records) > 1000:
-      fail('scenes', 'expected 1–1000 records')
+    if not isinstance(records, list) or len(records) > 1000:
+      fail('scenes', 'expected 0–1000 records')
     previous: Any = self.get_dynamic_state()['scenes']
     scenes = []
     schedule = {}

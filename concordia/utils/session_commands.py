@@ -37,7 +37,7 @@ Discovery: catalog [templates|prefabs|components], list [instances|components]
   add commands optionally accept --id STABLE_ID; . means current selection.
 Presentation: layout [left|right|terminal PIXELS] (browser only)
 View: select ID [COMPONENT], search TEXT, view definition|runtime, panel hierarchy|inspector|simulation|log, inspect [ID]
-Viewer: viewer [default|NAME], viewer-url URL, viewer-load, viewer-refresh
+Viewer: viewer [default|NAME], viewer-url URL, viewer-load, viewer-refresh [NAME]
 Components: state-field INSTANCE COMPONENT FIELD JSON (initial draft)
 Reset overrides: state-reset INSTANCE [COMPONENT [FIELD]]
 Runtime: edit INSTANCE COMPONENT FIELD JSON (paused; advertised dynamic fields)
@@ -143,7 +143,7 @@ def parse(line: str) -> dict:
       'viewer': (0, 1),
       'viewer-url': (1, 1),
       'viewer-load': (0, 0),
-      'viewer-refresh': (0, 0),
+      'viewer-refresh': (0, 1),
       'duplicate': (0, 1),
       'remove': (0, 1),
       'select': (1, 2),

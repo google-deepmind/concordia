@@ -277,7 +277,7 @@ they do not establish physical Android usability or live provider behavior.
 | Pause/step/resume/reset and state | `pause`, `step`, `play`, `reset`, `state` | Same service/controller state guards; Run acceptance is not completion |
 | Initial dynamic field Save button | `state-field ID COMPONENT FIELD JSON`, then `save` | Same advertised fields; fresh-build validation and persistent draft overrides |
 | Paused dynamic field Save button | `edit ID COMPONENT FIELD JSON` | Same runtime operation and pause boundary; no pending browser input form |
-| Central viewer selection/refresh | `viewer [default|NAME]`, `viewer-refresh` | Lists/fetches registered view data; `--file PATH` exports HTML; does not change another tab |
+| Central viewer selection/refresh | `viewer [default|NAME]`, `viewer-refresh [NAME]` | `viewer-refresh NAME` fetches fresh HTML; lists/fetches registered view data; `--file PATH` exports HTML; does not change another tab |
 | Open viewer HTML/URL | `viewer-load`, `viewer-url URL` | `viewer-load PATH` checks a local HTML file; URL command returns a browser destination; terminal does not render HTML |
 | Hierarchy search, selection and panel tabs | `search TEXT`, `select ID [COMPONENT]`, `panel hierarchy|inspector|simulation|log` | Search returns matches; inspector returns selected content, hierarchy returns records, simulation/log return run/step snapshot; does not resize/activate another client |
 | Splitter drag/keyboard/min/max/persistence | `layout`, `layout left|right|terminal PIXELS` | Explicitly browser-only; CLI rejects `layout`, resize your terminal using its host controls |
