@@ -88,6 +88,58 @@ def friendly(args):
         },
     )['result']
 
+  if plan.get('action') in (
+      'viewer',
+      'viewer-refresh',
+      'viewer-url',
+      'viewer-load',
+  ):
+    action, values = plan['action'], plan['args']
+    if action == 'viewer-load':
+      if args.file is None:
+        raise ValueError('Use viewer-load with --file your-viewer.html.')
+      html = args.file.read_text(encoding='utf-8')
+      if len(html.encode('utf-8')) > 5000000:
+        raise ValueError('Maximum viewer HTML size is 5 MB.')
+      return {
+          'file': str(args.file),
+          'message': (
+              'Open this HTML file using Open viewer HTML in your browser.'
+              ' Terminal clients do not render HTML.'
+          ),
+      }
+    if action == 'viewer-url':
+      parsed = urllib.parse.urlsplit(values[0])
+      if (
+          parsed.scheme not in ('http', 'https')
+          or not parsed.netloc
+          or parsed.username
+          or parsed.password
+      ):
+        raise ValueError('Use an HTTP(S) URL without embedded credentials.')
+      return {
+          'url': values[0],
+          'message': 'Open this URL in your browser or its Viewer URL control.',
+      }
+    if action == 'viewer-refresh' or not values:
+      return {
+          'available': ['default', *state.get('viewers', [])],
+          'message': (
+              'Use viewer NAME to fetch current registered HTML; --file exports'
+              ' it. Browser selection is client-local.'
+          ),
+      }
+    if values[0] == 'default':
+      return {
+          'definition': state['definition'],
+          'message': 'Default visualization data; browser choice is unchanged.',
+      }
+    result = dispatch('viewer.read', {'name': values[0]})
+    if 'html' in result and args.file:
+      args.file.write_text(result.pop('html'), encoding='utf-8')
+      result['output'] = str(args.file)
+    return result
+
   if plan['kind'] == 'log':
     imported = ''
     if plan['source'] == 'imported':
@@ -385,8 +437,14 @@ def interactive(args) -> int:
           imported = candidate
           print('Imported log selected on this client; no project change.')
           continue
-        if words[0] in ('load', 'export') and len(words) == 2:
+        if words[0] in ('load', 'export', 'viewer-load') and len(words) == 2:
           local.file = pathlib.Path(words.pop())
+        if words[0] == 'viewer' and '--file' in words:
+          index = words.index('--file')
+          if index + 1 >= len(words):
+            raise ValueError('--file requires a local path.')
+          local.file = pathlib.Path(words[index + 1])
+          del words[index : index + 2]
         if words[0] == 'log':
           if '--output' in words:
             index = words.index('--output')

@@ -28,16 +28,19 @@ discover lists registered operations; call accepts a quoted JSON object of argum
 watch reports the browser live stream; CLI watch streams until interrupted/timeout.
 Run starts a fresh saved definition; play resumes a paused run. step grants one step.
 Draft: save, validate, load, export, reload --discard, undo, redo
-Authoring: add instance PROTOTYPE | add component TYPE OWNER | add group | add scene-type | add scene
+Authoring: add instance PROTOTYPE | add component TYPE OWNER
   duplicate [ID], remove [ID], set ID FIELD JSON, references ID, replace SOURCE TARGET, move-component ID OWNER
-  ID is an instance ID, simulation, or components:ID / groups:ID / scene_types:ID / scenes:ID.
+  ID is an instance ID, simulation, or components:ID.
   set uses a top-level record field or params.FIELD; values are JSON (quote strings).
-Discovery: catalog [templates|prefabs|components], list [instances|components|groups|scene_types|scenes]
+Discovery: catalog [templates|prefabs|components], list [instances|components]
   inspect [ID [COMPONENT]], locate "VALIDATION MESSAGE", move ID up|down
   add commands optionally accept --id STABLE_ID; . means current selection.
 Presentation: layout [left|right|terminal PIXELS] (browser only)
 View: select ID [COMPONENT], search TEXT, view definition|runtime, panel hierarchy|inspector|simulation|log, inspect [ID]
-Runtime: edit INSTANCE COMPONENT TEXT (paused only; Instructions/Goal)
+Viewer: viewer [default|NAME], viewer-url URL, viewer-load, viewer-refresh
+Components: state-field INSTANCE COMPONENT FIELD JSON (initial draft)
+Reset overrides: state-reset INSTANCE [COMPONENT [FIELD]]
+Runtime: edit INSTANCE COMPONENT FIELD JSON (paused; advertised dynamic fields)
 Logs: log import; log overview|entities|actions|context|step|timeline|search|memories|components|export|dump|bundle --source current|imported [concordia-log arguments]
   log step inspects a recorded step; step advances execution. Log dump/bundle export downloads in browser, explicit files in CLI.
 Files and draft/history are local to each client; commands never silently save or discard.
@@ -82,7 +85,7 @@ def parse(line: str) -> dict:
   if name in ('catalog', 'list', 'layout'):
     choices = {
         'catalog': ('templates', 'prefabs', 'components'),
-        'list': ('instances', 'components', 'groups', 'scene_types', 'scenes'),
+        'list': ('instances', 'components'),
         'layout': ('left', 'right', 'terminal'),
     }
     if args and args[0] not in choices[name]:
@@ -137,6 +140,10 @@ def parse(line: str) -> dict:
         'args': rest,
     }
   counts = {
+      'viewer': (0, 1),
+      'viewer-url': (1, 1),
+      'viewer-load': (0, 0),
+      'viewer-refresh': (0, 0),
       'duplicate': (0, 1),
       'remove': (0, 1),
       'select': (1, 2),
@@ -148,7 +155,9 @@ def parse(line: str) -> dict:
       'references': (1, 1),
       'replace': (2, 2),
       'move-component': (2, 2),
-      'edit': (3, 3),
+      'edit': (3, 4),
+      'state-field': (4, 4),
+      'state-reset': (1, 3),
       'reload': (1, 1),
       'locate': (1, 1),
       'move': (2, 2),
@@ -161,14 +170,10 @@ def parse(line: str) -> dict:
     kinds = {
         'instance': 2,
         'component': 3,
-        'group': 1,
-        'scene-type': 1,
-        'scene': 1,
     }
     if not args or len(args) != kinds.get(args[0]):
       raise ValueError(
-          'Use add instance PROTOTYPE, add component TYPE OWNER, or add'
-          ' group|scene-type|scene.'
+          'Use add instance PROTOTYPE or add component TYPE OWNER.'
       )
   elif (
       name not in counts or not counts[name][0] <= len(args) <= counts[name][1]
@@ -200,6 +205,10 @@ def operation(plan: dict, snapshot: dict) -> tuple[str, dict] | None:
     return 'runtime.' + action, {}
   if action == 'reset':
     return 'project.reset', {}
+  if action == 'edit' and len(args) == 4:
+    return 'runtime.edit_state', dict(
+        zip(('instance_id', 'component', 'field', 'value'), args)
+    )
   if action == 'edit':
     return 'runtime.edit', dict(
         zip(('instance_id', 'component', 'value'), args)

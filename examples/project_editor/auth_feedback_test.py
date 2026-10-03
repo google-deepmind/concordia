@@ -40,7 +40,7 @@ def test_auth_failure_reaches_log_without_advancing_or_fabricating_action(
   )
   original_build = run.build
 
-  def fake_build(config, *, model=None):
+  def fake_build(config, *, model=None, engine=None):
     preview = original_build(config)
     if model is None:
       return preview

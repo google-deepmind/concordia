@@ -28,11 +28,12 @@ the standard StepController to acknowledge a paused boundary.
 
 from collections.abc import Callable
 import copy
+import json
 from typing import Any, TYPE_CHECKING
+import urllib.parse
 import uuid
 
 from concordia.command_line_interface import concordia_log
-from concordia.components.agent import constant
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import operation_service as ops
 from concordia.utils import project_config
@@ -51,11 +52,18 @@ class ProjectEditor:
       self,
       server: 'simulation_server.SimulationServer',
       registry: project_config.Registry,
-      preview: Callable[[prefab_lib.Config], dict[str, Any]] | None,
+      preview: Callable[[prefab_lib.Config], Any] | None,
+      *,
+      viewers: dict[str, Callable[[], str] | str] | None = None,
   ):
     self.server = server
     self.registry = registry
     self.preview = preview
+    self.viewers = dict(viewers or {})
+    if any(not key or key == 'default' for key in self.viewers):
+      raise ValueError(
+          'Viewer names must be nonempty and distinct from default.'
+      )
     self.service = ops.OperationService(project_id='registered-project')
     self.definition_view: dict[str, Any] | None = None
     self.runtime_view: dict[str, Any] | None = None
@@ -99,7 +107,7 @@ class ProjectEditor:
     self._register(
         'project.validate',
         draft_text,
-        lambda args: self.registry.loads(args['text']),
+        lambda args: self.preview_draft(args)['document'],
         mutation=False,
     )
     self._register(
@@ -134,6 +142,42 @@ class ProjectEditor:
         },
         self.edit,
     )
+    self._register(
+        'runtime.edit_state',
+        {
+            'instance_id': string,
+            'component': string,
+            'field': string,
+            'value': ops.Parameter('string', 'JSON field value', 900000),
+        },
+        lambda args: self.edit({**args, 'value': json.loads(args['value'])}),
+    )
+
+    self._register(
+        'viewer.read', {'name': string}, self.read_viewer, mutation=False
+    )
+
+  def read_viewer(self, arguments):
+    name = arguments['name']
+    if name not in self.viewers:
+      raise ValueError('Unknown registered viewer.')
+    source = self.viewers[name]
+    if callable(source):
+      html = source()
+      if not isinstance(html, str) or len(html.encode('utf-8')) > 5000000:
+        raise ValueError('Viewer provider must return at most 5 MB of HTML.')
+      return {'name': name, 'html': html}
+    parsed = urllib.parse.urlsplit(source)
+    if (
+        parsed.scheme not in ('http', 'https')
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+    ):
+      raise ValueError(
+          'Viewer URL must be HTTP(S) without embedded credentials.'
+      )
+    return {'name': name, 'url': source}
 
   def preview_draft(self, arguments):
     document = self.registry.loads(arguments['text'])
@@ -232,9 +276,21 @@ class ProjectEditor:
   def prepare(self, document: dict[str, Any]) -> dict[str, Any]:
     """Build an optional trusted inspection preview, never a running simulation."""
     config = self.registry.to_config(document)
-    checkpoint = self.preview(config) if self.preview else None
+    built = self.preview(config) if self.preview else None
+    if hasattr(built, 'make_checkpoint_data'):
+      self.registry.apply_dynamic_states(document, built)
+      checkpoint = built.make_checkpoint_data()
+    else:
+      if document.get('dynamic_states'):
+        raise ValueError(
+            'Initial dynamic state requires a Simulation preview factory.'
+        )
+      checkpoint = built
     svg, entities = visual_interface.visualize_config(config, checkpoint)
     return {
+        'initial_state_editable': hasattr(built, 'set_component_dynamic_state'),
+        'engine': checkpoint.get('engine') if checkpoint else None,
+        'document': copy.deepcopy(document),
         'svg': svg,
         'entities': entities,
         'inspector': self.registry.inspector(document),
@@ -273,6 +329,7 @@ class ProjectEditor:
   def snapshot(self) -> dict[str, Any]:
     return {
         **self.server.get_project(),
+        'viewers': list(self.viewers),
         'state': self.state(),
         'definition': self.definition_view,
         'runtime': self.runtime_view,
@@ -287,6 +344,7 @@ class ProjectEditor:
             self.runtime_config, checkpoint
         )
         self.runtime_view = {
+            'engine': checkpoint.get('engine'),
             'svg': svg,
             'entities': entities,
             'document': self.runtime_document,
@@ -327,11 +385,9 @@ class ProjectEditor:
   def edit(self, arguments: dict[str, Any]) -> None:
     if self.state() != 'paused':
       raise ValueError('Runtime edits require an acknowledged pause.')
+    json.dumps(arguments['value'], allow_nan=False)
     component_name = arguments['component']
-    if component_name not in ('Instructions', 'Goal'):
-      raise ValueError('Only registered Instructions/Goal text is editable.')
-    arguments['value'].encode('utf-8')
-    document = self.server.get_project()['document']
+    document = self.runtime_document or self.server.get_project()['document']
     instance = next(
         (
             item
@@ -343,24 +399,30 @@ class ProjectEditor:
     if instance is None:
       raise ValueError('Unknown registered instance ID.')
     simulation = self.server.simulation
+    if simulation is None:
+      raise ValueError('No bound simulation to edit.')
     with self.server.step_controller.paused_boundary():
       entity = next(
           (
               entity
-              for entity in simulation.get_entities()
+              for entity in [
+                  *simulation.get_entities(),
+                  *simulation.get_game_masters(),
+              ]
               if entity.name == instance['params']['name']
           ),
           None,
       )
       if entity is None:
-        raise ValueError('Only actor text components are editable.')
+        raise ValueError('Entity is not present in this runtime.')
       component = entity.get_component(component_name)
-      if not isinstance(component, constant.Constant):
-        raise ValueError('This component is not an editable Constant.')
       previous = component.get_state()
       try:
         simulation.set_component_dynamic_state(
-            entity.name, component_name, 'state', arguments['value']
+            entity.name,
+            component_name,
+            arguments.get('field', 'state'),
+            arguments['value'],
         )
         checkpoint = simulation.make_checkpoint_data()
       except Exception:

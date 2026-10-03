@@ -15,13 +15,13 @@
 """Save, validate and rebuild editable simulation definitions as JSON.
 
 A Python caller registers Template objects containing Config factories and
-allowed prefab prototypes, component recipes and scene settings. Registry
+allowed prefab prototypes, component recipes and editable component state. Registry
 creates default documents, validates imported or edited JSON and converts a
 valid document back into a Config for standard prefab construction. Editors
 use its field metadata to present permitted parameters and references.
 
 Templates can expose fixed instance parameters or allow users to add instances,
-components and scenes with stable IDs. The schema_version field identifies the
+components with stable IDs. The schema_version field identifies the
 saved JSON layout for compatibility. Construction uses only registered Python
 objects; imported text cannot choose arbitrary imports or constructors.
 """
@@ -35,7 +35,6 @@ from typing import Any
 
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_components
-from concordia.utils import project_scenes
 
 
 def _is_integer(value: Any) -> bool:
@@ -55,7 +54,8 @@ class ValidationError(ValueError):
 class Template:
   """Trusted initial configuration and its supported editing contract.
 
-  The factory must return a fresh Config using ordinary scalar instance params.
+  The factory returns a fresh Config. Editable instance params are scalar;
+  explicitly registered fixed parameters remain owned by the Python host.
   Instance IDs correspond to the factory's instance order and never to names.
   References identify params whose document values are target instance IDs;
   they become runtime names only at the Config boundary. A template validator
@@ -77,9 +77,12 @@ class Template:
       default_factory=dict
   )
   editable_instances: bool = False
-  # Initial group/scene records and prefab prototypes that accept SceneSpecs.
-  scene_defaults: Mapping[str, Any] | None = None
-  scene_prototypes: tuple[str, ...] = ()
+  editable_state: bool = False
+  # Trusted constructor values kept out of editable scalar parameters. Their
+  # components can expose their editable surface through get_dynamic_state.
+  fixed_parameters: Mapping[str, tuple[str, ...]] = dataclasses.field(
+      default_factory=dict
+  )
   component_types: Mapping[str, 'project_components.ComponentType'] = (
       dataclasses.field(default_factory=dict)
   )
@@ -146,7 +149,6 @@ class Registry:
             'inspector': copy.deepcopy(
                 dict(template.inspector.get(item['id'], {}))
             ),
-            'accepts_scenes': item['id'] in template.scene_prototypes,
             'references': {
                 field: role.value
                 for (prototype, field), role in template.references.items()
@@ -169,7 +171,7 @@ class Registry:
     roles = {item.role for item in config.instances}
     if not {prefab_lib.Role.ENTITY, prefab_lib.Role.GAME_MASTER} <= roles:
       raise ValidationError(
-          '$.instances', 'template requires an actor and game master'
+          '$.instances', 'template requires a player and game master'
       )
     if len(template.instance_ids) != len(config.instances):
       raise ValidationError('$.instances', 'template ID count mismatch')
@@ -191,7 +193,16 @@ class Registry:
         )
       if instance.prefab not in config.prefabs:
         raise ValidationError('$.instances', 'unregistered prefab in template')
-      params = dict(instance.params)
+      fixed = template.fixed_parameters.get(instance_id, ())
+      if not set(fixed) <= set(instance.params):
+        raise ValidationError(
+            '$.template.fixed_parameters', 'unknown constructor parameter'
+        )
+      params = {
+          key: value
+          for key, value in instance.params.items()
+          if key not in fixed
+      }
       for field, value in params.items():
         self._scalar(value, f'$.instances[{instance_id}].params.{field}')
       instances.append(
@@ -216,28 +227,17 @@ class Registry:
     if template.editable_instances:
       for item in instances:
         item['prototype'] = item['id']
-    result = dict(
+    result: dict[str, Any] = dict(
         schema_version=2 if template.editable_instances else 1,
         template=key,
         instances=instances,
         premise=config.default_premise,
         max_steps=config.default_max_steps,
     )
-    if template.scene_defaults is not None:
-      if not template.editable_instances or not template.scene_prototypes:
-        raise ValidationError(
-            '$.template',
-            'scene templates require editable scene-aware prototypes',
-        )
-      self._keys(
-          dict(template.scene_defaults),
-          project_scenes.FIELDS,
-          '$.template.scene_defaults',
-      )
-      result.update(copy.deepcopy(dict(template.scene_defaults)))
-    if template.scene_defaults is not None or template.component_types:
-      result['schema_version'] = 3
+    if template.component_types or template.editable_state:
+      result['schema_version'] = 4
       result['components'] = []
+      result['dynamic_states'] = {}
     return result
 
   @staticmethod
@@ -273,21 +273,21 @@ class Registry:
     template order for v1; v2 preserves authored order and selects trusted
     prototypes independently of instance IDs.
     """
-    keys = {'schema_version', 'template', 'instances', 'premise', 'max_steps'}
     if isinstance(document, dict) and document.get('schema_version') == 3:
-      keys |= {'components'}
-      template_key = document.get('template')
-      if (
-          isinstance(template_key, str)
-          and self._template(template_key).scene_defaults is not None
-      ):
-        keys |= project_scenes.FIELDS
+      raise ValidationError(
+          '$.schema_version',
+          'File version 3 requires explicit offline conversion to version 4'
+          ' before loading; the original file is unchanged.',
+      )
+    keys = {'schema_version', 'template', 'instances', 'premise', 'max_steps'}
+    if isinstance(document, dict) and document.get('schema_version') == 4:
+      keys |= {'components', 'dynamic_states'}
     self._keys(document, keys, '$')
     if not _is_integer(document['schema_version']) or document[
         'schema_version'
-    ] not in (1, 2, 3):
+    ] not in (1, 2, 4):
       raise ValidationError(
-          '$.schema_version', 'only versions 1, 2 and 3 are supported'
+          '$.schema_version', 'supported file versions are 1, 2 and 4'
       )
     if not isinstance(document['template'], str):
       raise ValidationError('$.template', 'expected text')
@@ -372,7 +372,7 @@ class Registry:
       roles = {item['role'] for item in by_id.values()}
       if not {'entity', 'game_master'} <= roles:
         raise ValidationError(
-            '$.instances', 'requires an actor and game master'
+            '$.instances', 'requires a player and game master'
         )
     for (instance_id, field), role in self._references(
         template, document
@@ -388,12 +388,60 @@ class Registry:
     result = copy.deepcopy(document)
     if not template.editable_instances:
       result['instances'] = [copy.deepcopy(by_id[key]) for key in expected]
-    if template.scene_defaults is not None:
-      project_scenes.validate(result, template.scene_prototypes)
-    if baseline['schema_version'] == 3:
+    if baseline['schema_version'] == 4:
       project_components.validate(result, template.component_types)
+      self._validate_dynamic_states(result)
     template.validate(result)
     return result
+
+  @staticmethod
+  def _validate_dynamic_states(document):
+    states = document['dynamic_states']
+    if not isinstance(states, dict):
+      raise ValidationError(
+          '$.dynamic_states', 'expected entity IDs mapped to component state'
+      )
+    ids = {item['id'] for item in document['instances']}
+    for identifier, components in states.items():
+      path = '$.dynamic_states.' + identifier
+      if identifier not in ids or not isinstance(components, dict):
+        raise ValidationError(
+            path, 'expected existing entity ID and component mapping'
+        )
+      for component, fields in components.items():
+        if not isinstance(component, str) or not isinstance(fields, dict):
+          raise ValidationError(
+              path, 'expected component names mapped to field values'
+          )
+    try:
+      json.dumps(states, allow_nan=False)
+    except (TypeError, ValueError) as error:
+      raise ValidationError(
+          '$.dynamic_states', 'expected finite JSON state'
+      ) from error
+
+  @staticmethod
+  def apply_dynamic_states(document, simulation):
+    """Apply initial field overrides using the Simulation component contract.
+
+    Call on a fresh build, before any execution. Validation/Save prepares a fresh
+    preview first, so a rejected configuration cannot alter a running entity.
+    """
+    names = {
+        item['id']: item['params']['name'] for item in document['instances']
+    }
+    for identifier, components in document.get('dynamic_states', {}).items():
+      for component, fields in components.items():
+        for key, value in fields.items():
+          try:
+            simulation.set_component_dynamic_state(
+                names[identifier], component, key, copy.deepcopy(value)
+            )
+          except (ValueError, TypeError, KeyError) as error:
+            raise ValidationError(
+                '$.dynamic_states.' + identifier + '.' + component + '.' + key,
+                str(error),
+            ) from error
 
   def to_config(self, document: Any) -> prefab_lib.Config:
     """Build the same fresh Config for an editor Run or headless execution."""
@@ -406,15 +454,15 @@ class Registry:
     references = self._references(template, normalized)
     instances = []
     for item in normalized['instances']:
-      params = copy.deepcopy(item['params'])
+      prototype = item.get('prototype', item['id'])
+      original = config.instances[template.instance_ids.index(prototype)]
+      params = {
+          **copy.deepcopy(original.params),
+          **copy.deepcopy(item['params']),
+      }
       for field in params:
         if (item['id'], field) in references:
           params[field] = names[params[field]]
-      if (
-          template.scene_defaults is not None
-          and item['prototype'] in template.scene_prototypes
-      ):
-        params['scenes'] = project_scenes.to_scenes(normalized)
       if template.component_types:
         extras = project_components.build(
             normalized, item['id'], template.component_types

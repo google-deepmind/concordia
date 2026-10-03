@@ -464,9 +464,11 @@ def test_full_authored_action_inventory_roundtrips_shared_registry():
     return result['result']
 
   execute('add instance alice')
-  actor = journal['selectedId']
-  execute('set ' + actor + ' params.name ' + shlex.quote(json.dumps('Charlie')))
-  execute('add component constant ' + actor)
+  player = journal['selectedId']
+  execute(
+      'set ' + player + ' params.name ' + shlex.quote(json.dumps('Charlie'))
+  )
+  execute('add component constant ' + player)
   component = journal['selectedId']
   execute(
       'set '
@@ -477,38 +479,14 @@ def test_full_authored_action_inventory_roundtrips_shared_registry():
   execute('move-component ' + component + ' bob')
   execute('duplicate ' + component)
   execute('remove')
-  execute('add group')
-  group = journal['selectedId']
-  execute('set ' + group + ' participants ' + shlex.quote(json.dumps([actor])))
-  execute('add scene-type')
-  scene_type = journal['selectedId']
-  execute(
-      'set '
-      + scene_type
-      + ' group '
-      + shlex.quote(json.dumps(group.split(':')[1]))
-  )
-  execute('add scene')
-  scene = journal['selectedId']
-  execute(
-      'set '
-      + scene
-      + ' scene_type '
-      + shlex.quote(json.dumps(scene_type.split(':')[1]))
-  )
-  execute('set ' + scene + ' participants ' + shlex.quote(json.dumps([actor])))
-  assert execute('references ' + actor)
-  execute('replace ' + actor + ' alice')
-  execute('remove ' + actor)
+  execute('remove ' + player)
   assert (
       registry.loads(registry.dumps(journal['document'])) == journal['document']
   )
-  execute('remove ' + scene)
-  execute('remove ' + scene_type)
-  execute('remove ' + group)
-  assert (
-      registry.loads(registry.dumps(journal['document'])) == journal['document']
-  )
+  execute('undo')
+  assert any(x['id'] == player for x in journal['document']['instances'])
+  execute('redo')
+  assert not any(x['id'] == player for x in journal['document']['instances'])
 
 
 def test_cli_log_exports_and_local_load_are_explicit(tmp_path):
@@ -706,18 +684,7 @@ def test_interactive_tutorial_transcript(tmp_path, capsys):
       'add component constant charlie --id reminder',
       'set components:reminder params.state \'"Listen before replying."\'',
       'move-component components:reminder bob',
-      'add group --id trio',
-      'set groups:trio participants \'["alice","bob","charlie"]\'',
-      'add scene-type --id meeting',
-      'set scene_types:meeting group \'"trio"\'',
-      'set scene_types:meeting game_master \'"conversation"\'',
-      'set scene_types:meeting premise \'"Choose a song together."\'',
-      'add scene --id encore',
-      'set scenes:encore scene_type \'"meeting"\'',
-      'set scenes:encore participants \'["alice","bob","charlie"]\'',
-      'set scenes:encore num_rounds 3',
-      'set scenes:encore premise null',
-      'move scenes:encore up',
+      'move charlie up',
       'undo',
       'redo',
       'set simulation max_steps 40',
@@ -757,7 +724,11 @@ def test_interactive_tutorial_transcript(tmp_path, capsys):
   assert 'Error:' not in output
   assert 'Recall only (not executed): help' in output
   saved = server.get_project()['document']
-  assert saved['scenes'][0]['id'] == 'encore'
+  assert [x['id'] for x in saved['instances'] if x['role'] == 'entity'] == [
+      'alice',
+      'charlie',
+      'bob',
+  ]
   assert saved['components'][0]['instance'] == 'bob'
   assert saved == json.loads(exported.read_text())
   journal = json.loads(draft.read_text())
@@ -860,7 +831,10 @@ def test_focused_component_inspection_and_stable_ids():
         journal, session_commands.parse('inspect alice Missing'), runtime
     )
   journal['view'] = 'definition'
-  for line in ['add instance alice --id alice', 'add group --id ../bad']:
+  for line in [
+      'add instance alice --id alice',
+      'add instance alice --id ../bad',
+  ]:
     with pytest.raises(ValueError, match='stable component ID'):
       session_draft.apply(journal, session_commands.parse(line))
 
@@ -1107,3 +1081,11 @@ def test_reload_resets_deleted_selection_and_rejects_nonentity_component(
     args.line = 'inspect simulation Missing'
     with pytest.raises(ValueError, match='requires an instance'):
       concordia_session.friendly(args)
+
+
+def test_removed_commands_are_not_advertised_or_accepted():
+  for line in ('add group', 'list groups'):
+    with pytest.raises(ValueError):
+      session_commands.parse(line)
+  assert 'groups:' not in session_commands.HELP
+  assert 'add group' not in session_commands.HELP

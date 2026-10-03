@@ -1,7 +1,7 @@
 # Editor and session commands
 
 The **Simulation log** is the editor's message destination: errors, warnings,
-connection changes, command results, actor actions and completion messages appear
+connection changes, command results, player entity actions and completion messages appear
 there. Validation errors retain **Show invalid field/item** buttons in their log
 entry. Status labels in the toolbar remain compact. Reading older entries stops
 automatic scrolling; new entries follow the bottom only if you were already near
@@ -13,7 +13,7 @@ replaying commands.
 Type in **Simulation log command** and press Enter or Send. Up/Down recalls this
 tab's command history; **Command help** lists syntax, including while offline.
 This input is a command language, not a shell: it cannot execute programs, Python,
-JavaScript or arbitrary server paths. Quotes group arguments; `set` takes a JSON
+JavaScript or arbitrary server paths. Quotes keep arguments together; `set` takes a JSON
 value, so string values need JSON quotes inside command quoting.
 
 ```text
@@ -36,7 +36,7 @@ Run. No command silently saves it.
 ## Draft, authoring and navigation
 
 GUI edits and typed commands in a browser tab use the same document and undo
-history. Structural commands call the existing registered prefab/component/scene
+history. Structural commands call the existing registered prefab/component
 helpers. The server validates saves with the same registry and revision checks
 as the GUI. Field edits may leave an invalid draft for correction or Undo.
 
@@ -49,13 +49,8 @@ undo
 redo
 add instance alice
 add component constant alice
-add group
-add scene-type
-add scene
 duplicate alice
 remove INSTANCE_ID
-set groups:GROUP_ID participants '["alice", "bob"]'
-set scenes:SCENE_ID num_rounds 3
 references alice
 replace OLD_INSTANCE_ID REPLACEMENT_INSTANCE_ID
 move-component components:COMPONENT_ID bob
@@ -64,7 +59,7 @@ select bob SelfPerception
 inspect bob
 search "Instructions"
 view runtime
-edit alice Instructions "Alice prefers quiet music."
+edit alice Instructions state '"Alice prefers quiet music."'
 view definition
 panel log
 export
@@ -73,11 +68,11 @@ reload --discard
 ```
 
 Use stable IDs shown in the inspector. Instances use their bare ID; other records
-use `components:ID`, `groups:ID`, `scene_types:ID` or `scenes:ID`. `simulation`
+use `components:ID`. `simulation`
 selects the simulation settings. `duplicate` and `remove` without an ID use the
 current selection. `set` edits an existing scalar/list record field or
 `params.FIELD`; it cannot change identity, prefab registration or schema fields.
-Groups/scenes accept `participants` as a JSON list. Component name and settings
+Component name and settings
 use `name` and `params.FIELD`. Existing ownership/type/reference restrictions
 apply; a failed action leaves the draft/history intact.
 
@@ -89,7 +84,7 @@ unsaved draft. Save/export it first or explicitly `reload --discard`. Load and
 reload reset local undo history. A newly loaded file remains local until Save.
 
 Runtime `inspect ID [COMPONENT]` reads the selected entity/component from the current runtime view. `edit` uses the existing paused
-runtime edit operation and supports the same Instructions/Goal text fields as
+runtime edit operation and supports the same advertised dynamic component fields as
 the inspector. The browser rejects a typed edit if it would conflict with pending
 runtime input fields; save those fields first. Runtime edits never change the
 initial definition. Selection, search, panel and view are local presentation
@@ -242,7 +237,7 @@ For a complete interactive authoring walkthrough and explicit editor/CLI coverag
 see the [simulation design CLI tutorial](../command_line_interface/README.md).
 
 New shared discovery/navigation commands: `catalog [templates|prefabs|components]`,
-`list [instances|components|groups|scene_types|scenes]`, `locate "MESSAGE"`,
+`list [instances|components]`, `locate "MESSAGE"`,
 `move ID up|down`. Creation accepts optional `--id STABLE_ID`; `.` selects the
 current local draft record. `layout` reports browser bounds;
 `layout left|right|terminal PIXELS` uses the same bounded/persisted splitters.
@@ -256,3 +251,140 @@ It has no asynchronous stream: `watch` blocks until interrupt/timeout/EOF.
 
 `log export` uses standard SimulationLog serialization for reimportable JSON;
 `log dump` remains inflated analysis JSON and is not an import archive.
+
+
+## Editor/CLI coverage matrix
+
+The browser column means typed commands in the current tab; all domain commands
+also work in the external interactive CLI unless stated. Tests cover the shared
+authoring journey, intercepted browser commands and existing operation contracts;
+they do not establish physical Android usability or live provider behavior.
+
+| Actual editor capability | Browser typed command | External CLI equivalent / limitation |
+|---|---|---|
+| Registered prefab picker, template/component descriptions/defaults/dependencies | `catalog`, `catalog templates`, `catalog prefabs`, `catalog components` | Same structured catalogs, restricted to registered/current-template entries |
+| Player entity/game master entity/initializer fields, name/persona/goal/reference choices | `inspect ID`, `set ID params.FIELD JSON` | Same fields and registry validation; inspect lists field metadata |
+| Add/duplicate/remove player entity or game master entity; minimum-role guard | `add instance PROTOTYPE [--id ID]`, `duplicate [ID]`, `remove [ID]` | Same helpers/undo; generated result becomes selection |
+| Component CRUD, name/params/ownership | `add component TYPE OWNER [--id ID]`, `set components:ID name JSON`, `set components:ID params.FIELD JSON`, `duplicate`, `remove`, `move-component components:ID OWNER` | Same compatibility and dependency constraints |
+| Built component list/expanded state and params | `inspect ID [COMPONENT]`, `select ID COMPONENT` | Focused JSON state/params; no graphical expand/collapse animation |
+| Incoming references, reference navigation/replacement | `references ID`, `select TARGET`, `replace SOURCE TARGET` | Same references and compatible replacement; does not move another tab |
+| Simulation premise and authoring maximum | `set simulation premise JSON`, `set simulation max_steps N` | Same authoring fields; separate from requested run length |
+| Steps-to-run input and Run | `run --steps N` | Same bound, explicit length per invocation; no remote numeric-field mutation |
+| Validate/error target | `validate`, `locate 'MESSAGE'` | Same validation; prints target instead of clicking/focusing DOM |
+| Save/load/export/reload | `save`, `load`, `export`, `reload --discard` | `save`, `load PATH`, `export PATH`, `reload --discard`; explicit client paths, separate journal |
+| Undo/redo and unsaved status | `undo`, `redo`, `state` | Same draft history helper, stored only in this explicit journal |
+| Definition/runtime source and inspection | `view definition|runtime`, `inspect ID [COMPONENT]` | Same source with textual record/component output; no SVG graph |
+| Pause/step/resume/reset and state | `pause`, `step`, `play`, `reset`, `state` | Same service/controller state guards; Run acceptance is not completion |
+| Initial dynamic field Save button | `state-field ID COMPONENT FIELD JSON`, then `save` | Same advertised fields; fresh-build validation and persistent draft overrides |
+| Paused dynamic field Save button | `edit ID COMPONENT FIELD JSON` | Same runtime operation and pause boundary; no pending browser input form |
+| Central viewer selection/refresh | `viewer [default|NAME]`, `viewer-refresh` | Lists/fetches registered view data; `--file PATH` exports HTML; does not change another tab |
+| Open viewer HTML/URL | `viewer-load`, `viewer-url URL` | `viewer-load PATH` checks a local HTML file; URL command returns a browser destination; terminal does not render HTML |
+| Hierarchy search, selection and panel tabs | `search TEXT`, `select ID [COMPONENT]`, `panel hierarchy|inspector|simulation|log` | Search returns matches; inspector returns selected content, hierarchy returns records, simulation/log return run/step snapshot; does not resize/activate another client |
+| Splitter drag/keyboard/min/max/persistence | `layout`, `layout left|right|terminal PIXELS` | Explicitly browser-only; CLI rejects `layout`, resize your terminal using its host controls |
+| Responsive typography, zoom, graph layout/scroll | Automatic CSS/browser controls | Terminal font/zoom/scrollback belong to terminal host, not model/domain actions; no simulated graph parity |
+| Console input/history/help/results | `help`, Enter, Up/Down | Persistent prompt, `help`, `history`, `!N` display-only recall; no disk history or terminal emulation |
+| Connection/error notifications, scrollback follow, dedup | Automatic single Simulation log; `watch` reports existing stream | Prompt reports request errors; blocking `watch` emits events; no async prompt notifications, automatic reconnect or replay |
+| Structured logs/import/export/bundle | `log ... --source current|imported`, `log import` picker | Same analysis; `log import PATH`, `--output PATH` in interactive mode |
+| Operation discovery/raw call/watch | `discover`, `call OPERATION JSON`, `watch` | Same discovery/dispatch checks; watch is one explicit stream rather than browser's existing subscription |
+
+The CLI does not edit another browser's draft, pending runtime fields, layout,
+selection or imported-log choice. Browser-only file pickers, focus, graph, zoom,
+scrollback-follow and splitters have honest local/textual equivalents above,
+not no-op parity commands. See [editor commands](../docs/editor-commands.md) for
+GUI behavior and [utilities](../utils/README.md) for integration APIs.
+
+## File versions and recovery
+
+Version 4 contains initial `dynamic_states` keyed by entity ID, component key and
+field name, alongside authored component recipes. It has no scene-specific
+editor records. Versions 1 and 2 retain their registered contracts. Version 3
+requires explicit offline recovery: preserve the original file and use its
+original editor to export/read its settings, then recreate them in a version 4
+document. Merely changing the version number is insufficient. No saved files are
+rewritten on load and there is no bundled automatic migration tool.
+
+## Generic component state contract
+
+`state-field ID COMPONENT FIELD JSON` edits an initial draft override. `save` and
+`validate` construct a fresh preview and apply it through
+`Simulation.set_component_dynamic_state`. Runtime `edit ID COMPONENT FIELD JSON`
+uses that same setter at an acknowledged pause boundary, for either entity role.
+The original `edit ID COMPONENT TEXT` remains shorthand for the `state` field.
+Components advertise editable fields with `get_dynamic_state()` and own validation
+in `set_state()`. JSON is preserved as objects/lists/numbers/booleans/null; text
+fields remain text. State fields that are not advertised are inspection-only.
+A failed Save leaves the saved definition and existing runtime unchanged.
+`state-reset ID [COMPONENT [FIELD]]` removes overrides; **Reset to prefab** offers
+the same recovery, including for components no longer present after a parameter
+change. Explicit overrides take precedence over constructed state until reset.
+Entity/component duplication remaps owned overrides; move transfers them and
+removal clears them. Component display-name changes preserve the stable key.
+
+Hosts that want initial overrides set `Template.editable_state=True` (component
+recipe templates already enable them) and return a fresh standard Simulation
+from their `configure_project(preview=...)` callback. Existing checkpoint-only
+preview callbacks remain usable for inspection and reject initial state overrides.
+Trusted non-scalar constructor parameters can be named in
+`Template.fixed_parameters`, keyed by prototype ID; JSON never imports or replaces
+those Python objects. Their components may expose an editable dynamic surface.
+Call `Registry.apply_dynamic_states(document, simulation)` after a headless build;
+`SimulationServer.set_simulation` applies them when binding an editor run.
+
+SceneTracker is one optional component using this contract. Its `scenes` field
+contains standard SceneSpec configuration (including nested SceneTypeSpec), using
+runtime entity names. Inspect the field first, edit its JSON, then Save like any
+other component. There is no separate scene editor or command language.
+A partial record preserves omitted fields; the list replaces the ordered
+schedule. Literal premises, optional participant restrictions, action specs and
+ISO start times round-trip. An empty possible-participant list keeps standard
+SceneTracker's unrestricted semantics. Premises containing Python callables
+remain host-configured and are not advertised as JSON-editable. Schedule edits
+preserve the memory cursor and reject schedules ending before current progress.
+Entity renaming does not infer or rewrite arbitrary references inside component
+state; update that component's advertised settings as part of your design.
+
+## Engines and HTML viewer registration
+
+The editor uses the Simulation/Engine contract; it does not instantiate an engine
+itself. The host constructs `generic.Simulation(engine=chosen_engine, ...)` and
+passes the normal controller and callbacks to `Simulation.play`. Engine identity
+comes from that bound instance's checkpoint metadata and is displayed above the
+panels. Sequential, Simultaneous and Asynchronous implement the controller callback
+contract. The controller tracks each active worker; Simulation completes that
+worker’s step after its callback. A pause is acknowledged only after all active
+workers finish, including workers finishing their final iteration;
+a custom engine must implement that contract for those controls to function.
+A checkpoint-only host that omits metadata is visibly reported as not reporting
+its engine, rather than being silently labeled Sequential.
+
+`SimulationServer.configure_project` accepts a trusted `viewers` mapping. Values
+are HTTP(S) URLs or zero-argument providers returning HTML, up to 5 MB:
+
+```python
+server.configure_project(
+    registry, document, integrated=True, preview=build_simulation,
+    run_with_steps=run_simulation,
+    viewers={
+        "Dashboard": "https://example.org/simulation-view",
+        "Notes": lambda: "<h1>Experiment notes</h1><p>Current results</p>",
+    },
+)
+```
+
+Providers can read application-owned current state and regenerate HTML on
+**Refresh viewer**. For the standard social-media example
+`examples/social_media/scenario_00_robo_alchemy.py`, obtain its standard
+`ForumState` component as the scenario host already does in
+`examples/social_media/shared.py`, then register `lambda: forum_state.to_html()`.
+This uses exactly the same provider contract as any other HTML: no forum-specific
+endpoint, parser or editor controls. No server filesystem paths are accepted.
+
+A local **Open viewer HTML** file is read in the browser. Relative file assets
+should be inlined or use reachable URLs; the editor does not serve adjacent local
+files. Iframes allow scripts, forms and popups, with an isolated opaque origin
+(no same-origin access to the editor). URLs must be HTTP(S) without embedded
+credentials. A remote site can refuse framing; browsers do not expose every
+cross-origin failure, so the log explains opening that URL separately. Switching
+views retains editor draft, selection, run and log, while reloading a view resets
+that embedded page's own script state. HTML is fetched only on explicit selection
+or refresh; it is not polled or used to start a simulation.

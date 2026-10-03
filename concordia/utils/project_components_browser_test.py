@@ -96,23 +96,21 @@ def test_component_crud_dom(width, tmp_path):
       page.route('**/*', route)
       page.goto('http://localhost/')
 
-      page.locator('[data-world-id="scenes:opening"]').click()
-      page.locator('#world-rounds').fill('0')
+      page.locator('[data-instance-id="alice"]').click()
+      page.locator('#editor-alice-name').fill('')
       page.get_by_role('button', name='Save draft', exact=True).click()
       browser_api.expect(page.locator('#console-output')).to_contain_text(
-          'expected integer from 1 to 1000'
+          'expected nonempty'
       )
       page.get_by_role('button', name='Hierarchy', exact=True).click()
       page.locator('[data-instance-id="bob"]').click()
       page.get_by_role('button', name='Log', exact=True).click()
       page.get_by_role('button', name='Show invalid field', exact=True).click()
-      browser_api.expect(page.locator('#world-rounds')).to_be_focused()
-      browser_api.expect(page.locator('#world-rounds')).to_have_value('0')
-      assert server.get_project()['document']['scenes'][0]['num_rounds'] == 2
-      page.locator('#world-rounds').fill('2')
+      browser_api.expect(page.locator('#editor-alice-name')).to_be_focused()
+      page.locator('#editor-alice-name').fill('Alice')
       assert page.locator('#editor-error').count() == 0
       browser_api.expect(page.locator('#console-output')).to_contain_text(
-          'expected integer from 1 to 1000'
+          'expected nonempty'
       )
 
       def select_owner(owner):
@@ -192,30 +190,15 @@ def test_component_crud_dom(width, tmp_path):
       save()
       page.get_by_role('button', name='Owner: Bob', exact=True).click()
       browser_api.expect(page.locator('#inspector-title')).to_have_text('Bob')
-      select_owner('alice')
-      page.locator('[data-reference-source="groups:ensemble"]').click()
-      browser_api.expect(page.locator('#world-name')).to_have_value('Roommates')
-      select_owner('alice')
-      page.locator('#reference-target').select_option('bob')
-      page.get_by_role('button', name='Replace references', exact=True).click()
-      browser_api.expect(
-          page.locator('[aria-label="Used by"]')
-      ).to_contain_text('No incoming authored references.')
-      page.get_by_role('button', name='Undo', exact=True).click()
-      browser_api.expect(
-          page.locator('[data-reference-source="groups:ensemble"]')
-      ).to_be_visible()
-      page.get_by_role('button', name='Redo', exact=True).click()
-      save()
-      replaced = server.get_project()['document']
-      assert replaced['groups'][0]['participants'] == ['bob']
-      assert replaced['scenes'][0]['participants'] == ['bob']
-      assert replaced['components'][1]['params']['state'] == literal
-      page.reload()
-      select_owner('alice')
-      browser_api.expect(
-          page.locator('[aria-label="Used by"]')
-      ).to_contain_text('No incoming authored references.')
+      select_owner('bob')
+      page.locator(
+          '[data-reference-source="components:' + first_id + '"]'
+      ).click()
+      browser_api.expect(page.locator('#component-param-state')).to_have_value(
+          literal
+      )
+      page.get_by_role('button', name='Owner: Bob', exact=True).click()
+      browser_api.expect(page.locator('#inspector-title')).to_have_text('Bob')
       with page.expect_download() as download:
         page.get_by_role('button', name='Export JSON', exact=True).click()
       exported = json.loads(Path(download.value.path()).read_text())

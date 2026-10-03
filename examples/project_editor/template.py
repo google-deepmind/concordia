@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compare standard minimal/basic actors through supported JSON fields."""
+"""Compare standard minimal/basic player entities through supported JSON fields."""
 
 import dataclasses
 from typing import Any
@@ -20,19 +20,18 @@ from typing import Any
 from concordia.prefabs.entity import basic
 from concordia.prefabs.entity import minimal
 from concordia.prefabs.game_master import dialogic
-from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_components
 from concordia.utils import project_config
 
-TEMPLATE_KEY = 'scene-builder-v2'
+TEMPLATE_KEY = 'entity-workbench-v1'
 STRUCTURAL_TEMPLATE_KEY = 'scene-builder-v1'
 PREVIOUS_TEMPLATE_KEY = 'conversation-v2'
 LEGACY_TEMPLATE_KEY = 'conversation-v1'
 
 
 def _legacy_config() -> prefab_lib.Config:
-  """Preserve saved two-minimal-actor projects without changing their meaning."""
+  """Preserve saved two-minimal-entity projects without changing their meaning."""
   return prefab_lib.Config(
       prefabs={'minimal': minimal.Entity(), 'dialogic': dialogic.GameMaster()},
       instances=[
@@ -105,6 +104,7 @@ def make_config() -> prefab_lib.Config:
   )
   return dataclasses.replace(
       legacy,
+      default_max_steps=40,
       prefabs={**legacy.prefabs, 'basic': basic.Entity()},
       instances=[
           dataclasses.replace(
@@ -143,75 +143,18 @@ def validate(document: dict[str, Any]) -> None:
       )
 
 
-def scene_config() -> prefab_lib.Config:
-  """Use the standard dramaturgic prefab and its real SceneTracker dependencies."""
-  config = make_config()
-  return dataclasses.replace(
-      config,
-      default_max_steps=40,
-      prefabs={
-          **config.prefabs,
-          'dramaturgic': dialogic_and_dramaturgic.GameMaster(),
-      },
-      instances=[
-          *config.instances[:2],
-          prefab_lib.InstanceConfig(
-              prefab='dramaturgic',
-              role=prefab_lib.Role.GAME_MASTER,
-              params={
-                  'name': 'Conversation',
-                  # The prefab accepts bool; InstanceConfig annotates str.
-                  'allow_llm_fallback': False,  # pyrefly: ignore[bad-assignment]
-              },
-          ),
-      ],
-  )
-
-
-def scene_defaults():
-  return {
-      'groups': [{
-          'id': 'roommates',
-          'name': 'Roommates',
-          'participants': ['alice', 'bob'],
-      }],
-      'scene_types': [{
-          'id': 'music-discussion',
-          'name': 'Music discussion',
-          'game_master': 'conversation',
-          'group': 'roommates',
-          'premise': (
-              'Discuss music in the shared kitchen. Listen without assuming'
-              ' preferences change.'
-          ),
-      }],
-      'scenes': [{
-          'id': 'opening',
-          'name': 'Meet in the kitchen',
-          'scene_type': 'music-discussion',
-          'participants': ['alice', 'bob'],
-          'num_rounds': 40,
-          'premise': None,
-      }],
-  }
-
-
 def registry() -> project_config.Registry:
   """Trusted prefab prototypes; imported JSON chooses no Python constructors."""
   return project_config.Registry({
       key: project_config.Template(
           factory=factory,
           instance_ids=('alice', 'bob', 'conversation'),
-          scene_defaults=scene_defaults() if key == TEMPLATE_KEY else None,
-          scene_prototypes=('conversation',) if key == TEMPLATE_KEY else (),
           component_types=project_components.standard_types(
-              ('alice', 'bob'), ('alice', 'bob', 'conversation')
+              ('alice', 'bob'), ('alice', 'bob')
           )
           if key == TEMPLATE_KEY
           else {},
-          references={}
-          if key == TEMPLATE_KEY
-          else {
+          references={
               (
                   'conversation',
                   'next_game_master_name',
@@ -242,35 +185,21 @@ def registry() -> project_config.Registry:
                       'label': 'Acting policy · randomize choices'
                   },
               },
-              'conversation': (
-                  {
-                      'name': {'label': 'Game master name'},
-                      'allow_llm_fallback': {
-                          'label': (
-                              'Allow fallback observations outside the explicit'
-                              ' queue'
-                          )
-                      },
-                  }
-                  if key == TEMPLATE_KEY
-                  else {
-                      'name': {'label': 'Game master name'},
-                      'acting_order': {
-                          'label': 'Acting order',
-                          'choices': ['fixed', 'random', 'game_master_choice'],
-                      },
-                      'can_terminate_simulation': {
-                          'label': (
-                              'Allow the game master to end the conversation'
-                          )
-                      },
-                      'next_game_master_name': {'label': 'Next game master'},
-                  }
-              ),
+              'conversation': {
+                  'name': {'label': 'Game master entity name'},
+                  'acting_order': {
+                      'label': 'Acting order',
+                      'choices': ['fixed', 'random', 'game_master_choice'],
+                  },
+                  'can_terminate_simulation': {
+                      'label': 'Allow the game master to end the conversation'
+                  },
+                  'next_game_master_name': {'label': 'Next game master entity'},
+              },
           },
       )
       for key, factory in (
-          (TEMPLATE_KEY, scene_config),
+          (TEMPLATE_KEY, make_config),
           (STRUCTURAL_TEMPLATE_KEY, make_config),
           (PREVIOUS_TEMPLATE_KEY, make_config),
           (LEGACY_TEMPLATE_KEY, _legacy_config),

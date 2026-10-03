@@ -46,16 +46,16 @@ def prohibit_execution():
 
 def expanded(registry):
   document = registry.default_document('builder-v1')
-  actor = copy.deepcopy(document['instances'][0])
-  actor['id'] = 'third-actor'
-  actor['params']['name'] = 'Charlie 🎵'
-  actor['params']['custom_instructions'] = 'Literal "quotes"\n</script> & café'
-  actor['params']['goal'] = 'Listen carefully'
+  player = copy.deepcopy(document['instances'][0])
+  player['id'] = 'third-player'
+  player['params']['name'] = 'Charlie 🎵'
+  player['params']['custom_instructions'] = 'Literal "quotes"\n</script> & café'
+  player['params']['goal'] = 'Listen carefully'
   gm = copy.deepcopy(document['instances'][2])
   gm['id'] = 'second-gm'
   gm['params']['name'] = 'Second room'
   gm['params']['next_game_master_name'] = 'conversation'
-  document['instances'].extend([actor, gm])
+  document['instances'].extend([player, gm])
   document['instances'][2]['params']['name'] = 'Renamed conversation'
   document['instances'].reverse()
   return document
@@ -74,22 +74,22 @@ def test_structure_roundtrip_order_reference_and_real_components():
       == 'Renamed conversation'
   )
   simulation = fixtures.build(config)
-  actors = {
-      actor.name: fixtures.as_agent(actor)
-      for actor in simulation.get_entities()
+  players = {
+      player.name: fixtures.as_agent(player)
+      for player in simulation.get_entities()
   }
-  assert len(actors) == 3
+  assert len(players) == 3
   assert (
-      actors['Charlie 🎵'].get_component('Goal').get_state()['state']
+      players['Charlie 🎵'].get_component('Goal').get_state()['state']
       == 'Listen carefully'
   )
   assert (
-      actors['Charlie 🎵'].get_component('Instructions').get_state()['state']
+      players['Charlie 🎵'].get_component('Instructions').get_state()['state']
       == document['instances'][1]['params']['custom_instructions']
   )
-  assert 'SelfPerception' in actors['Bob'].get_all_context_components()
+  assert 'SelfPerception' in players['Bob'].get_all_context_components()
   assert (
-      'SelfPerception' not in actors['Charlie 🎵'].get_all_context_components()
+      'SelfPerception' not in players['Charlie 🎵'].get_all_context_components()
   )
   choices = registry.inspector(document)['second-gm']['next_game_master_name'][
       'choices'

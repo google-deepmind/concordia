@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exercise the example's first scene action-spec lookup without running it."""
+"""Exercise the example's configured action-spec lookup without running it."""
 
 from unittest import mock
 
@@ -21,11 +21,12 @@ from concordia.environment import engine
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
 from concordia.typing import entity
+
 from examples.project_editor import run
 from examples.project_editor import template
 
 
-def test_default_project_scene_can_request_action_spec_without_model_calls():
+def test_scene_free_project_can_request_action_spec_without_model_calls():
   registry = template.registry()
   document = registry.default_document(template.TEMPLATE_KEY)
   with (
@@ -47,11 +48,13 @@ def test_default_project_scene_can_request_action_spec_without_model_calls():
     component = simulation.game_masters[0].get_component(
         next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY
     )
-    assert component._get_current_scene_type().action_spec is None
+    assert 'scenes' not in document
     result = component.pre_act(
         entity.ActionSpec(
             call_to_action='Next',
             output_type=entity.OutputType.NEXT_ACTION_SPEC,
         )
     )
-    assert engine.action_spec_parser(result) == entity.DEFAULT_ACTION_SPEC
+    assert (
+        engine.action_spec_parser(result) == entity.DEFAULT_SPEECH_ACTION_SPEC
+    )

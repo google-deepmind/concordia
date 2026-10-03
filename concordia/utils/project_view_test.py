@@ -128,7 +128,7 @@ assert.equal(initial.instances.length,3);
   )
 
 
-def test_scene_group_component_production_journey():
+def test_component_production_journey():
   registry = project_test_support.scene_registry()
   document = registry.default_document('scenes-v1')
   javascript(
@@ -146,16 +146,6 @@ def test_scene_group_component_production_journey():
 const assert=require('node:assert/strict');
 const history=new ProjectDraftHistory();
 history.record({document:d,selectedId:'alice'});
-ProjectSceneOperations.add(d,prefabs,'groups','other-group');
-ProjectSceneOperations.add(d,prefabs,'scene_types','other-type');
-d.scene_types[1].group='other-group';
-ProjectSceneOperations.add(d,prefabs,'scenes','encore');
-d.scenes[1].scene_type='other-type';
-assert.throws(()=>ProjectSceneOperations.remove(d,'groups:other-group'),/used/);
-assert.throws(()=>ProjectSceneOperations.remove(d,'scene_types:other-type'),/used/);
-assert.throws(()=>ProjectDraftOperations.remove(d,prefabs,'alice'),/referenced/);
-ProjectSceneOperations.move(d,'scenes:encore',-1);
-assert.equal(d.scenes[0].id,'encore');
 ProjectComponentOperations.add(d,components,'alice','constant','identity');
 d.components[0].params.state='Literal 🎵\n</script>';
 ProjectComponentOperations.add(d,components,'alice','recent-observations','observations');
@@ -167,12 +157,12 @@ assert.equal(d.components[2].params.state,d.components[0].params.state);
 ProjectDraftOperations.remove(d,prefabs,'copy');
 assert.equal(d.components.length,2);
 const snapshot=JSON.parse(JSON.stringify(d));
-const previous=history.undo({document:d,selectedId:'scenes:encore'});
-assert.equal(previous.document.scenes.length,1);
+const previous=history.undo({document:d,selectedId:'alice'});
+
 assert.equal(previous.document.components.length,0);
 assert.deepEqual(history.redo(previous).document,snapshot);
-ProjectSceneOperations.remove(d,'components:identity');
-ProjectSceneOperations.remove(d,'components:observations');
+ProjectRecordOperations.remove(d,'components:identity');
+ProjectRecordOperations.remove(d,'components:observations');
 assert.equal(d.components.length,0);
 """
   )
@@ -204,11 +194,11 @@ edit(()=>ProjectComponentOperations.configure(d,'identity','state','Literal </sc
 edit(()=>ProjectComponentOperations.rename(d,'identity','New name'));
 edit(()=>ProjectComponentOperations.add(d,catalog,'alice','constant','alice-note'));
 edit(()=>ProjectComponentOperations.add(d,catalog,'bob','recent-observations','recent'));
-edit(()=>{ProjectSceneOperations.move(d,'components:recent',-1);return 'components:recent';});
+edit(()=>{ProjectRecordOperations.move(d,'components:recent',-1);return 'components:recent';});
 assert.deepEqual(d.components.filter(x=>x.instance==='bob').map(x=>x.id),['recent','identity']);
-edit(()=>ProjectSceneOperations.duplicate(d,'components:identity','copy'));
+edit(()=>ProjectRecordOperations.duplicate(d,'components:identity','copy'));
 assert.equal(d.components.find(x=>x.id==='copy').params.state,'Literal </script> 🎵\n');
-edit(()=>ProjectSceneOperations.remove(d,'components:identity'));
+edit(()=>ProjectRecordOperations.remove(d,'components:identity'));
 const final={document:structuredClone(d),selectedId:selection};
 let current=final;
 for(let i=snapshots.length-1;i>=0;i--){current=history.undo(current);assert.deepEqual(current,snapshots[i]);}
@@ -224,81 +214,13 @@ for(const action of [
  ()=>ProjectComponentOperations.configure(d,'missing','state','x'),
  ()=>ProjectComponentOperations.configure(d,'copy','constructor','x'),
  ()=>ProjectComponentOperations.rename(d,'missing','x'),
- ()=>ProjectSceneOperations.move(d,'components:missing',1),
- ()=>ProjectSceneOperations.move(d,'components:copy',0),
- ()=>ProjectSceneOperations.duplicate(d,'components:copy','recent'),
- ()=>ProjectSceneOperations.remove(d,'components:missing'),
+ ()=>ProjectRecordOperations.move(d,'components:missing',1),
+ ()=>ProjectRecordOperations.move(d,'components:copy',0),
+ ()=>ProjectRecordOperations.duplicate(d,'components:copy','recent'),
+ ()=>ProjectRecordOperations.remove(d,'components:missing'),
 ]){assert.throws(action);assert.deepEqual(d,before);}
 """
   )
-
-
-def test_reference_replacement_roundtrip_and_atomic_history():
-  registry = project_test_support.scene_registry()
-  initial = registry.default_document('scenes-v1')
-  script = (
-      project_view.DRAFT_HISTORY_SCRIPT
-      + 'const d='
-      + json.dumps(initial)
-      + ';\n'
-      + 'const catalog='
-      + json.dumps(registry.catalog(initial))
-      + ';\n'
-      + 'const components='
-      + json.dumps(registry.component_catalog(initial))
-      + ';\n'
-      + r"""
-const assert=require('node:assert/strict');
-ProjectComponentOperations.add(d,components,'alice','constant','identity');
-d.components[0].params.state='alice'; // Literal text is never a reference.
-const before={document:structuredClone(d),selectedId:'alice'};
-const history=new ProjectDraftHistory();
-history.record(before);
-assert.deepEqual(ProjectReferences.uses(d,catalog,'alice').map(x=>x.selection),
-  ['groups:ensemble','scenes:opening','components:identity']);
-const selection=ProjectReferences.replace(d,catalog,'alice','bob');
-assert.equal(selection,'alice');
-assert.deepEqual(d.groups[0].participants,['bob']);
-assert.deepEqual(d.scenes[0].participants,['bob']);
-assert.deepEqual(d.components,before.document.components);
-const final={document:structuredClone(d),selectedId:selection};
-const previous=history.undo(final);assert.deepEqual(previous,before);
-assert.deepEqual(history.redo(previous),final);
-// Normal removal still owns component deletion; replacement never deletes it.
-const removed=structuredClone(d);ProjectDraftOperations.remove(removed,catalog,'alice');
-assert.equal(removed.components.length,0);
-console.log(JSON.stringify(d));
-"""
-  )
-  document = json.loads(javascript(script))
-  assert registry.loads(registry.dumps(document)) == document
-  config = registry.to_config(document)
-  scenes = config.instances[-1].params['scenes']
-  assert scenes[0].participants == ['Bob']
-  assert scenes[0].scene_type.possible_participants == ['Bob']
-  assert document['components'][0]['instance'] == 'alice'
-  first = simulation_server.SimulationServer(port=0)
-  first.configure_project(
-      registry,
-      initial,
-      mock.Mock(side_effect=AssertionError('no run')),
-      integrated=True,
-  )
-  first.replace_project(registry.dumps(document), 0)
-  reopened = simulation_server.SimulationServer(port=0)
-  reopened.configure_project(
-      registry,
-      registry.loads(registry.dumps(first.get_project()['document'])),
-      mock.Mock(side_effect=AssertionError('no run')),
-      integrated=True,
-  )
-  assert reopened.get_project()['document'] == document
-  saved = first.get_project()
-  with pytest.raises(ValueError, match='another tab'):
-    first.replace_project(registry.dumps(initial), 0)
-  assert first.get_project() == saved
-  assert first.simulation is None
-  assert reopened.simulation is None
 
 
 def test_reference_replacement_v2_registered_fields_only():
@@ -332,51 +254,6 @@ console.log(JSON.stringify(d));
   assert config.instances[2].params['next_game_master_name'] == 'Conversation 2'
 
 
-def test_reference_namespaces_and_invalid_requests_are_atomic():
-  registry = project_test_support.scene_registry()
-  initial = registry.default_document('scenes-v1')
-  javascript(
-      project_view.DRAFT_HISTORY_SCRIPT
-      + 'const d='
-      + json.dumps(initial)
-      + ';\n'
-      + 'const catalog='
-      + json.dumps(registry.catalog(initial))
-      + ';\n'
-      + r"""
-const assert=require('node:assert/strict');
-// IDs are unique within a section, not across all sections.
-d.groups[0].id='alice';d.scene_types[0].group='alice';
-d.scene_types[0].id='alice';d.scenes[0].scene_type='alice';
-assert.deepEqual(ProjectReferences.uses(d,catalog,'alice').map(x=>x.selection),
-  ['groups:alice','scenes:opening']);
-assert.deepEqual(ProjectReferences.uses(d,catalog,'groups:alice').map(x=>x.selection),['scene_types:alice']);
-assert.deepEqual(ProjectReferences.uses(d,catalog,'scene_types:alice').map(x=>x.selection),['scenes:opening']);
-assert.deepEqual(ProjectReferences.uses(d,catalog,'groups:missing'),[]);
-ProjectDraftOperations.add(d,catalog,'conversation','other','conversation');
-const legacy=structuredClone(catalog.find(x=>x.instance.prototype==='conversation'));
-legacy.instance.prototype='legacy';legacy.accepts_scenes=false;catalog.push(legacy);
-ProjectDraftOperations.add(d,catalog,'legacy','legacy-gm');
-assert.deepEqual(ProjectReferences.candidates(d,catalog,'conversation').map(x=>x.id),['other']);
-const before=structuredClone(d);
-for(const [source,target] of [
-  ['missing','bob'],['alice','missing'],['alice','alice'],['alice','conversation'],
-  ['conversation','legacy-gm'],['other','conversation'],['groups:alice','bob'],
-]){
-  assert.throws(()=>ProjectReferences.replace(d,catalog,source,target));
-  assert.deepEqual(d,before);
-}
-assert.throws(()=>ProjectReferences.replace(d,[],'alice','bob'));
-assert.deepEqual(d,before);
-ProjectReferences.replace(d,catalog,'conversation','other');
-assert.equal(d.scene_types[0].game_master,'other');
-// An unsaved draft that once referenced Alice must not preserve stale controls.
-ProjectReferences.replace(d,catalog,'alice','bob');
-assert.throws(()=>ProjectReferences.replace(d,catalog,'alice','bob'),/no replaceable/);
-"""
-  )
-
-
 @pytest.mark.parametrize(
     ('path', 'value', 'selection', 'field'),
     [
@@ -389,15 +266,6 @@ assert.throws(()=>ProjectReferences.replace(d,catalog,'alice','bob'),/no replace
             7,
             'components:note',
             'component-param-state',
-        ),
-        (('scenes', 0, 'num_rounds'), 0, 'scenes:opening', 'world-rounds'),
-        (('scenes', 0, 'participants'), [], 'scenes:opening', None),
-        (('groups', 0, 'participants'), [], 'groups:ensemble', None),
-        (
-            ('scene_types', 0, 'game_master'),
-            'missing',
-            'scene_types:discussion',
-            'world-game-master',
         ),
     ],
 )
@@ -453,8 +321,8 @@ assert.equal(ProjectValidation.forSave(d,'project.save',{text:'{}'},error),null)
 assert.equal(ProjectValidation.forSave(d,'runtime.edit',{text:JSON.stringify(d)},error),null);
 assert.equal(ProjectValidation.forSave(d,'project.save',{text:JSON.stringify(d)},
   {...error,code:'stale_revision'}),null);
-assert.deepEqual(ProjectValidation.target({scenes:[{id:'opening'}]},'$.scenes[opening].constructor: error'),
-  {selection:'scenes:opening',field:null});
+assert.deepEqual(ProjectValidation.target({components:[{id:'note'}]},'$.components[note].constructor: error'),
+  {selection:'components:note',field:null});
 const args={text:JSON.stringify(d)};d.instances[0].params.name='changed while saving';
 assert.equal(ProjectValidation.forSave(d,'project.save',args,error),null);
 d.instances[0].params.name='A';assert.deepEqual(d,original);
@@ -501,14 +369,54 @@ console.log(JSON.stringify(d));
   moved = registry.loads(result)
   assert registry.loads(registry.dumps(moved)) == moved
   built = project_test_support.build(registry.to_config(moved))
-  actors = {
-      actor.name: project_test_support.as_agent(actor)
-      for actor in built.get_entities()
+  players = {
+      player.name: project_test_support.as_agent(player)
+      for player in built.get_entities()
   }
-  assert 'authored_recent' not in actors['Bob'].get_all_context_components()
-  recent = actors['Alice'].get_component('authored_recent')
+  assert 'authored_recent' not in players['Bob'].get_all_context_components()
+  recent = players['Alice'].get_component('authored_recent')
   assert recent.get_state()['history_length'] == 7
-  assert project_test_support.component_order(actors['Alice'])[-2:] == [
+  assert project_test_support.component_order(players['Alice'])[-2:] == [
       'authored_existing',
       'authored_recent',
   ]
+
+
+def test_dynamic_overrides_follow_component_ownership_and_reset():
+  registry = project_test_support.scene_registry()
+  document = registry.default_document('scenes-v1')
+  javascript(
+      project_view.DRAFT_HISTORY_SCRIPT
+      + 'const d='
+      + json.dumps(document)
+      + ';const catalog='
+      + json.dumps(registry.catalog(document))
+      + ';const components='
+      + json.dumps(registry.component_catalog(document))
+      + r""";
+const assert=require('node:assert/strict');
+ProjectComponentOperations.add(d,components,'alice','constant','note');
+d.dynamic_states={alice:{Instructions:{state:'initial'},authored_note:{state:'owned'}}};
+const original=structuredClone(d);
+ProjectDraftOperations.add(d,catalog,'alice','copy','alice');
+const cloned=d.components.find(x=>x.instance==='copy');
+assert.equal(d.dynamic_states.copy['authored_'+cloned.id].state,'owned');
+assert.equal(d.dynamic_states.copy.Instructions.state,'initial');
+assert.equal(d.dynamic_states.copy.authored_note,undefined);
+ProjectDraftOperations.remove(d,catalog,'copy');
+assert.deepEqual(d,original);
+ProjectComponentOperations.moveOwner(d,components,'note','bob');
+assert.equal(d.dynamic_states.alice.authored_note,undefined);
+assert.equal(d.dynamic_states.bob.authored_note.state,'owned');
+ProjectComponentOperations.rename(d,'note','Display label');
+assert.equal(d.dynamic_states.bob.authored_note.state,'owned');
+ProjectRecordOperations.duplicate(d,'components:note','other');
+assert.equal(d.dynamic_states.bob.authored_other.state,'owned');
+ProjectRecordOperations.remove(d,'components:note');
+assert.equal(d.dynamic_states.bob.authored_note,undefined);
+ProjectDraftCommands.apply(d,{},'bob','state-reset',['bob','authored_other','state']);
+assert.equal(d.dynamic_states.bob,undefined);
+ProjectDraftCommands.apply(d,{},'alice','state-reset',['alice']);
+assert.deepEqual(d.dynamic_states,{});
+"""
+  )

@@ -15,6 +15,7 @@
 """What should the roommates play? A private editor with opt-in language models."""
 
 import argparse
+from collections.abc import Callable
 import dataclasses
 import getpass
 import math
@@ -28,7 +29,9 @@ import uuid
 import warnings
 
 from concordia.contrib import language_models
+from concordia.environment import engine as engine_lib
 from concordia.environment.engines import sequential
+from concordia.environment.engines import simultaneous
 from concordia.language_model import language_model
 from concordia.language_model import no_language_model
 from concordia.prefabs.simulation import generic
@@ -132,13 +135,14 @@ def build(
     config: prefab_lib.Config,
     *,
     model: language_model.LanguageModel | None = None,
+    engine: engine_lib.Engine | None = None,
 ) -> generic.Simulation:
   """Build standard prefabs without executing them or making model calls."""
   return generic.Simulation(
       config=config,
       model=model if model is not None else no_language_model.NoLanguageModel(),
       embedder=lambda _: np.ones(8),
-      engine=sequential.Sequential(),
+      engine=engine if engine is not None else sequential.Sequential(),
   )
 
 
@@ -162,6 +166,7 @@ def create_editor(
     step_delay: float = 1.0,
     public_origin: str | None = None,
     model_selection: ModelSelection = ModelSelection(),
+    engine_factory: Callable[[], engine_lib.Engine] = sequential.Sequential,
 ) -> simulation_server.SimulationServer:
   """Configure, but do not start or run, the existing SimulationServer.
 
@@ -182,7 +187,9 @@ def create_editor(
 
   def run(config: prefab_lib.Config, requested_steps: int) -> None:
     saved_definition = server.get_project()['document']
-    sim = build(config, model=model_selection.create_model())
+    sim = build(
+        config, model=model_selection.create_model(), engine=engine_factory()
+    )
     controller = server.step_controller
     server.set_simulation(sim)
     server.broadcast_entity_info(sim.make_checkpoint_data())
@@ -220,11 +227,7 @@ def create_editor(
     elif steps >= requested_steps:
       reason = f'Requested step limit reached ({requested_steps}).'
     else:
-      reason = (
-          'Game master ended the run before the step limit; with the default'
-          ' scene-aware prefab this happens when its scene sequence is'
-          ' exhausted.'
-      )
+      reason = 'The game master ended the run before the requested step limit.'
     server.broadcast_completion(reason)
 
   server.configure_project(
@@ -236,7 +239,7 @@ def create_editor(
           f'Roommate music lab · {model_selection.label} · '
           f'{step_delay:g}s pacing'
       ),
-      preview=lambda config: build(config).make_checkpoint_data(),
+      preview=lambda config: build(config, engine=engine_factory()),
   )
   return server
 
@@ -284,6 +287,11 @@ def main() -> None:
           ' editor'
       ),
   )
+  engines = {
+      'sequential': sequential.Sequential,
+      'simultaneous': simultaneous.Simultaneous,
+  }
+  parser.add_argument('--engine', choices=tuple(engines), default='sequential')
   args = parser.parse_args()
   try:
     selection = ModelSelection(args.model_backend, args.model_name)
@@ -324,9 +332,11 @@ def main() -> None:
   if args.headless:
     print(f'{selection.label} — explicit headless run', flush=True)
     config = registry.to_config(document)
-    log = build(config, model=selection.create_model()).play(
-        max_steps=min(10, config.default_max_steps)
+    simulation = build(
+        config, model=selection.create_model(), engine=engines[args.engine]()
     )
+    registry.apply_dynamic_states(document, simulation)
+    log = simulation.play(max_steps=min(10, config.default_max_steps))
     print(save_result(registry, document, log, args.output), flush=True)
     return
   server = create_editor(
@@ -336,6 +346,7 @@ def main() -> None:
       step_delay=args.step_delay,
       public_origin=args.public_origin,
       model_selection=selection,
+      engine_factory=engines[args.engine],
   )
   server.start()
   editor_origin = args.public_origin or f'http://127.0.0.1:{server.bound_port}'

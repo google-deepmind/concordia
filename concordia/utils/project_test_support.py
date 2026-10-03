@@ -26,6 +26,7 @@ from concordia.prefabs.game_master import dialogic
 from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.prefabs.simulation import generic
 from concordia.typing import prefab as prefab_lib
+from concordia.typing import scene as scene_lib
 from concordia.utils import project_components
 from concordia.utils import project_config
 import numpy as np
@@ -35,7 +36,7 @@ LEGACY_TEMPLATE_KEY = 'conversation-v1'
 
 
 def _legacy_config() -> prefab_lib.Config:
-  """Preserve saved two-minimal-actor projects without changing their meaning."""
+  """Preserve saved two-minimal-player projects without changing their meaning."""
   return prefab_lib.Config(
       prefabs={'minimal': minimal.Entity(), 'dialogic': dialogic.GameMaster()},
       instances=[
@@ -193,6 +194,20 @@ def scene_config():
   gm_params: dict[str, Any] = {
       'name': 'Conversation',
       'allow_llm_fallback': False,
+      'scenes': [
+          scene_lib.SceneSpec(
+              scene_type=scene_lib.SceneTypeSpec(
+                  name='Kitchen discussion',
+                  game_master_name='Conversation',
+                  default_premise={
+                      'Alice': ['Listen to one another.'],
+                      'Bob': ['Listen to one another.'],
+                  },
+              ),
+              participants=['Alice', 'Bob'],
+              num_rounds=2,
+          )
+      ],
   }
   return dataclasses.replace(
       base,
@@ -211,39 +226,13 @@ def scene_config():
   )
 
 
-def scene_defaults():
-  return {
-      'groups': [{
-          'id': 'ensemble',
-          'name': 'Roommates',
-          'participants': ['alice', 'bob'],
-      }],
-      'scene_types': [{
-          'id': 'discussion',
-          'name': 'Kitchen discussion',
-          'game_master': 'conversation',
-          'group': 'ensemble',
-          'premise': 'Listen to one another.',
-      }],
-      'scenes': [{
-          'id': 'opening',
-          'name': 'First conversation',
-          'scene_type': 'discussion',
-          'participants': ['alice', 'bob'],
-          'num_rounds': 2,
-          'premise': None,
-      }],
-  }
-
-
 def scene_registry():
   return project_config.Registry({
       'scenes-v1': project_config.Template(
           factory=scene_config,
+          fixed_parameters={'conversation': ('scenes',)},
           instance_ids=('alice', 'bob', 'conversation'),
           editable_instances=True,
-          scene_defaults=scene_defaults(),
-          scene_prototypes=('conversation',),
           component_types=project_components.standard_types(
               ('alice', 'bob'), ('alice', 'bob', 'conversation')
           ),
@@ -252,7 +241,7 @@ def scene_registry():
 
 
 def as_agent(entity) -> entity_agent.EntityAgent:
-  """Check the concrete agent produced by the registered test prefabs."""
+  """Check the concrete entity produced by the registered test prefabs."""
   assert isinstance(entity, entity_agent.EntityAgent)
   return entity
 

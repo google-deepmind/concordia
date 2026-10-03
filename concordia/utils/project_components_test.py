@@ -36,9 +36,7 @@ from concordia.utils import simulation_server
 import pytest
 
 
-@pytest.mark.parametrize(
-    'module', ['project_components', 'project_config', 'project_scenes']
-)
+@pytest.mark.parametrize('module', ['project_components', 'project_config'])
 def test_public_modules_import_independently(module):
   # A shared pytest process can hide cycles after another module imported config.
   result = subprocess.run(
@@ -296,7 +294,7 @@ def test_component_only_template_and_legacy_compatibility():
       )
   })
   document = registry.default_document('components-only')
-  assert document['schema_version'] == 3
+  assert document['schema_version'] == 4
   assert 'scenes' not in document
   document['components'] = [record('bob')]
   assert registry.loads(registry.dumps(document)) == document
@@ -366,7 +364,7 @@ def test_basic_prefab_factory_order_and_rejected_collisions():
       prefab.build(no_language_model.NoLanguageModel(), memory_bank)
 
 
-def test_authored_component_cannot_be_changed_through_runtime_edit():
+def test_runtime_edit_requires_bound_simulation():
   registry = fixtures.scene_registry()
   document = registry.default_document('scenes-v1')
   document['components'] = [record()]
@@ -374,7 +372,7 @@ def test_authored_component_cannot_be_changed_through_runtime_edit():
   adapter = server._project_editor
   before = server.operation_service.snapshot('developer')
   with mock.patch.object(adapter, 'state', return_value='paused'):
-    with pytest.raises(ValueError, match='Only registered Instructions/Goal'):
+    with pytest.raises(ValueError, match='No bound simulation'):
       adapter.edit({
           'instance_id': 'alice',
           'component': 'authored_context',

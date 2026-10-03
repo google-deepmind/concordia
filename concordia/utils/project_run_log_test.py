@@ -192,7 +192,7 @@ const snapshot={references:{session_id:'session',run_id:'one'},result:{
   steps:[{step:1,acting_entity:'Alice',action:'Alice: Alice'}],current_step:1,
   run:{status:'completed',message:'Configured step limit reached (1).'}}};
 renderSimulationLog(snapshot);
-assert.deepEqual(messages(),['Step 1 · Actor action · Alice\nAlice: Alice',
+assert.deepEqual(messages(),['Step 1 · Player entity action · Alice\nAlice: Alice',
   'Completed at step 1: Configured step limit reached (1).']);
 renderSimulationLog(snapshot);assert.equal(messages().length,2);
 loggedRun=undefined;renderSimulationLog(snapshot);assert.equal(messages().length,2);

@@ -114,11 +114,10 @@ def test_open_builds_preview_without_running():
     assert state['state'] == 'ready'
     assert 'Free mock' in server.html_content
     fields = state['definition']['inspector']['conversation']
-    assert 'allow_llm_fallback' in fields
+    assert 'acting_order' in fields
     assert state['document']['max_steps'] == 40
-    assert state['document']['scenes'][0]['num_rounds'] == 40
-    assert state['document']['schema_version'] == 3
-    assert state['document']['scenes'][0]['participants'] == ['alice', 'bob']
+    assert state['document']['schema_version'] == 4
+    assert 'scenes' not in state['document']
     assert (
         'Goal'
         in state['definition']['entities']['entity_1']['component_info'][
@@ -152,7 +151,7 @@ def test_each_export_preserves_definition_and_previous_log(tmp_path: Path):
 def test_builder_and_legacy_documents_remain_distinct():
   registry = template.registry()
   builder = registry.default_document(template.TEMPLATE_KEY)
-  assert builder['schema_version'] == 3
+  assert builder['schema_version'] == 4
   assert [x['prototype'] for x in builder['instances']] == [
       'alice',
       'bob',
@@ -189,7 +188,6 @@ def test_builder_validates_each_duplicated_gm():
         ('alice', 'recent-observations'),
         ('bob', 'constant'),
         ('bob', 'recent-observations'),
-        ('conversation', 'constant'),
     ],
 )
 def test_catalogue_components_reach_each_example_prefab(owner, kind):
@@ -250,7 +248,11 @@ def test_catalogue_components_reach_each_example_prefab(owner, kind):
     ('steps', 'stop', 'reason'),
     [
         (10, False, 'Requested step limit reached (10).'),
-        (2, False, 'Game master ended the run before the step limit'),
+        (
+            2,
+            False,
+            'The game master ended the run before the requested step limit',
+        ),
         (1, True, 'Stop requested through the run controls.'),
     ],
 )
@@ -856,8 +858,9 @@ def test_public_cli_tutorial_against_actual_example(tmp_path, capsys):
           ])
           == 0
       )
-    assert server.get_project()['document']['scenes'][0]['id'] == 'encore'
+    assert 'scenes' not in server.get_project()['document']
     assert (
-        server.get_project()['document']['components'][0]['instance'] == 'bob'
+        server.get_project()['document']['components'][0]['instance']
+        == 'charlie'
     )
   assert 'Error:' not in capsys.readouterr().out
