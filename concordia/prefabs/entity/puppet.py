@@ -51,6 +51,7 @@ class Entity(prefab_lib.Prefab):
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     """Builds the puppet agent."""
+    self.check_extra_components()
     name = self.params.get("name", "Puppet Agent")
     fixed_responses_map = self.params.get("fixed_responses", {})
     goal = self.params.get("goal", "")

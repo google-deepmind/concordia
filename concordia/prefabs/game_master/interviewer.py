@@ -56,6 +56,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     agent_name = self.params["name"]
     player_names = self.params["player_names"]
     questionnaires = self.params["questionnaires"]

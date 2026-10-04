@@ -73,6 +73,7 @@ class Entity(prefab_lib.Prefab):
     Returns:
       An entity agent.
     """
+    self.check_extra_components()
     entity_name = self.params.get('name', 'Debra')
     conversation_style = self.params.get('conversation_style', '')
 

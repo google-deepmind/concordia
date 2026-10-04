@@ -12,11 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Trusted scalar component recipes for standard prefab extra_components.
+"""Turn editable component records into components for entity prefabs.
 
-Factories are registered by Python hosts, never selected by a module path in
-JSON. Hosts must reserve the authored_ component-key namespace and explicitly
-list compatible prototypes. Each conversion constructs fresh component objects.
+The editor and CLI store a component's type, owner entity, display name and
+parameters as JSON records. ComponentType registers a Python constructor and
+its editable defaults. Registry validates these records and calls build() to
+create fresh Concordia ContextComponent objects for each entity construction.
+The selected prefab receives those objects in its extra_components parameter,
+which attaches them to the entity's context and determines their acting order.
+
+Component types declare any context keys they need, such as the memory key.
+The prefab checks these dependencies against the components it actually builds.
+Unsupported additions fail explicitly. Imported records select registered
+component types; they cannot execute Python or import arbitrary module paths.
 """
 
 from collections.abc import Callable, Mapping
@@ -27,9 +35,6 @@ from typing import Any
 
 from concordia.components.agent import constant
 from concordia.components.agent import observation
-from concordia.prefabs.entity import basic
-from concordia.prefabs.entity import minimal
-from concordia.prefabs.game_master import dialogic_and_dramaturgic
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import project_config
@@ -37,24 +42,15 @@ from concordia.utils import project_config
 
 @dataclasses.dataclass(frozen=True)
 class ComponentType:
-  """A Python-owned recipe; dependency keys are supplied by the host prefab."""
+  """A component constructor, editable defaults and required context keys."""
 
   factory: Callable[[dict[str, Any]], entity_component.ContextComponent]
   defaults: Mapping[str, Any]
   prototypes: tuple[str, ...]
   description: str
   dependencies: tuple[str, ...] = ()
+  all_prefabs: bool = False
   validate: Callable[[dict[str, Any]], None] = lambda params: None
-
-
-# These standard prefabs consume extra_components in their acting context and
-# provide the memory dependency. New hosts require explicit integration/tests;
-# accepting an arbitrary prefab's params alone does not prove consumption.
-_HOST_DEPENDENCIES: Mapping[type, frozenset[str]] = {
-    minimal.Entity: frozenset({'__memory__'}),
-    basic.Entity: frozenset({'__memory__'}),
-    dialogic_and_dramaturgic.GameMaster: frozenset({'__memory__'}),
-}
 
 
 def validate_registration(
@@ -62,26 +58,18 @@ def validate_registration(
     prototype_ids: tuple[str, ...],
     types: Mapping[str, ComponentType],
 ) -> None:
-  """Reject recipes whose declared prefab host or dependencies are unsupported."""
-  prototypes = dict(zip(prototype_ids, config.instances))
+  """Validate record defaults and declared prototype references, without builds."""
+  del config
   for key, spec in types.items():
     path = '$.template.component_types.' + key
     for value in spec.defaults.values():
       project_config.Registry._scalar(value, path + '.defaults')
-    for prototype in spec.prototypes:
-      instance = prototypes.get(prototype)
-      host = None if instance is None else config.prefabs.get(instance.prefab)
-      available = _HOST_DEPENDENCIES.get(type(host))
-      if available is None:
-        raise project_config.ValidationError(
-            path, 'unsupported component prefab host: ' + prototype
-        )
-      if not set(spec.dependencies) <= available:
-        raise project_config.ValidationError(
-            path,
-            'missing prefab dependencies: '
-            + ', '.join(sorted(set(spec.dependencies) - available)),
-        )
+    if set(spec.prototypes) - set(prototype_ids):
+      raise project_config.ValidationError(path, 'unknown component prototype')
+    if not all(isinstance(key, str) and key for key in spec.dependencies):
+      raise project_config.ValidationError(
+          path, 'invalid component dependencies'
+      )
 
 
 def standard_types(
@@ -100,6 +88,7 @@ def standard_types(
           ),
           defaults={'state': '', 'pre_act_label': 'Context'},
           prototypes=text_prototypes,
+          all_prefabs=True,
           description=(
               'Literal context included in this entity’s standard acting'
               ' context.'
@@ -115,6 +104,7 @@ def standard_types(
               'pre_act_label': 'Recent observations',
           },
           prototypes=actor_prototypes,
+          all_prefabs=True,
           description=(
               'Recent observed events retrieved through the prefab’s standard'
               ' memory component.'

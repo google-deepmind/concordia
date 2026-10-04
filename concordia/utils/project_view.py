@@ -329,7 +329,7 @@ class ProjectComponentState {
 }
 class ProjectDraftOperations {
   static add(document, catalog, prototype, id, sourceId=null) {
-    const matches=catalog.filter(x=>(x.key || x.instance.prototype)===prototype);
+    const matches=catalog.filter(x=>sourceId?x.instance.prototype===prototype && (prototype.startsWith('installed:')?x.key===x.instance.prefab:x.kind==='preset'):(x.key || x.instance.prototype)===prototype);
     if(matches.length!==1) throw Error('Choose one unambiguous registered prefab or preset key from catalog prefabs.');
     const entry=matches[0];
     if(document.instances.length>=100) throw Error('A project supports at most 100 instances.');
@@ -533,7 +533,7 @@ class ProjectDraftCommands {
   }
   static read(document,metadata,base,runtime,view,selection,action,args){
     const id=args[0]==='.'?selection:(args[0] || selection);
-    if(action==='catalog')return args[0]==='templates'?(metadata.templates || [document.template]):args[0]==='components'?metadata.component_catalog:args[0]==='prefabs'?metadata.catalog:{template:document.template,prefabs:metadata.catalog,components:metadata.component_catalog};
+    if(action==='catalog')return args[0]==='templates'?(metadata.templates || [document.template]):args[0]==='components'?metadata.component_catalog:args[0]==='prefabs'?metadata.catalog:{template:document.template,prefabs:metadata.catalog,components:metadata.component_catalog,unavailable:metadata.prefab_diagnostics || []};
     if(action==='list')return args.length?(document[args[0]] || []):Object.fromEntries(['instances','components'].map(k=>[k,document[k] || []]));
     if(action==='locate'){
       const target=ProjectValidation.target(document,args[0]);
@@ -942,6 +942,8 @@ EDITOR_SCRIPT = (
     if(!runtimeMode){
       const fields=document.createElement('section');fields.setAttribute('aria-label','Editable initial fields');
       const entry=catalog().find(x=>x.instance.prototype===item.prototype);
+      if(entry?.fixed_parameters?.length)notice('Application-owned prefab parameters: '+entry.fixed_parameters.join(', ')+'. Configure these in the Python preset.','info','fixed:'+item.prototype);
+      if(entry?.supports_extra_components===false)notice('This prefab does not implement extra_components yet. Its built-in components remain available.','info','extras:'+item.prototype);
       const specs=structuredClone(entry?.inspector || draftDefinition.inspector[item.id] || {});
       for(const [field,role] of Object.entries(entry?.references || {})) {
         specs[field]={...specs[field],choices:draft.instances.filter(x=>x.role===role).map(x=>({value:x.id,label:x.params.name})),refresh:true};
@@ -1045,6 +1047,7 @@ EDITOR_SCRIPT = (
     }
     for(const name of s.viewers || [])offerViewer(name);
     renderSimulationLog(envelope);
+    for(const issue of draftDefinition.prefab_diagnostics || [])notice('Prefab '+issue.module+' unavailable: install optional package '+issue.dependency+'.','error','prefab:'+issue.module+':'+issue.dependency);
     renderEntityActions(s);
     const limitMessage=`Saved simulation maximum: ${s.document.max_steps} engine steps. The game master may end earlier.`;
     notice(limitMessage,'info','limits:'+limitMessage);

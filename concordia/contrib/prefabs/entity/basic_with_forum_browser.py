@@ -97,6 +97,7 @@ class Entity(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     entity_name = self.params.get('name', 'Alice')
     entity_goal = self.params.get('goal', '')
     randomize_choices = self.params.get('randomize_choices', True)

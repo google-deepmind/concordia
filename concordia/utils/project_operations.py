@@ -297,6 +297,7 @@ class ProjectEditor:
         'templates': self.registry.template_keys(),
         'catalog': self.registry.catalog(document),
         'component_catalog': self.registry.component_catalog(document),
+        'prefab_diagnostics': self.registry.prefab_diagnostics(),
     }
 
   def begin(self, config: prefab_lib.Config) -> None:

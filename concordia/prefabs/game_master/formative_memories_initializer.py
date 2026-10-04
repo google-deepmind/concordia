@@ -172,6 +172,10 @@ def build_game_master(
 class GameMaster(prefab_lib.Prefab):
   """Implements a formative memories initializer game master entity."""
 
+  parameter_roles = {'next_game_master_name': prefab_lib.Role.GAME_MASTER}
+
+  default_role = prefab_lib.Role.INITIALIZER
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An initializer for all entities that '
       'generates formative memories from their childhood.'
@@ -203,6 +207,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', 'initial setup rules')
     next_game_master_name = self.params.get(
         'next_game_master_name', 'default rules'

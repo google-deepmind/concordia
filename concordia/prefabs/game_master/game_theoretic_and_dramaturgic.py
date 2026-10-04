@@ -154,6 +154,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', DEFAULT_NAME)
 
     player_names = [entity.name for entity in self.entities]

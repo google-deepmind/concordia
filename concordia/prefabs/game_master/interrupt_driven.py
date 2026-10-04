@@ -129,6 +129,8 @@ class GameMaster(prefab_lib.Prefab):
     extra_components_index: Indices for extra components in the order.
   """
 
+  supports_extra_components = True
+
   description: str = 'An interrupt-driven game master with selective attention.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
@@ -159,6 +161,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', 'interrupt_driven_rules')
     start_time_str = self.params.get('start_time', '2026-01-01T09:00:00')
     event_tag_for_actions = self.params.get('event_tag_for_actions', 'action')
@@ -293,6 +296,7 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:

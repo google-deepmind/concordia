@@ -149,7 +149,10 @@ history.record({document:d,selectedId:'alice'});
 ProjectComponentOperations.add(d,components,'alice','constant','identity');
 d.components[0].params.state='Literal 🎵\n</script>';
 ProjectComponentOperations.add(d,components,'alice','recent-observations','observations');
-assert.throws(()=>ProjectComponentOperations.add(d,components,'conversation','recent-observations','bad'),/compatible/);
+ProjectComponentOperations.add(d,components,'conversation','recent-observations','gm-memory');
+assert.equal(d.components.at(-1).instance,'conversation');
+ProjectRecordOperations.remove(d,'components:gm-memory');
+assert.throws(()=>ProjectComponentOperations.add(d,components,'missing','recent-observations','bad'),/compatible/);
 ProjectDraftOperations.add(d,prefabs,'alice','copy','alice');
 assert.equal(d.components.length,4);
 assert.notEqual(d.components[0].id,d.components[2].id);
@@ -210,7 +213,7 @@ for(const action of [
  ()=>ProjectComponentOperations.add(d,catalog,'bob','constant','copy'),
  ()=>ProjectComponentOperations.add(d,catalog,'bob','constant','../bad'),
  ()=>ProjectComponentOperations.add(d,catalog,'missing','constant','other'),
- ()=>ProjectComponentOperations.add(d,catalog,'conversation','recent-observations','other'),
+ ()=>ProjectComponentOperations.add(d,catalog,'conversation','unregistered','other'),
  ()=>ProjectComponentOperations.configure(d,'missing','state','x'),
  ()=>ProjectComponentOperations.configure(d,'copy','constructor','x'),
  ()=>ProjectComponentOperations.rename(d,'missing','x'),
@@ -355,10 +358,12 @@ assert.deepEqual(d.components[1],{...before.document.components[0],instance:'ali
 const after={document:structuredClone(d),selectedId};
 assert.deepEqual(history.undo(after),before);
 assert.deepEqual(history.redo(before),after);
-for(const [id,target] of [['missing','bob'],['recent','missing'],['recent','conversation']]){
+for(const [id,target] of [['missing','bob'],['recent','missing']]){
   assert.throws(()=>ProjectComponentOperations.moveOwner(d,catalog,id,target));
   assert.deepEqual(d,after.document);
 }
+ProjectComponentOperations.moveOwner(d,catalog,'recent','conversation');
+assert.equal(d.components.find(x=>x.id==='recent').instance,'conversation');
 ProjectComponentOperations.moveOwner(d,catalog,'recent','alice');
 assert.deepEqual(d,after.document);
 assert.throws(()=>ProjectComponentOperations.moveOwner(d,[],'recent','bob'));

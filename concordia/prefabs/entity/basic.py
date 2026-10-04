@@ -34,6 +34,8 @@ _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH = 5
 class Entity(prefab_lib.Prefab):
   """A prefab implementing a basic actor entity."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking '
       '"What situation am I in right now?", "What kind of person am I?", and '
@@ -87,6 +89,7 @@ class Entity(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     if act_component is not None and act_component_factory is not None:
       raise ValueError(
           'Provide act_component or act_component_factory, not both.'
@@ -223,6 +226,7 @@ class Entity(prefab_lib.Prefab):
       )
     if components_of_agent.keys() & extra_components.keys():
       raise ValueError('extra_components must not replace built-in components')
+    self.validate_extra_components(components_of_agent)
     for key, component in extra_components.items():
       index = extra_indices.get(key, len(component_order))
       if type(index) is not int:

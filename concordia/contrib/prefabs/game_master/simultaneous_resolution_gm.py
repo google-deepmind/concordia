@@ -261,6 +261,8 @@ _DEFAULT_CLOCK_DESCRIPTION = (
 class GameMasterSimultaneous(prefab_lib.Prefab):
   """A prefab entity implementing a game master for games with simultaneous event resolution."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games with simultaneous event resolution.'
   )
@@ -295,6 +297,7 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
     """Builds the simultaneous game master entity."""
 
     # 1. Unpack basic parameters
+    self.check_extra_components()
     clock_description = self.params.get(
         'clock_description', _DEFAULT_CLOCK_DESCRIPTION
     )
@@ -659,6 +662,7 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
     component_order.append(terminate_key)
 
     # 12. Insert extra components if provided in params
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:
