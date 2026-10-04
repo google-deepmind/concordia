@@ -331,7 +331,10 @@ def find_data_in_nested_structure(
     key: str,
     remove_duplicates: bool = True,
 ) -> Sequence[Any]:
-  """Recursively finds all instances of a given key in nested dictionaries/lists."""
+  """Finds a key recursively in dictionaries and non-text sequences.
+
+  Strings, bytes and bytearrays are leaves, not containers to traverse.
+  """
   results = []
   if isinstance(data, dict):
     for k, v in data.items():
@@ -340,7 +343,9 @@ def find_data_in_nested_structure(
       results.extend(
           find_data_in_nested_structure(v, key, remove_duplicates=False)
       )
-  elif isinstance(data, list):
+  elif isinstance(data, Sequence) and not isinstance(
+      data, (str, bytes, bytearray)
+  ):
     for item in data:
       results.extend(
           find_data_in_nested_structure(item, key, remove_duplicates=False)
