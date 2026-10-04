@@ -459,8 +459,11 @@ reports construction errors in Simulation log and leaves the saved design intact
 Every prefab accepts the `extra_components` parameter mapping; a nonempty mapping
 on an unsupported implementation raises `NotImplementedError` before construction.
 Supporting prefabs call `validate_extra_components` with their actual built-in
-component map before attaching additions. This checks key collisions, component
-objects, insertion indices and declared `extra_components_dependencies`. Registry
+component map before attaching additions. This checks component objects, insertion
+indices and declared `extra_components_dependencies`. Registry sets
+`extra_components_require_new_keys` to reject collisions for authored additions.
+Direct Python configurations retain prefab-supported replacement and shared
+component bindings. Registry
 constructs fresh component objects for each build and supplies their dependency
 keys. Missing memory is rejected during construction, before any simulation run.
 ComponentType can restrict custom recipes to declared prototypes; standard context

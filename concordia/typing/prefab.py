@@ -56,27 +56,28 @@ class Prefab(abc.ABC):
       )
 
   def validate_extra_components(self, components: Mapping[str, Any]) -> None:
-    """Check additions against the actual built-in keys before insertion.
+    """Check additions against actual component keys before insertion.
 
     extra_components_dependencies maps added component keys to the context keys
     they require. Dependencies can refer to built-in or other added components.
+    extra_components_require_new_keys prevents replacement for authored additions;
+    direct Python configurations retain each prefab’s established replacement
+    behavior, including shared objects bound to multiple context keys.
     """
     self.check_extra_components()
     params: Mapping[str, Any] = self.params
     extras = params.get('extra_components', {})
     if not isinstance(extras, Mapping):
       raise ValueError('extra_components must be a component mapping')
-    if set(components) & set(extras):
+    if params.get('extra_components_require_new_keys', False) and set(
+        components
+    ) & set(extras):
       raise ValueError('extra_components must not replace built-in components')
     for key, component in extras.items():
       if not isinstance(key, str) or not key:
         raise ValueError('extra_components keys must be nonempty strings')
       if not isinstance(component, entity_component.ContextComponent):
         raise ValueError('extra_components values must be context components')
-    if len({id(value) for value in extras.values()}) != len(extras):
-      raise ValueError(
-          'extra_components must contain distinct component objects'
-      )
     indices = params.get('extra_components_index', {})
     if not isinstance(indices, Mapping) or (
         indices and set(indices) != set(extras)

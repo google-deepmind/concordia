@@ -623,6 +623,7 @@ class Registry:
         )
         if extras:
           params['extra_components'] = extras
+          params['extra_components_require_new_keys'] = True
           params['extra_components_dependencies'] = {
               'authored_'
               + record['id']: list(
