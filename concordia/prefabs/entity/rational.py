@@ -86,6 +86,7 @@ class Entity(prefab_lib.Prefab):
     Returns:
       A rational entity agent.
     """
+    self.check_extra_components()
     entity_name = self.params.get('name', 'Rational Agent')
     entity_goal = self.params.get('goal', '')
     randomize_choices = self.params.get('randomize_choices', True)

@@ -262,7 +262,7 @@ they do not establish physical Android usability or live provider behavior.
 
 | Actual editor capability | Browser typed command | External CLI equivalent / limitation |
 |---|---|---|
-| Registered prefab picker, template/component descriptions/defaults/dependencies | `catalog`, `catalog templates`, `catalog prefabs`, `catalog components` | Same structured catalogs, restricted to registered/current-template entries |
+| Registered prefab picker, template/component descriptions/defaults/dependencies | `catalog`, `catalog templates`, `catalog prefabs`, `catalog components` | Same registered presets and discovered installed prefab catalogs; `catalog` includes missing optional-package diagnostics |
 | Player entity/game master entity/initializer fields, name/persona/goal/reference choices | `inspect ID`, `set ID params.FIELD JSON` | Same fields and registry validation; inspect lists field metadata |
 | Add/duplicate/remove player entity or game master entity; minimum-role guard | `add instance PREFAB_OR_PRESET [--id ID]`, `duplicate [ID]`, `remove [ID]` | Same helpers/undo; generated result becomes selection |
 | Component CRUD, name/params/ownership | `add component TYPE OWNER [--id ID]`, `set components:ID name JSON`, `set components:ID params.FIELD JSON`, `duplicate`, `remove`, `move-component components:ID OWNER` | Same compatibility and dependency constraints |
@@ -404,7 +404,7 @@ preset** picker uses the same keys. In the roommate example, `add instance minim
 '"Charlie"'` overrides its name. `duplicate alice` copies Alice's current draft,
 including authored components and state overrides.
 
-Hosts opt in with `Template(prefab_prototypes={'minimal': 'alice', ...})`.
+Applications expose short aliases with `Template(prefab_prototypes={'minimal': 'alice', ...})`.
 Each mapping explicitly binds a registered prefab name to a registered prototype's
 editing/reference/component contract. Editable scalar defaults come from the
 registered `Config.prefabs[name].params`; registered reference IDs and fixed
@@ -418,3 +418,57 @@ their editing contracts. Multiple presets can use one prefab: the host
 must explicitly select the contract for its prefab creation key. No first-match
 inference occurs. A creation key colliding with a preset is a registration error.
 Catalog keys and entity IDs are case-sensitive and have distinct meanings.
+
+
+### Installed prefab discovery and component construction
+
+Editable templates include all concrete entity-prefab classes discovered under
+`concordia.prefabs.entity`, `concordia.prefabs.game_master` and their contrib
+counterparts. Discovery imports installed Python packages without building entities.
+Simulation prefabs use a different construction interface and are not entity
+creation choices. Qualified keys such as `entity.rational.Entity` and
+`contrib.game_master.space_ship.GameMaster` distinguish namespaces; every key includes the class name to remain stable when modules gain more classes. Registered aliases such as `minimal` and
+named presets remain separate choices with their own configured defaults.
+
+For example, in either command interface:
+
+```text
+catalog prefabs
+add instance game_master.generic.GameMaster --id Rules
+add component constant Rules --id reminder
+set components:reminder params.state '"Keep time for the discussion."'
+validate
+save
+```
+
+The GUI equivalents are **Prefab or named preset**, **Add instance**,
+**Component catalogue**, **Add component**, and **Save draft**. Adding an
+entity does not change the application's selected engine. Choose prefabs whose
+behavior suits that engine. Game master name references use stable entity IDs in
+the draft and become runtime names during construction.
+
+Text, integer and boolean default parameters are editable in both clients. Other defaults (including floats and Python objects) stay
+owned by the installed Python prefab and are listed as `fixed_parameters`; a
+prefab may require additional application-supplied objects, such as a shared
+forum state or experiment component class. Register a configured preset with
+`Template.fixed_parameters` for those objects. Discovery makes the constructor
+available; it does not invent missing application configuration. Preview/Save
+reports construction errors in Simulation log and leaves the saved design intact.
+
+`Prefab.supports_extra_components` describes each implementation's capability.
+Every prefab accepts the `extra_components` parameter mapping; a nonempty mapping
+on an unsupported implementation raises `NotImplementedError` before construction.
+Supporting prefabs call `validate_extra_components` with their actual built-in
+component map before attaching additions. This checks key collisions, component
+objects, insertion indices and declared `extra_components_dependencies`. Registry
+constructs fresh component objects for each build and supplies their dependency
+keys. Missing memory is rejected during construction, before any simulation run.
+ComponentType can restrict custom recipes to declared prototypes; standard context
+and recent-observation recipes can be requested for any prefab and are validated
+against its implementation rather than a centrally maintained class list.
+
+`catalog` includes modules unavailable because of a missing optional package;
+the browser reports the same diagnostics in Simulation log. Other import errors
+propagate to expose broken installations. Discovery accepts only installed trusted
+namespaces, never a Python path supplied in a project file. A file still needs its
+registered simulation template and any referenced installed prefab to be available.

@@ -118,6 +118,8 @@ class GameMaster(prefab_lib.Prefab):
   - NeverTerminate — relies on max_steps for simulation termination.
   """
 
+  supports_extra_components = True
+
   description: str = 'A game master for asynchronous social media simulations.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
@@ -144,6 +146,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', 'forum_rules')
     forum_name = self.params.get('forum_name', 'Community Forum')
     call_to_action = self.params.get('call_to_action', DEFAULT_CALL_TO_ACTION)
@@ -227,6 +230,7 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:

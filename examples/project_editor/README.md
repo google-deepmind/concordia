@@ -118,3 +118,12 @@ guarding against model calls, simulation execution and listener startup. The gui
 has a copied-command regression and a graphical authoring journey. Desktop and
 mobile viewport checks are separate from physical Android testing. Use the actual
 device to assess touch behavior before making device-specific claims.
+
+
+The **Prefab or named preset** picker and `catalog prefabs` also list installed
+standard and contrib entity prefabs by stable module/class keys, such as
+`entity.rational.Entity`. The configured `minimal` alias and named presets keep
+their own defaults. See the [discovery and component reference](../../concordia/docs/editor-commands.md#installed-prefab-discovery-and-component-construction)
+for optional dependencies, application-owned parameters and extra-component
+capabilities. A prefab's behavior must suit the selected engine; adding an entity
+does not change that engine.

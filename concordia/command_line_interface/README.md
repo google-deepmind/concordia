@@ -155,6 +155,13 @@ inspect Charlie
 ```
 
 `minimal` uses the registered prefab’s defaults for the editable parameters.
+Installed prefabs also appear with qualified keys such as `entity.rational.Entity` and
+`contrib.game_master.space_ship.GameMaster`; the GUI picker and CLI share this catalog.
+Use `catalog` for optional-package diagnostics. Prefabs declare whether added
+components are supported; **Save draft** validates the actual construction.
+Some prefabs need shared objects configured by the application; their catalog
+`fixed_parameters` list identifies defaults owned by Python configuration.
+
 The catalog also offers named presets such as `alice`, which use the example’s
 registered starting settings. Changing Alice does not change either template.
 Registered references (for example the next game master entity) stay valid

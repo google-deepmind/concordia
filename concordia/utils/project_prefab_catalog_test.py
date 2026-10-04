@@ -45,7 +45,11 @@ def test_prefab_defaults_and_legacy_presets_use_distinct_creation_keys():
   document = copy.deepcopy(saved)
   document['instances'][0]['params']['goal'] = 'Edited Alice only'
   catalog = new.catalog(document)
-  assert [x['key'] for x in catalog] == [
+  assert [
+      x['key']
+      for x in catalog
+      if not x['instance']['prototype'].startswith('installed:')
+  ] == [
       'minimal',
       'basic',
       'dialogic',
@@ -114,7 +118,11 @@ def test_multiple_presets_require_explicit_binding_and_collision_is_rejected():
   entries = selected.catalog(document)
   assert entries[0]['instance']['prototype'] == 'bob'
   assert entries[0]['key'] == 'minimal'
-  assert [x['key'] for x in entries[1:]] == ['alice', 'bob', 'conversation']
+  assert [x['key'] for x in entries[1:] if x['kind'] == 'preset'] == [
+      'alice',
+      'bob',
+      'conversation',
+  ]
   # Even malformed/stale client metadata cannot pick the first duplicate key.
   journal['metadata']['catalog'] = [entries[0], copy.deepcopy(entries[0])]
   with pytest.raises(ValueError, match='unambiguous'):

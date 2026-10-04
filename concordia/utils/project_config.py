@@ -34,6 +34,7 @@ import re
 from typing import Any
 
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import prefab_catalog
 from concordia.utils import project_components
 
 
@@ -92,10 +93,47 @@ class Template:
 
 
 class Registry:
-  """Caller-owned allowlist of trusted templates; no discovery or imports."""
+  """Registered simulations with prefab discovery from installed Concordia packages."""
 
   def __init__(self, templates: Mapping[str, Template]):
     self._templates = dict(templates)
+    self._installed, self._unavailable = prefab_catalog.discover()
+
+  def prefab_diagnostics(self) -> list[dict[str, str]]:
+    """Missing optional packages, suitable for catalog diagnostics."""
+    return [dataclasses.asdict(item) for item in self._unavailable]
+
+  def _installed_records(self, template: Template) -> dict[str, dict[str, Any]]:
+    if not template.editable_instances:
+      return {}
+    return {
+        'installed:'
+        + key: dict(
+            id='installed:' + key,
+            prototype='installed:' + key,
+            prefab=key,
+            role=entry.role.value,
+            params={
+                name: copy.deepcopy(value)
+                for name, value in entry.prefab.params.items()
+                if type(value) in (str, int, bool)
+            },
+        )
+        for key, entry in self._installed.items()
+    }
+
+  def _component_types(self, template: Template) -> dict:
+    prototypes = tuple(template.instance_ids) + tuple(
+        self._installed_records(template)
+    )
+    return {
+        key: (
+            dataclasses.replace(spec, prototypes=prototypes)
+            if spec.all_prefabs
+            else spec
+        )
+        for key, spec in template.component_types.items()
+    }
 
   def template_keys(self) -> list[str]:
     """Names allowed by this registry; does not construct or run any prefab."""
@@ -126,16 +164,24 @@ class Registry:
       ]
     return result
 
-  @staticmethod
-  def _references(template: Template, document: dict) -> dict:
+  def _references(self, template: Template, document: dict) -> dict:
     if not template.editable_instances:
       return dict(template.references)
-    return {
+    result = {
         (item['id'], field): role
         for item in document['instances']
         for (prototype, field), role in template.references.items()
         if item['prototype'] == prototype
     }
+    for item in document['instances']:
+      entry = self._installed.get(item['prefab'])
+      if entry and item['prototype'] == 'installed:' + entry.key:
+        result.update({
+            (item['id'], field): role
+            for field, role in entry.prefab.parameter_roles.items()
+            if field in item['params']
+        })
+    return result
 
   def catalog(self, document: Any) -> list[dict[str, Any]]:
     """Return owned, trusted prototypes for opt-in structural authoring."""
@@ -191,12 +237,64 @@ class Registry:
         params[field] = copy.deepcopy(value)
       entry.update(key=name, kind='prefab')
       prefabs.append(entry)
-    return prefabs + presets
+    installed = []
+    for prototype, item in self._installed_records(template).items():
+      if (
+          item['prefab'] in by_key
+          or item['prefab'] in template.prefab_prototypes
+      ):
+        raise ValidationError(
+            '$.template',
+            'installed prefab key collides with registered key: '
+            + item['prefab'],
+        )
+      if item['prefab'] in config.prefabs:
+        raise ValidationError(
+            '$.template', 'installed prefab key collides with configured prefab'
+        )
+      if prototype in by_key:
+        raise ValidationError('$.template', 'reserved installed prototype key')
+      definition = self._installed[item['prefab']].prefab
+      references = {
+          field: role.value
+          for field, role in definition.parameter_roles.items()
+          if field in item['params']
+      }
+      for field, role in references.items():
+        matches = [x for x in normalized['instances'] if x['role'] == role]
+        target = next(
+            (
+                x
+                for x in matches
+                if x['params']['name'] == item['params'][field]
+            ),
+            matches[0] if matches else None,
+        )
+        if target:
+          item['params'][field] = target['id']
+      installed.append(
+          dict(
+              key=item['prefab'],
+              kind='prefab',
+              instance=copy.deepcopy(item),
+              description=definition.description,
+              inspector={},
+              references=references,
+              fixed_parameters=[
+                  name
+                  for name, value in definition.params.items()
+                  if type(value) not in (str, int, bool)
+                  and not name.startswith('extra_components')
+              ],
+              supports_extra_components=definition.supports_extra_components,
+          )
+      )
+    return prefabs + installed + presets
 
   def component_catalog(self, document: Any) -> list[dict[str, Any]]:
     normalized = self.normalize(document)
     return project_components.catalog(
-        self._template(normalized['template']).component_types
+        self._component_types(self._template(normalized['template']))
     )
 
   def default_document(self, key: str) -> dict[str, Any]:
@@ -350,6 +448,9 @@ class Registry:
           '$.instances', 'expected between 1 and 100 instances'
       )
     expected = {item['id']: item for item in baseline['instances']}
+    if set(expected) & set(self._installed_records(template)):
+      raise ValidationError('$.template', 'reserved installed prototype key')
+    expected.update(self._installed_records(template))
     by_id = {}
     names = set()
     for index, item in enumerate(document['instances']):
@@ -424,7 +525,7 @@ class Registry:
     if not template.editable_instances:
       result['instances'] = [copy.deepcopy(by_id[key]) for key in expected]
     if baseline['schema_version'] == 4:
-      project_components.validate(result, template.component_types)
+      project_components.validate(result, self._component_types(template))
       self._validate_dynamic_states(result)
     template.validate(result)
     return result
@@ -487,10 +588,28 @@ class Registry:
         item['id']: item['params']['name'] for item in normalized['instances']
     }
     references = self._references(template, normalized)
+    configured_prefabs = set(config.prefabs)
     instances = []
     for item in normalized['instances']:
       prototype = item.get('prototype', item['id'])
-      original = config.instances[template.instance_ids.index(prototype)]
+      if prototype in self._installed_records(template):
+        definition = self._installed[item['prefab']].prefab
+        if item['prefab'] in configured_prefabs:
+          raise ValidationError(
+              '$.template',
+              'installed prefab key collides with configured prefab',
+          )
+        config.prefabs = {
+            **config.prefabs,
+            item['prefab']: copy.deepcopy(definition),
+        }
+        original = prefab_lib.InstanceConfig(
+            item['prefab'],
+            prefab_lib.Role(item['role']),
+            copy.deepcopy(definition.params),
+        )
+      else:
+        original = config.instances[template.instance_ids.index(prototype)]
       params = {
           **copy.deepcopy(original.params),
           **copy.deepcopy(item['params']),
@@ -500,10 +619,21 @@ class Registry:
           params[field] = names[params[field]]
       if template.component_types:
         extras = project_components.build(
-            normalized, item['id'], template.component_types
+            normalized, item['id'], self._component_types(template)
         )
         if extras:
           params['extra_components'] = extras
+          params['extra_components_dependencies'] = {
+              'authored_'
+              + record['id']: list(
+                  template.component_types[record['type']].dependencies
+              )
+              for record in normalized['components']
+              if record['instance'] == item['id']
+          }
+          definition = copy.deepcopy(config.prefabs[item['prefab']])
+          definition.params = params
+          definition.check_extra_components()
           # Standard minimal prefab otherwise inserts extras at -1.
           # A large index appends in the authored order without replacing keys.
           params['extra_components_index'] = {key: 100000 for key in extras}

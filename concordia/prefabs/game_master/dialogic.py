@@ -29,8 +29,9 @@ from concordia.typing import prefab as prefab_lib
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab game master specialized for handling conversation.
-  """
+  """A prefab game master specialized for handling conversation."""
+
+  parameter_roles = {'next_game_master_name': prefab_lib.Role.GAME_MASTER}
 
   description: str = 'A game master specialized for handling conversation.'  # pyrefly: ignore[bad-override]
   params: Mapping[str, str | bool] = dataclasses.field(
@@ -66,6 +67,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', 'conversation rules')
     next_game_master_name = self.params.get('next_game_master_name',
                                             'default rules')

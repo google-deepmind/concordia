@@ -157,7 +157,11 @@ def test_builder_and_legacy_documents_remain_distinct():
       'bob',
       'conversation',
   ]
-  assert [entry['key'] for entry in registry.catalog(builder)] == [
+  assert [
+      entry['key']
+      for entry in registry.catalog(builder)
+      if not entry['instance']['prototype'].startswith('installed:')
+  ] == [
       'minimal',
       'basic',
       'dialogic',
@@ -165,6 +169,9 @@ def test_builder_and_legacy_documents_remain_distinct():
       'bob',
       'conversation',
   ]
+  discovered = {entry['key'] for entry in registry.catalog(builder)}
+  assert 'entity.rational.Entity' in discovered
+  assert 'contrib.game_master.space_ship.GameMaster' in discovered
   old_builder = registry.default_document(template.STRUCTURAL_TEMPLATE_KEY)
   assert old_builder['schema_version'] == 2
   assert registry.loads(registry.dumps(old_builder)) == old_builder

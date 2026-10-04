@@ -266,19 +266,24 @@ def test_callable_parameter_rejected_and_registration_dependencies_checked():
   types['constant'] = dataclasses.replace(
       types['constant'], dependencies=('missing_memory',)
   )
+  project_components.validate_registration(
+      fixtures.scene_config(), ('alice', 'bob', 'conversation'), types
+  )
+  template = registry._templates['scenes-v1']
+  registry = project_config.Registry(
+      {'scenes-v1': dataclasses.replace(template, component_types=types)}
+  )
+  document['components'] = [record()]
+  with pytest.raises(ValueError, match='missing prefab dependencies'):
+    fixtures.build(registry.to_config(document))
+  types['constant'] = dataclasses.replace(
+      types['constant'], prototypes=('unknown',)
+  )
   with pytest.raises(
-      project_config.ValidationError, match='missing prefab dependencies'
+      project_config.ValidationError, match='unknown component prototype'
   ):
     project_components.validate_registration(
         fixtures.scene_config(), ('alice', 'bob', 'conversation'), types
-    )
-  with pytest.raises(
-      project_config.ValidationError, match='unsupported component prefab host'
-  ):
-    project_components.validate_registration(
-        fixtures.make_config(),
-        ('alice', 'bob', 'conversation'),
-        project_components.standard_types(('alice',), ('conversation',)),
     )
 
 
