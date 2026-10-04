@@ -20,6 +20,7 @@ import dataclasses
 import importlib
 import json
 from pathlib import Path
+from typing import Any
 from unittest import mock
 from urllib.parse import urlsplit
 
@@ -197,6 +198,7 @@ def test_every_unsupported_prefab_rejects_before_any_construction(key):
         'entity.basic.Entity',
         'game_master.dialogic_and_dramaturgic.GameMaster',
         'game_master.generic.GameMaster',
+        'game_master.game_theoretic_and_dramaturgic.GameMaster',
         'game_master.situated.GameMaster',
         'contrib.game_master.space_ship.GameMaster',
         'contrib.entity.conversations_with_ai_companions.HumanUserEntity',
@@ -239,7 +241,7 @@ def test_actual_supported_components_dependencies_order_and_freshness(key):
     )
 
 
-def test_collision_indices_and_shared_objects_rejected():
+def test_authored_collision_and_invalid_indices_rejected():
   prefab = prefab_catalog.discover()[0]['entity.minimal.Entity'].prefab
   for params, message in [
       (
@@ -268,13 +270,9 @@ def test_collision_indices_and_shared_objects_rejected():
           'integers',
       ),
   ]:
-    prefab.params = params
+    prefab.params = {**params, 'extra_components_require_new_keys': True}
     with pytest.raises(ValueError, match=message):
       prefab.build(no_language_model.NoLanguageModel(), memory())
-  component = constant.Constant('x')
-  prefab.params = {'extra_components': {'a': component, 'b': component}}
-  with pytest.raises(ValueError, match='distinct component objects'):
-    prefab.build(no_language_model.NoLanguageModel(), memory())
 
 
 def test_shared_commands_build_discovered_prefab_and_preserve_saved_presets():
@@ -569,3 +567,52 @@ def test_reference_documentation_commands_use_real_shared_cli_preview(tmp_path):
       == 'Keep time for the discussion.'
   )
   assert server.get_project()['revision'] == 1
+
+
+def test_python_prefab_override_and_shared_bindings_remain_supported():
+  prefab = prefab_catalog.discover()[0]['game_master.generic.GameMaster'].prefab
+  prefab.entities = [type('Player', (), {'name': 'Alice'})()]
+  component = constant.Constant('shared rule')
+  keys = [
+      '__terminate__',
+      '__make_observation__',
+      '__next_acting__',
+      '__next_action_spec__',
+      '__resolution__',
+  ]
+  prefab.params = {
+      **prefab.params,
+      'extra_components': dict.fromkeys(keys, component),
+  }
+  entity = prefab.build(no_language_model.NoLanguageModel(), memory())
+  assert all(entity.get_component(key) is component for key in keys)
+  prefab.params = {**prefab.params, 'extra_components_require_new_keys': True}
+  with pytest.raises(ValueError, match='replace built-in'):
+    prefab.build(no_language_model.NoLanguageModel(), memory())
+
+
+def test_state_formation_matrix_prefab_actually_attaches_supplied_component():
+  from concordia.prefabs.game_master import game_theoretic_and_dramaturgic
+  from concordia.typing import scene as scene_lib
+
+  prefab = game_theoretic_and_dramaturgic.GameMaster()
+  prefab.entities = [type('Player', (), {'name': 'Alice'})()]
+  component = constant.Constant('agreement')
+  params: dict[str, Any] = {
+      **prefab.params,
+      'scenes': [
+          scene_lib.SceneSpec(
+              scene_type=scene_lib.SceneTypeSpec(
+                  name='decision', game_master_name='Decision'
+              ),
+              participants=['Alice'],
+              num_rounds=1,
+          )
+      ],
+      'extra_components': {'agreement_detector': component},
+      'extra_components_dependencies': {'agreement_detector': ['__memory__']},
+  }
+  prefab.params = params
+  entity = prefab.build(no_language_model.NoLanguageModel(), memory())
+  assert entity.get_component('agreement_detector') is component
+  assert fixtures.component_order(entity)[-1] == 'agreement_detector'
