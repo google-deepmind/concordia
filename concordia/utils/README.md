@@ -28,3 +28,16 @@ HTML.
 
 To browse a log without creating a new file, open `log_viewer.html` and select
 the structured JSON file using the file picker.
+
+## Editor session commands
+
+The integrated editor and `concordia-session` share a command language, operation
+validation and registered authoring actions. Use `concordia-session --url URL
+interactive --draft design.json` for a persistent prompt, or `command --line`
+for one command. In either prompt, `add instance minimal --id Charlie` creates
+an entity when the host registers the minimal prefab. See
+[Editor and session commands](../docs/editor-commands.md) for commands, local
+draft/history semantics, structured-log analysis and client-side exports.
+
+For a complete interactive authoring walkthrough and explicit editor/CLI coverage,
+see the [GUI and CLI entity-component guide](../command_line_interface/README.md).

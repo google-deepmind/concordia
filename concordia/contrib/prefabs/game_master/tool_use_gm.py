@@ -53,6 +53,7 @@ class GameMasterWithMCPTools(prefab_lib.Prefab):
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     """Builds the GameMaster entity with MCP tool support."""
 
+    self.check_extra_components()
     name = self.params.get('name', 'GameMaster with Tool Support')
     mcp_server_command = self.params.get('mcp_server_command', '')
     mcp_server_args = self.params.get('mcp_server_args', [])

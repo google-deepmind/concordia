@@ -33,6 +33,8 @@ DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 class Entity(prefab_lib.Prefab):
   """A prefab implementing an entity with a minimal set of components."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An entity that has a minimal set of components and is configurable by'
       ' the user. The initial set of components manage memory, observations,'
@@ -80,6 +82,7 @@ class Entity(prefab_lib.Prefab):
       An entity.
     """
 
+    self.check_extra_components()
     if act_component is not None and act_component_factory is not None:
       raise ValueError(
           'Provide act_component or act_component_factory, not both.'
@@ -133,6 +136,14 @@ class Entity(prefab_lib.Prefab):
           f' {type(extra_components_index)} and {type(extra_components)}'
       )
 
+    self.validate_extra_components({
+        **components_of_agent,
+        **(
+            {DEFAULT_GOAL_COMPONENT_KEY: None}
+            if self.params.get('goal', '')
+            else {}
+        ),
+    })
     if extra_components:
       if not extra_components_index:
         extra_components_index = {

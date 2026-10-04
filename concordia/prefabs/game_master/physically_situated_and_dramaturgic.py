@@ -71,6 +71,10 @@ class GameMaster(prefab_lib.Prefab):
   fighting, or interacting with objects, while following structured scenes.
   """
 
+  parameter_roles = {'next_game_master_name': prefab_lib.Role.GAME_MASTER}
+
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'A game master for physical time/place simulations with scene support. '
       'Combines full world simulation with structured scene progressions.'
@@ -108,6 +112,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', DEFAULT_NAME)
 
     # Get clock and location parameters
@@ -386,6 +391,7 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:

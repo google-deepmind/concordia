@@ -32,6 +32,10 @@ DayInTheLifeInitializer = day_in_the_life_initializer.DayInTheLifeInitializer
 class GameMaster(prefab_lib.Prefab):
   """A prefab implementing a formative memories initializer GM."""
 
+  parameter_roles = {'next_game_master_name': prefab_lib.Role.GAME_MASTER}
+
+  default_role = prefab_lib.Role.INITIALIZER
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An initializer for all entities that '
       'generates formative memories from their childhood.'
@@ -63,6 +67,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', 'initial setup rules')
     next_game_master_name = self.params.get(
         'next_game_master_name', 'conversation rules'

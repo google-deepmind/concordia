@@ -19,8 +19,7 @@ import dataclasses
 import json
 import math
 import types
-from typing import cast
-from typing import override
+from typing import cast, override
 import uuid
 
 from concordia.components.agent import concat

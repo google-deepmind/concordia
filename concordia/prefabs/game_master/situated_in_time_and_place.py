@@ -47,6 +47,8 @@ _DEFAULT_CLOCK_DESCRIPTION = (
 class GameMaster(prefab_lib.Prefab):
   """Prefab implementing game masters for games set in a physical time/place."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games situated in a physical time/place.'
   )
@@ -89,6 +91,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     clock_description = self.params.get(
         'clock_description', _DEFAULT_CLOCK_DESCRIPTION)
     assert isinstance(clock_description, str)  # For pytype.
@@ -336,6 +339,7 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:

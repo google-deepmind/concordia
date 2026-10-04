@@ -34,7 +34,6 @@ from concordia.typing import simulation as simulation_lib
 from concordia.utils import structured_logging
 import numpy as np
 
-
 Config = prefab_lib.Config
 Role = prefab_lib.Role
 
@@ -278,8 +277,8 @@ class Simulation(simulation_lib.Simulation):
 
     if checkpoint_path or get_state_callback:
       checkpoint_callback = functools.partial(
-          # pyrefly: ignore [bad-argument-type]
-          self.save_checkpoint, checkpoint_path=checkpoint_path
+          self.save_checkpoint,
+          checkpoint_path=checkpoint_path,  # pyrefly: ignore[bad-argument-type]
       )
     else:
       checkpoint_callback = None
@@ -297,6 +296,18 @@ class Simulation(simulation_lib.Simulation):
     ]
     sorted_game_masters = initializers + other_gms
 
+    callback = step_callback
+    if step_controller is not None:
+
+      def completed_step(data):
+        try:
+          if step_callback is not None:
+            step_callback(data)
+        finally:
+          step_controller.complete_step()
+
+      callback = completed_step
+
     self._engine.run_loop(
         game_masters=sorted_game_masters,
         entities=self.entities,
@@ -306,7 +317,7 @@ class Simulation(simulation_lib.Simulation):
         log=raw_log,
         checkpoint_callback=checkpoint_callback,
         step_controller=step_controller,
-        step_callback=step_callback,
+        step_callback=callback,
     )
 
     # Build and return structured log
@@ -338,6 +349,10 @@ class Simulation(simulation_lib.Simulation):
     """Helper to create a checkpoint data dict."""
 
     checkpoint_data = {
+        "engine": {
+            "name": type(self._engine).__name__,
+            "module": type(self._engine).__module__,
+        },
         "entities": {},
         "game_masters": {},
         "raw_log": copy.deepcopy(self._raw_log),
@@ -449,7 +464,8 @@ class Simulation(simulation_lib.Simulation):
         if hasattr(comp, "get_dynamic_state"):
           try:
             dynamic = comp.get_dynamic_state()
-            comp_info["dynamic_state"] = self._make_json_serializable(dynamic)
+            json.dumps(dynamic, allow_nan=False)
+            comp_info["dynamic_state"] = copy.deepcopy(dynamic)
           except (TypeError, ValueError, AttributeError):
             comp_info["dynamic_state"] = {}  # pyrefly: ignore[bad-assignment]
         info["context_components"][comp_name] = comp_info

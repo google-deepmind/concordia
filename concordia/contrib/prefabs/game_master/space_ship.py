@@ -34,6 +34,8 @@ from concordia.typing import prefab as prefab_lib
 class GameMaster(prefab_lib.Prefab):
   """A prefab game master for games set in a specific location."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'A general game master for games set in a specific location.'
   )
@@ -71,6 +73,7 @@ class GameMaster(prefab_lib.Prefab):
       An entity.
     """
 
+    self.check_extra_components()
     extra_components = self.params.get('extra_components', {})
     extra_components_index = self.params.get('extra_components_index', {})
     if extra_components_index and extra_components:
@@ -332,6 +335,7 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:
