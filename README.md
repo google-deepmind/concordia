@@ -4,6 +4,7 @@
 
 <!-- GITHUB -->
 <!-- disableFinding(LINK_RELATIVE_G3DOC) -->
+
 [![Python](https://img.shields.io/pypi/pyversions/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI version](https://img.shields.io/pypi/v/gdm-concordia.svg)](https://pypi.python.org/pypi/gdm-concordia)
 [![PyPI tests](../../actions/workflows/pypi-test.yml/badge.svg)](../../actions/workflows/pypi-test.yml)
@@ -33,32 +34,30 @@ with external applications and services.
 
 ## How it Works
 
-Concordia operates as a **game engine** for generative agents, built around
-three core concepts:
+A simulation is built from **entities**. Each entity contains **components**
+that supply behavior and state, such as instructions, memory and action
+selection. **Prefabs** are prebuilt entity templates. Instantiate a prefab, then
+override parameters such as the entity’s name, instructions or goal. Its
+standard factory constructs the components from those settings.
 
-*   **Entities**: The actors in the simulation—either player characters
-    (Agents) or system controllers (Game Masters).
-*   **Components**: Modular building blocks of an Entity. Entity
-    behaviors e.g. logic, chains of thought, memory operations, etc are all
-    implemented within components. Concordia comes with a core library of
-    components and user-created components are also included in the main
-    library under the contrib directory. It's easy to create your own components
-    and add them to the library.
-*   **Engine**: The simulation loop. It solicits actions from entities and
-    delegates resolution to the Game Master.
+The **engine** organizes execution. For each `run_loop` call, entities are
+assigned player or game master roles. The engine requests player entity actions
+and asks game master entities to provide observations and resolve those actions.
+These are roles in that call, rather than intrinsic entity classes.
 
-This modular architecture enables complex behaviors to be assembled from simple,
-reusable parts.
+Start with the
+[GUI and CLI entity-component guide](concordia/command_line_interface/README.md)
+to inspect components, edit a simulation, and observe its behavior.
 
 ## Folder Structure
 
 *   **[`concordia/prefabs`](concordia/prefabs/README.md)**: Pre-assembled
-    recipes for common agents and Game Masters.
+    starting configurations for entities and their components.
 *   **[`concordia/components`](concordia/components/README.md)**: Modular
-    building blocks for agents, including memory systems, reasoning chains, and
-    sensory modules.
+    building blocks for entities, including memory systems, reasoning chains,
+    and sensory modules.
 *   **[`concordia/environment`](concordia/environment/README.md)**: The "engine"
-    of the simulation, containing the Game Master and the turn-taking loop.
+    of the simulation, containing the engine interfaces and turn-taking loops.
 *   **[`concordia/document`](concordia/document/README.md)**: Utilities for
     managing LLM prompts and context.
 *   **[`concordia/language_model`](concordia/language_model/README.md)**: LLM
@@ -66,10 +65,11 @@ reusable parts.
 *   **[`examples/`](examples/)**: Tutorials and example simulations to help you
     get started.
 
-> [!TIP]
-> The best way to learn is to watch the [Concordia: Building Generative Agent-Based Models](https://youtu.be/2FO5g65mu2I?si=TSk7XTk4gCaadEDs) tutorial on YouTube, run the
+> [!TIP] The best way to learn is to watch the
+> [Concordia: Building Generative Agent-Based Models](https://youtu.be/2FO5g65mu2I?si=TSk7XTk4gCaadEDs)
+> tutorial on YouTube, run the
 > **[`examples/tutorial.ipynb`](examples/tutorial.ipynb)** and then try
-> modifying the **Prefabs** to see how agent behavior changes.
+> modifying the **Prefabs** to see how entity behavior changes.
 
 ## Installation
 
@@ -169,6 +169,7 @@ The agents used in the following example implement exactly these questions:
 If you use Concordia in your work, please cite the accompanying article:
 
 <!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
+
 ```bibtex
 @article{vezhnevets2023generative,
   title={Generative agent-based modeling with actions grounded in physical,
@@ -185,3 +186,7 @@ If you use Concordia in your work, please cite the accompanying article:
 ## Disclaimer
 
 This is not an officially supported Google product.
+
+For a complete interactive authoring walkthrough and explicit editor/CLI
+coverage, see the
+[GUI and CLI entity-component guide](concordia/command_line_interface/README.md).

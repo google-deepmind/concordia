@@ -57,6 +57,8 @@ class HumanUserEntity(prefab_lib.Prefab):
     adhd_period: Period for AdhdTopicDrift (default 4).
   """
 
+  supports_extra_components = True
+
   description: str = "Human-user entity with periodic ADHD-driven topic drift."  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
@@ -74,6 +76,7 @@ class HumanUserEntity(prefab_lib.Prefab):
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     """Build an entity with ADHD topic-drift wired in."""
+    self.check_extra_components()
     entity_name = self.params.get("name", "Human User")
     demographics_text = self.params.get("demographics", "")
     emotion_options = self.params.get("emotion_options", [])
@@ -219,6 +222,7 @@ class HumanUserEntity(prefab_lib.Prefab):
         concat_key: concat,
     }
 
+    self.validate_extra_components(components_of_agent)
     if extra_components:
       for comp_name, comp in extra_components.items():
         components_of_agent[comp_name] = comp
@@ -255,6 +259,8 @@ class AICompanionEntity(prefab_lib.Prefab):
     extra_components: Dict of additional components to include.
   """
 
+  supports_extra_components = True
+
   description: str = "AI companion entity with goal-directed reasoning."  # pyrefly: ignore[bad-override]
   params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
@@ -273,6 +279,7 @@ class AICompanionEntity(prefab_lib.Prefab):
       memory_bank: basic_associative_memory.AssociativeMemoryBank,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     """Build an AI companion entity with goal-directed reasoning."""
+    self.check_extra_components()
     entity_name = self.params.get("name", "AI Companion")
     demographics_text = self.params.get("demographics", "")
     emotion_options = self.params.get("emotion_options", [])
@@ -433,6 +440,7 @@ class AICompanionEntity(prefab_lib.Prefab):
         concat_key: concat,
     }
 
+    self.validate_extra_components(components_of_agent)
     if extra_components:
       for comp_name, comp in extra_components.items():
         components_of_agent[comp_name] = comp

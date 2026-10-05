@@ -18,6 +18,8 @@ This module provides a thread-safe controller for pausing, resuming, and
 stepping through simulations one step at a time.
 """
 
+from collections.abc import Iterator
+import contextlib
 import dataclasses
 import threading
 from typing import Any
@@ -46,9 +48,9 @@ class StepController:
     controller = StepController()
 
     # In simulation thread:
-    while not done:
+    while not done and controller.wait_for_step_permission():
       do_simulation_step()
-      controller.wait_for_step_permission()
+      controller.complete_step()
 
     # In server thread:
     controller.pause()  # Stops simulation after current step
@@ -67,6 +69,37 @@ class StepController:
     self._running = not start_paused
     self._step_requested = False
     self._stop_requested = False
+    self._waiting_workers: set[threading.Thread] = set()
+    self._active_workers: set[threading.Thread] = set()
+
+  @property
+  def at_pause_boundary(self) -> bool:
+    """Whether the engine has acknowledged pause and is waiting for permission."""
+    with self._lock:
+      return self._at_pause_boundary_locked()
+
+  def _at_pause_boundary_locked(self) -> bool:
+    return (
+        bool(self._waiting_workers)
+        and not self._active_workers
+        and not self._running
+        and not self._step_requested
+        and not self._stop_requested
+    )
+
+  @contextlib.contextmanager
+  def paused_boundary(self) -> Iterator[None]:
+    """Exclude resume/step/stop while editing at an acknowledged boundary.
+
+    The caller must not call controller methods inside this context. A pause
+    request alone is insufficient: the engine must actually be waiting.
+    """
+    with self._condition:
+      if not self._at_pause_boundary_locked():
+        raise ValueError(
+            'Wait for the engine to acknowledge pause before editing.'
+        )
+      yield
 
   @property
   def is_running(self) -> bool:
@@ -120,8 +153,9 @@ class StepController:
   def wait_for_step_permission(self) -> bool:
     """Block until permission is granted to execute the next step.
 
-    This method should be called at the end of each simulation step.
-    It will block if the controller is paused, and unblock when:
+    Call this before each step. Re-entering also acknowledges completion of
+    the previous step; complete_step acknowledges a final iteration explicitly.
+    It blocks if the controller is paused, and unblocks when:
     - play() is called (returns True, simulation continues)
     - step() is called (returns True, but will pause again after next step)
     - stop() is called (returns False, simulation should terminate)
@@ -129,17 +163,36 @@ class StepController:
     Returns:
       True if the simulation should continue, False if it should stop.
     """
+    worker = threading.current_thread()
     with self._condition:
-      while not self._running and not self._step_requested:
+      # Reaching the next boundary also completes the previous step for callers
+      # that do not use an explicit completion callback.
+      self._active_workers.discard(worker)
+      self._waiting_workers.add(worker)
+      self._condition.notify_all()
+      try:
+        while not self._running and not self._step_requested:
+          if self._stop_requested:
+            return False
+          self._condition.wait()
         if self._stop_requested:
           return False
-        self._condition.wait()
+        if self._step_requested:
+          self._step_requested = False
+          self._running = False
+        self._active_workers.add(worker)
+        return True
+      finally:
+        self._waiting_workers.discard(worker)
 
-      if self._stop_requested:
-        return False
+  def complete_step(self) -> None:
+    """Mark this worker's completed step, including its last iteration.
 
-      if self._step_requested:
-        self._step_requested = False
-        self._running = False
-
-      return True
+    Simulation invokes this after its step callback. Concurrent engines may
+    finish a worker without asking for another step; that worker must no longer
+    keep other paused workers from acknowledging the boundary. All component
+    work for this step must finish before invoking this method.
+    """
+    with self._condition:
+      self._active_workers.discard(threading.current_thread())
+      self._condition.notify_all()

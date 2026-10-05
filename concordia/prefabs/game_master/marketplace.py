@@ -68,6 +68,7 @@ class GameMaster(prefab_lib.Prefab):
     Raises:
       ValueError: If required experiment component classes are not provided.
     """
+    self.check_extra_components()
     name = self.params["name"]
     player_names = [entity.name for entity in self.entities]
 

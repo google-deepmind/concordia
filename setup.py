@@ -79,6 +79,7 @@ setuptools.setup(
     ),
     entry_points={
         'console_scripts': [
+            'concordia-session=concordia.command_line_interface.concordia_session:main',
             'concordia-log=concordia.command_line_interface.concordia_log:main',
         ],
     },

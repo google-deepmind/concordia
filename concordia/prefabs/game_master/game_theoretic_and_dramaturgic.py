@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
@@ -26,7 +27,6 @@ from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 from concordia.typing import scene as scene_lib
-
 
 DEFAULT_NAME = 'decision rules'
 
@@ -119,21 +119,24 @@ def _default_scores_to_observation(
 
 @dataclasses.dataclass
 class GameMaster(prefab_lib.Prefab):
-  """A prefab game master specialized for handling conversation.
-  """
+  """A prefab game master specialized for handling conversation."""
+
+  supports_extra_components = True
 
   # pyrefly: ignore[bad-override]
   description: str = ('A game master specialized for handling matrix game. '
                       'decisions, designed to be used with scenes.')
-  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
+  params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': DEFAULT_NAME,
-          'scenes': (),  # pyrefly: ignore[bad-assignment]
-          'action_to_scores': _default_action_to_scores,  # pyrefly: ignore[bad-assignment]
-          'scores_to_observation': _default_scores_to_observation,  # pyrefly: ignore[bad-assignment]
+          'extra_components': {},
+          'extra_components_index': {},
+          'scenes': (),
+          'action_to_scores': _default_action_to_scores,
+          'scores_to_observation': _default_scores_to_observation,
           # Optional shared ObservationQueue for cross-GM observation
           # persistence.
-          'external_queue': None,  # pyrefly: ignore[bad-assignment]
+          'external_queue': None,
       }
   )
   entities: (
@@ -154,6 +157,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', DEFAULT_NAME)
 
     player_names = [entity.name for entity in self.entities]
@@ -289,7 +293,15 @@ class GameMaster(prefab_lib.Prefab):
         ),
     }
 
-    component_order = list(components_of_game_master.keys())
+    self.validate_extra_components(components_of_game_master)
+    extra_components: Any = self.params.get('extra_components', {})
+    extra_indices: Any = self.params.get('extra_components_index', {})
+    component_order = list(components_of_game_master)
+    components_of_game_master.update(extra_components)
+    for key in extra_components:
+      if key in component_order:
+        component_order.remove(key)
+      component_order.insert(extra_indices.get(key, len(component_order)), key)
 
     act_component = gm_components.switch_act.SwitchAct(
         model=model,

@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
@@ -34,26 +35,30 @@ _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH = 5
 class Entity(prefab_lib.Prefab):
   """A prefab implementing a basic actor entity."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An entity that makes decisions by asking '
       '"What situation am I in right now?", "What kind of person am I?", and '
-      '"What would a person like me do in a situation like this?"')
-  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
+      '"What would a person like me do in a situation like this?"'
+  )
+  params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
-          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
-          'prefix_entity_name': True,  # pyrefly: ignore[bad-assignment]
-          'observation_history_length':
-              _DEFAULT_OBSERVATION_HISTORY_LENGTH,  # pyrefly: ignore[bad-assignment]
+          'extra_components': {},
+          'extra_components_index': {},
+          'randomize_choices': True,
+          'prefix_entity_name': True,
+          'observation_history_length': _DEFAULT_OBSERVATION_HISTORY_LENGTH,
           'situation_perception_history_length': (
-              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
+              _DEFAULT_SITUATION_PERCEPTION_HISTORY_LENGTH
           ),
           'self_perception_history_length': (
-              _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
+              _DEFAULT_SELF_PERCEPTION_HISTORY_LENGTH
           ),
           'person_by_situation_history_length': (
-              _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH  # pyrefly: ignore[bad-assignment]
+              _DEFAULT_PERSON_BY_SITUATION_HISTORY_LENGTH
           ),
       }
   )
@@ -83,6 +88,7 @@ class Entity(prefab_lib.Prefab):
     Returns:
       An entity.
     """
+    self.check_extra_components()
     if act_component is not None and act_component_factory is not None:
       raise ValueError(
           'Provide act_component or act_component_factory, not both.'
@@ -93,8 +99,7 @@ class Entity(prefab_lib.Prefab):
     randomize_choices = self.params.get('randomize_choices', True)
     prefix_entity_name = self.params.get('prefix_entity_name', True)
     observation_history_length = self.params.get(
-        'observation_history_length',
-        _DEFAULT_OBSERVATION_HISTORY_LENGTH
+        'observation_history_length', _DEFAULT_OBSERVATION_HISTORY_LENGTH
     )
     situation_perception_history_length = self.params.get(
         'situation_perception_history_length',
@@ -122,7 +127,8 @@ class Entity(prefab_lib.Prefab):
     observation_to_memory = agent_components.observation.ObservationToMemory()
 
     observation_key = (
-        agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY)
+        agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY
+    )
     observation = agent_components.observation.LastNObservations(
         history_length=observation_history_length,  # pyrefly: ignore[bad-argument-type]
         pre_act_label=(
@@ -162,7 +168,8 @@ class Entity(prefab_lib.Prefab):
         agent_components.question_of_recent_memories.SelfPerception(
             model=model,
             num_memories_to_retrieve=self_perception_history_length,
-            components=goal_components + [
+            components=goal_components
+            + [
                 situation_perception_key,
             ],
             pre_act_label=(
@@ -175,7 +182,8 @@ class Entity(prefab_lib.Prefab):
     person_by_situation = agent_components.question_of_recent_memories.PersonBySituation(
         model=model,
         num_memories_to_retrieve=person_by_situation_history_length,
-        components=goal_components + [
+        components=goal_components
+        + [
             self_perception_key,
             situation_perception_key,
         ],
@@ -201,6 +209,17 @@ class Entity(prefab_lib.Prefab):
       components_of_agent[goal_key] = overarching_goal  # pyrefly: ignore[unsupported-operation]
       # Place goal after the instructions.
       component_order.insert(1, goal_key)  # pyrefly: ignore[bad-argument-type]
+
+    # Use the same extra-component contract as the minimal entity prefab.
+    self.validate_extra_components(components_of_agent)
+    extra_components = self.params.get('extra_components', {})
+    extra_indices = self.params.get('extra_components_index', {})
+    for key, component in extra_components.items():
+      index = extra_indices.get(key, len(component_order))
+      components_of_agent[key] = component
+      if key in component_order:
+        component_order.remove(key)
+      component_order.insert(index, key)
 
     if act_component_factory is not None:
       act_component = act_component_factory(tuple(component_order))

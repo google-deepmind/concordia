@@ -684,10 +684,22 @@ class NextActionSpecFromSceneSpec(
     action_spec_string = ''
     if action_spec.output_type == entity_lib.OutputType.NEXT_ACTION_SPEC:
       scene_type_spec = self._get_current_scene_type()
-      action_spec = scene_type_spec.action_spec  # pyrefly: ignore[bad-assignment]
-      if isinstance(action_spec, Mapping):
-        action_spec = action_spec.get(self.get_current_active_player())  # pyrefly: ignore[bad-assignment]
-      action_spec_string = engine_lib.action_spec_to_string(action_spec)
+      scene_action_spec = scene_type_spec.action_spec
+      if scene_action_spec is None:
+        # SceneTypeSpec documents None as using the default action spec.
+        scene_action_spec = entity_lib.DEFAULT_ACTION_SPEC
+      elif isinstance(scene_action_spec, Mapping):
+        player = self.get_current_active_player()
+        scene_action_spec = (
+            scene_action_spec.get(player) if player is not None else None
+        )
+        if scene_action_spec is None:
+          raise ValueError(
+              f'Scene {scene_type_spec.name!r} has no action spec for active'
+              f' player {player!r}. Provide an override for this player or'
+              ' omit the scene action spec to use the default.'
+          )
+      action_spec_string = engine_lib.action_spec_to_string(scene_action_spec)
       self._logging_channel({'Action spec': action_spec_string,
                              'Scene type spec': scene_type_spec})
     return action_spec_string

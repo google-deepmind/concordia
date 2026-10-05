@@ -185,6 +185,10 @@ class GameMaster(prefab_lib.Prefab):
   See: https://arxiv.org/abs/2602.03545
   """
 
+  parameter_roles = {'next_game_master_name': prefab_lib.Role.GAME_MASTER}
+
+  default_role = prefab_lib.Role.INITIALIZER
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An initializer that generates diverse personas from a pluggable '
       'PersonaGenerator and injects their memories into agent memory banks.'
@@ -220,6 +224,7 @@ class GameMaster(prefab_lib.Prefab):
     Raises:
       ValueError: If no generator has been set.
     """
+    self.check_extra_components()
     if self.generator is None:
       raise ValueError(
           'PersonaInitializer prefab requires a generator. '

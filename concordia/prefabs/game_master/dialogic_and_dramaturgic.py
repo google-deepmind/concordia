@@ -99,6 +99,8 @@ def _configure_default_scenes(
 class GameMaster(prefab_lib.Prefab):
   """A prefab game master specialized for handling conversation."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'A game master specialized for handling conversation. '
       'This game master is designed to be used with scenes.'
@@ -137,6 +139,7 @@ class GameMaster(prefab_lib.Prefab):
     Returns:
       A game master entity.
     """
+    self.check_extra_components()
     name = self.params.get('name', DEFAULT_NAME)
 
     extra_components = self.params.get('extra_components', {})
@@ -281,10 +284,13 @@ class GameMaster(prefab_lib.Prefab):
 
     component_order = list(components_of_game_master.keys())
 
+    self.validate_extra_components(components_of_game_master)
     if extra_components:
       components_of_game_master.update(extra_components)
       if extra_components_index:
         for component_name in extra_components.keys():
+          if component_name in component_order:
+            component_order.remove(component_name)
           component_order.insert(
               extra_components_index[component_name],
               component_name,

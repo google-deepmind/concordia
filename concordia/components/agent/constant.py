@@ -46,7 +46,8 @@ class Constant(
 
   def _make_pre_act_value(self) -> str:
     self._logging_channel(
-        {'Key': self.get_pre_act_label(), 'Value': self._state})
+        {'Key': self.get_pre_act_label(), 'Value': self._state}
+    )
     return self._state
 
   def get_state(self) -> entity_component.ComponentState:
@@ -59,6 +60,8 @@ class Constant(
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
     if 'state' in state:
+      if not isinstance(state['state'], str):
+        raise ValueError('state: expected str')
       self._state = state['state']  # pyrefly: ignore[bad-assignment]
 
   def get_dynamic_state(self) -> entity_component.ComponentState:

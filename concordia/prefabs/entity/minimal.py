@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
@@ -33,24 +34,26 @@ DEFAULT_GOAL_COMPONENT_KEY = 'Goal'
 class Entity(prefab_lib.Prefab):
   """A prefab implementing an entity with a minimal set of components."""
 
+  supports_extra_components = True
+
   description: str = (  # pyrefly: ignore[bad-override]
       'An entity that has a minimal set of components and is configurable by'
       ' the user. The initial set of components manage memory, observations,'
       ' and instructions. If goal is specified, the entity will have a goal '
       'constant component.'
   )
-  params: Mapping[str, str] = dataclasses.field(  # pyrefly: ignore[bad-assignment]
+  params: Mapping[str, Any] = dataclasses.field(
       default_factory=lambda: {
           'name': 'Alice',
           'goal': '',
           # A custom instruction to use instead of the default instructions.
           'custom_instructions': '',
-          'extra_components': {},  # pyrefly: ignore[bad-assignment]
+          'extra_components': {},
           # A mapping from component name to the index at which to insert it
           # in the component order. If not specified, the extra components
           # will be inserted at the end of the component order.
-          'extra_components_index': {},  # pyrefly: ignore[bad-assignment]
-          'randomize_choices': True,  # pyrefly: ignore[bad-assignment]
+          'extra_components_index': {},
+          'randomize_choices': True,
       }
   )
 
@@ -80,6 +83,7 @@ class Entity(prefab_lib.Prefab):
       An entity.
     """
 
+    self.check_extra_components()
     if act_component is not None and act_component_factory is not None:
       raise ValueError(
           'Provide act_component or act_component_factory, not both.'
@@ -124,24 +128,14 @@ class Entity(prefab_lib.Prefab):
     extra_components = self.params.get('extra_components', {})
     extra_components_index = self.params.get('extra_components_index', {})
 
-    # Check that extra_components_index is a dict.
-    if not isinstance(extra_components_index, dict) or not isinstance(
-        extra_components, dict
-    ):
-      raise ValueError(
-          'extra_components_index and extra_components must be dict. Got'
-          f' {type(extra_components_index)} and {type(extra_components)}'
-      )
-
-    if extra_components:
-      if not extra_components_index:
-        extra_components_index = {
-            component_name: -1 for component_name in extra_components.keys()
-        }
-      for component_name, index in extra_components_index.items():
-        components_of_agent[component_name] = extra_components[component_name]
-        component_order.insert(index, component_name)
-
+    self.validate_extra_components({
+        **components_of_agent,
+        **(
+            {DEFAULT_GOAL_COMPONENT_KEY: None}
+            if self.params.get('goal', '')
+            else {}
+        ),
+    })
     if self.params.get('goal', ''):
       goal_key = DEFAULT_GOAL_COMPONENT_KEY
       goal = agent_components.constant.Constant(
@@ -151,6 +145,17 @@ class Entity(prefab_lib.Prefab):
       components_of_agent[goal_key] = goal
       # Place goal after the instructions.
       component_order.insert(1, goal_key)
+
+    if extra_components:
+      if not extra_components_index:
+        extra_components_index = {
+            component_name: -1 for component_name in extra_components.keys()
+        }
+      for component_name, index in extra_components_index.items():
+        components_of_agent[component_name] = extra_components[component_name]
+        if component_name in component_order:
+          component_order.remove(component_name)
+        component_order.insert(index, component_name)
 
     if act_component_factory is not None:
       act_component = act_component_factory(tuple(component_order))
