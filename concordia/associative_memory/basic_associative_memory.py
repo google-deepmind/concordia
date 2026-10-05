@@ -133,6 +133,8 @@ class AssociativeMemoryBank:
   def _get_top_k_cosine(self, x: np.ndarray, k: int):
     """Returns the top k most cosine similar rows to an input vector x.
 
+    Zero-norm query or memory embeddings have similarity zero.
+
     Args:
       x: The input vector.
       k: The number of rows to return.
@@ -140,10 +142,19 @@ class AssociativeMemoryBank:
     Returns:
       Rows, sorted by cosine similarity in descending order.
     """
+    x = np.asarray(x)
+    x_norm = np.linalg.norm(x)
+    x = x / x_norm if x_norm > 0 else np.zeros_like(x)
+
+    def cosine_similarity(y):
+      y = np.asarray(y)
+      y_norm = np.linalg.norm(y)
+      return np.dot(x, y / y_norm) if y_norm > 0 else 0.0
+
     with self._memory_bank_lock:
       self._flush_pending()
       cosine_similarities = self._memory_bank['embedding'].apply(
-          lambda y: np.dot(x, y)
+          cosine_similarity
       )
 
       # Sort the cosine similarities in descending order.
