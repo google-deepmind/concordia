@@ -35,7 +35,7 @@ let result;
 if(action==='undo' || action==='redo'){
   const next=history[action](current);if(!next)throw Error('No '+action+' available.');
   journal.document=next.document;journal.selectedId=next.selectedId;
- }else if(['select','inspect','catalog','list','locate','panel'].includes(action)){
+ }else if(['select','inspect','catalog','list','locate','panel','get','params'].includes(action)){
   const readAction=action==='panel'?(args[0]==='inspector'?'inspect':'list'):action==='select'?'inspect':action;
   const readArgs=action==='panel'?[]:args;
   result=ProjectDraftCommands.read(journal.document,journal.metadata,journal.view==='runtime'?savedDocument:(journal.preview_document || journal.base),runtime,journal.view,journal.selectedId,readAction,readArgs);

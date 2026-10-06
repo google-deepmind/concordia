@@ -843,6 +843,134 @@ def test_focused_component_inspection_and_stable_ids():
       session_draft.apply(journal, session_commands.parse(line))
 
 
+def test_params_and_get_read_fields_without_changing_the_draft():
+  registry = project_test_support.scene_registry()
+  document = registry.default_document('scenes-v1')
+  clock_parameters = [
+      {'name': 'prompt', 'required': True, 'annotation': 'str'},
+      {'name': 'start_time', 'required': True, 'annotation': 'str'},
+      {'name': 'pre_act_label', 'required': False, 'default': 'Clock'},
+  ]
+  journal = {
+      'document': document,
+      'base': document,
+      'selectedId': 'alice',
+      'metadata': {
+          'catalog': registry.catalog(document),
+          'component_catalog': registry.component_catalog(document),
+          'entities': {
+              'entity_0': {
+                  'component_info': {
+                      'context_components': {
+                          'Instructions': {
+                              'class_name': 'Constant',
+                              'state': {'text': 'Initial instructions'},
+                              'dynamic_state': {'text': 'Initial instructions'},
+                              'parameters': clock_parameters,
+                          }
+                      }
+                  }
+              }
+          },
+      },
+  }
+
+  def run(line, runtime=None):
+    return session_draft.apply(journal, session_commands.parse(line), runtime)
+
+  name = document['instances'][0]['params']['name']
+  result = run('get alice params.name')
+  assert result['result'] == {
+      'id': 'alice',
+      'field': 'params.name',
+      'value': name,
+  }
+  assert result['journal']['document'] == document
+  max_steps = run('get simulation max_steps')['result']['value']
+  assert max_steps == document['max_steps']
+  assert run('get alice Instructions text')['result']['value'] == (
+      'Initial instructions'
+  )
+  listed = run('params alice')['result']
+  assert [p['name'] for p in listed['parameters']] == list(
+      document['instances'][0]['params']
+  )
+  assert listed['parameters'][0]['set_with'] == 'set alice params.name JSON'
+  assert listed['components'] == ['Instructions']
+  component = run('params alice Instructions')['result']
+  assert component['class_name'] == 'Constant'
+  assert component['constructor_parameters'] == clock_parameters
+  assert component['editable_state'] == ['text']
+  assert [f['name'] for f in run('params simulation')['result']['fields']] == [
+      'premise',
+      'max_steps',
+  ]
+  runtime = {
+      'entities': {
+          'entity_0': {
+              'component_info': {
+                  'context_components': {
+                      'Instructions': {'state': {'text': 'Runtime text'}}
+                  }
+              }
+          }
+      }
+  }
+  journal['view'] = 'runtime'
+  assert run('get alice Instructions text', runtime)['result']['value'] == (
+      'Runtime text'
+  )
+  journal['view'] = 'definition'
+  with pytest.raises(ValueError, match='Unknown field'):
+    run('get alice params.missing')
+  with pytest.raises(ValueError, match='Unknown component state field'):
+    run('get alice Instructions missing')
+  with pytest.raises(ValueError, match='Unknown component'):
+    run('params alice Missing')
+  for line in ('get alice', 'get a b c d', 'params', 'params a b c'):
+    with pytest.raises(ValueError):
+      session_commands.parse(line)
+  assert 'params ID [COMPONENT]' in session_commands.HELP
+  assert 'get ID [COMPONENT] FIELD' in session_commands.HELP
+
+
+def test_component_info_reports_constructor_parameters():
+
+  class Clock:
+
+    def __init__(
+        self,
+        model,
+        prompt: str,
+        start_time: str,
+        components=(),
+        pre_act_label: str = '\nClock',
+        *args,
+        **kwargs,
+    ):
+      del model, prompt, start_time, components, pre_act_label, args, kwargs
+
+  parameters = generic.Simulation._constructor_parameters(Clock(None, '', ''))
+  assert parameters == [
+      {'name': 'model', 'required': True},
+      {'name': 'prompt', 'required': True, 'annotation': 'str'},
+      {'name': 'start_time', 'required': True, 'annotation': 'str'},
+      {'name': 'components', 'required': False, 'default': ()},
+      {
+          'name': 'pre_act_label',
+          'required': False,
+          'annotation': 'str',
+          'default': '\nClock',
+      },
+  ]
+  unserializable = generic.Simulation._constructor_parameters(
+      type('Holder', (), {'__init__': lambda self, value=object(): None})()
+  )
+  assert unserializable == [
+      {'name': 'value', 'required': False, 'default_type': 'object'}
+  ]
+
+
 @pytest.mark.parametrize(
     'line',
     [

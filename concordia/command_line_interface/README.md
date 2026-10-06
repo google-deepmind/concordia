@@ -157,7 +157,15 @@ catalog prefabs
 catalog components
 list instances
 inspect alice
+params alice
+params alice Instructions
+get alice params.custom_instructions
 ```
+
+`params alice` lists Alice's prefab parameters with their values, defaults and
+the `set` command for each. `params alice Instructions` lists the component's
+constructor parameters and the fields it advertises as editable state. `get`
+reads a single value back.
 
 The creation key `minimal` selects a prefab; `Charlie` is the new entity’s
 case-sensitive stable ID. `--id` uses two hyphens. The GUI generates an ID for
@@ -215,6 +223,9 @@ validate
 save
 inspect alice Instructions
 ```
+
+`get alice Instructions state` reads the value back from the current preview
+(or from the runtime after `view runtime`).
 
 This overrides the component's constructed state for future runs. Prefab
 parameters still determine which components exist: giving Alice an initial goal
@@ -276,6 +287,10 @@ versions download these files.
     and recreate the settings you need using its fields. The
     [input contract and recovery guide](../docs/editor-commands.md#project-files-and-recovery)
     explains how to diagnose a rejected file.
+
+Structured logs are compressed: repeated text is stored once and referenced,
+so use the `log` commands, `concordia-log` or the viewer rather than grep on
+the raw JSON (`concordia-log dump` writes an inflated copy for text tools).
 
 Use `help` for commands, `files` for terminal file operations, and `exit` or EOF
 to leave the prompt with your journal retained. History stays in memory during

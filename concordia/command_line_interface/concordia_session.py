@@ -337,6 +337,8 @@ def friendly(args):
         'catalog',
         'list',
         'locate',
+        'get',
+        'params',
     ):
       raise ValueError('Authoring unavailable while a run is active.')
     applied = session_draft.apply(

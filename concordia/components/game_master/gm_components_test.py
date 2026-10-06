@@ -313,7 +313,7 @@ COMPONENT_FACTORIES = {
             "model": no_language_model.NoLanguageModel(),
         },
         "state_example": {
-            "state": "",
+            "state": {},
             "latest_action_spec": "",
         },
         "skip_keys": DEFAULT_SKIP_KEYS,

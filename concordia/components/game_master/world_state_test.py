@@ -169,5 +169,57 @@ class LocationsStateTest(absltest.TestCase):
     self.assertEqual(restored._locations, locations._locations)
 
 
+
+class DynamicStateTest(absltest.TestCase):
+  """Editable runtime fields advertised to the editor and session commands."""
+
+  def setUp(self):
+    super().setUp()
+    self._model = no_language_model.NoLanguageModel()
+
+  def test_world_state_facts_are_editable(self):
+    component = world_state.WorldState(model=self._model)
+    state = component.get_state()
+    state['state'] = {'Royal cake': 'a polite toad'}
+    component.set_state(state)
+    self.assertEqual(
+        component.get_dynamic_state(),
+        {'state': {'Royal cake': 'a polite toad'}},
+    )
+    state['state'] = {'Royal cake': 3}
+    with self.assertRaisesRegex(ValueError, 'state: expected'):
+      component.set_state(state)
+
+  def test_entity_locations_are_editable(self):
+    component = world_state.Locations(
+        model=self._model,
+        entity_names=['Gerald'],
+        prompt='Castle Garden: a lily pond.',
+    )
+    state = component.get_state()
+    state['entity_locations'] = {'Gerald': 'Castle Garden'}
+    component.set_state(state)
+    self.assertEqual(
+        component.get_dynamic_state(),
+        {'entity_locations': {'Gerald': 'Castle Garden'}},
+    )
+    state['entity_locations'] = ['Castle Garden']
+    with self.assertRaisesRegex(ValueError, 'entity_locations: expected'):
+      component.set_state(state)
+
+  def test_generative_clock_time_is_editable(self):
+    component = world_state.GenerativeClock(
+        model=self._model, prompt='Each step is thirty minutes.',
+        start_time='8:00 AM',
+    )
+    self.assertEqual(component.get_dynamic_state(), {'time': '8:00 AM'})
+    state = component.get_state()
+    state['time'] = '11:45 AM'
+    component.set_state(state)
+    self.assertEqual(component.get_dynamic_state(), {'time': '11:45 AM'})
+    state['time'] = 1145
+    with self.assertRaisesRegex(ValueError, 'time: expected str'):
+      component.set_state(state)
+
 if __name__ == '__main__':
   absltest.main()

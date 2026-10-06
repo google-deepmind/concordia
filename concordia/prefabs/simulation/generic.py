@@ -17,6 +17,7 @@
 from collections.abc import Callable, Mapping
 import copy
 import functools
+import inspect
 import json
 import os
 from typing import Any
@@ -422,6 +423,51 @@ class Simulation(simulation_lib.Simulation):
       return [self._make_json_serializable(item) for item in obj]
     return None
 
+  @staticmethod
+  def _constructor_parameters(component: Any) -> list[dict[str, Any]]:
+    """Describe a component class's constructor parameters for inspection.
+
+    Defaults are included when they are JSON scalars or short JSON values;
+    other defaults (objects, callables) are summarized by their type name.
+
+    Args:
+      component: A constructed component.
+
+    Returns:
+      One record per parameter with its name, whether it is required, its
+      annotation and its default when one exists.
+    """
+    try:
+      signature = inspect.signature(type(component).__init__)
+    except (TypeError, ValueError):
+      return []
+    parameters = []
+    for parameter in list(signature.parameters.values())[1:]:
+      if parameter.kind in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD):
+        continue
+      record: dict[str, Any] = {
+          "name": parameter.name,
+          "required": parameter.default is inspect.Parameter.empty,
+      }
+      if parameter.annotation is not inspect.Parameter.empty:
+        annotation = parameter.annotation
+        record["annotation"] = (
+            annotation
+            if isinstance(annotation, str)
+            else getattr(annotation, "__name__", None) or str(annotation)
+        ).replace("typing.", "")
+      if parameter.default is not inspect.Parameter.empty:
+        default = parameter.default
+        try:
+          text = json.dumps(default, allow_nan=False)
+          record["default"] = (
+              default if len(text) <= 200 else text[:197] + "..."
+          )
+        except (TypeError, ValueError):
+          record["default_type"] = type(default).__name__
+      parameters.append(record)
+    return parameters
+
   def _extract_component_info(
       self, entity: entity_component.EntityWithComponents
   ) -> dict[str, Any]:
@@ -445,6 +491,7 @@ class Simulation(simulation_lib.Simulation):
       info["act_component"] = {
           "class_name": type(act_comp).__name__,
           "module": type(act_comp).__module__,
+          "parameters": self._constructor_parameters(act_comp),
       }
 
     if hasattr(entity, "_context_components"):
@@ -454,6 +501,7 @@ class Simulation(simulation_lib.Simulation):
         comp_info = {
             "class_name": type(comp).__name__,
             "module": type(comp).__module__,
+            "parameters": self._constructor_parameters(comp),
         }
         if hasattr(comp, "get_state"):
           try:

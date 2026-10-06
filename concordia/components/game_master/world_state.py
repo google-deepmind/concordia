@@ -24,6 +24,14 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 
+def _check_str_mapping(value: object, field: str) -> None:
+  """Raise ValueError unless value maps strings to strings."""
+  if not isinstance(value, dict) or not all(
+      isinstance(k, str) and isinstance(v, str) for k, v in value.items()
+  ):
+    raise ValueError(f'{field}: expected an object mapping strings to strings')
+
+
 class WorldState(
     entity_component.ContextComponent, entity_component.ComponentWithLogging
 ):
@@ -150,6 +158,7 @@ class WorldState(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
+    _check_str_mapping(state['state'], 'state')
     action_spec_dict = state['latest_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._latest_action_spec = entity_lib.action_spec_from_dict(
@@ -157,7 +166,11 @@ class WorldState(
       )
     else:
       self._latest_action_spec = None
-    self._state = cast(dict[str, str], state['state'])
+    self._state = dict(cast(dict[str, str], state['state']))
+
+  def get_dynamic_state(self) -> entity_component.ComponentState:
+    """Returns the world state facts, which can be edited at runtime."""
+    return {'state': dict(self._state)}
 
 
 class Locations(
@@ -393,8 +406,11 @@ class Locations(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
+    _check_str_mapping(state['entity_locations'], 'entity_locations')
     self._locations = cast(dict[str, str], state['locations'])
-    self._entity_locations = cast(dict[str, str], state['entity_locations'])
+    self._entity_locations = dict(
+        cast(dict[str, str], state['entity_locations'])
+    )
     action_spec_dict = state['latest_action_spec']
     if action_spec_dict and isinstance(action_spec_dict, dict):
       self._latest_action_spec = entity_lib.action_spec_from_dict(
@@ -402,6 +418,10 @@ class Locations(
       )
     else:
       self._latest_action_spec = None
+
+  def get_dynamic_state(self) -> entity_component.ComponentState:
+    """Returns where each entity is, which can be edited at runtime."""
+    return {'entity_locations': dict(self._entity_locations)}
 
 
 class GenerativeClock(
@@ -558,9 +578,15 @@ class GenerativeClock(
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Sets the state of the component."""
+    if not isinstance(state['time'], str):
+      raise ValueError('time: expected str')
     self._num_steps = cast(int, state['num_steps'])
     self._time = cast(str, state['time'])
     self._prompt_to_log = cast(str, state['prompt_to_log'])
     self._latest_action_spec = cast(
         entity_lib.ActionSpec | None, state['latest_action_spec']
     )
+
+  def get_dynamic_state(self) -> entity_component.ComponentState:
+    """Returns the current time, which can be edited at runtime."""
+    return {'time': self._time}
