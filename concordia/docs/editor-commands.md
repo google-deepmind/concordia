@@ -60,6 +60,10 @@ move-component components:COMPONENT_ID bob
 select bob
 select bob SelfPerception
 inspect bob
+params narrator
+params narrator generative_clock
+get alice params.goal
+get narrator generative_clock time
 search "Instructions"
 view runtime
 edit alice Instructions state '"Alice prefers quiet music."'
@@ -77,6 +81,22 @@ existing scalar/list record field or `params.FIELD`; it cannot change identity,
 prefab registration or schema fields. Component name and settings use `name` and
 `params.FIELD`. Existing ownership/type/reference restrictions apply; a failed
 action leaves the draft/history intact.
+
+`params ID` lists every parameter of an instance's prefab: its current value,
+the prefab default, its type, whether the application owns it
+(`fixed_parameters`), and the exact `set` command for it. `params ID COMPONENT`
+lists a built component's class, its constructor parameters (name, whether
+required, annotation and simple default), the fields it advertises as editable
+state, and its other state fields. Prefab parameters usually reach components
+through those constructors: for example, the situated game master passes
+`clock_description` and `start_time` to its `GenerativeClock` as `prompt` and
+`start_time`. `get ID FIELD` reads one value from the draft, using the same
+paths as `set` (`params.FIELD`, top-level record fields, or `simulation`
+fields). `get ID COMPONENT FIELD` reads one component state field from the
+current inspection source: the preview of the saved definition, or the current
+runtime after `view runtime`. Both are read-only and work while a run is active.
+Component inspection needs a saved preview, so save newly added instances
+before listing their components.
 
 `validate` checks without saving. `save` saves the current draft. `export`
 exports the **current local draft**, including unsaved edits; it does not save
@@ -244,8 +264,10 @@ For a complete interactive authoring walkthrough and explicit editor/CLI
 coverage, see the
 [simulation design CLI tutorial](../command_line_interface/README.md).
 
-Shared discovery/navigation commands: `catalog [templates|prefabs|components]`,
-`list [instances|components]`, `locate "MESSAGE"`, `move ID up|down`. Creation
+Shared discovery/navigation commands: `params ID [COMPONENT]`,
+`get ID FIELD`, `get ID COMPONENT FIELD`,
+`catalog [templates|prefabs|components]`, `list [instances|components]`,
+`locate "MESSAGE"`, `move ID up|down`. Creation
 accepts optional `--id STABLE_ID`; `.` selects the current local draft record.
 `layout` reports browser bounds; `layout left|right|terminal PIXELS` uses the
 same bounded/persisted splitters. The external CLI rejects browser sizing
@@ -260,6 +282,12 @@ interrupt/timeout/EOF.
 
 `log export` uses standard SimulationLog serialization for reimportable JSON;
 `log dump` remains inflated analysis JSON and is not an import archive.
+
+Structured logs are compressed: repeated content (prompts, observations,
+component values) is stored once and referenced by hash. Searching the raw JSON
+with grep or jq therefore misses or miscounts entries. Read logs with the `log`
+commands, `concordia-log` or the portable viewer, or run `log dump` /
+`concordia-log dump` first to produce an inflated copy for text tools.
 
 ## Editor/CLI coverage matrix
 
@@ -308,6 +336,11 @@ behavior.
 :                                    : `select ID       : graphical              :
 :                                    : COMPONENT`       : expand/collapse        :
 :                                    :                  : animation              :
+| Parameters and single values       | `params ID       | Same output as JSON    |
+: (prefab parameters, component      : [COMPONENT]`,    : on stdout; read-only   :
+: constructor parameters, editable   : `get ID FIELD`,  :                        :
+: state)                             : `get ID          :                        :
+:                                    : COMPONENT FIELD` :                        :
 | Incoming references, reference     | `references ID`, | Same references and    |
 : navigation/replacement             : `select TARGET`, : compatible             :
 :                                    : `replace SOURCE  : replacement; does not  :
@@ -440,6 +473,13 @@ keyed by prototype ID; JSON never imports or replaces those Python objects.
 Their components may expose an editable dynamic surface. Call
 `Registry.apply_dynamic_states(document, simulation)` after a headless build;
 `SimulationServer.set_simulation` applies them when binding an editor run.
+
+Components that advertise editable state include `Constant` (`state`), the
+game master `GenerativeClock` (`time`), `Locations` (`entity_locations`, a
+mapping from entity name to location) and `WorldState` (`state`, a mapping of
+facts). For example, pause a situated game and run `edit narrator
+generative_clock time '"11:45 AM"'` to move the clock forward; the next step
+continues from the edited time.
 
 SceneTracker is one optional component using this contract. Its `scenes` field
 contains standard SceneSpec configuration (including nested SceneTypeSpec),

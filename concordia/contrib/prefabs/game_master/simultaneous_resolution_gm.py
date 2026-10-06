@@ -95,6 +95,7 @@ class FixedIncrementClock(
         rules are used: 15 min for 8am-8pm, 60 min for 8pm-11pm, 180 min for
         11pm-8am.
     """
+    super().__init__()
     self._pre_act_label = pre_act_label
     self._model = model
     self._increment_minutes = increment_minutes
@@ -119,7 +120,7 @@ class FixedIncrementClock(
     # Example format: "Monday, March 3, 2026 at 8:30 AM"
     try:
       return datetime.datetime.strptime(time_str, '%A, %B %d, %Y at %I:%M %p')
-    except ValueError:
+    except (TypeError, ValueError):
       # Fallback for other formats, or if parsing fails.
       default_time = datetime.datetime(2026, 3, 3, 8, 30)
       self._log(
@@ -270,11 +271,15 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
       default_factory=lambda: {
           'name': 'default rules',
           'clock_description': _DEFAULT_CLOCK_DESCRIPTION,
-          'start_time': None,
+          'start_time': 'Tuesday, March 3, 2026 at 8:30 AM',
           'locations': '',
           'game_rules': '',
           'allow_early_termination': False,
           'time_period_minutes': 15,
+          # If True, the clock uses time-of-day rules for each step (15 minutes
+          # in the daytime, longer at night). If False, every step advances by
+          # exactly time_period_minutes.
+          'use_variable_increments': True,
           'extra_components': {},
           'extra_components_index': {},
           'initial_causal_states': {},
@@ -284,6 +289,10 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
           'use_narrative_history_manager': True,
           'use_npc_events': True,
           'npc_scenario_context': 'A generic setting.',
+          # Optional call to action for every player each step, e.g. 'How many
+          # fish does {name} catch today?'. Empty uses the default request for
+          # a detailed plan covering time_period_minutes.
+          'call_to_action': '',
           'npc_event_probability': 0.15,
       }
   )
@@ -304,6 +313,7 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
     start_time = self.params.get('start_time', None)
     game_rules = self.params.get('game_rules', '')
     time_period_minutes = self.params.get('time_period_minutes', 15)
+    use_variable_increments = self.params.get('use_variable_increments', True)
     name = self.params.get('name', 'default rules')
     extra_components = self.params.get('extra_components', {})
     extra_components_index = self.params.get('extra_components_index', {})
@@ -421,6 +431,7 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
         start_time=start_time,
         increment_minutes=time_period_minutes,
         pre_act_label='\nCurrent time',
+        use_variable_increments=use_variable_increments,
     )
 
     # 5d. Location-Based Partial Observability Filter
@@ -500,6 +511,10 @@ class GameMasterSimultaneous(prefab_lib.Prefab):
         f' pronouns ("he", "she", "they", '
         f'"him", "her", "them", etc.). ALWAYS use {{name}}\'s specific name.'
     )
+
+    custom_call_to_action = self.params.get('call_to_action', '')
+    if custom_call_to_action:
+      call_to_action_text = custom_call_to_action
 
     default_action_spec = entity_lib.ActionSpec(
         call_to_action=call_to_action_text,

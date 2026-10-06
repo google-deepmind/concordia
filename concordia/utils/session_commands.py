@@ -35,6 +35,7 @@ Authoring: add instance PREFAB_OR_PRESET | add component TYPE OWNER
   set uses a top-level record field or params.FIELD; values are JSON (quote strings).
 Discovery: catalog [templates|prefabs|components], list [instances|components]
   inspect [ID [COMPONENT]], locate "VALIDATION MESSAGE", move ID up|down
+  params ID [COMPONENT] lists parameters, get ID [COMPONENT] FIELD reads one value
   add commands optionally accept --id STABLE_ID; . means current selection.
 Presentation: layout [left|right|terminal PIXELS] (browser only)
 View: select ID [COMPONENT], search TEXT, view definition|runtime, panel hierarchy|inspector|simulation|log, inspect [ID]
@@ -152,6 +153,8 @@ def parse(line: str) -> dict[str, Any]:
       'view': (1, 1),
       'panel': (1, 1),
       'inspect': (0, 2),
+      'params': (1, 2),
+      'get': (2, 3),
       'set': (3, 3),
       'references': (1, 1),
       'replace': (2, 2),

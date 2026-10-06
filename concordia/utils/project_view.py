@@ -541,6 +541,7 @@ class ProjectDraftCommands {
       if(!target)throw Error('No unambiguous field in this draft matches that validation message.');
       return target;
     }
+    if(action==='get' || action==='params')return ProjectDraftCommands.describe(document,metadata,base,runtime,view,selection,action,args);
     const item=id==='simulation'?document:ProjectRecordOperations.locate(document,id)?.item || document.instances.find(x=>x.id===id);
     if(!item)throw Error('Unknown selection.');
     if(id==='simulation' || !document.instances.includes(item)){if(args[1])throw Error('Component inspection requires an instance ID.');return item;}
@@ -550,6 +551,49 @@ class ProjectDraftCommands {
     const components=entity?.component_info?.context_components || {};
     if(args[1]){if(!Object.hasOwn(components,args[1]))throw Error('Unknown component; inspect the instance to list available components.');return components[args[1]];}
     return {instance:item,fields:metadata.catalog?.find(x=>x.instance.prototype===item.prototype)?.inspector,entity:entity || null,authored_components:(document.components || []).filter(c=>c.instance===id),preview_note:view==='runtime'?'Current runtime state.':entity?'Preview reflects the last save/load.':'Save to build a component preview.'};
+  }
+  static preview(value){const text=typeof value==='string'?value:JSON.stringify(value);return text!==undefined && text.length>100?text.slice(0,99)+'…':value;}
+  static describe(document,metadata,base,runtime,view,selection,action,args){
+    const id=args[0]==='.'?selection:(args[0] || selection);
+    const inspect=a=>ProjectDraftCommands.read(document,metadata,base,runtime,view,selection,'inspect',a);
+    if(action==='get' && args.length===3){
+      const component=inspect([id,args[1]]),state=component.state || {},dynamic=component.dynamic_state || {};
+      const source=Object.hasOwn(state,args[2])?state:Object.hasOwn(dynamic,args[2])?dynamic:null;
+      if(!source)throw Error('Unknown component state field; params '+id+' '+args[1]+' lists its fields.');
+      return {id,component:args[1],field:args[2],value:source[args[2]],source:view==='runtime'?'current runtime':'preview of the saved definition'};
+    }
+    const item=id==='simulation'?document:ProjectRecordOperations.locate(document,id)?.item || document.instances.find(x=>x.id===id);
+    if(!item)throw Error('Unknown selection.');
+    if(action==='get'){
+      const parts=args[1].split('.');
+      const target=parts.length===2 && parts[0]==='params'?item.params:parts.length===1?item:null;
+      const key=parts.at(-1);
+      if(!target || !Object.hasOwn(target,key))throw Error('Unknown field; params '+id+' lists the configurable fields.');
+      return {id,field:args[1],value:target[key]};
+    }
+    if(id==='simulation')return {id,fields:['premise','max_steps'].filter(k=>Object.hasOwn(item,k)).map(k=>({name:k,value:ProjectDraftCommands.preview(item[k]),set_with:'set simulation '+k+' JSON'}))};
+    if(!document.instances.includes(item)){
+      const type=(metadata.component_catalog || []).find(x=>x.key===item.type);
+      return {id:'components:'+item.id,type:item.type,owner:item.instance,description:type?.description,
+        parameters:Object.entries(item.params || {}).map(([name,value])=>({name,value:ProjectDraftCommands.preview(value),default:type?.defaults?.[name],set_with:'set components:'+item.id+' params.'+name+' JSON'}))};
+    }
+    if(args[1]){
+      const component=inspect([id,args[1]]);
+      return {id,component:args[1],class_name:component.class_name,module:component.module,
+        constructor_parameters:component.parameters || [],
+        editable_state:Object.keys(component.dynamic_state || {}),
+        state_fields:Object.keys(component.state || {}),
+        note:'The prefab passes constructor parameters when it builds this component; configure them through the prefab parameters (params '+id+'). Editable state uses state-field (initial) or edit (paused runtime).'};
+    }
+    const entry=(metadata.catalog || []).find(x=>x.instance.prototype===item.prototype);
+    const fixed=entry?.fixed_parameters || [], labels=entry?.inspector || {};
+    const index=(base?.instances || document.instances).findIndex(x=>x.id===id);
+    const entity=(view==='runtime'?runtime:metadata)?.entities?.['entity_'+index];
+    return {id,prefab:item.prefab,role:item.role,
+      parameters:Object.entries(item.params || {}).map(([name,value])=>({name,value:ProjectDraftCommands.preview(value),default:ProjectDraftCommands.preview(entry?.instance?.params?.[name]),type:value===null?'null':Array.isArray(value)?'list':typeof value,label:labels[name]?.label,set_with:'set '+id+' params.'+name+' JSON'})),
+      fixed_parameters:fixed,
+      components:Object.keys(entity?.component_info?.context_components || {}),
+      note:'get '+id+' params.NAME prints a full value; params '+id+' COMPONENT lists one component.'};
   }
   static apply(document,metadata,selection,action,args,identifier=null){
     const catalog=metadata.catalog || [], components=metadata.component_catalog || [];
@@ -1166,7 +1210,7 @@ EDITOR_SCRIPT = (
       return;
     }
     const action=plan.action,args=plan.args.map(x=>x==='.'?selectedId:x);
-    if(['catalog','list','locate'].includes(action)){const result=ProjectDraftCommands.read(draft,draftDefinition,inspectionDocument(),state().runtime,mode.value,selectedId,action,args);if(action==='locate'){runtimeMode=false;mode.value='definition';choose(result.selection);if(result.field)$(result.field)?.focus();}notice(JSON.stringify(result,null,2));return;}
+    if(['catalog','list','locate','get','params'].includes(action)){const result=ProjectDraftCommands.read(draft,draftDefinition,inspectionDocument(),state().runtime,mode.value,selectedId,action,args);if(action==='locate'){runtimeMode=false;mode.value='definition';choose(result.selection);if(result.field)$(result.field)?.focus();}notice(JSON.stringify(result,null,2));return;}
     if(action==='viewer'){if(args.length)await showViewer(args[0]);else notice(JSON.stringify({selected:currentViewer,available:[...viewerSelect.options].map(x=>x.value)}));return;}
     if(action==='viewer-load'){viewerFile.click();return;}
     if(action==='viewer-url'){await openViewerURL(args[0]);return;}
