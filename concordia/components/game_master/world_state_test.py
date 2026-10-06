@@ -179,7 +179,7 @@ class DynamicStateTest(absltest.TestCase):
 
   def test_world_state_facts_are_editable(self):
     component = world_state.WorldState(model=self._model)
-    state = component.get_state()
+    state = dict(component.get_state())
     state['state'] = {'Royal cake': 'a polite toad'}
     component.set_state(state)
     self.assertEqual(
@@ -196,7 +196,7 @@ class DynamicStateTest(absltest.TestCase):
         entity_names=['Gerald'],
         prompt='Castle Garden: a lily pond.',
     )
-    state = component.get_state()
+    state = dict(component.get_state())
     state['entity_locations'] = {'Gerald': 'Castle Garden'}
     component.set_state(state)
     self.assertEqual(
@@ -213,7 +213,7 @@ class DynamicStateTest(absltest.TestCase):
         start_time='8:00 AM',
     )
     self.assertEqual(component.get_dynamic_state(), {'time': '8:00 AM'})
-    state = component.get_state()
+    state = dict(component.get_state())
     state['time'] = '11:45 AM'
     component.set_state(state)
     self.assertEqual(component.get_dynamic_state(), {'time': '11:45 AM'})
