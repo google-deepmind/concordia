@@ -1,0 +1,34 @@
+{
+  "scenario": "job_loss",
+  "run": "gemma_4_moe_minimal",
+  "model": "Gemma 4 MoE",
+  "decision_logic": "Minimal",
+  "agent_prefab": "minimal",
+  "num_agents": 100,
+  "num_affected": 50,
+  "ticks": 100,
+  "simulated_days": 13,
+  "shock_type": "job_loss",
+  "shock_label": "Laid off (AI displacement)",
+  "shock_day": 6,
+  "total_memories": 25489,
+  "description": "Pathological foil illustrating the post-layoff 'micro-task loop / stoicism trap' (30% Degenerate): laid-off agents enter homebound 2-hour domestic loops for 5-8 days.",
+  "paper_composite_mean": 41.0,
+  "paper_composite_sd": 8.0,
+  "paper_band_distribution": {
+    "Inhabited": 0,
+    "Legible": 0,
+    "Performed": 70,
+    "Degenerate": 30
+  },
+  "total_surveys": 8634,
+  "surveys_per_agent": 86,
+  "survey_tasks": [
+    "bfi10",
+    "esm_affect",
+    "esm_monologue",
+    "ghq12",
+    "mems_nightly",
+    "swls"
+  ]
+}
