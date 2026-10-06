@@ -54,10 +54,10 @@ to inspect components, edit a simulation, and observe its behavior.
 *   **[`concordia/prefabs`](concordia/prefabs/README.md)**: Pre-assembled
     starting configurations for entities and their components.
 *   **[`concordia/components`](concordia/components/README.md)**: Modular
-    building blocks for entities, including memory systems, reasoning chains,
-    and sensory modules.
-*   **[`concordia/environment`](concordia/environment/README.md)**: The "engine"
-    of the simulation, containing the engine interfaces and turn-taking loops.
+    building blocks for entities, including memory systems, and sensory modules.
+*   **[`concordia/environment`](concordia/environment/README.md)**: Contains the
+    engine interfaces which determine turn-taking, simultaneous action, or
+    asynchronous action.
 *   **[`concordia/document`](concordia/document/README.md)**: Utilities for
     managing LLM prompts and context.
 *   **[`concordia/language_model`](concordia/language_model/README.md)**: LLM
@@ -65,11 +65,10 @@ to inspect components, edit a simulation, and observe its behavior.
 *   **[`examples/`](examples/)**: Tutorials and example simulations to help you
     get started.
 
-> [!TIP] The best way to learn is to watch the
-> [Concordia: Building Generative Agent-Based Models](https://youtu.be/2FO5g65mu2I?si=TSk7XTk4gCaadEDs)
-> tutorial on YouTube, run the
-> **[`examples/tutorial.ipynb`](examples/tutorial.ipynb)** and then try
-> modifying the **Prefabs** to see how entity behavior changes.
+## Tutorials
+
+1.  A tutorial that focuses on interaction with the GUI editor and CLI interface: [Concordia GUI and CLI Tutorial](https://concordia-tutorial.pages.dev/).
+2.  In-depth tutorial lecture on YouTube: [Concordia: Building Generative Agent-Based Models](https://youtu.be/2FO5g65mu2I?si=TSk7XTk4gCaadEDs), works with [`examples/tutorial.ipynb`](examples/tutorial.ipynb).
 
 ## Installation
 
