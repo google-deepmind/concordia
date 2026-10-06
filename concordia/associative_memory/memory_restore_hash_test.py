@@ -149,8 +149,8 @@ class MemoryRestoreHashTest(parameterized.TestCase):
         restored.get_all_memories_as_text(), ['first event', 'second event']
     )
     np.testing.assert_array_equal(
-        np.stack(restored.get_data_frame()['embedding']),
-        np.stack(bank.get_data_frame()['embedding']),
+        np.stack(restored.get_data_frame()['embedding'].tolist()),
+        np.stack(bank.get_data_frame()['embedding'].tolist()),
     )
     self.assertEqual(json.dumps(state, sort_keys=True), before)
 
