@@ -1,0 +1,247 @@
+# Concordia Island — world atlas.
+#
+# Fictional geography, authored for legibility. Place ids match
+# sim/locations.py `PUBLIC_LOCATIONS` + `BUILDINGS` for the `island` preset.
+#
+# Map units: 1000 x 620, origin top-left (north up).
+
+meta:
+  id: concordia_island
+  display_name: Concordia Island
+  tagline: A small island community
+  bounds: [0, 0, 1000, 620]
+  # Real-world distance the full map width represents. Concordia Island is
+  # fictional, but the settlement is sized as a ~6 km across coastal community.
+  km_across: 6.0
+  north_up: true
+
+# ---------------------------------------------------------------------------
+# Terrain — painted back to front.
+# ---------------------------------------------------------------------------
+terrain:
+  # Open ocean fills the whole frame; the coastline is painted on top.
+  - {class: ocean, id: sea, path: "M 0,0 L 1000,0 L 1000,620 L 0,620 Z"}
+
+  # Landmass, drawn as sand; vegetation is inset over it to leave a beach ring.
+  - class: sand
+    id: shoreline
+    path: >-
+      M 120,250 L 150,190 L 230,140 L 330,105 L 430,95 L 520,110 L 600,130
+      L 680,120 L 760,130 L 840,120 L 900,145 L 940,200 L 950,260 L 935,320
+      L 900,370 L 850,410 L 800,445 L 745,470 L 680,490 L 610,505 L 560,540
+      L 505,548 L 460,520 L 400,505 L 330,500 L 265,480 L 205,440 L 155,390 Z
+
+  - class: grass
+    id: interior
+    path: >-
+      M 165,270 L 200,215 L 275,170 L 360,140 L 440,130 L 520,145 L 600,163
+      L 680,155 L 755,163 L 830,155 L 880,180 L 910,225 L 915,275 L 900,325
+      L 865,368 L 815,402 L 765,432 L 700,455 L 640,470 L 585,495 L 520,505
+      L 470,485 L 410,470 L 345,465 L 285,445 L 230,408 L 188,360 Z
+
+  - class: forest
+    id: north_woods
+    path: >-
+      M 205,240 L 255,185 L 330,158 L 410,150 L 462,172 L 470,220 L 428,262
+      L 350,282 L 268,276 Z
+
+  - class: forest
+    id: point_woods
+    path: >-
+      M 700,185 L 780,168 L 852,186 L 886,226 L 866,268 L 800,280 L 732,256 Z
+
+  # Freshwater creek running from the north hills into the south bay.
+  - class: water
+    id: freshwater_creek
+    path: >-
+      M 418,168 L 434,168 L 472,250 L 502,322 L 517,402 L 530,472 L 542,520
+      L 526,522 L 512,472 L 498,402 L 483,322 L 452,252 Z
+
+  # Sheltered bay that the harbour and fishing dock sit on.
+  - class: water
+    id: south_bay
+    path: "M 500,508 L 545,496 L 578,504 L 570,544 L 508,552 Z"
+
+  - class: urban_core
+    id: village
+    path: "M 418,252 L 562,242 L 624,274 L 632,346 L 570,398 L 468,402 L 414,356 Z"
+
+  - class: residential
+    id: west_terraces
+    path: "M 246,328 L 342,312 L 372,366 L 330,412 L 252,402 Z"
+  - class: residential
+    id: coral_terraces
+    path: "M 232,252 L 322,242 L 348,296 L 270,318 L 228,294 Z"
+  - class: residential
+    id: palm_slopes
+    path: "M 188,192 L 268,172 L 298,216 L 240,248 L 188,234 Z"
+  - class: residential
+    id: east_waterfront
+    path: "M 716,376 L 802,356 L 838,400 L 780,442 L 712,426 Z"
+  - class: residential
+    id: point_estates
+    path: "M 786,192 L 862,182 L 888,224 L 830,256 L 782,234 Z"
+
+  - class: park
+    id: island_park_green
+    path: "M 592,212 L 684,202 L 710,250 L 656,288 L 596,272 Z"
+
+  - class: sand
+    id: west_beach
+    path: "M 240,452 L 332,468 L 394,486 L 382,514 L 298,502 L 236,478 Z"
+
+# ---------------------------------------------------------------------------
+# Roads — geometry doubles as the routing graph for agent movement.
+# ---------------------------------------------------------------------------
+roads:
+  - id: coast_road
+    name: Coast Road
+    class: arterial
+    geometry: [[210,300],[280,270],[380,250],[470,255],[560,258],[640,285],[710,325],[770,375],[800,420]]
+  - id: harbour_road
+    name: Harbour Road
+    class: arterial
+    geometry: [[500,300],[510,380],[520,450],[530,505]]
+  - id: west_lane
+    name: West Lane
+    class: residential
+    geometry: [[280,270],[265,320],[290,375],[330,400]]
+  - id: park_lane
+    name: Park Lane
+    class: residential
+    geometry: [[560,258],[620,240],[668,236]]
+  - id: east_lane
+    name: East Lane
+    class: residential
+    geometry: [[710,325],[760,395],[792,418]]
+  - id: palm_climb
+    name: Palm Climb
+    class: residential
+    geometry: [[280,270],[252,232],[240,212]]
+  # The village's own streets. Without these the clinic, the bar and the
+  # restaurant sit off the network and agents animate across open ground.
+  - id: clinic_lane
+    name: Clinic Lane
+    class: residential
+    geometry: [[330, 400], [368, 372], [412, 360], [452, 344], [500, 330]]
+
+  - id: village_loop
+    name: Village Loop
+    class: residential
+    geometry: [[510, 380], [560, 360], [608, 352], [652, 372], [672, 404]]
+
+  - id: lighthouse_trail
+    name: Lighthouse Trail
+    class: trail
+    geometry: [[792,418],[828,330],[846,262],[866,205],[890,158]]
+  - id: beach_path
+    name: Beach Path
+    class: trail
+    geometry: [[330,400],[318,442],[306,482]]
+  - id: marina_pier
+    name: Marina Pier
+    class: ferry
+    geometry: [[598,452],[624,468],[646,478]]
+
+# ---------------------------------------------------------------------------
+# Districts — the cluster tier.
+# ---------------------------------------------------------------------------
+districts:
+  - id: harbour_village
+    name: Harbour Village
+    color: "#3b82f6"
+    label_anchor: [520, 330]
+    path: "M 414,240 L 636,240 L 640,420 L 470,440 L 408,360 Z"
+  - id: north_hills
+    name: North Hills
+    color: "#8b5cf6"
+    label_anchor: [300, 200]
+    path: "M 180,180 L 470,140 L 480,262 L 230,300 Z"
+  - id: west_shore
+    name: West Shore
+    color: "#10b981"
+    label_anchor: [280, 420]
+    path: "M 220,300 L 400,300 L 410,500 L 232,470 Z"
+  - id: east_point
+    name: East Point
+    color: "#f59e0b"
+    label_anchor: [760, 400]
+    path: "M 640,330 L 850,350 L 830,460 L 650,480 Z"
+  - id: lighthouse_head
+    name: Lighthouse Head
+    color: "#ec4899"
+    label_anchor: [840, 200]
+    path: "M 690,150 L 920,150 L 910,300 L 700,290 Z"
+
+# ---------------------------------------------------------------------------
+# Places — ids match sim/locations.py.
+# `virtual: true` marks an atlas-only building shell that agents never occupy
+# directly; it exists so its child floors have something to collapse into.
+# ---------------------------------------------------------------------------
+places:
+  # --- Village core ---
+  - {id: town_square,      name: Town Square,        category: plaza,      district: harbour_village, xy: [505, 318], min_zoom: 0}
+  - {id: market,           name: Island Market,      category: retail,     district: harbour_village, xy: [556, 300]}
+  - {id: general_store,    name: General Store,      category: retail,     district: harbour_village, xy: [462, 332]}
+  - {id: cafe,             name: Sunrise Cafe,       category: cafe,       district: harbour_village, xy: [546, 266]}
+  - {id: restaurant,       name: Oceanside Restaurant, category: food,     district: east_point,      xy: [648, 392]}
+  - {id: library,          name: Island Library,     category: civic,      district: harbour_village, xy: [450, 288]}
+  - {id: school,           name: Island School,      category: education,  district: harbour_village, xy: [396, 300]}
+  - {id: church,           name: Island Church,      category: worship,    district: harbour_village, xy: [502, 222]}
+  - {id: community_center, name: Community Center,   category: civic,      district: harbour_village, xy: [578, 232]}
+  - {id: medical_clinic,   name: Medical Clinic,     category: health,     district: harbour_village, xy: [414, 354]}
+  - {id: swell_bar,        name: Swell,              category: bar,        district: harbour_village, xy: [600, 346]}
+  - {id: rooftop_lounge,   name: The Rooftop,        category: bar,        district: harbour_village, xy: [584, 322]}
+  - {id: park,             name: Island Park,        category: park,       district: lighthouse_head, xy: [650, 246]}
+
+  # --- Coast ---
+  - {id: beach,            name: The Beach,          category: waterfront, district: west_shore,      xy: [310, 486], min_zoom: 0}
+  - {id: fishing_dock,     name: Fishing Dock,       category: waterfront, district: harbour_village, xy: [544, 512]}
+  - {id: marina,           name: The Marina,         category: waterfront, district: east_point,      xy: [628, 468]}
+  - {id: lighthouse,       name: The Lighthouse,     category: landmark,   district: lighthouse_head, xy: [890, 154], min_zoom: 0}
+
+  # --- Office building and its floors ---
+  - {id: office_building,  name: Office Building,    category: workplace,  district: east_point,      xy: [700, 330], virtual: true, min_zoom: 0}
+  - {id: office_cafeteria,     name: Office Building Cafeteria, category: food,      district: east_point, xy: [690, 344], parent: office_building, min_zoom: 3}
+  - {id: office_floor_tech,    name: "Floor 2 — Tech",          category: workplace, district: east_point, xy: [700, 330], parent: office_building, floor: 2, min_zoom: 3}
+  - {id: office_floor_finance, name: "Floor 3 — Finance & Legal", category: workplace, district: east_point, xy: [710, 324], parent: office_building, floor: 3, min_zoom: 3}
+  - {id: office_floor_creative,name: "Floor 4 — Creative & Support", category: workplace, district: east_point, xy: [706, 316], parent: office_building, floor: 4, min_zoom: 3}
+
+  # --- Residential buildings ---
+  - {id: sunset_apartments,    name: Sunset Apartments,   category: home, district: west_shore,      xy: [300, 364], min_zoom: 0}
+  - {id: sunset_apartments_common_room, name: Sunset Apartments Common Room, category: home, district: west_shore, xy: [316, 380], parent: sunset_apartments, min_zoom: 3}
+  - {id: coral_village,        name: Coral Village,       category: home, district: north_hills,     xy: [286, 282]}
+  - {id: palm_heights,         name: Palm Heights,        category: home, district: north_hills,     xy: [242, 212]}
+  - {id: ocean_view_estates,   name: Ocean View Estates,  category: home, district: east_point,      xy: [776, 400]}
+  - {id: paradise_point,       name: Paradise Point Mansions, category: home, district: lighthouse_head, xy: [834, 220]}
+
+# ---------------------------------------------------------------------------
+# Interiors — the deepest zoom tier.
+# ---------------------------------------------------------------------------
+  # The nightly marketplace game master reports `marketplace` for the whole
+  # population. It is a real venue in every run even though no
+  # sim/locations.py preset declares it.
+  - id: marketplace
+    name: Night Marketplace
+    category: retail
+    district: harbour_village
+    xy: [528, 336]
+
+interiors:
+  office_building:
+    name: Office Building
+    floors:
+      - {level: 1, place: office_cafeteria,      label: Cafeteria}
+      - {level: 2, place: office_floor_tech,     label: Tech}
+      - {level: 3, place: office_floor_finance,  label: Finance & Legal}
+      - {level: 4, place: office_floor_creative, label: Creative & Support}
+
+
+# Runtime location ids this geography has no place for, mapped to the nearest
+# real one. Validated by atlas_loader; every agent placed this way is flagged
+# in the UI with an amber dotted halo.
+aliases:
+  # island_config.py:302-309 uses `sunset_cafe` as a date venue, but the island
+  # preset's own cafe id is plain `cafe`.
+  sunset_cafe: cafe
+  lighthouse_hike: lighthouse

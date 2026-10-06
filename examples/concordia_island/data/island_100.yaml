@@ -1,0 +1,304 @@
+# Island configuration for 100-agent simulation with economic inequality
+# Time: 48 ticks per day (30-minute intervals)
+
+places:
+  # === RESIDENTIAL AREAS ===
+
+  # Lower Middle Class - Apartment Complex (50 units)
+  - id: sunset_apartments
+    name: Sunset Apartments
+    type: residential_lmc
+    open: [0, 48]  # Always accessible
+    description: A modest apartment complex housing 50 residents in small but well-maintained units
+
+  # Middle Class - Small Homes (25 units)
+  - id: coral_village_1
+    name: Coral Village North
+    type: residential_mc
+    open: [0, 48]
+    description: Cozy single-family homes with small yards
+
+  - id: coral_village_2
+    name: Coral Village South
+    type: residential_mc
+    open: [0, 48]
+    description: Comfortable homes in a quiet neighborhood
+
+  # Upper Middle Class - Medium Homes (15 units)
+  - id: palm_heights_1
+    name: Palm Heights East
+    type: residential_umc
+    open: [0, 48]
+    description: Spacious homes with nice gardens and ocean views
+
+  - id: palm_heights_2
+    name: Palm Heights West
+    type: residential_umc
+    open: [0, 48]
+    description: Well-appointed homes with private yards
+
+  # Upper Class - Large Estates (7 units)
+  - id: ocean_view_1
+    name: Ocean View Estate 1
+    type: residential_uc
+    open: [0, 48]
+    description: Luxurious estate with expansive grounds
+
+  - id: ocean_view_2
+    name: Ocean View Estate 2
+    type: residential_uc
+    open: [0, 48]
+    description: Grand home with private beach access
+
+  - id: ocean_view_3
+    name: Ocean View Estate 3
+    type: residential_uc
+    open: [0, 48]
+    description: Elegant property with beautiful landscaping
+
+  - id: ocean_view_4
+    name: Ocean View Estate 4
+    type: residential_uc
+    open: [0, 48]
+    description: Stately manor with ocean panorama
+
+  # Elite - Mansions (3 units)
+  - id: paradise_point_1
+    name: Paradise Point Mansion
+    type: residential_elite
+    open: [0, 48]
+    description: Palatial estate with private dock and extensive grounds
+
+  - id: paradise_point_2
+    name: Celestial Heights Manor
+    type: residential_elite
+    open: [0, 48]
+    description: Magnificent hilltop mansion with panoramic island views
+
+  - id: paradise_point_3
+    name: Azure Crown Estate
+    type: residential_elite
+    open: [0, 48]
+    description: Opulent beachfront mansion with private amenities
+
+  # === SHARED SOCIAL SPACES ===
+
+  - id: main_beach
+    name: Coral Bay Beach
+    type: social
+    open: [12, 44]  # 6 AM - 10 PM
+    description: Beautiful sandy beach with clear blue waters, the heart of island social life
+
+  - id: church
+    name: St. Marina's Chapel
+    type: quiet
+    open: [12, 44]  # 6 AM - 10 PM
+    description: A serene whitewashed chapel overlooking the sea
+
+  - id: restaurant
+    name: The Island Table
+    type: social
+    open: [22, 48]  # 11 AM - Midnight
+    description: Fine dining establishment with fresh seafood and island cuisine
+
+  - id: cafe
+    name: Sunrise Cafe
+    type: social
+    open: [12, 36]  # 6 AM - 6 PM
+    description: Cozy coffee shop serving breakfast and lunch with outdoor seating
+
+  - id: market
+    name: Island Market Plaza
+    type: social
+    open: [16, 36]  # 8 AM - 6 PM
+    description: Bustling marketplace with fresh produce, crafts, and daily necessities
+
+  - id: town_square
+    name: Central Town Square
+    type: social
+    open: [0, 48]  # Always open
+    description: Open plaza with fountain, benches, and community bulletin board
+
+  - id: park
+    name: Palm Grove Park
+    type: social
+    open: [12, 44]  # 6 AM - 10 PM
+    description: Lush park with walking paths, picnic areas, and shade trees
+
+  - id: tavern
+    name: The Driftwood Tavern
+    type: social
+    open: [34, 48]  # 5 PM - Midnight
+    description: Casual pub popular with locals, offering drinks and light fare
+
+  # === WORK & SERVICE SPACES ===
+
+  - id: clinic
+    name: Island Medical Clinic
+    type: service
+    open: [18, 34]  # 9 AM - 5 PM
+    description: Small medical facility providing healthcare to island residents
+
+  - id: library
+    name: Island Public Library
+    type: quiet
+    open: [18, 40]  # 9 AM - 8 PM
+    description: Quiet library with books, computers, and community programs
+
+  - id: town_hall
+    name: Island Town Hall
+    type: service
+    open: [16, 34]  # 8 AM - 5 PM
+    description: Administrative building for island governance and services
+
+  - id: school
+    name: Island Community School
+    type: work
+    open: [16, 32]  # 8 AM - 4 PM
+    description: Small school serving island children and adult education
+
+  - id: harbor
+    name: Island Harbor
+    type: work
+    open: [12, 40]  # 6 AM - 8 PM
+    description: Working harbor with fishing boats and ferry service
+
+  - id: workshop
+    name: Artisan Workshop
+    type: work
+    open: [18, 34]  # 9 AM - 5 PM
+    description: Crafts workshop for woodworking, pottery, and metalwork
+
+  - id: general_store
+    name: Island General Store
+    type: social
+    open: [14, 42]  # 7 AM - 9 PM
+    description: Convenience store with groceries, supplies, and island goods
+
+  - id: marina
+    name: Island Marina
+    type: work
+    open: [12, 40]  # 6 AM - 8 PM
+    description: Marina with boat slips, rentals, and water sports equipment
+
+  - id: gym
+    name: Island Fitness Center
+    type: social
+    open: [10, 44]  # 5 AM - 10 PM
+    description: Gym with exercise equipment and group classes
+
+  - id: art_gallery
+    name: Seaside Art Gallery
+    type: quiet
+    open: [20, 38]  # 10 AM - 7 PM
+    description: Small gallery featuring local artists and island scenes
+
+  - id: cemetery
+    name: Peaceful Garden Cemetery
+    type: quiet
+    open: [12, 40]  # 6 AM - 8 PM
+    description: Tranquil resting place with well-tended gardens
+
+# Travel paths (edges) between locations
+# Format: [from_id, to_id, travel_time_in_ticks]
+edges:
+  # Town Square as central hub - connects to most major areas
+  - [town_square, market, 1]
+  - [town_square, cafe, 1]
+  - [town_square, park, 2]
+  - [town_square, church, 2]
+  - [town_square, library, 1]
+  - [town_square, town_hall, 1]
+
+  # Market connections
+  - [market, general_store, 1]
+  - [market, cafe, 1]
+  - [market, sunset_apartments, 2]
+  - [market, coral_village_1, 2]
+
+  # Beach and waterfront
+  - [main_beach, harbor, 2]
+  - [main_beach, marina, 1]
+  - [main_beach, restaurant, 1]
+  - [main_beach, town_square, 3]
+  - [main_beach, park, 2]
+
+  # Church connections
+  - [church, cemetery, 1]
+  - [church, park, 2]
+
+  # Residential - Lower/Middle Class to amenities
+  - [sunset_apartments, cafe, 1]
+  - [sunset_apartments, general_store, 1]
+  - [sunset_apartments, clinic, 2]
+  - [sunset_apartments, gym, 2]
+
+  - [coral_village_1, coral_village_2, 2]
+  - [coral_village_1, town_square, 2]
+  - [coral_village_1, school, 1]
+  - [coral_village_1, park, 1]
+
+  - [coral_village_2, market, 2]
+  - [coral_village_2, general_store, 1]
+  - [coral_village_2, gym, 2]
+
+  # Residential - Upper Middle Class
+  - [palm_heights_1, palm_heights_2, 2]
+  - [palm_heights_1, town_square, 3]
+  - [palm_heights_1, library, 2]
+  - [palm_heights_1, art_gallery, 1]
+
+  - [palm_heights_2, restaurant, 2]
+  - [palm_heights_2, park, 2]
+  - [palm_heights_2, main_beach, 3]
+
+  # Residential - Upper Class Estates
+  - [ocean_view_1, ocean_view_2, 2]
+  - [ocean_view_1, main_beach, 2]
+  - [ocean_view_1, restaurant, 1]
+
+  - [ocean_view_2, ocean_view_3, 2]
+  - [ocean_view_2, marina, 2]
+  - [ocean_view_2, art_gallery, 2]
+
+  - [ocean_view_3, ocean_view_4, 2]
+  - [ocean_view_3, town_square, 4]
+  - [ocean_view_3, church, 3]
+
+  - [ocean_view_4, palm_heights_2, 2]
+  - [ocean_view_4, restaurant, 2]
+
+  # Residential - Elite Estates (more isolated, longer travel times)
+  - [paradise_point_1, main_beach, 3]
+  - [paradise_point_1, harbor, 2]
+  - [paradise_point_1, paradise_point_2, 3]
+
+  - [paradise_point_2, town_square, 5]
+  - [paradise_point_2, restaurant, 3]
+  - [paradise_point_2, paradise_point_3, 3]
+
+  - [paradise_point_3, ocean_view_1, 3]
+  - [paradise_point_3, marina, 2]
+  - [paradise_point_3, art_gallery, 3]
+
+  # Work and Service connections
+  - [clinic, town_hall, 1]
+  - [clinic, general_store, 1]
+
+  - [school, library, 1]
+  - [school, park, 1]
+
+  - [harbor, marina, 1]
+  - [harbor, workshop, 2]
+
+  - [workshop, market, 2]
+  - [workshop, harbor, 2]
+
+  - [tavern, town_square, 2]
+  - [tavern, harbor, 2]
+
+  - [gym, general_store, 1]
+  - [gym, park, 2]
+
+  - [art_gallery, restaurant, 1]
+  - [art_gallery, library, 2]

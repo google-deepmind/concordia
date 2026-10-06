@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concordia Map</title>
+<link rel="stylesheet" href="/static/map.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= Top bar ================= -->
+  <header class="topbar">
+    <h1>Concordia Map</h1>
+
+    <label class="sr-only" for="geo-select">Geography</label>
+    <select class="ctl" id="geo-select" title="Map preset"></select>
+
+    <span class="pill" id="pill-clock">&mdash;</span>
+    <span class="pill" id="pill-mode">&mdash;</span>
+
+    <span class="spacer"></span>
+
+    <span class="pill" id="pill-agents">&mdash;</span>
+    <span class="pill" id="pill-unknown" style="display:none"></span>
+    <span class="pill" id="pill-approx" style="display:none"></span>
+    <span class="pill" id="pill-stale" style="display:none"></span>
+    <span class="pill" id="pill-status"><span class="dot pulse"></span>Connecting</span>
+    <span class="pill" id="pill-run-id">Run &mdash;</span>
+  </header>
+
+  <!-- Failures are surfaced here verbatim, never swallowed into an empty map. -->
+  <div class="errbar" id="errbar">
+    <div style="flex:1">
+      <b id="err-title">Error</b>
+      <pre id="err-body"></pre>
+    </div>
+    <button class="x" id="err-close" aria-label="Dismiss">&times;</button>
+  </div>
+
+  <!-- ================= Map stage ================= -->
+  <main class="stage" id="stage">
+    <canvas id="layer-terrain"></canvas>
+    <svg class="layer" id="layer-vector" xmlns="http://www.w3.org/2000/svg"></svg>
+    <canvas id="layer-agents"></canvas>
+    <div id="tint"></div>
+    <div id="layer-labels"></div>
+
+    <nav class="breadcrumb" id="breadcrumb" aria-label="Map location"></nav>
+
+    <!-- Left panel: presets, layers, filters -->
+    <aside class="panel left" id="panel-left" aria-label="Map controls">
+      <div class="panel-body">
+        <details class="section" open>
+          <summary>Layers</summary>
+          <div class="content" id="layer-toggles"></div>
+        </details>
+
+        <details class="section" open>
+          <summary>Time of day</summary>
+          <div class="content">
+            <label class="check">
+              <input type="checkbox" id="opt-daynight" checked>
+              Tint map by simulation clock
+            </label>
+            <div class="kv"><span class="k">Now</span><span class="v" id="tod-readout">&mdash;</span></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Filter by place type</summary>
+          <div class="content" id="cat-filter"></div>
+        </details>
+
+        <details class="section" open>
+          <summary>Legend</summary>
+          <div class="content">
+            <div class="legend-grid" id="legend"></div>
+          </div>
+        </details>
+
+        <div class="note" id="fidelity-note">
+          Agent paths between places are <b>interpolated</b>. The simulation
+          records arrivals only &mdash; it has no transit state, so the curve
+          between two places is presentation, not data. Hollow dashed markers
+          mean no location was recorded for that agent on that tick.
+        </div>
+      </div>
+    </aside>
+    <button class="panel-toggle left" id="toggle-left" aria-label="Toggle controls">&#9664;</button>
+
+    <!-- Right panel: roster + detail -->
+    <aside class="panel right" id="panel-right" aria-label="Agent roster">
+      <div class="panel-body">
+        <details class="section" open>
+          <summary>Agents <span id="roster-count"></span></summary>
+          <div class="content">
+            <label class="sr-only" for="roster-search">Search agents</label>
+            <input class="ctl" type="search" id="roster-search" placeholder="Search agents&hellip;" style="width:100%">
+          </div>
+          <div class="roster" id="roster"></div>
+        </details>
+      </div>
+      <div class="detail" id="detail">
+        <div class="empty"><span class="ico">&#128100;</span>Select an agent</div>
+      </div>
+    </aside>
+    <button class="panel-toggle right" id="toggle-right" aria-label="Toggle roster">&#9654;</button>
+
+    <!-- Map controls -->
+    <div class="map-ctl top-right">
+      <button class="mbtn" id="zoom-in"  title="Zoom in (+)">+</button>
+      <div class="zoom-readout" id="zoom-readout">100%</div>
+      <button class="mbtn" id="zoom-out" title="Zoom out (-)">&minus;</button>
+      <button class="mbtn" id="zoom-fit" title="Fit map (0)">&#8634;</button>
+    </div>
+
+    <div class="map-ctl bottom-right">
+      <div class="minimap" id="minimap"><canvas id="minimap-canvas"></canvas></div>
+    </div>
+
+    <div class="map-ctl bottom-left">
+      <div class="scalebar">
+        <span id="scale-label">&mdash;</span>
+        <div class="bar" id="scale-bar" style="width:80px"></div>
+      </div>
+    </div>
+
+    <div class="tip" id="tip"></div>
+  </main>
+
+  <!-- ================= Timeline ================= -->
+  <footer class="timeline">
+    <div class="tl-btns">
+      <button class="tl-btn" id="tl-first" title="First tick">&#9198;</button>
+      <button class="tl-btn" id="tl-prev"  title="Previous tick">&#9664;</button>
+      <button class="tl-btn play" id="tl-play" title="Play / pause">&#9654;</button>
+      <button class="tl-btn" id="tl-next"  title="Next tick">&#9654;</button>
+      <button class="tl-btn" id="tl-last"  title="Latest tick (go live)">&#9197;</button>
+    </div>
+
+    <label class="sr-only" for="tl-speed">Playback speed</label>
+    <select class="ctl" id="tl-speed" title="Playback speed">
+      <option value="1600">0.5&times;</option>
+      <option value="900" selected>1&times;</option>
+      <option value="450">2&times;</option>
+      <option value="220">4&times;</option>
+    </select>
+
+    <div class="tl-track" id="tl-track" role="slider" tabindex="0"
+         aria-label="Simulation tick" aria-valuemin="0" aria-valuenow="0" aria-valuemax="0">
+      <div id="tl-bands"></div>
+      <div id="tl-ticks"></div>
+      <div id="tl-events"></div>
+      <div class="tl-head" id="tl-head" style="left:0"></div>
+    </div>
+
+    <div class="tl-readout">
+      <span class="t1" id="tl-time">&mdash;</span>
+      <span class="t2" id="tl-tick">&mdash;</span>
+    </div>
+  </footer>
+
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
