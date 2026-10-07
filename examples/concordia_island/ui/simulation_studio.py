@@ -212,29 +212,23 @@ def classify_memory(text: str) -> dict[str, Any]:
     category, badge, color, icon = "formative", "Formative", "#7c3aed", "🧠"
   elif raw.startswith("[self]") or raw.startswith("[background]"):
     category, badge, color, icon = "identity", "Identity", "#4f46e5", "👤"
-  elif any(
-      k in raw.lower()
-      for k in [
-          "purchased",
-          "bought",
-          "marketplace",
-          "grocery",
-          "pantry",
-          "attempted to purchase",
-          "bid",
-          "order could not be fulfilled",
-      ]
-  ):
+  elif raw.startswith(("I am feeling", "Based on what I was feeling")):
+    # Emotional-state appraisals written by the ESA agent's emotion
+    # components; these are the agent's own reflections.
+    category, badge, color, icon = "journal", "Journal", "#9333ea", "📓"
+  elif "// marketplace [" in raw:
+    # Only memories emitted by the marketplace game master carry this prefix.
     category, badge, color, icon = "marketplace", "Marketplace", "#16a34a", "🛒"
-  elif any(
-      k in raw.lower()
+  elif "// bank [" in raw or any(
+      k in raw
       for k in [
-          "payroll deposit",
-          "rent payment",
-          "ubi deposit",
-          "rent warning",
+          "PAYROLL DEPOSIT:",
+          "RENT PAYMENT:",
+          "UBI DEPOSIT:",
+          "RENT WARNING:",
       ]
   ):
+    # Fiscal events are emitted by the bank with these exact tokens.
     category, badge, color, icon = "fiscal", "Fiscal", "#d97706", "💰"
   elif any(
       k in raw.lower()
