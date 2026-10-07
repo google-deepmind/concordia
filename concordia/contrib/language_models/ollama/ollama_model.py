@@ -16,13 +16,12 @@
 
 from collections.abc import Collection, Sequence
 import json
-from typing import override
+from typing import override, TypedDict
 
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
 import ollama
-
 
 _MAX_MULTIPLE_CHOICE_ATTEMPTS = 20
 _DEFAULT_TEMPERATURE = 0.5
@@ -39,14 +38,24 @@ _DEFAULT_SYSTEM_MESSAGE = (
 )
 
 
+class _ThinkingOptions(TypedDict, total=False):
+  think: bool
+
+
 class OllamaLanguageModel(language_model.LanguageModel):
-  """Language Model that uses Ollama LLM models."""
+  """Language Model that uses Ollama LLM models.
+
+  Explicit sampling seeds are forwarded to the provider. They can help compare
+  repeated prompts on one host/model, but do not guarantee reproducibility
+  across provider versions, hardware, or concurrent inference.
+  """
 
   def __init__(
       self,
       model_name: str,
       *,
       system_message: str = _DEFAULT_SYSTEM_MESSAGE,
+      think: bool | None = None,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
   ) -> None:
@@ -57,9 +66,18 @@ class OllamaLanguageModel(language_model.LanguageModel):
           https://github.com/ollama/ollama.
         system_message: System message to prefix to requests when prompting the
           model.
+        think: Optional provider thinking control for supported Ollama models.
+          None preserves the provider default and omits the request field.
+          False can reduce response latency; it can also change answer quality.
+          Reasoning traces are never returned as the sampled answer.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
     """
+    if think is not None and type(think) is not bool:
+      raise ValueError('think must be a boolean or None')
+    self._thinking_options: _ThinkingOptions = {}
+    if think is not None:
+      self._thinking_options['think'] = think
     self._model_name = model_name
     self._client = ollama.Client()
     self._system_message = system_message
@@ -81,7 +99,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del max_tokens, timeout  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
@@ -95,8 +113,10 @@ class OllamaLanguageModel(language_model.LanguageModel):
             'temperature': temperature,
             'top_p': top_p,
             'top_k': top_k,
+            **({'seed': seed} if seed is not None else {}),
         },
         keep_alive='10m',
+        **self._thinking_options,
     )
     result = response['response']
 
@@ -115,9 +135,17 @@ class OllamaLanguageModel(language_model.LanguageModel):
       *,
       seed: int | None = None,
   ) -> tuple[int, str, dict[str, float]]:
-    del seed  # Unused.
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
-    template = {'choice': '', 'single sentence explanation': ''}
+    if not responses:
+      raise ValueError('responses must not be empty')
+    choice_schema = {
+        'type': 'object',
+        'properties': {
+            'choice': {'type': 'string', 'enum': list(responses)},
+        },
+        'required': ['choice'],
+        'additionalProperties': False,
+    }
     sample = ''
     answer = ''
     for attempts in range(_MAX_MULTIPLE_CHOICE_ATTEMPTS):
@@ -130,31 +158,35 @@ class OllamaLanguageModel(language_model.LanguageModel):
           model=self._model_name,
           prompt=(
               f'{prompt_with_system_message}.\n'
-              f'Use the following json template: {json.dumps(template)}.'
+              'Return a JSON object with a choice field containing exactly one '
+              f'of these response values: {json.dumps(list(responses))}.'
           ),
-          options={'stop': (), 'temperature': temperature},
-          format='json',
+          options={
+              'stop': (),
+              'temperature': temperature,
+              **({'seed': seed} if seed is not None else {}),
+          },
+          format=choice_schema,
           keep_alive='10m',
+          **self._thinking_options,
       )
       try:
         json_data_response = json.loads(response['response'])
       except json.JSONDecodeError:
         continue
-      sample_or_none = json_data_response.get('choice', None)
-      if sample_or_none is None:
-        if isinstance(json_data_response, dict) and json_data_response:
-          sample = next(iter(json_data_response.values()))
-        elif isinstance(json_data_response, str) and json_data_response:
-          # pyrefly: ignore [missing-attribute]
-          sample = sample_or_none.strip()
-        else:
-          continue
-      else:
-        sample = sample_or_none
-        if isinstance(sample, str) and sample:
-          sample = sample.strip()
-
-      answer = sampling.extract_choice_response(sample)
+      if not isinstance(json_data_response, dict):
+        continue
+      sample = json_data_response.get('choice')
+      if not isinstance(sample, str):
+        continue
+      sample = sample.strip()
+      # Honour the LanguageModel contract for arbitrary response strings; retain
+      # the shared letter extractor for older providers' decorated responses.
+      answer = (
+          sample
+          if sample in responses
+          else sampling.extract_choice_response(sample)
+      )
       try:
         idx = responses.index(answer)
       except ValueError:
