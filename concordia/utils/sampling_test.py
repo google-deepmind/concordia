@@ -30,6 +30,12 @@ class ExtractChoiceResponseTest(parameterized.TestCase):
       ('parenthesized_in_middle', 'foo(a)bar', 'a'),
       ('parenthesized_at_end', 'The answer is (b).', 'b'),
       ('letter_then_paren_in_longer_string', 'a) because', 'a'),
+      (
+          'parenthesized_word_before_choice',
+          'I think (probably) the answer is (b)',
+          'b',
+      ),
+      ('unopened_word_before_choice', 'maybe) (a)', 'a'),
   )
   def test_extracts_choice(self, sample, expected):
     self.assertEqual(sampling.extract_choice_response(sample), expected)
@@ -38,6 +44,7 @@ class ExtractChoiceResponseTest(parameterized.TestCase):
       ('empty_string', ''),
       ('no_parenthesized_choice', 'no choice here'),
       ('word_without_closing_paren', '(abc'),
+      ('parenthesized_word_only', '(yes) a'),
   )
   def test_returns_none_when_no_choice(self, sample):
     self.assertIsNone(sampling.extract_choice_response(sample))
