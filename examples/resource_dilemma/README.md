@@ -20,12 +20,15 @@ elected leaders.
 
 ## Quick Start
 
+Run these commands from the root of a Concordia source checkout. The examples
+are not included in the installed `gdm-concordia` package.
+
 ### Using OpenAI
 
 ```bash
 pip install gdm-concordia sentence-transformers
 
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=openai \
   --model_name=gpt-5.4-mini \
   --scenario=pasture \
@@ -38,7 +41,7 @@ python -m concordia.examples.resource_dilemma.run \
 ```bash
 export GOOGLE_API_KEY=your_key_here
 
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=gemini \
   --model_name=gemini-3.1-flash-lite \
   --scenario=irrigation \
@@ -48,7 +51,7 @@ python -m concordia.examples.resource_dilemma.run \
 ### Using Ollama (local)
 
 ```bash
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=ollama \
   --model_name=llama3 \
   --scenario=fishery \
@@ -57,8 +60,10 @@ python -m concordia.examples.resource_dilemma.run \
 
 ### Testing (no LLM required)
 
+No provider or sentence-transformers is needed.
+
 ```bash
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --disable_language_model \
   --use_dummy_embedder \
   --scenario=network \
@@ -80,6 +85,15 @@ python -m concordia.examples.resource_dilemma.run \
   resource to harvest each cycle with no collective rules or enforcement.
 - **`election`** — Governed. Agents elect leaders and vote on harvest policies.
   Elections occur every `--election_every_n` cycles (default: every cycle).
+
+In both modes, harvest choices are collected privately, one participant at a
+time. Earlier choices are not revealed to participants still deciding. The Game
+Master applies the combined harvest only after every participant has chosen.
+Each choice uses one engine step; the scenario step budgets account for this.
+Missing or invalid numeric decisions fail the round instead of counting as zero.
+Offline smoke tests and `--disable_language_model` use deterministic `HARVEST 1`
+text replies and the first choice option. These mock runs exercise the workflow;
+they do not model participant behavior.
 
 ## Key Parameters
 
