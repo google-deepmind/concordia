@@ -133,6 +133,25 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     self.assertEqual(tool.call_count, 1)
     self.assertEqual(tool.last_args, {'query': 'weather'})
 
+  def test_open_question_with_nested_tool_arguments(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"filters": {"city": "Paris"}}}',
+        'Found Paris.',
+    ]
+    tool = MockTool('search', 'Search', 'Paris result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+
+    response = doc.open_question('Find information about Paris.')
+
+    self.assertEqual(response, 'Found Paris.')
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'filters': {'city': 'Paris'}})
+
   def test_tool_result_in_document(self):
     """Tool call and result should be recorded in the document."""
     model = mock.create_autospec(
@@ -235,6 +254,105 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     )
     self.assertEqual(result, ('search', {'query': 'test'}))
 
+  def test_named_tool_call_preserves_unknown_tool_and_extra_field_behavior(
+      self,
+  ):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    unknown_tool = doc._parse_tool_call(
+        '{"tool": "unknown", "args": {"query": "test"}}'
+    )
+    extra_field = doc._parse_tool_call(
+        '{"tool": "search", "args": {"query": "test"}, "extra": true}'
+    )
+
+    self.assertEqual(unknown_tool, ('unknown', {'query': 'test'}))
+    self.assertIsNone(extra_field)
+
+  def test_named_tool_call_with_extra_field_is_not_shorthand(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+
+    result = doc._parse_tool_call(
+        '{"tool": "search", "args": {"query": "test"}, "extra": true}'
+    )
+
+    self.assertIsNone(result)
+
+  def test_parse_tool_call_nested_arguments(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call(
+        '{"tool": "search", "args": '
+        '{"filters": {"city": "Paris"}, "items": [{"id": 1}]}}'
+    )
+
+    self.assertEqual(
+        result,
+        (
+            'search',
+            {'filters': {'city': 'Paris'}, 'items': [{'id': 1}]},
+        ),
+    )
+
+  def test_parse_tool_call_braces_in_string(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call(
+        '{"tool": "search", "args": {"query": "use { braces } here"}}'
+    )
+
+    self.assertEqual(result, ('search', {'query': 'use { braces } here'}))
+
+  def test_parse_single_tool_call_with_nested_arguments(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+
+    result = doc._parse_tool_call(
+        'Searching now: {"filters": {"city": "Paris"}, '
+        '"items": [{"id": 1}]} please wait.'
+    )
+
+    self.assertEqual(
+        result,
+        (
+            'search',
+            {'filters': {'city': 'Paris'}, 'items': [{'id': 1}]},
+        ),
+    )
+
+  def test_parse_single_tool_uses_first_of_multiple_json_objects(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    tool = MockTool('search', 'Search', 'result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+
+    result = doc._parse_tool_call('prefix {"noise":1} then {"x":2}')
+
+    self.assertEqual(result, ('search', {'noise': 1}))
+
   def test_parse_tool_call_with_surrounding_text(self):
     """Tool call JSON can be embedded in other text."""
     model = mock.create_autospec(
@@ -256,6 +374,18 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     doc = interactive_document_tools.InteractiveDocumentWithTools(model)
 
     result = doc._parse_tool_call('Just a regular answer without tools.')
+    self.assertIsNone(result)
+
+  def test_parse_tool_call_malformed_json(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    doc = interactive_document_tools.InteractiveDocumentWithTools(model)
+
+    result = doc._parse_tool_call(
+        '{"tool": "search", "args": {"query": "unfinished"}'
+    )
+
     self.assertIsNone(result)
 
   def test_copy_preserves_tools(self):
@@ -301,6 +431,28 @@ class InteractiveDocumentWithToolsTest(parameterized.TestCase):
     self.assertEqual(tool.call_count, 1)
     self.assertEqual(tool.last_args, {'query': 'capital of France'})
     self.assertEqual(result, 0)
+
+  def test_multiple_choice_with_nested_tool_arguments(self):
+    model = mock.create_autospec(
+        language_model.LanguageModel, instance=True, spec_set=True
+    )
+    model.sample_text.side_effect = [
+        '{"tool": "search", "args": {"filters": {"city": "Paris"}}}',
+        '(a)',
+    ]
+    tool = MockTool('search', 'Search', 'Paris result')
+    doc = interactive_document_tools.InteractiveDocumentWithTools(
+        model, tools=[tool]
+    )
+
+    result = doc.multiple_choice_question(
+        'Which city was searched?', ['Paris', 'London'],
+        randomize_choices=False,
+    )
+
+    self.assertEqual(result, 0)
+    self.assertEqual(tool.call_count, 1)
+    self.assertEqual(tool.last_args, {'filters': {'city': 'Paris'}})
 
   def test_multiple_choice_direct_answer(self):
     """LLM answers multiple choice directly without using tools."""

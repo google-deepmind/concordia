@@ -39,21 +39,6 @@ DEFAULT_MAX_TOOL_RESULT_LENGTH = 1000
 TOOL_CALL_TAG = 'tool_call'
 TOOL_RESULT_TAG = 'tool_result'
 
-# Regex pattern to find JSON tool calls in LLM output
-# Matches {"tool": "name", "args": {...}}
-_TOOL_CALL_PATTERN = re.compile(
-    r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"args"\s*:\s*(\{[^}]*\})\s*\}',
-    re.DOTALL,
-)
-
-# Pattern for single-tool shorthand: any top-level JSON object.
-# Used when there is exactly one registered tool.
-_SINGLE_TOOL_JSON_PATTERN = re.compile(
-    r'(\{[^}]+\})',
-    re.DOTALL,
-)
-
-
 class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
   """An interactive document that supports tool use by the LLM.
 
@@ -161,29 +146,49 @@ class InteractiveDocumentWithTools(interactive_document.InteractiveDocument):
     Returns:
       A tuple of (tool_name, args_dict) if a tool call is found, else None.
     """
-    # Try the explicit multi-tool format first.
-    match = _TOOL_CALL_PATTERN.search(text)
-    if match:
-      tool_name = match.group(1)
-      args_str = match.group(2)
+    decoder = json.JSONDecoder()
+    json_objects = []
+    for start, char in enumerate(text):
+      if char != '{':
+        continue
       try:
-        args = json.loads(args_str)
-        if isinstance(args, dict):
-          return (tool_name, args)
+        value, end = decoder.raw_decode(text[start:])
       except json.JSONDecodeError:
-        return None
+        continue
+      json_objects.append((start, start + end, value))
+
+      # Try the explicit multi-tool format first. Keep the protocol narrow:
+      # the original format requires these two top-level fields and no others.
+      if (
+          isinstance(value, dict)
+          and set(value) == {'tool', 'args'}
+          and isinstance(value['tool'], str)
+          and value['tool']
+          and isinstance(value['args'], dict)
+      ):
+        return (value['tool'], value['args'])
 
     # Single-tool shorthand: any JSON object routes to the sole tool.
     if len(self._tools) == 1:
       sole_tool_name = next(iter(self._tools))
-      json_match = _SINGLE_TOOL_JSON_PATTERN.search(text)
-      if json_match:
-        try:
-          args = json.loads(json_match.group(1))
-          if isinstance(args, dict):
-            return (sole_tool_name, args)
-        except json.JSONDecodeError:
-          pass
+      # Preserve the original shorthand behavior: the first outermost JSON
+      # object is routed to the sole tool. Objects nested within that payload
+      # are its arguments, not separate calls.
+      outermost_objects = [
+          obj for obj in json_objects
+          if not any(
+              other_start < obj[0] and obj[1] <= other_end
+              for other_start, other_end, _ in json_objects
+          )
+      ]
+      if outermost_objects:
+        value = outermost_objects[0][2]
+        if (
+            isinstance(value, dict)
+            and value
+            and not {'tool', 'args'}.issubset(value)
+        ):
+          return (sole_tool_name, value)
 
     return None
 
