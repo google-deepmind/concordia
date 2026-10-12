@@ -25,6 +25,7 @@ from concordia.components.agent import instructions
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from concordia.components.agent import plan
+from concordia.components.agent import pubsub
 from concordia.components.agent import puppet_act
 from concordia.components.agent import question_of_recent_memories
 from concordia.components.agent import report_function
@@ -154,6 +155,48 @@ COMPONENT_FACTORIES = {
         "state_example": {},
         "skip_keys": DEFAULT_SKIP_KEYS,
     },
+    "publisher": {
+        "component_class": pubsub.Publisher,
+        "kwargs": {
+            "function": lambda: "published value",
+            "pre_act_label": "Test Publisher",
+            "skip_if_busy": True,
+        },
+        "state_example": {
+            "latest_value": "cached value",
+            "skip_if_busy": False,
+        },
+        "skip_keys": (
+            DEFAULT_SKIP_KEYS
+            | {
+                "_condition_lock",
+                "_publish_lock",
+                "_subject",
+                "_scheduler",
+                "_trigger_subject",
+                "_trigger_subscription",
+            }
+        ),
+    },
+    "subscriber": {
+        "component_class": pubsub.Subscriber,
+        "kwargs": {
+            "publisher_component_key": "__publisher__",
+            "initial_value": "initial",
+            "pre_act_label": "Test Subscriber",
+        },
+        "state_example": {
+            "current_value": "updated",
+        },
+        "skip_keys": (
+            DEFAULT_SKIP_KEYS
+            | {
+                "_value_lock",
+                "_subject",
+                "_subscription",
+            }
+        ),
+    },
 }
 
 
@@ -201,6 +244,14 @@ class AgentComponentTest(parameterized.TestCase):
       dict(
           testcase_name="scripted_act",
           component_name="scripted_act",
+      ),
+      dict(
+          testcase_name="publisher",
+          component_name="publisher",
+      ),
+      dict(
+          testcase_name="subscriber",
+          component_name="subscriber",
       ),
   )
   def test_get_and_set_state(self, component_name: str):
