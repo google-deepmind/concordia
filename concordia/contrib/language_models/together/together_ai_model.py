@@ -34,6 +34,7 @@ OpenAI open weights family:
 
 from collections.abc import Collection, Sequence
 import os
+import json
 import random
 import time
 from typing import override, Protocol
@@ -135,6 +136,44 @@ def _ensure_prompt_not_too_long(
       'Prompt too long, truncated it to last %d characters.', max_prompt_chars
   )
   return new_prompt
+
+
+def _choice_index(answer: str, responses: Sequence[str]) -> int | None:
+  """Match one complete response, allowing only lossless presentation wrappers."""
+  # Preserve literal response values before considering presentation formatting.
+  if answer in responses:
+    return responses.index(answer)
+  candidate = answer.strip()
+  if candidate in responses:
+    return responses.index(candidate)
+  lines = candidate.splitlines()
+  if (
+      len(lines) >= 3
+      and lines[0] in ('```', '```text', '```json')
+      and lines[-1] == '```'
+  ):
+    candidate = '\n'.join(lines[1:-1]).strip()
+  if candidate in responses:
+    return responses.index(candidate)
+  try:
+    decoded = json.loads(
+        candidate,
+        object_pairs_hook=lambda pairs: (
+            dict(pairs) if len(pairs) == len(dict(pairs)) else None
+        ),
+    )
+  except json.JSONDecodeError:
+    # Single quotes are a presentation wrapper, not a Python expression.
+    decoded = (
+        candidate[1:-1]
+        if (len(candidate) >= 2 and candidate[0] == candidate[-1] == "'")
+        else None
+    )
+  if isinstance(decoded, dict) and set(decoded) == {'choice'}:
+    decoded = decoded['choice']
+  if isinstance(decoded, str) and decoded in responses:
+    return responses.index(decoded)
+  return None
 
 
 def _visible_text(content: object) -> str:
@@ -396,17 +435,8 @@ class Gemma4Chat(language_model.LanguageModel):
           seed=seed,
       )
 
-      try:
-        idx = responses.index(answer.strip())
-      except ValueError:
-        # Check if the answer contains one of the responses
-        for i, resp in enumerate(responses):
-          if resp in answer:
-            if self._measurements is not None:
-              self._measurements.publish_datum(
-                  self._channel, {'choices_calls': attempts}
-              )
-            return i, responses[i], {}
+      idx = _choice_index(answer, responses)
+      if idx is None:
         continue
       else:
         if self._measurements is not None:
@@ -581,17 +611,8 @@ class DeepSeekModel(language_model.LanguageModel):
           seed=seed,
       )
 
-      try:
-        idx = responses.index(answer.strip())
-      except ValueError:
-        # Check if the answer contains one of the responses
-        for i, resp in enumerate(responses):
-          if resp in answer:
-            if self._measurements is not None:
-              self._measurements.publish_datum(
-                  self._channel, {'choices_calls': attempts}
-              )
-            return i, responses[i], {}
+      idx = _choice_index(answer, responses)
+      if idx is None:
         continue
       else:
         if self._measurements is not None:
@@ -751,9 +772,8 @@ class OpenWeightsOpenAI(language_model.LanguageModel):
           seed=seed,
       )
 
-      try:
-        idx = responses.index(answer)
-      except ValueError:
+      idx = _choice_index(answer, responses)
+      if idx is None:
         continue
       else:
         if self._measurements is not None:

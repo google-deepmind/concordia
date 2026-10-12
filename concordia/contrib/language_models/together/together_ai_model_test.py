@@ -318,3 +318,73 @@ def test_gemma_stop_cannot_reduce_reply_to_fabricated_empty_action():
         'google/gemma-4-31B-it', api_key='fixture', client=client
     ).sample_text('Prompt', terminators=['\n'])
   client.chat.completions.create.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    'name', [_FLASH, 'google/gemma-4-31B-it', 'openai/gpt-oss-120b']
+)
+@pytest.mark.parametrize(
+    'answer',
+    [
+        'go cafe',
+        '  go cafe\n',
+        '"go cafe"',
+        "'go cafe'",
+        '```text\ngo cafe\n```',
+        '```json\n{"choice": "go cafe"}\n```',
+        '{"choice": "go cafe"}',
+    ],
+)
+def test_choice_accepts_only_complete_wrapped_value(name, answer):
+  client = client_with(answer)
+  model = together_ai_model.Base(name, api_key='fixture', client=client)
+  assert model.sample_choice('Where?', ['go', 'go cafe', 'go records'])[:2] == (
+      1,
+      'go cafe',
+  )
+  assert client.chat.completions.create.call_count == 1
+
+
+@pytest.mark.parametrize(
+    'name', [_FLASH, 'google/gemma-4-31B-it', 'openai/gpt-oss-120b']
+)
+@pytest.mark.parametrize(
+    'answer',
+    [
+        'Do not go cafe; go records',
+        'go cafe or go records',
+        'I would go cafe',
+        '{"choice": "go cafe", "alternative": "go records"}',
+        '["go cafe", "go records"]',
+        '```text\ngo cafe\ngo records\n```',
+        'go cafeteria',
+        '{"choice": "go cafe", "choice": "go records"}',
+    ],
+)
+def test_choice_rejects_prose_ambiguity_and_substrings(name, answer, caplog):
+  client = client_with(answer)
+  model = together_ai_model.Base(name, api_key='fixture', client=client)
+  with pytest.raises(
+      language_model.InvalidResponseError, match='no valid choice'
+  ):
+    model.sample_choice('PRIVATE PROMPT', ['go', 'go cafe', 'go records'])
+  assert client.chat.completions.create.call_count == 3
+  assert answer not in caplog.text
+  assert 'PRIVATE PROMPT' not in caplog.text
+
+
+def test_choice_retries_ambiguous_reply_then_preserves_literal_response():
+  client = client_with('unused')
+  model = together_ai_model.Base(_FLASH, api_key='fixture', client=client)
+  with mock.patch.object(
+      model._model,
+      'sample_text',
+      side_effect=[
+          'Alice or Bob',
+          '"Bob"',
+      ],
+  ):
+    assert model.sample_choice('Who?', ['Alice', 'Bob', '"Bob"'])[:2] == (
+        2,
+        '"Bob"',
+    )

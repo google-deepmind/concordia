@@ -38,3 +38,13 @@ Existing successful model-specific request options remain in place, including
 the exact Flash reasoning toggle above. Error messages identify the provider and
 numeric status with safe guidance. They do not assert that an environment variable
 is misnamed merely because a credential was rejected.
+
+### Choice response matching
+
+`sample_choice` returns an original supplied response value. It accepts a complete
+value, surrounding whitespace, a quoted string, a fenced plain/JSON value, or a
+single-field JSON object such as `{"choice": "Alice"}`. Exact literal values take
+precedence over wrapper decoding. Duplicate JSON keys, extra fields, explanatory
+prose, multiple alternatives and substring matches are rejected and retried within
+the existing bound. Exhaustion raises `InvalidResponseError` without including
+raw replies or prompts. This is a format contract, not a semantic accuracy claim.
