@@ -14,5 +14,7 @@
 
 """Library of components contributed by users."""
 
+from concordia.contrib.components.game_master import controlled_profile_presentation
 from concordia.contrib.components.game_master import day_in_the_life_initializer
 from concordia.contrib.components.game_master import death
+
