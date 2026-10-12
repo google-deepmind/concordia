@@ -163,6 +163,14 @@ The agents used in the following example implement exactly these questions:
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.sandbox.google.com/github/google-deepmind/concordia/blob/main/examples/tutorial.ipynb)
 
+## Community experiments
+
+[The Rain Ledger](https://github.com/concordia-claw/concordia/tree/concordia-noir-20261007/concordia/examples/rain_ledger)
+is an external, experimental human-playable noir sandbox using Concordia's
+standard Asynchronous engine. Its README documents unmerged human-input/editor
+dependencies, setup, persistent scenario mechanics and evaluation limitations;
+it is not included in this repository's installation.
+
 ## Citing Concordia
 
 If you use Concordia in your work, please cite the accompanying article:
