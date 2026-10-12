@@ -644,7 +644,7 @@ def run_experiment(config: ExperimentConfig) -> dict[str, Any]:
     embedder_model = SentenceTransformer("all-MiniLM-L6-v2")
 
     def embedder(text: str) -> np.ndarray:
-      return embedder_model.encode(text)
+      return embedder_model.encode(text, convert_to_numpy=True)
   else:
     embedder = DummyEmbedder(config.embedding_dimension)
 
