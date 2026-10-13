@@ -15,6 +15,7 @@
 """Agent components for planning."""
 
 from collections.abc import Sequence
+from typing import cast
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
@@ -170,6 +171,7 @@ class Plan(
       if 'components' in state:
         self._components = tuple(state['components'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
       if 'goal_component_key' in state:
-        self._goal_component_key = str(state['goal_component_key'])
+        self._goal_component_key = cast(str | None, state['goal_component_key'])
       if 'force_time_horizon' in state:
-        self._force_time_horizon = str(state['force_time_horizon'])
+        self._force_time_horizon = cast(str | bool, state['force_time_horizon'])
+
