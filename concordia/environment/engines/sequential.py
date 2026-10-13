@@ -293,10 +293,10 @@ class Sequential(engine_lib.Engine):
         if verbose:
           print(termcolor.colored(
               '\nSkipping the action phase for the current time step.\n'))
+        steps += 1
         if checkpoint_callback is not None:
           logging.debug('Calling checkpoint callback at step %s', steps)
           checkpoint_callback(steps)
-        steps += 1
         # Notify UI of step even when skipping action phase
         if step_callback is not None:
           step_data = step_controller_lib.StepData(
