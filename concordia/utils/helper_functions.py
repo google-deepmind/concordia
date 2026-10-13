@@ -274,19 +274,7 @@ def print_pretty_prefabs(data_dict):
   return '\n'.join(output_lines)
 
 
-def remove_duplicate_dicts(
-    list_of_dicts: Sequence[dict[str, Any]],
-) -> Sequence[dict[str, Any]]:
-  """Removes duplicate dictionaries from a list of dictionaries."""
-  seen = set()
-  unique_dicts = []
-  for d in list_of_dicts:
-    # Convert the dictionary to a frozenset of its items, which is hashable
-    frozen_items = frozenset(d.items())
-    if frozen_items not in seen:
-      unique_dicts.append(d)
-      seen.add(frozen_items)
-  return unique_dicts
+
 
 
 def _make_hashable(value: Any) -> Any:
@@ -307,9 +295,7 @@ def _make_hashable(value: Any) -> Any:
 def remove_duplicate_values(values: Sequence[Any]) -> Sequence[Any]:
   """Removes duplicate values from a list, preserving first-seen order.
 
-  Unlike `remove_duplicate_dicts`, this works for any mix of dicts, lists and
-  scalar values.
-
+    This works for any mix of dicts, lists and scalar values.
   Args:
     values: the values to deduplicate.
 
