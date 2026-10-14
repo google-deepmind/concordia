@@ -29,6 +29,7 @@ from concordia.language_model import no_language_model
 from concordia.prefabs.entity import minimal as minimal_entity
 from concordia.prefabs.game_master import generic as generic_gm
 from concordia.prefabs.simulation import generic as simulation_lib
+from concordia.prefabs.simulation import questionnaire_simulation
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import async_measurements as async_measurements_lib
 from concordia.utils import measurements as measurements_lib
@@ -320,6 +321,20 @@ class CheckpointOwnershipTest(parameterized.TestCase):
     self.assertCountEqual(
         [entity.name for entity in restored.entities], ['Alice', 'Bob']
     )
+
+  def test_questionnaire_simulation_isolates_checkpoint(self):
+    source = self.make_simulation()
+    checkpoint = source.make_checkpoint_data()
+    before = copy.deepcopy(checkpoint)
+    q_sim = questionnaire_simulation.QuestionnaireSimulation(
+        config=_make_config(),
+        model=no_language_model.NoLanguageModel(),
+        embedder=lambda _: np.ones(3),
+    )
+    q_sim.load_from_checkpoint(checkpoint)
+    checkpoint['entities']['Alice']['components'] = {}
+    self.assertEqual(before['entities']['Alice']['prefab_type'], 'minimal_entity')
+    self.assertEqual(q_sim.get_entity_prefab_config('Alice').prefab, 'minimal_entity')
 
 
 if __name__ == '__main__':
