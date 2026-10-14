@@ -500,7 +500,7 @@ class Publisher(
     comp_keys = getattr(self._component, '_components', None)
     if isinstance(comp_keys, (list, tuple, set, frozenset)):
       has_explicit_deps = True
-      keys.update(str(k) for k in comp_keys)
+      keys.update(map(str, comp_keys))
     dep_key = getattr(self._component, '_dependency_key', None)
     if isinstance(dep_key, str):
       has_explicit_deps = True
