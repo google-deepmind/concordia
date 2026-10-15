@@ -138,6 +138,30 @@ commander did not list; a word that settles one turn misleads the next.
    building the project." froze the whole crew in rest for 8 turns, a
    reading the lookup table cannot make. Lost at 14 of 20.
 
+### The choice (cycle 6, provisional until the owner's games)
+
+The Sandbox Prompt Test asks whether poking a rule is fascinating in plain
+text. Three kinds of evidence:
+
+| Evidence | claims | relay | orders |
+|---|---|---|---|
+| Bots, MOCK, 16 seeds (skilled / random / passive, %) | 100 / 0 / 0 | 100 / 12 / 0 | 100 / 31 / 0 |
+| Moves with a measured effect per turn (median) | 6 | 3 | 8 |
+| Distinct outcomes from 6 phrasings of one intent, MOCK | 2 | 2 | 3 |
+| ... under qwen3:8b | 1 | 2 | 2 |
+| What the live model did | the thesis fell whatever was said (opening balance; pairwise readings hard to predict) | every 3-of-10 read "colder" except one jab ("insulted"): the number drowns the words | the literal member built under "unless the hull is breached" and "leaks are Bea's job", repaired under phrasings that cover damage |
+| Owner's games | none yet | none yet | none yet |
+
+**Kept: orders.** Under a real model its wording moves outcomes in ways a
+player can read and predict (who does what, and why), every turn gives a
+measurable result, and the rule invites exactly the pokes the test looks for:
+"what if I never mention leaks?", "what does the literal one do with
+'unless'?". Claims is the most novel mechanic but its pairwise judgements are
+opaque under real models and its opening is unbalanced; relay's lever is
+drowned by the numbers. Both stay playable on the phone page until the
+owner's games confirm or overturn the choice; they will be retired, not
+deleted, in the Phase 5 rule audit.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -181,3 +205,4 @@ Sources:
 | 4 | Orders: crew decisions are the toy's model judgements (not entities), so an order's effect can be previewed and planned. |
 | 4 | Moves wrapped in a label and quotes are unwrapped for every toy. |
 | 5 | The phone page is plain text until Phase 5: the whole prompt, a measured preview of a draft, the receipts. The person picks mock or a local model per game. |
+| 6 | Orders kept (provisional): best legibility of word-driven outcomes under a real model. |
