@@ -271,6 +271,67 @@ class OrdersToy(base.Toy):
     }
     return base.Receipt(actor, new_order or HOLD, ' '.join(steps), steps, delta)
 
+  def view(self) -> dict[str, Any]:
+    """The commander's view as data, for a page to draw.
+
+    Everything the commander's prompt states is here, and nothing more:
+    the turns ahead appear only as far as the watch has seen them.
+
+    Returns:
+      A JSON-safe dictionary.
+    """
+    ship = self.world
+    turn = ship.turn + 1
+    sees = int(self._data['watch']['sees'])
+    last = ship.log[-1] if ship.log else None
+    return {
+        'title': (
+            self._data.get('scenarios', {})
+            .get(self.scenario, {})
+            .get('title', self.scenario)
+        ),
+        'scene': self.scenario,
+        'beat': self._data.get('beat', ''),
+        'free': self.free,
+        'turn': turn,
+        'turns': int(self._data['turns']),
+        'now': self.event(ship, turn),
+        'leak_open': ship.leak,
+        'situation': self.situation(ship, turn),
+        'ahead': [
+            {'turn': t, 'event': ship.seen.get(str(t))}
+            for t in range(turn + 1, turn + 1 + sees)
+            if t <= int(self._data['turns'])
+        ],
+        'supplies': ship.supplies,
+        'damage': ship.damage,
+        'wreck_at': int(self._data['wreck_at']),
+        'progress': ship.progress,
+        'foresight': ship.foresight,
+        'goal': self.goal(),
+        'target': int(self._data['target']),
+        'points': ship.points,
+        'points_cap': int(self._data['command']['cap']),
+        'per_words': int(self._data['command']['per_words']),
+        'max_words': int(self._data['max_words']),
+        'order': ship.order,
+        'crew': [
+            {
+                'name': member,
+                'temperament': self._data['crew'][member]['temperament'],
+                # The look's key ('worn' or 'fresh'), not the prompt's phrase.
+                'condition': (
+                    'worn' if self.crew_rule.worn(ship, member) else 'fresh'
+                ),
+                'last': (last or {}).get('actions', {}).get(member),
+            }
+            for member in self.crew
+        ],
+        'menu': list(self.menu),
+        'last_turn': last,
+        'stars': self.stars(ship),
+    }
+
   # ---- end of game, and forecasts ---------------------------------------
 
   def wrecked(self, ship: Ship) -> bool:

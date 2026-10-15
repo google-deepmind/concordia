@@ -268,6 +268,30 @@ commander who plans only on what it has seen never values a watch; the
 skilled bot now plans against every schedule the premise allows (the
 scene's events, shifted 0-2 turns), as a player who read the premise would.
 
+## 2f. Phase 5: Twelve Words (cycle 13)
+
+The orders game is titled **Twelve Words**, after the order limit at its
+heart. The fiction stays as thin as the systems allow: a commander, a ship,
+three crew members who read one standing order three ways.
+
+**Semantics follow systems.** `data/orders_look.yaml` gives every event,
+temperament, condition, action and stock one glyph, one word and one colour
+token, and maps every matrix property to its look; `look_test` fails if a
+kind lacks a look or two kinds share a glyph or a word. The page draws only
+from these.
+
+**Every fact has a visual home.** `OrdersToy.view()` is the commander's view
+as data: the turn and its situation, the turns ahead as far as the watch has
+seen (unseen ones drawn as "?"), stores, hull and goal bars, command points,
+the standing order, and each crew member's temperament, condition and last
+action. `look_test.ViewTest` checks that every fact the commander's prompt
+states is in the view and that the view shows nothing the watch has not
+seen. A preview draws each member's predicted action on their card. The
+whole prompt stays one tap away: text is the record, the board is the
+reading.
+
+Screenshots at the Pixel's viewport, light and dark: `PROG/evidence/shots/c13/`.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -317,3 +341,4 @@ Sources:
 | 10 | First arc: One hand, Two hands, Supply run (goal: stores), The voyage; stars; a scene ends when its goal is met (stores at the end); the mock chooses only actions the scene offers. Cells added: stores->command, command->command. |
 | 11 | Campaign: chapters open with a star in the one before; best stars kept per scene on the server; a daily challenge (the voyage, seeded by the date). The page shows chapters, locks and stars. |
 | 12 | Arc 2 (Lookout, Squalls, Night watch, The crossing): squalls; hazards as data; scenes name their own habit; the skilled bot plans over the premise's schedules. Cells added: hazards->hull, watch->hull, fatigue->watch, watch->project; reading cell watch x worn. |
+| 13 | Title: Twelve Words. One look per kind (`orders_look.yaml`); the board draws `view()`; previews mark each member's next action. |

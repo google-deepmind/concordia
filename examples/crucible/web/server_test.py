@@ -60,7 +60,7 @@ class ServerTest(absltest.TestCase):
 
   def test_page_is_served_under_the_base_path(self):
     with urllib.request.urlopen(self.base + '/', timeout=10) as response:
-      self.assertIn(b'Crucible', response.read())
+      self.assertIn(b'Twelve Words', response.read())
 
   def test_play_a_relay_game_with_preview_and_telemetry(self):
     self.assertTrue(self.call('/api/start', {'toy': 'relay'})['ok'])

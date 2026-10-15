@@ -191,6 +191,7 @@ class Games:
   def state(self) -> dict[str, Any]:
     """What the page shows."""
     out: dict[str, Any] = {
+        'look': toys.load_data('orders_look'),
         'toys': [
             {
                 'toy': name,
@@ -234,6 +235,11 @@ class Games:
         'error': session.error,
         'outcome': session.game.outcome() if session.finished else None,
         'receipts': [str(r) for r in results],
+        'view': (
+            session.game.toy.view()  # pyrefly: ignore[missing-attribute]
+            if hasattr(session.game.toy, 'view')
+            else None
+        ),
         'request': (
             None
             if request is None
@@ -253,8 +259,12 @@ class Games:
     if session is None or session.reader.pending() is None:
       return {'ok': False, 'summary': 'Nothing to preview now.'}
     toy = session.game.toy
-    receipt = toy.preview(session.game.kind.seat, text)
+    receipt, world = toy.simulate(session.game.kind.seat, text)
     session.previews.append(text)
+    predicted = None
+    log = getattr(world, 'log', None)
+    if log and isinstance(log[-1], dict) and 'actions' in log[-1]:
+      predicted = log[-1]
     forecast = ''
     if session.mode == 'mock' and hasattr(toy, 'forecast'):
       forecast = toy.forecast(text)  # pyrefly: ignore[missing-attribute]
@@ -263,6 +273,7 @@ class Games:
         'summary': receipt.summary,
         'steps': receipt.steps,
         'forecast': forecast,
+        'predicted': predicted,
     }
 
   def answer(self, request_id: str, text: str) -> dict[str, Any]:

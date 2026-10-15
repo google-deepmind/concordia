@@ -1,6 +1,9 @@
-# Crucible
+# Crucible (Twelve Words)
 
-Grey-box toys for an original game on Concordia, built mechanic first (see
+**Twelve Words** is the game these toys became: one standing order of at
+most twelve words, read three ways by a bold, a cautious and a literal crew
+member, turn after turn. It is the `orders` toy. Below, the toys it grew out
+of: grey-box toys for an original game on Concordia, built mechanic first (see
 [DESIGN.md](DESIGN.md) and [ROADMAP.md](ROADMAP.md)). Each toy is one
 candidate generative rule in which a language model judges what words mean
 and deterministic code applies the consequences.
@@ -88,7 +91,9 @@ examples/crucible/
 ├── mock_language_model.py
 ├── data/claims.yaml     # every number and word of the claims toy
 ├── data/relay.yaml      # ... and of the relay toy
-├── data/orders.yaml     # ... and of the orders toy
+├── data/orders.yaml     # ... and of the orders toy (Twelve Words): scenes, campaign, laws
+├── data/orders_look.yaml   # one glyph, word and colour per kind
+├── data/orders_matrix.yaml # the interaction matrices and golden cases
 └── toys/
     ├── base.py          # the Toy interface (a contrib Rulebook)
     ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests

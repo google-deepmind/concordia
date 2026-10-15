@@ -1,0 +1,88 @@
+# Twelve Words: the look. Semantics follow systems (GUIDE.md, Phase 5): every
+# event, temperament, condition and action in the ledger has exactly one
+# glyph, one word and one colour token here, and nothing else on the page
+# invents its own. `look_test.py` checks that every matrix property and every
+# ledger kind has a look, and that no two share a glyph or a word.
+
+title: Twelve Words
+tagline: One standing order. Three crew members read it three ways.
+
+# Colour tokens, light and dark. The page defines them once as CSS variables.
+palette:
+  light:
+    paper: '#f5f2ea'
+    ink: '#1f1d1a'
+    muted: '#6e6a62'
+    line: '#d9d3c7'
+    calm: '#5b8c6a'
+    leak: '#2f6db5'
+    storm: '#6d5bb8'
+    squall: '#c2412d'
+    unseen: '#9a958b'
+    worn: '#b9861a'
+    bold: '#c8571b'
+    cautious: '#1f8a7a'
+    literal: '#4e5662'
+    hull: '#c2412d'
+    project: '#5b8c6a'
+    supplies: '#8a6b3d'
+    command: '#2f6db5'
+  dark:
+    paper: '#191815'
+    ink: '#ece8de'
+    muted: '#a39e93'
+    line: '#3a3731'
+    calm: '#7fb38e'
+    leak: '#6aa2e6'
+    storm: '#a294e6'
+    squall: '#ee7a63'
+    unseen: '#6f6b63'
+    worn: '#e0b04a'
+    bold: '#ef8a4a'
+    cautious: '#4fc2b1'
+    literal: '#a7afba'
+    hull: '#ee7a63'
+    project: '#7fb38e'
+    supplies: '#c9a571'
+    command: '#6aa2e6'
+
+events:
+  quiet: {glyph: '○', word: calm, color: calm}
+  leak: {glyph: '◒', word: leak, color: leak}
+  storm: {glyph: '≋', word: storm, color: storm}
+  squall: {glyph: '✶', word: squall, color: squall}
+  unseen: {glyph: '?', word: unseen, color: unseen}
+
+temperaments:
+  bold: {glyph: '▲', word: bold, color: bold}
+  cautious: {glyph: '●', word: cautious, color: cautious}
+  literal: {glyph: '■', word: literal, color: literal}
+
+conditions:
+  fresh: {glyph: '·', word: fresh, color: muted}
+  worn: {glyph: '◐', word: worn, color: worn}
+
+actions:
+  repair: {glyph: '✚', word: repair, color: hull}
+  gather: {glyph: '⇣', word: gather, color: supplies}
+  build: {glyph: '▤', word: build, color: project}
+  rest: {glyph: '☾', word: rest, color: muted}
+  watch: {glyph: '◉', word: watch, color: command}
+
+stocks:
+  supplies: {glyph: '▣', word: supplies, color: supplies}
+  damage: {glyph: '✕', word: damage, color: hull}
+  progress: {glyph: '▥', word: project, color: project}
+  points: {glyph: '♦', word: command, color: command}
+
+# The matrix's properties (data/orders_matrix.yaml `reading.properties`) and
+# where each one's look lives.
+properties:
+  quiet: events.quiet
+  leak: events.leak
+  storm: events.storm
+  worn: conditions.worn
+  no_supplies: stocks.supplies
+  bold: temperaments.bold
+  cautious: temperaments.cautious
+  literal: temperaments.literal
