@@ -157,6 +157,21 @@ class TopicObservationsTest(absltest.TestCase):
     self.assertEqual(queue.get_and_clear('A'), ['two'])
     restored.close()
 
+  def test_restoring_an_already_restored_bus_replays_nothing(self):
+    bus, queue, routes = _setup(access={'A': ('x.',)})
+    bus.publish('x.1', 'one')
+    state = routes.get_state()
+    heard = []
+    bus.observable('x.1').subscribe(lambda m: heard.append(m.payload))
+    self.assertEqual(heard, ['one'])  # The retained message, on subscribing.
+    topic_observations.TopicObservations(bus, queue).set_state(state)
+    self.assertEqual(heard, ['one'])  # The same bus: nothing replayed again.
+    bus.publish('x.1', 'two')
+    other = topic_observations.TopicObservations(bus, queue)
+    other.set_state(state)  # A bus that has moved on is restored.
+    self.assertEqual(bus.latest('x.1').payload, 'one')
+    routes.close()
+
 
 if __name__ == '__main__':
   absltest.main()

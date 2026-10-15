@@ -134,6 +134,23 @@ class SimTimeScheduler(periodicscheduler.PeriodicScheduler):
           if not e.item.is_cancelled() and (key is None or e.key == key)
       )
 
+  def due(self, key: str | None = None) -> list[int]:
+    """Returns the due ticks of queued, uncancelled actions, earliest first.
+
+    Args:
+      key: Only actions scheduled under this key (e.g. one slow mind's
+        `LatencyScheduler`); None for all.
+
+    Returns:
+      When each such action will run: what is "in flight", and when it lands.
+    """
+    with self._queue_lock:
+      return sorted(
+          e.due
+          for e in self._queue
+          if not e.item.is_cancelled() and (key is None or e.key == key)
+      )
+
   def next_due(self) -> int | None:
     """Returns the earliest due tick of queued work, or None if idle."""
     with self._queue_lock:

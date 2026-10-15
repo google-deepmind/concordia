@@ -193,7 +193,10 @@ class TopicObservations(action_spec_ignored.ActionSpecIgnored):
 
   def set_state(self, state: entity_component.ComponentState) -> None:
     bus_state = state.get('bus')
-    if isinstance(bus_state, Mapping):
+    # Like `TopicBusComponent`: a bus already restored (say by an entity's
+    # bus component, restored first) is left alone, so its retained messages
+    # are not replayed into subscribers whose state is already restored.
+    if isinstance(bus_state, Mapping) and self._bus.get_state() != bus_state:
       self._bus.set_state(cast(Mapping[str, Any], bus_state))
     access = state.get('access')
     delivered = state.get('delivered')

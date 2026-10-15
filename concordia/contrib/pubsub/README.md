@@ -142,6 +142,10 @@ becomes a design parameter (`view.set_latency(1)` when a faster technology is
 unlocked). `sim_time.publisher_scheduler(None, ...)` returns `None`, so the same
 code builds ordinary thread-pool publishers for live asynchronous play.
 
+What is still in flight can be shown to players: `sim.due('White daisies')`
+lists the ticks on which that mind's queued work will land (`sim.due()` for
+all keys), and `sim.pending(key)` counts it.
+
 ## Imperfect channels
 
 `operators.transport` carries messages to one subscriber the way an instrument,

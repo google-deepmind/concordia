@@ -116,6 +116,20 @@ class SimTimeSchedulerTest(absltest.TestCase):
     sim.advance(3)
     self.assertEqual(log, ['kept'])
 
+  def test_due_lists_what_is_in_flight_by_key(self):
+    sim = sim_time.SimTimeScheduler()
+    log = []
+    sim.latency(3, key='Advisor').schedule(_record(log, 'briefing'))
+    sim.latency(1, key='Census').schedule(_record(log, 'census'))
+    cancelled = sim.latency(2, key='Census').schedule(_record(log, 'lost'))
+    cancelled.dispose()
+    self.assertEqual(sim.due(), [1, 3])
+    self.assertEqual(sim.due('Advisor'), [3])
+    self.assertEqual(sim.due('Nobody'), [])
+    sim.advance(1)
+    self.assertEqual(sim.due(), [3])
+    self.assertEqual(log, ['census'])
+
   def test_actions_scheduled_while_advancing_run_if_due(self):
     sim = sim_time.SimTimeScheduler()
     log = []
