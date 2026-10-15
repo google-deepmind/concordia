@@ -294,3 +294,4 @@ Sources:
 | 7 | Orders overloaded: command points by length, hidden future and a watch, named clauses; revisions replaced by points. |
 | 8 | Temperaments and actions as data; laws of reading in every crew prompt; two-step reading; ReasonedChoice for local models; voyage target 24, 3 supplies. |
 | 10 | First arc: One hand, Two hands, Supply run (goal: stores), The voyage; stars; a scene ends when its goal is met (stores at the end); the mock chooses only actions the scene offers. Cells added: stores->command, command->command. |
+| 11 | Campaign: chapters open with a star in the one before; best stars kept per scene on the server; a daily challenge (the voyage, seeded by the date). The page shows chapters, locks and stars. |

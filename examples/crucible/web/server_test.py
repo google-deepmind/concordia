@@ -18,6 +18,7 @@ import json
 import os
 import tempfile
 import time
+import urllib.error
 import urllib.request
 
 from absl.testing import absltest
@@ -85,7 +86,7 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(kinds[-1], 'end')
 
   def test_free_play_and_forecast(self):
-    self.call('/api/start', {'toy': 'orders', 'scenario': 'voyage'})
+    self.call('/api/start', {'toy': 'orders', 'scenario': 'one_hand'})
     self.wait_for_request()
     preview = self.call('/api/preview', {'text': 'Build the project.'})
     self.assertIn('If held to the end', preview['forecast'])
@@ -93,6 +94,41 @@ class ServerTest(absltest.TestCase):
     game = self.wait_for_request()
     self.assertEqual(game['scenario'], 'free')
     self.assertIn('Turn 1 of 40', game['request']['question'])
+
+  def test_campaign_gates_chapters_and_records_stars(self):
+    state = self.call('/api/state')
+    chapters = state['campaign']['chapters']
+    self.assertEqual([c['open'] for c in chapters], [True, False, False, False])
+    with self.assertRaises(urllib.error.HTTPError):
+      self.call('/api/start', {'toy': 'orders', 'scenario': 'two_hands'})
+    self.assertTrue(
+        self.call('/api/start', {'toy': 'orders', 'scenario': 'one_hand'})['ok']
+    )
+    game = self.wait_for_request()
+    self.call('/api/answer', {'id': game['request']['id'], 'text': 'Build.'})
+    for _ in range(3):
+      game = self.wait_for_request()
+      if game['finished']:
+        break
+      self.call('/api/answer', {'id': game['request']['id'], 'text': 'hold'})
+      time.sleep(0.05)
+    game = self.wait_for_request()
+    self.assertEqual(game['outcome']['stars'], 3)
+    for _ in range(100):  # The end is recorded just after the last move.
+      chapters = self.call('/api/state')['campaign']['chapters']
+      if chapters[0]['stars']:
+        break
+      time.sleep(0.02)
+    self.assertEqual(chapters[0]['stars'], 3)
+    self.assertTrue(chapters[1]['open'])
+
+  def test_daily_challenge(self):
+    self.assertTrue(
+        self.call('/api/start', {'toy': 'orders', 'daily': True})['ok']
+    )
+    game = self.wait_for_request()
+    self.assertTrue(game['daily'])
+    self.assertEqual(game['scenario'], 'voyage')
 
   def test_stale_answer_is_refused(self):
     self.call('/api/start', {'toy': 'orders'})

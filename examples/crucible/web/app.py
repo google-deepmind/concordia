@@ -15,6 +15,7 @@
 """The phone page's game sessions and HTTP handler (no flags; see server.py)."""
 
 import dataclasses
+import datetime
 import http.server
 import json
 import os
@@ -25,6 +26,7 @@ import uuid
 
 from concordia.contrib.components.agent import blocking_input
 
+from examples.crucible import campaign
 from examples.crucible import harness
 from examples.crucible import model_setup
 from examples.crucible import toys
@@ -41,6 +43,7 @@ class Session:
   reader: blocking_input.BlockingInput
   telemetry_path: str
   mode: str = 'mock'
+  daily: str = ''  # the date, for a daily challenge
   thread: threading.Thread | None = None
   finished: bool = False
   error: str = ''
@@ -68,6 +71,9 @@ class Games:
     self._lock = threading.Lock()
     self.session: Session | None = None
     os.makedirs(telemetry_dir, exist_ok=True)
+    self.progress = campaign.Progress(
+        os.path.join(telemetry_dir, 'campaign.json')
+    )
 
   def _record(self, session: Session, entry: dict[str, Any]) -> None:
     entry = {'t': round(time.time(), 3), **entry}
@@ -75,22 +81,52 @@ class Games:
       f.write(json.dumps(entry) + '\n')
 
   def start(
-      self, toy: str, mode: str | None = None, scenario: str | None = None
+      self,
+      toy: str,
+      mode: str | None = None,
+      scenario: str | None = None,
+      daily: bool = False,
   ) -> Session:
-    """Ends any game in progress and starts a new one of `toy`."""
+    """Ends any game in progress and starts a new one of `toy`.
+
+    Args:
+      toy: The toy.
+      mode: 'mock' or a live mind the server allows.
+      scenario: The toy's scene; a campaign chapter must be open.
+      daily: Play today's challenge (its scene and seed come from the date).
+
+    Returns:
+      The new session.
+
+    Raises:
+      ValueError: If the scene is a chapter not yet open.
+    """
+    data = toys.load_data(toy)
+    seed = int(time.time()) % 1000
+    today = ''
+    if daily and data.get('daily'):
+      challenge = campaign.daily(data, datetime.date.today())
+      scenario, seed, today = (
+          challenge['scenario'],
+          challenge['seed'],
+          challenge['date'],
+      )
+    elif scenario and not campaign.is_open(
+        data, self.progress.snapshot(), scenario
+    ):
+      raise ValueError(f'Chapter {scenario!r} is not open yet.')
     self.quit()
     mode = mode if mode in self.modes else self.modes[0]
     name = self._model_name if mode == self._mode else None
     model = model_setup.build_model(mode, name, self._max_calls)
     reader = blocking_input.BlockingInput()
-    data = toys.load_data(toy)
     if scenario not in data.get('scenarios', {}):
       scenario = None
     game = harness.build_game(
         toy,
         model,
         'human',
-        seed=int(time.time()) % 1000,
+        seed=seed,
         scenario=scenario,
         reader=reader,
     )
@@ -101,6 +137,7 @@ class Games:
         reader=reader,
         telemetry_path=os.path.join(self._telemetry_dir, f'{game_id}.jsonl'),
         mode=mode,
+        daily=today,
     )
     self._record(
         session,
@@ -108,6 +145,8 @@ class Games:
             'kind': 'start',
             'toy': toy,
             'scenario': getattr(game.toy, 'scenario', None),
+            'daily': today,
+            'seed': seed,
             'mode': mode,
             'model': name,
         },
@@ -128,6 +167,11 @@ class Games:
     except Exception as error:  # pylint: disable=broad-exception-caught
       session.error = f'{type(error).__name__}: {error}'
     session.finished = True
+    outcome = session.game.outcome()
+    scenario = getattr(session.game.toy, 'scenario', None)
+    if scenario and not session.error and 'stars' in outcome:
+      key = f'daily:{session.daily}' if session.daily else scenario
+      self.progress.record(key, int(outcome['stars']))
     self._record(
         session,
         {
@@ -157,6 +201,18 @@ class Games:
         'modes': self.modes,
         'game': None,
     }
+    for name in toys.registry():
+      data = toys.load_data(name)
+      if data.get('campaign'):
+        progress = self.progress.snapshot()
+        out['campaign'] = {
+            'toy': name,
+            'chapters': campaign.chapters(data, progress),
+        }
+        if data.get('daily'):
+          challenge = campaign.daily(data, datetime.date.today())
+          challenge['stars'] = progress.get(f'daily:{challenge["date"]}', 0)
+          out['campaign']['daily'] = challenge
     with self._lock:
       session = self.session
     if session is None:
@@ -172,6 +228,7 @@ class Games:
         'id': session.game_id,
         'toy': session.game.toy.name,
         'scenario': getattr(session.game.toy, 'scenario', None),
+        'daily': session.daily,
         'seat': session.game.kind.seat,
         'finished': session.finished,
         'error': session.error,
@@ -281,9 +338,16 @@ def make_handler(games: Games, base_path: str) -> type[Any]:
         if toy not in toys.registry():
           self._json({'ok': False, 'error': 'unknown toy'}, 400)
           return
-        games.start(
-            toy, str(body.get('mode', 'mock')), body.get('scenario') or None
-        )
+        try:
+          games.start(
+              toy,
+              str(body.get('mode', 'mock')),
+              body.get('scenario') or None,
+              bool(body.get('daily', False)),
+          )
+        except ValueError as error:
+          self._json({'ok': False, 'error': str(error)}, 403)
+          return
         self._json({'ok': True})
       elif path == '/api/preview':
         self._json(games.preview(str(body.get('text', ''))))

@@ -22,6 +22,9 @@
 </head>
 <body>
 <h1>Crucible <span class="muted">grey box</span></h1>
+<h2 style="font-size:16px">Campaign</h2>
+<div id="campaign"></div>
+<h2 style="font-size:16px">Other games</h2>
 <div id="pick"></div>
 <label id="mindrow">Minds: <select id="mind"></select></label>
 <p id="status" class="muted">Pick a toy to start a game.</p>
@@ -45,17 +48,47 @@ async function api(path, body) {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
   return res.json();
 }
+function stars(n) { return '\u2605'.repeat(n) + '\u2606'.repeat(3 - n); }
+function renderCampaign(c) {
+  const box = $('campaign');
+  if (!c) { box.textContent = ''; return; }
+  const key = JSON.stringify(c);
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.innerHTML = '';
+  for (const ch of c.chapters) {
+    const b = document.createElement('button');
+    b.textContent = ch.number + '. ' + ch.title + ' (' + ch.beat + ') ' + stars(ch.stars) +
+        (ch.open ? '' : ' (locked: earn a star in the chapter before)');
+    b.disabled = !ch.open;
+    b.onclick = () => start({toy: c.toy, scenario: ch.scenario});
+    box.appendChild(b);
+  }
+  if (c.daily) {
+    const b = document.createElement('button');
+    b.textContent = 'Daily challenge ' + c.daily.date + ' (' + c.daily.scenario + ') ' + stars(c.daily.stars);
+    b.onclick = () => start({toy: c.toy, daily: true});
+    box.appendChild(b);
+  }
+}
+async function start(body) {
+  body.mode = $('mind').value;
+  const r = await api('api/start', body);
+  if (!r.ok) { $('status').textContent = r.error || 'Could not start.'; return; }
+  $('log').innerHTML = '';
+}
 function render(state) {
+  renderCampaign(state.campaign);
   const pick = $('pick');
   if (!pick.dataset.done) {
+    const chapters = new Set(state.campaign ? state.campaign.chapters.map(c => c.scenario) : []);
     for (const t of state.toys) {
-      for (const scenario of (t.scenarios.length ? t.scenarios : [''])) {
+      const inCampaign = state.campaign && state.campaign.toy === t.toy;
+      const scenarios = t.scenarios.filter(s => !(inCampaign && chapters.has(s)));
+      for (const scenario of (scenarios.length ? scenarios : [''])) {
         const b = document.createElement('button');
         b.textContent = 'New game: ' + t.toy + (scenario ? ' / ' + scenario : '');
-        b.onclick = async () => {
-          await api('api/start', {toy: t.toy, scenario, mode: $('mind').value});
-          $('log').innerHTML = '';
-        };
+        b.onclick = () => start({toy: t.toy, scenario});
         pick.appendChild(b);
       }
     }
@@ -83,7 +116,7 @@ function render(state) {
     requestId = null;
   } else if (req) {
     $('status').textContent = 'Your move as ' + g.seat + ' (' + g.toy +
-        (g.scenario ? ' / ' + g.scenario : '') + ').';
+        (g.scenario ? ' / ' + g.scenario : '') + (g.daily ? ', daily ' + g.daily : '') + ').';
   } else {
     $('status').textContent = 'The world is turning…';
   }

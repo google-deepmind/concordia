@@ -193,6 +193,13 @@ scenarios:
       whenever you like, and watch how each of them reads it as quiet turns,
       leaks and storms come and go. Nothing is at stake.
 
+# The campaign: scenes in order. A chapter opens once the one before has a
+# star; the first is open from the start.
+campaign: [one_hand, two_hands, supply_run, voyage]
+
+# The daily challenge: one scene, its events shifted by a seed from the date.
+daily: {scenario: voyage, seeds: 997}
+
 # The mock's reading of orders (the lookup-table floor).
 lexicon:
   repair: [repair, fix, patch, mend, seal, hull, leak, leaks]
