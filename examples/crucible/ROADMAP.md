@@ -49,19 +49,21 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Each upstreaming round
 
-- [ ] Reuse check logged; an issue tagged `contribution` opened before the first component PR.
-- [ ] No game names in the API; state checkpointable.
-- [ ] absltest tests beside each module, docstrings and a package README.
-- [ ] `pytest`, `pylint --errors-only` and `pyrefly check` pass; files formatted with `pyink`.
-- [ ] The game's mock runs are byte-identical before and after the switch.
-- [ ] Commits are CLA-clean, carry no `Co-Authored-By` trailer and touch library or game paths, not both.
-- [ ] The PR's status note says what landed and what this round adds.
+Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concordia#419):
+
+- [x] Reuse check logged; an issue tagged `contribution` opened before the first component PR. (JOURNAL c2; #418)
+- [x] No game names in the API; state checkpointable. (`rulebook_test` checkpoint round trip)
+- [x] absltest tests beside each module, docstrings and a package README. (three `*_test.py`; the modules join existing packages, so no new README)
+- [x] `pytest`, `pylint --errors-only` and `pyrefly check` pass; files formatted with `pyink`. (`PROG/check_lib.sh`, 1402 passed)
+- [x] The game's mock runs are byte-identical before and after the switch. (`PROG/evidence/snapshot-c2-{before,after}.json`, 12 games)
+- [x] Commits are CLA-clean, carry no `Co-Authored-By` trailer and touch library or game paths, not both. (3477499 library, f2f5367 game)
+- [x] The PR's status note says what landed and what this round adds. (#419 body)
 
 ## Library rounds
 
 | Round | Modules | State |
 |---|---|---|
-| 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | in the library PR |
+| 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | draft PR google-deepmind/concordia#419 |
 
 ## Next
 
