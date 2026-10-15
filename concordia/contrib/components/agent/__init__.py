@@ -15,6 +15,7 @@
 """Library of components contributed by users."""
 
 from concordia.contrib.components.agent import adhd_topic_drift
+from concordia.contrib.components.agent import blocking_input
 from concordia.contrib.components.agent import choice_of_component
 from concordia.contrib.components.agent import emotional_stance
 from concordia.contrib.components.agent import scripted_input
