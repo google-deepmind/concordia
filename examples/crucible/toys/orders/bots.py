@@ -25,22 +25,25 @@ import random
 from examples.crucible.toys.orders import toy as toy_lib
 
 ORDERS = (
+    'Build.',
     'Build the project.',
     'Gather supplies and build.',
     'Build; if a leak opens, repair it.',
     'If there is a leak, fix it; otherwise build.',
     'Build; repair leaks; rest when tired.',
-    'Repair the hull first, then build.',
+    'Bea, keep watch; everyone else build.',
+    'Bea repairs leaks; Ash and Cy build.',
+    'Cy, gather supplies; Ash builds; Bea fixes leaks.',
     'Gather supplies; during storms, build.',
     'Everyone rest.',
 )
 
 
 def candidates(toy: toy_lib.OrdersToy, actor: str) -> list[str]:
+  """Hold, and every listed order the commander can afford now."""
   del actor
-  if toy.world.revisions_left <= 0:
-    return [toy_lib.HOLD]
-  return [toy_lib.HOLD, *ORDERS]
+  points = toy.world.points
+  return [toy_lib.HOLD] + [o for o in ORDERS if toy.command.cost(o) <= points]
 
 
 def rollout(toy: toy_lib.OrdersToy, order: str) -> toy_lib.Ship:

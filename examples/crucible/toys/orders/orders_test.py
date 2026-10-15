@@ -60,16 +60,34 @@ class ShipTest(absltest.TestCase):
     toy.world.leak = True
     toy.resolve('Commander', 'hold')
     self.assertEqual(toy.world.damage, 2)
+    self.assertEqual(toy.world.points, 4)  # 3, -1 for the order, +1 a turn
 
   def test_order_limits(self):
     toy = _toy()
     receipt = toy.resolve('Commander', ' '.join(['build'] * 13))
     self.assertIn('over the limit', receipt.summary)
-    self.assertEqual(toy.world.revisions_left, 3)
-    for _ in range(3):
-      toy.resolve('Commander', 'Build the project.')
-    receipt = toy.resolve('Commander', 'Everyone rest.')
-    self.assertIn('No new orders left', receipt.summary)
+    # The refusal cost nothing, and a turn passed: 4 points buy 12 words.
+    receipt = toy.resolve('Commander', ' '.join(['build'] * 12))
+    self.assertIn('New order (cost 4)', receipt.summary)
+    receipt = toy.resolve('Commander', 'Gather supplies and build.')
+    self.assertIn('costs 2 command and you have 1', receipt.summary)
+
+  def test_named_clauses_apply_to_their_member(self):
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    order = 'Bea, keep watch; everyone else build.'
+    self.assertEqual(mock.ordered(order, set(), 'Bea'), ['watch'])
+    self.assertEqual(mock.ordered(order, set(), 'Ash'), ['build'])
+
+  def test_the_future_is_hidden_until_someone_watches(self):
+    toy = _toy()
+    self.assertIn('unknown', toy.ahead(toy.world))
+    toy.resolve('Commander', 'Bea, keep watch; everyone else build.')
+    self.assertNotIn('unknown', toy.ahead(toy.world))
+
+  def test_forecast_assumes_quiet_beyond_what_was_seen(self):
+    toy = _toy()
+    end = toy.play_out('Build the project.')
+    self.assertEqual(end.damage, 0)  # The leaks ahead were not seen.
 
   def test_seed_shifts_the_events(self):
     shifts = set()

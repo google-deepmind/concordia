@@ -14,11 +14,12 @@
 
 """The mock model's answers for the orders toy, read from prompts alone.
 
-It splits an order into clauses, treats a clause with "if", "when" (and
-similar) as applying only when its condition holds, maps verbs to actions
-with a word list, and then reads the result through each temperament: the
-bold build unless told otherwise, the cautious repair and rest, the literal
-do only what is written. This is the lookup-table floor of the toy.
+It splits an order into clauses, treats a clause that names crew members as
+theirs alone, a clause with "if", "when" (and similar) as applying only when
+its condition holds, maps verbs to actions with a word list, and then reads
+the result through each temperament: the bold build unless told otherwise,
+the cautious repair and rest, the literal do only what is written. This is
+the lookup-table floor of the toy.
 """
 
 from collections.abc import Mapping, Sequence
@@ -48,22 +49,47 @@ class OrdersMock:
     self._verbs = {a: frozenset(lex[a]) for a in data['actions']}
     self._conditions = {k: frozenset(v) for k, v in lex['conditions'].items()}
     self._if = frozenset(lex['if_words'])
+    self._crew = {name.lower() for name in data['crew']}
 
-  def ordered(self, order: str, now: set[str]) -> list[str]:
-    """The actions the order asks for now, in the order they are named."""
-    conditional, default = [], []
+  def ordered(
+      self, order: str, now: set[str], member: str | None = None
+  ) -> list[str]:
+    """The actions the order asks of `member` now, in the order named.
+
+    Clauses that name crew members apply to them alone and come first; a
+    conditional clause applies only when its condition holds now.
+
+    Args:
+      order: The standing order.
+      now: Conditions that hold this turn ('leak', 'storm', 'tired', 'low').
+      member: The crew member reading the order.
+
+    Returns:
+      The actions asked of `member`, without repeats.
+    """
+    me = (member or '').lower()
+    buckets = {(True, True): [], (True, False): [], (False, True): [],
+               (False, False): []}  # fmt: skip
     for clause in _CLAUSE.split(order.lower()):
       words = _WORD.findall(clause or '')
       if not words:
         continue
-      named = [a for w in words for a, vs in self._verbs.items() if w in vs]
+      names = self._crew & set(words)
+      if names and me not in names:
+        continue
+      verbs = [a for w in words for a, vs in self._verbs.items() if w in vs]
       if self._if & set(words):
         wants = {k for k, vs in self._conditions.items() if vs & set(words)}
         if wants & now:
-          conditional.extend(named)
+          buckets[(bool(names), True)].extend(verbs)
       else:
-        default.extend(named)
-    chosen = conditional or default
+        buckets[(bool(names), False)].extend(verbs)
+    chosen = (
+        buckets[(True, True)]
+        or buckets[(True, False)]
+        or buckets[(False, True)]
+        or buckets[(False, False)]
+    )
     return list(dict.fromkeys(chosen))
 
   def decide(
@@ -74,6 +100,7 @@ class OrdersMock:
       supplies: int,
       damage: int,
       worn: bool,
+      member: str | None = None,
   ) -> str:
     now = set()
     if 'leak' in situation.lower():
@@ -84,7 +111,7 @@ class OrdersMock:
       now.add('tired')
     if supplies <= 1:
       now.add('low')
-    wanted = self.ordered(order, now)
+    wanted = self.ordered(order, now, member)
     if temperament == 'literal':
       return wanted[0] if wanted else 'rest'
     if temperament == 'cautious':
@@ -106,12 +133,12 @@ class OrdersMock:
     match = _STATEMENT.search(prompt)
     if not match or 'do this turn?' not in prompt:
       return None
-    _, temperament, order, situation, supplies, damage, _, _, cond = (
+    name, temperament, order, situation, supplies, damage, _, _, cond = (
         match.groups()
     )
     action = self.decide(
         temperament, order, situation, int(supplies), int(damage),
-        cond == 'worn out',
+        cond == 'worn out', name,
     )  # fmt: skip
     wanted = self._data['actions'][action]['text']
     letters = {text.strip(): key for key, text in _OPTION.findall(prompt)}

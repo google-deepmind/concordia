@@ -162,6 +162,29 @@ drowned by the numbers. Both stay playable on the phone page until the
 owner's games confirm or overturn the choice; they will be retired, not
 deleted, in the Phase 5 rule audit.
 
+## 2b. Orders, Phase 2: one order, five pressures (cycle 7)
+
+A model explorer in free play (qwen3:8b, 12 turns, 12 distinct orders, no
+holds) reached for actions the menu lacked ("survey the perimeter", "monitor
+the horizon") and began assigning work by name. Both became pressures on the
+one input:
+
+| Pressure | What an order now carries | Rule component (`toys/orders/rules.py`) |
+|---|---|---|
+| Directive | what each member does, as a model reads it | `CrewRule` (effects in fixed crew order) |
+| Cost | a new order costs 1 command point plus 1 per 4 words; 1 point back a turn, up to 5 | `CommandRule` |
+| Information | the turns ahead are hidden; a member on watch reveals the next 2 | `WatchRule` (+ the new action "keep watch") |
+| Timing | conditional clauses ("if a leak opens...") apply only when they hold | the model's reading (`CrewRule`) |
+| Side effect | naming members ("Bea, keep watch") leaves the others to their temperaments; long orders cost turns of silence later | the model's reading; `CommandRule` |
+
+The components meet only in the ledger (`Ship`) and run in a fixed order
+each turn: the order's price, the hazards, the crew, the watch, the bleed,
+the regeneration. Forecasts know only what the commander knows: turns
+nobody has watched are taken as quiet.
+
+MOCK audit (16 seeds): skilled 100%, random 19%, passive 0%; median 11
+moves with an effect per turn.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -206,3 +229,4 @@ Sources:
 | 4 | Moves wrapped in a label and quotes are unwrapped for every toy. |
 | 5 | The phone page is plain text until Phase 5: the whole prompt, a measured preview of a draft, the receipts. The person picks mock or a local model per game. |
 | 6 | Orders kept (provisional): best legibility of word-driven outcomes under a real model. |
+| 7 | Orders overloaded: command points by length, hidden future and a watch, named clauses; revisions replaced by points. |

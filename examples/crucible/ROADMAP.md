@@ -22,10 +22,10 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 2: overloading
 
-- [ ] Every action carries at least two of directive, cost, side effect, information and timing.
-- [ ] Each dimension is its own component with its own test; components meet only in the ledger.
-- [ ] Simultaneous acts resolve in a fixed order.
-- [ ] The median turn offers three or more moves with a measured effect.
+- [x] Every action carries at least two of directive, cost, side effect, information and timing. (cycle 7: every order has a directive and a price; watch, conditions and names add information, timing and side effects; DESIGN §2b)
+- [x] Each dimension is its own component with its own test; components meet only in the ledger. (`toys/orders/rules.py`, `rules_test.py`)
+- [x] Simultaneous acts resolve in a fixed order. (`rules_test.CrewRuleTest.test_effects_apply_in_the_fixed_crew_order`)
+- [x] The median turn offers three or more moves with a measured effect. (orders, 16 seeds: 11)
 
 ## Phase 3: interaction matrix
 
@@ -68,8 +68,8 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 
 ## Next (Phase 1, orders)
 
-1. Evidence that a tester pokes the free scenario unprompted (the owner's games; a model explorer as a proxy).
-2. Phase 2: overload the order (directive, cost, side effect, information, timing).
+1. Evidence that a tester pokes the free scenario unprompted (the owner's games; the model explorer poked when asked to: 12 distinct orders in 12 turns).
+2. Phase 3: the interaction matrix (order operators x situations and temperaments) as data, with an audit and golden sets.
 
 ## Backlog
 

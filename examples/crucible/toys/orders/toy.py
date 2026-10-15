@@ -15,19 +15,20 @@
 """Toy C, "orders": one standing order, read anew by a crew each turn.
 
 The commander (the player) gives one short standing order and may replace it
-a few times. Each turn, a language model reads the order for each crew
-member, against that member's temperament and what is happening this turn,
-and picks the member's action from a fixed menu. The ledger applies the
-actions: repairs close leaks, gathering fills the stores, building spends
-supplies on progress, and work wears people out.
+when command points allow. Each turn, a language model reads the order for
+each crew member, against that member's temperament and what is happening
+now, and picks the member's action from a fixed menu. The rule components in
+`rules.py` apply the consequences in a fixed order: the order's price, the
+world's hazards, the crew's actions and what a watch reveals.
 
-One order has to hold up across situations the commander did not list, as
-three different temperaments understand it.
+One order carries several pressures at once: what to do (directive), what it
+costs to say (cost), who keeps watch (information), when clauses apply
+(timing), and what each temperament makes of words it was not given (side
+effects).
 """
 
 from collections.abc import Mapping
 import copy
-import dataclasses
 import random
 from typing import Any
 
@@ -35,6 +36,9 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from examples.crucible.toys import base
+from examples.crucible.toys.orders import rules
+
+Ship = rules.Ship
 
 CHOICE_STATEMENT = (
     '{name} is a crew member who is {temperament}.\n'
@@ -46,29 +50,6 @@ CHOICE_STATEMENT = (
 CHOICE_QUESTION = 'What does {name} do this turn?'
 ORDER_MARKER = 'Give your standing order'
 HOLD = 'hold'
-
-
-@dataclasses.dataclass
-class Ship:
-  """The ledger."""
-
-  turn: int = 0
-  supplies: int = 0
-  damage: int = 0
-  progress: int = 0
-  leak: bool = False
-  order: str = ''
-  revisions_left: int = 0
-  fatigue: dict[str, int] = dataclasses.field(default_factory=dict)
-  shift: int = 0
-  log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
-
-  def to_dict(self) -> dict[str, Any]:
-    return dataclasses.asdict(self)
-
-  @classmethod
-  def from_dict(cls, data: Mapping[str, Any]) -> 'Ship':
-    return cls(**{k: data[k] for k in data})
 
 
 class OrdersToy(base.Toy):
@@ -94,22 +75,28 @@ class OrdersToy(base.Toy):
     self.commander: str = data['commander']
     self.crew: list[str] = list(data['crew'])
     self.menu: list[str] = list(data['actions'])
+    self.command = rules.CommandRule(data['command'], int(data['max_words']))
+    self.hazards = rules.HazardRule(data['effects'])
+    self.crew_rule = rules.CrewRule(self.crew, data['effects'])
+    self.watch = rules.WatchRule(int(data['watch']['sees']))
     start = data['start']
     self.world = Ship(
         supplies=int(start['supplies']),
         damage=int(start['damage']),
         progress=int(start['progress']),
-        revisions_left=int(data['revisions']),
+        points=self.command.start(),
         fatigue={c: 0 for c in self.crew},
         shift=random.Random(seed).randint(0, 2),
     )
     self._cache: dict[str, int] = {}
     self.tell(self.commander, str(data['premise']).strip())
 
-  # ---- the ledger's view ------------------------------------------------
+  # ---- what is known --------------------------------------------------------
 
   def event(self, ship: Ship, turn: int) -> str:
-    """The event of a turn (1-based), shifted by the seed."""
+    """The event of a turn (1-based): the truth, or in a forecast the seen."""
+    if 0 <= ship.imagine_after < turn - 1:
+      return ship.seen.get(str(turn), 'quiet')
     events = {int(k): v for k, v in self._data['events'].items()}
     index = turn - ship.shift
     cycle = self._data.get('events_cycle')
@@ -124,11 +111,20 @@ class OrdersToy(base.Toy):
       text += ' A leak is still open in the hull.'
     return text
 
-  def condition(self, ship: Ship, member: str) -> str:
-    tired = int(self._data['effects']['tired_at'])
-    return 'worn out' if ship.fatigue[member] >= tired else 'fresh'
+  def ahead(self, ship: Ship) -> str:
+    """What the commander knows of the turns after this one."""
+    turn = ship.turn + 1
+    known = [
+        f'turn {t}: {ship.seen[str(t)]}'
+        for t in range(turn + 1, turn + 1 + int(self._data['watch']['sees']))
+        if str(t) in ship.seen
+    ]
+    return '; '.join(known) if known else 'unknown (no one has kept watch)'
 
-  def choose(self, ship: Ship, member: str, turn: int) -> int:
+  def condition(self, ship: Ship, member: str) -> str:
+    return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
+
+  def choose(self, ship: Ship, member: str, turn: int) -> str:
     """The model's reading of what `member` does under the order (cached)."""
     statement = CHOICE_STATEMENT.format(
         name=member,
@@ -149,7 +145,7 @@ class OrdersToy(base.Toy):
           [self._data['actions'][a]['text'] for a in self.menu],
           randomize_choices=False,
       )
-    return self._cache[statement]
+    return self.menu[self._cache[statement]]
 
   # ---- turn order and moves ---------------------------------------------
 
@@ -170,13 +166,15 @@ class OrdersToy(base.Toy):
             f'project {ship.progress} of {self._data["target"]}'
         )
     )
+    per_words = int(self._data['command']['per_words'])
     call = (
         f'Turn {turn} of {self._data["turns"]}. {self.situation(ship, turn)}\n'
+        f'Ahead: {self.ahead(ship)}.\n'
         f'Stores: {ship.supplies} supplies; {stakes}. Crew: '
         + ', '.join(f'{c} {self.condition(ship, c)}' for c in self.crew)
         + '.\n'
-        f'Current order: "{ship.order or "(none)"}". New orders left: '
-        f'{ship.revisions_left}.\n'
+        f'Current order: "{ship.order or "(none)"}". Command: {ship.points} '
+        f'points (a new order costs 1, plus 1 per {per_words} words).\n'
         f'{ORDER_MARKER}, {{name}}: a new order of at most '
         f'{self._data["max_words"]} words, or "{HOLD}" to keep the current '
         'one.'
@@ -185,63 +183,36 @@ class OrdersToy(base.Toy):
 
   def apply(self, world: Ship, actor: str, action: str) -> base.Receipt:
     ship = world
-    effects = self._data['effects']
     steps = []
     new_order = action.strip()
     if new_order and new_order.lower().rstrip('.') not in (HOLD, base.PASS):
-      words = new_order.split()
-      if len(words) > int(self._data['max_words']):
-        steps.append(
-            f'The order is {len(words)} words, over the limit of '
-            f'{self._data["max_words"]}: the old order stands.'
-        )
-      elif ship.revisions_left <= 0:
-        steps.append('No new orders left: the old order stands.')
-      else:
-        ship.order = new_order
-        ship.revisions_left -= 1
-        steps.append(f'New order: "{new_order}".')
+      steps.append(self.command.issue(ship, new_order))
     ship.turn += 1
     turn = ship.turn
     kind = self.event(ship, turn)
-    if kind == 'leak':
-      ship.leak = True
+    self.hazards.begin(ship, kind)
     steps.append(self.situation(ship, turn))
-    chosen = {m: self.menu[self.choose(ship, m, turn)] for m in self.crew}
     before = (ship.progress, ship.damage, ship.supplies)
-    for member in self.crew:
-      act = chosen[member]
-      worn = ship.fatigue[member] >= int(effects['tired_at'])
-      if act == 'repair':
-        ship.damage = max(0, ship.damage - int(effects['repair_damage']))
-        ship.leak = False
-        ship.fatigue[member] += 1
-      elif act == 'gather':
-        if kind != 'storm':
-          ship.supplies += int(effects['gather_supplies'])
-        ship.fatigue[member] += 1
-      elif act == 'build':
-        if ship.supplies >= int(effects['build_cost']):
-          ship.supplies -= int(effects['build_cost'])
-          gain = int(effects['build_progress'])
-          ship.progress += gain // 2 if worn else gain
-        ship.fatigue[member] += 1
-      else:
-        ship.fatigue[member] = max(
-            0, ship.fatigue[member] - int(effects['rest_recovery'])
-        )
+    chosen = self.crew_rule.act(
+        ship, kind, lambda member: self.choose(ship, member, turn)
+    )
     steps.append(
         ' '.join(
             f'{m} {self._data["actions"][chosen[m]]["does"]}.'
             for m in self.crew
         )
     )
-    if ship.leak:
-      ship.damage += int(effects['leak_damage'])
-      steps.append(f'The open leak adds {effects["leak_damage"]} damage.')
+    seen = self.watch.reveal(ship, chosen, lambda t: self.event(ship, t))
+    if seen:
+      steps.append(seen)
+    bleed = self.hazards.end(ship)
+    if bleed:
+      steps.append(bleed)
+    self.command.regenerate(ship)
     steps.append(
         f'Project {ship.progress}/{self._data["target"]}, damage '
-        f'{ship.damage}/{self._data["wreck_at"]}, supplies {ship.supplies}.'
+        f'{ship.damage}/{self._data["wreck_at"]}, supplies {ship.supplies}, '
+        f'command {ship.points}.'
     )
     ship.log.append({'turn': turn, 'event': kind, 'actions': chosen})
     delta = {
@@ -251,7 +222,7 @@ class OrdersToy(base.Toy):
     }
     return base.Receipt(actor, new_order or HOLD, ' '.join(steps), steps, delta)
 
-  # ---- end of game ------------------------------------------------------
+  # ---- end of game, and forecasts ---------------------------------------
 
   def wrecked(self, ship: Ship) -> bool:
     return not self.free and ship.damage >= int(self._data['wreck_at'])
@@ -264,8 +235,19 @@ class OrdersToy(base.Toy):
     )
 
   def play_out(self, order: str) -> Ship:
-    """The ship at the end if `order` is given now and then held."""
+    """Where the ship ends if `order` is given now and then held.
+
+    A forecast knows only what the commander knows: this turn, and the
+    turns someone has seen from the watch; the rest are taken as quiet.
+
+    Args:
+      order: The order to give now (or HOLD).
+
+    Returns:
+      The imagined ship at the end.
+    """
     ship = copy.deepcopy(self.world)
+    ship.imagine_after = ship.turn
     outbox = list(self._outbox)
     try:
       self.apply(ship, self.commander, order)
@@ -286,9 +268,9 @@ class OrdersToy(base.Toy):
         else ('the project done' if self.won(end) else 'the project unfinished')
     )
     return (
-        f'If held to the end: turn {end.turn}, project {end.progress}/'
-        f'{self._data["target"]}, damage {end.damage}/'
-        f'{self._data["wreck_at"]}: {verdict}.'
+        f'If held to the end (as far as you can see): turn {end.turn}, '
+        f'project {end.progress}/{self._data["target"]}, damage '
+        f'{end.damage}/{self._data["wreck_at"]}: {verdict}.'
     )
 
   def done(self) -> bool:
@@ -304,7 +286,6 @@ class OrdersToy(base.Toy):
         'progress': ship.progress,
         'damage': ship.damage,
         'turns': ship.turn,
-        'orders_given': int(self._data['revisions']) - ship.revisions_left,
     }
 
   # ---- state ------------------------------------------------------------

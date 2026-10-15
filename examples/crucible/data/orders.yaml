@@ -5,11 +5,18 @@ commander: Commander
 default_scenario: voyage
 turns: 12
 max_words: 12        # longest order
-revisions: 3         # orders the commander may issue in a game (the first counts)
 target: 20           # project progress needed by the last turn
 wreck_at: 10         # damage at which the game is lost
 
 start: {supplies: 6, damage: 0, progress: 0}
+
+# Cost: speaking costs command. A new order costs 1 point, plus 1 for every
+# `per_words` words; points come back each turn up to the cap.
+command: {points: 3, regen: 1, cap: 5, per_words: 4}
+
+# Information: the turns ahead are hidden. A crew member who keeps watch
+# reveals the next `sees` turns.
+watch: {sees: 2}
 
 crew:
   Ash: {temperament: 'bold: keen to push the work forward, shrugs off risk'}
@@ -21,6 +28,7 @@ actions:            # menu, in order; effects are applied by the ledger
   gather: {text: 'gather supplies', does: 'gathers supplies'}
   build: {text: 'build the project', does: 'builds'}
   rest: {text: 'rest', does: 'rests'}
+  watch: {text: 'keep watch', does: 'keeps watch'}
 
 effects:
   repair_damage: 2      # damage removed by one repair (and it closes a leak)
@@ -49,9 +57,11 @@ premise: >-
   You do not tell them what to do each turn. You give one standing order of
   at most 12 words, and each turn every crew member reads it against what is
   happening (a quiet turn, a leak in the hull, a storm) and decides what to
-  do: repair, gather supplies, build the project, or rest. You may issue a
-  new order 3 times in a game, the first one included. Win by bringing the
-  project to 20 by the end of turn 12 before the hull takes 10 damage.
+  do: repair, gather supplies, build the project, rest, or keep watch.
+  Speaking costs command: a new order costs 1 point plus 1 for every 4
+  words, and you regain 1 point a turn (up to 5). You see only this turn;
+  someone on watch reveals the next two. Win by bringing the project to 20
+  by the end of turn 12 before the hull takes 10 damage.
 
 # Scenarios override the values above.
 scenarios:
@@ -59,7 +69,7 @@ scenarios:
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
-    revisions: 40
+    command: {points: 99, regen: 99, cap: 99, per_words: 99}
     events_cycle: 10 # the event schedule repeats every 10 turns
     premise: >-
       Free play. You command a crew of three: Ash (bold), Bea (cautious) and
@@ -71,8 +81,9 @@ scenarios:
 lexicon:
   repair: [repair, fix, patch, mend, seal, hull, leak, leaks]
   gather: [gather, collect, forage, fetch, supplies, supply, stock]
-  build: [build, work, project, progress, construct, push]
+  build: [build, builds, work, project, progress, construct, push]
   rest: [rest, sleep, recover, pause, break, tired]
+  watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
   conditions:
     leak: [leak, leaks, damage, hull, breach]
     storm: [storm, storms, weather, wind]
