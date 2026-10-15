@@ -52,7 +52,13 @@ class Ship:
   # When >= 0, the ship is imagined (a forecast): turns after this one use
   # only what was seen, quiet otherwise.
   imagine_after: int = -1
+  watched: bool = False  # someone kept watch last turn
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+
+  @property
+  def foresight(self) -> int:
+    """How many turns ahead the commander has seen."""
+    return len(self.seen)
 
   def to_dict(self) -> dict[str, Any]:
     return dataclasses.asdict(self)
@@ -102,14 +108,32 @@ class CommandRule:
 
 
 class HazardRule:
-  """The world: an event opens a leak or blows a storm; leaks bleed."""
+  """The world: events by their data; an open leak bleeds.
 
-  def __init__(self, effects: Mapping[str, Any]):
+  One law reads every event (data/orders.yaml `hazards`): it sets the
+  flags the event `opens`, and does its `strikes_unwatched` damage when no
+  one kept watch the turn before.
+  """
+
+  def __init__(
+      self,
+      effects: Mapping[str, Any],
+      hazards: Mapping[str, Any] | None = None,
+  ):
     self._leak_damage = int(effects['leak_damage'])
+    self._hazards = hazards or {'leak': {'opens': ['leak']}}
 
-  def begin(self, ship: Ship, kind: str) -> None:
-    if kind == 'leak':
-      ship.leak = True
+  def begin(self, ship: Ship, kind: str) -> str:
+    spec = self._hazards.get(kind, {})
+    for flag in spec.get('opens', ()):
+      setattr(ship, flag, True)
+    strike = int(spec.get('strikes_unwatched', 0))
+    if strike and not ship.watched:
+      ship.damage += strike
+      return f'Unwatched, it strikes: {strike} damage.'
+    if strike:
+      return 'The watch saw it coming: the ship weathers it.'
+    return ''
 
   def end(self, ship: Ship) -> str:
     if not ship.leak:
@@ -186,6 +210,7 @@ class WatchRule:
       event: Callable[[int], str],
   ) -> str:
     watchers = [m for m, act in chosen.items() if act == 'watch']
+    ship.watched = bool(watchers)
     if not watchers:
       return ''
     ahead = []

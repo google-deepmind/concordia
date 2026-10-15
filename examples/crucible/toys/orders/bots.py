@@ -32,6 +32,9 @@ ORDERS = (
     'If there is a leak, fix it; otherwise build.',
     'Build; repair leaks; rest when tired.',
     'Bea, keep watch; everyone else build.',
+    'Ash, keep watch; everyone else build.',
+    'Cy keeps watch; Ash and Bea build.',
+    'Keep watch.',
     'Bea repairs leaks; Ash and Cy build.',
     'Cy, gather supplies; Ash builds; Bea fixes leaks.',
     'Gather supplies; during storms, build.',
@@ -56,13 +59,31 @@ def value(toy: toy_lib.OrdersToy, ship: toy_lib.Ship) -> float:
   return (100.0 if toy.won(ship) else 0.0) + goal - 2.0 * ship.damage
 
 
+def expected_value(toy: toy_lib.OrdersToy, order: str) -> float:
+  """The order's value averaged over the scene's possible event schedules.
+
+  A skilled commander knows what the premise says can happen (the scene's
+  events, shifted by up to two turns) but not which turns; it plans against
+  every schedule the scene allows, not only against what it has seen.
+
+  Args:
+    toy: The toy.
+    order: The order to give now.
+
+  Returns:
+    The mean value of the ship at the end over the schedules.
+  """
+  shifts = range(3)
+  return sum(value(toy, toy.play_out(order, shift)) for shift in shifts) / 3
+
+
 def skilled(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:
   del rng
-  best, best_value = toy_lib.HOLD, value(toy, rollout(toy, toy_lib.HOLD))
+  best, best_value = toy_lib.HOLD, expected_value(toy, toy_lib.HOLD)
   for order in candidates(toy, actor):
     if order == toy_lib.HOLD:
       continue
-    v = value(toy, rollout(toy, order)) - 0.5  # A revision has a price.
+    v = expected_value(toy, order) - 0.5  # A revision has a price.
     if v > best_value:
       best, best_value = order, v
   return best
@@ -81,10 +102,11 @@ HABIT = 'Build; if a leak opens, repair it.'
 
 
 def habit(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:
-  """Repeats the lesson of the earlier scenes: the habit a twist breaks."""
+  """Repeats the lesson of the arc's earlier scenes: the habit a twist breaks."""
   del actor, rng
-  if toy.world.order != HABIT and toy.command.cost(HABIT) <= toy.world.points:
-    return HABIT
+  order = toy._data.get('habit', HABIT)  # pylint: disable=protected-access
+  if toy.world.order != order and toy.command.cost(order) <= toy.world.points:
+    return order
   return toy_lib.HOLD
 
 

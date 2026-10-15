@@ -37,7 +37,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 4: pacing
 
-- [x] Each arc has Isolate, Develop, Twist and Catharsis scenes. (cycle 10, arc 1: One hand, Two hands, Supply run, The voyage; `beats_test`)
+- [x] Each arc has Isolate, Develop, Twist and Catharsis scenes. (cycle 10, arc 1: One hand, Two hands, Supply run, The voyage; cycle 12, arc 2: Lookout, Squalls, Night watch, The crossing; `beats_test`)
 - [x] Bots at many seeds show the skill gaps you target in every scenario. (cycle 11, 16 seeds, skilled - random / skilled - passive: One hand +50/+100, Two hands +50/+100, Supply run +88/+100, voyage +69/+100, claims +100/+100, relay +88/+100; free play has no goal; `PROG/evidence/audit-c11.jsonl`)
 - [x] Human-game telemetry keeps the move, the reading the player saw and the hidden truth. (`web/app.py`: each move with the question shown, answer time and previews; at the end the outcome and the whole state; `server_test`)
 
@@ -70,8 +70,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. A second arc (the watch, hidden turns) to reach 6+ campaign scenes.
-3. Phase 5: the skin (only now: a title, a look and words that follow the systems).
+2. Phase 5: the skin (only now: a title, a look and words that follow the systems).
 
 ## Backlog
 

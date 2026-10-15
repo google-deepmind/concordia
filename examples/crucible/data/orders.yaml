@@ -100,6 +100,16 @@ effects:
   leak_damage: 2        # damage an open leak adds each turn
   tired_at: 3           # fatigue at which a crew member is worn out
 
+# Hazards are data read by one law (rules.HazardRule):
+#   opens:            ship flags the event sets (a leak opens)
+#   strikes_unwatched: damage the event does if no one kept watch the turn
+#                      before (a squall seen coming is weathered)
+hazards:
+  quiet: {}
+  leak: {opens: [leak]}
+  storm: {}
+  squall: {strikes_unwatched: 3}
+
 # Events by turn (1-based); seeds shift the schedule by 0-2 turns.
 events:
   3: leak
@@ -110,6 +120,7 @@ events:
 
 situations:
   quiet: 'All is quiet.'
+  squall: 'A squall strikes: if no one kept watch last turn, it catches the ship unprepared.'
   leak: 'A leak has opened in the hull: it will add damage every turn until someone repairs it.'
   storm: 'A storm blows: gathering supplies is impossible this turn.'
 
@@ -166,6 +177,7 @@ scenarios:
   supply_run:
     beat: twist
     title: Supply run
+    habit: 'Build; if a leak opens, repair it.'
     crew_present: [Ash, Bea, Cy]
     menu: [repair, gather, build, rest]
     goal: supplies    # this time the port wants stores, not progress
@@ -182,6 +194,73 @@ scenarios:
     beat: catharsis
     title: The voyage
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
+  # Arc 2: information. The turns ahead are hidden; a watch reveals them.
+  lookout:
+    beat: isolate
+    title: Lookout
+    habit: 'Gather supplies.'
+    crew_present: [Bea]
+    menu: [gather, rest, watch]
+    goal: foresight   # turns seen ahead
+    turns: 3
+    target: 4
+    events: {}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_command: 2}, 3: {max_command: 1}}
+    premise: >-
+      Bea alone, who is cautious. The harbour master wants a forecast:
+      learn what 4 of the coming turns hold within 3 turns. Only someone on
+      watch can see ahead (the next 2 turns each time). You have 2 command
+      points.
+  squalls:
+    beat: develop
+    title: Squalls
+    habit: 'Build; if a leak opens, repair it.'
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 14
+    start: {supplies: 4, damage: 0, progress: 0}
+    events: {3: squall, 6: squall, 8: leak, 9: squall}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 4}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal). Squalls are coming, you
+      cannot see when: a squall does 3 damage unless someone kept watch the
+      turn before. Bring the project to 14 in 10 turns before 10 damage.
+  night_watch:
+    beat: twist
+    title: Night watch
+    habit: 'Bea, keep watch; everyone else build.'
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 14
+    wreck_at: 8
+    start: {supplies: 3, damage: 0, progress: 0}
+    events: {3: squall, 4: squall, 7: squall, 8: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    actions:
+      repair: {text: repair the hull, does: repairs the hull, gives: {damage: -2}, fatigue: 1, closes: [leak]}
+      gather: {text: gather supplies, does: gathers supplies, gives: {supplies: 2}, fatigue: 1, spoiled_by: [storm]}
+      build: {text: build the project, does: builds, needs: {supplies: 1}, gives: {progress: 2}, fatigue: 1, worn: 0.5}
+      rest: {text: rest, does: rests, fatigue: -2}
+      watch: {text: keep watch, does: keeps watch, fatigue: 3}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Night watch. Squalls come in pairs, an unwatched one does 4 damage,
+      and 8 damage wrecks the ship. Tonight keeping watch is exhausting: one
+      turn on watch wears anyone out. Bring the project to 14 in 10 turns.
+  crossing:
+    beat: catharsis
+    title: The crossing
+    habit: 'Bea, keep watch; everyone else build.'
+    turns: 14
+    target: 26
+    start: {supplies: 3, damage: 0, progress: 0}
+    events: {2: squall, 4: leak, 5: storm, 7: squall, 9: leak, 10: storm, 12: squall}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 5}}
+    premise: >-
+      The crossing: everything at once. Leaks, storms and squalls you cannot
+      see coming unless someone keeps watch; three temperaments; command to
+      spend. Bring the project to 26 in 14 turns before 10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
@@ -195,7 +274,7 @@ scenarios:
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.
-campaign: [one_hand, two_hands, supply_run, voyage]
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
 daily: {scenario: voyage, seeds: 997}

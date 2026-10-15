@@ -35,6 +35,10 @@ cells:
   - {from: hull, to: project, by: ten damage wrecks the ship and ends the voyage unfinished, test: test_wreck_ends_the_game}
   - {from: stores, to: command, by: when the goal is stores every build spends it, so the order must keep the crew from building (cycle 10), test: test_twist_the_habit_loses}
   - {from: command, to: command, by: stars reward a short order that holds; an order too long for the points is refused and costs the scene (cycle 10), test: test_stars_reward_a_short_order}
+  - {from: hazards, to: hull, by: a squall strikes a ship no one watched the turn before (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
+  - {from: watch, to: hull, by: a squall seen coming is weathered without damage (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
+  - {from: fatigue, to: watch, by: a worn-out cautious watcher rests and the watch lapses; the bold and the literal keep watching (cycle 12), test: test_arc_two_twist_breaks_the_watch_habit}
+  - {from: watch, to: project, by: in Lookout the forecast itself is the goal (cycle 12), test: test_arc_two_isolate_and_develop}
 
 # What an order says (operator) against what holds now (property): the law
 # that resolves the cell, and the golden cases that check it.
@@ -70,6 +74,7 @@ reading:
     - {operator: silence, property: literal, law: with no clause that applies the literal rest, golden: [g10]}
     - {operator: silence, property: bold, law: with no clause that applies the bold build while there is a supply, golden: [g11]}
     - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}
+    - {operator: watch, property: worn, law: a worn-out cautious member named to watch rests instead; a worn-out bold one keeps watch, golden: [g22, g23]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
 # `hard` cases follow from a law a model must not break (names, conditions,
@@ -96,3 +101,5 @@ golden:
   - {id: g19, order: Build., event: quiet, member: Cy, supplies: 0, expect: [build], hard: true}
   - {id: g20, order: 'Unless there is a storm, gather supplies.', event: storm, member: Cy, expect: [rest]}
   - {id: g21, order: 'Unless there is a storm, gather supplies.', event: quiet, member: Cy, expect: [gather], hard: true}
+  - {id: g22, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Bea, worn: true, expect: [rest]}
+  - {id: g23, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Ash, worn: true, expect: [watch]}

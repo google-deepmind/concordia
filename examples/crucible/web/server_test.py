@@ -98,7 +98,7 @@ class ServerTest(absltest.TestCase):
   def test_campaign_gates_chapters_and_records_stars(self):
     state = self.call('/api/state')
     chapters = state['campaign']['chapters']
-    self.assertEqual([c['open'] for c in chapters], [True, False, False, False])
+    self.assertEqual([c['open'] for c in chapters[:2]], [True, False])
     with self.assertRaises(urllib.error.HTTPError):
       self.call('/api/start', {'toy': 'orders', 'scenario': 'two_hands'})
     self.assertTrue(

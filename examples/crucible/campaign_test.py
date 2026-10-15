@@ -31,9 +31,11 @@ class CampaignTest(absltest.TestCase):
 
   def test_chapters_open_with_stars(self):
     rows = campaign.chapters(self.data, {})
-    self.assertEqual([r['open'] for r in rows], [True, False, False, False])
+    self.assertEqual(
+        [r['open'] for r in rows], [True] + [False] * (len(rows) - 1)
+    )
     rows = campaign.chapters(self.data, {'one_hand': 2})
-    self.assertEqual([r['open'] for r in rows], [True, True, False, False])
+    self.assertEqual([r['open'] for r in rows[:3]], [True, True, False])
     self.assertFalse(campaign.is_open(self.data, {}, 'voyage'))
     self.assertTrue(campaign.is_open(self.data, {}, 'free'))
 

@@ -111,7 +111,7 @@ class OrdersToy(base.Toy):
     self.crew: list[str] = list(data.get('crew_present', data['crew']))
     self.menu: list[str] = list(data.get('menu', data['actions']))
     self.command = rules.CommandRule(data['command'], int(data['max_words']))
-    self.hazards = rules.HazardRule(data['effects'])
+    self.hazards = rules.HazardRule(data['effects'], data.get('hazards'))
     self.crew_rule = rules.CrewRule(self.crew, data['effects'], data['actions'])
     self.watch = rules.WatchRule(int(data['watch']['sees']))
     start = data['start']
@@ -237,8 +237,10 @@ class OrdersToy(base.Toy):
     ship.turn += 1
     turn = ship.turn
     kind = self.event(ship, turn)
-    self.hazards.begin(ship, kind)
+    strike = self.hazards.begin(ship, kind)
     steps.append(self.situation(ship, turn))
+    if strike:
+      steps.append(strike)
     before = (ship.progress, ship.damage, ship.supplies)
     chosen = self.crew_rule.act(
         ship, kind, lambda member: self.choose(ship, member, turn)
@@ -287,20 +289,26 @@ class OrdersToy(base.Toy):
         and (self.goal() == 'progress' or ship.turn >= int(self._data['turns']))
     )
 
-  def play_out(self, order: str) -> Ship:
+  def play_out(self, order: str, shift: int | None = None) -> Ship:
     """Where the ship ends if `order` is given now and then held.
 
-    A forecast knows only what the commander knows: this turn, and the
-    turns someone has seen from the watch; the rest are taken as quiet.
+    By default a forecast knows only what the commander knows: this turn,
+    and the turns someone has seen from the watch; the rest are taken as
+    quiet. With `shift`, it plays the scene's own schedule shifted that much
+    (one of the worlds the premise allows), for planning.
 
     Args:
       order: The order to give now (or HOLD).
+      shift: Play the scene's events at this shift instead of what was seen.
 
     Returns:
       The imagined ship at the end.
     """
     ship = copy.deepcopy(self.world)
-    ship.imagine_after = ship.turn
+    if shift is None:
+      ship.imagine_after = ship.turn
+    else:
+      ship.shift = shift
     outbox = list(self._outbox)
     try:
       self.apply(ship, self.commander, order)

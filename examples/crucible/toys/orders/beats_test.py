@@ -49,6 +49,24 @@ class BeatsTest(absltest.TestCase):
     self.assertEqual(rates['habit']['win_pct'], 0)
     self.assertEqual(rates['skilled']['win_pct'], 100)
 
+  def test_arc_two_isolate_and_develop(self):
+    rates = _rates('lookout')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+    rates = _rates('squalls')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+
+  def test_arc_two_twist_breaks_the_watch_habit(self):
+    rates = audits.win_rates('orders', 'night_watch', 8, POLICIES)
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertLessEqual(rates['habit']['win_pct'], 25)
+
+  def test_arc_two_catharsis(self):
+    rates = _rates('crossing')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['random']['win_pct'], 0)
+
   def test_catharsis_rewards_skill(self):
     rates = _rates('voyage')
     self.assertGreaterEqual(

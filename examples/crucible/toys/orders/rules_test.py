@@ -63,6 +63,17 @@ class CommandRuleTest(absltest.TestCase):
 
 class HazardRuleTest(absltest.TestCase):
 
+  def test_unwatched_squall_strikes_watched_one_is_weathered(self):
+    rule = rules.HazardRule(
+        EFFECTS,
+        {'squall': {'strikes_unwatched': 3}, 'leak': {'opens': ['leak']}},
+    )
+    ship = _ship()
+    self.assertIn('3 damage', rule.begin(ship, 'squall'))
+    ship.watched = True
+    self.assertIn('weathers', rule.begin(ship, 'squall'))
+    self.assertEqual(ship.damage, 3)
+
   def test_leak_bleeds_until_closed(self):
     rule = rules.HazardRule(EFFECTS)
     ship = _ship()
@@ -106,6 +117,13 @@ class WatchRuleTest(absltest.TestCase):
     told = rule.reveal(ship, {'Bea': 'watch', 'Ash': 'build'}, events.get)
     self.assertEqual(ship.seen, {'4': 'storm', '5': 'quiet'})
     self.assertIn('Bea on watch', told)
+
+  def test_a_worn_cautious_watcher_lets_the_watch_lapse(self):
+    rule = rules.WatchRule(sees=2)
+    ship = _ship(turn=3)
+    # The crew rule chose rest for a worn-out cautious watcher: no watch.
+    rule.reveal(ship, {'Bea': 'rest', 'Ash': 'build'}, lambda t: 'squall')
+    self.assertFalse(ship.watched)
 
   def test_no_watch_no_news(self):
     rule = rules.WatchRule(sees=2)

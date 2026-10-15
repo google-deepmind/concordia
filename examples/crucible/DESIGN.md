@@ -247,6 +247,27 @@ The first twist tried (storm season) failed: the crew handled storms on its
 own, and the habit still won. A twist has to turn the habit into the cause
 of failure, not just make the world harder.
 
+## 2e. Orders, Phase 4: the second arc, information (cycle 12)
+
+The turns ahead are hidden; a member on watch reveals the next two. A new
+hazard makes knowing matter: a squall does damage unless someone kept watch
+the turn before. Hazards became data under one law (`HazardRule`: `opens`,
+`strikes_unwatched`).
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | Lookout | Bea alone; the goal is a forecast (turns seen ahead); only a watch sees | 100 / 12 / 0 / 0 |
+| Develop | Squalls | three crew, hidden squalls and a leak; a watcher costs a pair of hands | 100 / 69 / 0 / 100 |
+| Twist | Night watch | squalls in pairs; one turn on watch wears anyone out, so cautious Bea, the natural watcher, rests the next turn and the watch lapses; a bold or literal watcher (who keeps working when worn) holds it | 100 / 31 / 0 / 19 |
+| Catharsis | The crossing | leaks, storms, squalls, three temperaments, 14 turns | 100 / 0 / 0 / 0 |
+
+Two lessons from tuning. First, a twist can fail by coincidence: with
+squalls every other turn, Bea's watch-rest cycle fell exactly into step
+with them and the habit held. Pairs of squalls break the rhythm. Second, a
+commander who plans only on what it has seen never values a watch; the
+skilled bot now plans against every schedule the premise allows (the
+scene's events, shifted 0-2 turns), as a player who read the premise would.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -295,3 +316,4 @@ Sources:
 | 8 | Temperaments and actions as data; laws of reading in every crew prompt; two-step reading; ReasonedChoice for local models; voyage target 24, 3 supplies. |
 | 10 | First arc: One hand, Two hands, Supply run (goal: stores), The voyage; stars; a scene ends when its goal is met (stores at the end); the mock chooses only actions the scene offers. Cells added: stores->command, command->command. |
 | 11 | Campaign: chapters open with a star in the one before; best stars kept per scene on the server; a daily challenge (the voyage, seeded by the date). The page shows chapters, locks and stars. |
+| 12 | Arc 2 (Lookout, Squalls, Night watch, The crossing): squalls; hazards as data; scenes name their own habit; the skilled bot plans over the premise's schedules. Cells added: hazards->hull, watch->hull, fatigue->watch, watch->project; reading cell watch x worn. |
