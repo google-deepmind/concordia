@@ -36,31 +36,31 @@ class MockReadingTest(absltest.TestCase):
 
   def test_conditional_clause_applies_only_when_its_condition_holds(self):
     order = 'Build; if a leak opens, repair it.'
-    self.assertEqual(self.mock.ordered(order, set()), ['build'])
-    self.assertEqual(self.mock.ordered(order, {'leak'}), ['repair'])
+    self.assertEqual(self.mock.ordered(order, set()), (['build'], False))
+    self.assertEqual(self.mock.ordered(order, {'leak'}), (['repair'], False))
 
   def test_temperaments_read_the_same_order_differently(self):
+    props = toys.load_data('orders')['temperaments']
     order = 'Gather supplies.'
     calm = 'All is quiet.'
+    decide = self.mock.decide
     self.assertEqual(
-        self.mock.decide('literal', order, calm, 3, 0, False), 'gather'
+        decide(props['literal'], order, calm, 3, 0, False), 'gather'
     )
-    self.assertEqual(self.mock.decide('literal', '', calm, 3, 0, False), 'rest')
-    self.assertEqual(self.mock.decide('bold', '', calm, 3, 0, False), 'build')
-    self.assertEqual(
-        self.mock.decide('cautious', order, calm, 3, 0, True), 'rest'
-    )
+    self.assertEqual(decide(props['literal'], '', calm, 3, 0, False), 'rest')
+    self.assertEqual(decide(props['bold'], '', calm, 3, 0, False), 'build')
+    self.assertEqual(decide(props['cautious'], order, calm, 3, 0, True), 'rest')
 
 
 class ShipTest(absltest.TestCase):
 
   def test_open_leak_adds_damage_until_repaired(self):
     toy = _toy()
-    toy.resolve('Commander', 'Everyone rest.')
+    toy.resolve('Commander', 'Ash, Bea and Cy rest.')
     toy.world.leak = True
     toy.resolve('Commander', 'hold')
     self.assertEqual(toy.world.damage, 2)
-    self.assertEqual(toy.world.points, 4)  # 3, -1 for the order, +1 a turn
+    self.assertEqual(toy.world.points, 3)  # 3, -2 for 5 words, +1 a turn twice
 
   def test_order_limits(self):
     toy = _toy()
@@ -75,8 +75,8 @@ class ShipTest(absltest.TestCase):
   def test_named_clauses_apply_to_their_member(self):
     mock = mock_lib.OrdersMock(toys.load_data('orders'))
     order = 'Bea, keep watch; everyone else build.'
-    self.assertEqual(mock.ordered(order, set(), 'Bea'), ['watch'])
-    self.assertEqual(mock.ordered(order, set(), 'Ash'), ['build'])
+    self.assertEqual(mock.ordered(order, set(), 'Bea'), (['watch'], True))
+    self.assertEqual(mock.ordered(order, set(), 'Ash'), (['build'], False))
 
   def test_the_future_is_hidden_until_someone_watches(self):
     toy = _toy()
@@ -101,7 +101,7 @@ class ShipTest(absltest.TestCase):
     toy = _toy()
     toy.world.damage = 9
     toy.world.leak = True
-    toy.resolve('Commander', 'Everyone rest.')
+    toy.resolve('Commander', 'Ash, Bea and Cy rest.')
     self.assertTrue(toy.done())
     self.assertIsNone(toy.outcome()['winner'])
 

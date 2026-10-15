@@ -58,6 +58,15 @@ Does skill show? Bots at 16 seeds:
 python -m examples.crucible.play_audit --toy=claims --seeds=16
 ```
 
+The orders toy's matrix and golden sets (does a model read orders by the
+laws?):
+
+```bash
+python -m examples.crucible.audit
+python -m examples.crucible.golden_cli --mode=mock
+python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b
+```
+
 Each run writes a folder with `log.html` (Concordia's `SimulationLog`),
 `summary.json` (outcome and every move's receipt) and `moves.csv`.
 

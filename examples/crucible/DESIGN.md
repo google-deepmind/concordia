@@ -185,6 +185,45 @@ nobody has watched are taken as quiet.
 MOCK audit (16 seeds): skilled 100%, random 19%, passive 0%; median 11
 moves with an effect per turn.
 
+## 2c. Orders, Phase 3: the matrix as laws (cycle 8)
+
+**Ontology as data.** Temperaments are properties (data/orders.yaml
+`temperaments`: what they do otherwise, when worn, with a leak open,
+whether they skip an ordered action that cannot help), and actions are data
+(`needs`, `gives`, `fatigue`, `spoiled_by`, `worn`, `closes`). One law in
+`rules.CrewRule` applies every action; the mock applies the laws of reading
+by temperament properties, with no case for any temperament or action pair.
+Making effects data changed nothing: MOCK runs byte-identical (36 games).
+
+**The prompt is written from the same data.** Each crew member's prompt
+carries their habits (rendered from the properties) and the four laws of
+reading (data `reading_laws`). The model is given the law, not the outcome.
+
+**Two matrices** (data/orders_matrix.yaml; `python -m examples.crucible.audit`):
+8 systems and 16 system cells; 5 operators (directive, conditional, named,
+watch, silence) x 8 properties (quiet, leak, storm, worn, no supplies, bold,
+cautious, literal), 15 reading cells: 31 cells, each tied to a test or golden
+cases.
+
+**Golden sets** (21 cases, 10 of them hard laws; `golden.py`):
+
+| Model | Hard laws kept | Soft agreement | Passed |
+|---|---|---|---|
+| MOCK | 10/10 | 100% | yes |
+| qwen3:8b, the provider's structured choice | 4/10 | 82% | no |
+| ... laws restated in data | 6/10 | 82% | no |
+| ... with a reason before the letter (`model_setup.ReasonedChoice`) | 10/10 | 91% | yes |
+| DeepSeek-V4.1-Flash (Together), one-step reading | 9/10 | 91% | no |
+| ... two-step reading (which clause applies, then the action) | 10/10 | 91% | yes |
+
+The decisive fix for the local model was not the prompt but the path: asked
+to explain, qwen3:8b read the order correctly; forced to answer with a bare
+letter through the provider's JSON choice, it did not.
+
+**Balance after the laws.** Smarter temperaments made the crew manage
+itself (random play won 88%). A sweep (`PROG/sweep_orders.py`) chose target
+24 and 3 starting supplies: skilled 100%, random 25-31%, passive 0%.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -230,3 +269,4 @@ Sources:
 | 5 | The phone page is plain text until Phase 5: the whole prompt, a measured preview of a draft, the receipts. The person picks mock or a local model per game. |
 | 6 | Orders kept (provisional): best legibility of word-driven outcomes under a real model. |
 | 7 | Orders overloaded: command points by length, hidden future and a watch, named clauses; revisions replaced by points. |
+| 8 | Temperaments and actions as data; laws of reading in every crew prompt; two-step reading; ReasonedChoice for local models; voyage target 24, 3 supplies. |

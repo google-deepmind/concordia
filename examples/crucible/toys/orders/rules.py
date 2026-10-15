@@ -119,16 +119,44 @@ class HazardRule:
 class CrewRule:
   """Directive: each member's action (a model's reading), then its effects.
 
-  Effects apply in the fixed crew order, so two builds that compete for the
-  last supply always resolve the same way.
+  One law applies every action, from its data (data/orders.yaml `actions`):
+  an action that lacks what it `needs` does nothing; an event in its
+  `spoiled_by` voids its gains; a worn-out member's gains are scaled by
+  `worn`; then `gives`, `fatigue` and `closes` apply. Effects apply in the
+  fixed crew order, so two builds that compete for the last supply always
+  resolve the same way.
   """
 
-  def __init__(self, crew: Sequence[str], effects: Mapping[str, Any]):
+  def __init__(
+      self,
+      crew: Sequence[str],
+      effects: Mapping[str, Any],
+      actions: Mapping[str, Any] | None = None,
+  ):
     self._crew = list(crew)
     self._effects = effects
+    self._actions = actions or {}
 
   def worn(self, ship: Ship, member: str) -> bool:
     return ship.fatigue[member] >= int(self._effects['tired_at'])
+
+  def _apply(self, ship: Ship, member: str, action: str, kind: str) -> None:
+    spec = self._actions.get(action, {})
+    needs = spec.get('needs', {})
+    if all(getattr(ship, stock) >= amount for stock, amount in needs.items()):
+      for stock, amount in needs.items():
+        setattr(ship, stock, getattr(ship, stock) - amount)
+      if kind not in spec.get('spoiled_by', ()):
+        scale = float(spec.get('worn', 1.0)) if self.worn(ship, member) else 1.0
+        for stock, amount in spec.get('gives', {}).items():
+          setattr(
+              ship, stock, max(0, getattr(ship, stock) + int(amount * scale))
+          )
+      for flag in spec.get('closes', ()):
+        setattr(ship, flag, False)
+    ship.fatigue[member] = max(
+        0, ship.fatigue[member] + int(spec.get('fatigue', 0))
+    )
 
   def act(
       self,
@@ -138,29 +166,8 @@ class CrewRule:
   ) -> dict[str, str]:
     """Decides every member's action first, then applies them in order."""
     chosen = {member: choose(member) for member in self._crew}
-    effects = self._effects
     for member in self._crew:
-      act = chosen[member]
-      worn = self.worn(ship, member)
-      if act == 'repair':
-        ship.damage = max(0, ship.damage - int(effects['repair_damage']))
-        ship.leak = False
-        ship.fatigue[member] += 1
-      elif act == 'gather':
-        if kind != 'storm':
-          ship.supplies += int(effects['gather_supplies'])
-        ship.fatigue[member] += 1
-      elif act == 'build':
-        if ship.supplies >= int(effects['build_cost']):
-          ship.supplies -= int(effects['build_cost'])
-          gain = int(effects['build_progress'])
-          ship.progress += gain // 2 if worn else gain
-        ship.fatigue[member] += 1
-      elif act == 'rest':
-        ship.fatigue[member] = max(
-            0, ship.fatigue[member] - int(effects['rest_recovery'])
-        )
-      # 'watch' costs nothing here; WatchRule acts on it.
+      self._apply(ship, member, chosen[member], kind)
     return chosen
 
 

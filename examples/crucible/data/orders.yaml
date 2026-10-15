@@ -5,10 +5,10 @@ commander: Commander
 default_scenario: voyage
 turns: 12
 max_words: 12        # longest order
-target: 20           # project progress needed by the last turn
+target: 24           # project progress needed by the last turn
 wreck_at: 10         # damage at which the game is lost
 
-start: {supplies: 6, damage: 0, progress: 0}
+start: {supplies: 3, damage: 0, progress: 0}
 
 # Cost: speaking costs command. A new order costs 1 point, plus 1 for every
 # `per_words` words; points come back each turn up to the cap.
@@ -18,26 +18,87 @@ command: {points: 3, regen: 1, cap: 5, per_words: 4}
 # reveals the next `sees` turns.
 watch: {sees: 2}
 
-crew:
-  Ash: {temperament: 'bold: keen to push the work forward, shrugs off risk'}
-  Bea: {temperament: 'cautious: worries about damage and about wearing out'}
-  Cy: {temperament: 'literal: does exactly what the order says and nothing it does not say'}
+# Temperaments are properties, not prose: the crew's prompt is written from
+# them, and the mock reads orders by them.
+#   otherwise: with no clause that applies, the first of these that makes
+#              sense (build needs a supply, repair needs damage or a leak)
+#   when_worn: 'rest' (stops to rest when worn out) or 'work'
+#   on_leak:   'repair' (repairs an open leak unless a clause names them
+#              to something else) or 'follow' (follows the order)
+#   sensible:  whether they skip an ordered action that cannot help now
+temperaments:
+  bold:
+    describe: keen to push the work forward; shrugs off risk
+    otherwise: [build, gather]
+    when_worn: work
+    on_leak: follow
+    sensible: true
+  cautious:
+    describe: worries about damage and about wearing out
+    otherwise: [repair, gather]
+    when_worn: rest
+    on_leak: repair
+    sensible: true
+  literal:
+    describe: does exactly what the order says and nothing it does not say
+    otherwise: [rest]
+    when_worn: work
+    on_leak: follow
+    sensible: false
 
-actions:            # menu, in order; effects are applied by the ledger
-  repair: {text: 'repair the hull', does: 'repairs the hull'}
-  gather: {text: 'gather supplies', does: 'gathers supplies'}
-  build: {text: 'build the project', does: 'builds'}
-  rest: {text: 'rest', does: 'rests'}
-  watch: {text: 'keep watch', does: 'keeps watch'}
+crew:
+  Ash: {temperament: bold}
+  Bea: {temperament: cautious}
+  Cy: {temperament: literal}
+
+# Each crew member first says which clause applies to them, then acts.
+two_step_reading: true
+
+# The laws of reading, written into every crew member's prompt.
+reading_laws:
+  - A plain clause (no names, no condition) applies to every crew member, every turn.
+  - A clause that names crew members applies to them alone, and comes before any other.
+  - A clause with if, when, whenever or during applies only while its condition holds; a clause with unless applies only while it does not.
+  - With no clause that applies, a crew member does what their temperament does otherwise.
+
+# The menu, in order. Effects are data read by one law (rules.CrewRule):
+#   needs:      stock an action spends; without it the action does nothing
+#   gives:      changes to the ship (supplies, progress, damage)
+#   fatigue:    change to the member's fatigue (rest is negative)
+#   spoiled_by: events in which the action gains nothing
+#   worn:       multiplier on gains when the member is worn out
+#   closes:     ship flags the action clears (a repair closes a leak)
+actions:
+  repair:
+    text: repair the hull
+    does: repairs the hull
+    gives: {damage: -2}
+    fatigue: 1
+    closes: [leak]
+  gather:
+    text: gather supplies
+    does: gathers supplies
+    gives: {supplies: 2}
+    fatigue: 1
+    spoiled_by: [storm]
+  build:
+    text: build the project
+    does: builds
+    needs: {supplies: 1}
+    gives: {progress: 2}
+    fatigue: 1
+    worn: 0.5
+  rest:
+    text: rest
+    does: rests
+    fatigue: -2
+  watch:
+    text: keep watch
+    does: keeps watch
 
 effects:
-  repair_damage: 2      # damage removed by one repair (and it closes a leak)
   leak_damage: 2        # damage an open leak adds each turn
-  gather_supplies: 2    # supplies one gather adds (none in a storm)
-  build_cost: 1         # supplies one build uses
-  build_progress: 2     # progress one build adds (half when worn out)
   tired_at: 3           # fatigue at which a crew member is worn out
-  rest_recovery: 2      # fatigue one rest removes
 
 # Events by turn (1-based); seeds shift the schedule by 0-2 turns.
 events:
@@ -60,7 +121,7 @@ premise: >-
   do: repair, gather supplies, build the project, rest, or keep watch.
   Speaking costs command: a new order costs 1 point plus 1 for every 4
   words, and you regain 1 point a turn (up to 5). You see only this turn;
-  someone on watch reveals the next two. Win by bringing the project to 20
+  someone on watch reveals the next two. Win by bringing the project to 24
   by the end of turn 12 before the hull takes 10 damage.
 
 # Scenarios override the values above.

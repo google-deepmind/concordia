@@ -17,9 +17,14 @@
 from absl.testing import absltest
 from examples.crucible.toys.orders import rules
 
-EFFECTS = {
-    'repair_damage': 2, 'leak_damage': 2, 'gather_supplies': 2,
-    'build_cost': 1, 'build_progress': 2, 'tired_at': 3, 'rest_recovery': 2,
+EFFECTS = {'leak_damage': 2, 'tired_at': 3}
+ACTIONS = {
+    'repair': {'gives': {'damage': -2}, 'fatigue': 1, 'closes': ['leak']},
+    'gather': {'gives': {'supplies': 2}, 'fatigue': 1, 'spoiled_by': ['storm']},
+    'build': {'needs': {'supplies': 1}, 'gives': {'progress': 2},
+              'fatigue': 1, 'worn': 0.5},
+    'rest': {'fatigue': -2},
+    'watch': {},
 }  # fmt: skip
 CREW = ('Ash', 'Bea', 'Cy')
 
@@ -71,7 +76,7 @@ class HazardRuleTest(absltest.TestCase):
 class CrewRuleTest(absltest.TestCase):
 
   def test_effects_apply_in_the_fixed_crew_order(self):
-    rule = rules.CrewRule(CREW, EFFECTS)
+    rule = rules.CrewRule(CREW, EFFECTS, ACTIONS)
     ship = _ship(supplies=1)
     chosen = rule.act(ship, 'quiet', lambda member: 'build')
     self.assertEqual(chosen, {'Ash': 'build', 'Bea': 'build', 'Cy': 'build'})
@@ -79,13 +84,13 @@ class CrewRuleTest(absltest.TestCase):
     self.assertEqual((ship.progress, ship.supplies), (2, 0))
 
   def test_storm_spoils_gathering_and_repair_closes_leaks(self):
-    rule = rules.CrewRule(CREW, EFFECTS)
+    rule = rules.CrewRule(CREW, EFFECTS, ACTIONS)
     ship = _ship(supplies=0, damage=4, leak=True)
     rule.act(ship, 'storm', lambda m: 'repair' if m == 'Ash' else 'gather')
     self.assertEqual((ship.supplies, ship.damage, ship.leak), (0, 2, False))
 
   def test_worn_out_builders_do_half(self):
-    rule = rules.CrewRule(CREW, EFFECTS)
+    rule = rules.CrewRule(CREW, EFFECTS, ACTIONS)
     ship = _ship(supplies=3)
     ship.fatigue['Ash'] = 3
     rule.act(ship, 'quiet', lambda m: 'build' if m == 'Ash' else 'rest')

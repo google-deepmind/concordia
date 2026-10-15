@@ -29,11 +29,11 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 3: interaction matrix
 
-- [ ] Properties live in YAML and component state, not only in prompts.
-- [ ] No resolver branches on a specific operator and target pair.
-- [ ] Matrix cells live in YAML and an audit script counts them.
-- [ ] Every new feature added or deepened at least two cells.
-- [ ] Golden sets pass on every model you ship.
+- [x] Properties live in YAML and component state, not only in prompts. (cycle 8: temperaments and actions as data; prompts rendered from them)
+- [x] No resolver branches on a specific operator and target pair. (cycle 8: one law in `CrewRule` over action data; the mock reads temperament properties; MOCK byte-identical)
+- [x] Matrix cells live in YAML and an audit script counts them. (`data/orders_matrix.yaml`, `audit.py`, `audit_test`: 31 cells)
+- [x] Every new feature added or deepened at least two cells. (cycle 8 laws of reading deepened hazards->crew, fatigue->crew, stores->crew; recorded per feature in DESIGN from now on)
+- [x] Golden sets pass on every model you ship. (cycle 8: MOCK 10/10 hard, 100%; qwen3:8b 10/10, 91%; DeepSeek-V4.1-Flash 10/10, 91%)
 
 ## Phase 4: pacing
 
@@ -68,10 +68,17 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 
 ## Next (Phase 1, orders)
 
-1. Evidence that a tester pokes the free scenario unprompted (the owner's games; the model explorer poked when asked to: 12 distinct orders in 12 turns).
-2. Phase 3: the interaction matrix (order operators x situations and temperaments) as data, with an audit and golden sets.
+1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
+2. Library round 3: the reasoned-choice wrapper, with its golden-set evidence.
+3. Phase 4: scenes and a campaign (Isolate, Develop, Twist, Catharsis).
 
 ## Backlog
+
+- Orders: the skilled bot plans as if unseen turns are quiet; teach it the
+  value of a watch (it lost to random in some sweep settings).
+- Ollama wrapper: an explanation-first JSON template raised qwen3:8b's hard
+  laws 6 -> 8 of 10 but lowered soft agreement 82% -> 64% (one run each);
+  measure with repeats before proposing.
 
 - Library: `Simulation.play(verbose=...)` (it always prints today).
 - Claims: the mock rival only negates and echoes; give it support-building.

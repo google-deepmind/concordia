@@ -41,15 +41,50 @@ from examples.crucible.toys.orders import rules
 Ship = rules.Ship
 
 CHOICE_STATEMENT = (
-    '{name} is a crew member who is {temperament}.\n'
+    '{name} is a crew member who is {temperament}: {describe}.\n'
+    '{habits}\n'
+    'How crew members read orders:\n{laws}\n'
     'The standing order from the commander is: "{order}"\n'
     'This turn: {situation}\n'
     'Stores: {supplies} supplies; hull damage {damage}; project {progress}'
     ' of {target}. {name} is {condition}.\n'
 )
+CLAUSE_QUESTION = (
+    'Which clause of the standing order applies to {name} this turn? Quote'
+    ' it, or answer "none".'
+)
 CHOICE_QUESTION = 'What does {name} do this turn?'
 ORDER_MARKER = 'Give your standing order'
 HOLD = 'hold'
+
+_OTHERWISE = {
+    'build': 'builds if there is a supply',
+    'gather': 'gathers supplies',
+    'repair': 'repairs the hull if it is damaged or leaking',
+    'rest': 'rests',
+    'watch': 'keeps watch',
+}
+
+
+def habits(name: str, props: Mapping[str, Any]) -> str:
+  """A temperament's properties, as the sentences a crew prompt carries."""
+  otherwise = ', or else '.join(_OTHERWISE[a] for a in props['otherwise'])
+  worn = 'rests' if props['when_worn'] == 'rest' else 'keeps working'
+  leak = (
+      'repairs it unless a clause names them to something else'
+      if props['on_leak'] == 'repair'
+      else 'follows the order'
+  )
+  ordered = (
+      'skips an ordered action that cannot help this turn'
+      if props['sensible']
+      else 'does an ordered action even when it cannot help this turn'
+  )
+  return (
+      f'When a clause applies, {name} {ordered}. With no clause that '
+      f'applies, {name} {otherwise}. When worn out, {name} {worn}. With a '
+      f'leak open, {name} {leak}.'
+  )
 
 
 class OrdersToy(base.Toy):
@@ -77,7 +112,7 @@ class OrdersToy(base.Toy):
     self.menu: list[str] = list(data['actions'])
     self.command = rules.CommandRule(data['command'], int(data['max_words']))
     self.hazards = rules.HazardRule(data['effects'])
-    self.crew_rule = rules.CrewRule(self.crew, data['effects'])
+    self.crew_rule = rules.CrewRule(self.crew, data['effects'], data['actions'])
     self.watch = rules.WatchRule(int(data['watch']['sees']))
     start = data['start']
     self.world = Ship(
@@ -126,9 +161,14 @@ class OrdersToy(base.Toy):
 
   def choose(self, ship: Ship, member: str, turn: int) -> str:
     """The model's reading of what `member` does under the order (cached)."""
+    temperament = self._data['crew'][member]['temperament']
+    props = self._data['temperaments'][temperament]
     statement = CHOICE_STATEMENT.format(
         name=member,
-        temperament=self._data['crew'][member]['temperament'],
+        temperament=temperament,
+        describe=props['describe'],
+        habits=habits(member, props),
+        laws='\n'.join(f'- {law}' for law in self._data['reading_laws']),
         order=ship.order or '(no order given)',
         situation=self.situation(ship, turn),
         supplies=ship.supplies,
@@ -140,6 +180,9 @@ class OrdersToy(base.Toy):
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)
+      if self._data.get('two_step_reading', True):
+        # Reading first: which clause applies, then what to do about it.
+        doc.open_question(CLAUSE_QUESTION.format(name=member), max_tokens=60)
       self._cache[statement] = doc.multiple_choice_question(
           CHOICE_QUESTION.format(name=member),
           [self._data['actions'][a]['text'] for a in self.menu],

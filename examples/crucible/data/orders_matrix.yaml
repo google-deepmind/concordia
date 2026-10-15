@@ -1,0 +1,96 @@
+# The orders toy's two interaction matrices (GUIDE.md, Phase 3).
+#
+# Every cell names its mechanism and what exercises it: a test (by function
+# name, in examples/crucible/**/*_test.py) or golden cases (below).
+# `python -m examples.crucible.audit` counts the cells and checks that every
+# test and golden case a cell names exists. List only cells that exist.
+
+systems:
+  command: Command (the standing order and its price)
+  crew: Crew (each member's reading of the order, and their action)
+  hazards: Hazards (leaks and storms)
+  stores: Stores (supplies)
+  project: Project (progress toward the target)
+  hull: Hull (damage; the wreck)
+  fatigue: Fatigue (wear and rest)
+  watch: Watch (what the commander knows of the turns ahead)
+
+# Row system affects column system by mechanism.
+cells:
+  - {from: command, to: crew, by: the standing order is what every member reads each turn, test: test_temperaments_read_the_same_order_differently}
+  - {from: command, to: command, by: a longer order costs more points; points come back a turn at a time, test: test_longer_orders_cost_more}
+  - {from: crew, to: stores, by: gathering adds supplies and building spends them, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: crew, to: project, by: building adds progress, test: test_effects_apply_in_the_fixed_crew_order}
+  - {from: crew, to: hull, by: repairing removes damage and closes a leak, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: crew, to: fatigue, by: work wears a member out and rest restores them, test: test_worn_out_builders_do_half}
+  - {from: crew, to: watch, by: a member on watch reveals the next turns, test: test_a_watch_reveals_the_next_turns}
+  - {from: hazards, to: hull, by: an open leak adds damage every turn, test: test_leak_bleeds_until_closed}
+  - {from: hazards, to: stores, by: a storm spoils gathering, test: test_storm_spoils_gathering_and_repair_closes_leaks}
+  - {from: hazards, to: crew, by: a leak makes conditional clauses apply and the cautious repair, golden: [g5, g12, g13]}
+  - {from: fatigue, to: crew, by: a worn-out cautious member stops to rest, golden: [g15]}
+  - {from: fatigue, to: project, by: a worn-out builder adds half the progress, test: test_worn_out_builders_do_half}
+  - {from: stores, to: crew, by: with no supply the sensible stop building and gather, golden: [g18]}
+  - {from: stores, to: project, by: every build spends a supply; one supply feeds one builder, test: test_effects_apply_in_the_fixed_crew_order}
+  - {from: watch, to: command, by: turns seen from the watch enter the commander's view and forecasts, test: test_the_future_is_hidden_until_someone_watches}
+  - {from: hull, to: project, by: ten damage wrecks the ship and ends the voyage unfinished, test: test_wreck_ends_the_game}
+
+# What an order says (operator) against what holds now (property): the law
+# that resolves the cell, and the golden cases that check it.
+reading:
+  operators:
+    directive: an order that names an action for everyone
+    conditional: a clause with if, when, during or unless
+    named: a clause that names crew members
+    watch: an order to keep watch
+    silence: no clause that applies
+  properties:
+    quiet: a quiet turn
+    leak: a leak open in the hull
+    storm: a storm blowing
+    worn: the member is worn out
+    no_supplies: the stores are empty
+    bold: a bold member
+    cautious: a cautious member
+    literal: a literal member
+  cells:
+    - {operator: directive, property: quiet, law: members do the action the order names, golden: [g1, g2]}
+    - {operator: directive, property: storm, law: the sensible skip an action that cannot help now; the literal do it anyway, golden: [g3, g4]}
+    - {operator: directive, property: leak, law: the cautious repair an open leak unless named otherwise; the literal follow the order, golden: [g13, g14]}
+    - {operator: directive, property: worn, law: the worn-out cautious rest; the bold keep working, golden: [g15, g16]}
+    - {operator: directive, property: no_supplies, law: the sensible gather instead of building with nothing; the literal build anyway, golden: [g18, g19]}
+    - {operator: conditional, property: leak, law: a clause conditioned on a leak applies while one is open, golden: [g5]}
+    - {operator: conditional, property: quiet, law: a conditional clause whose condition does not hold gives way to the plain clauses, golden: [g6]}
+    - {operator: conditional, property: storm, law: an "unless" clause applies only while its condition does not hold, golden: [g20, g21]}
+    - {operator: named, property: cautious, law: a clause naming a member applies to them and comes first, golden: [g7]}
+    - {operator: named, property: bold, law: a member not named in a clause reads only the other clauses, golden: [g8]}
+    - {operator: named, property: literal, law: a literal member not named anywhere does what they do otherwise, golden: [g9]}
+    - {operator: watch, property: storm, law: an order to keep watch is obeyed in any weather, golden: [g17]}
+    - {operator: silence, property: literal, law: with no clause that applies the literal rest, golden: [g10]}
+    - {operator: silence, property: bold, law: with no clause that applies the bold build while there is a supply, golden: [g11]}
+    - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}
+
+# Golden cases: one situation, one member, the actions the laws allow.
+# `hard` cases follow from a law a model must not break (names, conditions,
+# the literal); the rest measure agreement with the temperaments.
+golden:
+  - {id: g1, order: Build the project., event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g2, order: Build the project., event: quiet, member: Ash, expect: [build]}
+  - {id: g3, order: Gather supplies., event: storm, member: Cy, expect: [gather], hard: true}
+  - {id: g4, order: Gather supplies., event: storm, member: Ash, expect: [build]}
+  - {id: g5, order: 'Build; if a leak opens, repair it.', event: leak, member: Cy, expect: [repair], hard: true}
+  - {id: g6, order: 'Build; if a leak opens, repair it.', event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g7, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Bea, expect: [watch], hard: true}
+  - {id: g8, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Ash, expect: [build], hard: true}
+  - {id: g9, order: 'Ash, repair the hull.', event: quiet, member: Cy, expect: [rest]}
+  - {id: g10, order: '', event: quiet, member: Cy, expect: [rest]}
+  - {id: g11, order: '', event: quiet, member: Ash, expect: [build]}
+  - {id: g12, order: '', event: leak, member: Bea, expect: [repair]}
+  - {id: g13, order: Gather supplies., event: leak, member: Bea, expect: [repair]}
+  - {id: g14, order: Gather supplies., event: leak, member: Cy, expect: [gather], hard: true}
+  - {id: g15, order: Build., event: quiet, member: Bea, worn: true, expect: [rest]}
+  - {id: g16, order: Build., event: quiet, member: Ash, worn: true, expect: [build]}
+  - {id: g17, order: Keep watch., event: storm, member: Cy, expect: [watch], hard: true}
+  - {id: g18, order: Build., event: quiet, member: Ash, supplies: 0, expect: [gather]}
+  - {id: g19, order: Build., event: quiet, member: Cy, supplies: 0, expect: [build], hard: true}
+  - {id: g20, order: 'Unless there is a storm, gather supplies.', event: storm, member: Cy, expect: [rest]}
+  - {id: g21, order: 'Unless there is a storm, gather supplies.', event: quiet, member: Cy, expect: [gather], hard: true}

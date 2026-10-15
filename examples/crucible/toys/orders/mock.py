@@ -14,12 +14,13 @@
 
 """The mock model's answers for the orders toy, read from prompts alone.
 
-It splits an order into clauses, treats a clause that names crew members as
-theirs alone, a clause with "if", "when" (and similar) as applying only when
-its condition holds, maps verbs to actions with a word list, and then reads
-the result through each temperament: the bold build unless told otherwise,
-the cautious repair and rest, the literal do only what is written. This is
-the lookup-table floor of the toy.
+It applies the laws of reading that the crew's prompt states, by the
+temperament properties in data/orders.yaml, with no case for any particular
+temperament: it splits an order into clauses; a clause that names crew
+members is theirs alone and comes first; a clause with "if", "when" (and
+similar) applies only while its condition holds; verbs map to actions by a
+word list; and with no clause that applies, a member does what their
+temperament does otherwise. This is the lookup-table floor of the toy.
 """
 
 from collections.abc import Mapping, Sequence
@@ -28,12 +29,12 @@ from typing import Any
 
 from examples.crucible.toys.orders import toy as toy_lib
 
-_STATEMENT = re.compile(
-    r'(\w+) is a crew member who is (\w+):.*?\n'
-    r'The standing order from the commander is: "(.*)"\n'
-    r'This turn: (.*)\n'
+_WHO = re.compile(r'(\w+) is a crew member who is (\w+):')
+_ORDER = re.compile(r'The standing order from the commander is: "(.*)"\n')
+_TURN = re.compile(r'This turn: (.*)\n')
+_STORES = re.compile(
     r'Stores: (\d+) supplies; hull damage (\d+); project (\d+) of (\d+)\.'
-    r' \w+ is (worn out|fresh)\.',
+    r' \w+ is (worn out|fresh)\.'
 )
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
@@ -53,11 +54,8 @@ class OrdersMock:
 
   def ordered(
       self, order: str, now: set[str], member: str | None = None
-  ) -> list[str]:
-    """The actions the order asks of `member` now, in the order named.
-
-    Clauses that name crew members apply to them alone and come first; a
-    conditional clause applies only when its condition holds now.
+  ) -> tuple[list[str], bool]:
+    """The actions the order asks of `member` now, and whether by name.
 
     Args:
       order: The standing order.
@@ -65,7 +63,8 @@ class OrdersMock:
       member: The crew member reading the order.
 
     Returns:
-      The actions asked of `member`, without repeats.
+      The actions asked (in the order named, without repeats), and whether
+      they come from a clause that names the member.
     """
     me = (member or '').lower()
     buckets = {(True, True): [], (True, False): [], (False, True): [],
@@ -80,21 +79,32 @@ class OrdersMock:
       verbs = [a for w in words for a, vs in self._verbs.items() if w in vs]
       if self._if & set(words):
         wants = {k for k, vs in self._conditions.items() if vs & set(words)}
-        if wants & now:
+        holds = bool(wants & now)
+        if 'unless' in words:
+          holds = not holds
+        if holds:
           buckets[(bool(names), True)].extend(verbs)
       else:
         buckets[(bool(names), False)].extend(verbs)
-    chosen = (
-        buckets[(True, True)]
-        or buckets[(True, False)]
-        or buckets[(False, True)]
-        or buckets[(False, False)]
-    )
-    return list(dict.fromkeys(chosen))
+    for key in ((True, True), (True, False), (False, True), (False, False)):
+      if buckets[key]:
+        return list(dict.fromkeys(buckets[key])), key[0]
+    return [], False
+
+  def makes_sense(
+      self, action: str, supplies: int, damage: int, leak: bool, storm: bool
+  ) -> bool:
+    if action == 'build':
+      return supplies > 0
+    if action == 'repair':
+      return damage > 0 or leak
+    if action == 'gather':
+      return not storm
+    return True
 
   def decide(
       self,
-      temperament: str,
+      props: Mapping[str, Any],
       order: str,
       situation: str,
       supplies: int,
@@ -102,43 +112,52 @@ class OrdersMock:
       worn: bool,
       member: str | None = None,
   ) -> str:
-    now = set()
-    if 'leak' in situation.lower():
-      now.add('leak')
-    if 'storm' in situation.lower():
-      now.add('storm')
-    if worn:
-      now.add('tired')
-    if supplies <= 1:
-      now.add('low')
-    wanted = self.ordered(order, now, member)
-    if temperament == 'literal':
-      return wanted[0] if wanted else 'rest'
-    if temperament == 'cautious':
-      if worn and 'rest' not in wanted:
-        return 'rest'
-      if 'leak' in now and 'repair' not in wanted and not wanted:
-        return 'repair'
-      if wanted:
-        return wanted[0]
-      return 'repair' if damage > 0 else 'gather'
-    # Bold.
-    if 'build' in wanted:
-      return 'build' if supplies > 0 else 'gather'
-    if wanted:
-      return wanted[0]
-    return 'build' if supplies > 0 else 'gather'
+    """The action the laws of reading give, by temperament properties."""
+    leak = 'leak' in situation.lower()
+    storm = 'storm' in situation.lower()
+    now = {
+        name
+        for name, holds in (
+            ('leak', leak),
+            ('storm', storm),
+            ('tired', worn),
+            ('low', supplies <= 1),
+        )
+        if holds
+    }
+    wanted, named = self.ordered(order, now, member)
+    if worn and props['when_worn'] == 'rest' and 'rest' not in wanted:
+      return 'rest'
+    if leak and props['on_leak'] == 'repair' and not named:
+      return 'repair'
+    for action in wanted:
+      if not props['sensible'] or self.makes_sense(
+          action, supplies, damage, leak, storm
+      ):
+        return action
+    for action in props['otherwise']:
+      if self.makes_sense(action, supplies, damage, leak, storm):
+        return action
+    return 'rest'
 
   def choice(self, prompt: str, responses: Sequence[str]) -> int | None:
-    match = _STATEMENT.search(prompt)
-    if not match or 'do this turn?' not in prompt:
+    if 'do this turn?' not in prompt:
       return None
-    name, temperament, order, situation, supplies, damage, _, _, cond = (
-        match.groups()
+    who, order, turn, stores = (
+        _WHO.search(prompt),
+        _ORDER.search(prompt),
+        _TURN.search(prompt),
+        _STORES.search(prompt),
     )
+    if not (who and order and turn and stores):
+      return None
+    props = self._data['temperaments'].get(who.group(2))
+    if props is None:
+      return None
+    supplies, damage, _, _, cond = stores.groups()
     action = self.decide(
-        temperament, order, situation, int(supplies), int(damage),
-        cond == 'worn out', name,
+        props, order.group(1), turn.group(1), int(supplies), int(damage),
+        cond == 'worn out', who.group(1),
     )  # fmt: skip
     wanted = self._data['actions'][action]['text']
     letters = {text.strip(): key for key, text in _OPTION.findall(prompt)}
@@ -148,4 +167,24 @@ class OrdersMock:
   def text(self, prompt: str) -> str | None:
     if toy_lib.ORDER_MARKER in prompt:
       return 'Build; if a leak opens, repair it.'
+    if 'Which clause of the standing order applies' in prompt:
+      return self.applicable_clause(prompt)
     return None
+
+  def applicable_clause(self, prompt: str) -> str:
+    """The mock's answer to the reading question: the clause, or none."""
+    who, order, turn = (
+        _WHO.search(prompt),
+        _ORDER.search(prompt),
+        _TURN.search(prompt),
+    )
+    if not (who and order and turn):
+      return 'none'
+    situation = turn.group(1).lower()
+    now = {k for k in ('leak', 'storm') if k in situation}
+    wanted, _ = self.ordered(order.group(1), now, who.group(1))
+    return (
+        f'"{order.group(1)}" asks {who.group(1)} to {wanted[0]}'
+        if wanted
+        else 'none'
+    )
