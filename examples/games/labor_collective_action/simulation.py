@@ -406,7 +406,7 @@ class InventoryPayoffHandler:
       Mapping from player name to their score for this round.
     """
     workers_acted = any(
-        p in self._player_names and p in joint_action for p in joint_action
+        joint_action.get(p) is not None for p in self._player_names
     )
 
     validated_actions = {}
