@@ -212,7 +212,7 @@ cases.
 | MOCK | 10/10 | 100% | yes |
 | qwen3:8b, the provider's structured choice | 4/10 | 82% | no |
 | ... laws restated in data | 6/10 | 82% | no |
-| ... with a reason before the letter (`model_setup.ReasonedChoice`) | 10/10 | 91% | yes |
+| ... with a reason before the letter (contrib `ReasonedChoice`, library round 3) | 10/10 | 91% | yes |
 | DeepSeek-V4.1-Flash (Together), one-step reading | 9/10 | 91% | no |
 | ... two-step reading (which clause applies, then the action) | 10/10 | 91% | yes |
 

@@ -65,12 +65,12 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 |---|---|---|
 | 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | draft PR google-deepmind/concordia#419 |
 | 2 (cycle 5) | contrib `blocking_input` (a `HumanInput` reader answered from another thread) | same PR, second commit |
+| 3 (cycle 9) | contrib `language_models/reasoned_choice` (multiple choice through a short reason) | same PR, third commit |
 
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. Library round 3: the reasoned-choice wrapper, with its golden-set evidence.
-3. Phase 4: scenes and a campaign (Isolate, Develop, Twist, Catharsis).
+2. Phase 4: scenes and a campaign (Isolate, Develop, Twist, Catharsis).
 
 ## Backlog
 
