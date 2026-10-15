@@ -59,7 +59,7 @@ class OrdersMock:
 
     Args:
       order: The standing order.
-      now: Conditions that hold this turn ('leak', 'storm', 'tired', 'low').
+      now: Conditions that hold this turn ('leak', 'storm', 'squall', 'tired').
       member: The crew member reading the order.
 
     Returns:
@@ -76,9 +76,17 @@ class OrdersMock:
       names = self._crew & set(words)
       if names and me not in names:
         continue
-      verbs = [a for w in words for a, vs in self._verbs.items() if w in vs]
-      if self._if & set(words):
-        wants = {k for k, vs in self._conditions.items() if vs & set(words)}
+      conditional = bool(self._if & set(words))
+      wants = {k for k, vs in self._conditions.items() if vs & set(words)}
+      # In a conditional clause, the condition's own words are not orders:
+      # "If tired, build" asks for building, not rest.
+      said = (
+          [w for w in words if not any(w in self._conditions[k] for k in wants)]
+          if conditional
+          else words
+      )
+      verbs = [a for w in said for a, vs in self._verbs.items() if w in vs]
+      if conditional:
         holds = bool(wants & now)
         if 'unless' in words:
           holds = not holds
@@ -102,6 +110,14 @@ class OrdersMock:
       return not storm
     return True
 
+  def conditions_now(self, situation: str, worn: bool) -> set[str]:
+    """The conditions an order's clauses can name that hold this turn."""
+    text = situation.lower()
+    now = {k for k in ('leak', 'storm', 'squall') if k in text}
+    if worn:
+      now.add('tired')
+    return now
+
   def decide(
       self,
       props: Mapping[str, Any],
@@ -116,16 +132,7 @@ class OrdersMock:
     """The action the laws of reading give, by temperament properties."""
     leak = 'leak' in situation.lower()
     storm = 'storm' in situation.lower()
-    now = {
-        name
-        for name, holds in (
-            ('leak', leak),
-            ('storm', storm),
-            ('tired', worn),
-            ('low', supplies <= 1),
-        )
-        if holds
-    }
+    now = self.conditions_now(situation, worn)
     wanted, named = self.ordered(order, now, member)
     if menu is not None:
       # An action the scene does not offer cannot be done.
@@ -152,7 +159,7 @@ class OrdersMock:
     return 'rest'
 
   def choice(self, prompt: str, responses: Sequence[str]) -> int | None:
-    if 'do this turn?' not in prompt:
+    if toy_lib.CHOICE_QUESTION.split('{name}')[1] not in prompt:
       return None
     who, order, turn, stores = (
         _WHO.search(prompt),
@@ -182,7 +189,7 @@ class OrdersMock:
   def text(self, prompt: str) -> str | None:
     if toy_lib.ORDER_MARKER in prompt:
       return 'Build; if a leak opens, repair it.'
-    if 'Which clause of the standing order applies' in prompt:
+    if toy_lib.CLAUSE_QUESTION.split('{name}')[0] in prompt:
       return self.applicable_clause(prompt)
     return None
 
@@ -195,8 +202,9 @@ class OrdersMock:
     )
     if not (who and order and turn):
       return 'none'
-    situation = turn.group(1).lower()
-    now = {k for k in ('leak', 'storm') if k in situation}
+    stores = _STORES.search(prompt)
+    worn = bool(stores and stores.group(5) == 'worn out')
+    now = self.conditions_now(turn.group(1), worn)
     wanted, _ = self.ordered(order.group(1), now, who.group(1))
     return (
         f'"{order.group(1)}" asks {who.group(1)} to {wanted[0]}'

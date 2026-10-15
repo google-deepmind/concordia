@@ -43,8 +43,9 @@ class EndToEndTest(parameterized.TestCase):
       outcomes.append(json.dumps(game.toy.get_state(), sort_keys=True))
     self.assertEqual(outcomes[0], outcomes[1])
 
-  def test_model_in_the_seat(self):
-    game = harness.build_game('claims', model_setup.mock_model(), 'model')
+  @parameterized.parameters(*[(t,) for t in toys.registry()])
+  def test_model_in_the_seat(self, toy):
+    game = harness.build_game(toy, model_setup.mock_model(), 'model')
     game.play()
     self.assertTrue(game.toy.done())
 

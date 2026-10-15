@@ -21,8 +21,8 @@ answer is one the laws allow. Hard cases follow from laws a model must not
 break (names, conditions, the literal member); the set passes when every
 hard case passes and at least `--soft` of the others agree.
 
-  python -m examples.crucible.golden --mode=mock
-  python -m examples.crucible.golden --mode=ollama --model_name=qwen3:8b
+  python -m examples.crucible.golden_cli --mode=mock
+  python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b
 """
 
 import copy
@@ -52,7 +52,6 @@ def run_case(
   ship.shift = 0
   ship.order = case['order']
   ship.supplies = int(case.get('supplies', 3))
-  ship.damage = int(case.get('damage', 0))
   if case.get('worn'):
     ship.fatigue[case['member']] = int(data['effects']['tired_at'])
   if case['event'] == 'leak':

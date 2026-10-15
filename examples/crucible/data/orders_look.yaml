@@ -74,6 +74,7 @@ stocks:
   damage: {glyph: '✕', word: damage, color: hull}
   progress: {glyph: '▥', word: project, color: project}
   points: {glyph: '♦', word: command, color: command}
+  foresight: {glyph: '◔', word: forecast, color: command}
 
 # The matrix's properties (data/orders_matrix.yaml `reading.properties`) and
 # where each one's look lives.

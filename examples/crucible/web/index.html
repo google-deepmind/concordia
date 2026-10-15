@@ -193,15 +193,16 @@ function renderView(v, receipts) {
   $('points').textContent = '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points));
   label($('suppliesLabel'), 'stocks', 'supplies', word('stocks', 'supplies'));
   $('supplies').textContent = v.supplies;
-  const goalKey = v.goal === 'supplies' ? 'supplies' : (v.goal === 'foresight' ? 'points' : 'progress');
+  const goalKey = v.goal === 'supplies' ? 'supplies' : (v.goal === 'foresight' ? 'foresight' : 'progress');
   const goalNow = v.goal === 'foresight' ? v.foresight : v[v.goal];
   label($('goalLabel'), 'stocks', goalKey, 'goal');
   $('goal').textContent = v.free ? 'free play' : (goalNow + ' / ' + v.target);
   label($('hullLabel'), 'stocks', 'damage', 'hull');
+  if (v.leak_open) $('hullLabel').append(' ', g('events', 'leak'), ' leak open');
   $('hull').textContent = v.damage + ' damage of ' + v.wreck_at;
   $('hullBar').style.width = Math.min(100, 100 * v.damage / v.wreck_at) + '%';
   $('hullBar').style.background = 'var(--hull)';
-  label($('goalBarLabel'), 'stocks', goalKey, v.goal === 'progress' ? word('stocks', 'progress') : v.goal);
+  label($('goalBarLabel'), 'stocks', goalKey, word('stocks', goalKey));
   $('goalNum').textContent = v.free ? '' : goalNow + ' of ' + v.target;
   $('goalBar').style.width = v.free ? '0%' : Math.min(100, 100 * goalNow / v.target) + '%';
   $('goalBar').style.background = 'var(--' + (LOOK.stocks[goalKey] || {}).color + ')';

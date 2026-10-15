@@ -95,16 +95,6 @@ def clean_action(actor: str, text: str) -> str:
   return re.sub(r'\s+', ' ', text)
 
 
-def split_putative_event(
-    event: str, actors: Sequence[str]
-) -> tuple[str, str] | None:
-  """Splits `<actor>: <action>` into its parts, for a known actor."""
-  for actor in sorted(actors, key=len, reverse=True):
-    if event.startswith(f'{actor}:'):
-      return actor, clean_action(actor, event[len(actor) + 1 :])
-  return None
-
-
 class Toy(abc.ABC):
   """A candidate generative rule with a deterministic, checkpointable state.
 
@@ -132,10 +122,6 @@ class Toy(abc.ABC):
     order = self.actors()
     self._current = order[self._turn % len(order)]
     self._turn += 1
-    return self._current
-
-  @property
-  def current_actor(self) -> str | None:
     return self._current
 
   # ---- moves --------------------------------------------------------------

@@ -271,7 +271,6 @@ class Games:
     return {
         'ok': True,
         'summary': receipt.summary,
-        'steps': receipt.steps,
         'forecast': forecast,
         'predicted': predicted,
     }

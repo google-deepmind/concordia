@@ -108,7 +108,7 @@ class ShipTest(absltest.TestCase):
   def test_rollout_leaves_the_ship_alone(self):
     toy = _toy()
     before = toy.get_state()
-    end = bots.rollout(toy, 'Build the project.')
+    end = toy.play_out('Build the project.')
     self.assertTrue(end.turn == 12 or toy.wrecked(end) or toy.won(end))
     self.assertEqual(toy.get_state(), before)
 

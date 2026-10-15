@@ -33,7 +33,7 @@ from absl import flags
 from examples.crucible import harness
 from examples.crucible import model_setup
 
-_TOY = flags.DEFINE_string('toy', 'claims', 'Which toy.')
+_TOY = flags.DEFINE_string('toy', 'orders', 'Which toy.')
 _SCENARIO = flags.DEFINE_string('scenario', None, 'Toy scenario.')
 _MODE = flags.DEFINE_enum('mode', 'mock', ['mock', 'ollama', 'together'], '')
 _MODEL_NAME = flags.DEFINE_string('model_name', None, 'Provider model name.')
@@ -58,7 +58,7 @@ def main(argv: list[str]) -> None:
   out_dir = os.path.join(
       _OUT_DIR.value, f'{_TOY.value}-{_SEAT.value}-{int(time.time())}'
   )
-  summary = harness.write_run(game, log, out_dir)
+  summary = harness.write_run(game, log, out_dir, model)
   for r in summary['receipts']:
     print(f"- {r['summary']}")
   print(json.dumps(summary['outcome']))

@@ -111,7 +111,7 @@ class OrdersToy(base.Toy):
     self.crew: list[str] = list(data.get('crew_present', data['crew']))
     self.menu: list[str] = list(data.get('menu', data['actions']))
     self.command = rules.CommandRule(data['command'], int(data['max_words']))
-    self.hazards = rules.HazardRule(data['effects'], data.get('hazards'))
+    self.hazards = rules.HazardRule(data['effects'], data['hazards'])
     self.crew_rule = rules.CrewRule(self.crew, data['effects'], data['actions'])
     self.watch = rules.WatchRule(int(data['watch']['sees']))
     start = data['start']
@@ -193,9 +193,8 @@ class OrdersToy(base.Toy):
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)
-      if self._data.get('two_step_reading', True):
-        # Reading first: which clause applies, then what to do about it.
-        doc.open_question(CLAUSE_QUESTION.format(name=member), max_tokens=60)
+      # Reading first: which clause applies, then what to do about it.
+      doc.open_question(CLAUSE_QUESTION.format(name=member), max_tokens=60)
       self._cache[statement] = doc.multiple_choice_question(
           CHOICE_QUESTION.format(name=member),
           [self._data['actions'][a]['text'] for a in self.menu],
@@ -216,6 +215,12 @@ class OrdersToy(base.Toy):
     turn = ship.turn + 1
     if self.free:
       stakes = f'hull damage {ship.damage}; project {ship.progress}'
+    elif self.goal() == 'foresight':
+      stakes = (
+          f'hull damage {ship.damage} of {self._data["wreck_at"]}; the '
+          f'harbour master wants {self._data["target"]} turns seen ahead '
+          f'(seen so far: {ship.foresight})'
+      )
     elif self.goal() == 'supplies':
       stakes = (
           f'hull damage {ship.damage} of {self._data["wreck_at"]}; the port '
@@ -304,7 +309,6 @@ class OrdersToy(base.Toy):
             .get(self.scenario, {})
             .get('title', self.scenario)
         ),
-        'scene': self.scenario,
         'beat': self._data.get('beat', ''),
         'free': self.free,
         'turn': turn,
@@ -341,9 +345,6 @@ class OrdersToy(base.Toy):
             }
             for member in self.crew
         ],
-        'menu': list(self.menu),
-        'last_turn': last,
-        'stars': self.stars(ship),
     }
 
   # ---- end of game, and forecasts ---------------------------------------
@@ -426,9 +427,9 @@ class OrdersToy(base.Toy):
     if not self.won(ship):
       return 0
     limits = {
-        'max_turns': ship.turn,
         'max_damage': ship.damage,
         'max_command': ship.spent,
+        'max_words_spoken': ship.words_spoken,
     }
     earned = 1
     for star in (2, 3):

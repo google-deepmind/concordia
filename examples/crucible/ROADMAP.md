@@ -45,7 +45,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 - [x] Every fact in a role's prompt has a visual home. (cycle 13: the board draws `OrdersToy.view()`; `look_test.ViewTest` checks every prompt fact is in the view; shots `PROG/evidence/shots/c13/`)
 - [x] Each matrix property has one look and one word, and a test enforces it. (`data/orders_look.yaml`, `look_test.LookTest`)
-- [ ] The rule audit is done and orphan rules are cut.
+- [x] The rule audit is done and orphan rules are cut. (cycle 14: DESIGN §2g; four defects fixed, orphans cut, MOCK audit unchanged: `PROG/evidence/audit-c14.jsonl`)
 
 ## Each upstreaming round
 
@@ -70,7 +70,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. The rule audit: walk every component and matrix row; cut what interlocks with nothing (incl. the claims and relay toys, unless the owner's games say otherwise).
+2. Keep deepening: a third arc (a new temperament or crew dynamics); live minds on the page; the owner's games.
 
 ## Backlog
 

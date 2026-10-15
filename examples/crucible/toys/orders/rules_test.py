@@ -75,7 +75,7 @@ class HazardRuleTest(absltest.TestCase):
     self.assertEqual(ship.damage, 3)
 
   def test_leak_bleeds_until_closed(self):
-    rule = rules.HazardRule(EFFECTS)
+    rule = rules.HazardRule(EFFECTS, {'leak': {'opens': ['leak']}})
     ship = _ship()
     rule.begin(ship, 'leak')
     self.assertIn('2 damage', rule.end(ship))

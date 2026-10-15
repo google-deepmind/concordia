@@ -51,9 +51,6 @@ crew:
   Bea: {temperament: cautious}
   Cy: {temperament: literal}
 
-# Each crew member first says which clause applies to them, then acts.
-two_step_reading: true
-
 # The laws of reading, written into every crew member's prompt.
 reading_laws:
   - A plain clause (no names, no condition) applies to every crew member, every turn.
@@ -137,7 +134,9 @@ premise: >-
 
 # Scenarios override the values above. Each is one scene of an arc
 # (GUIDE.md, Phase 4); `beat` says which. Stars: 1 for the win; 2 and 3 for
-# the conditions listed (all of a higher star's include the lower's).
+# the conditions listed: max_damage, max_command (points spent) and
+# max_words_spoken (words in all the orders given). `habit` names the order
+# the scene's twist is built to break (default: the first arc's).
 #   crew_present: who serves; menu: which actions exist
 scenarios:
   one_hand:
@@ -150,7 +149,7 @@ scenarios:
     start: {supplies: 6, damage: 0, progress: 0}
     events: {}
     command: {points: 1, regen: 0, cap: 1, per_words: 4}
-    stars: {2: {max_command: 1}, 3: {max_command: 1}}
+    stars: {2: {max_words_spoken: 2}, 3: {max_words_spoken: 1}}
     premise: >-
       Your first command: one crew member, Cy, who is literal: Cy does
       exactly what the order says and nothing it does not say. Bring the
@@ -177,7 +176,6 @@ scenarios:
   supply_run:
     beat: twist
     title: Supply run
-    habit: 'Build; if a leak opens, repair it.'
     crew_present: [Ash, Bea, Cy]
     menu: [repair, gather, build, rest]
     goal: supplies    # this time the port wants stores, not progress
@@ -198,7 +196,6 @@ scenarios:
   lookout:
     beat: isolate
     title: Lookout
-    habit: 'Gather supplies.'
     crew_present: [Bea]
     menu: [gather, rest, watch]
     goal: foresight   # turns seen ahead
@@ -206,7 +203,7 @@ scenarios:
     target: 4
     events: {}
     command: {points: 2, regen: 0, cap: 2, per_words: 4}
-    stars: {2: {max_command: 2}, 3: {max_command: 1}}
+    stars: {2: {max_words_spoken: 3}, 3: {max_words_spoken: 2}}
     premise: >-
       Bea alone, who is cautious. The harbour master wants a forecast:
       learn what 4 of the coming turns hold within 3 turns. Only someone on
@@ -215,7 +212,6 @@ scenarios:
   squalls:
     beat: develop
     title: Squalls
-    habit: 'Build; if a leak opens, repair it.'
     crew_present: [Ash, Bea, Cy]
     turns: 10
     target: 14
@@ -251,7 +247,6 @@ scenarios:
   crossing:
     beat: catharsis
     title: The crossing
-    habit: 'Bea, keep watch; everyone else build.'
     turns: 14
     target: 26
     start: {supplies: 3, damage: 0, progress: 0}
@@ -283,12 +278,12 @@ daily: {scenario: voyage, seeds: 997}
 lexicon:
   repair: [repair, fix, patch, mend, seal, hull, leak, leaks]
   gather: [gather, collect, forage, fetch, supplies, supply, stock]
-  build: [build, builds, work, project, progress, construct, push]
+  build: [build, builds, building, work, project, progress, construct, push]
   rest: [rest, sleep, recover, pause, break, tired]
   watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
   conditions:
     leak: [leak, leaks, damage, hull, breach]
     storm: [storm, storms, weather, wind]
     tired: [tired, exhausted, worn, fatigue]
-    low: [low, short, out, empty, scarce]
-  if_words: [if, when, whenever, during, once, unless]
+    squall: [squall, squalls]
+  if_words: [if, when, whenever, during, unless]

@@ -49,11 +49,6 @@ def candidates(toy: toy_lib.OrdersToy, actor: str) -> list[str]:
   return [toy_lib.HOLD] + [o for o in ORDERS if toy.command.cost(o) <= points]
 
 
-def rollout(toy: toy_lib.OrdersToy, order: str) -> toy_lib.Ship:
-  """The ship at the end of the game if `order` is given now and held."""
-  return toy.play_out(order)
-
-
 def value(toy: toy_lib.OrdersToy, ship: toy_lib.Ship) -> float:
   goal = float(getattr(ship, toy.goal()))
   return (100.0 if toy.won(ship) else 0.0) + goal - 2.0 * ship.damage

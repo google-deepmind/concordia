@@ -292,6 +292,27 @@ reading.
 
 Screenshots at the Pixel's viewport, light and dark: `PROG/evidence/shots/c13/`.
 
+## 2g. The rule audit (cycle 14)
+
+An independent pass walked every data key, lexicon word, rule, function and
+page field of Twelve Words. Every data key was read; the findings were
+values never exercised, dead helpers and four real defects.
+
+| Kind | Finding | Done |
+|---|---|---|
+| Defect | Lookout told a model "project X of 4"; its goal is turns seen | the prompt states the forecast goal; a forecast look (`◔`) |
+| Defect | condition words doubled as verbs: "If tired, build" made a member rest | a conditional clause's condition words are not orders; golden g24, g25 |
+| Defect | "if a squall..." could never apply | squall is a condition; one helper gives the conditions now |
+| Defect | One hand's and Lookout's star conditions could never fail | stars now count words spoken (the game's currency): one word for three stars in One hand |
+| Orphan | `two_step_reading` (always on), `max_turns`, condition `low`, keyword `once` (not in the laws the prompt states) | cut |
+| Orphan | habits equal to the default, or never checked (Supply run, Lookout, Squalls, Crossing) | cut |
+| Orphan | `split_putative_event`, `current_actor`, `rollout`, `play(quiet=False)`, rule defaults never reached, preview `steps`, view fields nobody reads | cut |
+| Unused but useful | the mock's call count; the open-leak flag; the habit bot | the run summary reports model calls; the board marks an open leak; `play_audit --policies` |
+| Kept | single-instance laws (`needs`, `spoiled_by`, `opens`, ...), empty hazard kinds, verb synonyms for typed orders | laws are general even with one instance; every ledger kind has a look; people type what they like |
+
+The claims and relay toys stay as the record of the toy stage (Phase 0);
+they are not rules of Twelve Words.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -342,3 +363,4 @@ Sources:
 | 11 | Campaign: chapters open with a star in the one before; best stars kept per scene on the server; a daily challenge (the voyage, seeded by the date). The page shows chapters, locks and stars. |
 | 12 | Arc 2 (Lookout, Squalls, Night watch, The crossing): squalls; hazards as data; scenes name their own habit; the skilled bot plans over the premise's schedules. Cells added: hazards->hull, watch->hull, fatigue->watch, watch->project; reading cell watch x worn. |
 | 13 | Title: Twelve Words. One look per kind (`orders_look.yaml`); the board draws `view()`; previews mark each member's next action. |
+| 14 | Live games on DeepSeek-V4.1-Flash (3 scenes, est. $0.05): the commander prompt states order prices, narrated orders are unwrapped. The rule audit (DESIGN §2g). Stars count words spoken. Cell added: conditional x worn. |

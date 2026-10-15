@@ -75,6 +75,7 @@ reading:
     - {operator: silence, property: bold, law: with no clause that applies the bold build while there is a supply, golden: [g11]}
     - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}
     - {operator: watch, property: worn, law: a worn-out cautious member named to watch rests instead; a worn-out bold one keeps watch, golden: [g22, g23]}
+    - {operator: conditional, property: worn, law: a clause conditioned on tiredness applies to the worn out; its condition word is not itself an order (cycle 14), golden: [g24, g25]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
 # `hard` cases follow from a law a model must not break (names, conditions,
@@ -103,3 +104,5 @@ golden:
   - {id: g21, order: 'Unless there is a storm, gather supplies.', event: quiet, member: Cy, expect: [gather], hard: true}
   - {id: g22, order: 'Bea, keep watch; everyone else build.', event: quiet, member: Bea, worn: true, expect: [rest]}
   - {id: g23, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Ash, worn: true, expect: [watch]}
+  - {id: g24, order: 'If tired, build.', event: quiet, member: Cy, worn: true, expect: [build], hard: true}
+  - {id: g25, order: 'If tired, build.', event: quiet, member: Cy, expect: [rest]}

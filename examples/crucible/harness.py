@@ -60,10 +60,8 @@ class Game:
   reader: human_input.HumanInput | None
   seat: str
 
-  def play(self, quiet: bool = True) -> structured_logging.SimulationLog:
-    """Plays the game; `Simulation.play` always prints, unless quiet."""
-    if not quiet:
-      return self.sim.play(max_steps=self.toy.max_steps())
+  def play(self) -> structured_logging.SimulationLog:
+    """Plays the game (quietly: `Simulation.play` always prints)."""
     with contextlib.redirect_stdout(io.StringIO()):
       return self.sim.play(max_steps=self.toy.max_steps())
 
@@ -155,7 +153,9 @@ def build_game(
   return Game(sim=sim, toy=toy, kind=kind, reader=reader, seat=seat)
 
 
-def write_run(game: Game, log: Any, out_dir: str) -> dict[str, Any]:
+def write_run(
+    game: Game, log: Any, out_dir: str, model: Any = None
+) -> dict[str, Any]:
   """Writes the run folder and returns the summary."""
   os.makedirs(out_dir, exist_ok=True)
   receipts = [
@@ -169,6 +169,7 @@ def write_run(game: Game, log: Any, out_dir: str) -> dict[str, Any]:
       'outcome': game.outcome(),
       'receipts': receipts,
       'state': game.toy.get_state(),
+      'model_calls': getattr(model, 'calls', None) if model else None,
   }
   with open(os.path.join(out_dir, 'summary.json'), 'w') as f:
     json.dump(summary, f, indent=2)

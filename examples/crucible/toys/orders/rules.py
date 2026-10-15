@@ -45,6 +45,7 @@ class Ship:
   order: str = ''
   points: int = 0
   spent: int = 0  # command points spent on orders so far
+  words_spoken: int = 0  # words in all the orders given
   fatigue: dict[str, int] = dataclasses.field(default_factory=dict)
   shift: int = 0
   # Events the commander has seen ahead, by turn (str keys: JSON-safe).
@@ -101,6 +102,7 @@ class CommandRule:
     ship.order = order
     ship.points -= price
     ship.spent += price
+    ship.words_spoken += words
     return f'New order (cost {price}): "{order}".'
 
   def regenerate(self, ship: Ship) -> None:
@@ -115,13 +117,9 @@ class HazardRule:
   one kept watch the turn before.
   """
 
-  def __init__(
-      self,
-      effects: Mapping[str, Any],
-      hazards: Mapping[str, Any] | None = None,
-  ):
+  def __init__(self, effects: Mapping[str, Any], hazards: Mapping[str, Any]):
     self._leak_damage = int(effects['leak_damage'])
-    self._hazards = hazards or {'leak': {'opens': ['leak']}}
+    self._hazards = hazards
 
   def begin(self, ship: Ship, kind: str) -> str:
     spec = self._hazards.get(kind, {})
@@ -157,11 +155,11 @@ class CrewRule:
       self,
       crew: Sequence[str],
       effects: Mapping[str, Any],
-      actions: Mapping[str, Any] | None = None,
+      actions: Mapping[str, Any],
   ):
     self._crew = list(crew)
     self._effects = effects
-    self._actions = actions or {}
+    self._actions = actions
 
   def worn(self, ship: Ship, member: str) -> bool:
     return ship.fatigue[member] >= int(self._effects['tired_at'])
