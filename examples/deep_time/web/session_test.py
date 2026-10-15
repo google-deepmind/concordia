@@ -747,6 +747,9 @@ class GameSessionTest(absltest.TestCase):
       row['temp_c'] = temp
     turning = game.state()['recap']['turning']
     (point,) = [p for p in turning if p['to_c'] < p['from_c']]
+    watched = session_lib.GameSession('daisyworld', 'watch')
+    watched.context.planet.outcome = 'victory'
+    self.assertEqual(watched.state()['recap']['turning'], [])  # No player.
     self.assertEqual((point['move'], point['move_tick']), (clouds, 1))
     self.assertLess(point['to_c'] - point['from_c'], -8)
 

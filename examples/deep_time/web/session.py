@@ -2329,9 +2329,17 @@ class GameSession:
     return 'warm' if push >= 0.5 else 'cool' if push <= -0.5 else 'other'
 
   def _turning(self, place: Seat | None) -> list[dict[str, Any]]:
-    """The game's turning points for a Steward's recap."""
-    if place is None or not isinstance(
-        self.context.actors.get(place.entity), actors_lib.StewardActor
+    """The game's turning points for a Steward's recap.
+
+    Only a played game's: they tell a person's own moves and readings (a
+    watched game's Steward is the mock, whose moves are not kept).
+    """
+    if (
+        self.mode != 'play'
+        or place is None
+        or not isinstance(
+            self.context.actors.get(place.entity), actors_lib.StewardActor
+        )
     ):
       return []
     planet = self.context.planet
