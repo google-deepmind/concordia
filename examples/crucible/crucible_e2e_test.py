@@ -55,6 +55,11 @@ class EndToEndTest(parameterized.TestCase):
       summary = harness.write_run(game, log, out_dir)
     self.assertNotEmpty(summary['receipts'])
 
+  def test_win_rates_count_only_the_seat(self):
+    # In claims the rival can win; a passive seat must not be credited.
+    rates = audits.win_rates('claims', None, 2)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+
   @parameterized.parameters(*[(t,) for t in toys.registry()])
   def test_skill_shows(self, toy):
     result = audits.audit(toy, None, seeds=4)

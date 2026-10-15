@@ -111,7 +111,7 @@ def win_rates(
       )
       game.play()
       outcome = game.outcome()
-      won += outcome['winner'] is not None
+      won += outcome['winner'] == kind.seat
       stars += outcome.get('stars', 0)
     out[policy] = {
         'win_pct': round(100.0 * won / seeds),
