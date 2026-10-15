@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crucible</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.45 system-ui, sans-serif; margin: 0; padding: 12px 16px 120px; }
+  h1 { font-size: 18px; margin: 4px 0 8px; }
+  pre { white-space: pre-wrap; word-break: break-word; font: 14px/1.4 ui-monospace, monospace;
+        margin: 8px 0; padding: 8px; border: 1px solid #8884; border-radius: 6px; }
+  button { min-height: 44px; min-width: 44px; padding: 8px 14px; font-size: 16px; margin: 4px 6px 4px 0; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 88px; font-size: 16px; }
+  .muted { opacity: .7; }
+  .error { color: #c33; }
+  #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px;
+          background: Canvas; border-top: 1px solid #8884; }
+  ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>Crucible <span class="muted">grey box</span></h1>
+<div id="pick"></div>
+<label id="mindrow">Minds: <select id="mind"></select></label>
+<p id="status" class="muted">Pick a toy to start a game.</p>
+<details id="ctxbox"><summary>What your seat knows (the whole prompt)</summary><pre id="context"></pre></details>
+<pre id="question"></pre>
+<p id="reqerror" class="error"></p>
+<textarea id="move" placeholder="Your move" autocomplete="off"></textarea>
+<div>
+  <button id="preview">Preview</button>
+  <button id="pass">Pass / hold</button>
+</div>
+<pre id="previewout" class="muted"></pre>
+<h2 style="font-size:16px">What happened (latest first)</h2>
+<ol id="log" reversed></ol>
+<div id="dock"><button id="send" style="width:100%">Send move</button></div>
+<script>
+const $ = (id) => document.getElementById(id);
+let requestId = null, lastQuestion = '';
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  return res.json();
+}
+function render(state) {
+  const pick = $('pick');
+  if (!pick.dataset.done) {
+    for (const toy of state.toys) {
+      const b = document.createElement('button');
+      b.textContent = 'New game: ' + toy;
+      b.onclick = async () => {
+        await api('api/start', {toy, mode: $('mind').value}); $('log').innerHTML = '';
+      };
+      pick.appendChild(b);
+    }
+    for (const mode of state.modes) {
+      const o = document.createElement('option');
+      o.value = mode;
+      o.textContent = mode === 'mock' ? 'mock (instant, a word list)' : mode + ' (a real model, slower)';
+      $('mind').appendChild(o);
+    }
+    $('mindrow').hidden = state.modes.length < 2;
+    pick.dataset.done = '1';
+  }
+  const g = state.game;
+  if (!g) return;
+  const log = $('log');
+  if (log.children.length !== g.receipts.length) {
+    log.innerHTML = '';
+    for (const r of g.receipts.slice().reverse()) {
+      const li = document.createElement('li'); li.textContent = r; log.appendChild(li);
+    }
+  }
+  const req = g.request;
+  if (g.finished) {
+    $('status').textContent = 'Game over (' + g.toy + '): ' + JSON.stringify(g.outcome) + (g.error ? ' ' + g.error : '');
+    requestId = null;
+  } else if (req) {
+    $('status').textContent = 'Your move as ' + g.seat + ' (' + g.toy + ').';
+  } else {
+    $('status').textContent = 'The world is turning…';
+  }
+  requestId = req ? req.id : null;
+  $('context').textContent = req ? req.context : '';
+  $('question').textContent = req ? req.question : '';
+  $('reqerror').textContent = req && req.error ? 'Not accepted: ' + req.error : '';
+  $('send').disabled = !req;
+  if (req && req.question !== lastQuestion) { lastQuestion = req.question; $('previewout').textContent = ''; }
+}
+async function poll() {
+  try { render(await api('api/state')); } catch (e) { $('status').textContent = 'Offline: ' + e; }
+  setTimeout(poll, 1000);
+}
+$('preview').onclick = async () => {
+  $('previewout').textContent = 'Measuring…';
+  const r = await api('api/preview', {text: $('move').value});
+  $('previewout').textContent = 'If you send this: ' + r.summary;
+};
+async function send(text) {
+  if (!requestId) return;
+  $('status').textContent = 'Sent: ' + (text || 'pass');
+  const r = await api('api/answer', {id: requestId, text});
+  if (r.ok) $('move').value = '';
+}
+$('send').onclick = () => send($('move').value);
+$('pass').onclick = () => send('pass');
+poll();
+</script>
+</body>
+</html>

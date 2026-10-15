@@ -38,6 +38,19 @@ The orders toy: command a crew with one standing order:
 python -m examples.crucible.run --toy=orders --mode=mock --seat=human
 ```
 
+Play any toy from a phone: a plain-text page where you sit in the seat
+through `HumanActComponent` (the contrib `BlockingInput` reader), see the whole
+prompt a model in your seat would read, preview a draft move and send it.
+Every game is recorded in the telemetry folder.
+
+```bash
+python -m examples.crucible.web.server --port 8901 --base_path /crucible \
+    --live=ollama --model_name=qwen3:8b
+```
+
+It listens on 127.0.0.1 only, with no authentication: reach it through a
+private tunnel, never the open internet.
+
 Does skill show? Bots at 16 seeds:
 
 ```bash
@@ -58,6 +71,7 @@ examples/crucible/
 ├── harness.py           # builds a toy as a Concordia Simulation (contrib rulebook GM, seated entities)
 ├── seats.py             # bots (contrib PolicyInput) and the terminal as HumanInput readers
 ├── model_setup.py       # mock, Ollama, Together
+├── web/                 # the phone page: app (BlockingInput seat, telemetry), server CLI, index.html
 ├── mock_language_model.py
 ├── data/claims.yaml     # every number and word of the claims toy
 ├── data/relay.yaml      # ... and of the relay toy

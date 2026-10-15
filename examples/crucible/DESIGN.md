@@ -165,6 +165,7 @@ Sources:
 | Model-played sides | `ConcatActComponent` (the minimal entity's default) |
 | Models | contrib `language_model_setup` (Ollama, Together), `RetryLanguageModel`, `CallLimitLanguageModel` |
 | Logs | `SimulationLog.to_html` in each run folder |
+| The phone page | stdlib HTTP server; the seat's reader is contrib `BlockingInput` (cycle 5); telemetry as JSON lines per game |
 
 ## 5. Decisions
 
@@ -179,3 +180,4 @@ Sources:
 | 3 | A preview never tells anyone anything (the toy's outbox is restored). |
 | 4 | Orders: crew decisions are the toy's model judgements (not entities), so an order's effect can be previewed and planned. |
 | 4 | Moves wrapped in a label and quotes are unwrapped for every toy. |
+| 5 | The phone page is plain text until Phase 5: the whole prompt, a measured preview of a draft, the receipts. The person picks mock or a local model per game. |
