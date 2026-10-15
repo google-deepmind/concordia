@@ -8,7 +8,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 - [x] Toy A, claims, runs end to end on the mock (cycle 1: `crucible_e2e_test`)
 - [x] Toy B, relay (cycle 3: `relay_test`, `crucible_e2e_test`; audit skilled 100 / random 12 / passive 0)
 - [x] Toy C, orders (cycle 4: `orders_test`, `crucible_e2e_test`; audit skilled 100 / random 31 / passive 0)
-- [ ] A plain-text phone page with a human seat and telemetry
+- [x] A plain-text phone page with a human seat and telemetry (cycle 5: `web/`, `server_test`; https://openclaw-mac.taild21fee.ts.net/crucible/)
 - [ ] Sandbox Prompt Test of every toy: bots, a live model in the seat, the owner's games
 - [ ] One toy kept; the reason in DESIGN.md
 
@@ -64,11 +64,12 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 | Round | Modules | State |
 |---|---|---|
 | 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | draft PR google-deepmind/concordia#419 |
+| 2 (cycle 5) | contrib `blocking_input` (a `HumanInput` reader answered from another thread) | same PR, second commit |
 
 ## Next
 
-1. The phone page (plain text) with a human seat and telemetry, for all three toys.
-2. The Sandbox Prompt Test of the three toys; keep one.
+1. The Sandbox Prompt Test of the three toys (bots, a live model, the owner's games on the phone); keep one.
+2. Claims: the player's thesis starts near the line after the rival's opener; one natural move loses.
 
 ## Backlog
 
