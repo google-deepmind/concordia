@@ -39,6 +39,9 @@ python -m examples.crucible.run --toy=orders --mode=mock --seat=human
 python -m examples.crucible.run --toy=orders --scenario=free --seat=human  # no goal
 ```
 
+Orders scenes (the first arc): `one_hand` (isolate), `two_hands` (develop),
+`supply_run` (twist), `voyage` (catharsis); `free` has no goal.
+
 Play any toy from a phone: a plain-text page where you sit in the seat
 through `HumanActComponent` (the contrib `BlockingInput` reader), see the whole
 prompt a model in your seat would read, preview a draft move and send it.
