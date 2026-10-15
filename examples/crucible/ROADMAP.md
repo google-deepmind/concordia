@@ -57,18 +57,20 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 - [ ] Commits are CLA-clean, carry no `Co-Authored-By` trailer and touch library or game paths, not both.
 - [ ] The PR's status note says what landed and what this round adds.
 
+## Library rounds
+
+| Round | Modules | State |
+|---|---|---|
+| 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | in the library PR |
+
 ## Next
 
 1. Toy B (relay), then Toy C (orders).
 2. The phone page (plain text) with a human seat and telemetry.
-3. First library round: candidates below; open the issue and both PRs.
 
 ## Backlog
 
-- Library: an entity prefab that reads its act component factory from params
-  (both Deep Time and crucible need it); a `HumanInput` reader backed by a
-  policy (bots in human seats); `Simulation.play(verbose=...)` (it always
-  prints today).
+- Library: `Simulation.play(verbose=...)` (it always prints today).
 - Claims: the mock rival only negates and echoes; give it support-building.
 - Claims: vary the starting board by seed (the mock's games are identical
   across seeds except for the random bot).

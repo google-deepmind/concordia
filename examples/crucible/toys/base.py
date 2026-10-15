@@ -16,8 +16,9 @@
 
 A toy is one candidate generative rule (GUIDE.md, Phase 1): deterministic
 state that a language model's reading of a move, and a ledger, carry forward.
-The generic game master in `gm.py` drives any toy through Concordia's
-well-known component keys, so a toy holds no Concordia plumbing of its own.
+A toy is a `Rulebook` (`concordia/contrib/components/game_master/rulebook.py`):
+the contrib rulebook game master drives it through Concordia's well-known
+component keys, so a toy holds no Concordia plumbing of its own.
 
 Language decides, a ledger accounts: a toy asks its `interpreter` (a language
 model) only what words mean, and applies every consequence in code.
@@ -56,6 +57,9 @@ class Receipt:
 
   def to_dict(self) -> dict[str, Any]:
     return dataclasses.asdict(self)
+
+  def __str__(self) -> str:
+    return self.summary
 
 
 def clean_action(actor: str, text: str) -> str:
@@ -159,7 +163,7 @@ class Toy(abc.ABC):
   def tell(self, recipient: str, text: str) -> None:
     self._outbox.append((recipient, text))
 
-  def drain_outbox(self) -> list[tuple[str, str]]:
+  def drain_observations(self) -> list[tuple[str, str]]:
     out, self._outbox = self._outbox, []
     return out
 

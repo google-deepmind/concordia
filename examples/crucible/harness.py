@@ -14,9 +14,9 @@
 
 """Builds and plays a toy as a standard Concordia `Simulation`.
 
-Stock pieces only: `prefabs/simulation/generic.Simulation` with the
-`Sequential` engine, the toy game master (`gm.py`) and one seat entity per
-actor. The seat a person or a bot plays acts through `HumanActComponent`;
+Stock and contrib pieces only: `prefabs/simulation/generic.Simulation` with
+the `Sequential` engine, the contrib rulebook game master (the toy is its
+rulebook) and one contrib seated entity per actor. The seat a person or a bot plays acts through `HumanActComponent`;
 every other actor is a language model.
 """
 
@@ -30,6 +30,8 @@ import os
 from typing import Any
 
 from concordia.components.agent import human_act_component
+from concordia.contrib.prefabs.entity import seated
+from concordia.contrib.prefabs.game_master import rulebook as rulebook_gm
 from concordia.environment.engines import sequential
 from concordia.language_model import language_model
 from concordia.prefabs.simulation import generic as simulation_lib
@@ -37,13 +39,13 @@ from concordia.typing import human_input
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import structured_logging
 
-from examples.crucible import gm as gm_lib
 from examples.crucible import model_setup
-from examples.crucible import prefabs
 from examples.crucible import seats
 from examples.crucible import toys
 from examples.crucible.toys import base
 
+SEAT_PREFAB = 'seated__Entity'
+GM_PREFAB = 'rulebook__GameMaster'
 BOTS = ('skilled', 'random', 'passive')
 SEATS = (*BOTS, 'human', 'model')
 
@@ -102,7 +104,7 @@ def build_game(
       interpreter or model, data or toys.load_data(toy_name), scenario
   )
   if seat in BOTS:
-    reader = seats.PolicyReader(kind.policies[seat], toy, seed)
+    reader = seats.bot_reader(kind.policies[seat], toy, seed)
   elif seat == 'human' and reader is None:
     reader = seats.TerminalReader(toy)
   elif seat == 'model':
@@ -119,24 +121,24 @@ def build_game(
       )
     instances.append(
         prefab_lib.InstanceConfig(
-            prefab=prefabs.SEAT_PREFAB,
+            prefab=SEAT_PREFAB,
             role=prefab_lib.Role.ENTITY,
             params=params,
         )
     )
   instances.append(
       prefab_lib.InstanceConfig(
-          prefab=gm_lib.GM_PREFAB,
+          prefab=GM_PREFAB,
           role=prefab_lib.Role.GAME_MASTER,
-          params={'name': 'Crucible', 'toy': toy},
+          params={'name': 'Crucible', 'rulebook': toy},
       )
   )
   config = prefab_lib.Config(
       default_premise='',
       default_max_steps=toy.max_steps(),
       prefabs={
-          prefabs.SEAT_PREFAB: prefabs.SeatEntity(),
-          gm_lib.GM_PREFAB: gm_lib.ToyGameMaster(),
+          SEAT_PREFAB: seated.Entity(),
+          GM_PREFAB: rulebook_gm.GameMaster(),
       },
       instances=instances,
   )
@@ -155,9 +157,7 @@ def write_run(game: Game, log: Any, out_dir: str) -> dict[str, Any]:
   receipts = [
       r.to_dict()
       for gm in game.sim.get_game_masters()
-      for r in getattr(
-          gm.get_component('__resolution__'), 'receipts', []  # pyrefly: ignore[missing-attribute]
-      )
+      for r in getattr(gm.get_component('__resolution__'), 'results', [])  # pyrefly: ignore[missing-attribute]
   ]
   summary = {
       'toy': game.toy.name,

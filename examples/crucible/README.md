@@ -43,14 +43,12 @@ examples/crucible/
 ├── run.py               # CLI: play one game, write a run folder
 ├── play_audit.py        # CLI: bots at many seeds
 ├── audits.py            # play audit
-├── harness.py           # builds a toy as a Concordia Simulation
-├── gm.py                # the generic toy game master (SwitchAct + well-known keys)
-├── prefabs.py           # seat entity: act component from params
-├── seats.py             # bots and the terminal as HumanInput readers
+├── harness.py           # builds a toy as a Concordia Simulation (contrib rulebook GM, seated entities)
+├── seats.py             # bots (contrib PolicyInput) and the terminal as HumanInput readers
 ├── model_setup.py       # mock, Ollama, Together
 ├── mock_language_model.py
 ├── data/claims.yaml     # every number and word of the claims toy
 └── toys/
-    ├── base.py          # the Toy interface
+    ├── base.py          # the Toy interface (a contrib Rulebook)
     └── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
 ```

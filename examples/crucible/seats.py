@@ -23,24 +23,20 @@ import random
 import sys
 from typing import Any
 
+from concordia.contrib.components.agent import scripted_input
 from concordia.typing import human_input
 
 from examples.crucible.toys import Policy
 
 
-class PolicyReader:
-  """A `HumanInput` reader that answers with a bot policy."""
-
-  def __init__(self, policy: Policy, toy: Any, seed: int = 0):
-    self._policy = policy
-    self._toy = toy
-    self._rng = random.Random(seed)
-    self.answers: list[str] = []
-
-  def __call__(self, request: human_input.HumanInputRequest) -> str:
-    answer = self._policy(self._toy, request.entity_name, self._rng)
-    self.answers.append(answer)
-    return answer
+def bot_reader(
+    policy: Policy, toy: Any, seed: int = 0
+) -> scripted_input.PolicyInput:
+  """A contrib `PolicyInput` reader that plays a bot policy on a toy."""
+  rng = random.Random(seed)
+  return scripted_input.PolicyInput(
+      lambda request: policy(toy, request.entity_name, rng)
+  )
 
 
 class TerminalReader:

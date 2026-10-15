@@ -113,9 +113,9 @@ Sources:
 | Need | Concordia piece |
 |---|---|
 | Running a game | `prefabs/simulation/generic.Simulation`, `Sequential` engine |
-| Game master | `switch_act.SwitchAct` with the well-known keys (`gm.py`): `terminate.Terminate`, `make_observation.MakeObservation` on an `ObservationQueue` (no LLM fallback), toy-driven turn order, action specs and resolution |
-| Entities | `minimal.Entity`, subclassed only to read its act component factory from params (`prefabs.py`) |
-| The player's seat | `HumanActComponent`; bots are `HumanInput` readers (`seats.py`), so people and bots play through one path |
+| Game master | contrib `prefabs/game_master/rulebook` (contributed in cycle 2): `SwitchAct` with the well-known keys, `Terminate`, `MakeObservation` on an `ObservationQueue`; each toy is its `Rulebook` |
+| Entities | contrib `prefabs/entity/seated` (cycle 2): `minimal.Entity` that reads its act component factory from params |
+| The player's seat | `HumanActComponent`; bots are contrib `scripted_input.PolicyInput` readers (cycle 2), so people and bots play through one path |
 | Model-played sides | `ConcatActComponent` (the minimal entity's default) |
 | Models | contrib `language_model_setup` (Ollama, Together), `RetryLanguageModel`, `CallLimitLanguageModel` |
 | Logs | `SimulationLog.to_html` in each run folder |
@@ -128,3 +128,4 @@ Sources:
 | 1 | Bots sit in the human seat as `HumanInput` readers instead of a new act component. |
 | 1 | Claims physics: additive support, claims need support to stand, restatements fold. |
 | 1 | In the sandbox the rival moves first. |
+| 2 | The toy game master, seat prefab and policy reader went to contrib (library round 1); the game uses them unchanged (MOCK runs byte-identical, 12 games). |
