@@ -86,6 +86,11 @@ def clean_action(actor: str, text: str) -> str:
   wrapped = re.match(r'^[\w\' ]{1,40}:\s*["“](.+?)["”]\.?$', text)
   if wrapped:
     text = wrapped.group(1)
+  else:
+    # Narration around a move: '... he says plainly: "Ash, watch ahead.'
+    quoted = re.search(r':\s*["“]([^"”]+)["”]?\.?$', text)
+    if quoted and len(text) > 2 * len(quoted.group(1)):
+      text = quoted.group(1)
   text = text.strip().strip('"“”\'').strip()
   return re.sub(r'\s+', ' ', text)
 

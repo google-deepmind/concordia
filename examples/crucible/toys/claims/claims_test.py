@@ -145,6 +145,16 @@ class ToyTest(absltest.TestCase):
         'She said "fine", so I offer you 3.',
     )
 
+  def test_clean_action_takes_the_quoted_move_out_of_narration(self):
+    self.assertEqual(
+        base.clean_action(
+            'Commander',
+            'judges the crew worn, so he speaks it plainly: "Ash, watch'
+            ' ahead. Bea and Cy rest.',
+        ),
+        'Ash, watch ahead. Bea and Cy rest.',
+    )
+
   def test_clean_action_strips_name_and_quotes(self):
     self.assertEqual(
         base.clean_action('Rival', 'Rival "The bridge is safe."\nmore'),

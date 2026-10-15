@@ -156,6 +156,19 @@ class OrdersToy(base.Toy):
     ]
     return '; '.join(known) if known else 'unknown (no one has kept watch)'
 
+  def price_table(self) -> str:
+    """What orders cost by length, e.g. '1-3 words cost 1, 4-7 cost 2'."""
+    per = int(self._data['command']['per_words'])
+    most = int(self._data['max_words'])
+    parts = []
+    for cost in range(1, 1 + most // per + 1):
+      low, high = max(1, (cost - 1) * per), min(most, cost * per - 1)
+      if low > most:
+        break
+      words = f'{low}-{high} words' if high > low else f'{low} words'
+      parts.append(f'{words} cost {cost}')
+    return ', '.join(parts)
+
   def condition(self, ship: Ship, member: str) -> str:
     return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
 
@@ -221,7 +234,8 @@ class OrdersToy(base.Toy):
         + ', '.join(f'{c} {self.condition(ship, c)}' for c in self.crew)
         + '.\n'
         f'Current order: "{ship.order or "(none)"}". Command: {ship.points} '
-        f'points (a new order costs 1, plus 1 per {per_words} words).\n'
+        f'points (a new order costs 1, plus 1 per {per_words} words: '
+        f'{self.price_table()}; an order you cannot pay for is refused).\n'
         f'{ORDER_MARKER}, {{name}}: a new order of at most '
         f'{self._data["max_words"]} words, or "{HOLD}" to keep the current '
         'one.'
