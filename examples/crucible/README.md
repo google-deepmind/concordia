@@ -26,6 +26,12 @@ python -m examples.crucible.run --toy=claims --mode=ollama \
     --model_name=qwen3:8b --seat=skilled --max_calls=300
 ```
 
+The relay toy: carry and reword the messages between two parties:
+
+```bash
+python -m examples.crucible.run --toy=relay --mode=mock --seat=human
+```
+
 Does skill show? Bots at 16 seeds:
 
 ```bash
@@ -48,7 +54,9 @@ examples/crucible/
 ├── model_setup.py       # mock, Ollama, Together
 ├── mock_language_model.py
 ├── data/claims.yaml     # every number and word of the claims toy
+├── data/relay.yaml      # ... and of the relay toy
 └── toys/
     ├── base.py          # the Toy interface (a contrib Rulebook)
-    └── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
+    ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
+    └── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
 ```

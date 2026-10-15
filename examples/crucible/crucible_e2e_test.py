@@ -55,8 +55,9 @@ class EndToEndTest(parameterized.TestCase):
       summary = harness.write_run(game, log, out_dir)
     self.assertNotEmpty(summary['receipts'])
 
-  def test_skill_shows_in_claims(self):
-    result = audits.audit('claims', 'sandbox', seeds=2)
+  @parameterized.parameters(*[(t,) for t in toys.registry()])
+  def test_skill_shows(self, toy):
+    result = audits.audit(toy, 'sandbox', seeds=4)
     self.assertGreaterEqual(result['skilled_minus_random'], 30)
     self.assertGreaterEqual(result['skilled_minus_passive'], 50)
 

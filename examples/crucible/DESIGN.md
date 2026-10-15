@@ -75,14 +75,39 @@ restated one a little (+0.1 base, up to 1.5).
    play 0%; the median turn offers 3 moves that measurably change the board.
    The decisive move is a cascade: one claim felled four.
 
-### Toy B: relay (planned, cycle 2)
+### Toy B: relay (built, cycle 3)
 
-The player is the go-between for two parties driven by language models. Each
-message passes through the player, who may change a limited number of words
-before it is delivered. Each party's hidden ledger (what it wants, what it
-will accept, how much it trusts the go-between) decides its replies; a
-language model decides how a reworded message lands. Audits compare what was
-said with what was delivered.
+**Rule.** Two parties driven by language models split 10 units. Every
+message passes through the player, who may deliver it as written or
+reworded (at most 8 changed words a message, 24 a game). A language model
+judges one thing: how the receiver hears the delivered words, given how it
+already feels (warmer, no different, colder, insulted). The ledger does the
+rest: warmth moves the receiver's floor (`floor + round((0.5 - warmth) * 4)`),
+an offer at or above the floor is accepted, a party at warmth 0.1 or less
+walks away, and at signing the number each side actually wrote is compared
+with what the other accepted, so a changed number sinks the deal.
+
+**Stakes.** The relay earns a fee for any deal that holds and a bonus if its
+secret client (Blake) gets at least 6; an exposed deal costs a point.
+
+**Why it is generative.** The same offer lands differently depending on its
+words and on how the receiver already feels, so the relay plays tone in two
+directions at once: warm the side that must concede, cool the side that
+must hold out.
+
+**Playtest notes (cycle 3).**
+
+1. The first skilled bot warmed the client and closed at once, below the
+   target: a value function that holds out while messages remain fixed it.
+2. MOCK audit (16 seeds): skilled 100%, random 12%, passive 0%; median 3
+   moves with an effect per turn.
+3. OLLAMA qwen3:8b: the first party prompt produced third-person narration
+   ("offers Blake 5 units...") and an opening at 5; the prompt now asks for
+   the exact first-person words and states the party's interest. With it, a
+   4-message live game ended 6-4 for the client (bonus), 251 s.
+4. The live model reads tone in context: a plain "let's see if we can reach
+   a mutual agreement" landed colder on a party already cool. The mock's word
+   counting cannot do that.
 
 ### Toy C: orders (planned, cycle 3)
 
@@ -129,3 +154,5 @@ Sources:
 | 1 | Claims physics: additive support, claims need support to stand, restatements fold. |
 | 1 | In the sandbox the rival moves first. |
 | 2 | The toy game master, seat prefab and policy reader went to contrib (library round 1); the game uses them unchanged (MOCK runs byte-identical, 12 games). |
+| 3 | Relay: the model judges only how words land; acceptance, walkouts and the signing check are ledger rules. |
+| 3 | A preview never tells anyone anything (the toy's outbox is restored). |

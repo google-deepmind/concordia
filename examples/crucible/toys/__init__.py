@@ -61,6 +61,9 @@ def registry() -> dict[str, ToyKind]:
   from examples.crucible.toys.claims import bots as claims_bots
   from examples.crucible.toys.claims import mock as claims_mock
   from examples.crucible.toys.claims import toy as claims_toy
+  from examples.crucible.toys.relay import bots as relay_bots
+  from examples.crucible.toys.relay import mock as relay_mock
+  from examples.crucible.toys.relay import toy as relay_toy
   # pylint: enable=g-import-not-at-top
   return {
       'claims': ToyKind(
@@ -69,5 +72,12 @@ def registry() -> dict[str, ToyKind]:
           mock=claims_mock.ClaimsMock,
           policies=claims_bots.POLICIES,
           seat='Player',
+      ),
+      'relay': ToyKind(
+          name='relay',
+          build=relay_toy.RelayToy,
+          mock=relay_mock.RelayMock,
+          policies=relay_bots.POLICIES,
+          seat='Relay',
       ),
   }

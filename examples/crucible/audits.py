@@ -19,10 +19,14 @@ from typing import Any
 
 from examples.crucible import harness
 from examples.crucible import model_setup
+from examples.crucible.toys import base
 
 
 class _MeasuringReader:
-  """Wraps a bot reader; counts the moves on offer that change the board."""
+  """Wraps a bot reader; counts the moves on offer that change the world.
+
+  A move counts when its measured result differs from passing.
+  """
 
   def __init__(self, game: harness.Game, candidates_fn: Any):
     self._game = game
@@ -34,14 +38,13 @@ class _MeasuringReader:
     if self._candidates is not None:
       toy = self._game.toy
       actor = request.entity_name
+      _, held = toy.simulate(actor, base.PASS)
       moving = 0
       for move in self._candidates(toy, actor):
-        receipt = toy.preview(actor, move)
-        if receipt.delta and (
-            receipt.delta.get('fell', 0) > 0
-            or abs(receipt.delta.get('mine', 0)) > 0.05
-            or abs(receipt.delta.get('theirs', 0)) > 0.05
-        ):
+        if move == base.PASS:
+          continue
+        _, after = toy.simulate(actor, move)
+        if repr(after) != repr(held):
           moving += 1
       self.offered.append(moving)
     return self._inner(request)  # pyrefly: ignore[not-callable]

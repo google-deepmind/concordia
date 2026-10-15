@@ -151,7 +151,11 @@ class Toy(abc.ABC):
   def simulate(self, actor: str, action: str) -> tuple[Receipt, Any]:
     """Resolves `action` on a copy of the world; returns both."""
     world = copy.deepcopy(self.world)
-    return self.apply(world, actor, clean_action(actor, action)), world
+    outbox = list(self._outbox)  # A preview tells no one anything.
+    try:
+      return self.apply(world, actor, clean_action(actor, action)), world
+    finally:
+      self._outbox = outbox
 
   def after_resolve(self, receipt: Receipt) -> None:
     """Hook: queue observations after a move (default: tell everyone)."""
