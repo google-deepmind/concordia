@@ -108,8 +108,8 @@ class OrdersToy(base.Toy):
     self.scenario = scenario
     self.free = bool(data.get('free', False))
     self.commander: str = data['commander']
-    self.crew: list[str] = list(data['crew'])
-    self.menu: list[str] = list(data['actions'])
+    self.crew: list[str] = list(data.get('crew_present', data['crew']))
+    self.menu: list[str] = list(data.get('menu', data['actions']))
     self.command = rules.CommandRule(data['command'], int(data['max_words']))
     self.hazards = rules.HazardRule(data['effects'])
     self.crew_rule = rules.CrewRule(self.crew, data['effects'], data['actions'])
@@ -201,14 +201,18 @@ class OrdersToy(base.Toy):
   def action_spec(self, actor: str) -> entity_lib.ActionSpec:
     ship = self.world
     turn = ship.turn + 1
-    stakes = (
-        f'hull damage {ship.damage}; project {ship.progress}'
-        if self.free
-        else (
-            f'hull damage {ship.damage} of {self._data["wreck_at"]}; '
-            f'project {ship.progress} of {self._data["target"]}'
-        )
-    )
+    if self.free:
+      stakes = f'hull damage {ship.damage}; project {ship.progress}'
+    elif self.goal() == 'supplies':
+      stakes = (
+          f'hull damage {ship.damage} of {self._data["wreck_at"]}; the port '
+          f'wants {self._data["target"]} supplies at the end'
+      )
+    else:
+      stakes = (
+          f'hull damage {ship.damage} of {self._data["wreck_at"]}; '
+          f'project {ship.progress} of {self._data["target"]}'
+      )
     per_words = int(self._data['command']['per_words'])
     call = (
         f'Turn {turn} of {self._data["turns"]}. {self.situation(ship, turn)}\n'
@@ -270,11 +274,17 @@ class OrdersToy(base.Toy):
   def wrecked(self, ship: Ship) -> bool:
     return not self.free and ship.damage >= int(self._data['wreck_at'])
 
+  def goal(self) -> str:
+    """The ledger stock the scene is won on ('progress' or 'supplies')."""
+    return str(self._data.get('goal', 'progress'))
+
   def won(self, ship: Ship) -> bool:
+    """Progress wins once reached; stores must still be held at the end."""
     return (
         not self.free
         and not self.wrecked(ship)
-        and ship.progress >= int(self._data['target'])
+        and getattr(ship, self.goal()) >= int(self._data['target'])
+        and (self.goal() == 'progress' or ship.turn >= int(self._data['turns']))
     )
 
   def play_out(self, order: str) -> Ship:
@@ -294,7 +304,11 @@ class OrdersToy(base.Toy):
     outbox = list(self._outbox)
     try:
       self.apply(ship, self.commander, order)
-      while ship.turn < int(self._data['turns']) and not self.wrecked(ship):
+      while (
+          ship.turn < int(self._data['turns'])
+          and not self.wrecked(ship)
+          and not self.won(ship)
+      ):
         self.apply(ship, self.commander, HOLD)
     finally:
       self._outbox = outbox
@@ -308,23 +322,49 @@ class OrdersToy(base.Toy):
     verdict = (
         'wrecked'
         if self.wrecked(end)
-        else ('the project done' if self.won(end) else 'the project unfinished')
+        else ('the goal met' if self.won(end) else 'the goal missed')
     )
     return (
         f'If held to the end (as far as you can see): turn {end.turn}, '
-        f'project {end.progress}/{self._data["target"]}, damage '
-        f'{end.damage}/{self._data["wreck_at"]}: {verdict}.'
+        f'{self.goal()} {getattr(end, self.goal())}/{self._data["target"]}, '
+        f'damage {end.damage}/{self._data["wreck_at"]}: {verdict}.'
     )
 
   def done(self) -> bool:
     ship = self.world
-    return ship.turn >= int(self._data['turns']) or self.wrecked(ship)
+    return (
+        ship.turn >= int(self._data['turns'])
+        or self.wrecked(ship)
+        or self.won(ship)
+    )
+
+  def stars(self, ship: Ship) -> int:
+    """0 for a loss; 1 for the win; 2 or 3 for the scene's conditions."""
+    if not self.won(ship):
+      return 0
+    limits = {
+        'max_turns': ship.turn,
+        'max_damage': ship.damage,
+        'max_command': ship.spent,
+    }
+    earned = 1
+    for star in (2, 3):
+      wants = self._data.get('stars', {}).get(star)
+      if not wants:
+        break
+      if all(limits[k] <= int(v) for k, v in wants.items()):
+        earned = star
+      else:
+        break
+    return earned
 
   def outcome(self) -> dict[str, Any]:
     ship = self.world
     return {
         'winner': self.commander if self.won(ship) else None,
         'scenario': self.scenario,
+        'stars': self.stars(ship),
+        'command_spent': ship.spent,
         'score': float(ship.progress - 2 * ship.damage),
         'progress': ship.progress,
         'damage': ship.damage,

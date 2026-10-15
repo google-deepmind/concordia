@@ -111,6 +111,7 @@ class OrdersMock:
       damage: int,
       worn: bool,
       member: str | None = None,
+      menu: Sequence[str] | None = None,
   ) -> str:
     """The action the laws of reading give, by temperament properties."""
     leak = 'leak' in situation.lower()
@@ -126,9 +127,17 @@ class OrdersMock:
         if holds
     }
     wanted, named = self.ordered(order, now, member)
+    if menu is not None:
+      # An action the scene does not offer cannot be done.
+      wanted = [a for a in wanted if a in menu]
     if worn and props['when_worn'] == 'rest' and 'rest' not in wanted:
       return 'rest'
-    if leak and props['on_leak'] == 'repair' and not named:
+    if (
+        leak
+        and props['on_leak'] == 'repair'
+        and not named
+        and (menu is None or 'repair' in menu)
+    ):
       return 'repair'
     for action in wanted:
       if not props['sensible'] or self.makes_sense(
@@ -136,7 +145,9 @@ class OrdersMock:
       ):
         return action
     for action in props['otherwise']:
-      if self.makes_sense(action, supplies, damage, leak, storm):
+      if (menu is None or action in menu) and self.makes_sense(
+          action, supplies, damage, leak, storm
+      ):
         return action
     return 'rest'
 
@@ -155,12 +166,16 @@ class OrdersMock:
     if props is None:
       return None
     supplies, damage, _, _, cond = stores.groups()
+    letters = {text.strip(): key for key, text in _OPTION.findall(prompt)}
+    by_text = {
+        spec['text']: name for name, spec in self._data['actions'].items()
+    }
+    menu = [by_text[t] for t in letters if t in by_text]
     action = self.decide(
         props, order.group(1), turn.group(1), int(supplies), int(damage),
-        cond == 'worn out', who.group(1),
+        cond == 'worn out', who.group(1), menu,
     )  # fmt: skip
     wanted = self._data['actions'][action]['text']
-    letters = {text.strip(): key for key, text in _OPTION.findall(prompt)}
     letter = letters.get(wanted)
     return list(responses).index(letter) if letter in responses else None
 

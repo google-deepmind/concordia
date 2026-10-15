@@ -84,3 +84,37 @@ def audit(toy: str, scenario: str | None, seeds: int) -> dict[str, Any]:
       'skilled_minus_passive': wins['skilled'] - wins['passive'],
       'moves_with_effect_median': statistics.median(offered) if offered else 0,
   }
+
+
+def win_rates(
+    toy: str,
+    scenario: str | None,
+    seeds: int,
+    policies: tuple[str, ...] = harness.BOTS,
+) -> dict[str, dict[str, float]]:
+  """Each named bot policy's win rate (%) and mean stars in a scenario."""
+  # pylint: disable=g-import-not-at-top
+  from examples.crucible import seats
+  from examples.crucible import toys as toys_lib
+  # pylint: enable=g-import-not-at-top
+  kind = toys_lib.registry()[toy]
+  out = {}
+  for policy in policies:
+    won, stars = 0, 0
+    for seed in range(seeds):
+      game = harness.build_game(
+          toy, model_setup.mock_model(), 'skilled', seed, scenario
+      )
+      seat = next(e for e in game.sim.entities if e.name == kind.seat)
+      seat._act_component._input_reader = seats.bot_reader(  # pylint: disable=protected-access  # pyrefly: ignore[missing-attribute]
+          kind.policies[policy], game.toy, seed
+      )
+      game.play()
+      outcome = game.outcome()
+      won += outcome['winner'] is not None
+      stars += outcome.get('stars', 0)
+    out[policy] = {
+        'win_pct': round(100.0 * won / seeds),
+        'stars': round(stars / seeds, 2),
+    }
+  return out

@@ -37,7 +37,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 4: pacing
 
-- [ ] Each arc has Isolate, Develop, Twist and Catharsis scenes.
+- [x] Each arc has Isolate, Develop, Twist and Catharsis scenes. (cycle 10, arc 1: One hand, Two hands, Supply run, The voyage; `beats_test`)
 - [ ] Bots at many seeds show the skill gaps you target in every scenario.
 - [ ] Human-game telemetry keeps the move, the reading the player saw and the hidden truth.
 
@@ -70,7 +70,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. Phase 4: scenes and a campaign (Isolate, Develop, Twist, Catharsis).
+2. Phase 4: a gated campaign with stars, a daily seed, and a second arc (the watch); bots at 16 seeds for every scene.
 
 ## Backlog
 

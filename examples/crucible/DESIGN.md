@@ -224,6 +224,29 @@ letter through the provider's JSON choice, it did not.
 itself (random play won 88%). A sweep (`PROG/sweep_orders.py`) chose target
 24 and 3 starting supplies: skilled 100%, random 25-31%, passive 0%.
 
+## 2d. Orders, Phase 4: the first arc (cycle 10)
+
+Each beat is a scene: a scenario in data/orders.yaml with its own crew,
+menu, turns, goal, events and command, run as its own simulation (the beats
+share no state, so Concordia's in-simulation `SceneTracker` is not needed;
+the knobs are the same ones a `SceneSpec` holds).
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | One hand | Cy alone (literal), build or rest, 3 turns, 1 command point: only a short order that says "build" works | 100 / 50 / 0 / 0 |
+| Develop | Two hands | Ash (bold) and Cy, scarce supplies, unseen leaks, little command | 100 / 50 / 0 / 100 |
+| Twist | Supply run | the port wants stores, not progress: the habit "Build; if a leak opens, repair it." spends the goal, and bold Ash's instinct to build works against you; the same syntax repurposed ("Gather supplies; if a leak opens, repair it.") wins | 100 / 12 / 0 / 0 |
+| Catharsis | The voyage | everything at once: three temperaments, leaks, storms, the watch, command | 100 / 31 / 0 / 38 |
+
+The habit bot repeats the lesson of the earlier scenes; the twist is built
+so that it loses. Stars: 1 for the win, 2 and 3 for the scene's conditions
+(fewer turns, less damage, fewer command points spent), so a short order
+that holds is worth more than a long one.
+
+The first twist tried (storm season) failed: the crew handled storms on its
+own, and the habit still won. A twist has to turn the habit into the cause
+of failure, not just make the world harder.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -270,3 +293,4 @@ Sources:
 | 6 | Orders kept (provisional): best legibility of word-driven outcomes under a real model. |
 | 7 | Orders overloaded: command points by length, hidden future and a watch, named clauses; revisions replaced by points. |
 | 8 | Temperaments and actions as data; laws of reading in every crew prompt; two-step reading; ReasonedChoice for local models; voyage target 24, 3 supplies. |
+| 10 | First arc: One hand, Two hands, Supply run (goal: stores), The voyage; stars; a scene ends when its goal is met (stores at the end); the mock chooses only actions the scene offers. Cells added: stores->command, command->command. |

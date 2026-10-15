@@ -44,6 +44,7 @@ class Ship:
   leak: bool = False
   order: str = ''
   points: int = 0
+  spent: int = 0  # command points spent on orders so far
   fatigue: dict[str, int] = dataclasses.field(default_factory=dict)
   shift: int = 0
   # Events the commander has seen ahead, by turn (str keys: JSON-safe).
@@ -93,6 +94,7 @@ class CommandRule:
       )
     ship.order = order
     ship.points -= price
+    ship.spent += price
     return f'New order (cost {price}): "{order}".'
 
   def regenerate(self, ship: Ship) -> None:

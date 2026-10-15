@@ -124,9 +124,64 @@ premise: >-
   someone on watch reveals the next two. Win by bringing the project to 24
   by the end of turn 12 before the hull takes 10 damage.
 
-# Scenarios override the values above.
+# Scenarios override the values above. Each is one scene of an arc
+# (GUIDE.md, Phase 4); `beat` says which. Stars: 1 for the win; 2 and 3 for
+# the conditions listed (all of a higher star's include the lower's).
+#   crew_present: who serves; menu: which actions exist
 scenarios:
-  voyage: {}         # the game: project 20 by turn 12, before 10 damage
+  one_hand:
+    beat: isolate
+    title: One hand
+    crew_present: [Cy]
+    menu: [build, rest]
+    turns: 3
+    target: 6
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {}
+    command: {points: 1, regen: 0, cap: 1, per_words: 4}
+    stars: {2: {max_command: 1}, 3: {max_command: 1}}
+    premise: >-
+      Your first command: one crew member, Cy, who is literal: Cy does
+      exactly what the order says and nothing it does not say. Bring the
+      project to 6 in 3 turns; nothing else happens. You have 1 command
+      point: enough for one order of fewer than 4 words.
+  two_hands:
+    beat: develop
+    title: Two hands
+    crew_present: [Ash, Cy]
+    menu: [repair, gather, build, rest]
+    turns: 8
+    target: 10
+    wreck_at: 8
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {3: leak, 6: leak}
+    command: {points: 2, regen: 1, cap: 3, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Two crew members now: Ash, who is bold and pushes the work forward,
+      and Cy, who is literal. Supplies are short and the hull will spring
+      leaks you cannot see coming; an open leak adds 2 damage a turn, and 8
+      damage wrecks the ship. Bring the project to 10 in 8 turns. Command is
+      scarce: 2 points to start, 1 back a turn, at most 3.
+  supply_run:
+    beat: twist
+    title: Supply run
+    crew_present: [Ash, Bea, Cy]
+    menu: [repair, gather, build, rest]
+    goal: supplies    # this time the port wants stores, not progress
+    turns: 8
+    target: 10
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {3: leak, 5: storm}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal). This time the port wants
+      stores, not progress: hold 10 supplies at the end of turn 8. Building
+      spends a supply. The hull may leak.
+  voyage:            # the game: project 24 by turn 12, before 10 damage
+    beat: catharsis
+    title: The voyage
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40

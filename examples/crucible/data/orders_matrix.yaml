@@ -33,6 +33,8 @@ cells:
   - {from: stores, to: project, by: every build spends a supply; one supply feeds one builder, test: test_effects_apply_in_the_fixed_crew_order}
   - {from: watch, to: command, by: turns seen from the watch enter the commander's view and forecasts, test: test_the_future_is_hidden_until_someone_watches}
   - {from: hull, to: project, by: ten damage wrecks the ship and ends the voyage unfinished, test: test_wreck_ends_the_game}
+  - {from: stores, to: command, by: when the goal is stores every build spends it, so the order must keep the crew from building (cycle 10), test: test_twist_the_habit_loses}
+  - {from: command, to: command, by: stars reward a short order that holds; an order too long for the points is refused and costs the scene (cycle 10), test: test_stars_reward_a_short_order}
 
 # What an order says (operator) against what holds now (property): the law
 # that resolves the cell, and the golden cases that check it.

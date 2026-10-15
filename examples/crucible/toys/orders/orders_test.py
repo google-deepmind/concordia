@@ -109,7 +109,7 @@ class ShipTest(absltest.TestCase):
     toy = _toy()
     before = toy.get_state()
     end = bots.rollout(toy, 'Build the project.')
-    self.assertTrue(end.turn == 12 or toy.wrecked(end))
+    self.assertTrue(end.turn == 12 or toy.wrecked(end) or toy.won(end))
     self.assertEqual(toy.get_state(), before)
 
   def test_free_play_has_no_end_but_the_turn_limit(self):
@@ -125,6 +125,19 @@ class ShipTest(absltest.TestCase):
 
   def test_forecast_names_the_end(self):
     self.assertIn('If held to the end', _toy().forecast('Build the project.'))
+
+  def test_stars_reward_a_short_order(self):
+    data = toys.load_data('orders')
+    short = toy_lib.OrdersToy(model_setup.mock_model(), data, 'one_hand')
+    for _ in range(3):
+      short.resolve('Commander', 'Build.' if short.world.turn == 0 else 'hold')
+    self.assertEqual(short.outcome()['stars'], 3)
+    long = toy_lib.OrdersToy(model_setup.mock_model(), data, 'one_hand')
+    receipt = long.resolve('Commander', 'Cy, build the project now.')
+    self.assertIn('costs 2 command and you have 1', receipt.summary)
+    while not long.done():
+      long.resolve('Commander', 'hold')
+    self.assertEqual(long.outcome()['stars'], 0)
 
   def test_state_round_trip(self):
     toy = _toy(1)

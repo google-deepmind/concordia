@@ -52,7 +52,8 @@ def rollout(toy: toy_lib.OrdersToy, order: str) -> toy_lib.Ship:
 
 
 def value(toy: toy_lib.OrdersToy, ship: toy_lib.Ship) -> float:
-  return (100.0 if toy.won(ship) else 0.0) + ship.progress - 2.0 * ship.damage
+  goal = float(getattr(ship, toy.goal()))
+  return (100.0 if toy.won(ship) else 0.0) + goal - 2.0 * ship.damage
 
 
 def skilled(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:
@@ -76,4 +77,20 @@ def passive(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:
   return toy_lib.HOLD
 
 
-POLICIES = {'skilled': skilled, 'random': random_move, 'passive': passive}
+HABIT = 'Build; if a leak opens, repair it.'
+
+
+def habit(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:
+  """Repeats the lesson of the earlier scenes: the habit a twist breaks."""
+  del actor, rng
+  if toy.world.order != HABIT and toy.command.cost(HABIT) <= toy.world.points:
+    return HABIT
+  return toy_lib.HOLD
+
+
+POLICIES = {
+    'skilled': skilled,
+    'random': random_move,
+    'passive': passive,
+    'habit': habit,
+}
