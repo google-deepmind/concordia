@@ -18,6 +18,7 @@ import datetime
 from unittest import mock
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from concordia.components.game_master import interrupt_next_acting
 from concordia.components.game_master import interrupt_scheduling
 from concordia.components.game_master import interrupt_time_model
@@ -163,8 +164,60 @@ class NoEventsOrTimersTest(absltest.TestCase):
     self.assertEqual(result, '')
 
 
-class SkipLoopTest(absltest.TestCase):
+class SkipLoopTest(parameterized.TestCase):
   """Tests the loop that skips events no entity reacts to."""
+
+  @parameterized.named_parameters(
+      ('timer', False),
+      ('matching_event', True),
+  )
+  def test_unmatched_events_are_saved_for_catch_up(self, matching_event):
+    scheduler = _make_scheduler(['Alice'])
+    scheduler.set_mask(
+        'Alice',
+        interrupt_scheduling.InterruptMask(prefixes=('emergency.',)),
+    )
+    scheduler.set_timer(
+        'Alice',
+        interrupt_scheduling.Timer(
+            expiry=_START + datetime.timedelta(minutes=10),
+            entity_name='Alice',
+            description='Check updates.',
+        ),
+    )
+    missed_events = [
+        interrupt_scheduling.Event(
+            timestamp=_START + datetime.timedelta(minutes=minute),
+            tag='announcement',
+            source='__external__',
+            description=description,
+        )
+        for minute, description in (
+            (1, 'The meeting has moved to room 42.'),
+            (2, 'The meeting has been cancelled.'),
+        )
+    ]
+    for event in missed_events:
+      scheduler.inject_event(event)
+    if matching_event:
+      scheduler.inject_event(
+          interrupt_scheduling.Event(
+              timestamp=_START + datetime.timedelta(minutes=3),
+              tag='emergency.fire',
+              source='__external__',
+              description='Fire alarm.',
+          )
+      )
+    component = interrupt_next_acting.InterruptNextActing()
+    _wire(component, scheduler)
+
+    self.assertEqual(component.pre_act(_NEXT_ACTING_SPEC), 'Alice')
+    self.assertEqual(
+        scheduler.get_current_time(),
+        _START + datetime.timedelta(minutes=3 if matching_event else 10),
+    )
+    self.assertEqual(scheduler.drain_pending('Alice'), missed_events)
+    self.assertEmpty(scheduler.drain_pending('Alice'))
 
   def test_skips_event_with_no_matching_entity(self):
     scheduler = _make_scheduler(['Alice'])

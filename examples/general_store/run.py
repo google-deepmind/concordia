@@ -14,12 +14,12 @@
 
 r"""Run general store simulations with opensource language models.
 
-Usage:
-    python run.py --api_type google_aistudio --model_name gemini-flash-latest \
-        --api_key YOUR_KEY --scenario 0
+Usage (from the repository root):
+    python -m examples.general_store.run --api_type google_aistudio \
+        --model_name gemini-flash-latest --api_key YOUR_KEY --scenario 0
 
 or:
-    python run.py --disable_language_model --scenario 0
+    python -m examples.general_store.run --disable_language_model --scenario 0
 
 Requires:
     - Concordia library (pip install gdm-concordia)

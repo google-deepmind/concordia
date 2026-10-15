@@ -147,7 +147,9 @@ class InterruptNextActing(
       entities_to_poll = scheduler.get_entities_to_poll(event)
 
       if not entities_to_poll:
-        # No entity cares about this event — skip it and try the next.
+        # Preserve missed events for catch-up when an entity is next polled.
+        for name in scheduler.player_names:
+          scheduler.add_pending(name, event)
         scheduler.increment_tick()
         continue
 

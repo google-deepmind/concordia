@@ -245,6 +245,50 @@ class InventoryPayoffHandlerTest(parameterized.TestCase):
     self.assertAlmostEqual(cumulative["Bob"], 2.0)  # 0 + 2
     self.assertAlmostEqual(cumulative["Charlie"], 4.0)  # 2 + 2
 
+  @parameterized.named_parameters(
+      ("strike_then_hold", "join the strike", "hold firm", -0.5, 1.0, 2.0),
+      ("work_then_hold", "go to work", "hold firm", 1.5, 0.0, 2.0),
+      ("strike_then_raise", "join the strike", "raise wages", -0.5, 1.0, 4.0),
+  )
+  def test_boss_only_scene_preserves_worker_scores(
+      self, worker_action, boss_action, balance, pressure, next_wage
+  ):
+    """Inactive worker entries must not create another paid work day."""
+    workers = ("Alice", "Bob")
+    payoff = self._create_inventory_payoff(
+        player_names=workers, initial_wage=2.0, daily_expenses=-0.5
+    )
+    payoff.action_to_scores({
+        "Alice": worker_action,
+        "Bob": worker_action,
+        "Boss": None,
+        "Organizer": None,
+    })
+    balances = {name: balance for name in workers}
+    self.assertEqual(payoff.get_cumulative_scores(), balances)
+    self.assertEqual(payoff.get_strike_pressure(), pressure)
+
+    # PayoffMatrix retains every player key, with None for non-participants.
+    scores = payoff.action_to_scores({
+        "Alice": None,
+        "Bob": None,
+        "Boss": boss_action,
+        "Organizer": None,
+    })
+    self.assertEqual(payoff.get_cumulative_scores(), balances)
+    self.assertEmpty(scores)
+    self.assertEqual(payoff.get_strike_pressure(), pressure)
+    self.assertEmpty(payoff.latest_joint_action)
+    self.assertEqual(payoff.current_wage, next_wage)
+
+    # Wage changes still apply on the next actual worker day.
+    scores = payoff.action_to_scores({name: "go to work" for name in workers})
+    self.assertEqual(scores, {name: next_wage - 0.5 for name in workers})
+    self.assertEqual(
+        payoff.get_cumulative_scores(),
+        {name: balance + next_wage - 0.5 for name in workers},
+    )
+
   def test_boss_raise_wages_action(self):
     """Boss 'raise wages' action triggers wage update for FUTURE rounds."""
     payoff = self._create_inventory_payoff(

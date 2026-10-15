@@ -336,10 +336,9 @@ class CheckpointOwnershipTest(parameterized.TestCase):
     self.assertEqual(
         before['entities']['Alice']['prefab_type'], 'minimal_entity'
     )
-    prefab_config = q_sim.get_entity_prefab_config('Alice')
-    if prefab_config is None:
-      self.fail('Expected Alice to have a restored prefab configuration')
-    self.assertEqual(prefab_config.prefab, 'minimal_entity')
+    alice_config = q_sim.get_entity_prefab_config('Alice')
+    self.assertIsNotNone(alice_config)
+    self.assertEqual(alice_config.prefab, 'minimal_entity')
 
 
 if __name__ == '__main__':

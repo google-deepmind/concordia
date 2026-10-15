@@ -20,20 +20,20 @@ resource dilemma scenarios (Pasture, Irrigation, Network, Fishery). It supports
 any language model provider available through concordia.contrib.language_models.
 
 Usage:
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=pasture \
     --api_type=openai \
     --model_name=gpt-4o \
     --num_cycles=6 \
     --mode=standard
 
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=irrigation \
     --api_type=gemini \
     --model_name=gemini-2.0-flash \
     --mode=election
 
-  python -m concordia.examples.resource_dilemma.run \
+  python -m examples.resource_dilemma.run \
     --scenario=network \
     --disable_language_model  # for testing with a mock model
 """

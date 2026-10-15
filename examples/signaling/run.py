@@ -21,14 +21,14 @@ available through concordia.contrib.language_models (OpenAI, Mistral,
 Google AI Studio, Ollama, etc.).
 
 Usage:
-  python -m concordia.examples.signaling.run \\
+  python -m examples.signaling.run \
     --api_type=openai --model_name=gpt-4o --num_days=3 --num_agents=10
 
-  python -m concordia.examples.signaling.run \\
-    --api_type=google_aistudio --model_name=gemini-2.0-flash \\
+  python -m examples.signaling.run \
+    --api_type=google_aistudio --model_name=gemini-2.0-flash \
     --condition=asocial
 
-  python -m concordia.examples.signaling.run \\
+  python -m examples.signaling.run \
     --disable_language_model  # for testing with a mock model
 """
 

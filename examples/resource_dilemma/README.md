@@ -25,7 +25,7 @@ elected leaders.
 ```bash
 pip install gdm-concordia sentence-transformers
 
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=openai \
   --model_name=gpt-5.4-mini \
   --scenario=pasture \
@@ -38,7 +38,7 @@ python -m concordia.examples.resource_dilemma.run \
 ```bash
 export GOOGLE_API_KEY=your_key_here
 
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=gemini \
   --model_name=gemini-3.1-flash-lite \
   --scenario=irrigation \
@@ -48,7 +48,7 @@ python -m concordia.examples.resource_dilemma.run \
 ### Using Ollama (local)
 
 ```bash
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --api_type=ollama \
   --model_name=llama3 \
   --scenario=fishery \
@@ -58,7 +58,7 @@ python -m concordia.examples.resource_dilemma.run \
 ### Testing (no LLM required)
 
 ```bash
-python -m concordia.examples.resource_dilemma.run \
+python -m examples.resource_dilemma.run \
   --disable_language_model \
   --use_dummy_embedder \
   --scenario=network \
