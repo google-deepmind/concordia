@@ -72,8 +72,10 @@ class RandomChoiceLanguageModel(NoLanguageModel):
     if not responses:
       return 0, "", {}
     if seed is not None:
-      random.seed(seed)
-    choice_index = random.randint(0, len(responses) - 1)
+      rng = random.Random(seed)
+    else:
+      rng = random
+    choice_index = rng.randint(0, len(responses) - 1)
     return choice_index, responses[choice_index], {}
 
 
