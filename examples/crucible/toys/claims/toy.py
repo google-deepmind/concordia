@@ -61,6 +61,7 @@ class ClaimsToy(base.Toy):
       model: language_model.LanguageModel,
       data: Mapping[str, Any],
       scenario: str = 'sandbox',
+      seed: int = 0,
   ):
     """Builds the board of a scenario and judges its starting relations.
 
@@ -68,8 +69,10 @@ class ClaimsToy(base.Toy):
       model: Judges the relation between two claims (the interpreter).
       data: The parsed `data/claims.yaml`.
       scenario: Key under `scenarios`.
+      seed: Unused: the board is the same for every seed.
     """
     super().__init__()
+    del seed
     self._model = model
     # Judgements shared by previews and the moves they preview.
     self._cache: dict[str, str] = {}

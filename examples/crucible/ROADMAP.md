@@ -7,7 +7,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 - [x] Shared harness: generic game master, seats, mock, CLI, play audit (cycle 1)
 - [x] Toy A, claims, runs end to end on the mock (cycle 1: `crucible_e2e_test`)
 - [x] Toy B, relay (cycle 3: `relay_test`, `crucible_e2e_test`; audit skilled 100 / random 12 / passive 0)
-- [ ] Toy C, orders
+- [x] Toy C, orders (cycle 4: `orders_test`, `crucible_e2e_test`; audit skilled 100 / random 31 / passive 0)
 - [ ] A plain-text phone page with a human seat and telemetry
 - [ ] Sandbox Prompt Test of every toy: bots, a live model in the seat, the owner's games
 - [ ] One toy kept; the reason in DESIGN.md
@@ -67,8 +67,8 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 
 ## Next
 
-1. Toy C (orders).
-2. The phone page (plain text) with a human seat and telemetry.
+1. The phone page (plain text) with a human seat and telemetry, for all three toys.
+2. The Sandbox Prompt Test of the three toys; keep one.
 
 ## Backlog
 

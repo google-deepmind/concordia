@@ -117,8 +117,10 @@ class RelayToy(base.Toy):
       model: language_model.LanguageModel,
       data: Mapping[str, Any],
       scenario: str = 'sandbox',
+      seed: int = 0,
   ):
     super().__init__()
+    del seed  # The talks are the same for every seed.
     self._model = model
     self._data = data
     self.scenario = scenario

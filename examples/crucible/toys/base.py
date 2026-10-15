@@ -81,6 +81,11 @@ def clean_action(actor: str, text: str) -> str:
       text = text[len(prefix) :].strip()
   lines = [line.strip() for line in text.splitlines() if line.strip()]
   text = lines[0] if lines else ''
+  # Models sometimes wrap a move: 'Answer: Commander orders: "Build."'.
+  text = re.sub(r'^(?:answer|response|reply)\s*:\s*', '', text, flags=re.I)
+  wrapped = re.match(r'^[\w\' ]{1,40}:\s*["“](.+?)["”]\.?$', text)
+  if wrapped:
+    text = wrapped.group(1)
   text = text.strip().strip('"“”\'').strip()
   return re.sub(r'\s+', ' ', text)
 

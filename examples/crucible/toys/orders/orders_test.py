@@ -1,0 +1,106 @@
+# Copyright 2026 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for the orders toy: the mock's reading, the ledger, the bots."""
+
+from absl.testing import absltest
+from examples.crucible import model_setup
+from examples.crucible import toys
+from examples.crucible.toys.orders import bots
+from examples.crucible.toys.orders import mock as mock_lib
+from examples.crucible.toys.orders import toy as toy_lib
+
+
+def _toy(seed: int = 0) -> toy_lib.OrdersToy:
+  return toy_lib.OrdersToy(
+      model_setup.mock_model(), toys.load_data('orders'), seed=seed
+  )
+
+
+class MockReadingTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.mock = mock_lib.OrdersMock(toys.load_data('orders'))
+
+  def test_conditional_clause_applies_only_when_its_condition_holds(self):
+    order = 'Build; if a leak opens, repair it.'
+    self.assertEqual(self.mock.ordered(order, set()), ['build'])
+    self.assertEqual(self.mock.ordered(order, {'leak'}), ['repair'])
+
+  def test_temperaments_read_the_same_order_differently(self):
+    order = 'Gather supplies.'
+    calm = 'All is quiet.'
+    self.assertEqual(
+        self.mock.decide('literal', order, calm, 3, 0, False), 'gather'
+    )
+    self.assertEqual(self.mock.decide('literal', '', calm, 3, 0, False), 'rest')
+    self.assertEqual(self.mock.decide('bold', '', calm, 3, 0, False), 'build')
+    self.assertEqual(
+        self.mock.decide('cautious', order, calm, 3, 0, True), 'rest'
+    )
+
+
+class ShipTest(absltest.TestCase):
+
+  def test_open_leak_adds_damage_until_repaired(self):
+    toy = _toy()
+    toy.resolve('Commander', 'Everyone rest.')
+    toy.world.leak = True
+    toy.resolve('Commander', 'hold')
+    self.assertEqual(toy.world.damage, 2)
+
+  def test_order_limits(self):
+    toy = _toy()
+    receipt = toy.resolve('Commander', ' '.join(['build'] * 13))
+    self.assertIn('over the limit', receipt.summary)
+    self.assertEqual(toy.world.revisions_left, 3)
+    for _ in range(3):
+      toy.resolve('Commander', 'Build the project.')
+    receipt = toy.resolve('Commander', 'Everyone rest.')
+    self.assertIn('No new orders left', receipt.summary)
+
+  def test_seed_shifts_the_events(self):
+    shifts = set()
+    for seed in range(8):
+      toy = _toy(seed)
+      shifts.add(toy.world.shift)
+      self.assertEqual(toy.event(toy.world, 3 + toy.world.shift), 'leak')
+    self.assertGreater(len(shifts), 1)
+
+  def test_wreck_ends_the_game(self):
+    toy = _toy()
+    toy.world.damage = 9
+    toy.world.leak = True
+    toy.resolve('Commander', 'Everyone rest.')
+    self.assertTrue(toy.done())
+    self.assertIsNone(toy.outcome()['winner'])
+
+  def test_rollout_leaves_the_ship_alone(self):
+    toy = _toy()
+    before = toy.get_state()
+    end = bots.rollout(toy, 'Build the project.')
+    self.assertTrue(end.turn == 12 or toy.wrecked(end))
+    self.assertEqual(toy.get_state(), before)
+
+  def test_state_round_trip(self):
+    toy = _toy(1)
+    toy.resolve('Commander', 'Gather supplies and build.')
+    other = _toy(1)
+    other.set_state(toy.get_state())
+    self.assertEqual(other.get_state(), toy.get_state())
+
+
+if __name__ == '__main__':
+  absltest.main()

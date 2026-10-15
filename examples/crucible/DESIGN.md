@@ -109,13 +109,34 @@ must hold out.
    a mutual agreement" landed colder on a party already cool. The mock's word
    counting cannot do that.
 
-### Toy C: orders (planned, cycle 3)
+### Toy C: orders (built, cycle 4)
 
-The player writes one standing order of at most 12 words for a crew of
-entities with different temperaments. Each tick, each crew member's language
-model reads the order against its own situation and picks an action from a
-fixed menu; a ledger applies the actions to supplies, hazards and tasks. One
-order has to hold up across situations nobody listed.
+**Rule.** The commander (the player) gives one standing order of at most 12
+words and may issue a new one only 3 times a game (the first included). Each
+turn, a language model reads the order for each of three crew members
+(bold, cautious, literal) against that turn's situation (quiet, a leak, a
+storm) and the member's condition, and picks repair, gather, build or rest.
+The ledger applies the actions: a repair closes a leak, an open leak adds 2
+damage a turn, gathering fails in a storm, a build spends a supply for 2
+progress (1 when worn out), and work wears people out. Win: project 20 by
+turn 12 before 10 damage. Seeds shift the event schedule.
+
+**Why it is generative.** One order is read three ways, in situations the
+commander did not list; a word that settles one turn misleads the next.
+
+**Playtest notes (cycle 4).**
+
+1. MOCK audit (16 seeds): skilled 100%, random 31%, passive 0%; median 8
+   moves with an effect per turn (the order list). The skilled bot plans by
+   playing each order forward to the last turn.
+2. Emergent under the mock: told "Build", the bold member gathers when the
+   stores run dry; the literal member idles under any order that says
+   nothing about the turn's situation.
+3. OLLAMA qwen3:8b as commander and crew (473 s): the model wrapped orders
+   ("Answer: Commander orders: ...") and ran over 12 words, wasting turns;
+   moves are now unwrapped. Its order "Rest to recover energy and continue
+   building the project." froze the whole crew in rest for 8 turns, a
+   reading the lookup table cannot make. Lost at 14 of 20.
 
 ## 3. Prior art (cycle 1 search)
 
@@ -156,3 +177,5 @@ Sources:
 | 2 | The toy game master, seat prefab and policy reader went to contrib (library round 1); the game uses them unchanged (MOCK runs byte-identical, 12 games). |
 | 3 | Relay: the model judges only how words land; acceptance, walkouts and the signing check are ledger rules. |
 | 3 | A preview never tells anyone anything (the toy's outbox is restored). |
+| 4 | Orders: crew decisions are the toy's model judgements (not entities), so an order's effect can be previewed and planned. |
+| 4 | Moves wrapped in a label and quotes are unwrapped for every toy. |

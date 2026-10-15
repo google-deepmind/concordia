@@ -101,7 +101,10 @@ def build_game(
     raise ValueError(f'Unknown seat: {seat}')
   kind = toys.registry()[toy_name]
   toy = kind.build(
-      interpreter or model, data or toys.load_data(toy_name), scenario
+      interpreter or model,
+      data or toys.load_data(toy_name),
+      scenario,
+      seed=seed,
   )
   if seat in BOTS:
     reader = seats.bot_reader(kind.policies[seat], toy, seed)

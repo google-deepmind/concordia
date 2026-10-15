@@ -133,6 +133,18 @@ class ToyTest(absltest.TestCase):
     other.set_state(state)
     self.assertEqual(other.get_state(), state)
 
+  def test_clean_action_unwraps_a_labelled_quote(self):
+    self.assertEqual(
+        base.clean_action(
+            'Commander', 'Answer: Commander orders: "Build the project.".'
+        ),
+        'Build the project.',
+    )
+    self.assertEqual(
+        base.clean_action('Relay', 'She said "fine", so I offer you 3.'),
+        'She said "fine", so I offer you 3.',
+    )
+
   def test_clean_action_strips_name_and_quotes(self):
     self.assertEqual(
         base.clean_action('Rival', 'Rival "The bridge is safe."\nmore'),

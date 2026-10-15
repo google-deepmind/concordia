@@ -41,16 +41,14 @@ class ToyKind:
 
   Attributes:
     name: The toy's key.
-    build: (model, data, scenario) -> a new toy.
+    build: (model, data, scenario, seed=...) -> a new toy.
     mock: data -> the toy's mock answerer (`choice`, `text`).
     policies: Bot policies by name ('skilled', 'random', 'passive').
     seat: The actor a person or a bot plays.
   """
 
   name: str
-  build: Callable[
-      [language_model.LanguageModel, Mapping[str, Any], str], base.Toy
-  ]
+  build: Callable[..., base.Toy]
   mock: Callable[[Mapping[str, Any]], Any]
   policies: Mapping[str, Policy]
   seat: str
@@ -61,6 +59,9 @@ def registry() -> dict[str, ToyKind]:
   from examples.crucible.toys.claims import bots as claims_bots
   from examples.crucible.toys.claims import mock as claims_mock
   from examples.crucible.toys.claims import toy as claims_toy
+  from examples.crucible.toys.orders import bots as orders_bots
+  from examples.crucible.toys.orders import mock as orders_mock
+  from examples.crucible.toys.orders import toy as orders_toy
   from examples.crucible.toys.relay import bots as relay_bots
   from examples.crucible.toys.relay import mock as relay_mock
   from examples.crucible.toys.relay import toy as relay_toy
@@ -79,5 +80,12 @@ def registry() -> dict[str, ToyKind]:
           mock=relay_mock.RelayMock,
           policies=relay_bots.POLICIES,
           seat='Relay',
+      ),
+      'orders': ToyKind(
+          name='orders',
+          build=orders_toy.OrdersToy,
+          mock=orders_mock.OrdersMock,
+          policies=orders_bots.POLICIES,
+          seat='Commander',
       ),
   }

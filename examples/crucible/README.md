@@ -32,6 +32,12 @@ The relay toy: carry and reword the messages between two parties:
 python -m examples.crucible.run --toy=relay --mode=mock --seat=human
 ```
 
+The orders toy: command a crew with one standing order:
+
+```bash
+python -m examples.crucible.run --toy=orders --mode=mock --seat=human
+```
+
 Does skill show? Bots at 16 seeds:
 
 ```bash
@@ -55,8 +61,10 @@ examples/crucible/
 ├── mock_language_model.py
 ├── data/claims.yaml     # every number and word of the claims toy
 ├── data/relay.yaml      # ... and of the relay toy
+├── data/orders.yaml     # ... and of the orders toy
 └── toys/
     ├── base.py          # the Toy interface (a contrib Rulebook)
     ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
-    └── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
+    ├── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
+    └── orders/          # Toy C: toy (ship ledger, crew readings), mock, bots, tests
 ```
