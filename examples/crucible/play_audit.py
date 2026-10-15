@@ -29,7 +29,7 @@ from absl import flags
 from examples.crucible import audits
 
 _TOY = flags.DEFINE_string('toy', 'claims', 'Which toy.')
-_SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Toy scenario.')
+_SCENARIO = flags.DEFINE_string('scenario', None, 'Toy scenario.')
 _SEEDS = flags.DEFINE_integer('seeds', 16, 'Games per bot.')
 
 

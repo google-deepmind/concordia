@@ -50,7 +50,7 @@ class _MeasuringReader:
     return self._inner(request)  # pyrefly: ignore[not-callable]
 
 
-def audit(toy: str, scenario: str, seeds: int) -> dict[str, Any]:
+def audit(toy: str, scenario: str | None, seeds: int) -> dict[str, Any]:
   """Win rates per bot, the skill gaps, and moves with an effect per turn."""
   wins: dict[str, float] = {}
   offered: list[int] = []

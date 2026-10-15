@@ -20,7 +20,6 @@ issues the one that ends best; it only spends a revision when that beats
 holding.
 """
 
-import copy
 import random
 
 from examples.crucible.toys.orders import toy as toy_lib
@@ -46,17 +45,11 @@ def candidates(toy: toy_lib.OrdersToy, actor: str) -> list[str]:
 
 def rollout(toy: toy_lib.OrdersToy, order: str) -> toy_lib.Ship:
   """The ship at the end of the game if `order` is given now and held."""
-  ship = copy.deepcopy(toy.world)
-  toy.apply(ship, toy.commander, order)
-  while ship.turn < int(toy._data['turns']) and not toy.wrecked(ship):  # pylint: disable=protected-access
-    toy.apply(ship, toy.commander, toy_lib.HOLD)
-  return ship
+  return toy.play_out(order)
 
 
 def value(toy: toy_lib.OrdersToy, ship: toy_lib.Ship) -> float:
-  data = toy._data  # pylint: disable=protected-access
-  won = not toy.wrecked(ship) and ship.progress >= int(data['target'])
-  return (100.0 if won else 0.0) + ship.progress - 2.0 * ship.damage
+  return (100.0 if toy.won(ship) else 0.0) + ship.progress - 2.0 * ship.damage
 
 
 def skilled(toy: toy_lib.OrdersToy, actor: str, rng: random.Random) -> str:

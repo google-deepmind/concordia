@@ -57,7 +57,7 @@ class EndToEndTest(parameterized.TestCase):
 
   @parameterized.parameters(*[(t,) for t in toys.registry()])
   def test_skill_shows(self, toy):
-    result = audits.audit(toy, 'sandbox', seeds=4)
+    result = audits.audit(toy, None, seeds=4)
     self.assertGreaterEqual(result['skilled_minus_random'], 30)
     self.assertGreaterEqual(result['skilled_minus_passive'], 50)
 

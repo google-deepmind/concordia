@@ -84,6 +84,16 @@ class ServerTest(absltest.TestCase):
     self.assertIn('move', kinds)
     self.assertEqual(kinds[-1], 'end')
 
+  def test_free_play_and_forecast(self):
+    self.call('/api/start', {'toy': 'orders', 'scenario': 'voyage'})
+    self.wait_for_request()
+    preview = self.call('/api/preview', {'text': 'Build the project.'})
+    self.assertIn('If held to the end', preview['forecast'])
+    self.call('/api/start', {'toy': 'orders', 'scenario': 'free'})
+    game = self.wait_for_request()
+    self.assertEqual(game['scenario'], 'free')
+    self.assertIn('Turn 1 of 40', game['request']['question'])
+
   def test_stale_answer_is_refused(self):
     self.call('/api/start', {'toy': 'orders'})
     self.wait_for_request()

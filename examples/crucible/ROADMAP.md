@@ -14,11 +14,11 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 1: grey box
 
-- [ ] A mock run of the core loop finishes in seconds and reproduces exactly from a seed.
-- [ ] Every move shows a measured preview of its effect before it is sent.
-- [ ] Every move gets a receipt saying what it did and when it will show.
+- [x] A mock run of the core loop finishes in seconds and reproduces exactly from a seed. (orders: 0.1 s; `crucible_e2e_test.test_same_seed_same_game`)
+- [x] Every move shows a measured preview of its effect before it is sent. (page Preview: the crew's actions this turn, measured on a copy; with the mock, a forecast to the end: `server_test.test_free_play_and_forecast`)
+- [x] Every move gets a receipt saying what it did and when it will show. (each turn: who did what, and the ledger after; effects land the same turn)
 - [ ] A tester with no win condition starts poking the system unprompted.
-- [ ] The skilled bot beats the random bot.
+- [x] The skilled bot beats the random bot. (orders, 16 seeds: 100% vs 31%)
 
 ## Phase 2: overloading
 
@@ -68,9 +68,8 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 
 ## Next (Phase 1, orders)
 
-1. A sandbox scenario with no win condition (a terminator that never fires) for free poking.
-2. Previews that say what each crew member will do now and where the order leads if held.
-3. Receipts that say why: which words of the order each member acted on.
+1. Evidence that a tester pokes the free scenario unprompted (the owner's games; a model explorer as a proxy).
+2. Phase 2: overload the order (directive, cost, side effect, information, timing).
 
 ## Backlog
 

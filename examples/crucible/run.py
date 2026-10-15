@@ -34,7 +34,7 @@ from examples.crucible import harness
 from examples.crucible import model_setup
 
 _TOY = flags.DEFINE_string('toy', 'claims', 'Which toy.')
-_SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Toy scenario.')
+_SCENARIO = flags.DEFINE_string('scenario', None, 'Toy scenario.')
 _MODE = flags.DEFINE_enum('mode', 'mock', ['mock', 'ollama', 'together'], '')
 _MODEL_NAME = flags.DEFINE_string('model_name', None, 'Provider model name.')
 _SEAT = flags.DEFINE_enum('seat', 'skilled', list(harness.SEATS), 'Seat.')

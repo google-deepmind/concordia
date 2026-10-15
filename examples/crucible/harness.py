@@ -76,7 +76,7 @@ def build_game(
     model: language_model.LanguageModel,
     seat: str = 'skilled',
     seed: int = 0,
-    scenario: str = 'sandbox',
+    scenario: str | None = None,
     reader: human_input.HumanInput | None = None,
     interpreter: language_model.LanguageModel | None = None,
     data: Mapping[str, Any] | None = None,
@@ -89,7 +89,7 @@ def build_game(
     seat: Who plays the toy's seat: a bot (`BOTS`), 'human' (`reader`, or
       the terminal) or 'model' (the model, like everyone else).
     seed: Seeds the bots' choices.
-    scenario: The toy's scenario.
+    scenario: The toy's scenario (default: its data's `default_scenario`).
     reader: The person's reader for seat='human' (e.g. the phone server).
     interpreter: Reads what moves mean; defaults to `model`.
     data: Overrides the toy's data file.
@@ -100,10 +100,11 @@ def build_game(
   if seat not in SEATS:
     raise ValueError(f'Unknown seat: {seat}')
   kind = toys.registry()[toy_name]
+  data = data or toys.load_data(toy_name)
   toy = kind.build(
       interpreter or model,
-      data or toys.load_data(toy_name),
-      scenario,
+      data,
+      scenario or data.get('default_scenario', 'sandbox'),
       seed=seed,
   )
   if seat in BOTS:

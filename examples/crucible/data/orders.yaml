@@ -2,6 +2,7 @@
 # turn. Every number and word of the toy lives here.
 
 commander: Commander
+default_scenario: voyage
 turns: 12
 max_words: 12        # longest order
 revisions: 3         # orders the commander may issue in a game (the first counts)
@@ -51,6 +52,20 @@ premise: >-
   do: repair, gather supplies, build the project, or rest. You may issue a
   new order 3 times in a game, the first one included. Win by bringing the
   project to 20 by the end of turn 12 before the hull takes 10 damage.
+
+# Scenarios override the values above.
+scenarios:
+  voyage: {}         # the game: project 20 by turn 12, before 10 damage
+  free:              # free play: no goal, no end but the turn limit
+    free: true
+    turns: 40
+    revisions: 40
+    events_cycle: 10 # the event schedule repeats every 10 turns
+    premise: >-
+      Free play. You command a crew of three: Ash (bold), Bea (cautious) and
+      Cy (literal). Give a standing order of at most 12 words, change it
+      whenever you like, and watch how each of them reads it as quiet turns,
+      leaks and storms come and go. Nothing is at stake.
 
 # The mock's reading of orders (the lookup-table floor).
 lexicon:

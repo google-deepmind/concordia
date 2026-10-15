@@ -26,6 +26,7 @@ three different temperaments understand it.
 """
 
 from collections.abc import Mapping
+import copy
 import dataclasses
 import random
 from typing import Any
@@ -79,13 +80,17 @@ class OrdersToy(base.Toy):
       self,
       model: language_model.LanguageModel,
       data: Mapping[str, Any],
-      scenario: str = 'sandbox',
+      scenario: str = 'voyage',
       seed: int = 0,
   ):
     super().__init__()
     self._model = model
-    self._data = data
+    if scenario not in data.get('scenarios', {}):
+      scenario = data.get('default_scenario', 'voyage')
+    self._data = {**data, **data.get('scenarios', {}).get(scenario, {})}
+    data = self._data
     self.scenario = scenario
+    self.free = bool(data.get('free', False))
     self.commander: str = data['commander']
     self.crew: list[str] = list(data['crew'])
     self.menu: list[str] = list(data['actions'])
@@ -106,7 +111,11 @@ class OrdersToy(base.Toy):
   def event(self, ship: Ship, turn: int) -> str:
     """The event of a turn (1-based), shifted by the seed."""
     events = {int(k): v for k, v in self._data['events'].items()}
-    return events.get(turn - ship.shift, 'quiet')
+    index = turn - ship.shift
+    cycle = self._data.get('events_cycle')
+    if cycle and index > 0:
+      index = (index - 1) % int(cycle) + 1
+    return events.get(index, 'quiet')
 
   def situation(self, ship: Ship, turn: int) -> str:
     kind = self.event(ship, turn)
@@ -153,11 +162,17 @@ class OrdersToy(base.Toy):
   def action_spec(self, actor: str) -> entity_lib.ActionSpec:
     ship = self.world
     turn = ship.turn + 1
+    stakes = (
+        f'hull damage {ship.damage}; project {ship.progress}'
+        if self.free
+        else (
+            f'hull damage {ship.damage} of {self._data["wreck_at"]}; '
+            f'project {ship.progress} of {self._data["target"]}'
+        )
+    )
     call = (
         f'Turn {turn} of {self._data["turns"]}. {self.situation(ship, turn)}\n'
-        f'Stores: {ship.supplies} supplies; hull damage {ship.damage} of '
-        f'{self._data["wreck_at"]}; project {ship.progress} of '
-        f'{self._data["target"]}. Crew: '
+        f'Stores: {ship.supplies} supplies; {stakes}. Crew: '
         + ', '.join(f'{c} {self.condition(ship, c)}' for c in self.crew)
         + '.\n'
         f'Current order: "{ship.order or "(none)"}". New orders left: '
@@ -239,7 +254,42 @@ class OrdersToy(base.Toy):
   # ---- end of game ------------------------------------------------------
 
   def wrecked(self, ship: Ship) -> bool:
-    return ship.damage >= int(self._data['wreck_at'])
+    return not self.free and ship.damage >= int(self._data['wreck_at'])
+
+  def won(self, ship: Ship) -> bool:
+    return (
+        not self.free
+        and not self.wrecked(ship)
+        and ship.progress >= int(self._data['target'])
+    )
+
+  def play_out(self, order: str) -> Ship:
+    """The ship at the end if `order` is given now and then held."""
+    ship = copy.deepcopy(self.world)
+    outbox = list(self._outbox)
+    try:
+      self.apply(ship, self.commander, order)
+      while ship.turn < int(self._data['turns']) and not self.wrecked(ship):
+        self.apply(ship, self.commander, HOLD)
+    finally:
+      self._outbox = outbox
+    return ship
+
+  def forecast(self, order: str) -> str:
+    """Where `order` leads if held to the end, in one line."""
+    if self.free:
+      return ''
+    end = self.play_out(order)
+    verdict = (
+        'wrecked'
+        if self.wrecked(end)
+        else ('the project done' if self.won(end) else 'the project unfinished')
+    )
+    return (
+        f'If held to the end: turn {end.turn}, project {end.progress}/'
+        f'{self._data["target"]}, damage {end.damage}/'
+        f'{self._data["wreck_at"]}: {verdict}.'
+    )
 
   def done(self) -> bool:
     ship = self.world
@@ -247,9 +297,9 @@ class OrdersToy(base.Toy):
 
   def outcome(self) -> dict[str, Any]:
     ship = self.world
-    won = not self.wrecked(ship) and ship.progress >= int(self._data['target'])
     return {
-        'winner': self.commander if won else None,
+        'winner': self.commander if self.won(ship) else None,
+        'scenario': self.scenario,
         'score': float(ship.progress - 2 * ship.damage),
         'progress': ship.progress,
         'damage': ship.damage,

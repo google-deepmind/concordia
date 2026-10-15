@@ -94,6 +94,20 @@ class ShipTest(absltest.TestCase):
     self.assertTrue(end.turn == 12 or toy.wrecked(end))
     self.assertEqual(toy.get_state(), before)
 
+  def test_free_play_has_no_end_but_the_turn_limit(self):
+    toy = toy_lib.OrdersToy(
+        model_setup.mock_model(), toys.load_data('orders'), 'free'
+    )
+    toy.world.damage = 50
+    self.assertFalse(toy.wrecked(toy.world))
+    self.assertEqual(toy.max_steps(), 40)
+    self.assertEqual(toy.event(toy.world, 13 + toy.world.shift), 'leak')
+    self.assertIsNone(toy.outcome()['winner'])
+    self.assertEqual(toy.forecast('Build.'), '')
+
+  def test_forecast_names_the_end(self):
+    self.assertIn('If held to the end', _toy().forecast('Build the project.'))
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

@@ -40,6 +40,7 @@ class Session:
   game: harness.Game
   reader: blocking_input.BlockingInput
   telemetry_path: str
+  mode: str = 'mock'
   thread: threading.Thread | None = None
   finished: bool = False
   error: str = ''
@@ -73,15 +74,25 @@ class Games:
     with open(session.telemetry_path, 'a') as f:
       f.write(json.dumps(entry) + '\n')
 
-  def start(self, toy: str, mode: str | None = None) -> Session:
+  def start(
+      self, toy: str, mode: str | None = None, scenario: str | None = None
+  ) -> Session:
     """Ends any game in progress and starts a new one of `toy`."""
     self.quit()
     mode = mode if mode in self.modes else self.modes[0]
     name = self._model_name if mode == self._mode else None
     model = model_setup.build_model(mode, name, self._max_calls)
     reader = blocking_input.BlockingInput()
+    data = toys.load_data(toy)
+    if scenario not in data.get('scenarios', {}):
+      scenario = None
     game = harness.build_game(
-        toy, model, 'human', seed=int(time.time()) % 1000, reader=reader
+        toy,
+        model,
+        'human',
+        seed=int(time.time()) % 1000,
+        scenario=scenario,
+        reader=reader,
     )
     game_id = time.strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:6]
     session = Session(
@@ -89,10 +100,17 @@ class Games:
         game=game,
         reader=reader,
         telemetry_path=os.path.join(self._telemetry_dir, f'{game_id}.jsonl'),
+        mode=mode,
     )
     self._record(
         session,
-        {'kind': 'start', 'toy': toy, 'mode': mode, 'model': name},
+        {
+            'kind': 'start',
+            'toy': toy,
+            'scenario': getattr(game.toy, 'scenario', None),
+            'mode': mode,
+            'model': name,
+        },
     )  # fmt: skip
     session.thread = threading.Thread(
         target=self._run, args=(session,), daemon=True
@@ -129,7 +147,13 @@ class Games:
   def state(self) -> dict[str, Any]:
     """What the page shows."""
     out: dict[str, Any] = {
-        'toys': list(toys.registry()),
+        'toys': [
+            {
+                'toy': name,
+                'scenarios': list(toys.load_data(name).get('scenarios', {})),
+            }
+            for name in toys.registry()
+        ],
         'modes': self.modes,
         'game': None,
     }
@@ -147,6 +171,7 @@ class Games:
     out['game'] = {
         'id': session.game_id,
         'toy': session.game.toy.name,
+        'scenario': getattr(session.game.toy, 'scenario', None),
         'seat': session.game.kind.seat,
         'finished': session.finished,
         'error': session.error,
@@ -170,9 +195,18 @@ class Games:
       session = self.session
     if session is None or session.reader.pending() is None:
       return {'ok': False, 'summary': 'Nothing to preview now.'}
-    receipt = session.game.toy.preview(session.game.kind.seat, text)
+    toy = session.game.toy
+    receipt = toy.preview(session.game.kind.seat, text)
     session.previews.append(text)
-    return {'ok': True, 'summary': receipt.summary, 'steps': receipt.steps}
+    forecast = ''
+    if session.mode == 'mock' and hasattr(toy, 'forecast'):
+      forecast = toy.forecast(text)  # pyrefly: ignore[missing-attribute]
+    return {
+        'ok': True,
+        'summary': receipt.summary,
+        'steps': receipt.steps,
+        'forecast': forecast,
+    }
 
   def answer(self, request_id: str, text: str) -> dict[str, Any]:
     with self._lock:
@@ -247,7 +281,9 @@ def make_handler(games: Games, base_path: str) -> type[Any]:
         if toy not in toys.registry():
           self._json({'ok': False, 'error': 'unknown toy'}, 400)
           return
-        games.start(toy, str(body.get('mode', 'mock')))
+        games.start(
+            toy, str(body.get('mode', 'mock')), body.get('scenario') or None
+        )
         self._json({'ok': True})
       elif path == '/api/preview':
         self._json(games.preview(str(body.get('text', ''))))

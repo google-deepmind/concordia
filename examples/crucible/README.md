@@ -36,6 +36,7 @@ The orders toy: command a crew with one standing order:
 
 ```bash
 python -m examples.crucible.run --toy=orders --mode=mock --seat=human
+python -m examples.crucible.run --toy=orders --scenario=free --seat=human  # no goal
 ```
 
 Play any toy from a phone: a plain-text page where you sit in the seat

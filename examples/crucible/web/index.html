@@ -48,13 +48,16 @@ async function api(path, body) {
 function render(state) {
   const pick = $('pick');
   if (!pick.dataset.done) {
-    for (const toy of state.toys) {
-      const b = document.createElement('button');
-      b.textContent = 'New game: ' + toy;
-      b.onclick = async () => {
-        await api('api/start', {toy, mode: $('mind').value}); $('log').innerHTML = '';
-      };
-      pick.appendChild(b);
+    for (const t of state.toys) {
+      for (const scenario of (t.scenarios.length ? t.scenarios : [''])) {
+        const b = document.createElement('button');
+        b.textContent = 'New game: ' + t.toy + (scenario ? ' / ' + scenario : '');
+        b.onclick = async () => {
+          await api('api/start', {toy: t.toy, scenario, mode: $('mind').value});
+          $('log').innerHTML = '';
+        };
+        pick.appendChild(b);
+      }
     }
     for (const mode of state.modes) {
       const o = document.createElement('option');
@@ -79,7 +82,8 @@ function render(state) {
     $('status').textContent = 'Game over (' + g.toy + '): ' + JSON.stringify(g.outcome) + (g.error ? ' ' + g.error : '');
     requestId = null;
   } else if (req) {
-    $('status').textContent = 'Your move as ' + g.seat + ' (' + g.toy + ').';
+    $('status').textContent = 'Your move as ' + g.seat + ' (' + g.toy +
+        (g.scenario ? ' / ' + g.scenario : '') + ').';
   } else {
     $('status').textContent = 'The world is turning…';
   }
@@ -97,7 +101,8 @@ async function poll() {
 $('preview').onclick = async () => {
   $('previewout').textContent = 'Measuring…';
   const r = await api('api/preview', {text: $('move').value});
-  $('previewout').textContent = 'If you send this: ' + r.summary;
+  $('previewout').textContent = 'If you send this: ' + r.summary +
+      (r.forecast ? '\n' + r.forecast : '');
 };
 async function send(text) {
   if (!requestId) return;
