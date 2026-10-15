@@ -294,9 +294,6 @@ class Simultaneous(engine_lib.Engine):
               )
           )
         skip_actions = True
-        if checkpoint_callback is not None:
-          logging.debug('Calling checkpoint callback at step %s', steps)
-          checkpoint_callback(steps)
       else:
         skip_actions = False
 
@@ -375,6 +372,9 @@ class Simultaneous(engine_lib.Engine):
 
       if skip_actions:
         steps += 1
+        if checkpoint_callback is not None:
+          logging.debug('Calling checkpoint callback at step %s', steps)
+          checkpoint_callback(steps)
         # Notify UI of step even when skipping action phase
         if step_callback is not None:
           step_data = step_controller_lib.StepData(
