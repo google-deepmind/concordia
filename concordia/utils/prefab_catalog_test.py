@@ -210,6 +210,7 @@ def test_every_unsupported_prefab_rejects_before_any_construction(key):
         'game_master.game_theoretic_and_dramaturgic.GameMaster',
         'game_master.situated.GameMaster',
         'contrib.game_master.space_ship.GameMaster',
+        'contrib.entity.basic_with_async_deliberation.Entity',
         'contrib.entity.conversations_with_ai_companions.HumanUserEntity',
         'contrib.entity.conversations_with_ai_companions.AICompanionEntity',
     ],

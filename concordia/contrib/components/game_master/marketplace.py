@@ -306,7 +306,7 @@ class MarketPlace(
     completed_orders = []
 
     # Initialize tracking for Trade History
-    original_quantities = {id(o): o.qty for o in (bids + asks)}
+    original_quantities = {id(o): o.qty for o in bids + asks}
     order_fulfillment = DefaultDict(
         lambda: {"filled_qty": 0, "total_value": 0.0}
     )
@@ -642,7 +642,78 @@ class MarketPlace(
         )
 
     # --- CLEAR THE MARKET ---
+    clearing, all_completed_orders, sales_made = self.clear()
     events = ["All agents placed orders"]
+    if sales_made:
+      events.append("Sales executed.")
+    else:
+      events.append("No sales were made.")
+    events.append(f"Day {self._state['round'] - 1} prices: {clearing}")
+    events.append(f"Completed orders: {all_completed_orders}")
+
+    return "\n".join(events)
+
+  def agent(self, name: str) -> MarketplaceAgent:
+    """Returns a trading agent (its cash and inventory may be edited)."""
+    return self._agents[name]
+
+  def place_order(
+      self,
+      agent_name: str,
+      good_id: str,
+      side: str,
+      price: float,
+      qty: int,
+  ) -> Order:
+    """Adds an order to a good's book, for clearing by `clear`.
+
+    Lets code that does not route orders through putative-event text (for
+    example a game master with its own action resolution) use the market.
+
+    Args:
+      agent_name: A registered agent.
+      good_id: A registered good.
+      side: "bid" or "ask".
+      price: Limit price per unit.
+      qty: Units wanted or offered.
+
+    Returns:
+      The order placed.
+
+    Raises:
+      KeyError: For an unknown agent or good.
+      ValueError: For an unknown side or a negative quantity.
+    """
+    if agent_name not in self._agents:
+      raise KeyError(f"Unknown agent: {agent_name}")
+    if good_id not in self._goods:
+      raise KeyError(f"Unknown good: {good_id}")
+    if side not in ("bid", "ask"):
+      raise ValueError(f"Unknown side: {side}")
+    if qty < 0 or int(qty) != qty:
+      raise ValueError("qty must be a non-negative whole number")
+    if not math.isfinite(price) or price < 0:
+      raise ValueError("price must be finite and non-negative")
+    order = Order(
+        agent_id=agent_name,
+        good=self._goods[good_id],
+        price=float(price),
+        qty=int(qty),
+        side=side,
+        round=self._state["round"],
+    )
+    self._orderbooks[good_id].append(order)
+    return order
+
+  def clear(self) -> tuple[Dict[str, float], List[str], bool]:
+    """Clears every good's book with the market type, then empties them.
+
+    Returns:
+      (clearing price per good, completed-order descriptions, whether any
+      sale happened). For a good without a trade, a clearing house reports
+      its lowest ask if there is one; otherwise the last clearing price, or
+      NaN if there has never been one.
+    """
     clearing: Dict[str, float] = {}
     all_completed_orders: List[str] = []
     sales_made = False
@@ -679,18 +750,16 @@ class MarketPlace(
       clearing[good_id] = trade_price
       all_completed_orders.extend(completed_orders)
     self.history.append(clearing)
-    if sales_made:
-      events.append("Sales executed.")
-    else:
-      events.append("No sales were made.")
-    events.append(f"Day {self._state['round']} prices: {clearing}")
-    events.append(f"Completed orders: {all_completed_orders}")
-    # 4) Reset orderbooks
     for ob in self._orderbooks.values():
       ob.clear()
     self._state["round"] += 1
+    return clearing, all_completed_orders, sales_made
 
-    return "\n".join(events)
+  def drain_outcomes(self, agent_name: str) -> List[str]:
+    """Returns and clears the trade outcomes queued for an agent."""
+    agent = self._agents[agent_name]
+    outcomes, agent.queue = list(agent.queue), []
+    return outcomes
 
   def pre_act(
       self,

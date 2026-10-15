@@ -15,6 +15,7 @@
 """A component that ignores the action spec in the `pre_act` method."""
 
 import abc
+import copy
 import threading
 from typing import Any, Final, override
 
@@ -101,3 +102,21 @@ class ActionSpecIgnored(
   @override
   def get_state(self) -> entity_component.ComponentState:
     return {}
+
+  def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Any:
+    cls = self.__class__
+    result = cls.__new__(cls)
+    if memo is not None:
+      memo[id(self)] = result
+    lock_type = type(threading.Lock())
+    rlock_type = type(threading.RLock())
+    for k, v in self.__dict__.items():
+      if k == "_entity":
+        setattr(result, k, None)
+      elif isinstance(v, lock_type):
+        setattr(result, k, threading.Lock())
+      elif isinstance(v, rlock_type):
+        setattr(result, k, threading.RLock())
+      else:
+        setattr(result, k, copy.deepcopy(v, memo))
+    return result
