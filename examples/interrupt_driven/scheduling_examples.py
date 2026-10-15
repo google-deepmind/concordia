@@ -16,9 +16,9 @@ r"""Interrupt-driven game master: worked examples.
 
 This file is a runnable tutorial demonstrating how the interrupt-driven
 game master orchestrates entities inside the Concordia Simultaneous
-engine.  Run it directly to watch the simulation unfold::
+engine.  Run it from the repository root to watch the simulation unfold::
 
-    python3 -m concordia.examples.interrupt_driven.scheduling_examples
+    python3 -m examples.interrupt_driven.scheduling_examples
 
 The output shows every step of every scenario: which event fired, who
 got polled, what each entity said, and what mask and timer they set.

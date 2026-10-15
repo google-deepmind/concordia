@@ -14,12 +14,14 @@
 
 r"""Run conversation with AI companion simulations with opensource models.
 
-Usage:
-    python run.py --api_type google_aistudio --model_name gemini-flash-latest \
+Usage (from the repository root):
+    python -m examples.conversation_with_ai_companion.run \
+        --api_type google_aistudio --model_name gemini-flash-latest \
         --api_key YOUR_KEY --scenario 1
 
 or:
-    python run.py --disable_language_model --scenario 1
+    python -m examples.conversation_with_ai_companion.run \
+        --disable_language_model --scenario 1
 
 Scenarios:
     1: Philosophy Student Exam Prep — a Gen Z philosophy student crams for

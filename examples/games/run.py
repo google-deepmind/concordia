@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unified runner for Concordia game simulations.
+r"""Unified runner for Concordia game simulations.
 
 This script provides a single entry point for running any game simulation
-(haggling, haggling_multi_item, pub_coordination). It handles the shared
+(haggling, haggling_multi_item, pub_coordination, ...). It handles the shared
 boilerplate of argument parsing, model setup, config loading, and output
-writing.
+writing. Run it from the repository root.
 
 Usage:
-  python -m concordia.examples.games.run --game=haggling --scenario=fruitville
-  python -m concordia.examples.games.run --game=pub_coordination
-  --scenario=london
-  python -m concordia.examples.games.run --game=haggling_multi_item
-  --scenario=fruitville_multi
+  python -m examples.games.run --game=haggling --scenario=fruitville
+  python -m examples.games.run --game=pub_coordination --scenario=london
+  python -m examples.games.run --game=haggling_multi_item \
+    --scenario=fruitville_multi
 """
 
 import argparse
@@ -55,6 +54,16 @@ _DEFAULT_SCENARIOS = {
     "social_deception": "basic_epistemic_town",
     "state_formation": "pre_state_villages",
 }
+
+
+def _games_package() -> str:
+  """Returns the import path of the package that contains the games.
+
+  Game modules are resolved relative to this runner rather than through a
+  hard-coded prefix, so the same file works whether the examples live at
+  `examples.games` (the GitHub tree) or under another parent package.
+  """
+  return __package__ or "examples.games"
 
 
 def main() -> None:
@@ -122,7 +131,8 @@ def main() -> None:
     sys.exit(1)
 
   # Load the game's simulation module
-  simulation_path = f"concordia.examples.games.{game}.simulation"
+  games_package = _games_package()
+  simulation_path = f"{games_package}.{game}.simulation"
   try:
     simulation = importlib.import_module(simulation_path)
   except ImportError as e:
@@ -133,7 +143,7 @@ def main() -> None:
     sys.exit(1)
 
   # Load the scenario config
-  config_path = f"concordia.examples.games.{game}.configs.{scenario}"
+  config_path = f"{games_package}.{game}.configs.{scenario}"
   try:
     config_lib = importlib.import_module(config_path)
   except ImportError as e:

@@ -12,7 +12,7 @@ signal their status through their consumption choices.
 ```bash
 pip install concordia[contrib] sentence-transformers
 
-python -m concordia.examples.signaling.run \
+python -m examples.signaling.run \
   --api_type=openai \
   --model_name=gpt-4o \
   --num_days=3 \
@@ -25,7 +25,7 @@ python -m concordia.examples.signaling.run \
 ```bash
 export GOOGLE_API_KEY=your_key_here
 
-python -m concordia.examples.signaling.run \
+python -m examples.signaling.run \
   --api_type=google_aistudio \
   --model_name=gemini-2.0-flash \
   --num_days=3 \
@@ -35,7 +35,7 @@ python -m concordia.examples.signaling.run \
 ### Using Ollama (local)
 
 ```bash
-python -m concordia.examples.signaling.run \
+python -m examples.signaling.run \
   --api_type=ollama \
   --model_name=llama3 \
   --num_days=1 \
@@ -45,7 +45,7 @@ python -m concordia.examples.signaling.run \
 ### Testing (no LLM required)
 
 ```bash
-python -m concordia.examples.signaling.run \
+python -m examples.signaling.run \
   --disable_language_model \
   --use_dummy_embedder \
   --num_days=1 \

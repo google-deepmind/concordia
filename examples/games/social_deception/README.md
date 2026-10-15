@@ -60,20 +60,20 @@ game runner:
 
 ```bash
 # Run with default settings (OpenAI)
-python -m concordia.examples.games.run \
+python -m examples.games.run \
   --game=social_deception \
   --scenario=basic_epistemic_town
 
 # Run with Google AI Studio / Gemini
 export GOOGLE_API_KEY="your_api_key_here"
-python -m concordia.examples.games.run \
+python -m examples.games.run \
   --game=social_deception \
   --scenario=basic_epistemic_town \
   --api_type=google_aistudio \
   --model_name=gemini-2.5-flash
 
 # Run with local Ollama
-python -m concordia.examples.games.run \
+python -m examples.games.run \
   --game=social_deception \
   --scenario=basic_epistemic_town \
   --api_type=ollama \
@@ -85,7 +85,7 @@ python -m concordia.examples.games.run \
 To verify the game mechanics and execution flow quickly with mock models:
 
 ```bash
-python -m concordia.examples.games.run \
+python -m examples.games.run \
   --game=social_deception \
   --scenario=puppet \
   --disable_language_model
@@ -96,8 +96,8 @@ python -m concordia.examples.games.run \
 You can also import and run the simulation directly in Python code:
 
 ```python
-from concordia.examples.games.social_deception import simulation
-from concordia.examples.games.social_deception.configs import basic_epistemic_town as config
+from examples.games.social_deception import simulation
+from examples.games.social_deception.configs import basic_epistemic_town as config
 
 results = simulation.run_simulation(
     config=config,
