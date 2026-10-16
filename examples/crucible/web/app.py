@@ -319,9 +319,10 @@ class Games:
     receipt, world = toy.simulate(session.game.kind.seat, text)
     session.previews.append(text)
     predicted = None
-    log = getattr(world, 'log', None)
-    if log and isinstance(log[-1], dict) and 'actions' in log[-1]:
-      predicted = log[-1]
+    log: list[Any] = list(getattr(world, 'log', None) or [])
+    last = log[-1] if log else None
+    if isinstance(last, dict) and 'actions' in last:
+      predicted = last
     forecast = ''
     if session.mode == 'mock' and hasattr(toy, 'forecast'):
       forecast = toy.forecast(text)  # pyrefly: ignore[missing-attribute]
