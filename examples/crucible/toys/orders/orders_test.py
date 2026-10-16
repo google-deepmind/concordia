@@ -190,6 +190,25 @@ class ShipTest(absltest.TestCase):
     self.assertIn('wants 4 turns seen ahead', told['lookout'])
     self.assertEqual(told['free'], 'project 0')
 
+  def test_a_span_covers_its_own_clause(self):
+    def holds(order, age):
+      return mock_lib._timed(order, f"This is the order's turn {age}.")
+
+    self.assertEqual(holds('Build for two turns, then repair.', 2), 'Build.')
+    self.assertEqual(holds('Build for two turns, then repair.', 3), 'repair.')
+    lead = 'For two turns, gather supplies; then build.'
+    self.assertEqual(holds(lead, 1), 'gather supplies.')
+    self.assertEqual(holds(lead, 3), 'build.')
+    self.assertEqual(holds('Repair leaks; build for two turns.', 3),
+                     'Repair leaks.')  # fmt: skip
+    self.assertEqual(holds('Build for seven turns, then rest.', 7), 'Build.')
+    self.assertEqual(holds('Build for seven turns, then rest.', 8), 'rest.')
+    both = 'Gather supplies for two turns. Then build. Keep watch.'
+    self.assertEqual(holds(both, 1), 'Gather supplies; Keep watch.')
+    self.assertEqual(holds(both, 3), 'build; Keep watch.')
+    self.assertEqual(holds('Repair for one turn.', 2), '')
+    self.assertEqual(holds('Build.', 2), 'Build.')
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

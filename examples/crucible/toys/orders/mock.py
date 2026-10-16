@@ -37,11 +37,15 @@ _STORES = re.compile(
     r' project \d+[^.\n]*\. \w+ is (?P<cond>worn out|fresh)\.'
 )
 _AGE = re.compile(r"This is the order's turn (\d+)\.")
-_TIMED_ORDER = re.compile(
-    r'^(.*?)\s+for\s+(\w+)\s+turns?\s*[,;.]?\s*(?:then\s+(.*))?$',
-    re.IGNORECASE,
-)
-_NUMBERS = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6}
+_SPAN = re.compile(r'\bfor\s+(\w+)\s+turns?\b', re.IGNORECASE)
+_THEN = re.compile(r'\bthen\b', re.IGNORECASE)
+_NUMBERS = {
+    w: n
+    for n, w in enumerate(
+        'one two three four five six seven eight nine ten eleven twelve'.split(),
+        1,
+    )
+} | {'a': 1}
 _SOMEONE = re.compile(
     r'^(\w+) takes up the clause for someone this turn', re.MULTILINE
 )
@@ -54,14 +58,41 @@ _CLAUSE = re.compile(r'\b(?:otherwise|else|then)\b', re.IGNORECASE)
 
 
 def _timed(order: str, prompt: str) -> str:
-  """The part of a timed order that holds now, by the order's age."""
-  found, timed = _AGE.search(prompt), _TIMED_ORDER.match(order.strip())
-  if not (found and timed):
+  """The part of a timed order that holds now, by the order's age.
+
+  A span covers its own clause ("build for two turns", "for two turns,
+  build") and the one it hands over to ("then repair", in the same clause or
+  the next); other clauses hold throughout (cycle 81).
+
+  Args:
+    order: The order as the member heard it.
+    prompt: The reading prompt, which gives the order's turn.
+
+  Returns:
+    The clauses that hold this turn, or `order` itself if it has no span.
+  """
+  found = _AGE.search(prompt)
+  clauses = [c.strip() for c in _SENTENCE.split(order) if c.strip()]
+  if not found or not any(_SPAN.search(c) for c in clauses):
     return order
-  age = int(found.group(1)) - 1
-  word = timed.group(2).lower()
-  turns = int(word) if word.isdigit() else _NUMBERS.get(word, 1)
-  return timed.group(1) if age < turns else (timed.group(3) or '')
+  age = int(found.group(1))
+  kept, i = [], 0
+  while i < len(clauses):
+    clause, i = clauses[i], i + 1
+    span = _SPAN.search(clause)
+    if not span:
+      kept.append(clause)
+      continue
+    word = span.group(1).lower()
+    turns = int(word) if word.isdigit() else _NUMBERS.get(word, 1)
+    this, *then = _THEN.split(clause, 1)
+    if not then and i < len(clauses) and _THEN.match(clauses[i]):
+      then, i = _THEN.split(clauses[i], 1)[1:], i + 1
+    this = _SPAN.sub('', this).strip(' ,')
+    now = this if age <= turns else ''.join(then).strip(' ,')
+    if now:
+      kept.append(now)
+  return '; '.join(kept) + '.' if kept else ''
 
 
 def _someone(prompt: str) -> str | None:
