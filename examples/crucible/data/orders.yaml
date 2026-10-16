@@ -85,8 +85,8 @@ reading_laws:
 someone:
   words: [someone, somebody, anyone, anybody, whoever, one of you]
   law: >-
-    A clause for someone (or one of you) applies to one crew member only:
-    the one who takes it up this turn, named below. For them it comes before
+    A clause for someone (or one of you) is not a plain clause: it applies
+    to one crew member only, the one who takes it up this turn, named below. For them it comes before
     any other clause, as a clause naming them would. It does not apply to
     anyone else, who read the other clauses.
 

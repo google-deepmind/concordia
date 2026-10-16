@@ -546,7 +546,10 @@ be a rule the campaign never asks a player to learn.
   it then kept 23/25 hard laws and every soft case; both misses were
   someone cases, and one showed a real gap in the law text: a clause for
   someone was never said to come before the plain clauses for its taker.
-  It now says so (the mock always read it that way).
+  It now says so (the mock always read it that way), and on the fixed law
+  qwen3 kept 24/25 hard laws with every soft case agreeing; g36 now
+  passes. The one miss is g38 (the literal Cy told a clause for someone is
+  not his, under "Someone repair the hull.", still repairs).
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe

@@ -291,7 +291,9 @@ class OrdersToy(base.Toy):
     someone = self.asks_someone(order)
     laws = list(self._data['reading_laws'])
     if someone:
-      laws.append(' '.join(str(self._data['someone']['law']).split()))
+      # Right after the plain-clause law, which it qualifies (cycle 32: a
+      # model took "Someone repair the hull." for a plain clause).
+      laws.insert(1, ' '.join(str(self._data['someone']['law']).split()))
     statement = CHOICE_STATEMENT.format(
         name=member,
         temperament=temperament,
