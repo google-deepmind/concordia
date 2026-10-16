@@ -207,7 +207,7 @@ class BosunTest(absltest.TestCase):
     self.assertEqual(relayed['Cy'], order)  # literal: word for word
     self.assertEqual(relayed['Ash'], 'Build.')  # bold: no watch clause
     self.assertEqual(relayed['Bea'], 'Build; Cy, keep watch; repair leaks.')
-    self.assertEqual(relayed['Dex'], "don't build; don't Cy, keep watch.")
+    self.assertEqual(relayed['Dex'], "don't build; Cy, don't keep watch.")
 
   def test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders(self):
     toy = self._toy('Ash')

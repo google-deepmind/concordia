@@ -495,6 +495,95 @@ scenarios:
       and 10, Dex on 11 and 12. A squall no one watched for does 4 damage
       and hurts the most worn member on duty, who is off duty for that turn
       and the next. Bring the project to 20 in 12 turns before 10 damage.
+  # Arc 5: the bosun, who passes the order on in their own words.
+  the_bosun:
+    beat: isolate
+    title: The bosun
+    teaches: ['relay x bold', 'command->crew', 'crew->command']
+    lesson: "A bold bosun leaves out what he thinks idle: give the watch to the bosun himself."
+    bosun: Ash
+    crew_present: [Ash, Cy]
+    menu: [build, rest, watch]
+    turns: 10
+    target: 13
+    wreck_at: 8
+    start: {supplies: 12, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) is bosun: your order goes to Ash, who passes it on to Cy
+      (literal) in his own words, and a bold bosun leaves out any clause to
+      rest or keep watch. Ash himself follows your order as you give it.
+      Squalls all night: one no one watched for does 4 damage, and 8 wrecks
+      the ship; the last watch has just ended. You have command for one
+      order of up to 7 words. Bring the project to 13 in 10 turns.
+  word_of_mouth:
+    beat: develop
+    title: Word of mouth
+    teaches: ['relay x cautious', 'hazards->hull', 'crew->hull']
+    lesson: "A cautious bosun adds a repair clause to every order: count on it, and spend your words on the rest."
+    bosun: Bea
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 20
+    wreck_at: 8
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {1: leak, 3: squall, 4: leak, 6: squall, 7: leak, 9: squall, 10: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 4}}
+    premise: >-
+      Bea (cautious) is bosun: she passes your order on to Ash (bold) and Cy
+      (literal), and a cautious bosun adds "repair leaks" if no clause
+      repairs. Leaks and squalls; 8 damage wrecks the ship. Bring the
+      project to 20 in 10 turns.
+  contrary_bosun:
+    beat: twist
+    title: The contrary bosun
+    teaches: ['relay x contrary', 'negation x contrary', 'negation x bold']
+    lesson: "A contrary bosun puts \"don't\" before every clause, and does the opposite of your words himself: tell him what not to do."
+    habit: 'Dex, keep watch; everyone else build.'
+    bosun: Dex
+    crew_present: [Ash, Cy, Dex]
+    menu: [build, rest, watch]
+    turns: 10
+    target: 12
+    wreck_at: 8
+    start: {supplies: 12, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 3}}
+    premise: >-
+      Dex (contrary) is bosun: he passes your order on to Ash (bold) and Cy
+      (literal) with "don't" before every clause (a clause that already
+      forbids he passes on as it is), and himself does the opposite of what
+      you say. Squalls all night; the last watch has just ended; 8 damage
+      wrecks the ship. You have command for one order of up to 7 words.
+      Bring the project to 12 in 10 turns.
+  chain_of_command:
+    beat: catharsis
+    title: Chain of command
+    teaches: ['relay x literal', 'rota->command', 'rota->crew', 'someone x off_duty']
+    lesson: "When the bosun is off duty your words reach the crew unchanged; through a faithful bosun, the order is all yours."
+    bosun: Cy
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 23
+    wreck_at: 10
+    start: {supplies: 6, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: leak, 4: squall, 5: storm, 6: squall, 7: leak, 9: squall, 10: storm, 11: squall, 12: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Cy: [5, 6, 7], Ash: [9, 10]}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four, with Cy (literal) as bosun, who passes your order on word
+      for word: Ash (bold), Bea (cautious) and Dex (contrary). Cy is off duty
+      on turns 5 to 7 and Ash on 9 and 10; with the bosun off duty your
+      order goes out as you give it. Squalls, leaks and storms; 10 damage
+      wrecks the ship. Bring the project to 23 in 12 turns.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
@@ -508,7 +597,7 @@ scenarios:
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.
-campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night]
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night, the_bosun, word_of_mouth, contrary_bosun, chain_of_command]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
 daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}

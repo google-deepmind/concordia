@@ -579,6 +579,30 @@ blind. The bots' rates did not move (crossing 100 / 6 / 0 / 0, long night
 around. Matrix: hazards -> watch, and watch x storm now checked by a test
 as well as a golden case (65 cells; 60 of 60 references taught).
 
+## 2t. Arc 5: the bosun (cycles 41-43)
+
+In a scene with a bosun, the commander's order goes to one member, who
+passes it on to the others in their own words, an open question to the
+model (cached, held to 16 words). The bosun follows the order as given; the
+rest of the crew on duty hear only the bosun's version, and the receipt,
+the cards ("heard “…”") and the commander's prompt say what was said. Each
+temperament relays by a law the prompt states and the mock follows: the
+literal word for word, the bold without clauses to rest or keep watch, the
+cautious adding "repair leaks", the contrary with "don't" after whom each
+clause addresses ("Cy, don't keep watch"). Probed, DeepSeek-V4.1-Flash
+relayed exactly by these laws for all four.
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | The bosun | Ash (bold) relays to Cy; squalls all night; one order: "Build; Cy, keep watch." reaches Cy as "Build."; the watch must go to the bosun himself (or to "someone", which only he heard) | 100 / 25 / 0 / 0 |
+| Develop | Word of mouth | Bea (cautious) relays to Ash and Cy and adds "repair leaks": leaks get mended without the words for it | 100 / 12 / 0 / 44 |
+| Twist | The contrary bosun | Dex relays with "don't" and himself does the opposite: the habit "Dex, keep watch" makes him rest; "Don't keep watch." makes him watch and reaches the crew unchanged | 100 / 6 / 0 / 0 |
+| Catharsis | Chain of command | all four, Cy (literal) as bosun, off duty on turns 5-7 (orders then go out as given), squalls, leaks, storms | 100 / 25 / 0 / 0 |
+
+The campaign is 20 chapters. Matrix 71 cells (+relay operator, 4 reading
+cells, 2 system cells), 64 of 64 references taught; golden set 49 cases (28
+hard): the mock passes, Flash passes twice.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

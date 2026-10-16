@@ -46,7 +46,8 @@ Orders scenes, four arcs of isolate / develop / twist / catharsis (the
 campaign, in order): `one_hand`, `two_hands`, `supply_run`, `voyage` (orders
 and temperaments); `lookout`, `squalls`, `night_watch`, `crossing` (the
 watch); `contrary`, `mixed_hands`, `the_mender`, `all_hands` (Dex and "not");
-`rota`, `watches`, `no_volunteers`, `long_night` (the rota and "someone").
+`rota`, `watches`, `no_volunteers`, `long_night` (the rota and "someone");
+`the_bosun`, `word_of_mouth`, `contrary_bosun`, `chain_of_command` (the bosun).
 `free` has no goal.
 
 Play any toy from a phone: a plain-text page where you sit in the seat

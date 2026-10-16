@@ -283,9 +283,16 @@ class OrdersMock:
       def negated(part):
         if self._negations & set(_WORD.findall(part.lower())):
           return part
-        first = _WORD.findall(part.lower())[0]
-        keep = first in self._crew  # a name keeps its capital
-        return "don't " + (part if keep else part[0].lower() + part[1:])
+        # After whom it addresses: "Cy, don't keep watch", "everyone else,
+        # don't build".
+        who = re.match(
+            r'^((?:everyone(?: else)?|\w+(?:,? and \w+)*),?)\s+(.*)$', part
+        )
+        if who:
+          names = set(_WORD.findall(who.group(1).lower()))
+          if names <= self._crew | {'and', 'everyone', 'else'}:
+            return f"{who.group(1).rstrip(',')}, don't {who.group(2)}"
+        return "don't " + part[0].lower() + part[1:]
 
       parts = [negated(p) for p in parts]
     return '; '.join(parts) + '.' if parts else ''
