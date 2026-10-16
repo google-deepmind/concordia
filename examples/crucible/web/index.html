@@ -293,7 +293,9 @@ function renderView(v, receipts) {
     const l = document.createElement('div'); l.className = 'meter';
     if (m.last) l.append('did ', g('actions', m.last), ' ' + word('actions', m.last)); else l.textContent = 'no turn yet';
     const w = document.createElement('div'); w.className = 'meter why'; w.hidden = !(m.last && m.why);
-    if (!w.hidden) w.textContent = m.why === 'none' ? 'by temperament' : m.why === 'off duty' ? 'heard no order' : 'read \u201c' + m.why + '\u201d';
+    if (!w.hidden) w.textContent = m.why === 'none'
+        ? ((m.heard || v.order) ? 'nothing for ' + m.name + ' in the order: by temperament' : 'no order yet: by temperament')
+        : m.why === 'off duty' ? 'heard no order' : 'read \u201c' + m.why + '\u201d';
     const n = document.createElement('div'); n.className = 'next'; n.hidden = true;
     const act = PREDICTED && PREDICTED.actions[m.name];
     if (act) {
@@ -305,6 +307,7 @@ function renderView(v, receipts) {
     if (!h.hidden) h.textContent = (m.via_bosun ? 'heard \u201c' : m.carried ? 'only heard \u201c' : 'still on \u201c') + (m.heard || '(nothing)') + '\u201d';
     d.append(head, t, c, l, w, h, n); crew.appendChild(d);
   }
+  $('hold').textContent = v.order ? 'Hold' : 'Hold (no order)';
   $('order').textContent = (v.order ? '“' + v.order + '”' : '(no order yet: the crew follow their temperaments)')
       + (v.order_turn ? ' \u00b7 its turn ' + v.order_turn : '');
   countWords();
@@ -324,7 +327,11 @@ function countWords() {
   const move = $('move');
   if (/[\r\n]/.test(move.value)) move.value = move.value.replace(/\s*[\r\n]+\s*/g, ' ');
   const words = move.value.trim().split(/\s+/).filter(Boolean).length;
-  if (!words) { $('count').textContent = 'Empty: the standing order holds.'; sendable(); return; }
+  if (!words) {
+    $('count').textContent = lastView.order ? 'Empty: the standing order holds.'
+        : 'No order yet: holding leaves the crew to their temperaments. Name the work.';
+    sendable(); return;
+  }
   const cost = 1 + Math.floor(words / lastView.per_words);
   const over = words > lastView.max_words;
   blocked = over || cost > lastView.points;
