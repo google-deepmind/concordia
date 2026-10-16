@@ -15,6 +15,7 @@
 """The matrix audit finds no problems, and the mock passes the golden set."""
 
 from absl.testing import absltest
+from concordia.language_model import language_model
 from examples.crucible import audit
 from examples.crucible import golden
 from examples.crucible import model_setup
@@ -31,6 +32,20 @@ class MatrixTest(absltest.TestCase):
     result = golden.run(model_setup.mock_model())
     self.assertEqual(result['failures'], [])
     self.assertTrue(result['passed'])
+
+  def test_a_failing_model_fails_the_case_not_the_run(self):
+    class Down(language_model.LanguageModel):
+
+      def sample_text(self, prompt, **kwargs):
+        raise TimeoutError('no reply')
+
+      def sample_choice(self, prompt, responses, **kwargs):
+        raise TimeoutError('no reply')
+
+    case = golden.load_cases()[0]
+    result = golden.run_case(Down(), case)
+    self.assertFalse(result['ok'])
+    self.assertEqual(result['answer'], 'error: TimeoutError')
 
 
 if __name__ == '__main__':

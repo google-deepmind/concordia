@@ -64,7 +64,11 @@ def run_case(
     ship.fatigue[member] = int(fatigue)
   if case['event'] == 'leak':
     ship.leak = True
-  action = toy.choose(ship, case['member'], 1)
+  try:
+    action = toy.choose(ship, case['member'], 1)
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    # A provider failure is a case not passed, not the end of the run.
+    action = f'error: {type(e).__name__}'
   return {
       'id': case['id'],
       'hard': bool(case.get('hard', False)),

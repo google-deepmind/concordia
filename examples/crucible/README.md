@@ -55,8 +55,11 @@ prompt a model in your seat would read, preview a draft move and send it.
 Every game is recorded in the telemetry folder.
 
 ```bash
+python -m examples.crucible.web.server --port 8901 --base_path /crucible
+# Offer live crew readers too (Together needs TOGETHER_API_KEY; paid readers
+# stop being offered once the spend ledger reaches the budget):
 python -m examples.crucible.web.server --port 8901 --base_path /crucible \
-    --live=ollama --model_name=qwen3:8b
+    --live=together,ollama --live_budget_usd=3.0
 ```
 
 It listens on 127.0.0.1 only, with no authentication: reach it through a
@@ -65,7 +68,7 @@ private tunnel, never the open internet.
 Does skill show? Bots at 16 seeds:
 
 ```bash
-python -m examples.crucible.play_audit --toy=claims --seeds=16
+python -m examples.crucible.play_audit --toy=orders --scenario=rota --seeds=16
 ```
 
 The orders toy's matrix and golden sets (does a model read orders by the
@@ -88,6 +91,9 @@ examples/crucible/
 ├── run.py               # CLI: play one game, write a run folder
 ├── play_audit.py        # CLI: bots at many seeds
 ├── audits.py            # play audit
+├── audit.py             # CLI: the interaction matrix audit (cells, evidence)
+├── golden.py, golden_cli.py # golden sets: does a model read orders by the laws?
+├── campaign.py          # chapters gated by stars; the daily challenge
 ├── harness.py           # builds a toy as a Concordia Simulation (contrib rulebook GM, seated entities)
 ├── seats.py             # bots (contrib PolicyInput) and the terminal as HumanInput readers
 ├── model_setup.py       # mock, Ollama, Together
@@ -102,5 +108,5 @@ examples/crucible/
     ├── base.py          # the Toy interface (a contrib Rulebook)
     ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
     ├── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
-    └── orders/          # Toy C: toy (ship ledger, crew readings), mock, bots, tests
+    └── orders/          # Toy C, Twelve Words: rules (ledger), toy (readings, rota, view), mock, bots, tests
 ```

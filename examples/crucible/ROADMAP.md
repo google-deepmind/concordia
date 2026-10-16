@@ -25,7 +25,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 - [x] Every action carries at least two of directive, cost, side effect, information and timing. (cycle 7: every order has a directive and a price; watch, conditions and names add information, timing and side effects; DESIGN §2b)
 - [x] Each dimension is its own component with its own test; components meet only in the ledger. (`toys/orders/rules.py`, `rules_test.py`)
 - [x] Simultaneous acts resolve in a fixed order. (`rules_test.CrewRuleTest.test_effects_apply_in_the_fixed_crew_order`)
-- [x] The median turn offers three or more moves with a measured effect. (orders, 16 seeds: 11)
+- [x] The median turn offers three or more moves with a measured effect. (orders, 16 seeds: 11; cycle 20, all 16 scenes at 4 seeds: 23 in ten, 20, 10, and 0 only in the four one-decision isolate puzzles; DESIGN §2m)
 
 ## Phase 3: interaction matrix
 

@@ -455,6 +455,37 @@ The campaign is 16 chapters. Matrix: +1 system (rota) with 3 cells, +1
 property (off duty) with 2 reading cells; golden set 43 cases (25 hard).
 Every earlier scene's MOCK games are byte-identical to cycle 18.
 
+## 2m. Deep pass (cycle 20)
+
+- **Play audit**, 16 seeds, all 16 scenes: skilled 100%, random 0-44%,
+  passive 0% (`PROG/evidence/audit-c19.jsonl`).
+- **Moves with a measured effect per turn** (median, 4 seeds): 23 in ten
+  scenes (every affordable order changes the outcome), 20 in Two hands, 10
+  in No volunteers, and 0 in the four isolate puzzles (One hand, Lookout,
+  Contrary, The rota), which give command for exactly one order: one
+  decision, made well, is the lesson. Over the campaign's scenes the median
+  is 23.
+- **Matrix audit**: 58 cells, every one evidenced; 3 by both a test and
+  golden cases.
+- **Golden sets**: on 43 cases DeepSeek-V4.1-Flash kept 24/25 hard laws on
+  both runs; g43 (Bea under "Ash, keep watch; everyone else build" with Ash
+  off duty) gathered once each run and built when probed: the cautious
+  "cannot help" misjudgement seen in g35, not the law under test. As with
+  g35, the hard case now uses the literal Cy and Bea's case is soft (g44).
+  On 44 cases (25 hard): the mock 44/44; Flash 25/25 hard twice, soft 79%
+  both, PASS both. qwen3:8b: (running; a golden run on this CPU-only host
+  takes about 30 minutes, and one crashed when a reading thought for over 3
+  minutes three times: the Ollama timeout is now 600 s and a failed call
+  fails its case instead of the run).
+- **Live games**, Flash as commander and crew, in The rota, Watches and No
+  volunteers: all lost; $0.009, $0.024 and $0.010 a game. The model
+  commander never used "someone" (it named members and re-issued the same
+  named order), and twice its "order" was narration over the word limit,
+  refused by the rules.
+- **Simplify**: three helpers nothing used were cut.
+- **Cost**: ≈ $1.17 of $10 so far; a golden pair on Flash ≈ $0.12; a live
+  game ≈ $0.01-0.02 (crew readings are two calls per member per turn).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

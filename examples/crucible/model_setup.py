@@ -97,8 +97,9 @@ def mock_model() -> mock_language_model.CrucibleMock:
 
 
 # Seconds an Ollama reply may take before the retry wrapper tries again (a
-# thinking reply has no bound; one golden request hung for good, cycle 17).
-OLLAMA_TIMEOUT = 180.0
+# thinking reply has no bound; one golden request hung for good, cycle 17;
+# on a CPU-only host some readings think for over 3 minutes, cycle 20).
+OLLAMA_TIMEOUT = 600.0
 
 
 def build_model(

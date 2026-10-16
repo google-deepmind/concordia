@@ -98,7 +98,7 @@ reading:
     - {operator: someone, property: worn, law: a worn-out cautious member leaves it to the others; a worn-out bold one still takes it up (cycle 18), golden: [g37]}
     - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
     - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
-    - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43]}
+    - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
     - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
@@ -147,4 +147,5 @@ golden:
   - {id: g40, order: 'Someone keep watch.', event: quiet, member: Dex, crew: [Cy, Dex], expect: [rest]}
   - {id: g41, order: 'Someone keep watch; everyone else build.', event: quiet, member: Cy, expect: [build], hard: true}
   - {id: g42, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [watch], hard: true}
-  - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build], hard: true}
+  - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Cy, off_duty: [Ash], expect: [build], hard: true}
+  - {id: g44, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build]}
