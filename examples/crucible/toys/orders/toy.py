@@ -737,6 +737,7 @@ class OrdersToy(base.Toy):
         'scenario': self.scenario,
         'stars': self.stars(ship),
         'command_spent': ship.spent,
+        'words_spoken': ship.words_spoken,
         'score': float(ship.progress - 2 * ship.damage),
         'progress': ship.progress,
         'damage': ship.damage,

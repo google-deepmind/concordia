@@ -70,6 +70,7 @@
 </div>
 
 <p id="status" class="muted">Pick a chapter to start.</p>
+<p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
   <div class="card">
@@ -201,6 +202,7 @@ async function start(body) {
   const r = await api('api/start', body);
   if (!r.ok) { $('status').textContent = r.error || 'Could not start.'; return; }
   $('log').innerHTML = ''; $('plainlog').innerHTML = ''; menuOpen = false; $('menu').hidden = true;
+  $('share').hidden = true; $('copyShare').textContent = 'Copy';
 }
 
 function renderView(v, receipts) {
@@ -314,6 +316,11 @@ function render(state) {
     $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won') + (gm.error ? ' (' + gm.error + ')' : '');
     const lesson = gm.view && gm.view.lesson;
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
+    if (gm.daily && gm.view) {
+      $('shareText').textContent = (LOOK ? LOOK.title : 'Twelve Words') + ' ' + gm.daily + ' \u00b7 ' + gm.view.title
+          + ' \u00b7 ' + stars(o.stars || 0) + ' \u00b7 ' + (o.words_spoken || 0) + ' words';
+      $('share').hidden = false;
+    }
     $('menu').hidden = false;
   } else if (req) {
     $('status').textContent = 'Your order, ' + gm.seat + '.';
@@ -350,6 +357,7 @@ async function send(text) {
   const r = await api('api/answer', {id: requestId, text: text || 'hold'});
   if (r.ok) { $('move').value = ''; $('plainmove').value = ''; countWords(); }
 }
+$('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
 $('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');

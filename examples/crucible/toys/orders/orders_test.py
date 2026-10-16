@@ -139,6 +139,11 @@ class ShipTest(absltest.TestCase):
       long.resolve('Commander', 'hold')
     self.assertEqual(long.outcome()['stars'], 0)
 
+  def test_outcome_counts_the_words_spoken(self):
+    toy = _toy()
+    toy.resolve(toy.commander, 'Build the project.')
+    self.assertEqual(toy.outcome()['words_spoken'], 3)
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')
