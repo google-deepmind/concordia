@@ -21,6 +21,7 @@ without errors. No LLM is required.
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from examples.resource_dilemma import run
 from examples.resource_dilemma.personas import fishery_personas
 from examples.resource_dilemma.personas import irrigation_personas
 from examples.resource_dilemma.personas import network_personas
@@ -29,7 +30,7 @@ from examples.resource_dilemma.scenarios import fishery
 from examples.resource_dilemma.scenarios import irrigation
 from examples.resource_dilemma.scenarios import network
 from examples.resource_dilemma.scenarios import pasture
-from concordia.language_model import no_language_model
+from concordia.typing import prefab as prefab_lib
 import numpy as np
 
 
@@ -62,22 +63,45 @@ _SCENARIOS = [
 class ResourceDilemmaTest(parameterized.TestCase):
   """Smoke tests for resource dilemma scenarios."""
 
+  def _assert_harvest_completed(self, config, num_cycles):
+    harvest_instances = [
+        instance for instance in config.instances
+        if instance.prefab in ('HarvestingGameMaster', 'ResourceHarvestGameMaster')
+    ]
+    self.assertLen(harvest_instances, 1)
+    state = harvest_instances[0].params['sim_state']
+    participant_count = sum(
+        instance.role == prefab_lib.Role.ENTITY for instance in config.instances
+    )
+    self.assertGreater(participant_count, 0)
+    self.assertEqual(state.cycle_harvest_total, participant_count)
+    self.assertTrue(state.terminated)
+    self.assertEqual(state.current_cycle, num_cycles)
+    logger = harvest_instances[0].params['logger_state']
+    self.assertEqual(
+        sum(logger.cumulative_harvests.values()), participant_count * num_cycles
+    )
+    summaries = [row for row in logger.step_logs if row['phase'] == 'summary']
+    self.assertLen(summaries, num_cycles)
+
   @parameterized.named_parameters(
       dict(
-          testcase_name=name,
+          testcase_name=f'{name}_{num_cycles}_cycles',
           scenario_module=mod,
           config_kwargs=kwargs,
+          num_cycles=num_cycles,
       )
       for name, mod, kwargs in _SCENARIOS
+      for num_cycles in (1, 2)
   )
   def test_standard_mode_runs_to_completion(
-      self, scenario_module, config_kwargs
+      self, scenario_module, config_kwargs, num_cycles
   ):
     """Verifies standard mode runs without errors."""
-    model = no_language_model.NoLanguageModel()
+    model = run.MockHarvestModel()
     config = scenario_module.build_config(
         **config_kwargs,
-        num_cycles=1,
+        num_cycles=num_cycles,
         mode='standard',
         embedder=_mock_embedder,
     )
@@ -85,26 +109,29 @@ class ResourceDilemmaTest(parameterized.TestCase):
         config=config,
         model=model,
         embedder=_mock_embedder,
-        num_cycles=1,
+        num_cycles=num_cycles,
     )
     self.assertIsNotNone(result)
+    self._assert_harvest_completed(config, num_cycles)
 
   @parameterized.named_parameters(
       dict(
-          testcase_name=name,
+          testcase_name=f'{name}_{num_cycles}_cycles',
           scenario_module=mod,
           config_kwargs=kwargs,
+          num_cycles=num_cycles,
       )
       for name, mod, kwargs in _SCENARIOS
+      for num_cycles in (1, 2)
   )
   def test_election_mode_runs_to_completion(
-      self, scenario_module, config_kwargs
+      self, scenario_module, config_kwargs, num_cycles
   ):
     """Verifies election mode runs without errors."""
-    model = no_language_model.NoLanguageModel()
+    model = run.MockHarvestModel()
     config = scenario_module.build_config(
         **config_kwargs,
-        num_cycles=1,
+        num_cycles=num_cycles,
         mode='election',
         election_every_n=1,
         embedder=_mock_embedder,
@@ -113,9 +140,10 @@ class ResourceDilemmaTest(parameterized.TestCase):
         config=config,
         model=model,
         embedder=_mock_embedder,
-        num_cycles=1,
+        num_cycles=num_cycles,
     )
     self.assertIsNotNone(result)
+    self._assert_harvest_completed(config, num_cycles)
 
 
 if __name__ == '__main__':

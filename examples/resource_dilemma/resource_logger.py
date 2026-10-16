@@ -294,8 +294,9 @@ class ResourceStepLoggerComponent(
   def _update_state_from_memory(self) -> None:
     """Update logger-only state by querying the GM shared memory.
 
-    Updates logging-only fields (current_leader, cumulative_harvests,
-    cycle_harvests).  Does NOT modify sim state fields (current_cycle,
+    Updates the current leader. Harvest counters use completed resolution
+    events, since memory may deduplicate entries or contain summary copies.
+    Does NOT modify sim state fields (current_cycle,
     resource_level, cycle_harvest_total) — those are owned by GM components.
     """
     if not self._memory_bank:
@@ -312,39 +313,6 @@ class ResourceStepLoggerComponent(
       match = re.search(r'Winner is\s+(.+?)(?:\s+with|\s*$)', latest_election)
       if match:
         s.current_leader = match.group(1).strip()
-
-    # Derive cumulative harvests (logging-only)
-    harvest_memories = self._memory_bank.scan(lambda x: 'decided to use:' in x)
-    s.cumulative_harvests.clear()
-    for memory in harvest_memories:
-      match = re.search(
-          r'(?:\[.*?\]\s*)?(.+?)\s+decided to use:\s*(.*)', memory
-      )
-      if match:
-        name = match.group(1)
-        amount = resource_components.extract_harvest_amount(match.group(2))
-        if amount is not None:
-          s.cumulative_harvests[name] += amount
-
-    # Derive cycle harvests (logging-only)
-    all_relevant = self._memory_bank.scan(
-        lambda x: 'proposed policy:' in x or 'decided to use:' in x
-    )
-
-    s.cycle_harvests.clear()
-
-    for memory in all_relevant:
-      if 'proposed policy:' in memory:
-        s.cycle_harvests.clear()
-      elif 'decided to use:' in memory:
-        match = re.search(
-            r'(?:\[.*?\]\s*)?(.+?)\s+decided to use:\s*(.*)', memory
-        )
-        if match:
-          name = match.group(1)
-          amount = resource_components.extract_harvest_amount(match.group(2))
-          if amount is not None:
-            s.cycle_harvests[name] += amount
 
   # --- Lifecycle hooks ---------------------------------------------------
 
@@ -377,6 +345,10 @@ class ResourceStepLoggerComponent(
         self._latest_action_spec is None
         or self._latest_action_spec.output_type != entity_lib.OutputType.RESOLVE
     ):
+      return ''
+
+    # Private partial choices do not constitute a resolved harvest round.
+    if not action_attempt and self._phase in ('harvesting', 'fishing'):
       return ''
 
     s = self._state
@@ -413,6 +385,16 @@ class ResourceStepLoggerComponent(
     if data is not None:
       result = data.get('summary', '')
       individual_actions = data.get('individual_actions', {})
+      if phase in ('harvesting', 'fishing'):
+        s.cycle_harvests.clear()
+        s.cycle_harvest_total = 0.0
+        # Every row describes the same complete joint outcome.
+        for agent_name, action in individual_actions.items():
+          harvest = resource_components.extract_harvest_amount(action)
+          if harvest is not None:
+            s.cumulative_harvests[agent_name] += harvest
+            s.cycle_harvests[agent_name] += harvest
+            s.cycle_harvest_total += harvest
 
       for agent_name, action in individual_actions.items():
 
@@ -424,10 +406,6 @@ class ResourceStepLoggerComponent(
         if phase in ('harvesting', 'fishing'):
           harvest = resource_components.extract_harvest_amount(action)
           parsed_action['harvest_amount'] = harvest
-          if harvest is not None and not self._memory_bank:
-            s.cumulative_harvests[agent_name] += harvest
-            s.cycle_harvests[agent_name] += harvest
-            s.cycle_harvest_total += harvest
         elif phase == 'voting':
           parsed_action['vote'] = action
           s.cycle_votes[agent_name] = action

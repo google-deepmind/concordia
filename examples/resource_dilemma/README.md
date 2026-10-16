@@ -20,6 +20,9 @@ elected leaders.
 
 ## Quick Start
 
+Run these commands from the root of a Concordia source checkout. The examples
+are not included in the installed `gdm-concordia` package.
+
 ### Using OpenAI
 
 ```bash
@@ -57,6 +60,8 @@ python -m examples.resource_dilemma.run \
 
 ### Testing (no LLM required)
 
+No provider or sentence-transformers is needed.
+
 ```bash
 python -m examples.resource_dilemma.run \
   --disable_language_model \
@@ -80,6 +85,15 @@ python -m examples.resource_dilemma.run \
   resource to harvest each cycle with no collective rules or enforcement.
 - **`election`** — Governed. Agents elect leaders and vote on harvest policies.
   Elections occur every `--election_every_n` cycles (default: every cycle).
+
+In both modes, harvest choices are collected privately, one participant at a
+time. Earlier choices are not revealed to participants still deciding. The Game
+Master applies the combined harvest only after every participant has chosen.
+Each choice uses one engine step; the scenario step budgets account for this.
+Missing or invalid numeric decisions fail the round instead of counting as zero.
+Offline smoke tests and `--disable_language_model` use deterministic `HARVEST 1`
+text replies and the first choice option. These mock runs exercise the workflow;
+they do not model participant behavior.
 
 ## Key Parameters
 
