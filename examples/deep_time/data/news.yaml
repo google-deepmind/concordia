@@ -1,0 +1,6 @@
+# Spatial news: what happens somewhere is published on its
+# region's local topic, and travels to each people at a speed.
+reach_regions: 4               # a people hears news from this many regions away
+ticks_per_region: 1.0          # by courier
+wired_ticks_per_region: 0.25   # once a people has wire news (the telegraph)
+ripple_ticks: 4                # how long the map shows news spreading

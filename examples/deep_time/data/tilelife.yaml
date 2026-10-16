@@ -1,0 +1,22 @@
+# Sessile life on tiles: the daisy growth law per tile, with
+# each tile's temperature, its biome's suitability and seeds from neighbours.
+spread: 0.3                    # share of a tile's seeds that come from its neighbours
+suitability:                   # growth multiplier by biome (land biomes)
+  ice: 0.0
+  tundra: 0.45
+  taiga: 0.75
+  temperate_forest: 1.0
+  grassland: 0.95
+  desert: 0.35
+  savanna: 0.85
+  rainforest: 1.0
+  wetland: 0.9
+# Map colours by species (light, dark); others are drawn from their albedo.
+colours:
+  white: {light: [238, 234, 214], dark: [214, 208, 186]}
+  black: {light: [58, 56, 52], dark: [34, 32, 30]}
+  forests: {light: [44, 110, 56], dark: [32, 84, 42]}
+  grass: {light: [150, 182, 82], dark: [104, 132, 56]}
+  methanogens: {light: [140, 84, 140], dark: [104, 60, 104]}
+  cyanobacteria: {light: [52, 150, 140], dark: [36, 112, 104]}
+  aerobes: {light: [196, 150, 74], dark: [148, 110, 52]}

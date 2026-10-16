@@ -1,0 +1,230 @@
+# Technologies, tiers 1-2. A polity spends research (made by
+# the `study` recipe) to learn a tech whose prerequisites it knows. Effects:
+#   outputs:  {recipe: multiplier}             more of every output
+#   inputs:   {recipe: {resource: multiplier}} less (or more) of an input
+#   clearing: multiplier on forest cleared per unit of wood
+#   spoilage: multiplier on grain lost in store
+#   research: multiplier on research made by study
+#   emissions: {resource: multiplier} on pollutants made (e.g. soot)
+#   unlocks:  tags other systems read (logistics, reflex operators)
+# What each `unlocks` tag gives a people, in words (a tech's push).
+unlock_words:
+  reflex:threshold: standing orders at a threshold
+  reflex:moving_average: standing orders on a moving average
+  reflex:deadband: standing orders with a deadband
+  reflex:change: standing orders on a change
+  reflex:every: standing orders every few turns
+  reflex:scale: standing orders that scale
+  tally: tallies of every good
+  logistics: shipping goods to trade
+  plans: balanced production plans
+  rail: railways
+  wire_news: news by wire
+  broadsheets: broadsheets for the Gazette
+  treaties: treaties with other peoples
+  grid: a power grid
+  orbit: reaching orbit
+# Pollutants a recipe makes, in words (kept apart from goods in a push).
+pollutant_words: {co2: smoke, fossil_co2: coal smoke, soot: soot, slag: slag, runoff: runoff}
+techs:
+  - key: irrigation
+    label: irrigation
+    tier: 1
+    cost: 6
+    effects: {outputs: {farm: 1.25}}
+  - key: granaries
+    label: granaries and tally sticks
+    tier: 1
+    cost: 6
+    effects: {spoilage: 0.5, unlocks: [reflex:threshold]}
+  - key: iron_axes
+    label: iron axes
+    tier: 1
+    cost: 8
+    effects: {outputs: {woodcut: 1.3}}
+  - key: coppicing
+    label: coppicing (cutting woods so that they regrow)
+    tier: 1
+    cost: 8
+    effects: {clearing: 0.5}
+  - key: clamp_kilns
+    label: clamp kilns
+    tier: 1
+    cost: 8
+    effects: {outputs: {charcoal: 1.3}}
+  - key: shaft_mining
+    label: shaft mining
+    tier: 1
+    cost: 8
+    effects: {outputs: {mine: 1.4}}
+  - key: bellows
+    label: bellows
+    tier: 1
+    cost: 10
+    effects: {inputs: {bloomery: {charcoal: 0.75}}}
+  - key: writing
+    label: writing
+    tier: 1
+    cost: 10
+    requires: [granaries]
+    effects: {research: 1.3, unlocks: [tally]}
+  - key: iron_plough
+    label: the iron plough
+    tier: 2
+    cost: 16
+    requires: [irrigation, iron_axes]
+    effects: {outputs: {farm: 1.3}}
+  - key: shaft_furnace
+    label: the shaft furnace
+    tier: 2
+    cost: 18
+    requires: [bellows, clamp_kilns]
+    effects: {outputs: {bloomery: 1.5}, inputs: {bloomery: {charcoal: 1.2}}}
+  - key: roads
+    label: roads and carts
+    tier: 2
+    cost: 14
+    requires: [writing]
+    effects: {unlocks: [logistics]}
+  - key: fishing_boats
+    label: fishing boats
+    tier: 1
+    cost: 8
+    requires: []
+    effects: {}
+  - key: mathematics
+    label: mathematics
+    tier: 2
+    cost: 16
+    requires: [writing]
+    effects: {research: 1.25, unlocks: [reflex:moving_average, plans]}
+  # Tier 3: coal, steam and steel.
+  - key: coal_mining
+    label: coal mining
+    tier: 3
+    cost: 24
+    requires: [shaft_mining]
+    effects: {}
+  - key: steam_power
+    label: steam power
+    tier: 3
+    cost: 30
+    requires: [coal_mining, mathematics]
+    effects: {research: 1.1}
+  - key: steelmaking
+    label: steelmaking
+    tier: 3
+    cost: 30
+    requires: [shaft_furnace, coal_mining]
+    effects: {}
+  - key: railways
+    label: railways
+    tier: 3
+    cost: 36
+    requires: [steelmaking, roads, steam_power]
+    effects: {unlocks: [rail]}
+  - key: telegraph
+    label: the telegraph
+    tier: 3
+    cost: 28
+    requires: [mathematics, steelmaking]
+    effects: {research: 1.15, unlocks: ['reflex:deadband', wire_news]}
+  - key: glassmaking
+    label: glassmaking
+    tier: 3
+    cost: 26
+    requires: [mathematics, coal_mining]
+    effects: {}
+  - key: printing
+    label: the printing press
+    tier: 3
+    cost: 28
+    requires: [writing, glassmaking]
+    effects: {research: 1.1, unlocks: [broadsheets]}
+  - key: masonry
+    label: masonry
+    tier: 3
+    cost: 22
+    requires: [mathematics]
+    effects: {}
+  - key: diplomacy
+    label: diplomacy and treaties
+    tier: 3
+    cost: 26
+    requires: [writing, roads]
+    effects: {unlocks: [treaties]}
+  # Tier 4: electricity, chemistry and clean power.
+  - key: cement
+    label: cement
+    tier: 4
+    cost: 34
+    requires: [masonry, steam_power]
+    effects: {}
+  - key: metallurgy
+    label: metallurgy
+    tier: 4
+    cost: 36
+    requires: [steelmaking]
+    effects: {}
+  - key: electricity
+    label: electricity
+    tier: 4
+    cost: 44
+    requires: [metallurgy, steam_power]
+    effects: {unlocks: ['reflex:change']}
+  - key: chemistry
+    label: industrial chemistry (fertiliser from the air)
+    tier: 4
+    cost: 44
+    requires: [electricity, glassmaking]
+    effects: {}
+  - key: photovoltaics
+    label: photovoltaics
+    tier: 4
+    cost: 50
+    requires: [electricity, glassmaking]
+    effects: {}
+  - key: scrubbers
+    label: smoke scrubbers
+    tier: 4
+    cost: 36
+    requires: [chemistry]
+    effects: {emissions: {soot: 0.3}}
+  - key: wetland_buffers
+    label: wetlands and buffer strips (catch fertiliser runoff)
+    tier: 4
+    cost: 30
+    requires: [chemistry]
+    effects: {emissions: {runoff: 0.35}}
+  - key: efficient_engines
+    label: efficient engines
+    tier: 4
+    cost: 38
+    requires: [steam_power, metallurgy]
+    effects: {inputs: {coal_plant: {coal: 0.7}}}
+  - key: power_grid
+    label: the power grid
+    tier: 4
+    cost: 42
+    requires: [electricity, railways]
+    effects: {research: 1.1, unlocks: ['reflex:every', grid]}
+  - key: computing
+    label: computing machines
+    tier: 4
+    cost: 52
+    requires: [electricity, printing]
+    effects: {research: 1.3, unlocks: ['reflex:scale']}
+
+  # Tier 5: rocketry.
+  - key: rocketry
+    label: rocketry
+    tier: 5
+    cost: 60
+    requires: [chemistry, metallurgy]
+    effects: {unlocks: [orbit]}
+  - key: arks
+    label: interstellar arks
+    tier: 5
+    cost: 60
+    requires: [rocketry, photovoltaics]
+    effects: {}

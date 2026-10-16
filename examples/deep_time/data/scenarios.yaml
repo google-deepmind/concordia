@@ -1,0 +1,675 @@
+# Scenario definitions. Times use NumericTimeModel units.
+daisyworld:
+  title: Daisyworld
+  era: evolution
+  start_time: -3.0Gyr
+  tick_length: 50Myr
+  max_ticks: 40
+  premise: >-
+    A young sun is brightening over a world of white and black daisies. The
+    daisies tune the planet's albedo by spreading and dying back. As Steward,
+    keep the planet habitable while sunlight rises by forty percent.
+  luminosity: {start: 1.05, end: 1.47, curve: 1.5, ramp_ticks: 30}
+  initial_cover: {white: 0.30, black: 0.20}
+  band_c: [10.0, 35.0]
+  max_ticks_out_of_band: 10
+  instruments: stones
+  attention: true
+  wakeups: true
+  interventions: [wait, seed_white, seed_black, bright_clouds, dark_haze, basalt_dust, rouse_volcanoes, ash_winter, runaway_greenhouse, upgrade_instruments]
+  band_recovery_per_tick: 0.5
+  omega: {start: 4.0, per_tick: 0.5, biodiversity_bonus: 1.0}
+  stability_window: 5
+  shocks:
+    - {tick: 9, kind: blight, species: white, fraction: 0.5,
+       text: A white-petal blight sweeps the equator.}
+    - {tick: 18, kind: albedo_pulse, delta: 0.08,
+       text: A volcanic winter veils the sky with bright ash.}
+    - {tick: 27, kind: blight, species: black, fraction: 0.6,
+       text: A black-root fungus withers the dark daisies.}
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Never more than 3 turns' strain out of the band", kind: max_strain, value: 3}
+    - {text: "End with biodiversity 0.55 or more", kind: at_least, field: biodiversity, value: 0.55}
+  # Side objectives: optional, judged in their window, paid in Ω.
+  side:
+    - {key: black, text: 'Keep the black daisies on 15% of the planet until turn 20', kind: hold, field: cover_black, at_least: 0.15, until: 20, reward: 3, answers: 'seed black|dark haze'}
+
+herds:
+  title: Herds
+  # Co-op for two phones: the climate and the herds.
+  coop:
+    players: [Gaia, Grazers]
+    text: >-
+      Two phones, one world: the Steward keeps the climate; the grazers'
+      appetite for petals steers the albedo too.
+  era: evolution
+  start_time: -3.0Gyr
+  tick_length: 50Myr
+  max_ticks: 40
+  premise: >-
+    Daisy meadows under a brightening sun now feed herds of grazers. What the
+    herds crop changes the colour of the land: eat the white petals and the
+    world darkens and warms, eat the black ones and it cools. As Steward, keep
+    the planet habitable while the herds and the daisies evolve.
+  luminosity: {start: 1.0, end: 1.36, curve: 1.5, ramp_ticks: 30}
+  initial_cover: {white: 0.30, black: 0.20}
+  fauna: [grazers]
+  band_c: [10.0, 35.0]
+  max_ticks_out_of_band: 10
+  instruments: stones
+  attention: true
+  wakeups: false  # grazing is fast: daisies decide every tick
+  interventions: [wait, seed_white, seed_black, thin_herds, bright_clouds, dark_haze, basalt_dust, rouse_volcanoes, ash_winter, runaway_greenhouse, upgrade_instruments]
+  omega: {start: 4.0, per_tick: 0.5, biodiversity_bonus: 1.0}
+  stability_window: 5
+  shocks:
+    - {tick: 9, kind: blight, species: white, fraction: 0.5,
+       text: A white-petal blight sweeps the equator.}
+    - {tick: 18, kind: albedo_pulse, delta: 0.08,
+       text: A volcanic winter veils the sky with bright ash.}
+    - {tick: 27, kind: blight, species: black, fraction: 0.6,
+       text: A black-root fungus withers the dark daisies.}
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Never more than 3 turns' strain out of the band", kind: max_strain, value: 3}
+    - {text: "End with biodiversity 0.57 or more", kind: at_least, field: biodiversity, value: 0.57}
+  # No side objective yet: any omega reward costs the skilled bot games here
+  # (it spends the windfall on clouds that whiplash the climate).
+
+snowball:
+  title: Snowball
+  era: geologic
+  start_time: -720Myr
+  tick_length: 5Myr
+  max_ticks: 22
+  premise: >-
+    The planet is a ball of ice. Seas and continents alike lie under glaciers
+    that reflect most of the faint sunlight away, and the last living mats
+    cling to volcanic refugia. Only carbon can break the ice: volcanoes still
+    breathe beneath it, and with no rock exposed to weather it away, the air
+    slowly thickens. Once it holds enough, a dark haze tips the ice; too
+    soon, or under volcanic ash, the haze only warms the planet for a turn.
+    As Steward, break the ice before the refugia fail.
+  steward_goal: >-
+    Thaw the planet: raise the global temperature above 0 C with less than a
+    third of the planet under ice before tick 22, when the refugia fail.
+  geography: {generator: continents, land: 0.45, continents: 3}
+  initial_temp_c: -40.0
+  carbon_reference_temp_c: 15.0
+  # A faint sun: a thaw needs carbon. Unaided, the ice holds
+  # until the air holds four or five times its carbon; a dark haze tips it
+  # from about x1.3 (measured over 16 worlds, clear skies).
+  luminosity: {start: 0.72, end: 0.72, curve: 1.0}
+  initial_cover: {white: 0.0, black: 0.0}
+  band_c: [-80.0, 80.0]
+  max_ticks_out_of_band: 999
+  instruments: stones
+  attention: true
+  wakeups: true
+  # No seeds: daisies sown on the ice would never freeze over, and one dark
+  # sowing plus a haze would tip the ice at today's carbon (measured c109).
+  interventions: [wait, bright_clouds, dark_haze, basalt_dust, rouse_volcanoes, ash_winter, upgrade_instruments]
+  omega: {start: 6.0, per_tick: 1.0, biodiversity_bonus: 0.0}
+  # tip_co2: from what carbon a dark haze may tip the ice, and above what
+  # it surely does under a clear sky (shown on the air gauge).
+  goal: {kind: thaw, temp_c: 0.0, max_ice: 0.33, tip_co2: [1.3, 2.0]}
+  # Pushes measured on this world (push.py-style, 8 worlds, from tick 6).
+  pushes:
+    dark_haze: 'may tip the ice from ×1.3 of the carbon, almost surely above ×2.0, not under ash; else warms ~6 °C for a turn'
+    rouse_volcanoes: '+×0.25 carbon in the air, kept under the ice (about +1 °C)'
+    basalt_dust: '−×0.5 carbon in the air (about −3.5 °C, lasting): sets the thaw back'
+    ash_winter: 'cools about 20 °C, for years'
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Break the ice by turn 16", kind: by_tick, tick: 16}
+    - {text: "Break the ice by turn 13", kind: by_tick, tick: 13}
+
+great_oxidation:
+  title: Great Oxidation
+  era: evolution
+  start_time: -2.6Gyr
+  tick_length: 20Myr
+  max_ticks: 40
+  premise: >-
+    A faint young sun shines on a world kept warm by methane. Methanogen mats
+    breathe it into the sky; cyanobacteria have just learned to split water
+    and make oxygen, a poison, but iron in the seas still soaks it up. When
+    the iron runs out, oxygen will flood the air, burn away the methane and
+    chill the planet. As Steward, carry life through the crisis so that
+    oxygen-breathing life inherits the world.
+  steward_goal: >-
+    By tick 40, oxygen-breathing aerobes should cover at least a twentieth of
+    the planet, the air should hold oxygen (a tenth of today's level), and
+    the global temperature must stay between 12 and 40 C.
+  species_noun: mats
+  species:
+    methanogens: {albedo: 0.35, optimum_c: 28.0, growth_width: 0.003, metabolism: anaerobic}
+    cyanobacteria: {albedo: 0.45, optimum_c: 24.0, growth_width: 0.003, metabolism: oxygenic}
+    aerobes: {albedo: 0.55, optimum_c: 20.0, growth_width: 0.003, metabolism: aerobic}
+  species_info:
+    - key: methanogens
+      name: Methanogen mats
+      lore: Purple anaerobic mats that breathe methane into a sky without oxygen.
+    - key: cyanobacteria
+      name: Cyanobacteria
+      lore: Blue-green mats that split water and exhale the poison oxygen.
+    - key: aerobes
+      name: Aerobic mats
+      lore: A rare new kind of life that breathes the poison and grows strong on it.
+  initial_cover: {methanogens: 0.35, cyanobacteria: 0.12, aerobes: 0.0}
+  chemistry: true
+  geography: {generator: continents, land: 0.6, continents: 3}
+  luminosity: {start: 0.78, end: 0.82, curve: 1.0}
+  band_c: [12.0, 40.0]
+  max_ticks_out_of_band: 6
+  instruments: stones
+  attention: true
+  wakeups: true
+  goal: {kind: oxygenate, min_o2: 0.1, min_aerobes: 0.05}
+  omega: {start: 6.0, per_tick: 0.8, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, seed_aerobes, seed_cyanobacteria, iron_flood, bright_clouds, dark_haze, rouse_volcanoes, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "End with biodiversity 0.22 or more", kind: at_least, field: biodiversity, value: 0.22}
+    - {text: "Save 8 Ω for the world to come", kind: omega_left, value: 8}
+  side:
+    - {key: methanogens, text: 'Keep the Methanogen mats on 2% of the planet until turn 20', kind: hold, field: cover_methanogens, at_least: 0.02, until: 20, reward: 2, answers: 'wash iron'}
+
+fire_and_iron:
+  title: Fire and Iron
+  era: civilization
+  start_time: -3.2kyr
+  tick_length: 25yr
+  max_ticks: 40
+  premise: >-
+    Three young peoples farm the river valleys of a temperate world, cut its
+    forests for fuel and have just learned to smelt iron from bog ore in
+    charcoal bloomeries. Every bloomery needs charcoal, every kiln eats the
+    forests, and every forest felled changes the climate the farms depend
+    on. Gaia, the Steward, tends the climate and the forests while the
+    peoples forge their iron age.
+  steward_goal: >-
+    By tick 40 the peoples should have forged at least 110 iron between them,
+    no people may lose more than three fifths of its population to famine,
+    and the global temperature must stay between 5 and 30 C.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 14.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 12.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: Open steppe and meadow, pale under the sun, quick to take cleared land.
+    - key: forests
+      name: Forests
+      lore: Dark old woods of oak and pine, slow to grow back once they are cut.
+  initial_cover: {grass: 0.1, forests: 0.22}
+  geography: {generator: continents, land: 0.45, continents: 3}
+  luminosity: {start: 0.72, end: 0.72, curve: 1.0}
+  band_c: [5.0, 30.0]
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  civilization:
+    aims: [iron]
+    trade: true
+    backlash: true
+    # Peoples act every tick: with wake-ups (civ.yaml) they acted 22 of 40
+    # ticks and the economy collapsed (default 69% -> 0% wins).
+    wakeups: false
+    polities:
+      - {key: amber, name: Amber folk, home: auto, population: 6.0,
+         endowment: {farming: 1.3, forest: 1.0, ore: 0.5},
+         allocation: {farm: 0.58, woodcut: 0.15, charcoal: 0.08, mine: 0.07, bloomery: 0.07, smithy: 0.03, study: 0.02}}
+      - {key: basalt, name: Basalt clans, home: auto, population: 5.0,
+         endowment: {farming: 0.9, forest: 0.4, ore: 2.0},
+         allocation: {farm: 0.63, woodcut: 0.12, charcoal: 0.07, mine: 0.07, bloomery: 0.06, smithy: 0.03, study: 0.02}}
+      - {key: cedar, name: Cedar league, home: auto, population: 5.5,
+         endowment: {farming: 1.0, forest: 1.8, ore: 0.4},
+         allocation: {farm: 0.58, woodcut: 0.14, charcoal: 0.08, mine: 0.06, bloomery: 0.08, smithy: 0.04, study: 0.02}}
+  goal: {kind: iron_age, min_iron: 110, collapse_fraction: 0.4}
+  omega: {start: 6.0, per_tick: 0.6, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Forge 120 iron", kind: at_least, field: iron_made, value: 120}
+    - {text: "Keep the air under 1.15 times its old carbon", kind: at_most, field: co2, value: 1.15}
+  side:
+    - {key: forests, text: 'Keep forests on 10% of the planet from turn 10 to turn 30', kind: hold, field: cover_forests, at_least: 0.10, from: 10, until: 30, reward: 5, answers: 'plant forests'}
+
+great_acceleration:
+  title: Great Acceleration
+  era: industry
+  start_time: -230yr
+  tick_length: 5yr
+  max_ticks: 40
+  premise: >-
+    Three industrious peoples have farms, bloomeries, roads and writing, and
+    they have just found coal. Coal turns steam engines and steel mills, and
+    every ton burned puts carbon and soot into the air of a world whose
+    climate their harvests depend on. The Cedar league, rich in forest and
+    poor in coal, own the only printing presses and print the Gazette that
+    every people reads. Gaia, the Steward, watches the air while the peoples
+    race to power their machines.
+  steward_goal: >-
+    By tick 40 the peoples should have made at least 600 energy between
+    them, the air must hold less than 1.3 times the starting CO2, and the global
+    temperature must stay between 5 and 25 C.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 14.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 12.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: Open steppe and meadow, pale under the sun, quick to take cleared land.
+    - key: forests
+      name: Forests
+      lore: Dark old woods of oak and pine, slow to grow back once they are cut.
+  initial_cover: {grass: 0.1, forests: 0.22}
+  geography: {generator: continents, land: 0.45, continents: 3}
+  luminosity: {start: 0.72, end: 0.72, curve: 1.0}
+  band_c: [5.0, 25.0]
+  # Five-year ticks: the carbon rates in carbon.yaml are per geologic tick.
+  # No volcanic baseline (so steady-state weathering is nil too), little
+  # eruption carbon, and an ocean that takes up a few percent of the
+  # imbalance a tick.
+  carbon_overrides:
+    outgassing: {baseline: 0.0, per_eruption_magnitude: 1.0}
+    ocean: {exchange_rate: 0.03}
+  # An industrial age of universities and laboratories: research runs faster.
+  civ_overrides: {research_rate: 1.8}
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  civilization:
+    age: the age of coal and steam
+    polity_goal: >-
+      Keep your people fed, and power your machines: mine coal, learn steam
+      power and burn coal in steam engines to make energy (the peoples
+      together must make 600 energy), but keep the air under 1.3 times its
+      old carbon, for your harvests depend on the climate.
+    aims: [energy]
+    trade: true
+    backlash: true
+    treaties: true
+    media: true
+    wakeups: false
+    polities:
+      - {key: amber, name: Amber folk, home: auto, population: 14.0,
+         endowment: {farming: 1.3, forest: 1.0, ore: 0.5, coal: 0.6},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats], stocks: {research: 30, grain: 20, tools: 8},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+      - {key: basalt, name: Basalt clans, home: auto, population: 12.0,
+         endowment: {farming: 0.9, forest: 0.4, ore: 2.0, coal: 1.8},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats], stocks: {research: 30, grain: 20, tools: 8},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+      - {key: cedar, name: Cedar league, home: auto, population: 13.0,
+         endowment: {farming: 1.0, forest: 1.8, ore: 0.4, coal: 0.5},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats, printing], stocks: {research: 30, grain: 20, tools: 8, paper: 2},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+  goal: {kind: industrialize, min_energy: 600, max_co2: 1.3, collapse_fraction: 0.4}
+  omega: {start: 8.0, per_tick: 0.8, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  # Five-year ticks: a dusting of basalt draws down a fifth of the default
+  # (60 Gt C, about −×0.09 and −3 °C), a tool to trim the air, not a reset
+  # (300 Gt took −×0.46 and froze the world 14 °C; measured c110).
+  effects: {basalt_dust: {amount: 60.0}}
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Make 1,200 energy", kind: at_least, field: energy_made, value: 1200}
+    - {text: "Keep the air under 1.16 times its old carbon", kind: at_most, field: co2, value: 1.16}
+  side:
+    - {key: forests, text: 'Keep forests on 9% of the planet from turn 10 to turn 30', kind: hold, field: cover_forests, at_least: 0.09, from: 10, until: 30, reward: 5, answers: 'plant forests'}
+
+archipelago:
+  title: Archipelago
+  era: holocene
+  start_time: -9000yr
+  tick_length: 200yr
+  max_ticks: 28
+  premise: >-
+    A warm sea strewn with islands, and life on only one of them. Grass and
+    forest spread across an island by themselves, tile by tile, but not over
+    the sea: migrating geese carry the seeds of what they ate to where they
+    land, and Gaia, the Steward, can sow wherever she chooses. Green the
+    islands before the age ends.
+  steward_goal: >-
+    By tick 28 at least 85 in 100 of the islands must be green, plants
+    covering at least 45% of their land, and the global temperature must stay
+    between 5 and 30 C.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 15.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 13.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: Open meadow, quick to take bare ground, carried far in the crops of geese.
+    - key: forests
+      name: Forests
+      lore: Dark woods, slow to spread, that never cross the sea on their own.
+  initial_cover: {grass: 0.3, forests: 0.25}
+  start_on_one_island: true
+  geography: {generator: islands, count: 8, land: [0.45, 0.8], seed_offset: 77}
+  luminosity: {start: 0.72, end: 0.72, curve: 1.0}
+  band_c: [5.0, 30.0]
+  carbon_overrides:
+    outgassing: {baseline: 0.0, per_eruption_magnitude: 1.0}
+    ocean: {exchange_rate: 0.03}
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  goal: {kind: green_islands, min_share: 0.85, min_cover: 0.45, min_tiles: 6}
+  omega: {start: 6.0, per_tick: 0.45, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, transplant_grass, transplant_forests, sow_grass_little, sow_grass, plant_forests, bright_clouds, dark_haze, ash_winter, runaway_greenhouse, upgrade_instruments]
+  # Sowing spends the Omega a Steward may need when the sky turns: a cool sea
+  # world can freeze over under a volcanic winter.
+  shocks:
+    - {tick: 10, kind: albedo_pulse, delta: 0.1,
+       text: A volcanic winter veils the sky with bright ash.}
+    - {tick: 21, kind: blight, species: grass, fraction: 0.6,
+       text: A rust sweeps the island grasslands.}
+    - {tick: 27, kind: blight, species: forests, fraction: 0.6,
+       text: A canker withers the island woods.}
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Never more than 1 turn's strain out of the band", kind: max_strain, value: 1}
+    - {text: "End with biodiversity 0.04 or more", kind: at_least, field: biodiversity, value: 0.04}
+  side:
+    - {key: woods, text: 'Raise woods on 4% of the planet between turns 12 and 28', kind: reach, field: cover_forests, at_least: 0.04, from: 12, until: 28, reward: 4, answers: 'forest'}
+
+savanna_fire:
+  title: Savanna Fire
+  era: holocene
+  start_time: -6000yr
+  tick_length: 100yr
+  max_ticks: 40
+  premise: >-
+    A hot, dry world of grass and scattered woods, where the lightning
+    season comes every year. Fire runs through the dry country and the woods
+    burn back to grass; bison graze it and wolves follow them. Gaia, the
+    Steward, can summon rain over the country she chooses and plant woods
+    again. Save the forests before the fires take them.
+  steward_goal: >-
+    By tick 40 the forests must still cover at least nine-tenths of the land
+    they held at the start, and the global temperature must stay between 10
+    and 35 C.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 22.0, growth_width: 0.003}
+    forests: {albedo: 0.3, optimum_c: 20.0, growth_width: 0.003}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: Tall savanna grass, quick to burn and quicker to grow back.
+    - key: forests
+      name: Forests
+      lore: Dry woods of acacia and baobab, slow to grow and easy to lose.
+  initial_cover: {grass: 0.3, forests: 0.25}
+  geography: {generator: continents, land: 0.5, continents: 3, seed_offset: 33}
+  luminosity: {start: 0.84, end: 0.84, curve: 1.0}
+  band_c: [10.0, 35.0]
+  carbon_overrides:
+    outgassing: {baseline: 0.0, per_eruption_magnitude: 1.0}
+    ocean: {exchange_rate: 0.03}
+  # Three times the lightning, fires that take nine-tenths of the woods they
+  # reach and run further through dry country.
+  fire_overrides: {ignition_rate: 0.3, burn_fraction: 0.9, spread: 3.5}
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  goal: {kind: keep_woods, species: forests, min_share: 0.9}
+  omega: {start: 6.0, per_tick: 0.6, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, transplant_grass, transplant_forests, summon_rain, plant_forests_little, plant_forests, bright_clouds, dark_haze, ash_winter, runaway_greenhouse, upgrade_instruments]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "End with biodiversity 0.19 or more", kind: at_least, field: biodiversity, value: 0.19}
+    - {text: "End cooler than 22 °C", kind: at_most, field: temp_c, value: 22}
+  side:
+    - {key: grass, text: 'Keep grass on 8% of the planet from turn 10 to turn 30', kind: hold, field: cover_grass, at_least: 0.08, from: 10, until: 30, reward: 3, answers: 'grass'}
+
+great_migration:
+  title: Great Migration
+  era: holocene
+  start_time: -12000yr
+  tick_length: 250yr
+  max_ticks: 40
+  premise: >-
+    The ice age is ending and the sun grows stronger every age. The great
+    bison herds graze the cool grasslands, and as the world warms their
+    pasture creeps toward the poles: the herds must follow it, the wolf packs
+    follow the herds, and geese pass overhead. Gaia, the Steward, can slow
+    the warming with bright clouds, sow grass where the herds must go, and
+    thin the packs that press them too hard. Left alone, the bold wolves eat
+    out the herds and then starve.
+  steward_goal: >-
+    By tick 40 the bison herds' total size must be at least 8 and the wolf
+    packs' at least 1.5, with the global temperature between 0 and 34 C.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 15.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 10.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: The mammoth steppe, cool and wide, the herds' best pasture.
+    - key: forests
+      name: Forests
+      lore: Pine and birch on the cold margins, retreating as the world warms.
+  initial_cover: {grass: 0.35, forests: 0.2}
+  geography: {generator: continents, land: 0.5, continents: 2, seed_offset: 55}
+  luminosity: {start: 0.68, end: 0.9, curve: 1.0}
+  band_c: [0.0, 34.0]
+  carbon_overrides:
+    outgassing: {baseline: 0.0, per_eruption_magnitude: 1.0}
+    ocean: {exchange_rate: 0.03}
+  # Wolves here are bolder than elsewhere: unchecked, they eat out the herds
+  # and then starve.
+  herd_overrides:
+    wolves: {herds: 6, attack: 2.6, efficiency: 0.65}
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  goal: {kind: keep_herds, min: {bison: 8.0, wolves: 1.5}}
+  omega: {start: 6.0, per_tick: 0.6, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, transplant_grass, transplant_forests, sow_grass, bright_clouds, thin_packs, ash_winter, runaway_greenhouse, upgrade_instruments]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "End with biodiversity 0.12 or more", kind: at_least, field: biodiversity, value: 0.12}
+    - {text: "Save 2.5 Ω", kind: omega_left, value: 2.5}
+  side:
+    - {key: wolves, text: 'Keep wolves at a total size of 5 or more from turn 10 to turn 30', kind: hold, field: herds_wolves, at_least: 5, from: 10, until: 30, reward: 4, answers: ''}
+
+light_delay:
+  title: Light Delay
+  # Co-op for two phones: Earth and the colony, one goal.
+  coop:
+    players: [Mission Control, Colonists of New Ararat]
+    text: >-
+      Two phones, one world: home sends designs and directives across the
+      light delay; the colonists act at once on what they see.
+  wildlife: false   # No Earth herds on New Ararat (its own fauna: backlog).
+  map_title: Home, as Mission Control sees it (New Ararat is four light-years away)
+  era: exodus
+  start_time: 2150yr
+  tick_length: 1yr
+  max_ticks: 40
+  premise: >-
+    A seed colony has landed at New Ararat, a cold world four light-years from
+    home. The colonists brought designs for mining ice, growing food under
+    glass, splitting water for air, tending a solar farm and running
+    terraforming plants, a few years of stores and twelve solar panels. They
+    must keep everyone fed and breathing while they warm the sky until the
+    world is habitable. Home learns what happens to them four years late.
+  steward_goal: >-
+    Warm New Ararat's sky to 0 C by year 40 with at least as many colonists as
+    landed; the colony is lost if fewer than a quarter remain.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 14.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 12.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: The meadows of home, far away.
+    - key: forests
+      name: Forests
+      lore: The old woods of home, far away.
+  initial_cover: {grass: 0.2, forests: 0.3}
+  geography: {generator: continents, land: 0.45, continents: 3}
+  luminosity: {start: 0.72, end: 0.72, curve: 1.0}
+  band_c: [5.0, 25.0]
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  colony: {focus_share: 0.15, plan_share: 0.4}
+  goal: {kind: terraform, lost_fraction: 0.25}
+  omega: {start: 8.0, per_tick: 0.8, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Habitable by year 38", kind: by_tick, tick: 38}
+    - {text: "With 29 colonists or more", kind: colonists, value: 29}
+
+sandbox:
+  title: Sandbox
+  era: exodus
+  start_time: -230yr
+  tick_length: 5yr
+  max_ticks: 50
+  premise: >-
+    Every system at once. Three peoples have steam, steel and electricity, and
+    a living world of grass and forest around them. Their old sun is
+    brightening, and within a few centuries it will scorch the world. Before
+    the planet's climate or its life breaks, they may build interstellar arks:
+    gather seeds from a world that is still diverse, lift them on rockets and
+    launch a seed ship to the stars. Gaia, the Steward, keeps the planet cool
+    and alive long enough.
+  steward_goal: >-
+    By tick 50 a seed ship must leave for the stars while the planet's
+    biodiversity is at least 0.17, carrying as much: a ship carries no more of
+    the wild than the seed vault Gaia gathers for the arks. The climate must
+    stay between 5 and 25 C, and no people may lose three fifths of its
+    population.
+  species_noun: biome
+  speciation: false
+  species:
+    grass: {albedo: 0.5, optimum_c: 14.0, growth_width: 0.004}
+    forests: {albedo: 0.3, optimum_c: 12.0, growth_width: 0.004}
+  species_info:
+    - key: grass
+      name: Grasslands
+      lore: Open steppe and meadow, pale under the sun, quick to take cleared land.
+    - key: forests
+      name: Forests
+      lore: Dark old woods of oak and pine, slow to grow back once they are cut.
+  initial_cover: {grass: 0.1, forests: 0.22}
+  geography: {generator: continents, land: 0.45, continents: 3}
+  # The old sun brightens (the reason for the exodus): left alone, the world
+  # warms past where its grass and forests thrive, and the arks leave from a
+  # poorer world (measured c111: skilled 6/8, passive 2/8 at 8 seeds).
+  luminosity: {start: 0.72, end: 0.82, curve: 1.0}
+  band_c: [5.0, 25.0]
+  # Five-year ticks: the carbon rates in carbon.yaml are per geologic tick.
+  # No volcanic baseline (so steady-state weathering is nil too), little
+  # eruption carbon, and an ocean that takes up a few percent of the
+  # imbalance a tick.
+  carbon_overrides:
+    outgassing: {baseline: 0.0, per_eruption_magnitude: 1.0}
+    ocean: {exchange_rate: 0.03}
+  # An industrial age of universities and laboratories: research runs faster.
+  civ_overrides: {research_rate: 1.8}
+  max_ticks_out_of_band: 8
+  band_recovery_per_tick: 0.5
+  instruments: naturalists
+  attention: true
+  wakeups: true
+  civilization:
+    age: the electric age
+    aims: [seed_ships]
+    polity_goal: >-
+      Keep your people fed, and before the world breaks build interstellar
+      arks: gather seeds from the living world, build rockets and solar
+      panels, and launch a seed ship to the stars.
+    trade: true
+    backlash: true
+    treaties: true
+    media: true
+    wakeups: false
+    polities:
+      - {key: amber, name: Amber folk, home: auto, population: 14.0,
+         endowment: {farming: 1.3, forest: 1.0, ore: 0.5, coal: 0.6},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats, coal_mining, steam_power, steelmaking, metallurgy, electricity, glassmaking, chemistry], stocks: {research: 30, grain: 20, tools: 8},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+      - {key: basalt, name: Basalt clans, home: auto, population: 12.0,
+         endowment: {farming: 0.9, forest: 0.4, ore: 2.0, coal: 1.8},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats, coal_mining, steam_power, steelmaking, metallurgy, electricity, glassmaking, chemistry], stocks: {research: 30, grain: 20, tools: 8},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+      - {key: cedar, name: Cedar league, home: auto, population: 13.0,
+         endowment: {farming: 1.0, forest: 1.8, ore: 0.4, coal: 0.5},
+         techs: [irrigation, granaries, iron_axes, coppicing, clamp_kilns, shaft_mining, bellows, writing, iron_plough, shaft_furnace, roads, mathematics, fishing_boats, coal_mining, steam_power, steelmaking, metallurgy, electricity, glassmaking, chemistry, printing], stocks: {research: 30, grain: 20, tools: 8, paper: 2},
+         allocation: {farm: 0.45, woodcut: 0.1, charcoal: 0.08, mine: 0.08, bloomery: 0.08, smithy: 0.06, study: 0.15}}
+  goal: {kind: seed_ship, min_biodiversity: 0.17, collapse_fraction: 0.4, vault: {rate: 0.5}}
+  omega: {start: 8.0, per_tick: 0.8, biodiversity_bonus: 1.0}
+  stability_window: 5
+  interventions: [wait, gather_seeds, plant_forests, protect_wilds, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  shocks: []
+  # Stars: beyond the goal, calibrated on the skilled
+  # bot's wins at 16 seeds (the second near their median, the third near
+  # their top quarter).
+  stars:
+    - {text: "Launch by turn 28", kind: by_tick, tick: 28}
+    - {text: "Launch from a world of biodiversity 0.20 or more", kind: at_least, field: biodiversity, value: 0.2}
+  side:
+    - {key: wilds, text: 'Keep biodiversity at 0.18 or more from turn 10 to turn 25', kind: hold, field: biodiversity, at_least: 0.18, from: 10, until: 25, reward: 4, answers: 'protect|plant forests|marshes'}

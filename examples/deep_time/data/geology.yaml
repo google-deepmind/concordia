@@ -1,0 +1,15 @@
+# Lithosphere: seeded Poisson eruptions.
+eruptions:
+  rate_per_tick: 0.15            # mean eruptions per tick
+  magnitude: [1, 3]              # inclusive range, uniform
+  ash_albedo_per_magnitude: 0.02 # bright ash: decaying albedo pulse (cools)
+  fertility_per_magnitude: 0.06  # mineral ash: growth multiplier on bare ground
+  # (CO2 outgassing per magnitude is in carbon.yaml)
+fertility_decay: 0.7             # excess fertility decays by this factor per tick
+volcanoes:
+  - Mount Ember
+  - the Ashen Spire
+  - Cinder Rift
+  - the Glass Caldera
+  - Old Smoky Shield
+  - the Sulphur Isles

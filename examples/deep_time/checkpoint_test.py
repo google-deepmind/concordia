@@ -1,0 +1,87 @@
+# Copyright 2026 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""A game checkpointed the standard Concordia way replays exactly.
+
+`Simulation.make_checkpoint_data()` saves every entity's and game master's
+components (the topic bus, the sim-time scheduler, beliefs in transit and the
+world among them); `simulation.load_checkpoint` restores them into a new
+simulation. The restored game must then play on exactly as the live one does.
+"""
+
+import json
+from typing import Any
+
+from absl.testing import absltest
+from absl.testing import parameterized
+from examples.deep_time import game as game_lib
+from examples.deep_time import model_setup
+from examples.deep_time import simulation
+
+
+def _build(scenario: str):
+  return simulation.build_simulation(
+      scenario, model_setup.make_models('mock'), seed=0
+  )
+
+
+def _after(context: game_lib.GameContext, tick: int) -> dict[str, Any]:
+  """What happened after `tick`: the world's history and every move."""
+  return {
+      'history': json.dumps(
+          [r for r in context.planet.history if r['tick'] > tick],
+          sort_keys=True,
+          default=str,
+      ),
+      'moves': {
+          name: [entry for entry in actor.log if entry[0] > tick]
+          for name, actor in context.actors.items()
+      },
+      'bus_seq': context.bus.get_state()['seq'],
+  }
+
+
+class CheckpointTest(parameterized.TestCase):
+
+  @parameterized.parameters(
+      # Wake-ups and alarms; transported, noisy, late instruments.
+      ('daisyworld', 4, 6),
+      # A species founded before the checkpoint (it is founded again).
+      ('great_oxidation', 16, 4),
+      # Peoples (the contrib async-deliberation entity), the market,
+      # standing orders (reflexes) and news by courier.
+      ('fire_and_iron', 6, 6),
+      # Messages crossing the light delay, Mission Control and the colony.
+      ('light_delay', 6, 6),
+  )
+  def test_a_restored_game_plays_on_exactly(self, scenario, saved_at, more):
+    live, context = _build(scenario)
+    live.play(premise='', max_steps=saved_at)
+    tick = context.planet.tick
+    checkpoint = json.loads(
+        json.dumps(live.make_checkpoint_data(), default=str)
+    )
+    live.play(premise='', max_steps=more)
+
+    restored, other = _build(scenario)
+    simulation.load_checkpoint(restored, other, checkpoint)
+    self.assertEqual(other.planet.tick, tick)
+    restored.play(premise='', max_steps=more)
+    self.assertEqual(_after(other, tick), _after(context, tick))
+    if scenario == 'great_oxidation':
+      self.assertNotEmpty(other.spawned)  # Founded again before the load.
+
+
+if __name__ == '__main__':
+  absltest.main()

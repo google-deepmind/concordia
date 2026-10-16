@@ -1,0 +1,16 @@
+# The tile map: each region splits into per_region × per_region
+# tiles, so the 6 × 8 regions become 30 × 40 tiles.
+per_region: 5
+noise:                       # seeded fractal value noise for coastlines and relief
+  base_cells: 5              # lattice cells around the planet at the first octave
+  octaves: 4
+  persistence: 0.5
+coast_noise: 0.45            # how far noise can push a coastline across a region
+elevation:                   # metres
+  inland_per_tile: 170       # land rises with distance from the sea
+  max_inland_tiles: 6        # (all-land worlds have no sea to measure from)
+  relief: 1300               # amplitude of noise ridges
+  highland: 1000             # highland above this
+  shelf_depth: -150          # water next to land
+  deep_ocean: -3800
+classes: [deep_ocean, shelf, coast, lowland, highland]

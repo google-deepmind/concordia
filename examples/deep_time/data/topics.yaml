@@ -1,0 +1,109 @@
+# Topic catalogue. Retention: latest | replay | none.
+topics:
+  - name: world.tick
+    retention: latest
+    description: Tick number, era and simulated time.
+  - name: world.resolutions
+    retention: replay
+    replay_size: 20
+    description: What the World GM resolved each tick (published by TopicObservations).
+  - name: climate.global
+    retention: latest
+    description: Global mean temperature, luminosity and planetary albedo.
+  - name: bio.census
+    retention: latest
+    description: Area covered by each species and bare ground.
+  - name: bio.alerts.white
+    retention: replay
+    replay_size: 5
+    description: Deadband alarms (no LLM) when the white daisies' meadows warm, cool, spread or shrink; they wake the species.
+  - name: bio.alerts.black
+    retention: replay
+    replay_size: 5
+    description: Deadband alarms for the black daisies (wake-ups).
+  - name: cycles.carbon
+    retention: latest
+    description: "The air gauge: CO2 and greenhouse, oxygen, methane and iron; carbon reservoirs and fluxes (stock-flow ledger)."
+  - name: ocean.global
+    retention: latest
+    description: Sea area, temperature, sea ice, sea level and pH.
+  - name: ocean.alerts
+    retention: replay
+    replay_size: 10
+    description: Ocean alarms such as acidification.
+  - name: civ.census
+    retention: latest
+    description: Each polity's people, food, stocks and how it splits its labor (stock-flow ledger).
+  - name: civ.treaties
+    retention: latest
+    description: Coal treaties in force, embargoes and who has broken treaties (a shared record of reputation).
+  - name: media.gazette
+    retention: latest
+    description: The Gazette (a contrib forum) - the latest broadsheets, their votes, each people's credibility and consent for coal.
+  - name: colony.status
+    retention: latest
+    description: The colony's census (colonists, stores, sky temperature), fresh where it is published; home reads it light-years late.
+  - name: mission.uplink
+    retention: replay
+    replay_size: 10
+    description: Designs and directives Mission Control transmits; the colony hears them over the light delay.
+  - name: colony.events
+    retention: replay
+    replay_size: 20
+    description: Shortfalls, deaths and transmissions arriving at the colony.
+  - name: civ.events
+    retention: replay
+    replay_size: 20
+    description: Famines, first iron and tools, and other turning points of civilization.
+  - name: econ.prices
+    retention: latest
+    description: Clearing prices on the MarketPlace, silver held and goods in transit on the ledger links.
+  - name: gaia.indices
+    retention: latest
+    description: Steward energy (omega), biodiversity and stability indices.
+  - name: gaia.omens
+    retention: replay
+    replay_size: 5
+    description: Steward interventions, as announced to the world.
+  - name: gaia.briefings
+    retention: latest
+    description: Briefings written by the Steward's Advisor (a pubsub.Publisher).
+  - name: geo.events
+    retention: replay
+    replay_size: 20
+    description: Physical shocks such as eruptions, ash and flares.
+  - name: bio.events
+    retention: replay
+    replay_size: 20
+    description: Biological news such as blights and finished adaptations.
+  - name: bio.species.white.adaptation
+    retention: latest
+    description: The white daisies' adaptation mind (a pubsub.Publisher).
+  - name: bio.species.black.adaptation
+    retention: latest
+    description: The black daisies' adaptation mind (a pubsub.Publisher).
+  - name: bio.species.grazers.adaptation
+    retention: latest
+    description: The grazers' adaptation mind (a pubsub.Publisher).
+  - name: bio.species.grazers.behaviour
+    retention: latest
+    description: The grazers' chosen behaviour each tick.
+  - name: bio.pacts
+    retention: latest
+    description: Active mutualism pacts and pending offers.
+  - name: bio.species.white.pact
+    retention: latest
+    description: The white daisies' pact mind (Publisher, trigger_on_observe).
+  - name: bio.species.black.pact
+    retention: latest
+    description: The black daisies' pact mind (Publisher, trigger_on_observe).
+  - name: bio.species.white.behaviour
+    retention: latest
+    description: The white daisies' chosen behaviour each tick.
+  - name: bio.species.black.behaviour
+    retention: latest
+    description: The black daisies' chosen behaviour each tick.
+  - name: chronicle
+    retention: replay
+    replay_size: 50
+    description: Chapters written by the Chronicler.

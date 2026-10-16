@@ -1,0 +1,35 @@
+# Carbon cycle on the contrib StockFlowLedger. Units: Gt C.
+# Every flux is a ledger transfer between reservoirs, so carbon is conserved.
+reservoirs:          # initial stocks (biomass and soil start in steady state)
+  atmosphere: 600.0
+  ocean: 2000.0
+  sediments: 20000.0
+  mantle: 100000.0
+atmosphere_reference: 600.0
+# Greenhouse forcing = per_e_fold * ln(C_atm / reference), W m^-2. Includes
+# water-vapour and cloud feedbacks: a doubling warms the planet by ~4.5 C.
+forcing_per_e_fold: 40.0
+outgassing:
+  baseline: 6.0                 # mantle -> atmosphere per tick
+  per_eruption_magnitude: 40.0  # extra outgassing per eruption magnitude
+weathering:                     # atmosphere -> sediments (carbonates)
+  temperature_sensitivity: 0.08 # per C: rate *= exp(s * (T - T_ref))
+  co2_exponent: 0.5             # rate *= (C / reference) ** exponent
+  biotic_enhancement: 2.0       # rate *= 1 + enhancement * living cover
+  # Reference temperature and initial cover set the steady state: at the
+  # start, weathering plus burial exactly balance baseline outgassing.
+ocean:
+  exchange_rate: 0.2            # fraction of disequilibrium closed per tick
+  ratio_at_reference: 3.333     # ocean/atmosphere carbon at equilibrium
+  ratio_per_c: -0.02            # warmer seas hold less carbon
+biomass:
+  per_cover: 800.0              # biomass carbon at 100% living cover
+  # CO2 limits life: growth and storage scale with C/(C + half) * (1 + half),
+  # which is 1 at the reference atmosphere and falls toward 0 as CO2 vanishes.
+  co2_half_saturation: 0.5
+  growth_rate: 0.5              # fraction of the gap closed per tick
+  turnover: 0.1                 # litterfall biomass -> soil per tick
+soil:
+  decay_rate: 0.05              # soil -> atmosphere per tick
+  burial_rate: 0.001            # soil -> sediments per tick
+subduction_rate: 0.0003         # sediments -> mantle per tick

@@ -1,0 +1,317 @@
+# Civilization: polities, labor, food and the first recipes.
+# Every amount is per tick. Stocks live on a contrib StockFlowLedger with one
+# holder per polity. Recipes are run in batches of one unit of labor.
+population:
+  growth: 0.06            # per tick when fed, slowed by crowding
+  food_per_pop: 1.0       # grain eaten per person-unit per tick
+  starvation: 0.25        # share lost per tick at zero food (scaled by the shortfall)
+  famine_ratio: 0.7       # food ratio below which a famine is announced
+  capacity_per_land: 6.0  # people a fully settled, fully fertile region holds
+  labor_per_pop: 1.0
+tools:
+  bonus: 0.6              # productivity bonus when every worker has a tool
+  wear: 0.05              # share of tools that break each tick
+# Capital goods that wear out each tick (share lost).
+wear: {tools: 0.05, panels: 0.02, satellites: 0.05}
+# Weather satellites: a people with `per_pop` satellites per person farms
+# `farming_bonus` better (forecasts); any satellite in orbit feeds Gaia's
+# instruments (the scenario's best instrument tier).
+# Seed vaults yield in proportion to the planet's biodiversity (full at
+# `reference`).
+seeds:
+  reference: 0.25
+satellites:
+  per_pop: 0.1
+  farming_bonus: 0.15
+# Solar panels: a people with `per_pop` panels per person runs them at full yield.
+panels:
+  per_pop: 0.2
+grain_spoilage: 0.15      # share of stored grain lost each tick
+co2_gt_per_unit: 0.4      # carbon (Gt C) sent to the air per unit of co2 made
+fossil_gt_per_unit: 2.0   # carbon (Gt C) per unit of fossil co2 (coal is dense, ancient carbon)
+settle_radius: 1          # a polity farms its home region and its neighbours
+farming:
+  optimum_c: 15.0         # best local temperature for crops
+  width_c: 15.0           # yield falls to zero this far from the optimum
+forest:
+  species: forests        # the plant species that is cut for wood
+  full_cover: 0.25        # forest cover (share of the region) for full woodcut yield
+  cover_per_wood: 0.004   # forest cover cleared per unit of wood cut, spread over the polity's land
+# Seeded deposit richness per region (lognormal around the mean). Ore must
+# come first; eruptions expose fresh ore.
+deposits:
+  ore: {mean_richness: 0.6, spread: 0.6, eruption_gain: 0.05}
+  coal: {mean_richness: 0.6, spread: 0.9}
+  sand: {mean_richness: 0.8, spread: 0.5}
+  copper: {mean_richness: 0.5, spread: 0.9}
+  limestone: {mean_richness: 0.7, spread: 0.6}
+# Industry: energy drives machines. Each person can use `per_pop` energy a
+# tick; a fully powered people works `1 + bonus` times as hard.
+energy:
+  per_pop: 0.5
+  bonus: 0.8
+# Plans (the ratio planner): a people that knows mathematics can put
+# `share` of its labor into a target's whole chain at once, balanced by the
+# contrib `stock_flow_ledger.balance_chain` for its own land.
+plans:
+  share: 0.4
+  targets: [steelworks, wire_mill, panel_factory, fertilised_farm, rocket_works, ark_works]
+# Milestones announced the first time a people makes them.
+firsts:
+  iron: make their first iron
+  tools: make their first tools
+  rockets: build their first rocket
+  satellites: launch their first satellite into orbit
+# Fisheries: one shared fish stock (0-1) for all the seas; it regrows
+# logistically and every people's catch depletes it. Yield: stock x the
+# people's coastal share x open water x an acidity penalty below the
+# reference pH (coal's carbon sours the seas).
+fisheries:
+  stock: 1.0
+  regrowth: 0.3
+  capacity: 80.0            # catch (grain) that empties full seas in a tick
+  remnant: 0.02             # the seas are never quite empty: a remnant regrows
+  ph_reference: 8.2
+  ph_penalty: 4.0           # yield lost per unit of pH below the reference
+research_rate: 1.0           # research made per study output (scenarios may raise it)
+consent_yields: [coal]      # yields scaled by a people's consent (media)
+soot_albedo: 0.004         # planetary albedo darkened per unit of soot (a decaying haze)
+recipes:
+  - key: farm
+    label: farm the land
+    labor: 1.0
+    outputs: {grain: 4.0}
+    yield: farming        # scaled by crop suitability and soil fertility
+  - key: woodcut
+    label: cut wood
+    labor: 1.0
+    outputs: {wood: 2.0}
+    yield: forest         # scaled by forest cover; clears forest
+  - key: charcoal
+    label: burn charcoal
+    labor: 0.5
+    inputs: {wood: 2.0}
+    outputs: {charcoal: 1.0, co2: 0.5}
+  - key: mine
+    label: mine ore
+    labor: 1.0
+    outputs: {ore: 1.0}
+    yield: ore            # scaled by ore richness
+  - key: bloomery
+    label: smelt iron in a bloomery
+    labor: 1.0
+    inputs: {ore: 2.0, charcoal: 2.0}
+    outputs: {iron: 1.0, slag: 1.0, co2: 0.8}
+  - key: smithy
+    label: forge tools
+    labor: 1.0
+    inputs: {iron: 1.0}
+    outputs: {tools: 2.0}
+  - key: fishing
+    label: fish the coastal seas
+    labor: 1.0
+    outputs: {grain: 5.0}
+    yield: fish
+    requires: fishing_boats
+  - key: study
+    label: study and teach
+    labor: 1.0
+    outputs: {research: 0.5}
+  # Tier 3 (each needs a tech).
+  - key: coal_mine
+    label: mine coal
+    labor: 1.0
+    outputs: {coal: 1.5}
+    yield: coal
+    requires: coal_mining
+  - key: coal_plant
+    label: burn coal in steam engines
+    labor: 0.5
+    inputs: {coal: 1.0}
+    outputs: {energy: 4.0, fossil_co2: 1.0, soot: 0.3}
+    requires: steam_power
+  - key: steelworks
+    label: make steel
+    labor: 1.0
+    inputs: {iron: 1.0, coal: 1.0}
+    outputs: {steel: 1.0, fossil_co2: 0.8, soot: 0.1}
+    requires: steelmaking
+  - key: machine_shop
+    label: build machines and steel tools
+    labor: 1.0
+    inputs: {steel: 1.0}
+    outputs: {tools: 4.0}
+    requires: steelmaking
+  - key: quarry_sand
+    label: quarry sand
+    labor: 1.0
+    outputs: {sand: 2.0}
+    yield: sand
+    requires: glassmaking
+  - key: glassworks
+    label: make glass
+    labor: 1.0
+    inputs: {sand: 2.0, energy: 1.0}
+    outputs: {glass: 1.0}
+    requires: glassmaking
+  - key: paper_mill
+    label: make paper
+    labor: 1.0
+    inputs: {wood: 1.0}
+    outputs: {paper: 2.0}
+    requires: printing
+  - key: printing_press
+    label: print books
+    labor: 1.0
+    inputs: {paper: 1.0}
+    outputs: {research: 1.5}
+    requires: printing
+  - key: quarry_limestone
+    label: quarry limestone
+    labor: 1.0
+    outputs: {limestone: 2.0}
+    yield: limestone
+    requires: masonry
+  - key: lime_kiln
+    label: burn lime into cement
+    labor: 1.0
+    inputs: {limestone: 2.0, coal: 1.0}
+    outputs: {cement: 1.0, fossil_co2: 1.2, soot: 0.1}
+    requires: cement
+  - key: copper_mine
+    label: mine copper
+    labor: 1.0
+    outputs: {copper: 1.0}
+    yield: copper
+    requires: metallurgy
+  - key: wire_mill
+    label: draw copper wire
+    labor: 1.0
+    inputs: {copper: 1.0, energy: 1.0}
+    outputs: {wire: 2.0}
+    requires: electricity
+  - key: fertiliser_plant
+    label: make fertiliser from the air
+    labor: 1.0
+    inputs: {energy: 3.0}
+    outputs: {fertiliser: 2.0, fossil_co2: 0.4}
+    requires: chemistry
+  - key: fertilised_farm
+    label: farm with fertiliser
+    labor: 1.0
+    inputs: {fertiliser: 0.4}
+    outputs: {grain: 7.0, runoff: 0.15}   # runoff feeds the seas' dead zones
+    yield: farming
+    requires: chemistry
+  - key: panel_factory
+    label: build solar panels
+    labor: 1.0
+    inputs: {glass: 1.0, steel: 0.5, wire: 1.0}
+    outputs: {panels: 1.0}
+    requires: photovoltaics
+  - key: solar_power
+    label: run solar panels
+    labor: 0.3
+    outputs: {energy: 5.0}
+    yield: panels
+    requires: photovoltaics
+  # Tier 5: rocketry.
+  - key: fuel_plant
+    label: refine rocket fuel
+    labor: 1.0
+    inputs: {energy: 2.0}
+    outputs: {fuel: 1.0}
+    requires: rocketry
+  - key: rocket_works
+    label: build rockets
+    labor: 2.0
+    inputs: {steel: 2.0, fuel: 3.0, wire: 1.0}
+    outputs: {rockets: 1.0}
+    requires: rocketry
+  - key: launch_pad
+    label: launch satellites
+    labor: 0.5
+    inputs: {rockets: 1.0}
+    outputs: {satellites: 1.0, soot: 0.2}
+    requires: rocketry
+  # The seed ship: seeds gathered from the living world (more where it is
+  # diverse), lifted by rockets and powered by solar panels.
+  - key: seed_vault
+    label: gather seeds into a vault
+    labor: 1.0
+    outputs: {seeds: 1.0}
+    yield: biodiversity
+    requires: arks
+  - key: ark_works
+    label: build and launch the seed ship
+    labor: 3.0
+    inputs: {rockets: 3.0, panels: 2.0, seeds: 10.0}
+    outputs: {seed_ships: 1.0}
+    requires: arks
+# Wake-ups for peoples (scenarios with `civilization.wakeups: true`): a people
+# deliberates when its food or silver changes, an eruption shakes the land,
+# or every two ticks.
+wakeups:
+  prefixes: [geo.events, 'civ.alerts.{key}']
+  timer_ticks: 2
+  alert_topic: 'civ.alerts.{key}'
+  alarms:
+    - {topic: civ.census, path: 'polities.{key}.food_ratio', threshold: 0.1,
+       text: 'The {name} are fed {value:.0%} this generation.'}
+    - {topic: econ.prices, path: 'silver.{key}', threshold: 1.0,
+       text: 'The {name} now hold {value:.1f} silver.'}
+# Coal treaties (scenarios with `civilization.treaties: true`; both peoples
+# must know diplomacy).
+treaties:
+  coal_cap: 4.0               # coal each signatory may burn a generation
+  duration_ticks: 10
+  answer_latency_ticks: 1
+  offer_ticks: 3              # an offer lapses if not answered by then
+  refusal_ticks: 5            # a refused offer may not be repeated to that people sooner
+  embargo_ticks: 6            # a breach stops trade between the parties
+  proposal: >-
+    The {proposer} propose a coal treaty to the {partner}: for {duration}
+    generations each burns at most {cap} coal a generation, so the air stays
+    kind. Whoever breaks it loses the other's trade for a while.
+  question: >-
+    {proposal} Should {agent_name} sign it? Consider how much you burn or
+    catch and how much you need. Answer "accept" or "decline", then give a
+    short reason.
+  # Each kind's wording and the `emissions` metric its cap applies to; other
+  # kinds also give their cap, proposal and what both peoples need.
+  kinds:
+    coal:
+      name: coal treaty
+      plural: coal treaties
+      metric: coal
+      unit: coal
+      terms: 'burns at most {cap} coal'
+    fish:
+      cap: 2.0              # fish (as grain) each signatory may catch a generation
+                            # (three peoples at the cap take about the seas'
+                            # best sustainable yield: regrowth / 4 x capacity)
+      requires: [treaties, fishing_boats]
+      name: fishing quota
+      plural: fishing quotas
+      metric: catch
+      unit: fish
+      terms: 'catches at most {cap} fish'
+      proposal: >-
+        The {proposer} propose a fishing quota to the {partner}: for {duration}
+        generations each catches at most {cap} fish a generation, so the seas
+        stay full. Whoever breaks it loses the other's trade for a while.
+    runoff:
+      cap: 0.3              # fertiliser runoff each signatory may wash to sea a
+                            # generation (buffers cut runoff to 35%)
+      requires: [treaties, chemistry]
+      name: runoff pact
+      plural: runoff pacts
+      metric: runoff
+      unit: runoff
+      terms: 'washes at most {cap} fertiliser runoff to the sea'
+      proposal: >-
+        The {proposer} propose a runoff pact to the {partner}: for {duration}
+        generations each washes at most {cap} fertiliser runoff to the sea a
+        generation, so the coastal seas breathe again. Whoever breaks it loses
+        the other's trade for a while.
+

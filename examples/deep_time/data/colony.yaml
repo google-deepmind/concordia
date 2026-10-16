@@ -1,0 +1,74 @@
+# A colony on a world light-years from home (Light Delay).
+# Scenarios with a `colony:` section land one; ticks are years, so light
+# takes several ticks each way.
+name: New Ararat
+light_delay_ticks: 4          # one way, home <-> colony, in ticks
+needs: {food: 0.1, air: 0.1}  # per colonist per generation
+growth: 0.01                  # a fed, breathing colony grows this much
+deaths: 0.4                   # share of the colonists lost at a total shortfall
+labor_per_colonist: 1.0
+batches_per_panel: 0.6        # solar-farm batches each panel supports a generation
+wear: {panels: 0.03}
+# Seeded dust storms dim the solar farm for a generation.
+storms: {chance: 0.15, solar_factor: 0.3}
+environment:
+  temp_c: -60.0
+  target_temp_c: 0.0
+  warmth_c_per_unit: 0.28     # °C the sky warms per unit of warmth
+  cooling: 0.03               # share of the warming radiated away each generation
+  greenhouse_per_c: 0.02      # greenhouse yield gained per °C warmed
+designs:
+  ice_mining: mining ice
+  solar: tending a solar farm
+  greenhouses: greenhouses
+  electrolysis: splitting water for air
+  terraforming: terraforming plants
+  fabrication: fabricating solar panels
+# Pushes of the colonists' recipes are measured by
+# push_audit.py into pushes.yaml; a design's push is worded here.
+pushes:
+  design:fabrication: 'a new skill: making solar panels from power and water'
+recipes:
+  - key: ice_mine
+    label: mine ice
+    labor: 1.0
+    outputs: {water: 2.0}
+    requires: ice_mining
+  - key: solar_farm
+    label: tend the solar farm
+    labor: 0.5
+    outputs: {power: 4.0}
+    yield: panels
+    requires: solar
+  - key: greenhouse
+    label: grow food under glass
+    labor: 1.0
+    inputs: {water: 1.0, power: 1.0}
+    outputs: {food: 1.0}
+    yield: warmth
+    requires: greenhouses
+  - key: electrolyser
+    label: split water for air
+    labor: 1.0
+    inputs: {water: 1.0, power: 1.0}
+    outputs: {air: 1.5}
+    requires: electrolysis
+# Recipes run in this order and draw power in it: fabricating panels (an
+# investment) comes before the terraforming plants.
+  - key: fabricator
+    label: fabricate solar panels
+    labor: 2.0
+    inputs: {power: 2.0, water: 0.5}
+    outputs: {panels: 0.5}
+    requires: fabrication
+  - key: terraformer
+    label: run the terraforming plants
+    labor: 1.0
+    inputs: {power: 2.0}
+    outputs: {warmth: 1.0}
+    requires: terraforming
+start:
+  colonists: 20.0
+  designs: [ice_mining, solar, greenhouses, electrolysis, terraforming]
+  stocks: {food: 6.0, air: 6.0, water: 4.0, power: 4.0, panels: 12.0}
+  allocation: {ice_mine: 0.15, solar_farm: 0.1, greenhouse: 0.15, electrolyser: 0.1, terraformer: 0.1}

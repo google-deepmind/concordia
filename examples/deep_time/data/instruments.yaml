@@ -1,0 +1,27 @@
+# Instrument tiers: the transports that carry planetary
+# readings to the Steward. Each tier is a contrib `operators.Transport`:
+# latency in ticks, the share of readings lost, and Gaussian noise (in °C)
+# on the temperature fields. Better instruments cost omega and, where the
+# scenario limits attention, let the Steward watch more instruments at once.
+noisy_fields:
+  climate.global: [temp_c, bands.0.temp_c, bands.1.temp_c, bands.2.temp_c,
+                   bands.3.temp_c, bands.4.temp_c, bands.5.temp_c]
+tiers:
+  - key: stones
+    label: standing stones and tide marks
+    latency: 2
+    drop_rate: 0.2
+    noise_sigma: 2.5
+    attention_slots: 2
+  - key: naturalists
+    label: a network of naturalist observers
+    latency: 1
+    drop_rate: 0.05
+    noise_sigma: 1.0
+    attention_slots: 3
+  - key: radiometers
+    label: orbital radiometers
+    latency: 0
+    drop_rate: 0.0
+    noise_sigma: 0.2
+    attention_slots: 4

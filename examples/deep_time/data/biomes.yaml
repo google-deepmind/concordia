@@ -1,0 +1,53 @@
+# Climate layers and biomes on the tile map. Biomes are the
+# visible face of the planet, so every role sees them; temperature and
+# rainfall numbers are the truth (watchers, or after the reveal).
+lapse_c_per_km: 6.5           # highlands are colder
+rain:                          # mm per year
+  belts:                       # |latitude| upper bound -> base rainfall
+    - [10, 2200]               # the equatorial rain belt
+    - [20, 1300]
+    - [35, 250]                # the subtropical deserts
+    - [60, 950]                # the mid-latitude storm tracks
+    - [75, 400]
+    - [90, 180]                # polar deserts
+  continental_tiles: 6.0       # rain falls off with distance from the sea
+  continental_floor: 0.3       # the driest interior keeps this share
+  warmth_per_c: 0.07           # warmer air holds more water (from 15 C)
+  noise: 0.4                   # seeded local variation in amount
+  belt_wobble_deg: 7.0         # belt edges meander by up to this many degrees
+  windward: 0.0006             # extra rain per metre of rise along the wind
+  rain_shadow: 0.55            # leeward of highlands keeps this share
+  winds:                       # |latitude| upper bound -> wind blows toward +1 east / -1 west
+    - [30, -1]                 # trade winds blow west
+    - [60, 1]                  # westerlies blow east
+    - [90, -1]                 # polar easterlies blow west
+seasonality:                   # annual temperature range, C
+  base: 2.0
+  per_degree_latitude: 0.25
+  continental: 1.0             # interiors swing up to twice as much
+# Biomes: code (one character on the wire), name, colours (light, dark).
+biomes:
+  - {key: deep_ocean, code: D, name: deep ocean, light: [26, 66, 120], dark: [12, 34, 68]}
+  - {key: shelf, code: S, name: shelf sea, light: [70, 142, 176], dark: [36, 92, 116]}
+  - {key: reef, code: R, name: reef, light: [100, 172, 182], dark: [52, 118, 126]}
+  - {key: sea_ice, code: I, name: sea ice, light: [226, 236, 244], dark: [176, 190, 204]}
+  - {key: ice, code: G, name: glacier, light: [244, 248, 252], dark: [196, 206, 216]}
+  - {key: tundra, code: T, name: tundra, light: [160, 168, 146], dark: [104, 110, 94]}
+  - {key: taiga, code: B, name: taiga, light: [62, 104, 78], dark: [38, 70, 52]}
+  - {key: temperate_forest, code: F, name: temperate forest, light: [74, 132, 64], dark: [48, 96, 44]}
+  - {key: grassland, code: P, name: grassland, light: [168, 184, 96], dark: [112, 124, 62]}
+  - {key: desert, code: E, name: desert, light: [226, 200, 140], dark: [156, 136, 92]}
+  - {key: savanna, code: V, name: savanna, light: [200, 176, 92], dark: [138, 118, 58]}
+  - {key: rainforest, code: J, name: rainforest, light: [34, 112, 52], dark: [22, 80, 36]}
+  - {key: wetland, code: W, name: wetland, light: [92, 140, 118], dark: [58, 98, 82]}
+thresholds:                    # Whittaker-style lookup
+  tundra_below_c: -2.0
+  taiga_below_c: 5.0
+  tropical_from_c: 20.0
+  reef_from_c: 22.0
+  desert_below_mm: 300
+  grassland_below_mm: 650      # temperate: grassland, then forest
+  savanna_below_mm: 1150       # tropical: savanna, then rainforest
+  wetland_from_mm: 1300        # flat lowland this wet is wetland
+  wetland_below_m: 150
+announce_change_tiles: 18      # a biome gaining or losing this many tiles is news

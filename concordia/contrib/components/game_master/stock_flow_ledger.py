@@ -22,7 +22,9 @@ module provides it:
 * `Ledger`: stocks of resources held by named holders (players, regions,
   reservoirs). Every change is an explicit flow with a reason: `deposit` and
   `withdraw` cross the system boundary, `transfer` moves stock between
-  holders, `apply_recipe` converts inputs into outputs, and `Link`s ship
+  holders, `apply_recipe` converts inputs into outputs (`max_batches` says
+  how many batches stock allows, `limiting_input` which input bounds them),
+  and `Link`s ship
   stock with a per-tick capacity and a latency in ticks. Per-tick production
   statistics, an audit trail and a conservation check make every quantity
   traceable.
@@ -356,6 +358,29 @@ class Ledger:
           if amount > 0
       ]
       return max(0.0, min(limits)) if limits else math.inf
+
+  def limiting_input(self, holder: str, recipe: Recipe) -> str | None:
+    """The input that bounds `max_batches` for the holder: its bottleneck.
+
+    The input of which the holder has the fewest batches' worth in stock
+    (the first such in the recipe's order), so a game can say what holds a
+    recipe back, and which producer to strengthen.
+
+    Args:
+      holder: Where the recipe would run.
+      recipe: The recipe.
+
+    Returns:
+      The limiting input, or None for a recipe without inputs.
+    """
+    with self._lock:
+      needs = [(r, amount) for r, amount in recipe.inputs.items() if amount > 0]
+      if not needs:
+        return None
+      limiting, _ = min(
+          needs, key=lambda need: self.stock(holder, need[0]) / need[1]
+      )
+      return limiting
 
   def apply_recipe(
       self,

@@ -1,0 +1,94 @@
+# Mobile animals on the tile map: herds and packs with
+# positions. A species lives on a world whose plants it can eat (grazers) or
+# whose grazers it can hunt (predators). Sizes are in herd units.
+species:
+  - key: bison
+    name: Bison herds
+    kind: grazer
+    eats: {grass: 1.0, forests: 0.35}   # preference by plant (daughters inherit)
+    herds: 12                 # herds at the start, on the best pasture
+    start_size: 1.0
+    optimum_c: 12.0
+    width: 0.003              # suitability = 1 - width * (optimum - T)^2
+    range: 2                  # tiles a herd can move in a tick
+    attack: 3.0               # Holling type II: intake = a F / (1 + a h F)
+    handling: 0.8
+    bite: 0.04                # tile cover a herd unit crops per unit intake
+    efficiency: 0.55
+    mortality: 0.12
+    crowding: 0.08            # extra mortality per herd unit within a tile
+    split_at: 2.0
+    die_below: 0.12
+    max_herds: 30
+    light: [112, 74, 44]
+    dark: [196, 150, 104]
+  - key: wolves
+    name: Wolf packs
+    kind: predator
+    hunts: [bison]
+    herds: 4
+    start_size: 0.8
+    optimum_c: 6.0
+    width: 0.0015
+    range: 3
+    attack: 1.6
+    handling: 0.9
+    kill: 0.3                 # prey herd units a pack unit kills per unit intake
+    efficiency: 0.5
+    mortality: 0.18
+    crowding: 0.1
+    split_at: 1.8
+    die_below: 0.12
+    max_herds: 12
+    light: [60, 62, 70]
+    dark: [206, 208, 214]
+  - key: fish
+    name: Fish schools
+    kind: school              # at sea; their total follows the fisheries' stock
+    habitats: {reef: 1.0, shelf: 0.8, deep: 0.04}
+    schools: 12               # schools when the seas are full
+    range: 2
+    die_below: 0.15
+    light: [52, 112, 170]
+    dark: [150, 206, 240]
+  - key: geese
+    name: Geese
+    kind: migrant             # flies anywhere; summer and winter grounds
+    eats: {grass: 1.0}
+    herds: 6
+    start_size: 1.0
+    summer_lat: 55.0          # degrees from the equator, own hemisphere
+    winter_lat: 22.0
+    range: 9
+    attack: 2.0
+    handling: 1.0
+    bite: 0.01
+    sow: 0.012                # cover of each plant they ate sown where they land
+    efficiency: 0.6
+    mortality: 0.05
+    crowding: 0.04
+    split_at: 2.0
+    die_below: 0.12
+    max_herds: 14
+    optimum_c: 12.0
+    width: 0.002
+    light: [236, 236, 228]
+    dark: [244, 244, 236]
+  - key: flocks
+    name: Grazers
+    kind: flock               # the region grazers (fauna.yaml) drawn as flocks
+    per_herd: 3.0             # grazer density x land tiles per flock
+    max_herds: 28
+    range: 2                  # tiles a flock steps toward better pasture
+    wander: 6                 # how far a spare flock walks to a region short of them
+    # [black-petal eaters, white-petal eaters]: mixed by the grazers' diet.
+    light: [[64, 52, 44], [232, 222, 196]]
+    dark: [[118, 104, 92], [246, 238, 216]]
+disease:
+  min_size: 1.2               # herds this large, side by side, can spread disease
+  chance: 0.12                # per crowded pair per tick
+  loss: 0.4                   # share lost by every herd within reach
+  reach: 2                    # tiles
+fire_loss: 0.25               # share a herd loses when its tile burns
+fear: 0.5                     # grazers score tiles near predators this much lower
+news_herds: 3                 # an outbreak striking this many herds is news

@@ -1,0 +1,42 @@
+# Herbivores (food web): a grazer clade eating daisies.
+grazers:
+  key: grazers
+  name: Grazers
+  lore: Woolly little browsers that crop daisy meadows and wander after fresh growth.
+  initial_density: 0.03     # grazer biomass per unit of region land
+  min_density: 0.0005       # a few survivors always hide on land (per land)
+  attack_rate: 6.0          # Holling type II attack rate a
+  handling_time: 0.6        # Holling type II handling time h
+  efficiency: 0.4           # eaten daisy cover -> grazer biomass
+  mortality: 0.2            # per tick
+  crowding: 1.0             # extra mortality per unit density (disease, scarcity)
+  migration: 0.08           # fraction exchanged with each land neighbour per tick
+  substeps: 4               # integration substeps per tick
+  optimum_c: 20.0           # thermal optimum
+  growth_width: 0.004       # suitability = 1 - width * (optimum - T)^2
+  diet_white: 0.5           # 0 = only black petals, 1 = only white petals
+  boom_bust_threshold: 0.4  # announce a boom or crash beyond this change per tick
+behaviours:
+  - {key: graze, label: graze heavily, attack: 1.4, mortality: 1.15, migration: 1.0, push: 'eat more and breed more; the meadows thin a little'}
+  - {key: browse, label: browse lightly, attack: 0.6, mortality: 0.9, migration: 1.0, push: 'spare the meadows; the herds thin a little'}
+  - {key: wander, label: wander to new pastures, attack: 0.9, mortality: 1.0, migration: 3.0, push: 'spread the herds to fresh meadows'}
+  # The strong move: herds that breed on and on and eat the
+  # meadows bare. Kept up, it strips the planet in a few turns.
+  - {key: swarm, label: swarm and strip the meadows bare, attack: 8.0, mortality: 0.5, migration: 1.5, push: 'strip the meadows: kept up, they are nearly bare within about 9 turns'}
+adaptation:
+  latency_ticks: 4
+  phase_in_ticks: 2
+  optimum_step_c: 2.0
+  diet_step: 0.15
+  diet_range: [0.15, 0.85]  # herds never become strict specialists
+  options:
+    - {key: warmer, label: warmer optimum, optimum: 1, diet: 0}
+    - {key: cooler, label: cooler optimum, optimum: -1, diet: 0}
+    - {key: whiter, label: prefer white petals, optimum: 0, diet: 1}
+    - {key: darker, label: prefer black petals, optimum: 0, diet: -1}
+    - {key: none, label: no change, optimum: 0, diet: 0}
+  question: >-
+    Given what the grazers have been eating and how the climate has treated
+    them, which single heritable shift would help {agent_name} most? Answer
+    with exactly one of: warmer optimum, cooler optimum, prefer white petals,
+    prefer black petals, no change. Then give one short reason.

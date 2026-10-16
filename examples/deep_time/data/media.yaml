@@ -1,0 +1,40 @@
+# The Gazette: broadsheets on a contrib forum sway each
+# people's consent for coal. Scenarios turn it on with
+# `civilization.media: true`; a people needs the printing press and paper.
+name: The Gazette
+paper_cost: 1.0             # paper a broadsheet takes
+cooldown_ticks: 3           # generations between a people's broadsheets
+press_latency_ticks: 1      # the press writes in the background
+sway: 0.08                  # consent moved by a broadsheet of credibility 1
+relax: 0.1                  # share of lost consent regained each generation
+blame: 0.1                  # consent lost when the land strikes a people
+min_consent: 0.3
+karma_weight: 0.25          # credibility = 1 + 0.25 x forum karma, clipped
+credibility: [0.25, 2.0]
+# A clean-air broadsheet rings true when the air fills or lands grow
+# restless (or the land struck someone lately); a coal-and-progress one when
+# its author is fed and was not struck.
+clean_air_credible: {co2: 1.05, restless: 0.5}
+attack_memory_ticks: 5
+stances:
+  clean: clean air
+  progress: coal and progress
+question: >-
+  You are the press of {agent_name}. Write a broadsheet for the Gazette, which
+  every people reads, to sway them about coal. Begin with "clean air:" to argue
+  that the peoples should burn less coal, or "coal and progress:" to argue
+  that coal feeds and powers them; then a headline and two sentences. Each
+  people judges a broadsheet against what it can see (the air, restless lands,
+  who is fed), and broadsheets found false cost you credibility.
+# Pamphlets: a people that burns coal can pay the coal guilds in silver for
+# pamphlets defending coal (no press or paper needed), written by its press.
+pamphlets:
+  silver: 6.0
+  stance: progress
+  sway_factor: 0.5            # paid-for words persuade half as much
+  question: >-
+    You are the press of {agent_name}, paid by the coal guilds. Write a pamphlet
+    for the Gazette that defends coal. Begin with "coal and progress:", then a
+    headline and two sentences. Every people will judge it against what it can
+    see (the air, restless lands, who is fed); pamphlets found false cost you
+    credibility.

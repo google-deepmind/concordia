@@ -1,0 +1,36 @@
+# How each move shows on the map the turn it acts: motion
+# that explains. A Steward's move by its effect's kind (a key may refine
+# it); every other role's by the role. Motions the page knows: veil (the
+# sky changes over the world, or around where it was aimed), sprout (new
+# life where it was sown), rain, dust, embers, seas (the seas tinted from
+# the coasts), coasts, gather (seeds flown to the vault), ring, sweep (the
+# instruments' scan), herd (the herds of a kind flare), works (a people's
+# towns at work). Colours are RGB.
+kinds:
+  albedo_pulse: {motion: veil, colour: [244, 244, 250]}
+  veil: {motion: veil, colour: [120, 112, 104]}
+  seed: {motion: sprout, colour: [72, 160, 84]}
+  transplant: {motion: sprout, colour: [118, 172, 92]}
+  rain: {motion: rain, colour: [84, 144, 222]}
+  cleanse: {motion: rain, colour: [130, 196, 232]}
+  carbon_drawdown: {motion: dust, colour: [150, 150, 156]}
+  outgassing: {motion: embers, colour: [232, 112, 40]}
+  reductant: {motion: seas, colour: [192, 104, 52]}
+  seas: {motion: coasts, colour: [56, 168, 120]}
+  vault: {motion: gather, colour: [226, 182, 64]}
+  reserve: {motion: ring, colour: [47, 111, 79]}
+  instruments: {motion: sweep, colour: [80, 160, 220]}
+  cull: {motion: herd, colour: [200, 60, 50], herd: flock}
+  cull_packs: {motion: herd, colour: [200, 60, 50], herd: predator}
+keys:
+  dark_haze: {colour: [58, 48, 46]}
+  ash_winter: {colour: [168, 164, 160]}
+  runaway_greenhouse: {colour: [140, 72, 40]}
+  seed_black: {colour: [52, 48, 60]}
+  seed_white: {colour: [236, 236, 228]}
+roles:
+  people: {motion: works, colour: [232, 150, 40]}
+  species: {motion: ring, colour: [72, 160, 84]}
+  herds: {motion: herd, colour: [150, 98, 44], herd: flock}
+  colony: {motion: ring, colour: [214, 150, 30]}
+  mission: {motion: ring, colour: [80, 160, 220]}

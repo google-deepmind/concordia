@@ -1,0 +1,637 @@
+# Design registry for the complexity audit.
+# Only list what is implemented and exercised by a scenario.
+systems:
+  - {key: climate, name: Climate, module: world/daisyworld.py}
+  - {key: biosphere, name: Biosphere, module: world/daisyworld.py}
+  - {key: information, name: Information, module: contrib pubsub TopicBus + SimTimeScheduler}
+  - {key: gaia, name: Gaia (Steward), module: world/planet.py}
+  - {key: geology, name: Geology (lithosphere), module: world/geology.py}
+  - {key: cycles, name: "Biogeochemical cycles (carbon, oxygen, methane)", module: world/carbon.py and world/oxygen.py on contrib StockFlowLedger}
+  - {key: ocean, name: Ocean, module: "world/ocean.py, world/geography.py"}
+  - {key: civilization, name: Civilization (polities and recipes), module: world/civ.py on contrib StockFlowLedger}
+  - {key: technology, name: Technology (tiers 1-4), module: "world/civ.py (Tech), data/techs.yaml"}
+  - {key: economy, name: Economy (markets), module: world/trade.py on contrib MarketPlace}
+  - {key: logistics, name: Logistics (routes and transit), module: world/trade.py on contrib StockFlowLedger links}
+  - {key: energy, name: Energy (coal and steam), module: "world/civ.py (energy, deposits), data/civ.yaml"}
+  - {key: backlash, name: "Gaia's backlash (pollution and pressure)", module: world/backlash.py}
+  - {key: diplomacy, name: Diplomacy (coal treaties and embargoes), module: "world/treaties.py, components/pact_mind.py (TreatyMind)"}
+  - {key: media, name: "Media (the Gazette: broadsheets, credibility, consent)", module: "world/media.py on contrib forum.ForumState, components/press_mind.py"}
+  - {key: space, name: "Space (rocketry, launches, satellites in orbit)", module: "world/civ.py (rocket recipes, coverage), world/planet.py (orbit), data/civ.yaml"}
+  - {key: colony, name: "Colony (a world light-years away: colonists, stores, terraforming)", module: "world/colony.py on a contrib Ledger and balance_chain, data/colony.yaml"}
+
+# Interaction-matrix cells: row system affects column system by mechanism.
+cells:
+  - {from: climate, to: biosphere, by: local temperature sets daisy growth}
+  - {from: biosphere, to: climate, by: daisy albedo sets planetary temperature}
+  - {from: biosphere, to: biosphere, by: species compete for bare ground}
+  - {from: climate, to: information, by: climate.global readings}
+  - {from: biosphere, to: information, by: bio.census readings}
+  - {from: biosphere, to: information, by: "a player's map shows life, fire danger and band temperatures as their census saw them, as late as it (and their sowings once seen)"}
+  - {from: gaia, to: climate, by: bright clouds and dark haze albedo pulses}
+  - {from: gaia, to: biosphere, by: seeding daisies onto bare ground}
+  - {from: gaia, to: information, by: gaia.omens announcements}
+  - {from: information, to: gaia, by: Steward acts only on subscribed instruments}
+  - {from: biosphere, to: gaia, by: biodiversity accrues omega}
+  - {from: biosphere, to: gaia, by: "side objectives pay omega for keeping a living thing through a window (Methanogen mats, forests, grass, wolves, black daisies, biodiversity)"}
+  - {from: gaia, to: information, by: "side objectives on the Steward's omega meter as last read, and as a crisis in their last turns"}
+  - {from: information, to: biosphere, by: species act on subscribed readings that may be ticks old}
+  - {from: climate, to: biosphere, by: selection pressure drives adaptation minds}
+  - {from: biosphere, to: climate, by: evolved petal albedo}
+  - {from: biosphere, to: biosphere, by: adaptation shifts optimum at a tolerance cost}
+  - {from: biosphere, to: information, by: bio.species adaptation and behaviour topics}
+  - {from: information, to: information, by: belief pipelines re-render readings with their age and merge news digests}
+  - {from: information, to: gaia, by: advisor briefings written from readings two ticks old}
+  - {from: gaia, to: information, by: gaia.briefings from the advisor slow mind}
+  - {from: climate, to: information, by: the Chronicler's chapters record climate turning points}
+  - {from: biosphere, to: information, by: the Chronicler's chapters record blights and adaptations}
+  - {from: geology, to: climate, by: eruption ash raises planetary albedo for a few ticks}
+  - {from: climate, to: climate, by: heat diffuses between neighbouring regions (energy-conserving)}
+  - {from: climate, to: climate, by: ice-albedo feedback in cold regions}
+  - {from: climate, to: biosphere, by: latitude sets which daisies can live where}
+  - {from: cycles, to: climate, by: greenhouse forcing from atmospheric CO2}
+  - {from: climate, to: cycles, by: warmth speeds silicate weathering and warm seas release CO2}
+  - {from: geology, to: cycles, by: baseline and eruption outgassing}
+  - {from: biosphere, to: cycles, by: photosynthesis stores carbon in biomass and soil; plants speed weathering}
+  - {from: gaia, to: cycles, by: basalt dust draws carbon from the air}
+  - {from: cycles, to: information, by: cycles.carbon reservoirs and fluxes}
+  - {from: cycles, to: geology, by: carbonate sediments subduct into the mantle}
+  - {from: cycles, to: biosphere, by: CO2 starvation slows growth when life strips the air}
+  - {from: ocean, to: climate, by: currents carry extra heat between sea regions; darker seas absorb more}
+  - {from: climate, to: ocean, by: sea ice forms and land ice lowers sea level}
+  - {from: cycles, to: ocean, by: absorbed carbon lowers ocean pH}
+  - {from: ocean, to: cycles, by: sea ice chokes air-sea carbon exchange}
+  - {from: ocean, to: information, by: ocean.global and ocean.alerts}
+  - {from: climate, to: cycles, by: ice-covered land stops silicate weathering}
+  - {from: geology, to: ocean, by: seeded continents decide where the seas are}
+  - {from: information, to: biosphere, by: species hear the Steward's omens through topic access lists}
+  - {from: information, to: information, by: the World GM republishes resolved actions on world.resolutions}
+  - {from: biosphere, to: biosphere, by: grazers eat daisies (Holling type II) and migrate between land regions}
+  - {from: biosphere, to: climate, by: diet-selective grazing changes the petal mix and so the albedo}
+  - {from: climate, to: biosphere, by: grazer thermal suitability}
+  - {from: gaia, to: biosphere, by: thinning the grazing herds}
+  - {from: climate, to: biosphere, by: divergent climates across a species' range split it into new species}
+  - {from: biosphere, to: information, by: "new species bring new entities, minds and bio.species topics"}
+  - {from: biosphere, to: climate, by: founders take paler or darker petals suited to their climate}
+  - {from: climate, to: biosphere, by: "climate swings reward tolerance, steady climates reward vigor"}
+  - {from: biosphere, to: biosphere, by: genome upkeep makes every trait level cost growth}
+  - {from: biosphere, to: biosphere, by: mutualism pacts boost partners where they share land}
+  - {from: biosphere, to: information, by: pact offers and replies on diplomacy topics; bio.pacts}
+  - {from: information, to: biosphere, by: a pact offer observed by the partner wakes its pact mind (trigger_on_observe)}
+  - {from: geology, to: biosphere, by: mineral ash fertilises bare ground}
+  - {from: geology, to: information, by: eruptions announced on geo.events}
+  - {from: cycles, to: climate, by: methane greenhouse forcing (30 sqrt CH4 W m-2)}
+  - {from: biosphere, to: cycles, by: oxygenic mats make oxygen; methanogens make methane; aerobes breathe oxygen}
+  - {from: cycles, to: biosphere, by: free oxygen poisons anaerobes and feeds aerobes}
+  - {from: geology, to: cycles, by: volcanic gases resupply the reductant that soaks up oxygen}
+  - {from: gaia, to: cycles, by: washing iron into the seas delays the Great Oxidation}
+  - {from: cycles, to: gaia, by: the Great Oxidation goal is judged on atmospheric oxygen}
+  - {from: cycles, to: information, by: "oxygen, methane and iron-left readings on climate.global"}
+  - {from: gaia, to: biosphere, by: seeding cyanobacteria to tip the methane titration toward oxygen}
+  - {from: information, to: gaia, by: "instrument transports deliver late, lossy and noisy readings that the Steward acts on"}
+  - {from: gaia, to: information, by: buying better instruments cuts latency and losses and sharpens readings}
+  - {from: gaia, to: information, by: "the Steward chooses which instruments to watch; unwatched ones receive nothing"}
+  - {from: information, to: gaia, by: an unwatched instrument's belief goes stale while the danger it measures grows}
+  - {from: information, to: biosphere, by: "interrupt masks and timers decide when a species deliberates; alarms wake it"}
+  - {from: biosphere, to: information, by: deadband reflexes on the census raise bio.alerts when meadows change}
+  - {from: climate, to: civilization, by: local temperature sets crop yields; harsh climates bring famine}
+  - {from: biosphere, to: civilization, by: forest cover limits how much wood can be cut}
+  - {from: civilization, to: biosphere, by: woodcutting clears forests and leaves land to grasses}
+  - {from: civilization, to: cycles, by: charcoal kilns and bloomeries send carbon to the air}
+  - {from: geology, to: civilization, by: eruptions expose fresh ore}
+  - {from: civilization, to: information, by: civ.census and civ.events topics}
+  - {from: civilization, to: civilization, by: forged tools raise every worker's output; famine shrinks the workforce}
+  - {from: information, to: civilization, by: "polities choose their labor from aged beliefs (census, weather, chronicle) and a background plan"}
+  - {from: civilization, to: information, by: "grand-strategy plans published on civ.<key>.plan; decrees on civ.<key>.decrees"}
+  - {from: gaia, to: biosphere, by: planting forests on bare and cleared land}
+  - {from: civilization, to: technology, by: study labor makes research that buys techs}
+  - {from: technology, to: civilization, by: "techs multiply recipe yields (irrigation, iron axes, shaft mining) and cut inputs (bellows)"}
+  - {from: technology, to: biosphere, by: coppicing halves the forest cleared per unit of wood}
+  - {from: technology, to: cycles, by: "bellows burn less charcoal per bloom; the shaft furnace burns more and smelts more"}
+  - {from: technology, to: information, by: "writing, granaries and mathematics unlock reflex operators; roads unlock logistics"}
+  - {from: civilization, to: economy, by: "polities offer surpluses and bid for what their land lacks (standing orders)"}
+  - {from: economy, to: civilization, by: silver changes hands at the clearing price; specialists can buy what they cannot make}
+  - {from: economy, to: logistics, by: every sale becomes a shipment on a ledger link}
+  - {from: logistics, to: civilization, by: "goods arrive two ticks later by porters (one by road), capacity-limited"}
+  - {from: technology, to: logistics, by: roads double capacity and halve transit time}
+  - {from: economy, to: information, by: clearing prices and goods in transit on econ.prices}
+  - {from: information, to: economy, by: "reflexes on the census place market orders with no language model call (standing orders)"}
+  - {from: technology, to: information, by: granaries unlock the threshold operator for reflexes}
+  - {from: civilization, to: information, by: "scribes (a slow mind) publish standing orders as reflex JSON on civ.<key>.policy, sandboxed before install"}
+  - {from: logistics, to: economy, by: "goods on the road are invisible to buyers without tallies, so they reorder (blind reorders)"}
+  - {from: technology, to: economy, by: "writing gives tallies, so buyers count goods on the road and order less"}
+  - {from: civilization, to: energy, by: coal mines and steam engines turn labor and coal into energy}
+  - {from: energy, to: civilization, by: "energy drives machines: a fully powered people works 1.8 times as hard"}
+  - {from: energy, to: cycles, by: steam engines and steel mills burn coal into the air}
+  - {from: energy, to: climate, by: soot from coal darkens the planet (a decaying haze)}
+  - {from: geology, to: energy, by: seeded coal deposits decide who can mine coal}
+  - {from: technology, to: energy, by: coal mining and steam power unlock the coal recipes}
+  - {from: energy, to: logistics, by: railways (steam and steel) carry 15 a tick in one tick}
+  - {from: civilization, to: backlash, by: bloomery slag pollutes the regions a people lives in}
+  - {from: energy, to: backlash, by: coal soot and smoke pollute the regions a people lives in}
+  - {from: biosphere, to: backlash, by: "forests (and, less, grass) absorb pollution"}
+  - {from: backlash, to: civilization, by: "restless lands strike their peoples with pests (lost harvests) or plague"}
+  - {from: gaia, to: backlash, by: cleansing rains wash out pollution and calm the land}
+  - {from: backlash, to: information, by: restless lands appear on the Steward's Omega meter; attacks on civ.events}
+  - {from: technology, to: backlash, by: smoke scrubbers cut soot to 30%}
+  - {from: energy, to: biosphere, by: "fertiliser made from energy feeds the fields (7 grain a labor instead of 4)"}
+  - {from: climate, to: energy, by: solar panels run on sunlight}
+  - {from: technology, to: diplomacy, by: the diplomacy tech lets a people offer and sign coal treaties}
+  - {from: civilization, to: diplomacy, by: "peoples offer coal treaties to their neighbours, and their treaty minds answer"}
+  - {from: diplomacy, to: energy, by: a signed treaty caps the coal each party burns a generation}
+  - {from: energy, to: diplomacy, by: "burning more coal than the cap breaks every treaty the people is in"}
+  - {from: diplomacy, to: economy, by: a broken treaty embargoes trade between the parties for six generations}
+  - {from: diplomacy, to: information, by: "treaties, embargoes and the record of who broke what on civ.treaties"}
+  - {from: information, to: diplomacy, by: "a treaty mind (Publisher, trigger_on_observe) answers an offer the moment it is observed"}
+  - {from: technology, to: media, by: the printing press lets a people print broadsheets}
+  - {from: technology, to: space, by: "rocketry unlocks rocket fuel, rocket works and the launch pad"}
+  - {from: civilization, to: space, by: "rockets are built from steel, fuel and wire (a plannable chain)"}
+  - {from: energy, to: space, by: rocket fuel is refined from energy}
+  - {from: space, to: information, by: "any satellite in orbit feeds Gaia's instruments: the scenario's best tier (no latency, little noise)"}
+  - {from: space, to: civilization, by: "weather satellites sharpen harvest forecasts (up to 15% better farming at full coverage)"}
+  - {from: space, to: climate, by: launches put a little soot in the air}
+  - {from: colony, to: information, by: "the colony's census on colony.status (fresh where it is published)"}
+  - {from: information, to: colony, by: "colonists act on their own fresh status and sheet; designs arrive from home only at light speed"}
+  - {from: energy, to: colony, by: "solar power runs greenhouses, electrolysers and terraforming plants; panels wear out"}
+  - {from: colony, to: climate, by: "terraforming plants warm the colony world's sky, which radiates part of it away each generation"}
+  - {from: climate, to: colony, by: a warmer colony sky makes the greenhouses yield more}
+  - {from: technology, to: colony, by: "designs transmitted from home (fabrication) unlock colony recipes when they arrive"}
+  - {from: colony, to: information, by: "Mission Control reads colony.status over a contrib transport with the light delay as latency (4 years)"}
+  - {from: information, to: colony, by: "designs and directives on mission.uplink reach the colonists four years after they are sent"}
+  - {from: space, to: colony, by: "dust storms in the colony's sky cut its solar farm to 30% for a generation"}
+  - {from: biosphere, to: civilization, by: "seed vaults yield in proportion to the planet's biodiversity (full at 0.25)"}
+  - {from: economy, to: media, by: "a people that burns coal pays the coal guilds 6 silver for pamphlets (no press needed)"}
+  - {from: geology, to: gaia, by: "the Advisor's almanac forecasts eruptions exactly (the seeded stream, stepped ahead on a copy)"}
+  - {from: biosphere, to: biosphere, by: "spreading spends a species' seed bank; holding and dormancy refill it; an empty bank exhausts a spreader"}
+  - {from: technology, to: economy, by: "the power grid makes energy a tradable good (both peoples need it)"}
+  - {from: ocean, to: civilization, by: "fishing yields with the shared fish stock, a people's coast, open water (sea ice) and the seas' pH"}
+  - {from: civilization, to: ocean, by: "every people's catch depletes the one shared fish stock, which regrows logistically"}
+  - {from: diplomacy, to: ocean, by: "fishing quotas cap each signatory's catch; breaking one embargoes trade between the parties"}
+  - {from: ocean, to: diplomacy, by: "seas under half full move a people to offer quotas before its next research"}
+  - {from: information, to: economy, by: "orders are priced on the price a people believes: courier news two clearings old until the telegraph"}
+  - {from: economy, to: information, by: "each people reads econ.prices over a contrib transport with its own news lag"}
+  - {from: energy, to: economy, by: "surplus energy is offered on the market, the biggest surpluses first"}
+  - {from: logistics, to: energy, by: "grid lines deliver energy at once, losing 10% on the way"}
+  - {from: diplomacy, to: economy, by: "a people near its treaty cap buys clean power over the grid instead of burning coal"}
+  - {from: biosphere, to: climate, by: "a nearly vanished species sprouts again from its seed bank, restoring its albedo"}
+  - {from: climate, to: gaia, by: "the almanac gives the sun five ticks ahead, so the Advisor can cool before the heat arrives"}
+  - {from: energy, to: media, by: "only peoples that burn coal can buy pamphlets defending it"}
+  - {from: civilization, to: space, by: "the seed ship: three rockets, two solar panels and ten seeds, one balanced plan"}
+  - {from: biosphere, to: gaia, by: "a seed ship wins only if it leaves a world with biodiversity of at least 0.17"}
+  - {from: information, to: civilization, by: "the ratio planner (contrib balance_chain) turns one decision into balanced labor across a whole chain"}
+  - {from: technology, to: information, by: mathematics unlocks plans (the ratio planner)}
+  - {from: energy, to: logistics, by: "a plan's chain runs on solar power once a people has panels, on coal before"}
+  - {from: civilization, to: media, by: "paper from the paper mill pays for a broadsheet; the people's press (a slow mind) writes it"}
+  - {from: media, to: energy, by: "each people's consent for coal scales what its coal mines yield (miners strike)"}
+  - {from: media, to: information, by: "broadsheets, votes, credibility and consent on media.gazette; each broadsheet on civ.<p>.propaganda"}
+  - {from: information, to: media, by: "readers judge a broadsheet against the public instruments and vote; forum karma is credibility"}
+  - {from: cycles, to: media, by: a filling sky makes clean-air broadsheets credible}
+  - {from: backlash, to: media, by: "a people the land strikes blames the smoke (consent falls); restless lands make clean-air broadsheets credible"}
+  # Stage 4.
+  - {from: information, to: gaia, by: "the forecast reckons late, noisy readings forward with the moves made since"}
+  - {from: gaia, to: information, by: planned moves enter the forecast's course and the chart}
+  - {from: information, to: gaia, by: crises with countdowns read from the Steward's own instruments}
+  - {from: gaia, to: biosphere, by: "carrying seed thins every stand to plant bare land, paid in cover not omega"}
+  - {from: information, to: civilization, by: "a people's crises (granary, hunger, unrest) in its storehouse, answered by labor"}
+  - {from: civilization, to: information, by: "a people's hunger and restless lands raise the Steward's crises"}
+
+# Feedback loops: sign (+ reinforcing, - balancing) and rough period in ticks.
+  - {from: civilization, to: ocean, by: "fertiliser runoff loads the coastal seas with nutrients that open dead zones"}
+  - {from: climate, to: ocean, by: "warm seas hold less oxygen: dead zones grow with sea temperature"}
+  - {from: ocean, to: civilization, by: "dead zones cut the catch and stop the fish breeding there"}
+  - {from: technology, to: ocean, by: "wetlands and buffer strips catch most fertiliser runoff before it reaches the sea"}
+  - {from: diplomacy, to: ocean, by: "runoff pacts cap the fertiliser runoff each signatory washes to the sea"}
+  - {from: ocean, to: diplomacy, by: "choking coastal seas move peoples to offer runoff pacts"}
+  - {from: ocean, to: gaia, by: "emptied or choking seas weigh down biodiversity, and with it Omega"}
+  - {from: ocean, to: space, by: "a seed ship launched over dead seas carries a poorer world"}
+  - {from: gaia, to: ocean, by: "restoring the coastal marshes flushes half the nutrient load and restocks fish"}
+  - {from: information, to: diplomacy, by: "a person playing a people reads an offer's terms on its sheet and answers it on its own turn"}
+  - {from: cycles, to: biosphere, by: "until oxygen builds an ozone shield, ultraviolet slows growth, most under the strongest sun"}
+  - {from: climate, to: biosphere, by: "sunlight per latitude sets the ultraviolet dose life takes before the shield forms"}
+  - {from: cycles, to: information, by: "the air reading reports the ozone shield; bio.events announces it"}
+  - {from: climate, to: biosphere, by: "tile temperature, rainfall and seasonality set 13 biomes, recomputed every tick"}
+  - {from: geology, to: climate, by: "highlands are colder by the lapse rate; windward slopes are wet and lee sides dry"}
+  - {from: ocean, to: climate, by: "rain falls off with distance from the sea, so continental interiors dry out"}
+  - {from: biosphere, to: information, by: "biome shifts of 18+ tiles are news on bio.events; the biome map is public"}
+  - {from: biosphere, to: climate, by: "species grow tile by tile (seeds from neighbours, biome suitability); regions aggregate tiles for the energy balance"}
+  - {from: climate, to: biosphere, by: "lightning fires run through warm, dry tiles thick with grass or forest; ash speeds regrowth"}
+  - {from: biosphere, to: cycles, by: "wildfires send burned biomass carbon to the air"}
+  - {from: biosphere, to: information, by: "big wildfires are news on bio.events; burn scars show on everyone's map"}
+  - {from: biosphere, to: biosphere, by: "bison herds graze their tile and move to fresh pasture; wolf packs hunt them; outbreaks thin crowded herds"}
+  - {from: biosphere, to: information, by: "outbreaks and the loss of a species' last herd are news; herds show on everyone's map"}
+  - {from: civilization, to: biosphere, by: "the peoples' catch from the shared fish stock takes schools off the map"}
+  - {from: ocean, to: biosphere, by: "fish schools flee the dead zones, which open in the warmest shallows first"}
+  - {from: biosphere, to: biosphere, by: "migrating geese sow grass seed on bare ground, helping burned country recover"}
+  - {from: biosphere, to: civilization, by: "a people's harvests follow the farmland and timber around its towns: fire, ice or drought nearby cost it"}
+  - {from: civilization, to: information, by: "towns founded and abandoned are news; towns, roads and trade routes show on everyone's map"}
+  - {from: civilization, to: ocean, by: "runoff plumes off farming coasts decide where the dead zones open"}
+  - {from: ocean, to: civilization, by: "a people's catch follows the dead zones off its own coast"}
+  - {from: civilization, to: biosphere, by: "soot settles around industrial towns and spoils the fields beneath"}
+loops:
+  - {name: side-objective windfall, sign: '+', period_ticks: 15,
+     path: [biosphere, gaia, biosphere],
+     note: "keeping a living thing through its window pays omega, which buys the moves that keep the next; in Great Oxidation the iron floods that keep the Methanogen mats also hold back the oxygen the goal needs"}
+  - {name: daisy thermostat, sign: '-', period_ticks: 5,
+     path: [climate, biosphere, climate],
+     note: "warmer planet favours white daisies, which cool it"}
+  - {name: bare-ground race, sign: '+', period_ticks: 3,
+     path: [biosphere, biosphere],
+     note: a spreading species shades out the other locally}
+  - {name: omega economy, sign: '+', period_ticks: 10,
+     path: [biosphere, gaia, biosphere],
+     note: biodiversity earns omega that buys seeding that raises biodiversity}
+  - {name: evolutionary lag, sign: '-', period_ticks: 5,
+     path: [climate, biosphere, information, biosphere],
+     note: heat stress triggers an adaptation mind whose answer lands 3 ticks later and restores growth}
+  - {name: specialist trap, sign: '+', period_ticks: 10,
+     path: [biosphere, biosphere],
+     note: "each optimum shift narrows tolerance, so the next swing hurts more and prompts another shift"}
+  - {name: ice-albedo, sign: '+', period_ticks: 1,
+     path: [climate, climate],
+     note: "colder regions freeze, brighter ice reflects more sunlight, they freeze further"}
+  - {name: tropical die-off, sign: '+', period_ticks: 4,
+     path: [climate, biosphere, climate],
+     note: "heat kills tropical white daisies, bare ground is darker, the tropics heat further"}
+  - {name: silicate weathering thermostat, sign: '-', period_ticks: 20,
+     path: [climate, cycles, climate],
+     note: "warmth speeds weathering, which draws down CO2 and cools the planet"}
+  - {name: solubility pump, sign: '+', period_ticks: 5,
+     path: [climate, cycles, climate],
+     note: "warm seas hold less carbon, releasing CO2 that warms them further"}
+  - {name: biotic carbon pump, sign: '-', period_ticks: 3,
+     path: [biosphere, cycles, climate, biosphere],
+     note: "spreading daisies store carbon, cooling the planet toward their optimum"}
+  - {name: CO2 starvation brake, sign: '-', period_ticks: 3,
+     path: [biosphere, cycles, biosphere],
+     note: life drawing down CO2 slows its own growth before the air runs out}
+  - {name: snowball trap, sign: '+', period_ticks: 1,
+     path: [climate, ocean, climate],
+     note: a frozen sea reflects sunlight so well that the cold sustains itself}
+  - {name: snowball escape, sign: '-', period_ticks: 15,
+     path: [climate, cycles, climate],
+     note: "ice stops weathering, volcanic CO2 accumulates until the equator cracks open"}
+  - {name: sea-ice carbon lid, sign: '-', period_ticks: 5,
+     path: [ocean, cycles, climate, ocean],
+     note: "sea ice keeps CO2 in the air, which warms the planet and melts the ice"}
+  - {name: grazer boom and bust, sign: '-', period_ticks: 8,
+     path: [biosphere, biosphere],
+     note: "herds grow on lush meadows, overgraze them, then starve back"}
+  - {name: greedy grazer warming, sign: '+', period_ticks: 6,
+     path: [biosphere, climate, biosphere],
+     note: "herds evolve to eat the abundant white petals, which darkens and warms the land and kills more white daisies"}
+  - {name: adaptive radiation, sign: '-', period_ticks: 15,
+     path: [climate, biosphere, climate],
+     note: a range spanning hot and cold climates splits; founders suited to the extremes regulate them better}
+  - {name: generalist drag, sign: '-', period_ticks: 12,
+     path: [biosphere, climate, biosphere],
+     note: "broad tolerance survives swings but its upkeep slows regrowth, so regulation weakens until swings return"}
+  - {name: mixed-meadow mutualism, sign: '+', period_ticks: 10,
+     path: [biosphere, biosphere],
+     note: "partners grow faster where they share land, which makes them share more land"}
+  - {name: stale advice overshoot, sign: '-', period_ticks: 4,
+     path: [climate, information, gaia, climate],
+     note: a briefing about a hot planet lands two ticks later and can trigger cooling after the planet has already cooled}
+  - {name: methane hothouse, sign: '+', period_ticks: 6,
+     path: [biosphere, cycles, climate, biosphere],
+     note: methanogens like it warm and their methane warms the faint-sun planet}
+  - {name: oxygen catastrophe, sign: '+', period_ticks: 4,
+     path: [biosphere, cycles, biosphere],
+     note: "once the iron sinks fill, oxygen poisons the anaerobes, so less methane is left to burn the oxygen"}
+  - {name: breathing brake, sign: '-', period_ticks: 3,
+     path: [biosphere, cycles, biosphere],
+     note: "aerobes breathe the oxygen they depend on, capping their own spread"}
+  - {name: lagging thermostat, sign: '-', period_ticks: 4,
+     path: [climate, information, gaia, climate],
+     note: "the Steward corrects the temperature it read ticks ago, so corrections overshoot and the climate rings"}
+  - {name: instrument investment, sign: '+', period_ticks: 10,
+     path: [information, gaia, information],
+     note: "sharper instruments prevent costly mistakes, which leaves omega for the next upgrade"}
+  - {name: tunnel vision, sign: '+', period_ticks: 6,
+     path: [gaia, information, gaia],
+     note: "an instrument you stop watching goes stale, so the danger it would show grows unseen until it forces a costly emergency"}
+  - {name: sleeping meadows, sign: '-', period_ticks: 4,
+     path: [climate, biosphere, information, biosphere],
+     note: "a species sleeps until its meadows change enough to raise an alarm, then wakes and responds"}
+  - {name: tool ratchet, sign: '+', period_ticks: 8,
+     path: [civilization, civilization],
+     note: "iron becomes tools, tools raise output, more output feeds more people and more bloomeries"}
+  - {name: charcoal deforestation, sign: '-', period_ticks: 12,
+     path: [civilization, biosphere, civilization],
+     note: "kilns eat the forests until there is too little wood left for charcoal"}
+  - {name: Malthusian brake, sign: '-', period_ticks: 6,
+     path: [civilization, civilization],
+     note: "a growing people outruns its harvests until famine trims it back"}
+  - {name: replanting, sign: '-', period_ticks: 10,
+     path: [civilization, biosphere, gaia, biosphere, civilization],
+     note: "kilns thin the forests, the Steward replants them, and charcoal (and iron) recovers"}
+  - {name: knowledge ratchet, sign: '+', period_ticks: 10,
+     path: [civilization, technology, civilization],
+     note: "techs raise output, freeing labor for study, which buys more techs"}
+  - {name: comparative advantage, sign: '+', period_ticks: 8,
+     path: [civilization, economy, logistics, civilization],
+     note: "a people works what its land is rich in, sells the surplus and buys what it lacks, which lets it specialise further"}
+  - {name: automation dividend, sign: '+', period_ticks: 6,
+     path: [technology, information, economy, civilization, technology],
+     note: "reflexes place the routine orders, freeing turns for labor and study, which unlock more reflex operators"}
+  - {name: blind reorder, sign: '+', period_ticks: 3,
+     path: [economy, logistics, economy],
+     note: "a buyer who cannot see goods on the road orders again, so more arrives than was needed"}
+  - {name: steam ratchet, sign: '+', period_ticks: 5,
+     path: [energy, civilization, energy],
+     note: "energy makes every worker stronger, including the coal miners who feed the engines"}
+  - {name: hunger of industry, sign: '-', period_ticks: 6,
+     path: [energy, civilization, civilization],
+     note: "labor drawn into mines and engines leaves the fields, and famine pulls it back"}
+  - {name: smoke and plague, sign: '-', period_ticks: 8,
+     path: [energy, backlash, civilization, energy],
+     note: "industry pollutes until the land strikes, which thins the people who run the industry"}
+  - {name: forest shield, sign: '-', period_ticks: 10,
+     path: [biosphere, backlash, civilization, biosphere],
+     note: "forests soak up pollution and spare the people, unless the kilns fell them first"}
+  - {name: clean transition, sign: '-', period_ticks: 12,
+     path: [energy, cycles, climate, energy],
+     note: "solar panels replace coal engines, so the air stops filling with carbon"}
+  - {name: broken compact, sign: '-', period_ticks: 8,
+     path: [energy, diplomacy, economy, civilization, energy],
+     note: "a people that burns past the treaty cap loses its partner's trade, which starves the industry that burned the coal"}
+  - {name: smoke and outrage, sign: '-', period_ticks: 8,
+     path: [energy, cycles, media, energy],
+     note: "coal fills the air, which makes clean-air broadsheets credible, which turns the miners against coal"}
+  - {name: credibility ratchet, sign: '+', period_ticks: 6,
+     path: [media, information, media],
+     note: "broadsheets judged true earn karma, so the next one sways further; a lie costs the author its voice"}
+  - {name: clean bootstrap, sign: '+', period_ticks: 10,
+     path: [energy, civilization, energy],
+     note: "coal powers the glass, wire and steel that make the first panels; the panels then power the chain that makes more"}
+  - {name: orbital harvest, sign: '+', period_ticks: 8,
+     path: [space, civilization, space],
+     note: "satellites sharpen forecasts, more grain feeds more people, more labor builds more rockets (until wear catches up)"}
+  - {name: greenhouse spring, sign: '+', period_ticks: 10,
+     path: [colony, climate, colony],
+     note: "terraforming warms the sky, warmer greenhouses feed more colonists, more labor runs more terraforming"}
+  - {name: radiative cooling, sign: '-', period_ticks: 30,
+     path: [climate, colony, climate],
+     note: "the warmer the colony's sky, the more warming it radiates away, so terraforming must be sustained"}
+  - {name: stale directive, sign: '-', period_ticks: 8,
+     path: [colony, information, colony],
+     note: "home answers a problem it saw four years ago, and the answer lands four years later, often after the problem has passed"}
+  - {name: ark or abundance, sign: '-', period_ticks: 15,
+     path: [civilization, biosphere, civilization],
+     note: "industry that builds the ark clears the forests the seeds come from; the poorer the world, the slower the vaults fill and the less the ship carries"}
+  - {name: guild money, sign: '+', period_ticks: 6,
+     path: [energy, economy, media, energy],
+     note: "coal profits buy pamphlets that keep the miners' consent, which keeps the coal coming (until the pamphlets are caught out)"}
+  - {name: foresight, sign: '-', period_ticks: 5,
+     path: [climate, gaia, climate],
+     note: "the Advisor sees the brightening sun coming and the Steward cools early, before the daisies are stressed"}
+  - {name: boom and rest, sign: '-', period_ticks: 6,
+     path: [biosphere, biosphere],
+     note: "a species spreads until its seed bank runs dry, then must hold or sleep to refill it, or die faster"}
+  - {name: clean exporter, sign: '-', period_ticks: 6,
+     path: [energy, economy, logistics, energy],
+     note: "a people with spare (solar) power sells it over the grid to one near its coal cap, which burns less coal"}
+  - {name: price echo, sign: '+', period_ticks: 4,
+     path: [economy, information, economy],
+     note: "peoples price orders on two-clearing-old news, so a price move echoes back two clearings later and overshoots"}
+  - {name: tragedy of the commons, sign: '-', period_ticks: 8,
+     path: [civilization, ocean, civilization],
+     note: "every people fishes the same seas; the catch empties them for all, and the hungry fish harder"}
+  - {name: sour seas, sign: '-', period_ticks: 15,
+     path: [energy, cycles, ocean, civilization],
+     note: "coal's carbon lowers the seas' pH and with it every people's catch"}
+  - {name: managed commons, sign: '-', period_ticks: 10,
+     path: [ocean, diplomacy, civilization, ocean],
+     note: "emptying seas bring quota offers; signatories catch less and the stock recovers, unless the hungry decline"}
+  - {name: fertiliser treadmill, sign: '+', period_ticks: 8,
+     path: [energy, civilization, energy],
+     note: "fertiliser feeds more people, who need more energy, much of it from coal"}
+  - {name: dead-zone treadmill, sign: '+', period_ticks: 10,
+     path: [civilization, ocean, civilization],
+     note: "runoff opens dead zones; emptier seas mean less fish, more fields and more fertiliser"}
+  - {name: buffered rivers, sign: '-', period_ticks: 12,
+     path: [ocean, technology, civilization, ocean],
+     note: "dead zones on the sheet lead a fertilising people to buffer its runoff, and the seas flush clean"}
+  - {name: pacted seas, sign: '-', period_ticks: 14,
+     path: [ocean, diplomacy, civilization, ocean],
+     note: "dead zones bring runoff pacts; signatories buffer or return to plain fields, and the seas flush clean"}
+  - {name: tended coasts, sign: '-', period_ticks: 6,
+     path: [ocean, gaia, ocean],
+     note: "dying seas show on the Omega meter; the Steward restores the marshes, flushing nutrients and restocking fish"}
+  - {name: ozone opening, sign: '+', period_ticks: 6,
+     path: [biosphere, cycles, biosphere],
+     note: "oxygenic life makes oxygen, oxygen makes the ozone shield, and the shield lets life grow under the tropical sun"}
+  - {name: fire weather, sign: '+', period_ticks: 8,
+     path: [climate, biosphere, cycles, climate],
+     note: "a warmer world dries its grasslands, more of them burn, and the burned carbon warms the world further"}
+  - {name: wolves and bison, sign: '-', period_ticks: 10,
+     path: [biosphere, biosphere],
+     note: "packs grow on herds and thin them; with fewer herds, packs starve back and the herds recover"}
+  - {name: fouling your own nest, sign: '-', period_ticks: 6,
+     path: [civilization, ocean, civilization],
+     note: "a people that fertilises hard chokes its own coast and catches less fish, so it must farm still harder or go hungry"}
+  - {name: towns and their woods, sign: '-', period_ticks: 8,
+     path: [civilization, biosphere, civilization],
+     note: "a growing people founds towns and cuts their woods, the thinner woods yield less timber, and growth slows"}
+  - {name: geese and grass, sign: '+', period_ticks: 6,
+     path: [biosphere, biosphere],
+     note: "geese grow on grass and sow it where they land, so more grass feeds more geese"}
+  - {name: ash and regrowth, sign: '-', period_ticks: 3,
+     path: [biosphere, biosphere],
+     note: "burned ground regrows fastest under ash, refilling the gap before the next fire season"}
+
+resources:
+  - {key: omega, name: Steward energy, kind: currency}
+  - {key: cover_white, name: White daisy cover, kind: biomass}
+  - {key: cover_black, name: Black daisy cover, kind: biomass}
+  - {key: bare_ground, name: Bare fertile ground, kind: land}
+  - {key: mineral_fertility, name: Mineral fertility from volcanic ash, kind: nutrient}
+  - {key: atmospheric_carbon, name: Atmospheric CO2, kind: gas}
+  - {key: ocean_carbon, name: Dissolved ocean carbon, kind: solute}
+  - {key: biomass_carbon, name: Biomass carbon, kind: biomass}
+  - {key: soil_carbon, name: Soil carbon, kind: organic}
+  - {key: carbonate_rock, name: Carbonate sediments, kind: rock}
+  - {key: sea_ice, name: Sea ice, kind: ice}
+  - {key: land_ice, name: Land ice (sets sea level), kind: ice}
+  - {key: grazer_biomass, name: Grazer biomass, kind: biomass}
+  - {key: genome_levels, name: Genome trait levels (budgeted), kind: genetic}
+  - {key: mantle_carbon, name: Mantle carbon, kind: rock}
+  - {key: oxygen, name: Atmospheric oxygen, kind: gas}
+  - {key: methane, name: Atmospheric methane, kind: gas}
+  - {key: reductant, name: Crustal reductants (ferrous iron), kind: mineral}
+  - {key: cover_methanogens, name: Methanogen mat cover, kind: biomass}
+  - {key: cover_cyanobacteria, name: Cyanobacteria mat cover, kind: biomass}
+  - {key: cover_aerobes, name: Aerobic mat cover, kind: biomass}
+  - {key: instrument_tier, name: Steward instrument tier, kind: infrastructure}
+  - {key: attention_slots, name: Steward attention slots, kind: capacity}
+  - {key: population, name: People of each polity, kind: population}
+  - {key: grain, name: Grain, kind: food}
+  - {key: wood, name: Wood, kind: material}
+  - {key: charcoal, name: Charcoal, kind: fuel}
+  - {key: ore, name: Iron ore, kind: mineral}
+  - {key: iron, name: Iron blooms, kind: metal}
+  - {key: slag, name: Slag, kind: waste}
+  - {key: tools, name: Iron tools, kind: capital}
+  - {key: ore_deposits, name: Ore richness per region, kind: deposit}
+  - {key: research, name: Research, kind: knowledge}
+  - {key: silver, name: Silver, kind: currency}
+  - {key: goods_in_transit, name: Goods on the roads, kind: logistics}
+  - {key: endowment, name: "Land endowments (farmland, forest, ore)", kind: deposit}
+  - {key: coal, name: Coal, kind: fuel}
+  - {key: steel, name: Steel, kind: metal}
+  - {key: energy, name: Energy (steam power), kind: energy}
+  - {key: soot, name: Soot, kind: pollutant}
+  - {key: coal_deposits, name: Coal seams per region, kind: deposit}
+  - {key: pollution, name: Regional pollution, kind: pollutant}
+  - {key: pressure, name: Regional pressure (Gaia's patience), kind: state}
+  - {key: sand, name: Sand, kind: mineral}
+  - {key: glass, name: Glass, kind: material}
+  - {key: paper, name: Paper, kind: material}
+  - {key: limestone, name: Limestone, kind: mineral}
+  - {key: cement, name: Cement, kind: material}
+  - {key: copper, name: Copper, kind: metal}
+  - {key: wire, name: Copper wire, kind: material}
+  - {key: fertiliser, name: Fertiliser, kind: chemical}
+  - {key: panels, name: Solar panels, kind: capital}
+  - {key: consent, name: A people's consent for coal, kind: opinion}
+  - {key: credibility, name: Gazette credibility (forum karma), kind: reputation}
+  - {key: fuel, name: Rocket fuel, kind: fuel}
+  - {key: rockets, name: Rockets, kind: capital}
+  - {key: satellites, name: Satellites in orbit, kind: capital}
+  - {key: colony_food, name: Colony food, kind: food}
+  - {key: colony_air, name: Breathable air, kind: gas}
+  - {key: colony_water, name: Water from ice, kind: water}
+  - {key: colony_power, name: Colony power, kind: energy}
+  - {key: warmth, name: Terraforming warmth, kind: heat}
+  - {key: colonists, name: Colonists, kind: population}
+  - {key: seeds, name: Seeds in a vault, kind: genetic}
+  - {key: seed_bank, name: A species' seed bank, kind: genetic}
+  - {key: fish_stock, name: The seas' shared fish stock, kind: biomass}
+  - {key: seed_ships, name: Seed ships launched, kind: capital}
+  - {key: runoff, name: Fertiliser runoff, kind: pollutant}
+  - {key: nutrients, name: Nutrient load of the coastal seas, kind: chemical}
+  - {key: ozone, name: Ozone shield, kind: chemical}
+
+recipes:
+  - {key: farm, name: Farm the land}
+  - {key: woodcut, name: Cut wood}
+  - {key: charcoal, name: Burn charcoal}
+  - {key: mine, name: Mine ore}
+  - {key: bloomery, name: Smelt iron in a bloomery}
+  - {key: smithy, name: Forge tools}
+  - {key: study, name: Study and teach}
+  - {key: coal_mine, name: Mine coal}
+  - {key: coal_plant, name: Burn coal in steam engines}
+  - {key: steelworks, name: Make steel}
+  - {key: machine_shop, name: Build machines and steel tools}
+  - {key: quarry_sand, name: Quarry sand}
+  - {key: glassworks, name: Make glass}
+  - {key: paper_mill, name: Make paper}
+  - {key: printing_press, name: Print books}
+  - {key: quarry_limestone, name: Quarry limestone}
+  - {key: lime_kiln, name: Burn lime into cement}
+  - {key: copper_mine, name: Mine copper}
+  - {key: wire_mill, name: Draw copper wire}
+  - {key: fertiliser_plant, name: Make fertiliser from the air}
+  - {key: fertilised_farm, name: Farm with fertiliser}
+  - {key: panel_factory, name: Build solar panels}
+  - {key: solar_power, name: Run solar panels}
+  - {key: fuel_plant, name: Refine rocket fuel}
+  - {key: rocket_works, name: Build rockets}
+  - {key: launch_pad, name: Launch satellites}
+  - {key: ice_mine, name: Mine ice (colony)}
+  - {key: solar_farm, name: Tend the solar farm (colony)}
+  - {key: greenhouse, name: Grow food under glass (colony)}
+  - {key: electrolyser, name: Split water for air (colony)}
+  - {key: terraformer, name: Run the terraforming plants (colony)}
+  - {key: fabricator, name: Fabricate solar panels (colony)}
+  - {key: seed_vault, name: Gather seeds into a vault}
+  - {key: fishing, name: Fish the coastal seas}
+  - {key: ark_works, name: Build and launch the seed ship}
+techs:
+  - {key: irrigation, name: Irrigation}
+  - {key: granaries, name: Granaries and tally sticks}
+  - {key: iron_axes, name: Iron axes}
+  - {key: coppicing, name: Coppicing}
+  - {key: clamp_kilns, name: Clamp kilns}
+  - {key: shaft_mining, name: Shaft mining}
+  - {key: bellows, name: Bellows}
+  - {key: writing, name: Writing}
+  - {key: iron_plough, name: The iron plough}
+  - {key: shaft_furnace, name: The shaft furnace}
+  - {key: roads, name: Roads and carts}
+  - {key: mathematics, name: Mathematics}
+  - {key: coal_mining, name: Coal mining}
+  - {key: steam_power, name: Steam power}
+  - {key: steelmaking, name: Steelmaking}
+  - {key: railways, name: Railways}
+  - {key: telegraph, name: The telegraph}
+  - {key: glassmaking, name: Glassmaking}
+  - {key: printing, name: The printing press}
+  - {key: masonry, name: Masonry}
+  - {key: diplomacy, name: Diplomacy and treaties}
+  - {key: cement, name: Cement}
+  - {key: metallurgy, name: Metallurgy}
+  - {key: electricity, name: Electricity}
+  - {key: chemistry, name: Industrial chemistry}
+  - {key: photovoltaics, name: Photovoltaics}
+  - {key: scrubbers, name: Smoke scrubbers}
+  - {key: efficient_engines, name: Efficient engines}
+  - {key: power_grid, name: The power grid}
+  - {key: computing, name: Computing machines}
+  - {key: rocketry, name: Rocketry}
+  - {key: arks, name: Interstellar arks}
+  - {key: fishing_boats, name: Fishing boats}
+  - {key: wetland_buffers, name: Wetlands and buffer strips}
+reflex_operators:
+  - {key: json_field, name: Read a field of a JSON reading}
+  - {key: threshold, name: Fire above or below a level (granaries)}
+
+# Stage 2 map registry: what the phone map can show and the
+# spatial mechanics that exist. Only list what is implemented.
+map:
+  overlays:
+    - {key: biomes, name: "Biomes (13, public)"}
+    - {key: terrain, name: "Terrain (tiles, relief, shelves)"}
+    - {key: rainfall, name: Rainfall (land)}
+    - {key: temperature, name: Temperature}
+    - {key: seasons, name: "Seasons (each tile's annual swing; a year plays over it, snow and sea ice following each hemisphere's winter)"}
+    - {key: life, name: "Life (species colours mixed by their share of each tile)"}
+    - {key: fire, name: "Fire (risk from dryness and fuel; burn scars)"}
+    - {key: pollution, name: "Pollution (smog around towns, runoff plumes and dead zones at sea)"}
+  mobile_species:
+    - {key: bison, name: "Bison herds (graze grass and forest on their own tile)"}
+    - {key: wolves, name: "Wolf packs (hunt herds on their own and neighbouring tiles)"}
+    - {key: fish, name: "Fish schools (swim the shelves and reefs; their number follows the fisheries' stock)"}
+    - {key: geese, name: "Geese (fly between summer and winter grounds, sowing seeds where they land)"}
+    - {key: flocks, name: "Grazer flocks (the Herds scenario's region grazers on the map: they walk to the petals they eat, pale or dark by their diet)"}
+  local_interactions:
+    - {key: seed_spread, name: "a share of a tile's seeds come from its four neighbours, across region borders too", between: [life, life]}
+    - {key: ground_competition, name: "species on a tile compete for its bare ground", between: [life, life]}
+    - {key: biome_suitability, name: "a tile's biome scales how fast life grows there", between: [biomes, life]}
+    - {key: highland_refuges, name: "highland tiles run colder, sheltering cool-loving life as the sun brightens", between: [terrain, life]}
+    - {key: wildfire_spread, name: "a fire jumps to neighbouring tiles as dry and thickly grown as it", between: [fire, fire]}
+    - {key: dry_fuel, name: "warm, rainless tiles thick with grass or forest are the ones that burn", between: [biomes, fire]}
+    - {key: fire_clears_cover, name: "fire burns a tile's grass and forest, sending their carbon to the air", between: [fire, life]}
+    - {key: ash_regrowth, name: "ash speeds regrowth on burned ground for a few ticks", between: [fire, life]}
+    - {key: grazing, name: "a herd crops the plants on its own tile and grows on what it eats", between: [herds, life]}
+    - {key: predation, name: "a pack hunts the herds on its own and the eight neighbouring tiles", between: [herds, herds]}
+    - {key: herd_disease, name: "two large herds side by side can start an outbreak that thins every herd nearby", between: [herds, herds]}
+    - {key: fear, name: "herds shun pasture near wolf packs", between: [herds, herds]}
+    - {key: herd_crowding, name: "herds of a kind crowd each other off a tile and out of its food", between: [herds, herds]}
+    - {key: fire_scatters_herds, name: "a herd whose tile burns loses part of its number", between: [fire, herds]}
+    - {key: clouds_over_regions, name: "seeded clouds, ash and haze gather over the regions where they were aimed (cooling or warming them most) and drift with the winds on the map", between: [climate, climate]}
+    - {key: winter_snow, name: "a tile's winter is its mean temperature less half its annual swing (larger inland and poleward): below freezing it lies under snow", between: [climate, terrain]}
+    - {key: biome_shift_news, name: "when a biome (sea ice, glacier, desert, forest...) spreads or retreats far, the news ripples softly over the map from where it changed most (a tally of the planet, not local news)", between: [biomes, peoples]}
+    - {key: rain_damps_fire, name: "summoned rain soaks the tiles around the tap: soaked ground neither catches nor passes on fire until it dries", between: [climate, fire]}
+    - {key: flocks_follow_petals, name: "grazer flocks walk to the tiles richest in the petals they prefer, where the climate suits them", between: [life, herds]}
+    - {key: packs_thinned_near_herds, name: "thinning the wolf packs takes the packs within a few tiles of the tap", between: [herds, herds]}
+    - {key: schools_flee_dead_zones, name: "fish schools leave shallows the dead zones have starved of oxygen", between: [seas, herds]}
+    - {key: dead_zones_in_warm_shallows, name: "dead zones open where runoff plumes are thickest, the warmest water first", between: [climate, seas]}
+    - {key: reef_shelter, name: "schools gather on reefs, then the shelf, and thin out over the deep sea", between: [biomes, herds]}
+    - {key: fishing_thins_schools, name: "every catch from the shared stock takes schools off the map", between: [peoples, herds]}
+    - {key: seasonal_migration, name: "geese fly poleward for the summer and back for the winter, in their own hemisphere", between: [climate, herds]}
+    - {key: seed_dispersal, name: "geese sow the seeds of the plants they ate on bare ground where they land", between: [herds, life]}
+    - {key: town_catchment, name: "a settlement's harvests follow the farmland and timber of the tiles around it", between: [peoples, life]}
+    - {key: settlers_choose_land, name: "towns rise on the best free farmland near the sea, a few tiles from the others", between: [peoples, biomes]}
+    - {key: runoff_plumes, name: "a people's fertiliser runoff washes into the shelf near its coastal towns", between: [peoples, seas]}
+    - {key: soot_spoils_fields, name: "soot from coal and smelting settles around towns and spoils the fields beneath", between: [peoples, life]}
+    - {key: choked_coasts_cut_catch, name: "a people whose own coast is choked by dead zones catches fewer fish", between: [seas, peoples]}

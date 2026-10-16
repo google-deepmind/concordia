@@ -1,0 +1,7 @@
+# The Steward's Advisor: a slow mind that writes briefings.
+latency_ticks: 2
+question: >-
+  You are the advisor of {agent_name}, the Steward of this planet. In at most
+  two sentences: what is the most urgent danger to the planet over the next
+  few ticks, and which single intervention should {agent_name} make now? End
+  with "Recommend:" followed by exactly one of: {options}.

@@ -1,0 +1,46 @@
+# Trade between polities: orders clear on the contrib
+# MarketPlace (a clearing house) and goods travel on stock-flow ledger links.
+silver_start: 20.0          # silver each polity starts with
+margin: 0.15                # sellers ask this much below, buyers bid above, the last price
+price_response: 0.2         # unmet demand raises a price, unsold supply lowers it (log step at full imbalance)
+sell_share: 0.5             # share of a surplus offered in one order
+order_ticks: 3              # orders stand on the book this many clearings
+goods:
+  - {key: grain, category: food, price: 1.0, surplus: 6.0}
+  - {key: charcoal, category: fuel, price: 2.0, surplus: 3.0}
+  - {key: ore, category: mineral, price: 2.0, surplus: 3.0}
+  - {key: iron, category: metal, price: 6.0, surplus: 2.0}
+  - {key: tools, category: metal, price: 5.0, surplus: 4.0}
+  - {key: coal, category: fuel, price: 2.0, surplus: 4.0}
+  - {key: steel, category: metal, price: 10.0, surplus: 2.0}
+  - {key: glass, category: material, price: 6.0, surplus: 2.0}
+  - {key: fertiliser, category: chemical, price: 4.0, surplus: 3.0}
+  # Energy travels only on the power grid (both peoples need it).
+  - {key: energy, category: power, price: 1.5, surplus: 6.0, requires: grid}
+# Market news travels by courier (prices `latency` ticks old) until a people
+# has the telegraph (`wire_news`): orders are priced on what a people
+# believes the price is.
+news: {latency: 2, wire_latency: 0}
+# Porters carry little and slowly; the `logistics` unlock (roads) helps.
+routes:
+  porters: {capacity: 3.0, latency: 2}
+  roads: {capacity: 6.0, latency: 1}
+  rail: {capacity: 15.0, latency: 1}
+  # Transmission lines: instant, but a share of the energy is lost on the way.
+  grid: {capacity: 20.0, latency: 0, loss: 0.1}
+# Standing orders as reflexes: sell above / buy below these stocks;
+# buyers order enough to refill to `refill_to` (counting goods on the road
+# only once writing gives them tallies).
+automation:
+  cooldown: 2
+  max_reflexes: 4              # standing orders a people can keep at once
+  levels:
+    grain: {sell_above: 14, buy_below: 3, refill_to: 12}
+    charcoal: {sell_above: 6, buy_below: 2, refill_to: 8}
+    ore: {sell_above: 6, buy_below: 2, refill_to: 8}
+    iron: {sell_above: 4, buy_below: 0.5, refill_to: 3}
+    tools: {sell_above: 10, buy_below: 1, refill_to: 6}
+    coal: {sell_above: 8, buy_below: 2, refill_to: 8}
+    steel: {sell_above: 4, buy_below: 0.5, refill_to: 3}
+    glass: {sell_above: 4, buy_below: 0.5, refill_to: 3}
+    fertiliser: {sell_above: 6, buy_below: 1, refill_to: 4}

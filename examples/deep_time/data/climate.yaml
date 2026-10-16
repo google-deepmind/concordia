@@ -1,0 +1,21 @@
+# Regional energy-balance climate: Budyko-Sellers.
+# absorbed = solar_flux * luminosity * s(latitude) * (1 - albedo)
+# emitted  = olr_a + olr_b * T - greenhouse forcing   (T in C)
+# The OLR line is Daisyworld's sigma*T^4 linearised around 300 K, so a
+# uniform all-land planet reproduces the classic model's temperatures.
+grid:
+  bands: 6                 # latitude bands, centred at -75 ... 75 degrees
+  sectors: 8               # longitude sectors per band
+solar_flux: 917.0
+olr_a: 295.0
+olr_b: 6.12
+diffusion: 6.0             # W m^-2 K^-1 per neighbour conductance (area-weighted)
+insolation_p2: 0.482       # s(lat) = 1 - p2 * P2(sin lat)
+ocean_albedo: 0.40        # Daisyworld frame: bare ground 0.5, so seas run a little warmer
+ocean_current_boost: 1.0  # extra conductance between two ocean regions (currents)
+ice:
+  freeze_c: -10.0          # ice starts forming below this temperature
+  ramp_c: 6.0              # fully frozen ramp_c degrees below freeze_c
+  albedo: 0.80
+ice_iterations: 4          # fixed-point iterations for the ice-albedo loop
+local_heating_c: 20.0      # flower temperature offset per unit albedo contrast

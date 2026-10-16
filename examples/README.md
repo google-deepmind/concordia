@@ -2,6 +2,7 @@
 <!-- disableFinding("master") -->
 <!-- disableFinding(LINE_OVER_80) -->
 <!-- disableFinding(LINK_RELATIVE_G3DOC) -->
+
 <!-- Relative links in this file follow the GitHub repository layout, where
      examples/ sits next to concordia/ at the repository root. -->
 
@@ -31,15 +32,81 @@ add a row to the relevant table below as part of your pull request.
 
 ## Simulations
 
-| Example | What it models | Run |
-| --- | --- | --- |
-| [concordia_island](concordia_island/) | A town of 100+ agents with homes, jobs, and social life; shocks such as job loss or a mugging; repeated psychometric surveys; a map and memory dashboard. | `python -m examples.concordia_island.run ...` (see its README) |
-| [signaling](signaling/) | A multi-day marketplace followed by dates: conspicuous consumption and status signaling. | `python -m examples.signaling.run` |
-| [resource_dilemma](resource_dilemma/) | Common-pool resource harvesting (pasture, irrigation, network, fishery) with and without elected leaders. | `python -m examples.resource_dilemma.run` |
-| [social_media](social_media/) | Agents posting and replying on a Reddit-like forum under the asynchronous engine; several scenarios. | `python -m examples.social_media.run` |
-| [general_store](general_store/) | Staff dynamics, a theft investigation, and social manipulation in a general store. | `python -m examples.general_store.run` |
-| [conversation_with_ai_companion](conversation_with_ai_companion/) | A person talking to an AI assistant that has motives of its own (exam prep; a tutor that upsells). | `python -m examples.conversation_with_ai_companion.run` |
-| [interrupt_driven](interrupt_driven/) | Worked examples of the interrupt-driven Game Master: events, polling masks, and timers. | `python -m examples.interrupt_driven.scheduling_examples` |
+| Example                                                           | What it models   | Run                                            |
+| ----------------------------------------------------------------- | ---------------- | ---------------------------------------------- |
+| [concordia_island](concordia_island/)                             | A town of 100+   | `python -m examples.concordia_island.run ...`  |
+:                                                                   : agents with      : (see its README)                               :
+:                                                                   : homes, jobs, and :                                                :
+:                                                                   : social life;     :                                                :
+:                                                                   : shocks such as   :                                                :
+:                                                                   : job loss or a    :                                                :
+:                                                                   : mugging;         :                                                :
+:                                                                   : repeated         :                                                :
+:                                                                   : psychometric     :                                                :
+:                                                                   : surveys; a map   :                                                :
+:                                                                   : and memory       :                                                :
+:                                                                   : dashboard.       :                                                :
+| [signaling](signaling/)                                           | A multi-day      | `python -m examples.signaling.run`             |
+:                                                                   : marketplace      :                                                :
+:                                                                   : followed by      :                                                :
+:                                                                   : dates\:          :                                                :
+:                                                                   : conspicuous      :                                                :
+:                                                                   : consumption and  :                                                :
+:                                                                   : status           :                                                :
+:                                                                   : signaling.       :                                                :
+| [resource_dilemma](resource_dilemma/)                             | Common-pool      | `python -m examples.resource_dilemma.run`      |
+:                                                                   : resource         :                                                :
+:                                                                   : harvesting       :                                                :
+:                                                                   : (pasture,        :                                                :
+:                                                                   : irrigation,      :                                                :
+:                                                                   : network,         :                                                :
+:                                                                   : fishery) with    :                                                :
+:                                                                   : and without      :                                                :
+:                                                                   : elected leaders. :                                                :
+| [social_media](social_media/)                                     | Agents posting   | `python -m examples.social_media.run`          |
+:                                                                   : and replying on  :                                                :
+:                                                                   : a Reddit-like    :                                                :
+:                                                                   : forum under the  :                                                :
+:                                                                   : asynchronous     :                                                :
+:                                                                   : engine; several  :                                                :
+:                                                                   : scenarios.       :                                                :
+| [general_store](general_store/)                                   | Staff dynamics,  | `python -m examples.general_store.run`         |
+:                                                                   : a theft          :                                                :
+:                                                                   : investigation,   :                                                :
+:                                                                   : and social       :                                                :
+:                                                                   : manipulation in  :                                                :
+:                                                                   : a general store. :                                                :
+| [conversation_with_ai_companion](conversation_with_ai_companion/) | A person talking | `python -m                                     |
+:                                                                   : to an AI         : examples.conversation_with_ai_companion.run`   :
+:                                                                   : assistant that   :                                                :
+:                                                                   : has motives of   :                                                :
+:                                                                   : its own (exam    :                                                :
+:                                                                   : prep; a tutor    :                                                :
+:                                                                   : that upsells).   :                                                :
+| [deep_time](deep_time/)                                           | A SimEarth-style | `python -m examples.deep_time.run --mode=mock` |
+:                                                                   : planet on        : (play\: `python -m                             :
+:                                                                   : Concordia's      : examples.deep_time.web.server`; see its        :
+:                                                                   : pub/sub\: a      : README)                                        :
+:                                                                   : Steward reads    :                                                :
+:                                                                   : late, noisy      :                                                :
+:                                                                   : instruments and  :                                                :
+:                                                                   : nudges the       :                                                :
+:                                                                   : climate while    :                                                :
+:                                                                   : species, herds   :                                                :
+:                                                                   : and peoples act  :                                                :
+:                                                                   : on a tile map,   :                                                :
+:                                                                   : across eleven    :                                                :
+:                                                                   : scenarios        :                                                :
+:                                                                   : through deep     :                                                :
+:                                                                   : time; playable   :                                                :
+:                                                                   : on a phone.      :                                                :
+| [interrupt_driven](interrupt_driven/)                             | Worked examples  | `python -m                                     |
+:                                                                   : of the           : examples.interrupt_driven.scheduling_examples` :
+:                                                                   : interrupt-driven :                                                :
+:                                                                   : Game Master\:    :                                                :
+:                                                                   : events, polling  :                                                :
+:                                                                   : masks, and       :                                                :
+:                                                                   : timers.          :                                                :
 
 ## Games
 

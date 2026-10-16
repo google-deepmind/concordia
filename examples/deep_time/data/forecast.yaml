@@ -1,0 +1,18 @@
+# The Steward's forecast (forecast.py): dead reckoning from
+# its late, noisy readings and the measured profiles of the moves it made.
+# Calibrated on mock games of every scenario (6 seeds each): the ranges held
+# the truth 82% of the time; the forecast of now was off by 1.9 °C on
+# average where the raw reading was off by 2.3 °C.
+readings: 4             # The newest distinct readings reckoned forward,
+window: 8               # from at most this many ticks back.
+weight_wander: 2.0      # Older readings weigh less: °C of doubt a tick.
+wander_floor: 0.5       # The least the planet strays a tick (°C).
+wander_quantile: 0.75   # Which of the readings' unexplained jolts sets it.
+z: 1.28                 # Range half-width in standard errors (~80%).
+horizon: 6              # Turns of the course (the profiles' length).
+# Turning points in the recap: the steepest swings of the
+# true temperature over this many turns, at least this many °C, at most
+# this many of them, each told with the player's move that came before it.
+turning_span: 2
+turning_swing_c: 8.0
+turning_most: 3

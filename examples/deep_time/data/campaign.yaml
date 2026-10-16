@@ -1,0 +1,18 @@
+# The campaign through deep time: the scenarios in the
+# order of their worlds' ages. A chapter opens when the one before has a
+# star; the first is open from the start.
+chapters:
+  - {scenario: daisyworld, title: A young sun, when: "3 billion years ago"}
+  - {scenario: herds, title: Grazers, when: "3 billion years ago"}
+  - {scenario: great_oxidation, title: The first breath, when: "2.6 billion years ago"}
+  - {scenario: snowball, title: The world in ice, when: "720 million years ago"}
+  - {scenario: great_migration, title: The ice retreats, when: "12,000 years ago"}
+  - {scenario: archipelago, title: Islands, when: "9,000 years ago"}
+  - {scenario: savanna_fire, title: The burning season, when: "6,000 years ago"}
+  - {scenario: fire_and_iron, title: The first smiths, when: "3,200 years ago"}
+  - {scenario: great_acceleration, title: Coal and steam, when: "230 years ago"}
+  - {scenario: sandbox, title: The arks, when: "a few centuries on"}
+  - {scenario: light_delay, title: New Ararat, when: "the year 2150"}
+# The daily challenge: one chapter's scenario on a world seeded by the date.
+daily:
+  seeds: 997

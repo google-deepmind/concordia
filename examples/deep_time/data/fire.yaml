@@ -1,0 +1,19 @@
+# Wildfire on the tile map: lightning finds dry, thickly grown
+# tiles, fire runs to neighbours as dry as they, burns the plants, sends
+# their carbon to the air and leaves ash that speeds regrowth.
+fuel:                    # flammability by species (daughters inherit by key)
+  forests: 1.0
+  grass: 0.8
+fuel_full: 0.6           # flammable cover at which a tile is fully fuelled
+heat: {from_c: 4.0, span_c: 22.0}    # dryness rises from 4 C to 26 C
+wet_mm: 900.0            # rain at which ground is too wet to burn
+ignition_rate: 0.03      # lightning strikes per tick per unit of summed risk
+min_risk: 0.04           # a strike on a tile safer than this fizzles
+spread: 2.6              # chance to jump to a neighbour = spread x its risk
+max_spread: 0.9
+waves: 6                 # steps a fire front takes in a tick
+burn_fraction: 0.6       # share of a burning tile's flammable cover lost
+ash: {boost: 0.6, decay: 0.5}   # regrowth x (1 + ash) on burned ground
+min_oxygen_pal: 0.05     # with an oxygen cycle: no fire in thin air
+news_tiles: 8            # fires this large make the news
+wet_decay: 0.6           # share of summoned rain's soaking left after a tick

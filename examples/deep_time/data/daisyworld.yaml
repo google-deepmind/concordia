@@ -1,0 +1,17 @@
+# Daisyworld biology (Watson & Lovelock 1983), used by world/daisyworld.py.
+# The climate (sunlight, emission, diffusion, ice) is in data/climate.yaml.
+bare_albedo: 0.5
+death_rate: 0.3            # gamma, per unit model time
+min_cover: 0.01            # seed bank: covers never fall below this (of land)
+substeps: 40               # Euler substeps per tick
+dt: 0.05                   # model time per substep
+cloud_decay: 0.6           # albedo pulses decay by this factor each tick
+species:
+  white:
+    albedo: 0.75
+    optimum_c: 22.5        # growth optimum
+    growth_width: 0.003265 # beta = 1 - width * (optimum - T)^2
+  black:
+    albedo: 0.25
+    optimum_c: 22.5
+    growth_width: 0.003265

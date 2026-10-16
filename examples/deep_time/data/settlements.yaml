@@ -1,0 +1,24 @@
+# Peoples on the map: settlements on tiles, the land they work,
+# and the roads and trade routes between them.
+town_population: 3.0       # one settlement per this much population (and a capital)
+max_settlements: 6         # per people
+spacing: 3                 # tiles between settlements (Chebyshev)
+catchment: 2               # tiles around a settlement that it works
+farmland:                  # how good a biome is for fields (0-1)
+  grassland: 1.0
+  temperate_forest: 0.8
+  savanna: 0.7
+  wetland: 0.6
+  rainforest: 0.5
+  taiga: 0.4
+  tundra: 0.1
+  desert: 0.1
+coast_bonus: 0.3           # settlers like the sea
+highland_penalty: 0.3
+local_range: [0.5, 1.5]    # bounds of the local yield factor (now / at the start)
+timber: [forests]          # plants whose cover is a settlement's timber
+route_cost: {lowland: 1.0, coast: 1.0, highland: 3.0, shelf: 2.5, deep: 4.0}
+colours:                   # by people (light, dark)
+  amber: {light: [196, 130, 24], dark: [240, 178, 70]}
+  basalt: {light: [84, 84, 112], dark: [176, 176, 210]}
+  cedar: {light: [150, 52, 60], dark: [236, 120, 124]}

@@ -1,0 +1,190 @@
+# Steward interventions. Costs are in omega (Ω).
+# `push` is the default text of what a move does; for moves
+# that change the climate, push_audit.py measures it on each world into
+# pushes.yaml, keeping the `note` (what a measurement cannot show).
+# effect kinds: none | seed (species, amount) | albedo_pulse (delta) | seas
+# (flush: share of the nutrient load cleared; restock: fish stock added) | ...
+interventions:
+  - key: wait
+    label: wait and save omega
+    cost: 0
+    cooldown: 0
+    effect: {kind: none}
+  - key: seed_white
+    label: seed white daisies
+    cost: 2
+    cooldown: 0
+    effect: {kind: seed, species: white, amount: 0.06}
+    push: 'cools about 1 °C for a few turns (white petals reflect)'
+    note: 'white petals reflect'
+  - key: seed_black
+    label: seed black daisies
+    cost: 2
+    cooldown: 0
+    effect: {kind: seed, species: black, amount: 0.06}
+    push: 'warms about 1.5 °C for a few turns (black petals absorb)'
+    note: 'black petals absorb'
+  - key: seed_aerobes
+    label: seed oxygen-breathing mats
+    # Dearer than other seedings: a new kind of life, and
+    # wasted in air without oxygen, so the time to sow it is read, not found.
+    cost: 4
+    cooldown: 0
+    effect: {kind: seed, species: aerobes, amount: 0.04}
+    push: 'breathes oxygen, and dies where the air has none; hardly changes the warmth'
+    note: 'breathes oxygen, and dies where the air has none'
+  - key: seed_cyanobacteria
+    label: seed oxygen-making cyanobacteria (hastens the oxygen crisis)
+    cost: 3
+    cooldown: 1
+    effect: {kind: seed, species: cyanobacteria, amount: 0.04}
+    push: 'makes oxygen faster; cools a little'
+    note: 'makes oxygen faster'
+  - key: iron_flood
+    label: wash iron into the seas (soaks up oxygen, delays the crisis)
+    cost: 4
+    cooldown: 3
+    effect: {kind: reductant, amount: 0.3}
+    push: 'soaks up oxygen for a while; no change to the warmth'
+  - key: plant_forests
+    label: plant forests on bare and cleared land
+    cost: 2
+    cooldown: 0
+    effect: {kind: seed, species: forests, amount: 0.04}
+    push: 'greens bare land; dark canopies warm a little'
+    note: 'greens bare land'
+  - key: sow_grass
+    label: sow grass seed on bare land
+    cost: 2
+    cooldown: 0
+    effect: {kind: seed, species: grass, amount: 0.04}
+    push: 'greens bare land; cools a little'
+    note: 'greens bare land'
+  # The arks' seed vault: each gathering adds the goal's
+  # `vault.rate` times the world's biodiversity (a living world gives more).
+  - key: gather_seeds
+    label: gather the seeds of the wild for the arks
+    cost: 2
+    cooldown: 2
+    effect: {kind: vault}
+    push: 'fills the arks'' seed vault: half the world''s biodiversity each time'
+  # Smaller sowings for worlds where omega comes slowly: half
+  # the seed for half the omega, so a turn short of a full sowing still has
+  # a move.
+  - key: sow_grass_little
+    label: scatter a little grass seed
+    cost: 1
+    cooldown: 0
+    effect: {kind: seed, species: grass, amount: 0.02}
+    push: 'greens a little bare land'
+    note: 'greens a little bare land'
+  - key: plant_forests_little
+    label: plant a few trees on bare land
+    cost: 1
+    cooldown: 0
+    effect: {kind: seed, species: forests, amount: 0.02}
+    push: 'greens a little bare land'
+    note: 'greens a little bare land'
+  # Costs beyond omega: free, but paid in cover. The species
+  # is thinned everywhere in proportion to its cover, and only `take_root`
+  # of what is carried takes root on bare land (where tapped, or the nearest
+  # bare island).
+  - key: transplant_grass
+    label: carry grass seed from the meadows to bare land
+    cost: 0
+    cooldown: 0
+    effect: {kind: transplant, species: grass, amount: 0.02, take_root: 0.6}
+    push: 'thins the meadows to green bare land; 4 in 10 seeds are lost'
+    note: 'costs no omega but grass: 4 in 10 seeds are lost'
+  - key: transplant_forests
+    label: carry tree seed from the woods to bare land
+    cost: 0
+    cooldown: 0
+    effect: {kind: transplant, species: forests, amount: 0.02, take_root: 0.6}
+    push: 'thins the woods to plant bare land; 4 in 10 seeds are lost'
+    note: 'costs no omega but woods: 4 in 10 seeds are lost'
+  - key: summon_rain
+    label: summon rain on the dry country
+    cost: 3
+    cooldown: 0
+    # Aimed: soaks the tiles within `reach` of the tap (fading outward);
+    # otherwise a light wet season everywhere (amount x spread_share).
+    effect: {kind: rain, amount: 0.9, reach: 5, spread_share: 0.3}
+    push: 'soaks the ground there against fire'
+  - key: thin_packs
+    label: thin the wolf packs
+    cost: 3
+    cooldown: 1
+    # Aimed: packs within `reach` tiles lose `fraction`; otherwise every pack
+    # loses half as much.
+    effect: {kind: cull_packs, species: wolves, fraction: 0.5, reach: 4}
+    push: 'halves the wolf packs there'
+  - key: protect_wilds
+    label: protect the wild woods (the peoples may not fell them)
+    cost: 4
+    cooldown: 3
+    effect: {kind: reserve, ticks: 6}
+    push: 'the peoples may not fell the woods there for 6 turns'
+    note: 'no felling there for 6 turns'
+  - key: cleansing_rains
+    label: send cleansing rains (wash out pollution, calm the land)
+    cost: 4
+    cooldown: 3
+    effect: {kind: cleanse, fraction: 0.5}
+    push: 'washes out half the pollution'
+  - key: restore_marshes
+    label: restore the coastal marshes (the seas breathe, the fish return)
+    cost: 4
+    cooldown: 3
+    effect: {kind: seas, flush: 0.5, restock: 0.1}
+    push: 'clears the runoff and restocks the fish'
+  - key: upgrade_instruments
+    label: build better instruments (sharper, faster readings)
+    cost: 3
+    cooldown: 0
+    effect: {kind: instruments}
+    push: 'sharper readings that arrive sooner'
+  - key: bright_clouds
+    label: seed bright clouds (cools the planet)
+    cost: 4
+    cooldown: 2
+    effect: {kind: albedo_pulse, delta: 0.06}
+    push: 'cools about 6 °C next turn, fading over 3 turns'
+  - key: basalt_dust
+    label: spread basalt dust (draws carbon from the air)
+    cost: 3
+    cooldown: 3
+    effect: {kind: carbon_drawdown, amount: 300.0}
+    push: 'cools 1 to 5 °C, lasting, as carbon leaves the air'
+  - key: rouse_volcanoes
+    label: rouse the deep volcanoes (pumps carbon into the air)
+    cost: 5
+    cooldown: 3
+    effect: {kind: outgassing, amount: 150.0}
+    push: 'warms about 1 °C, lasting'
+  - key: thin_herds
+    label: thin the grazing herds (a plague among the grazers)
+    cost: 3
+    cooldown: 3
+    effect: {kind: cull, fraction: 0.4}
+    push: 'the grazers shrink by 40%'
+  - key: dark_haze
+    label: release a dark haze (warms the planet)
+    cost: 4
+    cooldown: 2
+    effect: {kind: albedo_pulse, delta: -0.06}
+    push: 'warms about 6 °C next turn, fading over 3 turns'
+  # The strong moves: a Steward who means to wreck the world
+  # can, quickly and visibly. A lasting veil fades a sixth a tick.
+  - key: ash_winter
+    label: bury the sky in ash (a volcanic winter, for years)
+    cost: 6
+    cooldown: 3
+    effect: {kind: veil, delta: 0.2}
+    push: 'cools 50 °C or more: the world freezes over within a turn'
+  - key: runaway_greenhouse
+    label: smother the world in soot and methane (a runaway greenhouse)
+    cost: 6
+    cooldown: 3
+    effect: {kind: veil, delta: -0.25, carbon: 1500.0}
+    push: 'warms 30 to 50 °C: the world boils within a turn'

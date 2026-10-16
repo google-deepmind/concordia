@@ -1,0 +1,12 @@
+# Local pollution on the tile map: where a people's soot
+# settles and its fertiliser runoff reaches the sea.
+soot:
+  per_unit: 0.35           # tile haze added per unit of a people's soot (spread over its towns)
+  reach: 2                 # tiles around a town the haze reaches
+  decay: 0.6               # haze kept from tick to tick
+  crop_damage: 0.15        # farmland lost at full haze
+runoff:
+  per_unit: 2.0            # plume added per unit of a people's runoff (over its coastal shelf)
+  reach: 4                 # shelf tiles this far from a coastal town take its runoff
+  decay: 0.7
+fish_range: [0.5, 1.5]     # bounds of a people's local fishing factor

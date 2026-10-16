@@ -1,0 +1,98 @@
+# Daisy species as entities. Keys match daisyworld.yaml.
+species:
+  - key: white
+    name: White daisies
+    lore: Pale-petalled daisies that reflect sunlight and run cool.
+  - key: black
+    name: Black daisies
+    lore: Dark-petalled daisies that drink sunlight and run warm.
+
+# Fast acts: one behaviour per tick, applied as multipliers on growth and death.
+behaviours:
+  - {key: spread, label: spread aggressively, growth: 1.25, death: 1.15, push: 'grow faster and die faster; spends your seed bank'}
+  - {key: hold, label: hold steady, growth: 1.0, death: 1.0}
+  - {key: dormant, label: go dormant, growth: 0.4, death: 0.5, push: 'wait it out as seed: shrink slowly, refill the bank'}
+  # The strong move: grow without restraint, crowding every
+  # other species out; one colour everywhere swings the climate hard.
+  - {key: smother, label: smother every meadow (crowd out all other life), growth: 2.2, death: 0.9, push: 'take the meadows fast for two or three turns, then the seed bank is spent'}
+
+# Seed banks (0 to 1): spreading spends them, holding and dormancy refill
+# them; an empty bank exhausts a spreading species, and a full enough one
+# lets a nearly vanished species sprout again.
+seed_bank:
+  start: 0.6
+  capacity: 1.0
+  change: {spread: -0.12, hold: 0.04, dormant: 0.15, smother: -0.25}
+  exhausted: 0.15
+  exhausted_growth: 1.0
+  exhausted_death: 1.3
+  reseed: {below_cover: 0.02, amount: 0.02, cost: 0.4}   # below: share of land
+
+# Genome: trait levels 0-10 with upkeep. Every level costs
+# growth; total levels are capped by the budget, so gains are trade-offs.
+genome:
+  budget: 12
+  initial: {tolerance: 2, vigor: 2, hardiness: 2}
+  tolerance_per_level: 0.12   # niche width: growth_width / (1 + k * level)
+  vigor_per_level: 0.05       # growth * (1 + k * level)
+  hardiness_per_level: 0.04   # death * (1 - k * level)
+  upkeep_per_level: 0.02      # growth * (1 - k * total levels)
+
+# Slow mind: a pubsub.Publisher around QuestionOfRecentMemories. Its answer
+# lands `latency_ticks` later (sim-time) and is phased in by the World GM.
+adaptation:
+  latency_ticks: 3
+  phase_in_ticks: 2
+  optimum_step_c: 1.5
+  albedo_step: 0.02
+  optimum_range_c: [5.0, 45.0]
+  albedo_range: [0.1, 0.9]
+  # Each optimum shift narrows tolerance: growth_width *= 1 + tolerance_cost.
+  tolerance_cost: 0.04
+  options:
+    - {key: warmer, label: warmer optimum, optimum: 1}
+    - {key: cooler, label: cooler optimum, optimum: -1}
+    - {key: paler, label: paler petals, albedo: 1}
+    - {key: darker, label: darker petals, albedo: -1}
+    - {key: tolerant, label: broader tolerance, tolerance: 1}
+    - {key: vigorous, label: more vigor, vigor: 1}
+    - {key: hardy, label: more hardiness, hardiness: 1}
+    - {key: none, label: no change}
+  question: >-
+    Given the recent selection pressures on {agent_name}, which single
+    heritable shift would help them most over the next generations? Every
+    trait level costs growth and the genome has a budget, so a gain may cost
+    another trait. Answer with exactly one of: warmer optimum, cooler optimum,
+    paler petals, darker petals, broader tolerance, more vigor, more
+    hardiness, no change. Then give one short reason.
+
+# Speciation: a species whose range spans very different
+# climates for several ticks splits; its outlying populations found a new
+# species, which the slow model names and the World GM adds as an entity.
+speciation:
+  split_threshold_c: 6.0   # temperature spread between cold and warm halves of the range
+  split_ticks: 4           # consecutive ticks above the threshold
+  earliest_tick: 8         # ignore the settling of the initial uniform covers
+  max_species: 5           # daisy species alive at once, founders included
+  min_cover: 0.05          # only established species split
+  albedo_shift: 0.06       # cold founders darken, warm founders pale
+  founder_share: 0.6       # share of the outlying populations that leaves
+  naming_prompt: >-
+    A new species has evolved from the {parent} in the {where} of a young
+    planet, where they live at about {temp:.0f} C. Give it a short common name
+    of two or three words ending in "{noun}", and one line of lore. Answer
+    exactly as: Name: <name>. Lore: <one sentence>.
+
+# Wake-ups: in scenarios with `wakeups: true`, a species acts
+# only when one of these topics carries news ({key} is its key) or when its
+# timer expires. bio.alerts.<key> is a deadband alarm on its meadows' local
+# temperature, published by a reflex without any language model call.
+wakeups:
+  prefixes: [geo.events, 'diplomacy.{key}.', 'bio.alerts.{key}']
+  timer_ticks: 4
+  alert_topic: 'bio.alerts.{key}'
+  alarms:
+    - {topic: bio.census, path: 'local_temp_c.{key}', threshold: 5.0,
+       text: 'The {name} meadows are now at {value:.0f} C.'}
+    - {topic: bio.census, path: 'cover.{key}', threshold: 0.04,
+       text: 'The {name} now cover {value:.0%} of the planet.'}

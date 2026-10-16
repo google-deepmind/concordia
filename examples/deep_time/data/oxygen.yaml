@@ -1,0 +1,18 @@
+# Oxygen and methane: the Great Oxidation. Units: oxygen in
+# PAL (fraction of the present atmospheric level), methane in relative units.
+initial: {oxygen: 0.0001, methane: 1.0, reductant: 0.8}
+oxygen_per_cover: 1.0         # oxygenic photosynthesis per unit cover per tick
+methane_per_cover: 1.6        # methanogenesis per unit cover per tick
+reductant_sink_rate: 1.0      # fraction of oxygen reduced (iron, volcanic gas) per tick, capped by stock
+reductant_supply: 0.004       # volcanic reductants per tick
+oxidation_rate: 0.4           # methane oxidised per (methane * oxygen) per tick
+methane_lifetime_loss: 0.25   # photolysis per tick
+oxygen_loss: 0.05             # weathering of fresh rock per tick
+respiration_per_cover: 0.5    # aerobes breathe oxygen per unit cover per tick
+methane_forcing: 30.0         # W m^-2 per sqrt(methane unit)
+toxic_oxygen: 0.03            # anaerobes: growth * max(0, 1 - O2 / toxic)
+aerobic_half: 0.02            # aerobes: growth * O2 / (O2 + half)
+ozone:                        # oxygen makes an ozone shield against ultraviolet
+  half_oxygen: 0.02           # shield = O2 / (O2 + half): half shielded at 0.02 PAL
+  uv_penalty: 0.4             # growth x (1 - penalty x UV); UV = (1 - shield) x sunlight
+  alert_shield: 0.5           # bio.events announces the shield when it passes this

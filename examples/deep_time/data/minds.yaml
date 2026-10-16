@@ -1,0 +1,55 @@
+# What each kind of minds costs, how fast it plays and how often its games
+# are won, measured on this Mac with the skilled mock in the
+# main role and the minds in every other role and voice. A server whose own
+# ledger holds three or more games of a kind shows its own measure instead.
+measured:
+  mock: {usd_per_game: 0.0, seconds_per_turn: 0.05, wins: 0.81, games: 176,
+         note: 'the 16-seed play audit of every scenario (cycle 130)'}
+  together: {usd_per_game: 0.20, seconds_per_turn: 3.1, wins: 0.55, games: 11,
+             note: 'every scenario on the phone path (cycle 124)'}
+  ollama: {usd_per_game: 0.0, seconds_per_turn: 22.8, wins: 0.67, games: 3,
+           note: 'herds, great oxidation, savanna fire on the phone path (cycle 119)'}
+
+# The minds in each world: the mock from the 16-seed play
+# audit (cycle 135) and MOCK runs; Together and Ollama from the games played
+# on the phone's path on the test servers (PROG/minds_data.py).
+by_scenario:
+  archipelago:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0397, wins: 1.0, games: 16}
+    together: {usd_per_game: 0.066, wins: 1.0, games: 1}
+  daisyworld:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0621, wins: 0.875, games: 16}
+    together: {usd_per_game: 0.122, wins: 1.0, games: 2, seconds_per_turn: 3.3}
+    ollama: {usd_per_game: 0.0, wins: 1.0, games: 2}
+  fire_and_iron:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0715, wins: 0.875, games: 16}
+    together: {usd_per_game: 0.513, wins: 0.0, games: 2}
+  great_acceleration:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0752, wins: 1.0, games: 16}
+    together: {usd_per_game: 0.612, wins: 0.0, games: 2}
+  great_migration:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0376, wins: 0.5, games: 16}
+    together: {usd_per_game: 0.086, wins: 0.0, games: 1}
+  great_oxidation:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.05, wins: 1.0, games: 16}
+    together: {usd_per_game: 0.125, wins: 1.0, games: 2}
+    ollama: {usd_per_game: 0.0, wins: 1.0, games: 1}
+  herds:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.068, wins: 0.562, games: 16}
+    together: {usd_per_game: 0.263, wins: 1.0, games: 4, seconds_per_turn: 3.8}
+    ollama: {usd_per_game: 0.0, wins: 0.5, games: 2}
+  light_delay:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0345, wins: 0.875, games: 16}
+    together: {usd_per_game: 0.163, wins: 0.0, games: 2}
+    ollama: {usd_per_game: 0.0, wins: 0.0, games: 1}
+  sandbox:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0789, wins: 0.562, games: 16}
+    together: {usd_per_game: 0.478, wins: 0.0, games: 2}
+  savanna_fire:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0363, wins: 1.0, games: 16}
+    together: {usd_per_game: 0.091, wins: 1.0, games: 2}
+    ollama: {usd_per_game: 0.0, wins: 1.0, games: 1}
+  snowball:
+    mock: {usd_per_game: 0.0, seconds_per_turn: 0.0296, wins: 0.938, games: 16}
+    together: {usd_per_game: 0.006, wins: 1.0, games: 3}
+    ollama: {usd_per_game: 0.0, wins: 1.0, games: 2}

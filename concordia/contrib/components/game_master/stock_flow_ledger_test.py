@@ -92,6 +92,20 @@ class LedgerTest(absltest.TestCase):
         ledger.max_batches('A', sfl.Recipe('sun', {}, {'e': 1})), float('inf')
     )
 
+  def test_limiting_input_is_the_bottleneck(self):
+    ledger = sfl.Ledger()
+    ledger.deposit('A', 'ore', 7)
+    ledger.deposit('A', 'charcoal', 2)
+    # Two batches' worth of charcoal, three and a half of ore.
+    self.assertEqual(ledger.limiting_input('A', BLOOMERY), 'charcoal')
+    ledger.deposit('A', 'charcoal', 10)
+    self.assertEqual(ledger.limiting_input('A', BLOOMERY), 'ore')
+    # Nothing in stock: the first input in the recipe's order.
+    self.assertEqual(ledger.limiting_input('B', BLOOMERY), 'ore')
+    self.assertIsNone(
+        ledger.limiting_input('A', sfl.Recipe('sun', {}, {'e': 1}))
+    )
+
   def test_links_capacity_and_latency(self):
     ledger = sfl.Ledger()
     ledger.add_link(sfl.Link('river', 'A', 'B', 'iron', capacity=5, latency=2))

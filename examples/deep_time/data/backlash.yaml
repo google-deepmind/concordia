@@ -1,0 +1,22 @@
+# Gaia's backlash: the planet's answer to pollution, like
+# Factorio's biters. Industry pollutes its regions; forests (and, less,
+# grass) absorb it; what lingers raises "pressure", and pressure past the
+# threshold brings pests or plague down on the people living there.
+pollution:
+  per_soot: 2.0             # pollution per unit of soot
+  per_fossil_co2: 0.5       # per unit of fossil CO2
+  per_slag: 0.3             # per unit of slag made
+  decay: 0.15               # share that disperses each tick
+  spread: 0.1               # share that drifts to neighbouring regions
+  absorb_forest: 0.5        # share absorbed per tick under full forest cover
+  absorb_grass: 0.15        # share absorbed per tick under full grass cover
+pressure:
+  per_pollution: 0.06       # pressure per unit of lingering pollution, per tick
+  relief: 0.06              # pressure that eases each tick
+  threshold: 1.0            # a region at or above this strikes back
+  after_attack: 0.4         # pressure left after an attack
+attacks:
+  - {kind: pests, weight: 0.6, harvest_loss: 0.4, ticks: 2,
+     text: 'Locusts and blight sweep the fields of the {name}.'}
+  - {kind: plague, weight: 0.4, deaths: 0.08, ticks: 0,
+     text: 'A plague runs through the smoky towns of the {name}.'}

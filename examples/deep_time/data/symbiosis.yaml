@@ -1,0 +1,15 @@
+# Symbiosis: species negotiate mutualism pacts.
+# A pact boosts each partner's growth where both share land:
+#   growth *= 1 + bonus * partner / (partner + half_saturation)
+bonus: 0.2
+half_saturation: 0.1
+duration_ticks: 10         # pacts lapse unless renegotiated
+answer_latency_ticks: 2    # the pact mind's deliberation (sim-time)
+proposal: >-
+  {proposer} propose a mixed-meadows pact to the {partner}: for
+  {duration} ticks, both species grow up to {bonus:.0%} faster wherever they
+  share land.
+question: >-
+  {proposal} Should {agent_name} accept? Accepting helps both species wherever
+  you grow together, including a rival for the same ground. Answer "accept" or
+  "decline", then give one short reason.

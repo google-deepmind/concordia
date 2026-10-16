@@ -1,0 +1,11 @@
+# New Ararat on tiles: the Light Delay colony's own world,
+# frozen at landfall, thawing as the colonists warm its sky.
+geography: {generator: continents, land: 0.55, continents: 4, seed_offset: 9000}
+gradient_c: 28.0           # equator warmer and poles colder than the sky's mean
+freeze_c: -8.0             # a region starts to ice over below this
+ramp_c: 14.0               # fully frozen this far below freeze_c
+colonists_per_dome: 6.0    # one dome per this many colonists (and the landing)
+max_domes: 8
+mine_reach: 2              # tiles around a mining site whose ice it can work
+mine_factor: [0.5, 1.5]    # bounds of the ice mine's yield against the landing site's
+colour: {light: [214, 110, 40], dark: [255, 168, 90]}

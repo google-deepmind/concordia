@@ -1,0 +1,17 @@
+# Oceans. Sea level follows land ice; pH follows ocean carbon.
+sea_level_per_land_ice: -120.0   # metres per unit of planet area under land ice
+ph_reference: 8.2
+ph_per_e_fold_carbon: -0.35      # pH change per e-fold of ocean carbon
+acid_alert_ph: 7.8               # below this, ocean.alerts fires
+continents:                      # seeded continent generator
+  blob_width_sectors: 1.3        # continent radius in grid cells
+  coast_fraction: 0.5            # land fraction of coastal regions
+dead_zones:                      # fertiliser runoff starves coastal waters of oxygen
+  flushing: 0.25                 # share of the nutrient load the seas clear per tick
+  half_load: 4.0                 # load at which dead zones reach half their maximum
+  max_share: 0.7                 # most of the coastal seas that can go hypoxic
+  warm_reference_c: 15.0         # sea surface temperature with no warmth penalty
+  warm_per_c: 0.04               # warmer seas hold less oxygen: +4% dead zone per C
+  alert_share: 0.15              # ocean.alerts fires when dead zones pass this
+marine_life:                     # the seas' life counts toward biodiversity (with fisheries)
+  weight: 0.25                   # biodiversity x (1 - weight x (1 - sea health))
