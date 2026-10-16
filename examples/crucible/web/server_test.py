@@ -14,6 +14,7 @@
 
 """Tests for the phone page's server: a whole relay game over HTTP."""
 
+import datetime
 import json
 import os
 import tempfile
@@ -22,6 +23,8 @@ import urllib.error
 import urllib.request
 
 from absl.testing import absltest
+from examples.crucible import campaign
+from examples.crucible import toys
 from examples.crucible.web import app as server_lib
 
 
@@ -140,7 +143,8 @@ class ServerTest(absltest.TestCase):
     )
     game = self.wait_for_request()
     self.assertTrue(game['daily'])
-    self.assertEqual(game['scenario'], 'voyage')
+    today = campaign.daily(toys.load_data('orders'), datetime.date.today())
+    self.assertEqual(game['scenario'], today['scenario'])
 
   def test_paid_minds_only_within_budget(self):
     games = server_lib.Games(

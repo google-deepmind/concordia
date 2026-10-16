@@ -489,7 +489,7 @@ scenarios:
 campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
-daily: {scenario: voyage, seeds: 997}
+daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}
 
 # The mock's reading of orders (the lookup-table floor).
 lexicon:

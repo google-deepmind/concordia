@@ -167,7 +167,7 @@ function renderMenu(state) {
     }
     if (c.daily) {
       const b = document.createElement('button');
-      b.textContent = 'Daily ' + c.daily.date + ' ' + stars(c.daily.stars);
+      b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '') + ' ' + stars(c.daily.stars);
       b.onclick = () => start({toy: c.toy, daily: true}); box.appendChild(b);
     }
   }

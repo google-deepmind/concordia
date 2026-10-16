@@ -46,6 +46,17 @@ class CampaignTest(absltest.TestCase):
     self.assertFalse(progress.record('one_hand', 1))
     self.assertEqual(campaign.Progress(path).snapshot(), {'one_hand': 2})
 
+  def test_daily_rotates_through_the_catharsis_scenes(self):
+    day = datetime.date(2026, 10, 16)
+    scenes = [
+        campaign.daily(self.data, day + datetime.timedelta(days=i))['scenario']
+        for i in range(4)
+    ]
+    self.assertCountEqual(
+        scenes, ['voyage', 'crossing', 'all_hands', 'long_night']
+    )
+    self.assertTrue(campaign.daily(self.data, day)['title'])
+
   def test_daily_is_the_same_all_day_and_changes_by_day(self):
     day = datetime.date(2026, 10, 16)
     self.assertEqual(

@@ -60,11 +60,29 @@ def is_open(
 
 
 def daily(data: Mapping[str, Any], day: datetime.date) -> dict[str, Any]:
-  """The day's challenge: a scene and a seed from the date."""
+  """The day's challenge: a scene and a seed from the date.
+
+  The scene rotates through `daily.scenarios` day by day (or is always
+  `daily.scenario`); the seed shifts its events.
+
+  Args:
+    data: The toy's data.
+    day: The date.
+
+  Returns:
+    The scenario, seed and date.
+  """
   spec = data.get('daily', {})
   seeds = int(spec.get('seeds', 997))
+  rotation = list(spec.get('scenarios', ()))
+  scenario = (
+      rotation[day.toordinal() % len(rotation)]
+      if rotation
+      else spec.get('scenario', data.get('default_scenario'))
+  )
   return {
-      'scenario': spec.get('scenario', data.get('default_scenario')),
+      'scenario': scenario,
+      'title': data.get('scenarios', {}).get(scenario, {}).get('title', ''),
       'seed': day.toordinal() % seeds,
       'date': day.isoformat(),
   }
