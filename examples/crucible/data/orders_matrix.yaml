@@ -97,12 +97,12 @@ reading:
     - {operator: named, property: contrary, law: a clause naming the contrary is reversed for them alone; the others read their own clauses (cycle 15), golden: [g31, g32]}
     - {operator: silence, property: contrary, law: with no clause that applies the contrary rest (cycle 15), golden: [g33]}
     - {operator: someone, property: bold, law: the bold take up a clause for someone, first in crew order on a tie (cycle 18), golden: [g34], test: test_someone_goes_to_the_freshest_willing}
-    - {operator: someone, property: cautious, law: the cautious take it up when they are the freshest willing, or when the one before them is named elsewhere; otherwise they read the other clauses (cycle 18), golden: [g35, g36, g39]}
+    - {operator: someone, property: cautious, law: the cautious take it up when they are the freshest willing, or when the one before them is named elsewhere; otherwise they read the other clauses (cycle 18), golden: [g35, g36, g39], test: test_preview_shows_who_takes_up_someone}
     - {operator: someone, property: worn, law: a worn-out cautious member leaves it to the others; a worn-out bold one still takes it up (cycle 18), golden: [g37]}
     - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
     - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
     - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
-    - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40]}
+    - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40], test: test_no_one_willing_means_no_one_does_it}
 
 # Golden cases: one situation, one member, the actions the laws allow.
 # `hard` cases follow from a law a model must not break (names, conditions,

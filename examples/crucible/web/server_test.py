@@ -95,6 +95,18 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(game['scenario'], 'free')
     self.assertIn('Turn 1 of 40', game['request']['question'])
 
+  def test_preview_shows_who_takes_up_someone(self):
+    self.call('/api/start', {'toy': 'orders', 'scenario': 'free'})
+    self.wait_for_request()
+    preview = self.call(
+        '/api/preview', {'text': 'Someone keep watch; everyone else build.'}
+    )
+    predicted = preview['predicted']
+    self.assertEqual(predicted['actions']['Ash'], 'watch')  # first on a tie
+    self.assertEqual(predicted['why']['Ash'], 'Someone keep watch')
+    self.assertEqual(predicted['actions']['Bea'], 'build')
+    self.assertEqual(predicted['why']['Bea'], 'everyone else build')
+
   def test_campaign_gates_chapters_and_records_stars(self):
     state = self.call('/api/state')
     chapters = state['campaign']['chapters']
