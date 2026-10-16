@@ -410,12 +410,8 @@ class OrdersToy(base.Toy):
         condition=self.condition(ship, member),
     )
     if timed:
-      age = turn - ship.order_turn
-      statement += (
-          'This order was given this turn.\n'
-          if age <= 0
-          else f'This order was given {age} turn{"s" if age > 1 else ""} ago.\n'
-      )
+      # Counted from 1, so "for N turns" has no off-by-one to argue about.
+      statement += f"This is the order's turn {turn - ship.order_turn + 1}.\n"
     if someone:
       who = self.volunteer(ship, turn, order)
       if who is None:

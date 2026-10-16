@@ -36,7 +36,7 @@ _STORES = re.compile(
     r'Stores: (\d+) supplies; hull damage (\d+); project (\d+) of (\d+)\.'
     r' \w+ is (worn out|fresh)\.'
 )
-_AGE = re.compile(r'This order was given (?:this turn|(\d+) turns? ago)\.')
+_AGE = re.compile(r"This is the order's turn (\d+)\.")
 _TIMED_ORDER = re.compile(
     r'^(.*?)\s+for\s+(\w+)\s+turns?\s*[,;.]?\s*(?:then\s+(.*))?$',
     re.IGNORECASE,
@@ -58,7 +58,7 @@ def _timed(order: str, prompt: str) -> str:
   found, timed = _AGE.search(prompt), _TIMED_ORDER.match(order.strip())
   if not (found and timed):
     return order
-  age = int(found.group(1) or 0)
+  age = int(found.group(1)) - 1
   word = timed.group(2).lower()
   turns = int(word) if word.isdigit() else _NUMBERS.get(word, 1)
   return timed.group(1) if age < turns else (timed.group(3) or '')

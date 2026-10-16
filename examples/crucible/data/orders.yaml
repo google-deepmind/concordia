@@ -123,10 +123,10 @@ relaying:
 # and the order's age go into a reading only when the order says it.
 timing:
   law: >-
-    An order "do this for N turns, then that" means this during the first N
-    turns after it is given (counting the turn it is given as the first),
-    and that afterwards; with nothing after "then", nothing in it applies
-    once the N turns are over.
+    An order "do this for N turns, then that" means this on the order's
+    turns 1 to N (its turn 1 is the turn it is given) and that from its turn
+    N+1 on; with nothing after "then", nothing in it applies from its turn
+    N+1.
 
 # The menu, in order. Effects are data read by one law (rules.CrewRule):
 #   needs:      stock an action spends; without it the action does nothing
