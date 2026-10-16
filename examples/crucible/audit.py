@@ -80,6 +80,11 @@ def audit() -> dict[str, Any]:
           'hard_golden_cases': sum(
               bool(c.get('hard')) for c in matrix['golden']
           ),
+          # Cells checked both ways: a model's reading and the rule's test.
+          'doubly_evidenced_cells': sum(
+              bool(c.get('test') and c.get('golden'))
+              for c in [*matrix['cells'], *reading['cells']]
+          ),
       },
       'problems': problems,
   }

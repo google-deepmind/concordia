@@ -30,6 +30,7 @@ effects).
 from collections.abc import Mapping
 import copy
 import random
+import re
 from typing import Any
 
 from concordia.document import interactive_document
@@ -65,6 +66,17 @@ _OTHERWISE = {
     'rest': 'rests',
     'watch': 'keeps watch',
 }
+
+
+def clause_text(answer: str) -> str:
+  """A model's answer to the reading question, as a short quote or 'none'."""
+  line = next((l.strip() for l in answer.splitlines() if l.strip()), '')
+  line = re.sub(r'^(?:answer|clause)\s*:\s*', '', line, flags=re.IGNORECASE)
+  if not line or line.lower().strip('."\' ').startswith('none'):
+    return 'none'
+  quoted = re.search(r'["“]([^"”]+)["”]', line)
+  text = quoted.group(1) if quoted else line
+  return text[:80].rstrip()
 
 
 def habits(name: str, props: Mapping[str, Any]) -> str:
@@ -181,6 +193,22 @@ class OrdersToy(base.Toy):
 
   def choose(self, ship: Ship, member: str, turn: int) -> str:
     """The model's reading of what `member` does under the order (cached)."""
+    return self.reading(ship, member, turn)[0]
+
+  def reading(self, ship: Ship, member: str, turn: int) -> tuple[str, str]:
+    """What `member` does under the order, and the clause they acted on.
+
+    The clause is the model's own answer to the reading question (quoted
+    from the order, or 'none' when only their temperament applies).
+
+    Args:
+      ship: The ship.
+      member: The crew member.
+      turn: The turn being read.
+
+    Returns:
+      (action, clause), cached by the whole situation.
+    """
     temperament = self._data['crew'][member]['temperament']
     props = self._data['temperaments'][temperament]
     statement = CHOICE_STATEMENT.format(
@@ -201,17 +229,19 @@ class OrdersToy(base.Toy):
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)
       # Reading first: which clause applies, then what to do about it.
-      doc.open_question(
+      clause = doc.open_question(
           CLAUSE_QUESTION.format(name=member),
           max_tokens=60,
           temperature=float(self._data.get('reading_temperature', 0.0)),
       )
-      self._cache[statement] = doc.multiple_choice_question(
+      idx = doc.multiple_choice_question(
           CHOICE_QUESTION.format(name=member),
           [self._data['actions'][a]['text'] for a in self.menu],
           randomize_choices=False,
       )
-    return self.menu[self._cache[statement]]
+      self._cache[statement] = (idx, clause_text(clause))
+    idx, clause = self._cache[statement]
+    return self.menu[idx], clause
 
   # ---- turn order and moves ---------------------------------------------
 
@@ -276,12 +306,12 @@ class OrdersToy(base.Toy):
     # are independent); the rule then applies them in the fixed crew order.
     if getattr(self._model, 'parallel_safe', False):
       readings = concurrency.run_tasks({
-          member: lambda m=member: self.choose(ship, m, turn)
+          member: lambda m=member: self.reading(ship, m, turn)
           for member in self.crew
       })
     else:
-      readings = {m: self.choose(ship, m, turn) for m in self.crew}
-    chosen = self.crew_rule.act(ship, kind, lambda member: readings[member])
+      readings = {m: self.reading(ship, m, turn) for m in self.crew}
+    chosen = self.crew_rule.act(ship, kind, lambda member: readings[member][0])
     steps.append(
         ' '.join(
             f'{m} {self._data["actions"][chosen[m]]["does"]}.'
@@ -300,7 +330,12 @@ class OrdersToy(base.Toy):
         f'{ship.damage}/{self._data["wreck_at"]}, supplies {ship.supplies}, '
         f'command {ship.points}.'
     )
-    ship.log.append({'turn': turn, 'event': kind, 'actions': chosen})
+    ship.log.append({
+        'turn': turn,
+        'event': kind,
+        'actions': chosen,
+        'why': {m: readings[m][1] for m in self.crew},
+    })
     delta = {
         'progress': float(ship.progress - before[0]),
         'damage': float(ship.damage - before[1]),
@@ -360,6 +395,7 @@ class OrdersToy(base.Toy):
                     'worn' if self.crew_rule.worn(ship, member) else 'fresh'
                 ),
                 'last': (last or {}).get('actions', {}).get(member),
+                'why': (last or {}).get('why', {}).get(member),
             }
             for member in self.crew
         ],

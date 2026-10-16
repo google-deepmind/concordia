@@ -5,7 +5,7 @@
 # ledger kind has a look, and that no two share a glyph or a word.
 
 title: Twelve Words
-tagline: One standing order. Three crew members read it three ways.
+tagline: One standing order. Every crew member reads it their own way.
 
 # Colour tokens, light and dark. The page defines them once as CSS variables.
 palette:

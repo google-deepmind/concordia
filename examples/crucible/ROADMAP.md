@@ -67,11 +67,12 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 | 2 (cycle 5) | contrib `blocking_input` (a `HumanInput` reader answered from another thread) | same PR, second commit |
 | 3 (cycle 9) | contrib `language_models/reasoned_choice` (multiple choice through a short reason) | same PR, third commit |
 | 4 (cycle 15) | `ReasonedChoice`: a temperature for the reasoned reply; the option's words win over a slipped letter | same PR, two commits |
+| 5 (cycle 17) | `OllamaLanguageModel(think=...)`: a thinking model's terminators apply to its answer, not its thinking (open questions on qwen3 came back empty) | same PR |
 
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. Keep deepening: a third arc (a new temperament or crew dynamics); live minds on the page; the owner's games.
+2. Keep deepening: crew dynamics (members who answer each other's actions); the commander learning from the readings shown (cycle 17) — e.g. a scene where the order must be re-worded after a misreading; the owner's games.
 
 ## Backlog
 

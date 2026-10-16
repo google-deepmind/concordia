@@ -97,6 +97,29 @@ class ViewTest(absltest.TestCase):
             f'turn {turn_ahead["turn"]}: {turn_ahead["event"]}', prompt
         )
 
+  def test_each_member_says_which_clause_they_acted_on(self):
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), toys.load_data('orders'))
+    toy.resolve('Commander', 'Bea, keep watch; everyone else build.')
+    whys = {m['name']: m['why'] for m in toy.view()['crew']}
+    self.assertEqual(whys['Bea'], 'Bea, keep watch')
+    self.assertEqual(whys['Ash'], 'everyone else build')
+    self.assertEqual(toy_lib.clause_text('None.'), 'none')
+    self.assertEqual(toy_lib.clause_text('Answer: None.'), 'none')
+    self.assertEqual(
+        toy_lib.clause_text('"Build; repair leaks." applies'),
+        'Build; repair leaks.',
+    )
+
+  def test_a_conditional_clause_is_read_only_while_it_holds(self):
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), toys.load_data('orders'))
+    ship = toy.world
+    ship.order = 'Build; if a leak opens, repair it.'
+    self.assertEqual(toy.reading(ship, 'Cy', 1), ('build', 'Build'))
+    ship.leak = True
+    self.assertEqual(
+        toy.reading(ship, 'Cy', 1), ('repair', 'if a leak opens, repair it')
+    )
+
   def test_the_view_hides_what_was_not_seen(self):
     toy = toy_lib.OrdersToy(model_setup.mock_model(), toys.load_data('orders'))
     self.assertTrue(all(a['event'] is None for a in toy.view()['ahead']))

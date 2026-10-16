@@ -112,8 +112,13 @@ def build_model(
   if mode == 'mock':
     return mock_model()
   if mode == 'ollama':
-    base = language_models.language_model_setup(
-        api_type='ollama', model_name=model_name or DEFAULT_OLLAMA
+    # Thinking kept apart: left in the reply, a newline terminator cut it
+    # off and open questions came back empty; turned off, qwen3:8b broke 6
+    # of 17 hard golden cases (cycle 17).
+    from concordia.contrib.language_models.ollama import ollama_model  # pylint: disable=g-import-not-at-top
+
+    base = ollama_model.OllamaLanguageModel(
+        model_name or DEFAULT_OLLAMA, think=True
     )
   elif mode == 'together':
     key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(

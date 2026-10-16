@@ -38,7 +38,8 @@ _STORES = re.compile(
 )
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
-_CLAUSE = re.compile(r'[.;]|\b(?:otherwise|else|then)\b')
+_SENTENCE = re.compile(r'[.;]')
+_CLAUSE = re.compile(r'\b(?:otherwise|else|then)\b', re.IGNORECASE)
 
 
 class OrdersMock:
@@ -63,7 +64,13 @@ class OrdersMock:
   def read(
       self, order: str, now: set[str], member: str | None = None
   ) -> tuple[list[str], bool, list[str]]:
-    """What the order asks of `member` now: wanted, by name, forbidden.
+    """What the order asks of `member` now: wanted, by name, forbidden."""
+    return self.read_clauses(order, now, member)[:3]
+
+  def read_clauses(
+      self, order: str, now: set[str], member: str | None = None
+  ) -> tuple[list[str], bool, list[str], list[str]]:
+    """What the order asks of `member` now, and the clauses that ask it.
 
     Clauses that name crew members apply to them alone and come first; a
     conditional clause applies only while its condition holds; an action
@@ -76,14 +83,22 @@ class OrdersMock:
 
     Returns:
       The actions asked (in the order named, without repeats), whether they
-      come from a clause that names the member, and the actions forbidden.
+      come from a clause that names the member, the actions forbidden, and
+      the clauses (as written) that asked or forbade them.
     """
     me = (member or '').lower()
     buckets = {(True, True): [], (True, False): [], (False, True): [],
                (False, False): []}  # fmt: skip
     forbidden = {key: [] for key in buckets}
-    for clause in _CLAUSE.split(order.lower()):
-      words = _WORD.findall(clause or '')
+    sources = {key: [] for key in buckets}
+    parts = [
+        (sentence, part)
+        for sentence in _SENTENCE.split(order)
+        for part in _CLAUSE.split(sentence)
+    ]
+    for written, part in parts:
+      clause = part.lower()
+      words = _WORD.findall(clause)
       if not words:
         continue
       names = self._crew & set(words)
@@ -118,14 +133,17 @@ class OrdersMock:
       if key is not None:
         buckets[key].extend(verbs)
         forbidden[key].extend(nots)
+        if verbs or nots:
+          sources[key].append(written.strip())
     for key in ((True, True), (True, False), (False, True), (False, False)):
       if buckets[key] or forbidden[key]:
         return (
             list(dict.fromkeys(buckets[key])),
             key[0],
             list(dict.fromkeys(forbidden[key])),
+            list(dict.fromkeys(sources[key])),
         )
-    return [], False, []
+    return [], False, [], []
 
   def makes_sense(
       self, action: str, supplies: int, damage: int, leak: bool, storm: bool
@@ -243,9 +261,5 @@ class OrdersMock:
     stores = _STORES.search(prompt)
     worn = bool(stores and stores.group(5) == 'worn out')
     now = self.conditions_now(turn.group(1), worn)
-    wanted, _ = self.ordered(order.group(1), now, who.group(1))
-    return (
-        f'"{order.group(1)}" asks {who.group(1)} to {wanted[0]}'
-        if wanted
-        else 'none'
-    )
+    _, _, _, clauses = self.read_clauses(order.group(1), now, who.group(1))
+    return f'"{"; ".join(clauses)}"' if clauses else 'none'

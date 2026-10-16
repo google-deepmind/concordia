@@ -39,6 +39,7 @@ cells:
   - {from: watch, to: hull, by: a squall seen coming is weathered without damage (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
   - {from: fatigue, to: watch, by: a worn-out cautious watcher rests and the watch lapses; the bold and the literal keep watching (cycle 12), test: test_arc_two_twist_breaks_the_watch_habit}
   - {from: watch, to: project, by: in Lookout the forecast itself is the goal (cycle 12), test: test_arc_two_isolate_and_develop}
+  - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
 # that resolves the cell, and the golden cases that check it.
@@ -66,11 +67,11 @@ reading:
     - {operator: directive, property: leak, law: the cautious repair an open leak unless named otherwise; the literal follow the order, golden: [g13, g14]}
     - {operator: directive, property: worn, law: the worn-out cautious rest; the bold keep working, golden: [g15, g16]}
     - {operator: directive, property: no_supplies, law: the sensible gather instead of building with nothing; the literal build anyway, golden: [g18, g19]}
-    - {operator: conditional, property: leak, law: a clause conditioned on a leak applies while one is open, golden: [g5]}
+    - {operator: conditional, property: leak, law: a clause conditioned on a leak applies while one is open, and is the clause the member reports (cycle 17), golden: [g5], test: test_a_conditional_clause_is_read_only_while_it_holds}
     - {operator: conditional, property: quiet, law: a conditional clause whose condition does not hold gives way to the plain clauses, golden: [g6]}
     - {operator: conditional, property: storm, law: an "unless" clause applies only while its condition does not hold, golden: [g20, g21]}
     - {operator: named, property: cautious, law: a clause naming a member applies to them and comes first, golden: [g7]}
-    - {operator: named, property: bold, law: a member not named in a clause reads only the other clauses, golden: [g8]}
+    - {operator: named, property: bold, law: a member not named in a clause reads only the other clauses, and reports the clause meant for everyone else (cycle 17), golden: [g8], test: test_each_member_says_which_clause_they_acted_on}
     - {operator: named, property: literal, law: a literal member not named anywhere does what they do otherwise, golden: [g9]}
     - {operator: watch, property: storm, law: an order to keep watch is obeyed in any weather, golden: [g17]}
     - {operator: silence, property: literal, law: with no clause that applies the literal rest, golden: [g10]}
