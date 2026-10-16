@@ -83,6 +83,33 @@ python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b --rep
 Each run writes a folder with `log.html` (Concordia's `SimulationLog`),
 `summary.json` (outcome and every move's receipt) and `moves.csv`.
 
+## What building it taught
+
+Notes for anyone building a game on Concordia this way (details in
+`DESIGN.md`):
+
+- **Let the model judge and the ledger account.** Language models read the
+  order for each member; deterministic rule components (`toys/orders/rules.py`)
+  apply the consequences. Anything that is arithmetic (prices, who is the
+  freshest volunteer) belongs to the ledger: models asked to count got it
+  wrong, models told the result read correctly (DESIGN §2k).
+- **A mock that reads by the same laws is the CI.** Every prompt the toy
+  writes, the mock answers by the written laws, so bots, balance sweeps and
+  tests run without a model and stay byte-identical across refactors.
+- **Golden sets find holes in your own rules.** Fixed situations with the
+  answers the laws allow (`golden.py`, contrib `golden_set`) showed where the
+  law text said less than the mock assumed: a clause for someone never said
+  it came first, and looked "plain" by the first law's definition (§2r).
+- **Run them twice.** Providers vary at temperature 0; hard laws were stable
+  while soft judgements moved 74-94% run to run on unchanged prompts.
+- **Thinking models need their stops applied to the answer.** With a newline
+  terminator a thinking model's open question came back empty (contrib
+  Ollama `think` option, §2j); on a CPU-only host one reading can think for
+  minutes, so give it a timeout.
+- **Make every scene say what it teaches.** Scenes list the matrix cells they
+  exercise; the audit reports any rule no scene asks a player to learn
+  (§2p).
+
 ## Files
 
 ```
