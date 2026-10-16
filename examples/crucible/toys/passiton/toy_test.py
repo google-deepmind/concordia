@@ -30,12 +30,12 @@ _DATA = toys.load_data('passiton')
 _NAIVE = {
     'straight_up': ('Keep watch.', True),
     'two_at_the_top': ('Build; keep watch.', False),
-    'beas_habit': ('Build.', False),
-    'two_jobs': ('Repair the hull; build.', False),
     'dex_at_the_top': ('Build.', False),
+    'dex_among_them': ('Build.', False),
     'dex_in_the_middle': ('Build.', False),
     'two_through_dex': ('Ash, build; Cy, keep watch.', False),
-    'dex_and_the_leak': ('Bea, build; Cy, repair the hull.', False),
+    'saying_less': ('Ash, keep watch; Cy, rest.', False),
+    'everyone_through_dex': ('Ash, build; Bea, keep watch; Cy, rest.', False),
 }
 
 
@@ -99,7 +99,7 @@ class LineTest(absltest.TestCase):
 
   def test_a_whole_game_through_the_harness(self):
     game = harness.build_game(
-        'passiton', model_setup.mock_model(), 'skilled', 0, 'two_jobs'
+        'passiton', model_setup.mock_model(), 'skilled', 0, 'saying_less'
     )
     game.play()
     self.assertEqual(game.outcome()['stars'], 3)

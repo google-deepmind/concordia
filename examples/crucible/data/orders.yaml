@@ -125,9 +125,9 @@ relaying:
       already says not, never or don't as it is
     # Pass it on (cycle 98): a true opposite, so a message can be pre-flipped.
     flips: >-
-      passes it on saying the opposite of each clause: "don't" before a
-      clause that asks for something, and a clause that says not, never or
-      don't without it
+      passes it on saying the opposite of each clause, keeping the name of
+      anyone a clause is for: "don't" before a clause that asks for
+      something, and a clause that says not, never or don't without it
   question: >-
     How does {name} pass the order on to the rest of the crew? Give only
     the words {name} says.

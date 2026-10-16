@@ -15,8 +15,8 @@
 """Bots for Pass it on: a search, a guess and silence.
 
 Candidates are messages built from the level's actions (the data's `say`)
-and the last in line's names: one plain clause, a clause for each name, or
-a plain clause with names for the rest, each part asked for or forbidden.
+and the last in line's names: an optional plain clause and clauses for any
+of the names, each part asked for or forbidden.
 The skilled bot sends the fewest-word candidate that solves the level (it
 tries them on a copy of the world); the random bot sends any candidate; the
 passive bot says nothing.
@@ -43,19 +43,15 @@ def candidates(toy: toy_lib.PassItOnToy, actor: str = '') -> list[str]:
   options = [(a, no) for a in say for no in (False, True)]
   names = toy.receivers
   out = set()
-  for a, no in options:
-    out.add(_clause(say, a, no, None))
-  for combo in itertools.product(options, repeat=len(names)):
-    out.add(
-        '; '.join(_clause(say, a, no, n) for n, (a, no) in zip(names, combo))
-    )
-  if len(names) > 1:
-    for plain in options:
-      for named in itertools.combinations(names, len(names) - 1):
-        for combo in itertools.product(options, repeat=len(named)):
-          parts = [_clause(say, *plain, None)] + [
-              _clause(say, a, no, n) for n, (a, no) in zip(named, combo)
-          ]
+  plains = [None] + options
+  for k in range(len(names) + 1):
+    for named in itertools.combinations(names, k):
+      for combo in itertools.product(options, repeat=k):
+        clauses = [_clause(say, a, no, n) for n, (a, no) in zip(named, combo)]
+        for plain in plains:
+          if plain is None and not clauses:
+            continue
+          parts = ([_clause(say, *plain, None)] if plain else []) + clauses
           out.add('; '.join(parts))
   messages = [m[0].upper() + m[1:] + '.' for m in out]
   return sorted(messages, key=lambda m: (len(m.split()), m))

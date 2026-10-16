@@ -56,28 +56,8 @@ scenarios:
     stars: {2: {max_words: 6}, 3: {max_words: 4}}
     task: Cy passes your words on, word for word, to Ash and Bea. Get Ash to build and Bea to keep watch.
     lesson: Words for everyone reach everyone. A name in front ("Bea, keep watch") gives one person their own job.
-  beas_habit:
-    beat: twist
-    title: Bea's habit
-    line: [Cy, Bea]
-    goal: {Bea: build}
-    event: leak
-    stars: {2: {max_words: 4}, 3: {max_words: 2}}
-    task: A leak has opened in the ship below. Bea always mends a leak first, unless the words name Bea for something else. Get Bea to build.
-    lesson: A habit gives way only to words that name the person.
-  two_jobs:
-    beat: catharsis
-    title: Two jobs
-    line: [Cy, [Ash, Bea]]
-    goal: {Ash: repair, Bea: build}
-    event: leak
-    stars: {2: {max_words: 7}, 3: {max_words: 5}}
-    task: The leak is still open. Get Ash to repair the hull and Bea to build, with your words going through Cy.
-    lesson: One message, two jobs, a habit to get past. Name who does what.
-
-  # Arc 2: Dex says the opposite of everything.
   dex_at_the_top:
-    beat: isolate
+    beat: twist
     title: Dex at the top
     line: [Dex]
     goal: {Dex: build}
@@ -85,8 +65,19 @@ scenarios:
     stars: {2: {max_words: 3}, 3: {max_words: 1}}
     task: Dex is at the top, and Dex does the opposite of whatever Dex is told. Get Dex to build.
     lesson: To get something from Dex, ask for the opposite.
+  dex_among_them:
+    beat: catharsis
+    title: Dex among them
+    line: [Cy, [Ash, Dex]]
+    goal: {Ash: build, Dex: build}
+    event: quiet
+    stars: {2: {max_words: 5}, 3: {max_words: 3}}
+    task: Cy passes your words, word for word, to Ash and Dex. Ash pushes the work; Dex does the opposite of what Dex is told. Get them both to build.
+    lesson: One plain word for everyone, and a named exception for the one who reads it backwards.
+
+  # Arc 2: Dex in the middle, saying the opposite of every part.
   dex_in_the_middle:
-    beat: develop
+    beat: isolate
     title: Dex in the middle
     line: [Dex, Cy]
     goal: {Cy: build}
@@ -95,22 +86,31 @@ scenarios:
     task: Now Dex is in the middle. Dex passes your words on saying the opposite; Cy, at the top, does exactly what Cy hears. Get Cy to build.
     lesson: Say the opposite of what you need, and Dex turns it the right way round.
   two_through_dex:
-    beat: twist
+    beat: develop
     title: Two through Dex
     line: [Dex, [Ash, Cy]]
     goal: {Ash: build, Cy: watch}
     event: quiet
-    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
     task: Dex passes your words to Ash and Cy, saying the opposite of each part. Get Ash to build and Cy to keep watch.
     lesson: Dex flips every part separately, so flip each part you send.
-  dex_and_the_leak:
+  saying_less:
+    beat: twist
+    title: Saying less
+    line: [Dex, [Ash, Cy]]
+    goal: {Ash: watch, Cy: rest}
+    event: quiet
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: Dex passes your words to Ash and Cy, saying the opposite of each part. Cy does exactly what Cy hears, and with nothing to do, Cy rests. Get Ash to keep watch and Cy to rest.
+    lesson: For someone who does exactly what they hear, saying nothing is an order too.
+  everyone_through_dex:
     beat: catharsis
-    title: Dex and the leak
-    line: [Dex, [Bea, Cy]]
-    goal: {Bea: build, Cy: repair}
-    event: leak
+    title: Everyone through Dex
+    line: [Dex, [Ash, Bea, Cy]]
+    goal: {Ash: build, Bea: watch, Cy: rest}
+    event: quiet
     stars: {2: {max_words: 9}, 3: {max_words: 7}}
-    task: A leak, Bea's habit, and Dex in the middle. Get Bea to build and Cy to repair the hull.
-    lesson: Flip each part for Dex, and name Bea so the work beats the habit.
+    task: Dex passes your words to Ash, Bea and Cy, saying the opposite of each part. Get Ash to build, Bea to keep watch and Cy to rest.
+    lesson: Flip each part for Dex, name who does what, and leave Cy out.
 
-campaign: [straight_up, two_at_the_top, beas_habit, two_jobs, dex_at_the_top, dex_in_the_middle, two_through_dex, dex_and_the_leak]
+campaign: [straight_up, two_at_the_top, dex_at_the_top, dex_among_them, dex_in_the_middle, two_through_dex, saying_less, everyone_through_dex]

@@ -362,7 +362,14 @@ class OrdersMock:
           and self.makes_sense(action, supplies, damage, leak, storm)
       ):
         return action
-    return 'rest'
+    # Nothing left that helps: rest, unless rest itself is forbidden (cycle
+    # 100: told only "don't rest", a live Cy kept watch rather than rest).
+    if 'rest' not in forbidden:
+      return 'rest'
+    return next(
+        (a for a in menu or self._data['actions'] if a not in forbidden),
+        'rest',
+    )
 
   def choice(self, prompt: str, responses: Sequence[str]) -> int | None:
     if toy_lib.CHOICE_QUESTION.split('{name}')[1] not in prompt:
