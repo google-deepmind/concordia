@@ -493,7 +493,9 @@ class OrdersToy(base.Toy):
     laws = list(self._data['reading_laws'])
     for extra in ('someone', 'timing'):
       if extra in self._data:
-        laws.append(' '.join(str(self._data[extra]['law']).split()))
+        spec = self._data[extra]
+        law = spec.get('commander_law', spec['law'])
+        laws.append(' '.join(str(law).split()))
     bosun = self.bosun_of(ship)
     if bosun:
       temperament = self._data['crew'][bosun]['temperament']

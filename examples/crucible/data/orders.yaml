@@ -97,6 +97,12 @@ someone:
     to one crew member only, the one who takes it up this turn, named below. For them it comes before
     any other clause, as a clause naming them would. It does not apply to
     anyone else, who read the other clauses.
+  # The same law as the commander is told it: who takes the clause up.
+  commander_law: >-
+    A clause for someone (or one of you) goes to one crew member only: of
+    those on duty and not named in another clause, the freshest willing one
+    (the bold always take it up, the cautious only when fresh, the literal
+    and the contrary never), the first in crew order on a tie.
 
 # The bosun (arc 5). In a scene with a `bosun` (a crew member), the
 # commander's order goes to the bosun, who passes it on to the others in
