@@ -85,7 +85,7 @@ test('a people sees what the age asks of it, and its numbers against the floor',
   const ahead = sharedHtml({...iron, last: 5, left: 8, numbers: 0.95});
   assert.match(ahead, /last turn 5\./);
   assert.doesNotMatch(ahead, /hungry/);
-  assert.doesNotMatch(sharedHtml({...iron, made: 120}), /to go/);
+  assert.doesNotMatch(sharedHtml({...iron, made: 120}), /to go\b/);
   const ship = sharedHtml({kind: 'seed_ship', by: 50, left: 30, min_biodiversity: 0.17, floor: 0.4, numbers: 1});
   assert.match(ship, /A seed ship must leave from a world of biodiversity 0.17 or more by turn 50 \(30 turns left\)/);
   assert.equal(sharedHtml(null), '');

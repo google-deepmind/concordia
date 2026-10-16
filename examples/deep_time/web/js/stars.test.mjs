@@ -45,8 +45,8 @@ const tasks = [
 
 test('side objectives show their reward and how long they have to go', () => {
   const html = sideHtml(tasks, 16);
-  assert.match(html, /<b>◇<\/b>Keep the methanogens on 2% of the planet until turn 20 <span class="reward">\+6 Ω · 4 turns to go/);
-  assert.match(html, /\+4 Ω · 12 turns to go/);
+  assert.match(html, /<b>◇<\/b>Keep the methanogens on 2% of the planet until turn 20 <span class="reward">\+6 Ω · 4 turns to go\b/);
+  assert.match(html, /\+4 Ω · 12 turns to go\b/);
   assert.match(sideHtml(tasks, 5), /\+4 Ω · from turn 12/);
   assert.match(sideHtml(tasks), /\+6 Ω<\/span>/);  // The goal card: no clock.
 });
@@ -56,7 +56,7 @@ test('a side objective met or missed says so, and the recap adds them up', () =>
   const html = sideHtml(judged, 30);
   assert.match(html, /<li class="side met"><b>✓<\/b>Keep the methanogens/);
   assert.match(html, /<li class="side missed"><b>✗<\/b>Raise woods/);
-  assert.doesNotMatch(html, /to go/);
+  assert.doesNotMatch(html, /to go\b/);
   assert.equal(sideWords(judged), '1 of 2 side objectives met (+6 Ω)');
   assert.equal(sideWords([{...tasks[0], state: 'missed'}]), '0 of 1 side objective met');
   assert.equal(sideWords([]), '');

@@ -33,7 +33,7 @@ test('the air gauge says where a haze tips a frozen world', () => {
 });
 
 test('the air gauge shows a goal\'s cap and the way to it', () => {
-  assert.match(carbon(1.11, {cap_co2: 1.3}), /cap ×1\.30 · 0\.19 to go/);
+  assert.match(carbon(1.11, {cap_co2: 1.3}), /cap ×1\.30 · 0\.19 to go\b/);
   assert.match(carbon(1.4, {cap_co2: 1.3}), /over the cap ×1\.30/);
   assert.match(carbon(1.1, {cap_co2: 1.3}), /class="cap"/);
   assert.equal(INSTRUMENTS['cycles.carbon']({relative_co2: 1, forcing_w_m2: 0}, null).wide, false);

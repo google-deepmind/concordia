@@ -71,12 +71,12 @@
   .stores b { font-weight: 600; }
   .stores p { flex-basis: 100%; margin: 6px 0 0; }
   .stores .hud.one { flex-basis: 100%; grid-template-columns: 1fr; margin-top: 4px; }
-  .laborgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; margin-bottom: 8px; }
-  .laborgrid button { min-height: 40px; min-width: 0; font-size: .86rem; padding: 6px 8px; text-align: left; }
-  .laborgrid button i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
-  .laborgrid .lgain { display: block; font-size: .78rem; color: var(--accent); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .laborgrid .lgain b { color: #c2412d; font-weight: 600; }
-  @media (prefers-color-scheme: dark) { .laborgrid .lgain b { color: #ff8a78; } }
+  .labor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; margin-bottom: 8px; }
+  .labor-grid button { min-height: 40px; min-width: 0; font-size: .86rem; padding: 6px 8px; text-align: left; }
+  .labor-grid button i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+  .labor-grid .lgain { display: block; font-size: .78rem; color: var(--accent); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .labor-grid .lgain b { color: #c2412d; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .labor-grid .lgain b { color: #ff8a78; } }
   .swaps button { min-height: 40px; font-size: .86rem; margin: 6px 0; }
   .recap .verdict { font-size: 1.3rem; font-weight: 700; letter-spacing: .04em; margin: 2px 0; }
   .recap .verdict.victory { color: var(--good); }
@@ -947,7 +947,7 @@ function renderQuestion(q) {
     const savingHtml = saving.length ? '<p class="movelabel">Saving for</p>'
       + saving.map((o, j) => savingButton(o, j, savePushes[o])).join('') : '';
     $('choices').innerHTML = labor.length >= 4
-      ? '<p class="movelabel">Put more hands into</p><div class="laborgrid">'
+      ? '<p class="movelabel">Put more hands into</p><div class="labor-grid">'
         + labor.map(([o, i]) => {
           const what = o.slice(LABOR.length), key = laborKeys[what];
           const dot = key ? `<i style="background:${rgb(laborColour(key))}"></i>` : '';
