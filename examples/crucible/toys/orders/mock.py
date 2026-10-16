@@ -36,10 +36,19 @@ _STORES = re.compile(
     r'Stores: (\d+) supplies; hull damage (\d+); project (\d+) of (\d+)\.'
     r' \w+ is (worn out|fresh)\.'
 )
+_SOMEONE = re.compile(
+    r'The one who takes up a clause for someone this turn is (\w+)\.'
+)
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
 _SENTENCE = re.compile(r'[.;]')
 _CLAUSE = re.compile(r'\b(?:otherwise|else|then)\b', re.IGNORECASE)
+
+
+def _someone(prompt: str) -> str | None:
+  """Who takes up a clause for "someone" this turn, as the reading says."""
+  found = _SOMEONE.search(prompt)
+  return found.group(1) if found else None
 
 
 class OrdersMock:
@@ -53,6 +62,10 @@ class OrdersMock:
     self._if = frozenset(lex['if_words'])
     self._crew = {name.lower() for name in data['crew']}
     self._negations = frozenset(lex.get('negations', ()))
+    self._someone = [
+        re.compile(rf'\b{re.escape(w)}\b')
+        for w in data.get('someone', {}).get('words', ())
+    ]
 
   def ordered(
       self, order: str, now: set[str], member: str | None = None
@@ -62,13 +75,21 @@ class OrdersMock:
     return wanted, named
 
   def read(
-      self, order: str, now: set[str], member: str | None = None
+      self,
+      order: str,
+      now: set[str],
+      member: str | None = None,
+      someone: str | None = None,
   ) -> tuple[list[str], bool, list[str]]:
     """What the order asks of `member` now: wanted, by name, forbidden."""
-    return self.read_clauses(order, now, member)[:3]
+    return self.read_clauses(order, now, member, someone)[:3]
 
   def read_clauses(
-      self, order: str, now: set[str], member: str | None = None
+      self,
+      order: str,
+      now: set[str],
+      member: str | None = None,
+      someone: str | None = None,
   ) -> tuple[list[str], bool, list[str], list[str]]:
     """What the order asks of `member` now, and the clauses that ask it.
 
@@ -80,6 +101,8 @@ class OrdersMock:
       order: The standing order.
       now: Conditions that hold this turn ('leak', 'storm', 'squall', 'tired').
       member: The crew member reading the order.
+      someone: The member who takes up a clause for "someone" this turn, if
+        anyone does.
 
     Returns:
       The actions asked (in the order named, without repeats), whether they
@@ -102,6 +125,9 @@ class OrdersMock:
       if not words:
         continue
       names = self._crew & set(words)
+      if not names and any(p.search(clause) for p in self._someone):
+        # A clause for someone names the one member who takes it up.
+        names = {someone.lower()} if someone else {''}
       if names and me not in names:
         continue
       conditional = bool(self._if & set(words))
@@ -174,12 +200,13 @@ class OrdersMock:
       worn: bool,
       member: str | None = None,
       menu: Sequence[str] | None = None,
+      someone: str | None = None,
   ) -> str:
     """The action the laws of reading give, by temperament properties."""
     leak = 'leak' in situation.lower()
     storm = 'storm' in situation.lower()
     now = self.conditions_now(situation, worn)
-    wanted, named, forbidden = self.read(order, now, member)
+    wanted, named, forbidden = self.read(order, now, member, someone)
     if props.get('contrary'):
       # The opposite of what applies: the forbidden is done; work becomes
       # rest and rest becomes work.
@@ -236,7 +263,7 @@ class OrdersMock:
     menu = [by_text[t] for t in letters if t in by_text]
     action = self.decide(
         props, order.group(1), turn.group(1), int(supplies), int(damage),
-        cond == 'worn out', who.group(1), menu,
+        cond == 'worn out', who.group(1), menu, _someone(prompt),
     )  # fmt: skip
     wanted = self._data['actions'][action]['text']
     letter = letters.get(wanted)
@@ -261,5 +288,7 @@ class OrdersMock:
     stores = _STORES.search(prompt)
     worn = bool(stores and stores.group(5) == 'worn out')
     now = self.conditions_now(turn.group(1), worn)
-    _, _, _, clauses = self.read_clauses(order.group(1), now, who.group(1))
+    _, _, _, clauses = self.read_clauses(
+        order.group(1), now, who.group(1), _someone(prompt)
+    )
     return f'"{"; ".join(clauses)}"' if clauses else 'none'

@@ -51,6 +51,8 @@ CHOICE_STATEMENT = (
     'Stores: {supplies} supplies; hull damage {damage}; project {progress}'
     ' of {target}. {name} is {condition}.\n'
 )
+SOMEONE = 'The one who takes up a clause for someone this turn is {name}.\n'
+NO_ONE = 'No one takes up a clause for someone this turn.\n'
 CLAUSE_QUESTION = (
     'Which clause of the standing order applies to {name} this turn? Quote'
     ' it, or answer "none".'
@@ -66,6 +68,14 @@ _OTHERWISE = {
     'rest': 'rests',
     'watch': 'keeps watch',
 }
+
+
+# What "cannot help" means, as the mock's `makes_sense` reads it (cycle 18:
+# left unsaid, a model judged building with 3 supplies to be no help).
+_CANNOT_HELP = (
+    'building with no supply, repairing a sound hull with no leak, gathering'
+    ' in a storm'
+)
 
 
 def clause_text(answer: str) -> str:
@@ -89,7 +99,7 @@ def habits(name: str, props: Mapping[str, Any]) -> str:
       else 'follows the order'
   )
   ordered = (
-      'skips an ordered action that cannot help this turn'
+      f'skips an ordered action that cannot help this turn ({_CANNOT_HELP})'
       if props['sensible']
       else 'does an ordered action even when it cannot help this turn'
   )
@@ -142,7 +152,7 @@ class OrdersToy(base.Toy):
         fatigue={c: 0 for c in self.crew},
         shift=random.Random(seed).randint(0, 2),
     )
-    self._cache: dict[str, int] = {}
+    self._cache: dict[str, tuple[int, str]] = {}
     self.tell(self.commander, str(data['premise']).strip())
 
   # ---- what is known --------------------------------------------------------
@@ -188,6 +198,38 @@ class OrdersToy(base.Toy):
       parts.append(f'{words} cost {cost}')
     return ', '.join(parts)
 
+  def asks_someone(self, order: str) -> bool:
+    """Whether the order has a clause for "someone" (arc 4)."""
+    text = order.lower()
+    return any(
+        re.search(rf'\b{re.escape(w)}\b', text)
+        for w in self._data.get('someone', {}).get('words', ())
+    )
+
+  def volunteer(self, ship: Ship) -> str | None:
+    """Who takes up the order's clause for "someone" this turn (arc 4).
+
+    Counting fatigue is the ledger's work, not the reader's: the toy finds
+    the freshest willing member and every reading is told who it is.
+
+    Args:
+      ship: The ship.
+
+    Returns:
+      The member, or None when no one aboard is willing.
+    """
+    words = set(re.findall(r'[a-z]+', ship.order.lower()))
+    named = [m for m in self.crew if m.lower() in words]
+    takes = {
+        m: (
+            self._data['temperaments'][
+                self._data['crew'][m]['temperament']
+            ].get('volunteers', 'never')
+        )
+        for m in self.crew
+    }
+    return self.crew_rule.volunteer(ship, takes, named)
+
   def condition(self, ship: Ship, member: str) -> str:
     return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
 
@@ -211,12 +253,16 @@ class OrdersToy(base.Toy):
     """
     temperament = self._data['crew'][member]['temperament']
     props = self._data['temperaments'][temperament]
+    someone = self.asks_someone(ship.order)
+    laws = list(self._data['reading_laws'])
+    if someone:
+      laws.append(' '.join(str(self._data['someone']['law']).split()))
     statement = CHOICE_STATEMENT.format(
         name=member,
         temperament=temperament,
         describe=props['describe'],
         habits=habits(member, props),
-        laws='\n'.join(f'- {law}' for law in self._data['reading_laws']),
+        laws='\n'.join(f'- {law}' for law in laws),
         order=ship.order or '(no order given)',
         situation=self.situation(ship, turn),
         supplies=ship.supplies,
@@ -225,6 +271,9 @@ class OrdersToy(base.Toy):
         target=self._data['target'],
         condition=self.condition(ship, member),
     )
+    if someone:
+      who = self.volunteer(ship)
+      statement += SOMEONE.format(name=who) if who else NO_ONE
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)

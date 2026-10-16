@@ -26,6 +26,8 @@ watch: {sees: 2}
 #   on_leak:   'repair' (repairs an open leak unless a clause names them
 #              to something else) or 'follow' (follows the order)
 #   sensible:  whether they skip an ordered action that cannot help now
+#   volunteers: who takes up a clause for "someone" (arc 4): 'always',
+#              'fresh' (only when not worn out) or 'never'
 temperaments:
   bold:
     describe: keen to push the work forward; shrugs off risk
@@ -33,18 +35,21 @@ temperaments:
     when_worn: work
     on_leak: follow
     sensible: true
+    volunteers: always
   cautious:
     describe: worries about damage and about wearing out
     otherwise: [repair, gather]
     when_worn: rest
     on_leak: repair
     sensible: true
+    volunteers: fresh
   literal:
     describe: does exactly what the order says and nothing it does not say
     otherwise: [rest]
     when_worn: work
     on_leak: follow
     sensible: false
+    volunteers: never
   # contrary: does the opposite of a clause that applies: told to work,
   # rests; told to rest, does `works`; told not to do something, does it.
   contrary:
@@ -55,6 +60,7 @@ temperaments:
     sensible: false
     contrary: true
     works: build
+    volunteers: never
 
 crew:
   Ash: {temperament: bold}
@@ -72,6 +78,16 @@ reading_laws:
   - A clause with if, when, whenever or during applies only while its condition holds; a clause with unless applies only while it does not.
   - A clause that says not, never or don't forbids the action it names.
   - With no clause that applies, a crew member does what their temperament does otherwise.
+
+# The word "someone" (arc 4). A clause for someone asks one member only; the
+# law and the crew roster go into a reading only when the order says it, so
+# every other prompt stays as it was.
+someone:
+  words: [someone, somebody, anyone, anybody, whoever, one of you]
+  law: >-
+    A clause for someone (or one of you) applies to one crew member only:
+    the one who takes it up this turn, named below. It does not apply to
+    anyone else, who read the other clauses.
 
 # The menu, in order. Effects are data read by one law (rules.CrewRule):
 #   needs:      stock an action spends; without it the action does nothing

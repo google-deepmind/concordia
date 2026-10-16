@@ -361,6 +361,76 @@ golden set 33 cases (17 hard), the mock 33/33. Adding Dex's orders to the
 bots' repertoire made random play stronger in Squalls (81%), so Squalls was
 retuned (target 18 from 2 supplies: 100 / 38 / 0).
 
+## 2j. The reading on the card (cycle 17)
+
+Each crew member's reading has two steps: which clause of the order applies
+to them, then what they do. The first answer used to be thrown away; it is
+now kept and drawn on the member's card under what they did ("read
+“everyone else build”", or "by temperament" when no clause applied). The
+commander sees *why* the crew acted, so a misreading can be answered with
+the next order instead of guessed at. The mock quotes the clause it applied
+by the same laws, so the cards are deterministic in CI.
+
+Showing the answers exposed a fault: on qwen3:8b every clause answer had
+been empty. A thinking model's reply opens with its thinking, and Ollama
+applies stop sequences to the thinking too, so the newline that ends an open
+question ended the reply before the answer. Library round 5 gives the
+contrib Ollama wrapper a `think` option: with `True` the thinking is kept
+apart and the terminators apply to the answer.
+
+| qwen3:8b, golden set (33 cases, 17 hard) | Hard laws | Soft agreement | Time per crew turn |
+|---|---|---|---|
+| thinking off (one run) | 11/17 | 69% | ~9 s |
+| thinking kept apart (run 1; run 2 hung on one request after 32 cases) | 17/17 | 94% | ~86 s |
+
+Matrix: crew -> command added (the commander reads the crew's readings);
+conditional x leak and named x bold are now checked by a rule test as well
+as golden cases (the audit counts such cells: 2).
+
+## 2k. Arc 4: the word "someone" (cycle 18)
+
+Naming a member costs no more words than "someone" ("Bea, keep watch" and
+"Someone keep watch" are both three), but it binds the order to one person
+and their temperament. A clause for **someone** asks one member only: of
+those willing to take it up, the freshest (lowest fatigue, the first in crew
+order on a tie); a member named in another clause does not take it up.
+Willingness is a temperament property (`volunteers`): the bold always, the
+cautious only when fresh, the literal and the contrary never ("someone"
+names no one).
+
+Every member reads alone, at the same moment, so the readings must agree
+without talking. The first version gave each reader the crew's fatigue and
+the law, and asked them to work out whether *they* were the freshest
+willing member. DeepSeek-V4.1-Flash could not do it reliably (hard laws
+23/23 then 21/23; written as three explicit steps, 20/23 and 19/23): two
+members volunteered, or none. Counting fatigue is arithmetic over the
+ledger, like an order's price, so the ledger does it (`CrewRule.volunteer`)
+and every reading is told who takes it up this turn. What is left to the
+model is the reading: recognising a clause for someone ("one of you",
+"whoever is fresh") and that it does not apply to them. With that, Flash
+kept 22/23 hard laws twice; the one miss was Bea reading "build" right and
+then judging that building with 3 supplies "cannot help", a temperament
+misreading the golden set had never isolated. The case became soft, a
+literal member (who has no such judgement) took its hard place, and the
+crew prompt now says what "cannot help" means (building with no supply,
+repairing a sound hull, gathering in a storm): 23/23 twice, soft agreement
+72% and 89% (the bar is 75%; Flash's soft answers lean to "gather"). The
+law and the name go into a reading only when the order says someone, so
+every other prompt is unchanged apart from that sentence.
+
+What it changes in play: under "Someone keep watch; everyone else build."
+the watch passes from Ash to Bea and back as they tire, where "Bea, keep
+watch" lapses whenever Bea is worn out (Night watch: the named watch kept 3
+turns of 6, the someone watch 6). The price is the builder: whoever is
+freshest is taken off the project, and the bold keep volunteering while worn
+out, building at half when they return. With no willing member (only the
+literal and the contrary aboard) nobody does it at all.
+
+Matrix: +1 operator (someone), +5 reading cells, +2 system cells (fatigue ->
+crew, crew -> watch); golden set 41 cases (23 hard), the mock 41/41. The
+bots' repertoire gained three someone orders; at 16 seeds every scene still
+gives skilled 100, random 0-44, passive 0 (evidence/audit-c18.jsonl).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -413,3 +483,5 @@ Sources:
 | 13 | Title: Twelve Words. One look per kind (`orders_look.yaml`); the board draws `view()`; previews mark each member's next action. |
 | 14 | Live games on DeepSeek-V4.1-Flash (3 scenes, est. $0.05): the commander prompt states order prices, narrated orders are unwrapped. The rule audit (DESIGN §2g). Stars count words spoken. Cell added: conditional x worn. |
 | 15 | Readings sampled at temperature 0; golden sets run twice per model (DESIGN §2h). Library round 4: ReasonedChoice temperature and words over letters. Arc 3: Dex (contrary) and negation; 12 campaign chapters. Cells added: 6 reading cells. |
+| 17 | Crew cards show the clause each member acted on (DESIGN §2j). Ollama readers keep thinking apart (library round 5). Cell added: crew -> command; 2 cells doubly evidenced. |
+| 18 | Arc 4 mechanics: a clause for "someone" goes to the freshest willing member, counted by the ledger and named in each reading (DESIGN §2k); "cannot help" spelled out in the crew prompt. Cells added: 2 system, 5 reading (operator someone). |

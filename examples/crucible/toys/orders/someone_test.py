@@ -1,0 +1,89 @@
+# Copyright 2026 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+"""Arc 4: a clause for "someone" asks one member only."""
+
+from absl.testing import absltest
+from examples.crucible import model_setup
+from examples.crucible import toys
+from examples.crucible.toys.orders import rules
+from examples.crucible.toys.orders import toy as toy_lib
+
+SOMEONE_WATCH = 'Someone keep watch; everyone else build.'
+
+
+def _toy(scenario: str = 'voyage') -> toy_lib.OrdersToy:
+  toy = toy_lib.OrdersToy(
+      model_setup.mock_model(), toys.load_data('orders'), scenario
+  )
+  toy.world.shift = 0
+  return toy
+
+
+def _watched_turns(order: str, turns: int) -> list[list[str]]:
+  toy = _toy('night_watch')
+  watchers = []
+  for turn in range(turns):
+    toy.resolve(toy.commander, order if turn == 0 else toy_lib.HOLD)
+    actions = toy.world.log[-1]['actions']
+    watchers.append([m for m, a in actions.items() if a == 'watch'])
+  return watchers
+
+
+class SomeoneTest(absltest.TestCase):
+
+  def test_someone_goes_to_the_freshest_willing(self):
+    toy = _toy()
+    toy.resolve(toy.commander, SOMEONE_WATCH)
+    last = toy.world.log[-1]
+    self.assertEqual(last['actions']['Ash'], 'watch')  # first on a tie
+    self.assertEqual(last['actions']['Bea'], 'build')
+    self.assertEqual(last['why']['Ash'], 'Someone keep watch')
+    toy = _toy()
+    toy.world.fatigue['Ash'] = 2
+    toy.resolve(toy.commander, SOMEONE_WATCH)
+    self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'watch')
+    self.assertEqual(toy.world.log[-1]['actions']['Ash'], 'build')
+
+  def test_someone_keeps_the_watch_where_a_name_lapses(self):
+    # Night watch: one turn on watch wears anyone out.
+    someone = _watched_turns(SOMEONE_WATCH, 6)
+    named = _watched_turns('Bea, keep watch; everyone else build.', 6)
+    self.assertTrue(all(len(w) == 1 for w in someone))
+    self.assertEqual(someone[:2], [['Ash'], ['Bea']])  # passed on as they tire
+    self.assertIn([], named)  # worn out, Bea rests and the watch lapses
+
+  def test_no_one_willing_means_no_one_does_it(self):
+    crew = rules.CrewRule(['Ash', 'Bea', 'Cy', 'Dex'], {'tired_at': 3}, {})
+    ship = rules.Ship(fatigue={'Ash': 4, 'Bea': 3, 'Cy': 0, 'Dex': 0})
+    takes = {'Ash': 'always', 'Bea': 'fresh', 'Cy': 'never', 'Dex': 'never'}
+    self.assertEqual(crew.volunteer(ship, takes), 'Ash')  # worn, but bold
+    self.assertIsNone(crew.volunteer(ship, takes, named=['Ash']))
+    ship.fatigue['Bea'] = 1
+    self.assertEqual(crew.volunteer(ship, takes), 'Bea')  # the freshest
+    toy = _toy('contrary')  # Dex alone: he never takes it up
+    toy.world.order = 'Someone keep watch.'
+    self.assertIsNone(toy.volunteer(toy.world))
+
+  def test_only_orders_for_someone_carry_its_law_and_who_takes_it(self):
+    toy = _toy()
+    self.assertFalse(toy.asks_someone('Bea, keep watch; everyone else build.'))
+    self.assertTrue(toy.asks_someone('If a leak opens, one of you repair it.'))
+    toy.world.order = 'Ash, build; whoever is fresh, keep watch.'
+    self.assertEqual(toy.volunteer(toy.world), 'Bea')  # Ash is named
+
+
+if __name__ == '__main__':
+  absltest.main()

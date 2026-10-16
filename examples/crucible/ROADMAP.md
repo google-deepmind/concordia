@@ -72,12 +72,17 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. Keep deepening: crew dynamics (members who answer each other's actions); the commander learning from the readings shown (cycle 17) — e.g. a scene where the order must be re-worded after a misreading; the owner's games.
+2. Arc 4 scenes (cycle 19): isolate / develop / twist / catharsis around "someone" (the rotating watch, the builder it costs, a crew with no volunteer); qwen3:8b golden on the 41 cases.
+3. Keep deepening: the commander learning from the readings shown (cycle 17), e.g. a scene where the order must be re-worded after a misreading; the owner's games.
 
 ## Backlog
 
 - Orders: the skilled bot plans as if unseen turns are quiet; teach it the
   value of a watch (it lost to random in some sweep settings).
+- Library: the Ollama wrapper ignores `max_tokens` and `timeout`; with
+  thinking on, a reply has no bound and a hung request waits forever (cycle
+  17: one golden request never returned). Bound both (num_predict counts the
+  thinking too, so it needs care) and propose it with a test.
 - Ollama wrapper: an explanation-first JSON template raised qwen3:8b's hard
   laws 6 -> 8 of 10 but lowered soft agreement 82% -> 64% (one run each);
   measure with repeats before proposing.

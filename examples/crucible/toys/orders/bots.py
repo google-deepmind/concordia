@@ -45,6 +45,9 @@ ORDERS = (
     "Dex, don't repair; Ash and Cy build.",
     "Dex, don't repair; everyone else build.",
     "Ash builds; Dex, don't build.",
+    'Someone keep watch; everyone else build.',
+    'Someone repair leaks; everyone else build.',
+    'If a leak opens, someone repair it; everyone else build.',
 )
 
 

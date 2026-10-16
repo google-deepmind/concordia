@@ -39,6 +39,8 @@ cells:
   - {from: watch, to: hull, by: a squall seen coming is weathered without damage (cycle 12), test: test_unwatched_squall_strikes_watched_one_is_weathered}
   - {from: fatigue, to: watch, by: a worn-out cautious watcher rests and the watch lapses; the bold and the literal keep watching (cycle 12), test: test_arc_two_twist_breaks_the_watch_habit}
   - {from: watch, to: project, by: in Lookout the forecast itself is the goal (cycle 12), test: test_arc_two_isolate_and_develop}
+  - {from: fatigue, to: crew, by: a clause for someone goes to the freshest willing member, so who does it changes as they tire (cycle 18), test: test_someone_goes_to_the_freshest_willing}
+  - {from: crew, to: watch, by: '"someone keep watch" passes the watch between members as they tire, so it holds where a named watch lapses (cycle 18)', test: test_someone_keeps_the_watch_where_a_name_lapses}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
@@ -51,6 +53,7 @@ reading:
     watch: an order to keep watch
     silence: no clause that applies
     negation: a clause that forbids an action (not, never, don't)
+    someone: a clause for someone, which asks one member only (cycle 18)
   properties:
     quiet: a quiet turn
     leak: a leak open in the hull
@@ -85,6 +88,11 @@ reading:
     - {operator: negation, property: literal, law: a clause that only forbids gives the literal nothing to do (cycle 15), golden: [g30]}
     - {operator: named, property: contrary, law: a clause naming the contrary is reversed for them alone; the others read their own clauses (cycle 15), golden: [g31, g32]}
     - {operator: silence, property: contrary, law: with no clause that applies the contrary rest (cycle 15), golden: [g33]}
+    - {operator: someone, property: bold, law: the bold take up a clause for someone, first in crew order on a tie (cycle 18), golden: [g34], test: test_someone_goes_to_the_freshest_willing}
+    - {operator: someone, property: cautious, law: the cautious take it up when they are the freshest willing, or when the one before them is named elsewhere; otherwise they read the other clauses (cycle 18), golden: [g35, g36, g39]}
+    - {operator: someone, property: worn, law: a worn-out cautious member leaves it to the others; a worn-out bold one still takes it up (cycle 18), golden: [g37]}
+    - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
+    - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
 # `hard` cases follow from a law a model must not break (names, conditions,
@@ -123,3 +131,11 @@ golden:
   - {id: g31, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Dex, expect: [repair], hard: true}
   - {id: g32, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Ash, expect: [build], hard: true}
   - {id: g33, order: '', event: quiet, member: Dex, expect: [rest]}
+  - {id: g34, order: 'Someone keep watch; everyone else build.', event: quiet, member: Ash, expect: [watch], hard: true}
+  - {id: g35, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, expect: [build]}
+  - {id: g36, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, fatigue: {Ash: 2}, expect: [watch], hard: true}
+  - {id: g37, order: 'Someone keep watch; everyone else build.', event: quiet, member: Ash, fatigue: {Ash: 4, Bea: 3}, expect: [watch], hard: true}
+  - {id: g38, order: 'Someone repair the hull.', event: quiet, member: Cy, expect: [rest], hard: true}
+  - {id: g39, order: 'Ash, build; someone keep watch.', event: quiet, member: Bea, expect: [watch], hard: true}
+  - {id: g40, order: 'Someone keep watch.', event: quiet, member: Dex, crew: [Cy, Dex], expect: [rest]}
+  - {id: g41, order: 'Someone keep watch; everyone else build.', event: quiet, member: Cy, expect: [build], hard: true}

@@ -28,7 +28,7 @@ in the ledger (`Ship`):
 The toy (`toy.py`) runs them in a fixed order each turn.
 """
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 import dataclasses
 from typing import Any
 
@@ -181,6 +181,35 @@ class CrewRule:
     ship.fatigue[member] = max(
         0, ship.fatigue[member] + int(spec.get('fatigue', 0))
     )
+
+  def volunteer(
+      self,
+      ship: Ship,
+      takes: Mapping[str, str],
+      named: Collection[str] = (),
+  ) -> str | None:
+    """Who takes up a clause for "someone": the freshest willing member.
+
+    Args:
+      ship: The ledger (fatigue).
+      takes: Each member's willingness: 'always', 'fresh' (only when not
+        worn out) or 'never'.
+      named: Members named in another clause, who do not take it up.
+
+    Returns:
+      The member with the lowest fatigue among the willing (the first in
+      crew order on a tie), or None when no one is willing.
+    """
+    willing = [
+        m
+        for m in self._crew
+        if m not in named
+        and (
+            takes.get(m) == 'always'
+            or (takes.get(m) == 'fresh' and not self.worn(ship, m))
+        )
+    ]
+    return min(willing, key=lambda m: ship.fatigue[m], default=None)
 
   def act(
       self,

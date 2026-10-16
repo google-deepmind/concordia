@@ -49,6 +49,8 @@ def run_case(
   data['events'] = {1: case['event']}
   # The whole crew serves in a golden case, whoever the scene usually has.
   data['scenarios']['voyage'].pop('crew_present', None)
+  if 'crew' in case:
+    data['scenarios']['voyage']['crew_present'] = list(case['crew'])
   toy = orders_lib.OrdersToy(model, data, 'voyage', seed=0)
   ship = toy.world
   ship.shift = 0
@@ -56,6 +58,8 @@ def run_case(
   ship.supplies = int(case.get('supplies', 3))
   if case.get('worn'):
     ship.fatigue[case['member']] = int(data['effects']['tired_at'])
+  for member, fatigue in case.get('fatigue', {}).items():
+    ship.fatigue[member] = int(fatigue)
   if case['event'] == 'leak':
     ship.leak = True
   action = toy.choose(ship, case['member'], 1)
