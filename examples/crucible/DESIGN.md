@@ -548,8 +548,12 @@ be a rule the campaign never asks a player to learn.
   someone was never said to come before the plain clauses for its taker.
   It now says so (the mock always read it that way), and on the fixed law
   qwen3 kept 24/25 hard laws with every soft case agreeing; g36 now
-  passes. The one miss is g38 (the literal Cy told a clause for someone is
-  not his, under "Someone repair the hull.", still repairs).
+  passes. The one miss was g38: told a clause for someone was not his, the
+  literal Cy still repaired under "Someone repair the hull.", because by
+  the first law (no names, no condition) the clause looked plain. In orders
+  that say someone, the someone law now follows the plain-clause law and
+  says it is not one; g38 then passes. Flash on that wording: 25/25 hard
+  twice, soft 74% and 84%.
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
@@ -558,6 +562,16 @@ be a rule the campaign never asks a player to learn.
   option (b). Asking the reason to name the option (84, 79, 74 over three
   runs) was within the spread and was not adopted. The bar stays where it
   is; the record keeps every run.
+
+## 2s. A storm hides the horizon (cycle 33)
+
+An event can shorten the watch (`hazards.<event>.sight`): in The crossing
+and The long night a watch kept in a storm sees one turn ahead, not two, so
+the turn after a storm is the one a commander is most likely to meet
+blind. The bots' rates did not move (crossing 100 / 6 / 0 / 0, long night
+100 / 0 / 0 / 0 at 16 seeds); what changes is what a person can plan
+around. Matrix: hazards -> watch, and watch x storm now checked by a test
+as well as a golden case (65 cells; 60 of 60 references taught).
 
 ## 3. Prior art (cycle 1 search)
 

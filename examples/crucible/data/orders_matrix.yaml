@@ -51,6 +51,7 @@ cells:
   - {from: rota, to: command, by: an order given while a member is off duty does not reach them; they keep the last order they heard and the commander is told (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
   - {from: command, to: crew, by: an order said again reaches those who missed it, at its price again (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
   - {from: command, to: watch, by: only a member who heard a clause for someone can take it up (cycle 23), test: test_someone_needs_to_have_heard_it}
+  - {from: hazards, to: watch, by: a storm hides the horizon; a watch kept in a storm sees one turn ahead, not two (cycle 33), test: test_a_storm_shortens_the_watch}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
@@ -87,7 +88,7 @@ reading:
     - {operator: named, property: cautious, law: a clause naming a member applies to them and comes first, golden: [g7]}
     - {operator: named, property: bold, law: a member not named in a clause reads only the other clauses, and reports the clause meant for everyone else (cycle 17), golden: [g8], test: test_each_member_says_which_clause_they_acted_on}
     - {operator: named, property: literal, law: a literal member not named anywhere does what they do otherwise, golden: [g9]}
-    - {operator: watch, property: storm, law: an order to keep watch is obeyed in any weather, golden: [g17]}
+    - {operator: watch, property: storm, law: an order to keep watch is obeyed in any weather, though in a storm it sees one turn ahead (cycle 33), golden: [g17], test: test_a_storm_shortens_the_watch}
     - {operator: silence, property: literal, law: with no clause that applies the literal rest, golden: [g10]}
     - {operator: silence, property: bold, law: with no clause that applies the bold build while there is a supply, golden: [g11]}
     - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}

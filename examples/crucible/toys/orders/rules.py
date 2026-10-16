@@ -173,6 +173,10 @@ class HazardRule:
     ship.injured[hurt] = turn + turns - 1
     return f'{hurt} is hurt: off duty for {turns} turns.'
 
+  def sight(self, kind: str, default: int) -> int:
+    """How many turns ahead a watch sees during `kind` (a storm may hide)."""
+    return int(self._hazards.get(kind, {}).get('sight', default))
+
   def end(self, ship: Ship) -> str:
     if not ship.leak:
       return ''
@@ -330,18 +334,25 @@ class WatchRule:
   def __init__(self, sees: int):
     self._sees = sees
 
+  @property
+  def sees(self) -> int:
+    return self._sees
+
   def reveal(
       self,
       ship: Ship,
       chosen: Mapping[str, str],
       event: Callable[[int], str],
+      sees: int | None = None,
   ) -> str:
+    """Marks the watch kept and reveals the next `sees` turns (default all)."""
     watchers = [m for m, act in chosen.items() if act == 'watch']
     ship.watched = bool(watchers)
     if not watchers:
       return ''
+    sees = self._sees if sees is None else sees
     ahead = []
-    for turn in range(ship.turn + 1, ship.turn + 1 + self._sees):
+    for turn in range(ship.turn + 1, ship.turn + 1 + sees):
       kind = event(turn)
       ship.seen[str(turn)] = kind
       ahead.append(f'turn {turn}: {kind}')

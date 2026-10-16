@@ -49,6 +49,21 @@ class InjuryTest(absltest.TestCase):
     self.assertEqual(hazards.injure(ship, 'quiet', 5, ['Ash']), '')
 
 
+class StormSightTest(absltest.TestCase):
+
+  def test_a_storm_shortens_the_watch(self):
+    hazards = rules.HazardRule({'leak_damage': 2}, {'storm': {'sight': 1}})
+    watch = rules.WatchRule(2)
+    ship = rules.Ship(turn=3)
+    events = {4: 'squall', 5: 'quiet'}
+    text = watch.reveal(
+        ship, {'Cy': 'watch'}, events.get, hazards.sight('storm', watch.sees)
+    )
+    self.assertEqual(ship.seen, {'4': 'squall'})
+    self.assertIn('turn 4: squall', text)
+    self.assertEqual(hazards.sight('quiet', watch.sees), 2)
+
+
 class RotaRuleTest(absltest.TestCase):
 
   def test_rota_and_injury_put_members_off_duty(self):

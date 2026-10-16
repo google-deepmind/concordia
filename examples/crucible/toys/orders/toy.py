@@ -433,7 +433,12 @@ class OrdersToy(base.Toy):
     steps.append(
         ' '.join(f'{m} {self._data["actions"][chosen[m]]["does"]}.' for m in on)
     )
-    seen = self.watch.reveal(ship, chosen, lambda t: self.event(ship, t))
+    seen = self.watch.reveal(
+        ship,
+        chosen,
+        lambda t: self.event(ship, t),
+        self.hazards.sight(kind, self.watch.sees),
+    )
     if seen:
       steps.append(seen)
     bleed = self.hazards.end(ship)
