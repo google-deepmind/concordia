@@ -63,11 +63,12 @@
 
 <div id="menu">
   <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
+  <button id="freeplay">Free play: any order, nothing at stake</button>
+  <label id="mindrow" class="meter">Minds: <select id="mind"></select></label>
   <h2>Campaign</h2>
   <div id="campaign"></div>
-  <h2>Free play and earlier toys (Phase 0)</h2>
+  <h2>Earlier toys (Phase 0)</h2>
   <div id="pick"></div>
-  <label id="mindrow" class="meter">Minds: <select id="mind"></select></label>
 </div>
 
 <p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
@@ -179,7 +180,9 @@ function renderMenu(state) {
     const chapters = new Set(c ? c.chapters.map(x => x.scenario) : []);
     for (const t of state.toys) {
       const inCampaign = c && c.toy === t.toy;
-      const scenarios = t.scenarios.filter(s => !(inCampaign && chapters.has(s)));
+      // Orders' free play has its own button at the top.
+      const scenarios = t.scenarios.filter(s => !(inCampaign && (chapters.has(s) || s === 'free')));
+      if (inCampaign && !scenarios.length) continue;
       for (const scenario of (scenarios.length ? scenarios : [''])) {
         const b = document.createElement('button');
         b.textContent = t.toy + (scenario ? ' / ' + scenario : '');
@@ -364,6 +367,7 @@ async function send(text) {
   if (r.ok) { $('move').value = ''; $('plainmove').value = ''; countWords(); }
 }
 $('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
+$('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
 $('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');
