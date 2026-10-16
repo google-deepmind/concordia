@@ -331,8 +331,7 @@ class OrdersToy(base.Toy):
         situation=self.situation(ship, turn),
         supplies=ship.supplies,
         damage=ship.damage,
-        progress=ship.progress,
-        target=self._data['target'],
+        stakes=self.crew_stakes(ship),
         condition=self.condition(ship, member),
     )
     if timed:
@@ -378,21 +377,10 @@ class OrdersToy(base.Toy):
     turn = ship.turn + 1
     if self.free:
       stakes = f'hull damage {ship.damage}; project {ship.progress}'
-    elif self.goal() == 'foresight':
-      stakes = (
-          f'hull damage {ship.damage} of {self._data["wreck_at"]}; the '
-          f'harbour master wants {self._data["target"]} turns seen ahead '
-          f'(seen so far: {ship.foresight})'
-      )
-    elif self.goal() == 'supplies':
-      stakes = (
-          f'hull damage {ship.damage} of {self._data["wreck_at"]}; the port '
-          f'wants {self._data["target"]} supplies at the end'
-      )
     else:
       stakes = (
-          f'hull damage {ship.damage} of {self._data["wreck_at"]}; '
-          f'project {ship.progress} of {self._data["target"]}'
+          f'hull damage {ship.damage} of {self._data["wreck_at"]};'
+          f' {self.aim(ship)}'
       )
     per_words = int(self._data['command']['per_words'])
     call = self.laws_for_commander(ship) + (
@@ -634,6 +622,27 @@ class OrdersToy(base.Toy):
 
   def wrecked(self, ship: Ship) -> bool:
     return not self.free and ship.damage >= int(self._data['wreck_at'])
+
+  def aim(self, ship: Ship) -> str:
+    """The scene's goal and how far along it is, as told to everyone."""
+    target = self._data['target']
+    if self.goal() == 'foresight':
+      return (
+          f'the harbour master wants {target} turns seen ahead'
+          f' (seen so far: {ship.foresight})'
+      )
+    if self.goal() == 'supplies':
+      return f'the port wants {target} supplies at the end'
+    return f'project {ship.progress} of {target}'
+
+  def crew_stakes(self, ship: Ship) -> str:
+    """The crew's line on the project and the goal (cycle 80: in scenes
+    whose goal is not the project, they were told "project 0 of 10")."""
+    if self.free:
+      return f'project {ship.progress}'
+    if self.goal() == 'progress':
+      return self.aim(ship)
+    return f'project {ship.progress}; {self.aim(ship)}'
 
   def goal(self) -> str:
     """The ledger stock the scene is won on ('progress' or 'supplies')."""

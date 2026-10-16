@@ -33,8 +33,8 @@ _WHO = re.compile(r'(\w+) is a crew member who is (\w+):')
 _ORDER = re.compile(r'The standing order from the commander is: "(.*)"\n')
 _TURN = re.compile(r'This turn: (.*)\n')
 _STORES = re.compile(
-    r'Stores: (\d+) supplies; hull damage (\d+); project (\d+) of (\d+)\.'
-    r' \w+ is (worn out|fresh)\.'
+    r'Stores: (?P<supplies>\d+) supplies; hull damage (?P<damage>\d+);'
+    r' project \d+[^.\n]*\. \w+ is (?P<cond>worn out|fresh)\.'
 )
 _AGE = re.compile(r"This is the order's turn (\d+)\.")
 _TIMED_ORDER = re.compile(
@@ -268,7 +268,7 @@ class OrdersMock:
     props = self._data['temperaments'].get(who.group(2))
     if props is None:
       return None
-    supplies, damage, _, _, cond = stores.groups()
+    supplies, damage, cond = stores.group('supplies', 'damage', 'cond')
     letters = {text.strip(): key for key, text in _OPTION.findall(prompt)}
     by_text = {
         spec['text']: name for name, spec in self._data['actions'].items()
@@ -340,7 +340,7 @@ class OrdersMock:
     if not (who and order and turn):
       return 'none'
     stores = _STORES.search(prompt)
-    worn = bool(stores and stores.group(5) == 'worn out')
+    worn = bool(stores and stores.group('cond') == 'worn out')
     now = self.conditions_now(turn.group(1), worn)
     _, _, _, clauses = self.read_clauses(
         _timed(order.group(1), prompt), now, who.group(1), _someone(prompt)

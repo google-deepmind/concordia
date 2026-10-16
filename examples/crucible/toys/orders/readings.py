@@ -31,8 +31,8 @@ CHOICE_STATEMENT = (
     'How crew members read orders:\n{laws}\n'
     'The standing order from the commander is: "{order}"\n'
     'This turn: {situation}\n'
-    'Stores: {supplies} supplies; hull damage {damage}; project {progress}'
-    ' of {target}. {name} is {condition}.\n'
+    'Stores: {supplies} supplies; hull damage {damage}; {stakes}.'
+    ' {name} is {condition}.\n'
 )
 # Who takes up a clause for someone, told to each reader (cycle 27: named
 # but left to infer it was not them, a thinking model deliberated for

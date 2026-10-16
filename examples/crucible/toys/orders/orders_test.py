@@ -177,6 +177,19 @@ class ShipTest(absltest.TestCase):
     toy.resolve(toy.commander, toy_lib.HOLD)
     self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'repair')
 
+  def test_the_crew_are_told_the_scenes_own_goal(self):
+    data = toys.load_data('orders')
+    told = {}
+    for scene in ('voyage', 'supply_run', 'lookout', 'free'):
+      toy = toy_lib.OrdersToy(model_setup.mock_model(), data, scene)
+      told[scene] = toy.crew_stakes(toy.world)
+    self.assertEqual(told['voyage'], 'project 0 of 24')
+    self.assertEqual(
+        told['supply_run'], 'project 0; the port wants 10 supplies at the end'
+    )
+    self.assertIn('wants 4 turns seen ahead', told['lookout'])
+    self.assertEqual(told['free'], 'project 0')
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')
