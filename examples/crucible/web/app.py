@@ -239,6 +239,12 @@ class Games:
         },
     )
 
+  def visit(self) -> None:
+    """Notes that the page was opened (a timestamp, nothing else)."""
+    with self._lock:
+      with open(os.path.join(self._telemetry_dir, 'visits.jsonl'), 'a') as f:
+        f.write(json.dumps({'t': time.strftime('%Y-%m-%dT%H:%M:%S')}) + '\n')
+
   def quit(self) -> None:
     with self._lock:
       session, self.session = self.session, None
@@ -387,6 +393,7 @@ def make_handler(games: Games, base_path: str) -> type[Any]:
     def do_GET(self) -> None:  # pylint: disable=invalid-name
       path = self._path()
       if path in ('/', '/index.html'):
+        games.visit()
         self._send(200, page, 'text/html; charset=utf-8')
       elif path == '/api/state':
         self._json(games.state())

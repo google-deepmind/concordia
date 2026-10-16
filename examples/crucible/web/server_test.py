@@ -61,6 +61,11 @@ class ServerTest(absltest.TestCase):
       time.sleep(0.02)
     self.fail('no request')
 
+  def test_page_visits_are_noted(self):
+    urllib.request.urlopen(self.base + '/', timeout=10).read()
+    with open(os.path.join(self.dir, 'visits.jsonl')) as f:
+      self.assertEqual(len(f.readlines()), 1)
+
   def test_page_is_served_under_the_base_path(self):
     with urllib.request.urlopen(self.base + '/', timeout=10) as response:
       self.assertIn(b'Twelve Words', response.read())
