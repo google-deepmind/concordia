@@ -2,6 +2,46 @@
 
 Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
+## Pass it on (the rethink, cycle 98): the boxes, re-earned
+
+The owner's verdict on the orders game ("I don't really understand what to
+do at all"; "reconfigure it into a very different, and much more legible,
+game") reopened the guide's checklists for the new game. Evidence below is
+for Pass it on; the orders game's boxes follow as the record.
+
+Phase 0, toys
+- [x] Candidates compared and one kept, the reason in DESIGN.md (DESIGN 2x: the orders game failed the owner's Sandbox Prompt Test; Pass it on reuses its relay and reading as the whole game)
+- [x] Runs end to end on the mock (`passiton/toy_test.LineTest.test_a_whole_game_through_the_harness`)
+
+Phase 1, grey box
+- [x] A mock run finishes in seconds and reproduces from a seed (`toy_test`, 28 tests in 3 s)
+- [ ] Every move shows a measured preview of its effect before it is sent
+- [x] Every move gets a receipt saying what it did (each try: every hop's words, what the last in line did, the verdict; `toy_test.test_dex_flips_each_part_...`, page cards, evidence/shots/c99)
+- [ ] A tester with no win condition starts poking the system unprompted (the owner's Pass it on games)
+- [x] The skilled bot beats the random bot (16 seeds, evidence/audit-c101-passiton.jsonl: 100 vs 0-62 in every level)
+
+Phase 2, overloading
+- [ ] Every move carries at least two of directive, cost, side effect, information and timing
+- [ ] Each dimension is its own component with its own test
+- [x] Simultaneous acts resolve in a fixed order (the last in line read in line order; deterministic receipts)
+- [x] The median turn offers three or more moves with a measured effect (audit-c101: 120 to 14640 candidate messages with distinct outcomes)
+
+Phase 3, interaction matrix
+- [ ] Properties live in YAML and component state, not only in prompts
+- [ ] Matrix cells live in YAML and an audit script counts them (25+)
+- [ ] Every new feature adds or deepens two cells
+- [ ] Golden sets pass on the mock, an Ollama model and a Together model
+
+Phase 4, pacing
+- [x] Each arc has Isolate, Develop, Twist and Catharsis levels, gated by stars (`data/passiton.yaml`: arcs Mouth to ear and Dex in the middle; `campaign.chapters`)
+- [x] Bots at 16 seeds show the skill gaps in every level (audit-c101: skilled - random 38 to 100, skilled - passive 100)
+- [x] Telemetry keeps the move, what the player saw and the hidden truth (the server's move and end records; the end record's truth holds every try's hops)
+
+Phase 5, wrapping
+- [ ] Every fact in a role's prompt has a visual home
+- [ ] Each property has one look and one word, enforced by a test
+- [ ] The rule audit is done and orphan rules are cut
+
 ## Phase 0: toys
 
 - [x] Shared harness: generic game master, seats, mock, CLI, play audit (cycle 1)
