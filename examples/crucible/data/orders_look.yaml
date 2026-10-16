@@ -14,6 +14,7 @@ how_to_play:
   - Each member reads the order by their temperament. Bold Ash pushes the work; cautious Bea mends and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
   - A clause can name members ("Bea, keep watch"), wait for a condition ("if a leak opens, repair it"), forbid ("don't build"), or ask "someone".
   - Preview shows what each member would do, and the clause they would act on, before you spend anything.
+  - In later chapters a bosun passes your order on in their own words (in free play you can name one, "Bea is bosun"), and storms can carry off all but an order's first clause.
   - The cards say what each member did and why. Chapters open as you earn stars; each ends with the lesson it teaches.
 
 # Colour tokens, light and dark. The page defines them once as CSS variables.
