@@ -146,6 +146,35 @@ class ServerTest(absltest.TestCase):
     today = campaign.daily(toys.load_data('orders'), datetime.date.today())
     self.assertEqual(game['scenario'], today['scenario'])
 
+  def test_a_bosun_chapter_shows_what_the_crew_heard(self):
+    tele = tempfile.mkdtemp()
+    chapters = toys.load_data('orders')['campaign']
+    with open(os.path.join(tele, 'campaign.json'), 'w') as f:
+      json.dump({c: 1 for c in chapters[: chapters.index('the_bosun')]}, f)
+    games = server_lib.Games('mock', None, 100, tele)
+    server = server_lib.serve(games, 0, '/crucible')
+    self.base = f'http://127.0.0.1:{server.server_address[1]}/crucible'
+    try:
+      self.call('/api/start', {'toy': 'orders', 'scenario': 'the_bosun'})
+      game = self.wait_for_request()
+      self.call(
+          '/api/answer',
+          {'id': game['request']['id'], 'text': 'Build; Cy, keep watch.'},
+      )
+      for _ in range(200):
+        game = self.call('/api/state')['game']
+        if game['receipts']:
+          break
+        time.sleep(0.02)
+      self.assertIn('Ash passes it on: "Build."', game['receipts'][0])
+      cards = {m['name']: m for m in game['view']['crew']}
+      self.assertEqual(game['view']['bosun'], 'Ash')
+      self.assertEqual(cards['Cy']['heard'], 'Build.')
+      self.assertTrue(cards['Cy']['via_bosun'])
+    finally:
+      games.quit()
+      server.shutdown()
+
   def test_paid_minds_only_within_budget(self):
     games = server_lib.Games(
         'mock', None, 10, tempfile.mkdtemp(), ['ollama', 'together'], 0.5, 1.0
