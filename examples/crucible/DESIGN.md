@@ -313,6 +313,30 @@ values never exercised, dead helpers and four real defects.
 The claims and relay toys stay as the record of the toy stage (Phase 0);
 they are not rules of Twelve Words.
 
+## 2h. Judgements must be repeatable (cycle 15)
+
+Re-running the golden set (now 25 cases, 11 hard) on DeepSeek-V4.1-Flash gave
+11/11 hard laws on one run and 9/11 on the next: the crew's readings were
+sampled at the provider's default temperature (1.0). A reading of an order
+is a judgement, not a story, so it is now sampled cold: the which-clause
+question at `reading_temperature` (0.0) and the choice through the contrib
+`ReasonedChoice` at temperature 0 (library round 4). Asking the model to
+explain also exposed a slip between reason and letter ("so he builds",
+then the gather option's letter); the wrapper now trusts the option's words
+over a slipped letter.
+
+| Model (25 cases) | Hard laws | Soft agreement | Passed |
+|---|---|---|---|
+| Flash, default path | 11/11 | 71% | no |
+| Flash, reason first, temperature 1 (two runs) | 11/11, 9/11 | 93%, 79% | yes, no |
+| Flash, reason first, temperature 0 (two runs) | 11/11, 11/11 | 71%, 71% | no, no |
+| Flash, + words over letters (two runs) | 11/11, 11/11 | 86%, 79% | yes, yes |
+| qwen3:8b, reason first, temperature 1 | 10/11 | 100% | no |
+
+The provider is not fully deterministic even at temperature 0 (the failing
+soft cases change between runs), so the golden set is run at least twice
+per model and both runs must pass.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -364,3 +388,4 @@ Sources:
 | 12 | Arc 2 (Lookout, Squalls, Night watch, The crossing): squalls; hazards as data; scenes name their own habit; the skilled bot plans over the premise's schedules. Cells added: hazards->hull, watch->hull, fatigue->watch, watch->project; reading cell watch x worn. |
 | 13 | Title: Twelve Words. One look per kind (`orders_look.yaml`); the board draws `view()`; previews mark each member's next action. |
 | 14 | Live games on DeepSeek-V4.1-Flash (3 scenes, est. $0.05): the commander prompt states order prices, narrated orders are unwrapped. The rule audit (DESIGN §2g). Stars count words spoken. Cell added: conditional x worn. |
+| 15 | Readings sampled at temperature 0; golden sets run twice per model (DESIGN §2h). Library round 4: ReasonedChoice temperature and words over letters. |
