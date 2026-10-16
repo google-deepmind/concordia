@@ -84,10 +84,9 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   bosun is off duty; storm-cut words not shown as an earlier order; YAML
   'no'; cycle 78: a forbidden repair beats the leak habit in the mock;
   cycle 79: a span's age per heard order; cycle 80: the crew are told
-  the scene's own goal; cycle 81: the mock reads a span per clause).
+  the scene's own goal; cycle 81: the mock reads a span per clause;
+  cycle 82: mock negation scope, negated conditions, a damaged hull).
   Still to do:
-  - Mock negation: "not" reaches every later verb in a clause; negated
-    conditions ("if there is no leak") and damage without a leak.
   - Relay law text: the contrary bosun's exception for clauses that already
     forbid is not in the law; the cautious "repairs" test is by vocabulary.
   - The fallback habit text vs the mock's "cannot help" test on fallbacks.

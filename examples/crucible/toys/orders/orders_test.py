@@ -209,6 +209,35 @@ class ShipTest(absltest.TestCase):
     self.assertEqual(holds('Repair for one turn.', 2), '')
     self.assertEqual(holds('Build.', 2), 'Build.')
 
+  def test_a_negation_ends_at_a_comma_or_but(self):
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    for order in ("Don't rest, build.", "Don't rest but build."):
+      self.assertEqual(mock.read(order, set()), (['build'], False, ['rest']))
+    self.assertEqual(
+        mock.read("Don't rest or build.", set()), ([], False, ['rest', 'build'])
+    )
+
+  def test_a_negated_condition_turns_round(self):
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    for order in ('If there is no leak, build.', 'Build if there is no leak.'):
+      self.assertEqual(mock.read(order, set())[0], ['build'], order)
+      self.assertEqual(mock.read(order, {'leak'})[0], [], order)
+    self.assertEqual(
+        mock.read("If the hull isn't damaged, build.", set())[0], ['build']
+    )
+    # Only the condition's words name a condition: "the leak" is the object.
+    self.assertEqual(mock.read('If tired, repair the leak.', {'leak'})[0], [])
+    self.assertEqual(mock.read('Rest when tired.', {'tired'})[0], ['rest'])
+    self.assertEqual(mock.read('During storms build.', {'storm'})[0], ['build'])
+
+  def test_damage_without_a_leak_is_a_damaged_hull(self):
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    now = mock.conditions_now('A quiet turn.', worn=False, damage=2)
+    self.assertEqual(now, {'damaged'})
+    order = 'If the hull is damaged, repair it; otherwise build.'
+    self.assertEqual(mock.read(order, now)[0], ['repair'])
+    self.assertEqual(mock.read(order, set())[0], ['build'])
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

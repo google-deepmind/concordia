@@ -712,9 +712,15 @@ lexicon:
   rest: [rest, sleep, recover, pause, break, tired]
   watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
   conditions:
-    leak: [leak, leaks, damage, hull, breach]
+    leak: [leak, leaks, breach]
+    damaged: [damage, damaged, hull]  # holds while hull damage > 0 (cycle 82)
     storm: [storm, storms, weather, wind]
     tired: [tired, exhausted, worn, fatigue]
     squall: [squall, squalls]
   if_words: [if, when, whenever, during, unless]
   negations: [not, never, don, dont]  # 'no' unquoted was YAML false (cycle 77)
+  # A negation forbids the actions after it up to a comma or one of these.
+  negation_ends: [but, instead]
+  # Besides `negations`, words that turn a condition round ("if there is no
+  # leak").
+  condition_negations: ['no', isn, without, none]
