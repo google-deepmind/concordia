@@ -21,7 +21,7 @@
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 15px; }
   .bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 3px; }
-  .bar > i { display: block; height: 100%; }
+  .bar > i { display: block; height: 100%; transition: width .45s ease-out; }
   .meter { font-size: 14px; color: var(--muted); }
   .glyph { display: inline-block; min-width: 1.2em; text-align: center; font-weight: 700; }
   .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -43,7 +43,17 @@
   #dock button { width: 100%; margin: 0; }
   .fresh { animation: fade .35s ease-out; }
   @keyframes fade { from { opacity: .3; } to { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .fresh { animation: none; } }
+  /* Motion marks a change of state, once: the hull shakes when damage rises
+     (hazards and leaks), a new turn's cell settles in. */
+  .hit { animation: hit .6s ease-out; }
+  @keyframes hit { 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); }
+                   60% { transform: translateX(-2px); } 100% { transform: translateX(0); } }
+  .arrive { animation: arrive .5s ease-out; }
+  @keyframes arrive { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .fresh, .hit, .arrive { animation: none; }
+    .bar > i { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -117,6 +127,8 @@ const $ = (id) => document.getElementById(id);
 let LOOK = null, requestId = null, lastQuestion = '', lastView = null, mode = 'plain';
 let PREDICTED = null;  // the last preview's predicted crew actions
 let lastReceipts = [];
+let shownTurn = null, shownDamage = null;  // what the motion last marked
+function once(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 let menuOpen = false;  // the player opened the menu during a game
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : {
@@ -205,6 +217,8 @@ function renderView(v, receipts) {
   if (v.leak_open) $('hullLabel').append(' ', g('events', 'leak'), ' leak open');
   $('hull').textContent = v.damage + ' damage of ' + v.wreck_at;
   $('hullBar').style.width = Math.min(100, 100 * v.damage / v.wreck_at) + '%';
+  if (shownDamage !== null && v.damage > shownDamage) once($('hullBar').parentElement.parentElement, 'hit');
+  shownDamage = v.damage;
   $('hullBar').style.background = 'var(--hull)';
   label($('goalBarLabel'), 'stocks', goalKey, word('stocks', goalKey));
   $('goalNum').textContent = v.free ? '' : goalNow + ' of ' + v.target;
@@ -222,6 +236,8 @@ function renderView(v, receipts) {
     }
     ahead.appendChild(d);
   }
+  if (v.turn !== shownTurn && ahead.firstChild) { once(ahead.firstChild, 'arrive'); }
+  shownTurn = v.turn;
   $('situation').textContent = v.situation;
   const crew = $('crew'); crew.innerHTML = '';
   for (const m of v.crew) {
