@@ -74,7 +74,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. qwen3:8b golden on the 49 cases, twice (it keeps 24/25 of the older set's hard laws; g38, the literal under "Someone repair the hull.", it reads its own way). A larger local model needs the owner's permission to download.
+2. Done (cycle 73): the 53-case golden set passes twice on the mock, qwen3:8b (Ollama) and DeepSeek-V4.1-Flash (Together).
 3. Keep deepening: the commander learning from the readings shown (a scene where the order must be re-worded after a misreading); a bosun who is also on a rota mid-scene; the owner's games.
 
 ## Backlog

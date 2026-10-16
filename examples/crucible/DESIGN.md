@@ -564,8 +564,14 @@ be a rule the campaign never asks a player to learn.
   it, not a fixed misreading. A second pair gave the same: a full pass,
   then 27/28 on g38 (with one reading timing out). Over four runs qwen3:8b
   passed two in full; by this project's rule (every run of a pair must
-  pass) the Ollama set is not yet passed. Flash on the same wording passes
+  pass) the Ollama set was not yet passed. Flash on the same wording passes
   both runs (28/28, soft 81%).
+- On the 53-case set (cycle 73), after the timing law was reworded to count
+  the order's own turns from 1 (qwen3 had argued the off-by-one in "given
+  1 turn ago" against "for one turn"), **qwen3:8b passed both runs: 32/32
+  hard, every soft case, nothing flaky**, and Flash passed both runs on the
+  same wording (32/32 hard, soft 76% and 81%). The golden set now passes on
+  the mock, an Ollama model and a Together model.
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
