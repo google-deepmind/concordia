@@ -42,6 +42,7 @@
           background: var(--paper); border-top: 1px solid var(--line); }
   #dock button { width: 100%; margin: 0; }
   .fresh { animation: fade .35s ease-out; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @keyframes fade { from { opacity: .3; } to { opacity: 1; } }
   /* Motion marks a change of state, once: the hull shakes when damage rises
      (hazards and leaks), a new turn's cell settles in. */
@@ -69,7 +70,8 @@
   <label id="mindrow" class="meter">Minds: <select id="mind"></select></label>
 </div>
 
-<p id="status" class="muted">Pick a chapter to start.</p>
+<p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
+<p id="announce" class="sr" aria-live="polite"></p>
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
@@ -98,7 +100,7 @@
   <h2>Standing order</h2>
   <div class="card order" id="order"></div>
 
-  <textarea id="move" placeholder="A new order, or leave empty to hold" autocomplete="off"></textarea>
+  <textarea id="move" aria-label="Your order" placeholder="A new order, or leave empty to hold" autocomplete="off"></textarea>
   <div class="row"><span class="meter" id="count"></span></div>
   <div>
     <button id="preview">Preview</button>
@@ -149,7 +151,7 @@ function g(category, key) {  // a glyph span from the look
   if (!spec) return document.createTextNode(key || '');
   const s = document.createElement('span');
   s.className = 'glyph'; s.textContent = spec.glyph; s.style.color = 'var(--' + spec.color + ')';
-  s.title = spec.word; return s;
+  s.title = spec.word; s.setAttribute('aria-hidden', 'true'); return s;  // the word beside it is read
 }
 function word(category, key) { const s = LOOK && LOOK[category] && LOOK[category][key]; return s ? s.word : key; }
 function label(el, category, key, text) { el.innerHTML = ''; el.append(g(category, key), ' ' + text); }
@@ -272,7 +274,10 @@ function renderView(v, receipts) {
   if (log.children.length !== receipts.length) {
     log.innerHTML = '';
     for (const r of receipts.slice().reverse()) { const li = document.createElement('li'); li.textContent = r; log.appendChild(li); }
-    if (log.firstChild) log.firstChild.classList.add('fresh');
+    if (log.firstChild) {
+      log.firstChild.classList.add('fresh');
+      $('announce').textContent = log.firstChild.textContent;  // read the new turn aloud
+    }
   }
 }
 function countWords() {
