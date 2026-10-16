@@ -9,13 +9,12 @@ tagline: One standing order. Every crew member reads it their own way.
 
 # How to play, in the order a new player needs it (shown folded on the menu).
 how_to_play:
-  - Each turn you may give the crew one standing order of at most 12 words, or hold the one they have.
-  - Words cost command points (the price is shown as you type); in most chapters points come back a turn at a time, in some you have only enough for one order.
-  - Each member reads the order by their temperament. Bold Ash pushes the work; cautious Bea mends and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
-  - A clause can name members ("Bea, keep watch"), wait for a condition ("if a leak opens, repair it"), forbid ("don't build"), or ask "someone".
-  - Preview shows what each member would do, and the clause they would act on, before you spend anything.
-  - In later chapters a bosun passes your order on in their own words (in free play you can name one, "Bea is bosun"), and storms can carry off all but an order's first clause.
-  - The cards say what each member did and why. Chapters open as you earn stars; each ends with the lesson it teaches.
+  - You command a small ship's crew with one order, in your own words, of at most 12 words.
+  - The crew follow that order every turn until you give a new one. A new order costs command (◆), more for longer orders; Hold keeps the current one for free.
+  - Each member reads the order their own way. Bold Ash pushes the work; cautious Bea mends leaks and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
+  - 'Say who does what, and when: "Build.", "Ash, build; Bea, repair leaks.", "If a leak opens, repair it.", "Don''t build."'
+  - Preview shows what each member would do before you spend anything; after each turn their cards say what they did and why.
+  - Each chapter says its task at the top of the board. Win to earn stars; stars open the next chapter. Later chapters add squalls, a watch, a rota, a bosun and timed orders.
 
 # Colour tokens, light and dark. The page defines them once as CSS variables.
 palette:
@@ -66,10 +65,10 @@ events:
   unseen: {glyph: '?', word: unseen, color: unseen}
 
 temperaments:
-  bold: {glyph: '▲', word: bold, color: bold}
-  cautious: {glyph: '●', word: cautious, color: cautious}
-  literal: {glyph: '■', word: literal, color: literal}
-  contrary: {glyph: '▼', word: contrary, color: contrary}
+  bold: {glyph: '▲', word: bold, color: bold, means: 'pushes the work, even tired'}
+  cautious: {glyph: '●', word: cautious, color: cautious, means: 'mends leaks first, rests when worn'}
+  literal: {glyph: '■', word: literal, color: literal, means: 'does exactly what is said, nothing else'}
+  contrary: {glyph: '▼', word: contrary, color: contrary, means: 'does the opposite of what is said'}
 
 conditions:
   fresh: {glyph: '·', word: fresh, color: muted}
@@ -89,6 +88,17 @@ stocks:
   progress: {glyph: '▥', word: project, color: project}
   points: {glyph: '♦', word: command, color: command}
   foresight: {glyph: '◔', word: forecast, color: command}
+
+# The three steps shown on the board (open in the first chapters and free
+# play, folded elsewhere), and the order box's example (cycle 93: a first
+# player did not know what to do).
+quick_start:
+  open_in: [one_hand, two_hands, free]
+  steps:
+    - Read the task above, then type an order in plain words, like "Build."
+    - Tap Preview to see what each crew member would do with it, then Send. They follow it every turn until you change it.
+    - A new order costs command (◆), longer ones more; Hold keeps the current order for free.
+placeholder: Type an order, e.g. “Build.”
 
 # The design's beats (isolate, develop, twist, catharsis) as a player
 # reads them on the menu and the board (cycle 90).

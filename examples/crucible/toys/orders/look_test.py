@@ -130,6 +130,16 @@ class ViewTest(absltest.TestCase):
         toy.reading(ship, 'Cy', 1), ('repair', 'if a leak opens, repair it')
     )
 
+  def test_every_chapter_tells_the_player_its_task(self):
+    data = toys.load_data('orders')
+    look = toys.load_data('orders_look')
+    for name in data['campaign']:
+      toy = toy_lib.OrdersToy(model_setup.mock_model(), data, name)
+      self.assertGreater(len(toy.view()['premise'].split()), 8, name)
+    for spec in look['temperaments'].values():
+      self.assertTrue(spec.get('means'))
+    self.assertLen(look['quick_start']['steps'], 3)
+
   def test_every_beat_has_a_player_word(self):
     words = toys.load_data('orders_look')['beat_words']
     for name, scene in toys.load_data('orders')['scenarios'].items():

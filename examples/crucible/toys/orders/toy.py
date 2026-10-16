@@ -559,6 +559,9 @@ class OrdersToy(base.Toy):
             .get('title', self.scenario)
         ),
         'beat': self._data.get('beat', ''),
+        'scenario': self.scenario,
+        # The scene's task in plain words, for the player (cycle 93).
+        'premise': ' '.join(str(self._data.get('premise', '')).split()),
         # What the scene teaches, shown once it is over.
         'lesson': self._data.get('lesson') if self.done() else None,
         'bosun': self.bosun_of(ship),  # who passes orders on (arc 5)

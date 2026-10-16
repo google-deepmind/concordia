@@ -64,11 +64,10 @@
 <div id="menu">
   <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
   <button id="freeplay">Free play: any order, nothing at stake</button>
-  <label id="mindrow" class="meter">Minds: <select id="mind"></select></label>
-  <h2>Campaign</h2>
+  <label id="mindrow" class="meter">Who reads your orders: <select id="mind"></select></label>
+  <h2>Chapters</h2>
   <div id="campaign"></div>
-  <h2>Earlier toys (Phase 0)</h2>
-  <div id="pick"></div>
+  <details class="meter"><summary>For developers: earlier prototypes</summary><div id="pick"></div></details>
 </div>
 
 <p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
@@ -77,6 +76,8 @@
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
+  <div class="card task"><strong id="taskTitle">Your task</strong><p id="task" style="margin:4px 0 0"></p></div>
+  <details class="card" id="how"><summary><strong>How it works</strong></summary><ol id="howSteps"></ol></details>
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <strong id="scene"></strong><span class="meter" id="turn"></span>
@@ -93,18 +94,18 @@
       <div class="bar"><i id="goalBar"></i></div></div>
   </div>
 
-  <h2>Now and ahead</h2>
+  <h2>The sea, now and ahead</h2>
   <div class="strip" id="ahead"></div>
   <p class="meter" id="situation"></p>
 
-  <h2>Crew</h2>
+  <h2>Your crew <span class="meter muted">(each reads your order their own way)</span></h2>
   <div class="crew" id="crew"></div>
 
-  <h2>Standing order</h2>
+  <h2>Your order <span class="meter muted">(followed every turn until you change it)</span></h2>
   <div class="card order" id="order"></div>
 
   <div id="controls">
-  <textarea id="move" aria-label="Your order" placeholder="A new order, or leave empty to hold" autocomplete="off" enterkeyhint="send"></textarea>
+  <textarea id="move" aria-label="Your order" placeholder="Type an order, e.g. “Build.”" autocomplete="off" enterkeyhint="send"></textarea>
   <div class="row"><span class="meter" id="count"></span></div>
   <div>
     <button id="preview">Preview</button>
@@ -115,7 +116,7 @@
   <div class="card" id="previewout" hidden></div>
   <p id="reqerror" class="error"></p>
 
-  <h2>What happened</h2>
+  <h2>What happened, turn by turn</h2>
   <ol id="log" reversed></ol>
 </div>
 
@@ -127,8 +128,8 @@
   <ol id="plainlog" reversed></ol>
 </div>
 
-<details><summary class="meter">What your seat knows (the whole prompt)</summary><pre id="context"></pre></details>
-<p class="meter">Grey-box toys of the crucible example, on Concordia.</p>
+<details><summary class="meter">For developers: the commander's full prompt</summary><pre id="context"></pre></details>
+<p class="meter">Twelve Words, a game on Google DeepMind's Concordia.</p>
 <div id="dock" hidden><button id="send" class="primary">Send</button></div>
 
 <script>
@@ -242,13 +243,27 @@ function starRules(v) {
   return ['★ ' + (words.win || 'meet the goal')].concat(
       Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
 }
+let howFor = null;  // the game the How it works box was last set up for
+let howFolded = false;  // folded after the first turn of that game
 function renderView(v, receipts) {
   $('scene').textContent = v.title + (v.beat ? ' · ' + beatWord(v.beat) : '');
+  $('taskTitle').textContent = (v.free ? 'Free play' : v.title) + ': your task';
+  $('task').textContent = v.premise || (v.free ? 'Free play: give any order and watch how each member reads it. Nothing is at stake.' : '');
+  const qs = (LOOK && LOOK.quick_start) || {};
+  if (!$('howSteps').children.length) {
+    for (const line of (qs.steps || [])) { const li = document.createElement('li'); li.textContent = line; $('howSteps').appendChild(li); }
+  }
+  const key = (v.scenario || '') + '|' + v.title;
+  if (howFor !== key) {
+    howFor = key; howFolded = receipts.length > 0;
+    $('how').open = !howFolded && (qs.open_in || []).includes(v.scenario || (v.free ? 'free' : ''));
+  } else if (receipts.length && !howFolded) { howFolded = true; $('how').open = false; }  // read once
+  if (LOOK && LOOK.placeholder) $('move').placeholder = LOOK.placeholder;
   $('starRules').textContent = starRules(v);
   $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
   label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));
   $('points').textContent = v.points_cap > 10 ? v.points + ' ♦'
-      : '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points));
+      : '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points)) + ' ' + v.points + ' of ' + v.points_cap;
   label($('suppliesLabel'), 'stocks', 'supplies', word('stocks', 'supplies'));
   $('supplies').textContent = v.supplies;
   const goalKey = v.goal === 'supplies' ? 'supplies' : (v.goal === 'foresight' ? 'foresight' : 'progress');
@@ -288,6 +303,8 @@ function renderView(v, receipts) {
     head.style.fontWeight = '700';
     const t = document.createElement('div'); t.className = 'meter';
     t.textContent = word('temperaments', m.temperament) + (v.bosun === m.name ? ' \u00b7 bosun' : '');
+    const means = LOOK && LOOK.temperaments && LOOK.temperaments[m.temperament] && LOOK.temperaments[m.temperament].means;
+    if (means) { const mm = document.createElement('div'); mm.className = 'meter muted'; mm.textContent = means; t.appendChild(mm); }
     const cond = m.off ? 'off_duty' : m.condition;
     const c = document.createElement('div'); c.append(g('conditions', cond), ' ' + word('conditions', cond));
     const l = document.createElement('div'); l.className = 'meter';
@@ -399,7 +416,9 @@ function render(state) {
       $('status').scrollIntoView({block: 'start', behavior: 'smooth'});
     }
   } else if (req) {
-    $('status').textContent = 'Your order, ' + gm.seat + '.';
+    // The last turn's result, where the eye is, not only in the log below.
+    const last = gm.receipts.length ? gm.receipts[gm.receipts.length - 1] : '';
+    $('status').textContent = (last ? 'Last turn: ' + last + ' ' : '') + 'Your order, ' + gm.seat + '.';
   } else {
     $('status').textContent = 'The crew are at work…';
   }
