@@ -54,12 +54,15 @@ def run_case(
     data['scenarios']['voyage']['crew_present'] = list(case['crew'])
   if 'bosun' in case:
     data['scenarios']['voyage']['bosun'] = case['bosun']
+  # A timed order given `age` turns before the turn being read (turn 1).
+  age = int(case.get('age', 0))
   if 'off_duty' in case:
     data['scenarios']['voyage']['off_duty'] = {m: [1] for m in case['off_duty']}
   toy = orders_lib.OrdersToy(model, data, 'voyage', seed=0)
   ship = toy.world
   ship.shift = 0
   ship.order = case['order']
+  ship.order_turn = 1 - age
   ship.supplies = int(case.get('supplies', 3))
   if case.get('worn'):
     ship.fatigue[case['member']] = int(data['effects']['tired_at'])

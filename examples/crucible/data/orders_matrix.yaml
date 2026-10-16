@@ -57,6 +57,7 @@ cells:
   - {from: hazards, to: command, by: an order given in a storm that garbles carries only its first clause; the vital clause must come first, or wait for the calm (cycle 51), test: test_an_order_given_in_a_storm_carries_only_its_first_clause}
   - {from: hazards, to: crew, by: in a garbling storm the bosun relays only what the wind left (cycle 51), test: test_the_bosun_relays_what_the_wind_left}
   - {from: command, to: command, by: in free play an order can name the bosun ('Bea is bosun') or end it ('no bosun') (cycle 57), test: test_free_play_names_a_bosun_by_order}
+  - {from: command, to: crew, by: an order's age decides which part of a timed order holds (cycle 62), test: test_a_timed_order_changes_with_its_age}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
@@ -71,6 +72,7 @@ reading:
     negation: a clause that forbids an action (not, never, don't)
     someone: a clause for someone, which asks one member only (cycle 18)
     relay: an order passed on by the bosun, in their own words (cycle 41)
+    timed: an order with a span ("for two turns, then ...") (cycle 62)
   properties:
     quiet: a quiet turn
     leak: a leak open in the hull
@@ -116,6 +118,8 @@ reading:
     - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46, g49], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" when no clause repairs (cycle 41), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: contrary, law: a contrary bosun says "don't" before every clause (cycle 41), golden: [g48], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: timed, property: literal, law: 'a clause "for N turns" holds for the first N turns, counting the turn it is given; then what follows "then"; with nothing after it, nothing (cycle 62)', golden: [g50, g51, g53], test: test_a_timed_order_changes_with_its_age}
+    - {operator: timed, property: bold, law: 'once the span is over the bold read the part after "then" (cycle 62)', golden: [g52]}
     - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40], test: test_no_one_willing_means_no_one_does_it}
 
 # Golden cases: one situation, one member, the actions the laws allow.
@@ -171,3 +175,7 @@ golden:
   - {id: g47, order: 'Gather supplies.', event: leak, member: Ash, bosun: Bea, expect: [repair, gather]}
   - {id: g48, order: 'Build.', event: quiet, member: Cy, bosun: Dex, expect: [rest], hard: true}
   - {id: g49, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Ash, expect: [build]}
+  - {id: g50, order: 'Build for two turns, then repair.', event: quiet, member: Cy, age: 0, expect: [build], hard: true}
+  - {id: g51, order: 'Build for two turns, then repair.', event: quiet, member: Cy, age: 2, expect: [repair], hard: true}
+  - {id: g52, order: 'Keep watch for one turn, then build.', event: quiet, member: Ash, age: 1, expect: [build], hard: true}
+  - {id: g53, order: 'Repair for one turn.', event: quiet, member: Cy, age: 1, expect: [rest], hard: true}

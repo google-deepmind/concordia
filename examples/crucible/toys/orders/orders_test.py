@@ -144,6 +144,16 @@ class ShipTest(absltest.TestCase):
     toy.resolve(toy.commander, 'Build the project.')
     self.assertEqual(toy.outcome()['words_spoken'], 3)
 
+  def test_a_timed_order_changes_with_its_age(self):
+    toy = _toy()
+    toy.world.shift = 0
+    cy = []
+    for order in ('Build for two turns, then repair.', 'hold', 'hold'):
+      toy.resolve(toy.commander, order)
+      cy.append(toy.world.log[-1]['actions']['Cy'])
+    self.assertEqual(cy, ['build', 'build', 'repair'])
+    self.assertEqual(toy.world.order_turn, 1)
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

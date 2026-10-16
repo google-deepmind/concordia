@@ -54,6 +54,7 @@ CHOICE_STATEMENT = (
 # Who takes up a clause for someone, told to each reader (cycle 27: named
 # but left to infer it was not them, a thinking model deliberated for
 # minutes).
+TIMED = re.compile(r'\bfor\s+(?:\w+)\s+turns?\b', re.IGNORECASE)
 SOMEONE_YOU = (
     '{who} takes up the clause for someone this turn: it applies to {who}.\n'
 )
@@ -386,7 +387,10 @@ class OrdersToy(base.Toy):
     props = self._data['temperaments'][temperament]
     order = self.rota.order_of(ship, member)
     someone = self.asks_someone(order)
+    timed = bool(TIMED.search(order)) and 'timing' in self._data
     laws = list(self._data['reading_laws'])
+    if timed:
+      laws.append(' '.join(str(self._data['timing']['law']).split()))
     if someone:
       # Right after the plain-clause law, which it qualifies (cycle 32: a
       # model took "Someone repair the hull." for a plain clause).
@@ -405,6 +409,13 @@ class OrdersToy(base.Toy):
         target=self._data['target'],
         condition=self.condition(ship, member),
     )
+    if timed:
+      age = turn - ship.order_turn
+      statement += (
+          'This order was given this turn.\n'
+          if age <= 0
+          else f'This order was given {age} turn{"s" if age > 1 else ""} ago.\n'
+      )
     if someone:
       who = self.volunteer(ship, turn, order)
       if who is None:
@@ -499,6 +510,7 @@ class OrdersToy(base.Toy):
       previous, spent = ship.order, ship.spent
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty
+        ship.order_turn = ship.turn + 1
         if self._data.get('bosun_by_order'):
           named = self.appointed(ship.order)
           if named is not None and named != ship.bosun:

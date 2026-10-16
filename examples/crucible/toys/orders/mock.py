@@ -36,6 +36,12 @@ _STORES = re.compile(
     r'Stores: (\d+) supplies; hull damage (\d+); project (\d+) of (\d+)\.'
     r' \w+ is (worn out|fresh)\.'
 )
+_AGE = re.compile(r'This order was given (?:this turn|(\d+) turns? ago)\.')
+_TIMED_ORDER = re.compile(
+    r'^(.*?)\s+for\s+(\w+)\s+turns?\s*[,;.]?\s*(?:then\s+(.*))?$',
+    re.IGNORECASE,
+)
+_NUMBERS = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6}
 _SOMEONE = re.compile(
     r'^(\w+) takes up the clause for someone this turn', re.MULTILINE
 )
@@ -45,6 +51,17 @@ _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
 _SENTENCE = re.compile(r'[.;]')
 _CLAUSE = re.compile(r'\b(?:otherwise|else|then)\b', re.IGNORECASE)
+
+
+def _timed(order: str, prompt: str) -> str:
+  """The part of a timed order that holds now, by the order's age."""
+  found, timed = _AGE.search(prompt), _TIMED_ORDER.match(order.strip())
+  if not (found and timed):
+    return order
+  age = int(found.group(1) or 0)
+  word = timed.group(2).lower()
+  turns = int(word) if word.isdigit() else _NUMBERS.get(word, 1)
+  return timed.group(1) if age < turns else (timed.group(3) or '')
 
 
 def _someone(prompt: str) -> str | None:
@@ -257,7 +274,7 @@ class OrdersMock:
     }
     menu = [by_text[t] for t in letters if t in by_text]
     action = self.decide(
-        props, order.group(1), turn.group(1), int(supplies), int(damage),
+        props, _timed(order.group(1), prompt), turn.group(1), int(supplies), int(damage),
         cond == 'worn out', who.group(1), menu, _someone(prompt),
     )  # fmt: skip
     wanted = self._data['actions'][action]['text']
@@ -325,6 +342,6 @@ class OrdersMock:
     worn = bool(stores and stores.group(5) == 'worn out')
     now = self.conditions_now(turn.group(1), worn)
     _, _, _, clauses = self.read_clauses(
-        order.group(1), now, who.group(1), _someone(prompt)
+        _timed(order.group(1), prompt), now, who.group(1), _someone(prompt)
     )
     return f'"{"; ".join(clauses)}"' if clauses else 'none'
