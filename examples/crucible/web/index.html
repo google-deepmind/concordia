@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Twelve Words · crucible</title>
 <style>
   :root { color-scheme: light dark; --paper:#f5f2ea; --ink:#1f1d1a; --muted:#6e6a62; --line:#d9d3c7; }
@@ -19,15 +19,15 @@
   button.primary { background: var(--command); border-color: var(--command); color: #fff; font-weight: 600; }
   .card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; font-size: 15px; }
+  .hud { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 15px; }
   .bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin-top: 3px; }
   .bar > i { display: block; height: 100%; transition: width .45s ease-out; }
   .meter { font-size: 14px; color: var(--muted); }
   .glyph { display: inline-block; min-width: 1.2em; text-align: center; font-weight: 700; }
-  .strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .cell { border: 1px solid var(--line); border-radius: 10px; padding: 6px; text-align: center; font-size: 14px; }
   .cell .glyph { font-size: 22px; display: block; }
-  .crew { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .crew { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .crew .cell { text-align: left; }
   .crew .cell .glyph { display: inline-block; font-size: 16px; }
   .next { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line); }
@@ -73,7 +73,7 @@
 
 <p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
 <p id="announce" class="sr" aria-live="polite"></p>
-<p id="again" hidden><button id="retry">Try again</button></p>
+<p id="again" hidden><button id="retry">Try again</button> <button id="toMenu">Chapters</button></p>
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
@@ -102,12 +102,14 @@
   <h2>Standing order</h2>
   <div class="card order" id="order"></div>
 
-  <textarea id="move" aria-label="Your order" placeholder="A new order, or leave empty to hold" autocomplete="off"></textarea>
+  <div id="controls">
+  <textarea id="move" aria-label="Your order" placeholder="A new order, or leave empty to hold" autocomplete="off" enterkeyhint="send"></textarea>
   <div class="row"><span class="meter" id="count"></span></div>
   <div>
     <button id="preview">Preview</button>
     <button id="hold">Hold</button>
     <button id="menuToggle">Menu</button>
+  </div>
   </div>
   <div class="card" id="previewout" hidden></div>
   <p id="reqerror" class="error"></p>
@@ -136,6 +138,9 @@ let lastReceipts = [];
 let shownTurn = null, shownDamage = null;  // what the motion last marked
 function once(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
 let menuOpen = false;  // the player opened the menu during a game
+let starting = false;  // a start request is in flight (one game per tap)
+let shownEnd = null;  // the finished game whose result was scrolled to
+let blocked = false;  // the typed order is too long or cannot be paid for
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
@@ -205,10 +210,15 @@ function renderMenu(state) {
 }
 let lastStart = null;  // what the last game was started with, for Try again
 async function start(body) {
+  if (starting) return;
+  starting = true;
   body.mode = $('mind').value;
   lastStart = Object.assign({}, body);
   $('again').hidden = true;
-  const r = await api('api/start', body);
+  let r;
+  try { r = await api('api/start', body); }
+  catch (e) { r = {ok: false, error: 'Could not start: ' + e}; }
+  finally { starting = false; }
   if (!r.ok) { $('status').textContent = r.error || 'Could not start.'; return; }
   $('log').innerHTML = ''; $('plainlog').innerHTML = ''; menuOpen = false; $('menu').hidden = true;
   $('share').hidden = true; $('copyShare').textContent = 'Copy';
@@ -218,7 +228,8 @@ function renderView(v, receipts) {
   $('scene').textContent = v.title + (v.beat ? ' · ' + v.beat : '');
   $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
   label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));
-  $('points').textContent = '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points));
+  $('points').textContent = v.points_cap > 10 ? v.points + ' ♦'
+      : '♦'.repeat(v.points) + '♢'.repeat(Math.max(0, v.points_cap - v.points));
   label($('suppliesLabel'), 'stocks', 'supplies', word('stocks', 'supplies'));
   $('supplies').textContent = v.supplies;
   const goalKey = v.goal === 'supplies' ? 'supplies' : (v.goal === 'foresight' ? 'foresight' : 'progress');
@@ -227,7 +238,7 @@ function renderView(v, receipts) {
   $('goal').textContent = v.free ? 'free play' : (goalNow + ' / ' + v.target);
   label($('hullLabel'), 'stocks', 'damage', 'hull');
   if (v.leak_open) $('hullLabel').append(' ', g('events', 'leak'), ' leak open');
-  $('hull').textContent = v.damage + ' damage of ' + v.wreck_at;
+  $('hull').textContent = v.free ? v.damage + ' damage' : v.damage + ' damage of ' + v.wreck_at;
   $('hullBar').style.width = Math.min(100, 100 * v.damage / v.wreck_at) + '%';
   if (shownDamage !== null && v.damage > shownDamage) once($('hullBar').parentElement.parentElement, 'hit');
   shownDamage = v.damage;
@@ -289,15 +300,24 @@ function renderView(v, receipts) {
   }
 }
 function countWords() {
+  blocked = false;
   if (!lastView) return;
-  const words = $('move').value.trim().split(/\s+/).filter(Boolean).length;
-  if (!words) { $('count').textContent = 'Empty: the standing order holds.'; return; }
+  const move = $('move');
+  if (/[\r\n]/.test(move.value)) move.value = move.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  const words = move.value.trim().split(/\s+/).filter(Boolean).length;
+  if (!words) { $('count').textContent = 'Empty: the standing order holds.'; sendable(); return; }
   const cost = 1 + Math.floor(words / lastView.per_words);
   const over = words > lastView.max_words;
+  blocked = over || cost > lastView.points;
   $('count').textContent = words + ' / ' + lastView.max_words + ' words · costs ' + cost + ' ♦' +
-      (over ? ' · too long' : (cost > lastView.points ? ' · not enough command' : ''));
+      (over ? ' · too long: shorten it to send' : (cost > lastView.points ? ' · not enough command: shorten it or hold' : ''));
+  sendable();
 }
+function sendable() { $('send').disabled = !requestId || (mode === 'board' && blocked); }
 $('move').addEventListener('input', countWords);
+$('move').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
+});
 
 function render(state) {
   if (!LOOK && state.look) {
@@ -310,7 +330,14 @@ function render(state) {
   }
   renderMenu(state);
   const gm = state.game;
-  if (!gm) { $('menu').hidden = false; return; }
+  if (!gm) {
+    if (requestId || !$('board').hidden || !$('plain').hidden) {
+      $('status').textContent = 'That game was lost (the server restarted). Pick a chapter to start again.';
+    }
+    requestId = null; $('send').disabled = true;
+    $('board').hidden = true; $('plain').hidden = true; $('menu').hidden = false;
+    return;
+  }
   if (!gm.finished) $('menu').hidden = !menuOpen;
   const req = gm.request;
   mode = gm.view ? 'board' : 'plain';
@@ -325,10 +352,11 @@ function render(state) {
     $('question').textContent = req ? req.question : '';
   }
   $('again').hidden = true;  // shown again below only once a game is over
+  $('controls').hidden = gm.finished;  // nothing left to order
   if (gm.finished) {
     const o = gm.outcome || {};
     $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won') + (gm.error ? ' (' + gm.error + ')' : '');
-    $('again').hidden = !lastStart;
+    $('again').hidden = false; $('retry').hidden = !lastStart;
     const lesson = gm.view && gm.view.lesson;
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
     if (gm.daily && gm.view) {
@@ -336,7 +364,11 @@ function render(state) {
           + ' \u00b7 ' + stars(o.stars || 0) + ' \u00b7 ' + (o.words_spoken || 0) + ' words';
       $('share').hidden = false;
     }
-    $('menu').hidden = false;
+    $('menu').hidden = !menuOpen;
+    if (shownEnd !== gm.id) {
+      shownEnd = gm.id;
+      $('status').scrollIntoView({block: 'start', behavior: 'smooth'});
+    }
   } else if (req) {
     $('status').textContent = 'Your order, ' + gm.seat + '.';
   } else {
@@ -345,7 +377,7 @@ function render(state) {
   requestId = req ? req.id : null;
   $('context').textContent = req ? req.context + '\n\n' + req.question : '';
   $('reqerror').textContent = req && req.error ? 'Not accepted: ' + req.error : '';
-  $('send').disabled = !req;
+  sendable();
   if (req && req.question !== lastQuestion) {
     lastQuestion = req.question; PREDICTED = null;
     $('previewout').hidden = true; $('plainpreviewout').textContent = '';
@@ -357,7 +389,13 @@ async function poll() {
 }
 async function doPreview() {
   const text = mode === 'board' ? $('move').value : $('plainmove').value;
-  const r = await api('api/preview', {text: text || 'hold'});
+  const button = mode === 'board' ? $('preview') : $('plainpreview');
+  if (button.disabled) return;
+  button.disabled = true; const was = button.textContent; button.textContent = 'Previewing…';
+  let r;
+  try { r = await api('api/preview', {text: text || 'hold'}); }
+  catch (e) { r = {ok: false, summary: 'The preview failed (' + e + '); try again.'}; }
+  finally { button.disabled = false; button.textContent = was; }
   if (mode !== 'board') { $('plainpreviewout').textContent = 'If you send this: ' + r.summary; return; }
   const out = $('previewout'); out.hidden = false; out.innerHTML = '';
   out.append('If you send this' + (r.predicted ? ' (' + word('events', r.predicted.event) + '):' : ':'));
@@ -378,7 +416,14 @@ $('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
 $('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');
-$('menuToggle').onclick = () => { menuOpen = !menuOpen; $('menu').hidden = !menuOpen; };
+$('menuToggle').onclick = () => {
+  menuOpen = !menuOpen; $('menu').hidden = !menuOpen;
+  if (menuOpen) $('menu').scrollIntoView({block: 'start', behavior: 'smooth'});
+};
+$('toMenu').onclick = () => {
+  menuOpen = true; $('menu').hidden = false;
+  $('menu').scrollIntoView({block: 'start', behavior: 'smooth'});
+};
 poll();
 </script>
 </body>
