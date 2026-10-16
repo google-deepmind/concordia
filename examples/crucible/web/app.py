@@ -38,6 +38,13 @@ _HERE = os.path.dirname(__file__)
 MAIN_TOY = 'passiton'  # the game the page leads with
 
 
+def _optional_data(name: str) -> dict[str, Any]:
+  try:
+    return toys.load_data(name)
+  except FileNotFoundError:
+    return {}
+
+
 @dataclasses.dataclass
 class Session:
   """One game in progress (the server holds at most one)."""
@@ -292,7 +299,11 @@ class Games:
   def state(self) -> dict[str, Any]:
     """What the page shows."""
     out: dict[str, Any] = {
-        'look': toys.load_data('orders_look'),
+        # The main game's words over the shared look (palette, glyphs).
+        'look': {
+            **toys.load_data('orders_look'),
+            **_optional_data(f'{MAIN_TOY}_look'),
+        },
         'toys': [
             {
                 'toy': name,

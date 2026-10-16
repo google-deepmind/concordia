@@ -232,6 +232,11 @@ class PassItOnToy(base.Toy):
             {
                 'who': who,
                 'temperament': self.temperament(who),
+                'how': (
+                    self._data.get('relays', {}).get(
+                        self.temperament(who), 'word_for_word'
+                    )
+                ),
                 'passes': self.relaying_law(who),
             }
             for who in self.relayers

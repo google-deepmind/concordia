@@ -42,6 +42,13 @@
   .cap { font-size: 12px; color: var(--muted); }
   .chip { display: inline-block; margin: 4px 6px 2px 0; padding: 6px 10px; font-size: 14px; }
   .chip small { display: block; font-size: 11px; color: var(--muted); }
+  .hop { margin: 0 0 4px; }
+  .hop .who { font-weight: 700; }
+  .arrow { text-align: center; color: var(--muted); margin: 0 0 4px; }
+  ins { text-decoration: none; background: color-mix(in srgb, var(--project) 25%, transparent); border-radius: 3px; padding: 0 2px; }
+  del { color: var(--hull); }
+  .ok { color: var(--project); font-weight: 700; }
+  .bad { color: var(--hull); font-weight: 700; }
   #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
           background: var(--paper); border-top: 1px solid var(--line); }
   #dock button { width: 100%; margin: 0; }
@@ -68,16 +75,19 @@
 <div id="menu">
   <details class="card" id="intro"><summary><strong>What is this?</strong></summary><div id="introText"></div></details>
   <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
-  <button id="freeplay">Free play: any order, nothing at stake</button>
-  <label id="mindrow" class="meter">Who reads your orders: <select id="mind"></select></label>
-  <h2>Chapters</h2>
+  <label id="mindrow" class="meter">Who plays the crew: <select id="mind"></select></label>
+  <h2>Levels</h2>
   <div id="campaign"></div>
+  <details class="meter" id="earlier"><summary>The earlier game: Twelve Words (a crew sim)</summary>
+    <button id="freeplay">Free play: any order, nothing at stake</button>
+    <div id="earlierChapters"></div>
+  </details>
   <details class="meter"><summary>For developers: earlier prototypes</summary><div id="pick"></div></details>
 </div>
 
 <p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
 <p id="announce" class="sr" aria-live="polite"></p>
-<p id="again" hidden><button id="retry">Try again</button> <button id="toMenu">Chapters</button></p>
+<p id="again" hidden><button id="nextLevel" class="primary" hidden>Next level</button> <button id="retry">Try again</button> <button id="toMenu">Levels</button></p>
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
@@ -137,6 +147,21 @@
   <ol id="log" reversed></ol>
 </div>
 
+<div id="pass" hidden>
+  <p class="goal" id="pGoal"></p>
+  <div class="card"><strong id="pTitle"></strong> <span class="cap" id="pStars"></span><p id="pTask" style="margin:4px 0 0"></p></div>
+  <h2>The line <span class="meter muted">(your words go up it, mouth to ear)</span></h2>
+  <div id="pLine"></div>
+  <div id="pControls">
+    <textarea id="pmove" aria-label="Your message" placeholder="Your message" autocomplete="off" enterkeyhint="send"></textarea>
+    <div class="row"><span class="meter" id="pCount"></span></div>
+    <div class="cap">Tap to add:</div>
+    <div id="pChips"></div>
+    <p class="cap" id="pTries"></p>
+  </div>
+  <div id="pHistory"></div>
+</div>
+
 <div id="plain" hidden>
   <pre id="question"></pre>
   <textarea id="plainmove" placeholder="Your move" autocomplete="off"></textarea>
@@ -188,9 +213,32 @@ function beatWord(beat) { return (LOOK && LOOK.beat_words && LOOK.beat_words[bea
 
 let howtoSet = false;  // How to play opened once for a player with no stars yet
 let CHAPTERS = {};  // scenario -> chapter number, for the phrases a chapter shows
+let ORDER = [];  // the main game's levels in order, for Next level
+function nextLevel(v) {
+  if (!v || !v.scenario) return null;
+  const i = ORDER.findIndex((ch) => ch.scenario === v.scenario);
+  return i >= 0 && i + 1 < ORDER.length ? ORDER[i + 1].scenario : null;
+}
+function chapterButtons(box, c) {
+  box.innerHTML = '';
+  const fresh = !c.chapters.some((x) => x.stars > 0);
+  for (const ch of c.chapters) {
+    const b = document.createElement('button');
+    b.textContent = ch.number + '. ' + ch.title + ' · ' + beatWord(ch.beat) + ' ' + stars(ch.stars) + (ch.open ? '' : ' (locked)');
+    if (fresh && ch.number === 1) { b.className = 'primary'; b.textContent += ' \u2190 start here'; }
+    b.disabled = !ch.open; b.onclick = () => start({toy: c.toy, scenario: ch.scenario});
+    box.appendChild(b);
+  }
+}
 function renderMenu(state) {
   const box = $('campaign'), c = state.campaign;
-  if (c) for (const ch of c.chapters) CHAPTERS[ch.scenario] = ch.number;
+  for (const k of Object.values(state.campaigns || {})) for (const ch of k.chapters) CHAPTERS[ch.scenario] = ch.number;
+  if (c) ORDER = c.chapters;
+  const old = (state.campaigns || {}).orders;
+  if (old && old !== c && $('earlierChapters').dataset.key !== JSON.stringify(old)) {
+    $('earlierChapters').dataset.key = JSON.stringify(old); chapterButtons($('earlierChapters'), old);
+  }
+  $('earlier').hidden = !old || old.toy === (c && c.toy);
   if (c && !howtoSet && LOOK) {
     howtoSet = true;
     const fresh = !c.chapters.some((ch) => ch.stars > 0);  // a first visit reads them
@@ -275,8 +323,109 @@ function starRules(v) {
       Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
 }
 let howFor = null;  // the game the How it works box was last set up for
+function wordDiff(a, b) {  // b, with words a lacked marked and a's dropped words struck
+  const norm = (w) => w.toLowerCase().replace(/[^a-z']/g, '');
+  const x = a.split(/\s+/).filter(Boolean), y = b.split(/\s+/).filter(Boolean);
+  const L = Array.from({length: x.length + 1}, () => Array(y.length + 1).fill(0));
+  for (let i = x.length - 1; i >= 0; i--) for (let j = y.length - 1; j >= 0; j--)
+    L[i][j] = norm(x[i]) === norm(y[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = document.createElement('span'); let i = 0, j = 0;
+  const put = (tag, w) => { const e = document.createElement(tag); e.textContent = w; out.append(e, ' '); };
+  while (i < x.length || j < y.length) {
+    if (i < x.length && j < y.length && norm(x[i]) === norm(y[j])) { put('span', y[j]); i++; j++; }
+    else if (j < y.length && (i === x.length || L[i][j + 1] >= L[i + 1][j])) { put('ins', y[j]); j++; }
+    else { put('del', x[i]); i++; }
+  }
+  return out;
+}
+function quoted(t) { return t ? '\u201c' + t + '\u201d' : '(nothing)'; }
+function line(text, cls) { const p = document.createElement('div'); p.className = cls || 'meter'; p.append(text); return p; }
+let passFor = null;
+function renderPass(v, finished) {
+  const say = v.say || {};
+  const wantText = (who, a) => who + ' to ' + (say[a] || a);
+  $('pGoal').textContent = 'Goal: get ' + Object.entries(v.goal).map(([w, a]) => wantText(w, a)).join(' and ') + '.';
+  $('pTitle').textContent = (CHAPTERS[v.scenario] ? CHAPTERS[v.scenario] + '. ' : '') + v.title + (v.beat ? ' \u00b7 ' + beatWord(v.beat) : '');
+  $('pStars').textContent = starRules(v);
+  $('pTask').textContent = v.task;
+  const last = v.attempts.length ? v.attempts[v.attempts.length - 1] : null;
+  const box = $('pLine'); box.innerHTML = '';
+  const card = (who, sub) => {
+    const d = document.createElement('div'); d.className = 'card hop';
+    const h = document.createElement('div'); h.className = 'who'; h.append(who); d.appendChild(h);
+    if (sub) d.appendChild(line(sub, 'cap'));
+    box.appendChild(d); return d;
+  };
+  const arrow = () => box.appendChild(line('\u2193', 'arrow'));
+  const you = card((LOOK && LOOK.you) || 'You', '');
+  if (last) you.appendChild(line('said ' + quoted(last.message)));
+  for (const [i, hop] of v.line.entries()) {
+    arrow();
+    const means = (LOOK && LOOK.passes_short && LOOK.passes_short[hop.how]) || hop.passes;
+    const d = card(Object.assign(document.createElement('span'), {}), word('temperaments', hop.temperament) + ': ' + means);
+    d.firstChild.append(g('temperaments', hop.temperament), ' ' + hop.who);
+    const h = last && last.hops[i];
+    if (h) {
+      d.appendChild(line('heard ' + quoted(h.heard)));
+      const s = line('said: '); s.appendChild(wordDiff(h.heard, h.said)); d.appendChild(s);
+    }
+  }
+  arrow();
+  for (const r of v.receivers) {
+    const means = LOOK && LOOK.temperaments && LOOK.temperaments[r.temperament] && LOOK.temperaments[r.temperament].means;
+    const d = card(Object.assign(document.createElement('span'), {}), word('temperaments', r.temperament) + ' (' + (means || '') + '); ' + ((LOOK && LOOK.at_top) || 'acts on what they hear'));
+    d.firstChild.append(g('temperaments', r.temperament), ' ' + r.who + ' \u2014 goal: ' + (say[v.goal[r.who]] || v.goal[r.who] || 'anything'));
+    const a = last && last.acted.find((x) => x.who === r.who);
+    if (a) {
+      d.appendChild(line('heard ' + quoted(a.heard)));
+      const did = line('did: '); did.append(g('actions', a.does), ' ' + (say[a.does] || a.does) + ' ');
+      did.appendChild(Object.assign(document.createElement('span'), {className: a.ok ? 'ok' : 'bad', textContent: a.ok ? '\u2713' : '\u2717 (goal: ' + (say[a.wanted] || a.wanted) + ')'}));
+      d.appendChild(did);
+      d.appendChild(line(a.why && a.why !== 'none' ? 'acted on ' + a.why : 'found nothing in it for ' + a.who + ': did what ' + a.who + ' does anyway', 'cap'));
+    }
+  }
+  // The words to tap: the actions, the names at the top, and "don't".
+  const key = v.scenario + '|' + v.title;
+  if (passFor !== key) {
+    passFor = key;
+    const chips = $('pChips'); chips.innerHTML = '';
+    const add = (text) => { addWords(text, false, 'pmove'); countPass(); };
+    for (const a of Object.keys(say)) {
+      const b = document.createElement('button'); b.className = 'chip'; b.append(g('actions', a), ' ' + say[a]);
+      b.onclick = () => add(say[a]); chips.appendChild(b);
+    }
+    for (const r of v.receivers) {
+      const b = document.createElement('button'); b.className = 'chip'; b.textContent = r.who + ',';
+      b.onclick = () => add(r.who + ','); chips.appendChild(b);
+    }
+    const no = document.createElement('button'); no.className = 'chip'; no.textContent = "don't";
+    no.onclick = () => add("don't"); chips.appendChild(no);
+    $('pmove').placeholder = 'Your message (up to ' + v.max_words + ' words)';
+  }
+  $('pControls').hidden = !!finished;
+  $('pTries').textContent = 'Try ' + Math.min(v.attempts.length + 1, v.tries) + ' of ' + v.tries + '.';
+  const hist = $('pHistory'); hist.innerHTML = '';
+  if (v.attempts.length > 1 || (finished && v.attempts.length)) {
+    hist.appendChild(Object.assign(document.createElement('h2'), {textContent: 'Your tries'}));
+    for (const [i, t] of v.attempts.entries()) {
+      const p = line('Try ' + (i + 1) + ': ' + quoted(t.message) + ' \u2192 ' + t.acted.map((a) => a.who + ' ' + (say[a.does] || a.does) + (a.ok ? ' \u2713' : ' \u2717')).join(', '));
+      hist.appendChild(p);
+    }
+  }
+  countPass();
+}
+function countPass() {
+  if (mode !== 'pass' || !lastView || lastView.kind !== 'passiton') return;
+  const m = $('pmove');
+  if (/[\r\n]/.test(m.value)) m.value = m.value.replace(/\s*[\r\n]+\s*/g, ' ');
+  const words = m.value.trim().split(/\s+/).filter(Boolean).length;
+  blocked = !words || words > lastView.max_words;  // an empty message would waste a try
+  $('pCount').textContent = words ? words + ' / ' + lastView.max_words + ' words' + (blocked ? ' \u00b7 too long: shorten it to send' : '') : 'Empty: say something to send.';
+  sendable();
+}
 function whyLost(v) {  // the reason, in the board's own words
   if (!v || v.free) return '';
+  if (v.kind === 'passiton') return ': no try got there; try again, or look at where the words changed';
   if (v.damage >= v.wreck_at) return ': the ship was wrecked (' + v.damage + ' damage)';
   if (v.goal === 'supplies') return ': ' + v.supplies + ' supplies of the ' + v.target + ' wanted';
   if (v.goal === 'foresight') return ': ' + v.foresight + ' turns seen of the ' + v.target + ' wanted';
@@ -291,10 +440,10 @@ function goalLine(v) {
   else g = 'Goal: raise the ' + word('stocks', 'progress') + ' to ' + v.target + ' by the end of turn ' + v.turns + ' (now ' + v.progress + ')';
   return g + ' · turn ' + turn + ' of ' + v.turns + (v.calm ? '' : ' · ' + v.wreck_at + ' damage sinks the ship');
 }
-function addWords(text, replace) {
-  const m = $('move');
+function addWords(text, replace, id) {
+  const m = $(id || 'move');
   let cur = replace ? '' : m.value.trim();
-  if (cur && !/[.;,:]$/.test(cur)) cur += ';';
+  if (cur && !/[.;,:]$/.test(cur) && !/\bdon't$/i.test(cur)) cur += ';';  // "don't" leads into its verb
   m.value = (cur ? cur + ' ' : '') + text;
   countWords();
 }
@@ -470,8 +619,12 @@ function countWords() {
       (over ? ' · too long: shorten it to send' : (cost > lastView.points ? ' · not enough command: shorten it or hold' : ''));
   sendable();
 }
-function sendable() { $('send').disabled = !requestId || (mode === 'board' && blocked); }
+function sendable() { $('send').disabled = !requestId || ((mode === 'board' || mode === 'pass') && blocked); }
 $('move').addEventListener('input', countWords);
+$('pmove').addEventListener('input', countPass);
+$('pmove').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
+});
 $('move').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
 });
@@ -498,9 +651,11 @@ function render(state) {
   $('dock').hidden = !!gm.finished;  // Send only while a game can take an order
   if (!gm.finished) $('menu').hidden = !menuOpen;
   const req = gm.request;
-  mode = gm.view ? 'board' : 'plain';
-  $('board').hidden = mode !== 'board'; $('plain').hidden = mode !== 'plain';
-  if (gm.view) { lastView = gm.view; lastReceipts = gm.receipts; renderView(gm.view, gm.receipts); }
+  mode = gm.view ? (gm.view.kind === 'passiton' ? 'pass' : 'board') : 'plain';
+  $('board').hidden = mode !== 'board'; $('plain').hidden = mode !== 'plain'; $('pass').hidden = mode !== 'pass';
+  $('send').textContent = mode === 'pass' ? 'Send up the line' : 'Send';
+  if (mode === 'pass') { lastView = gm.view; renderPass(gm.view, gm.finished); }
+  else if (gm.view) { lastView = gm.view; lastReceipts = gm.receipts; renderView(gm.view, gm.receipts); }
   else {
     const log = $('plainlog');
     if (log.children.length !== gm.receipts.length) {
@@ -519,6 +674,14 @@ function render(state) {
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
     const next = gm.view && gm.view.star_rules && gm.view.star_rules[String((o.stars || 0) + 1)];
     if (o.winner && next) $('status').textContent += ' Next star: ' + starRule(next) + '.';
+    if (gm.view && gm.view.kind === 'passiton' && o.winner) {
+      $('status').textContent = 'Solved ' + stars(o.stars || 0) + ' in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
+          + (o.tries > 1 ? ', try ' + o.tries : '') + ' \u2014 ' + (gm.view.lesson || '')
+          + (next ? ' Next star: ' + starRule(next) + '.' : '');
+    }
+    const after = nextLevel(gm.view);
+    $('nextLevel').hidden = !(o.winner && after);
+    $('nextLevel').onclick = () => start({toy: gm.toy, scenario: after});
     if (gm.daily && gm.view) {
       $('shareText').textContent = (LOOK ? LOOK.title : 'Twelve Words') + ' ' + gm.daily + ' \u00b7 ' + gm.view.title
           + ' \u00b7 ' + stars(o.stars || 0) + ' \u00b7 ' + (o.words_spoken || 0) + ' words';
@@ -529,6 +692,10 @@ function render(state) {
       shownEnd = gm.id;
       $('status').scrollIntoView({block: 'start', behavior: 'smooth'});
     }
+  } else if (req && mode === 'pass') {
+    const n = gm.view.attempts.length;
+    $('status').textContent = n ? 'Not yet: see where it changed below, then try again (' + (gm.view.tries - n) + ' left).'
+        : 'Write your message and send it up the line.';
   } else if (req) {
     // The last turn's result, where the eye is, not only in the log below.
     const last = gm.receipts.length ? gm.receipts[gm.receipts.length - 1] : '';
@@ -575,13 +742,13 @@ async function send(text) {
   if (!requestId) return;
   $('status').textContent = 'Sent: ' + (text || 'hold');
   const r = await api('api/answer', {id: requestId, text: text || 'hold'});
-  if (r.ok) { $('move').value = ''; $('plainmove').value = ''; countWords(); }
+  if (r.ok) { $('move').value = ''; $('plainmove').value = ''; $('pmove').value = ''; countWords(); countPass(); }
 }
 $('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
 $('retry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
 $('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
-$('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
+$('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : mode === 'pass' ? $('pmove').value.trim() : $('plainmove').value.trim());
 $('holdAll').onclick = () => { autoHold = !autoHold; $('holdAll').textContent = autoHold ? 'Stop holding' : 'Hold to the end'; if (autoHold && requestId) { autoHeld = requestId; send('hold'); } };
 $('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');
 $('menuToggle').onclick = () => {
