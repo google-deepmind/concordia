@@ -561,8 +561,11 @@ be a rule the campaign never asks a player to learn.
   with it qwen3 fell to 22/25.) On the 49-case set with the bosun's cases
   (cycle 45 wording), qwen3:8b kept all 28 hard laws with every soft case
   agreeing in one run, and 27/28 (g38 again) in the other: g38 is flaky for
-  it, not a fixed misreading. Flash on the same wording passes both runs
-  (28/28, soft 81%).
+  it, not a fixed misreading. A second pair gave the same: a full pass,
+  then 27/28 on g38 (with one reading timing out). Over four runs qwen3:8b
+  passed two in full; by this project's rule (every run of a pair must
+  pass) the Ollama set is not yet passed. Flash on the same wording passes
+  both runs (28/28, soft 81%).
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
