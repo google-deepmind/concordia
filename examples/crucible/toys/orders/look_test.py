@@ -91,7 +91,7 @@ class ViewTest(absltest.TestCase):
     self.assertEqual(view['supplies'], supplies)
     damage = int(re.search(r'hull damage (\d+)', prompt).group(1))
     self.assertEqual(view['damage'], damage)
-    progress = int(re.search(r'project (\d+) of', prompt).group(1))
+    progress = int(re.search(r'lighthouse (\d+) of', prompt).group(1))
     self.assertEqual(view['progress'], progress)
     points = int(re.search(r'Command: (\d+) points', prompt).group(1))
     self.assertEqual(view['points'], points)

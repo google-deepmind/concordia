@@ -288,7 +288,7 @@ function goalLine(v) {
   let g;
   if (v.goal === 'supplies') g = 'Goal: ' + v.target + ' supplies at the end of turn ' + v.turns + ' (now ' + v.supplies + ')';
   else if (v.goal === 'foresight') g = 'Goal: see ' + v.target + ' turns ahead within ' + v.turns + ' turns (seen ' + v.foresight + ')';
-  else g = 'Goal: ' + word('stocks', 'progress') + ' ' + v.target + ' by the end of turn ' + v.turns + ' (now ' + v.progress + ')';
+  else g = 'Goal: raise the ' + word('stocks', 'progress') + ' to ' + v.target + ' by the end of turn ' + v.turns + ' (now ' + v.progress + ')';
   return g + ' · turn ' + turn + ' of ' + v.turns + (v.calm ? '' : ' · ' + v.wreck_at + ' damage sinks the ship');
 }
 function addWords(text, replace) {

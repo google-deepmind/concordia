@@ -376,7 +376,7 @@ class OrdersToy(base.Toy):
     ship = self.world
     turn = ship.turn + 1
     if self.free:
-      stakes = f'hull damage {ship.damage}; project {ship.progress}'
+      stakes = f'hull damage {ship.damage}; {self.work} {ship.progress}'
     else:
       stakes = (
           f'hull damage {ship.damage} of {self._data["wreck_at"]};'
@@ -522,7 +522,8 @@ class OrdersToy(base.Toy):
       steps.append(bleed)
     self.command.regenerate(ship)
     steps.append(
-        f'Project {ship.progress}/{self._data["target"]}, damage '
+        f'{self.work.capitalize()} {ship.progress}/{self._data["target"]},'
+        ' damage '
         f'{ship.damage}/{self._data["wreck_at"]}, supplies {ship.supplies}, '
         f'command {ship.points}.'
     )
@@ -670,16 +671,21 @@ class OrdersToy(base.Toy):
       )
     if self.goal() == 'supplies':
       return f'the port wants {target} supplies at the end'
-    return f'project {ship.progress} of {target}'
+    return f'{self.work} {ship.progress} of {target}'
 
   def crew_stakes(self, ship: Ship) -> str:
     """The crew's line on the project and the goal (cycle 80: in scenes
     whose goal is not the project, they were told "project 0 of 10")."""
     if self.free:
-      return f'project {ship.progress}'
+      return f'{self.work} {ship.progress}'
     if self.goal() == 'progress':
       return self.aim(ship)
-    return f'project {ship.progress}; {self.aim(ship)}'
+    return f'{self.work} {ship.progress}; {self.aim(ship)}'
+
+  @property
+  def work(self) -> str:
+    """What the crew are building, as the story calls it (cycle 97)."""
+    return str(self._data.get('progress_word', 'project'))
 
   def goal(self) -> str:
     """The ledger stock the scene is won on ('progress' or 'supplies')."""

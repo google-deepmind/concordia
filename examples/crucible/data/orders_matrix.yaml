@@ -126,8 +126,8 @@ reading:
 # `hard` cases follow from a law a model must not break (names, conditions,
 # the literal); the rest measure agreement with the temperaments.
 golden:
-  - {id: g1, order: Build the project., event: quiet, member: Cy, expect: [build], hard: true}
-  - {id: g2, order: Build the project., event: quiet, member: Ash, expect: [build]}
+  - {id: g1, order: Build the lighthouse., event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g2, order: Build the lighthouse., event: quiet, member: Ash, expect: [build]}
   - {id: g3, order: Gather supplies., event: storm, member: Cy, expect: [gather], hard: true}
   - {id: g4, order: Gather supplies., event: storm, member: Ash, expect: [build]}
   - {id: g5, order: 'Build; if a leak opens, repair it.', event: leak, member: Cy, expect: [repair], hard: true}
@@ -151,7 +151,7 @@ golden:
   - {id: g23, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Ash, worn: true, expect: [watch]}
   - {id: g24, order: 'If tired, build.', event: quiet, member: Cy, worn: true, expect: [build], hard: true}
   - {id: g25, order: 'If tired, build.', event: quiet, member: Cy, expect: [rest]}
-  - {id: g26, order: Build the project., event: quiet, member: Dex, expect: [rest], hard: true}
+  - {id: g26, order: Build the lighthouse., event: quiet, member: Dex, expect: [rest], hard: true}
   - {id: g27, order: Rest., event: quiet, member: Dex, expect: [build], hard: true}
   - {id: g28, order: "Don't build.", event: quiet, member: Dex, expect: [build], hard: true}
   - {id: g29, order: "Don't build.", event: quiet, member: Ash, expect: [gather]}

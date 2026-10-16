@@ -34,7 +34,7 @@ _ORDER = re.compile(r'The standing order from the commander is: "(.*)"\n')
 _TURN = re.compile(r'This turn: (.*)\n')
 _STORES = re.compile(
     r'Stores: (?P<supplies>\d+) supplies; hull damage (?P<damage>\d+);'
-    r' project \d+[^.\n]*\. \w+ is (?P<cond>worn out|fresh)\.'
+    r' \w+ \d+[^.\n]*\. \w+ is (?P<cond>worn out|fresh)\.'
 )
 _AGE = re.compile(r"This is the order's turn (\d+)\.")
 _SPAN = re.compile(r'\bfor\s+(\w+)\s+turns?\b', re.IGNORECASE)

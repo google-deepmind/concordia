@@ -6,6 +6,9 @@ default_scenario: voyage
 turns: 12
 max_words: 12        # longest order
 target: 24           # project progress needed by the last turn
+# What the project is in the story: the crew and the player both call it
+# this (cycle 97: "the project" meant nothing to a first player).
+progress_word: lighthouse
 wreck_at: 10         # damage at which the game is lost
 
 start: {supplies: 3, damage: 0, progress: 0}
@@ -155,7 +158,7 @@ actions:
     fatigue: 1
     spoiled_by: [storm]
   build:
-    text: build the project
+    text: build the lighthouse
     does: builds
     needs: {supplies: 1}
     gives: {progress: 2}
@@ -198,14 +201,16 @@ situations:
   storm: 'A storm blows: gathering supplies is impossible this turn.'
 
 premise: >-
+  Your crew are raising a lighthouse on a bare rock before winter, and their
+  ship lies anchored below, taking the weather.
   You command a crew of three: Ash (bold), Bea (cautious) and Cy (literal).
   You do not tell them what to do each turn. You give one standing order of
   at most 12 words, and each turn every crew member reads it against what is
   happening (a quiet turn, a leak in the hull, a storm) and decides what to
-  do: repair, gather supplies, build the project, rest, or keep watch.
+  do: repair, gather supplies, build the lighthouse, rest, or keep watch.
   Speaking costs command: a new order costs 1 point plus 1 for every 4
   words, and you regain 1 point a turn (up to 5). You see only this turn;
-  someone on watch reveals the next two. Win by bringing the project to 24
+  someone on watch reveals the next two. Win by raising the lighthouse to 24
   by the end of turn 12 before the hull takes 10 damage.
 
 # Scenarios override the values above. Each is one scene of an arc
@@ -237,8 +242,8 @@ scenarios:
     stars: {2: {max_words_spoken: 2}, 3: {max_words_spoken: 1}}
     premise: >-
       Your first command: one crew member, Cy, who is literal: Cy does
-      exactly what the order says and nothing it does not say. Bring the
-      project to 6 in 3 turns; nothing else happens. You have 1 command
+      exactly what the order says and nothing it does not say. Raise the
+      lighthouse to 6 in 3 turns; nothing else happens. You have 1 command
       point: enough for one order of fewer than 4 words.
   two_hands:
     beat: develop
@@ -258,7 +263,7 @@ scenarios:
       Two crew members now: Ash, who is bold and pushes the work forward,
       and Cy, who is literal. Supplies are short and the hull will spring
       leaks you cannot see coming; an open leak adds 2 damage a turn, and 8
-      damage wrecks the ship. Bring the project to 10 in 8 turns. Command is
+      damage wrecks the ship. Raise the lighthouse to 10 in 8 turns. Command is
       scarce: 2 points to start, 1 back a turn, at most 3.
   supply_run:
     beat: twist
@@ -279,9 +284,9 @@ scenarios:
       spends a supply. The hull may leak.
   voyage:            # the game: project 24 by turn 12, before 10 damage
     beat: catharsis
-    title: The voyage
+    title: The lighthouse
     teaches: ['stores->crew', 'fatigue->crew', 'fatigue->project', 'directive x worn', 'directive x no_supplies', 'crew->fatigue', 'conditional x worn']
-    lesson: "Everything at once: mind the stores and the crew's wear as well as the project."
+    lesson: "Everything at once: mind the stores and the crew's wear as well as the lighthouse."
     crew_present: [Ash, Bea, Cy]
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
   # Arc 2: information. The turns ahead are hidden; a watch reveals them.
@@ -317,7 +322,7 @@ scenarios:
     premise: >-
       Ash (bold), Bea (cautious) and Cy (literal). Squalls are coming, you
       cannot see when: a squall does 3 damage unless someone kept watch the
-      turn before. Bring the project to 18 in 10 turns before 10 damage.
+      turn before. Raise the lighthouse to 18 in 10 turns before 10 damage.
   night_watch:
     beat: twist
     title: Night watch
@@ -334,17 +339,17 @@ scenarios:
     actions:
       repair: {text: repair the hull, does: repairs the hull, gives: {damage: -2}, fatigue: 1, closes: [leak]}
       gather: {text: gather supplies, does: gathers supplies, gives: {supplies: 2}, fatigue: 1, spoiled_by: [storm]}
-      build: {text: build the project, does: builds, needs: {supplies: 1}, gives: {progress: 2}, fatigue: 1, worn: 0.5}
+      build: {text: build the lighthouse, does: builds, needs: {supplies: 1}, gives: {progress: 2}, fatigue: 1, worn: 0.5}
       rest: {text: rest, does: rests, fatigue: -2}
       watch: {text: keep watch, does: keeps watch, fatigue: 3}
     stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 3}}
     premise: >-
       Night watch. Squalls come in pairs, an unwatched one does 4 damage,
       and 8 damage wrecks the ship. Tonight keeping watch is exhausting: one
-      turn on watch wears anyone out. Bring the project to 14 in 10 turns.
+      turn on watch wears anyone out. Raise the lighthouse to 14 in 10 turns.
   crossing:
     beat: catharsis
-    title: The crossing
+    title: The gale
     teaches: ['hazards->crew', 'hazards->stores', 'conditional x storm', 'directive x storm', 'hazards->watch', 'hazards->command']
     lesson: "Leaks, storms and squalls together: a watch, a repair clause and builders in one order."
     crew_present: [Ash, Bea, Cy]
@@ -355,10 +360,10 @@ scenarios:
     hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1, garbles: true}, squall: {strikes_unwatched: 3}}
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 5}}
     premise: >-
-      The crossing: everything at once. Leaks, storms and squalls you cannot
+      The gale: everything at once. Leaks, storms and squalls you cannot
       see coming unless someone keeps watch; three temperaments; command to
       spend. In a storm the watch sees only one turn ahead, and an order given
-      in a storm carries only its first clause. Bring the project to 26 in 14
+      in a storm carries only its first clause. Raise the lighthouse to 26 in 14
       turns before 10 damage.
   # Arc 3: negation, and a crew member who does the opposite.
   contrary:
@@ -378,7 +383,7 @@ scenarios:
     premise: >-
       Dex alone, who is contrary: he does the opposite of what he is told.
       Told to work, he rests; told to rest, he builds; told not to do
-      something, he does it. Bring the project to 6 in 3 turns. You have 1
+      something, he does it. Raise the lighthouse to 6 in 3 turns. You have 1
       command point: enough for one order of fewer than 4 words.
   mixed_hands:
     beat: develop
@@ -397,7 +402,7 @@ scenarios:
     premise: >-
       Ash, who is bold, and Dex, who is contrary. One order is read by both:
       what moves Ash may stop Dex. Supplies are short and the hull may
-      leak. Bring the project to 12 in 8 turns before 8 damage.
+      leak. Raise the lighthouse to 12 in 8 turns before 8 damage.
   the_mender:
     beat: twist
     title: The mender
@@ -415,7 +420,7 @@ scenarios:
     premise: >-
       Ash (bold), Cy (literal) and Dex (contrary). The hull leaks every
       other turn; an open leak adds 2 damage a turn and 8 wrecks the ship.
-      Bring the project to 20 in 12 turns.
+      Raise the lighthouse to 20 in 12 turns.
   all_hands:
     beat: catharsis
     title: All hands
@@ -430,7 +435,7 @@ scenarios:
     premise: >-
       All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
       through leaks, storms and squalls you cannot see coming unless someone
-      keeps watch. Bring the project to 30 in 14 turns before 10 damage.
+      keeps watch. Raise the lighthouse to 30 in 14 turns before 10 damage.
   # Arc 4: the rota, and the word "someone".
   rota:
     beat: isolate
@@ -455,8 +460,8 @@ scenarios:
       just ended, so the first is seen coming. Each is off duty for two
       turns, resting and hearing no orders: Bea on turns 2 and 3, Ash on 4
       and 5. A clause for "someone" goes to the freshest willing member on
-      duty. You have command for one order of up to 7 words. Bring the
-      project to 8 in 9 turns.
+      duty. You have command for one order of up to 7 words. Raise the
+      lighthouse to 8 in 9 turns.
   watches:
     beat: develop
     title: Watches
@@ -475,8 +480,8 @@ scenarios:
     premise: >-
       Ash (bold), Bea (cautious) and Cy (literal) through squalls and leaks.
       The rota: Ash is off duty on turns 3 and 4, Cy on 6 and 7, Bea on 9.
-      A squall no one watched for does 4 damage; 8 wrecks the ship. Bring
-      the project to 14 in 10 turns.
+      A squall no one watched for does 4 damage; 8 wrecks the ship. Raise
+      the lighthouse to 14 in 10 turns.
   no_volunteers:
     beat: twist
     title: No volunteers
@@ -498,7 +503,7 @@ scenarios:
       Ash (bold), Cy (literal) and Dex (contrary), squalls all night. A
       squall no one watched for does 4 damage, and 8 wrecks the ship; the
       last watch has just ended. Ash is off duty on turns 3 to 5. You have
-      command for one order of up to 7 words. Bring the project to 12 in 9
+      command for one order of up to 7 words. Raise the lighthouse to 12 in 9
       turns.
   long_night:
     beat: catharsis
@@ -521,7 +526,7 @@ scenarios:
       and 10, Dex on 11 and 12. A squall no one watched for does 4 damage
       and hurts the most worn member on duty, who is off duty for that turn
       and the next. In a storm the watch sees one turn ahead, and an order
-      given then carries only its first clause. Bring the project to 20 in 12
+      given then carries only its first clause. Raise the lighthouse to 20 in 12
       turns before 10 damage.
   # Arc 5: the bosun, who passes the order on in their own words.
   the_bosun:
@@ -546,7 +551,7 @@ scenarios:
       rest or keep watch. Ash himself follows your order as you give it.
       Squalls all night: one no one watched for does 4 damage, and 8 wrecks
       the ship; the last watch has just ended. You have command for one
-      order of up to 7 words. Bring the project to 13 in 10 turns.
+      order of up to 7 words. Raise the lighthouse to 13 in 10 turns.
   word_of_mouth:
     beat: develop
     title: Word of mouth
@@ -565,8 +570,8 @@ scenarios:
     premise: >-
       Bea (cautious) is bosun: she passes your order on to Ash (bold) and Cy
       (literal), and a cautious bosun adds "repair leaks" unless a clause
-      already says whether to repair. Leaks and squalls; 8 damage wrecks the ship. Bring the
-      project to 20 in 10 turns.
+      already says whether to repair. Leaks and squalls; 8 damage wrecks the ship. Raise the
+      lighthouse to 20 in 10 turns.
   contrary_bosun:
     beat: twist
     title: The contrary bosun
@@ -590,7 +595,7 @@ scenarios:
       forbids he passes on as it is), and himself does the opposite of what
       you say. Squalls all night; the last watch has just ended; 8 damage
       wrecks the ship. You have command for one order of up to 7 words.
-      Bring the project to 12 in 10 turns.
+      Raise the lighthouse to 12 in 10 turns.
   chain_of_command:
     beat: catharsis
     title: Chain of command
@@ -612,7 +617,7 @@ scenarios:
       on turns 5 to 7 and Ash on 9 and 10; with the bosun off duty your
       order goes out as you give it. Squalls, leaks and storms; an order
       given in a storm carries only its first clause; 10 damage wrecks the
-      ship. Bring the project to 23 in 12 turns.
+      ship. Raise the lighthouse to 23 in 12 turns.
   # Arc 6: timing. An order can hold for a span of turns, then change.
   two_orders:
     beat: isolate
@@ -632,7 +637,7 @@ scenarios:
       Cy alone, who is literal, with empty stores: building needs a supply,
       and Cy does exactly what the order says. You have command for one
       order of up to 7 words. An order can hold for a span: "do this for N
-      turns, then that". Bring the project to 5 in 6 turns.
+      turns, then that". Raise the lighthouse to 5 in 6 turns.
   shifts:
     beat: develop
     title: Shifts
@@ -649,7 +654,7 @@ scenarios:
     stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
     premise: >-
       Ash (bold) and Cy (literal) with empty stores; the hull will leak
-      later in the voyage. Bring the project to 10 in 8 turns before 8
+      later in the voyage. Raise the lighthouse to 10 in 8 turns before 8
       damage.
   a_span_is_a_guess:
     beat: twist
@@ -669,8 +674,8 @@ scenarios:
     premise: >-
       Ash (bold) and Cy (literal). The hull will spring a leak early, you
       cannot see when; an open leak adds 2 damage a turn and 4 wrecks the
-      ship. You have command for one order of up to 7 words. Bring the
-      project to 12 in 6 turns.
+      ship. You have command for one order of up to 7 words. Raise the
+      lighthouse to 12 in 6 turns.
   ahead_of_time:
     beat: catharsis
     title: Ahead of time
@@ -687,7 +692,7 @@ scenarios:
     premise: >-
       All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
       with stores nearly empty. Leaks and squalls, and a storm in which an
-      order carries only its first clause. Bring the project to 24 in 12
+      order carries only its first clause. Raise the lighthouse to 24 in 12
       turns before 10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
@@ -714,7 +719,7 @@ daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}
 lexicon:
   repair: [repair, repairs, fix, fixes, patch, mend, mends, seal, hull, leak, leaks]
   gather: [gather, gathers, collect, collects, forage, fetch, supplies, supply, stock]
-  build: [build, builds, building, work, project, progress, construct, push]
+  build: [build, builds, building, work, project, progress, construct, push, lighthouse, tower, raise, raises, raising]
   rest: [rest, rests, sleep, sleeps, recover, pause, break, tired]
   watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
   conditions:

@@ -26,7 +26,7 @@ from examples.crucible.toys.orders import toy as toy_lib
 
 ORDERS = (
     'Build.',
-    'Build the project.',
+    'Build the lighthouse.',
     'Gather supplies and build.',
     'Build; if a leak opens, repair it.',
     'If there is a leak, fix it; otherwise build.',

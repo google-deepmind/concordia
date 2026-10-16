@@ -9,7 +9,7 @@ tagline: One standing order. Every crew member reads it their own way.
 
 # How to play, in the order a new player needs it (shown folded on the menu).
 how_to_play:
-  - You command a small ship's crew with one order, in your own words, of at most 12 words.
+  - Your crew are raising a lighthouse on a bare rock; their ship lies anchored below. You command them with one order, in your own words, of at most 12 words.
   - The crew follow that order every turn until you give a new one. A new order costs command (◆), more for longer orders; Hold keeps the current one for free.
   - Each member reads the order their own way. Bold Ash pushes the work; cautious Bea mends leaks and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
   - 'Say who does what, and when: "Build.", "Ash, build; Bea, repair leaks.", "If a leak opens, repair it.", "Don''t build."'
@@ -85,7 +85,7 @@ actions:
 stocks:
   supplies: {glyph: '▣', word: supplies, color: supplies}
   damage: {glyph: '✕', word: damage, color: hull}
-  progress: {glyph: '▥', word: project, color: project}
+  progress: {glyph: '▥', word: lighthouse, color: project}
   points: {glyph: '♦', word: command, color: command}
   foresight: {glyph: '◔', word: forecast, color: command}
 
@@ -94,6 +94,7 @@ stocks:
 # could do, or why the game exists).
 intro:
   - Twelve Words is a game about giving orders in plain language.
+  - "The story: your crew are raising a lighthouse on a bare rock before winter. Their ship lies anchored below and takes the weather: leaks, storms and squalls. They can build the lighthouse, haul supplies (stone and timber; each build uses one), repair the ship's hull, rest, or keep watch for the weather."
   - Your crew are characters played by an AI language model. Each one reads your words through their own temperament, so the same order can mean different things to different people.
   - You never steer them turn by turn. You give one standing order, and they act on it every turn until you change it. Words cost command, so the puzzle is to say exactly what you mean, to these people, in as few words as will do.
 

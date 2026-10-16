@@ -183,12 +183,13 @@ class ShipTest(absltest.TestCase):
     for scene in ('voyage', 'supply_run', 'lookout', 'free'):
       toy = toy_lib.OrdersToy(model_setup.mock_model(), data, scene)
       told[scene] = toy.crew_stakes(toy.world)
-    self.assertEqual(told['voyage'], 'project 0 of 24')
+    self.assertEqual(told['voyage'], 'lighthouse 0 of 24')
     self.assertEqual(
-        told['supply_run'], 'project 0; the port wants 10 supplies at the end'
+        told['supply_run'],
+        'lighthouse 0; the port wants 10 supplies at the end',
     )
     self.assertIn('wants 4 turns seen ahead', told['lookout'])
-    self.assertEqual(told['free'], 'project 0')
+    self.assertEqual(told['free'], 'lighthouse 0')
 
   def test_a_span_covers_its_own_clause(self):
     def holds(order, age):
