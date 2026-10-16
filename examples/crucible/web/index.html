@@ -177,6 +177,8 @@ function renderMenu(state) {
                        ollama: 'qwen3:8b on this Mac (a real model, slow)'}[m] || m;
       $('mind').appendChild(o);
     }
+    // The game is read by a model: prefer a real one when it is offered.
+    if (state.modes.includes('together')) $('mind').value = 'together';
     $('mindrow').hidden = state.modes.length < 2;
     pick.dataset.done = '1';
   }
