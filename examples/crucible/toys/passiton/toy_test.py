@@ -76,6 +76,19 @@ class LineTest(absltest.TestCase):
     self.assertIn('Dex passes it on: "build."', receipt.summary)
     self.assertTrue(toy.done())
 
+  def test_the_last_in_line_hear_only_the_relayers_words(self):
+    toy = _toy('two_through_dex')
+    result = toy.pass_up('Ash, build; Cy, keep watch.')
+    said = result['hops'][0]['said']
+    self.assertNotEqual(said, 'Ash, build; Cy, keep watch.')
+    self.assertEqual({a['heard'] for a in result['acted']}, {said})
+
+  def test_silence_is_an_order_for_cy(self):
+    toy = _toy('saying_less')
+    result = toy.pass_up("Ash, don't keep watch.")
+    cy = next(a for a in result['acted'] if a['who'] == 'Cy')
+    self.assertEqual((cy['does'], cy['why']), ('rest', 'none'))
+
   def test_three_tries_then_over_and_a_long_message_costs_no_try(self):
     toy = _toy('dex_at_the_top')
     receipt = toy.resolve(toy_lib.SEAT, ' '.join(['build'] * 13))

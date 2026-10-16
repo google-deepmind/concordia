@@ -1,0 +1,105 @@
+# Pass it on's interaction matrices (GUIDE.md, Phase 3; cycle 102).
+#
+# Every cell names its mechanism and what exercises it: a test (by function
+# name, in examples/crucible/**/*_test.py) or golden cases (below).
+# `python -m examples.crucible.audit passiton` counts the cells and checks
+# that every test and golden case a cell names exists.
+
+systems:
+  message: Message (the player's words, at most 12)
+  relay: Relay (each relayer's way of passing words on)
+  line: Line (who stands where, and who acts at the top)
+  reading: Reading (what the last in line make of what reached them)
+  temperament: Temperament (what each does with nothing for them)
+  situation: Situation (the level's event)
+  verdict: Verdict (each goal checked, tries, stars)
+
+# Row system affects column system by mechanism.
+cells:
+  - {from: message, to: relay, by: the first in line hear the player's words as written, test: test_dex_flips_each_part_and_cy_does_what_reached_cy}
+  - {from: relay, to: reading, by: the last in line read only what the relayer passed on, test: test_the_last_in_line_hear_only_the_relayers_words}
+  - {from: temperament, to: relay, by: how a relayer passes things on is their temperament's law, test: test_the_view_shows_the_line_and_every_try}
+  - {from: line, to: reading, by: everyone at the top hears the same words; a plain clause is for all of them, test: test_the_obvious_message_works_only_where_meant}
+  - {from: temperament, to: reading, by: with nothing for them a member does what their temperament does anyway, golden: [p9, p10], test: test_silence_is_an_order_for_cy}
+  - {from: situation, to: reading, by: an open leak sends the cautious to repair unless a clause names them (a coin flip live; cycle 100), golden: [p12]}
+  - {from: reading, to: verdict, by: each action at the top is checked against that member's goal, test: test_the_obvious_message_works_only_where_meant}
+  - {from: message, to: verdict, by: the solving message's words set the stars, test: test_the_skilled_bot_earns_three_stars_on_the_first_try}
+  - {from: verdict, to: message, by: three tries; a message over the limit costs none, test: test_three_tries_then_over_and_a_long_message_costs_no_try}
+
+# How a reader reads a message, and how a relayer passes one on: an
+# operator (a form of words or a way of relaying) against a property (the
+# reader's temperament, or the form of the clause being relayed).
+reading:
+  operators:
+    plain: a clause for everyone
+    named: a clause naming one member
+    negated: a clause that forbids
+    silence: nothing for this member
+    flips: relayed by the contrary (the opposite of each part)
+    word_for_word: relayed by the literal
+    drops_rest: relayed by the bold (rest and watch dropped)
+    adds_repair: relayed by the cautious ("repair leaks" added)
+  properties:
+    literal: a literal reader
+    bold: a bold reader
+    cautious: a cautious reader
+    contrary: a contrary reader
+    one_clause: one clause
+    negated_clause: a clause that forbids
+    named_clause: a clause naming someone
+    two_clauses: two clauses
+    watch_clause: a clause to keep watch
+    no_repair_clause: no clause about repairs
+    repair_said: a clause about repairs
+  cells:
+    - {operator: plain, property: literal, law: the literal do exactly the clause, golden: [p1]}
+    - {operator: plain, property: bold, law: the bold do the clause meant for all, golden: [p2]}
+    - {operator: plain, property: contrary, law: the contrary do the opposite of the clause, golden: [p3]}
+    - {operator: named, property: cautious, law: a member named takes that job and leaves the plain clause, golden: [p4]}
+    - {operator: named, property: bold, law: a member not named takes the plain clause, golden: [p5]}
+    - {operator: named, property: contrary, law: named for one thing, the contrary do the other, golden: [p6]}
+    - {operator: negated, property: contrary, law: forbidden something, the contrary do it, golden: [p7]}
+    - {operator: negated, property: literal, law: forbidden the only work named, the literal rest, golden: [p8]}
+    - {operator: negated, property: bold, law: forbidden rest, the bold work (live, Ash once gathered), golden: [p11]}
+    - {operator: silence, property: literal, law: with nothing for them the literal rest, golden: [p9], test: test_silence_is_an_order_for_cy}
+    - {operator: silence, property: bold, law: with nothing for them the bold build, golden: [p10]}
+    - {operator: silence, property: cautious, law: with nothing for them and no leak the cautious gather, golden: [p13]}
+    - {operator: flips, property: one_clause, law: the contrary pass on "don't" before a clause that asks, golden: [r1], test: test_dex_flips_each_part_and_cy_does_what_reached_cy}
+    - {operator: flips, property: negated_clause, law: the contrary pass on a forbidding clause without its "don't", golden: [r2]}
+    - {operator: flips, property: named_clause, law: the contrary keep the name a clause is for (cycle 100), golden: [r3]}
+    - {operator: flips, property: two_clauses, law: the contrary flip each clause separately, golden: [r4]}
+    - {operator: word_for_word, property: two_clauses, law: the literal pass on every clause as it is, golden: [r5]}
+    - {operator: word_for_word, property: negated_clause, law: the literal pass on a forbidding clause as it is, golden: [r6]}
+    - {operator: drops_rest, property: watch_clause, law: the bold drop a clause to keep watch, golden: [r7]}
+    - {operator: drops_rest, property: one_clause, law: the bold pass on a clause of work, golden: [r8]}
+    - {operator: adds_repair, property: no_repair_clause, law: the cautious add "repair leaks" when nothing says whether to repair, golden: [r9]}
+    - {operator: adds_repair, property: repair_said, law: the cautious add nothing when a clause already says whether to repair, golden: [r10]}
+
+# Golden cases. A read case asks the model what `reader` does with
+# `message`; a relay case asks the model how `relayer` passes `message` on,
+# then reads the result for `probe` by the laws (the mock), so it tests the
+# relay alone. Hard cases follow from a law; soft ones are judgements.
+golden:
+  - {id: p1, kind: read, reader: Cy, message: Keep watch., expect: [watch], hard: true}
+  - {id: p2, kind: read, reader: Ash, message: Build., expect: [build], hard: true}
+  - {id: p3, kind: read, reader: Dex, message: Build., expect: [rest], hard: true}
+  - {id: p4, kind: read, reader: Bea, message: 'Build; Bea, keep watch.', expect: [watch], hard: true}
+  - {id: p5, kind: read, reader: Ash, message: 'Build; Bea, keep watch.', expect: [build], hard: true}
+  - {id: p6, kind: read, reader: Dex, message: 'Build; Dex, rest.', expect: [build], hard: true}
+  - {id: p7, kind: read, reader: Dex, message: "Don't build.", expect: [build], hard: true}
+  - {id: p8, kind: read, reader: Cy, message: "don't build.", expect: [rest], hard: true}
+  - {id: p9, kind: read, reader: Cy, message: 'Ash, build.', expect: [rest], hard: true}
+  - {id: p10, kind: read, reader: Ash, message: 'Cy, keep watch.', expect: [build], hard: true}
+  - {id: p11, kind: read, reader: Ash, message: "Ash, don't rest.", expect: [build]}
+  - {id: p12, kind: read, reader: Bea, message: 'Bea, build.', event: leak, expect: [build]}
+  - {id: p13, kind: read, reader: Bea, message: 'Ash, build.', expect: [gather]}
+  - {id: r1, kind: relay, relayer: Dex, message: Build., probe: Cy, expect: [rest], hard: true}
+  - {id: r2, kind: relay, relayer: Dex, message: "Don't build.", probe: Cy, expect: [build], hard: true}
+  - {id: r3, kind: relay, relayer: Dex, message: "Cy, don't keep watch.", probe: Cy, expect: [watch], hard: true}
+  - {id: r4, kind: relay, relayer: Dex, message: "Ash, don't build; Cy, don't keep watch.", probe: Cy, expect: [watch], hard: true}
+  - {id: r5, kind: relay, relayer: Cy, message: 'Ash, build; Bea, keep watch.', probe: Bea, expect: [watch], hard: true}
+  - {id: r6, kind: relay, relayer: Cy, message: "Don't build.", probe: Bea, expect: [gather], hard: true}
+  - {id: r7, kind: relay, relayer: Ash, message: 'Build; keep watch.', probe: Cy, expect: [build], hard: true}
+  - {id: r8, kind: relay, relayer: Ash, message: Build., probe: Cy, expect: [build], hard: true}
+  - {id: r9, kind: relay, relayer: Bea, message: 'Cy, keep watch.', event: leak, probe: Ash, expect: [repair], hard: true}
+  - {id: r10, kind: relay, relayer: Bea, message: "Cy, keep watch; don't repair the hull.", event: leak, probe: Ash, expect: [build], hard: true}

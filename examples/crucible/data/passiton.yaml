@@ -41,6 +41,7 @@ scenarios:
   straight_up:
     beat: isolate
     title: Straight up
+    teaches: ['plain x literal', 'reading->verdict', 'message->verdict']
     line: [Cy]
     goal: {Cy: watch}
     event: quiet
@@ -50,6 +51,7 @@ scenarios:
   two_at_the_top:
     beat: develop
     title: Two at the top
+    teaches: ['word_for_word x two_clauses', 'named x cautious', 'named x bold', 'line->reading']
     line: [Cy, [Ash, Bea]]
     goal: {Ash: build, Bea: watch}
     event: quiet
@@ -59,6 +61,7 @@ scenarios:
   dex_at_the_top:
     beat: twist
     title: Dex at the top
+    teaches: ['plain x contrary', 'negated x contrary', 'verdict->message']
     line: [Dex]
     goal: {Dex: build}
     event: quiet
@@ -68,6 +71,7 @@ scenarios:
   dex_among_them:
     beat: catharsis
     title: Dex among them
+    teaches: ['named x contrary', 'silence x bold', 'line->reading']
     line: [Cy, [Ash, Dex]]
     goal: {Ash: build, Dex: build}
     event: quiet
@@ -79,6 +83,7 @@ scenarios:
   dex_in_the_middle:
     beat: isolate
     title: Dex in the middle
+    teaches: ['flips x one_clause', 'flips x negated_clause', 'message->relay', 'relay->reading']
     line: [Dex, Cy]
     goal: {Cy: build}
     event: quiet
@@ -88,6 +93,7 @@ scenarios:
   two_through_dex:
     beat: develop
     title: Two through Dex
+    teaches: ['flips x two_clauses', 'flips x named_clause', 'temperament->relay']
     line: [Dex, [Ash, Cy]]
     goal: {Ash: build, Cy: watch}
     event: quiet
@@ -97,6 +103,7 @@ scenarios:
   saying_less:
     beat: twist
     title: Saying less
+    teaches: ['silence x literal', 'temperament->reading', 'negated x literal']
     line: [Dex, [Ash, Cy]]
     goal: {Ash: watch, Cy: rest}
     event: quiet
@@ -106,6 +113,7 @@ scenarios:
   everyone_through_dex:
     beat: catharsis
     title: Everyone through Dex
+    teaches: ['flips x named_clause', 'silence x literal', 'silence x bold', 'named x cautious']
     line: [Dex, [Ash, Bea, Cy]]
     goal: {Ash: build, Bea: watch, Cy: rest}
     event: quiet

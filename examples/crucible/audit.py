@@ -14,18 +14,20 @@
 
 r"""Matrix audit: counts the interaction matrices and checks their evidence.
 
-Reads data/orders_matrix.yaml. Every system cell and reading cell must name
+Reads data/<toy>_matrix.yaml (orders by default; passiton for Pass it on).
+Every system cell and reading cell must name
 a test that exists (a `def test_...` in examples/crucible) or golden cases
 that exist; every cell's systems, operators and properties must be declared.
 Prints the counts quoted in cycle reports.
 
-  python -m examples.crucible.audit
+  python -m examples.crucible.audit [passiton]
 """
 
 import glob
 import json
 import os
 import re
+import sys
 from typing import Any
 
 from examples.crucible import toys
@@ -41,8 +43,8 @@ def test_names() -> set[str]:
   return names
 
 
-def audit() -> dict[str, Any]:
-  matrix = toys.load_data('orders_matrix')
+def audit(toy: str = 'orders') -> dict[str, Any]:
+  matrix = toys.load_data(f'{toy}_matrix')
   tests = test_names()
   golden_ids = {case['id'] for case in matrix['golden']}
   problems = []
@@ -71,7 +73,7 @@ def audit() -> dict[str, Any]:
   refs = {f"{c['from']}->{c['to']}" for c in matrix['cells']} | {
       f"{c['operator']} x {c['property']}" for c in reading['cells']
   }
-  data = toys.load_data('orders')
+  data = toys.load_data(toy)
   taught = set()
   for name in data.get('campaign', []):
     scene = data['scenarios'][name]
@@ -109,4 +111,4 @@ def audit() -> dict[str, Any]:
 
 
 if __name__ == '__main__':
-  print(json.dumps(audit()))
+  print(json.dumps(audit(*sys.argv[1:2])))

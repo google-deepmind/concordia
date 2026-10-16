@@ -18,6 +18,7 @@ from absl.testing import absltest
 from concordia.language_model import language_model
 from examples.crucible import audit
 from examples.crucible import golden
+from examples.crucible import golden_passiton
 from examples.crucible import model_setup
 
 
@@ -27,6 +28,17 @@ class MatrixTest(absltest.TestCase):
     result = audit.audit()
     self.assertEqual(result['problems'], [])
     self.assertGreaterEqual(result['counts']['matrix_cells'], 25)
+
+  def test_pass_it_on_matrix_has_no_problems(self):
+    result = audit.audit('passiton')
+    self.assertEqual(result['problems'], [])
+    self.assertGreaterEqual(result['counts']['matrix_cells'], 25)
+
+  def test_mock_passes_every_pass_it_on_golden_case(self):
+    result = golden_passiton.run(model_setup.mock_model(), repeats=2)
+    self.assertEqual(result['failures'], [])
+    self.assertTrue(result['passed'])
+    self.assertEqual(result['flaky'], [])
 
   def test_mock_passes_every_golden_case(self):
     result = golden.run(model_setup.mock_model(), repeats=2)

@@ -22,8 +22,10 @@ from absl import app
 from absl import flags
 
 from examples.crucible import golden
+from examples.crucible import golden_passiton
 from examples.crucible import model_setup
 
+_TOY = flags.DEFINE_enum('toy', 'orders', ['orders', 'passiton'], 'Whose set.')
 _MODE = flags.DEFINE_enum('mode', 'mock', ['mock', 'ollama', 'together'], '')
 _MODEL_NAME = flags.DEFINE_string('model_name', None, 'Provider model name.')
 _MAX_CALLS = flags.DEFINE_integer(
@@ -39,10 +41,11 @@ _CASES = flags.DEFINE_list(
 
 def main(argv: list[str]) -> None:
   del argv
-  count = len(_CASES.value) or len(golden.cases())
+  module = golden_passiton if _TOY.value == 'passiton' else golden
+  count = len(_CASES.value) or len(module.cases())
   calls = _MAX_CALLS.value or 3 * count * _REPEATS.value
   model = model_setup.build_model(_MODE.value, _MODEL_NAME.value, calls)
-  print(golden.main_json(model, _REPEATS.value, _CASES.value))
+  print(module.main_json(model, _REPEATS.value, _CASES.value))
 
 
 if __name__ == '__main__':
