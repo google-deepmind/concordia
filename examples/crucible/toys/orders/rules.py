@@ -22,8 +22,10 @@ in the ledger (`Ship`):
 |---|---|---|
 | `CommandRule` | cost: speaking costs command points, by length | `points`, `order` |
 | `HazardRule` | the world: leaks open and bleed, storms blow | `leak`, `damage` from leaks |
-| `CrewRule` | directive: what each member does, as a model reads the order | supplies, progress, repairs, fatigue |
-| `WatchRule` | information: a member on watch reveals the turns ahead | `seen` |
+| `CrewRule` | directive: what each member does, as a model reads the order; who takes up a clause for "someone" | supplies, progress, repairs, fatigue |
+| `WatchRule` | information: a member on watch reveals the turns ahead | `seen`, `watched` |
+
+The rota (who is off duty on which turn) is scene data the toy reads.
 
 The toy (`toy.py`) runs them in a fixed order each turn.
 """

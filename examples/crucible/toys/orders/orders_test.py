@@ -36,8 +36,8 @@ class MockReadingTest(absltest.TestCase):
 
   def test_conditional_clause_applies_only_when_its_condition_holds(self):
     order = 'Build; if a leak opens, repair it.'
-    self.assertEqual(self.mock.ordered(order, set()), (['build'], False))
-    self.assertEqual(self.mock.ordered(order, {'leak'}), (['repair'], False))
+    self.assertEqual(self.mock.read(order, set())[:2], (['build'], False))
+    self.assertEqual(self.mock.read(order, {'leak'})[:2], (['repair'], False))
 
   def test_temperaments_read_the_same_order_differently(self):
     props = toys.load_data('orders')['temperaments']
@@ -75,8 +75,8 @@ class ShipTest(absltest.TestCase):
   def test_named_clauses_apply_to_their_member(self):
     mock = mock_lib.OrdersMock(toys.load_data('orders'))
     order = 'Bea, keep watch; everyone else build.'
-    self.assertEqual(mock.ordered(order, set(), 'Bea'), (['watch'], True))
-    self.assertEqual(mock.ordered(order, set(), 'Ash'), (['build'], False))
+    self.assertEqual(mock.read(order, set(), 'Bea')[:2], (['watch'], True))
+    self.assertEqual(mock.read(order, set(), 'Ash')[:2], (['build'], False))
 
   def test_the_future_is_hidden_until_someone_watches(self):
     toy = _toy()

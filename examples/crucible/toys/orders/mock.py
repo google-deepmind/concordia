@@ -67,13 +67,6 @@ class OrdersMock:
         for w in data.get('someone', {}).get('words', ())
     ]
 
-  def ordered(
-      self, order: str, now: set[str], member: str | None = None
-  ) -> tuple[list[str], bool]:
-    """The actions the order asks of `member` now, and whether by name."""
-    wanted, named, _ = self.read(order, now, member)
-    return wanted, named
-
   def read(
       self,
       order: str,

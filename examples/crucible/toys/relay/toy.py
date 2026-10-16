@@ -24,7 +24,7 @@ signing the numbers each side actually wrote are compared, so a changed
 number sinks the deal.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 import dataclasses
 import difflib
 import re
@@ -361,6 +361,3 @@ class RelayToy(base.Toy):
 
   def world_from_dict(self, data: Mapping[str, Any]) -> None:
     self.world = Talks.from_dict(data)
-
-  def roles(self) -> Sequence[str]:
-    return self.actors()

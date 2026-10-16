@@ -199,10 +199,6 @@ def add_claim(
   return claim
 
 
-def word_count(text: str) -> int:
-  return len(text.split())
-
-
 def summarize_beats(board: Board, beats: Sequence[Sequence[str]]) -> list[str]:
   """One line per beat of a cascade."""
   lines = []
