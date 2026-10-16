@@ -557,9 +557,12 @@ be a rule the campaign never asks a player to learn.
   passed g38, but full runs did not: qwen3:8b reads the literal as obeying
   "repair the hull" whatever the laws say (it calls the clause "plain" two
   lines after a law saying it is not), 24/25 hard in every run. The law
-  stays; the miss is recorded. Flash on the current wording, through the
-  contrib golden set with two repeats: PASS, 25/25 hard both runs, soft 84%
-  and 79%, flaky soft cases g11, g33, g44.
+  stays; the miss is recorded. (That volunteer sentence was later removed:
+  with it qwen3 fell to 22/25.) On the 49-case set with the bosun's cases
+  (cycle 45 wording), qwen3:8b kept all 28 hard laws with every soft case
+  agreeing in one run, and 27/28 (g38 again) in the other: g38 is flaky for
+  it, not a fixed misreading. Flash on the same wording passes both runs
+  (28/28, soft 81%).
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
