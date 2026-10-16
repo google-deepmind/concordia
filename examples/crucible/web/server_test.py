@@ -130,6 +130,15 @@ class ServerTest(absltest.TestCase):
     self.assertTrue(game['daily'])
     self.assertEqual(game['scenario'], 'voyage')
 
+  def test_paid_minds_only_within_budget(self):
+    games = server_lib.Games(
+        'mock', None, 10, tempfile.mkdtemp(), ['ollama', 'together'], 0.5, 1.0
+    )
+    self.assertIn('together', games.modes)
+    games._add_spend({'game': 'g', 'mode': 'together', 'usd': 0.6})  # pylint: disable=protected-access
+    self.assertNotIn('together', games.modes)
+    self.assertIn('ollama', games.modes)
+
   def test_stale_answer_is_refused(self):
     self.call('/api/start', {'toy': 'orders'})
     self.wait_for_request()

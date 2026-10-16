@@ -44,6 +44,7 @@ class Session:
   telemetry_path: str
   mode: str = 'mock'
   daily: str = ''  # the date, for a daily challenge
+  model: Any = None
   thread: threading.Thread | None = None
   finished: bool = False
   error: str = ''
@@ -62,9 +63,25 @@ class Games:
       max_calls: int,
       telemetry_dir: str,
       live: list[str] | None = None,
+      budget_usd: float = 0.0,
+      price_per_mtok: float = 1.0,
   ):
+    """Initializes the games.
+
+    Args:
+      mode: The default mind ('mock', 'ollama' or 'together').
+      model_name: The default mind's model name.
+      max_calls: The most model calls one game may make.
+      telemetry_dir: Where games, campaign progress and spend are kept.
+      live: Live minds a person may pick besides the mock.
+      budget_usd: Paid minds ('together') are offered only while the spend
+        recorded in this folder stays under this.
+      price_per_mtok: Estimated dollars per million tokens of a paid mind.
+    """
     self._mode = mode
-    self.modes = ['mock', *(live or [])] if mode == 'mock' else [mode]
+    self._live_modes = ['mock', *(live or [])] if mode == 'mock' else [mode]
+    self._budget_usd = budget_usd
+    self._price = price_per_mtok
     self._model_name = model_name
     self._max_calls = max_calls
     self._telemetry_dir = telemetry_dir
@@ -74,6 +91,32 @@ class Games:
     self.progress = campaign.Progress(
         os.path.join(telemetry_dir, 'campaign.json')
     )
+    self._spend_path = os.path.join(telemetry_dir, 'spend.json')
+
+  def spent_usd(self) -> float:
+    """The estimated spend of every paid game recorded so far."""
+    if not os.path.exists(self._spend_path):
+      return 0.0
+    with open(self._spend_path) as f:
+      return round(sum(row['usd'] for row in json.load(f)), 4)
+
+  def _add_spend(self, row: dict[str, Any]) -> None:
+    rows = []
+    if os.path.exists(self._spend_path):
+      with open(self._spend_path) as f:
+        rows = json.load(f)
+    rows.append(row)
+    with open(self._spend_path, 'w') as f:
+      json.dump(rows, f, indent=1)
+
+  @property
+  def modes(self) -> list[str]:
+    """The minds a person may pick now (paid ones only within budget)."""
+    return [
+        m
+        for m in self._live_modes
+        if m != 'together' or self.spent_usd() < self._budget_usd
+    ]
 
   def _record(self, session: Session, entry: dict[str, Any]) -> None:
     entry = {'t': round(time.time(), 3), **entry}
@@ -119,6 +162,8 @@ class Games:
     mode = mode if mode in self.modes else self.modes[0]
     name = self._model_name if mode == self._mode else None
     model = model_setup.build_model(mode, name, self._max_calls)
+    if mode != 'mock':
+      model = model_setup.UsageCounter(model)
     reader = blocking_input.BlockingInput()
     if scenario not in data.get('scenarios', {}):
       scenario = None
@@ -138,6 +183,7 @@ class Games:
         telemetry_path=os.path.join(self._telemetry_dir, f'{game_id}.jsonl'),
         mode=mode,
         daily=today,
+        model=model,
     )
     self._record(
         session,
@@ -167,6 +213,16 @@ class Games:
     except Exception as error:  # pylint: disable=broad-exception-caught
       session.error = f'{type(error).__name__}: {error}'
     session.finished = True
+    usage = None
+    if isinstance(session.model, model_setup.UsageCounter):
+      tokens = session.model.tokens
+      usd = tokens / 1e6 * self._price if session.mode == 'together' else 0.0
+      usage = {'calls': session.model.calls, 'est_tokens': tokens,
+               'usd': round(usd, 4)}  # fmt: skip
+      if usd:
+        self._add_spend(
+            {'game': session.game_id, 'mode': session.mode, **usage}
+        )
     outcome = session.game.outcome()
     scenario = getattr(session.game.toy, 'scenario', None)
     if scenario and not session.error and 'stars' in outcome:
@@ -177,6 +233,7 @@ class Games:
         {
             'kind': 'end',
             'outcome': session.game.outcome(),
+            'usage': usage,
             'error': session.error,
             'truth': session.game.toy.get_state(),
         },

@@ -172,7 +172,9 @@ function renderMenu(state) {
     }
     for (const m of state.modes) {
       const o = document.createElement('option'); o.value = m;
-      o.textContent = m === 'mock' ? 'mock (instant, a word list)' : m + ' (a real model, slower)';
+      o.textContent = {mock: 'word list (instant; not a real reader)',
+                       together: 'DeepSeek Flash (a real model, a few seconds a turn)',
+                       ollama: 'qwen3:8b on this Mac (a real model, slow)'}[m] || m;
       $('mind').appendChild(o);
     }
     $('mindrow').hidden = state.modes.length < 2;

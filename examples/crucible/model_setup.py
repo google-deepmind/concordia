@@ -19,8 +19,11 @@ own `TOGETHER_AI_API_KEY`) and passed explicitly. Live models are wrapped in
 a call limit and retries, and profiled so a run can report its cost.
 """
 
+from collections.abc import Mapping, Sequence
 import hashlib
 import os
+import threading
+from typing import Any, override
 
 from concordia.contrib import language_models
 from concordia.contrib.language_models import reasoned_choice
@@ -45,6 +48,45 @@ def hash_embedder(text: str) -> np.ndarray:
     vec[digest[0] % EMBEDDING_DIM] += 1.0 if digest[1] % 2 else -1.0
   norm = np.linalg.norm(vec)
   return vec / norm if norm else vec
+
+
+class UsageCounter(language_model.LanguageModel):
+  """Counts a model's calls and estimates its tokens (characters / 4).
+
+  Thread-safe; a toy may read with it from several threads at once
+  (`parallel_safe`).
+  """
+
+  parallel_safe = True
+
+  def __init__(self, model: language_model.LanguageModel):
+    self._model = model
+    self._lock = threading.Lock()
+    self.calls = 0
+    self.chars = 0
+
+  def _count(self, chars: int) -> None:
+    with self._lock:
+      self.calls += 1
+      self.chars += chars
+
+  @property
+  def tokens(self) -> int:
+    return self.chars // 4
+
+  @override
+  def sample_text(self, prompt: str, **kwargs: Any) -> str:
+    out = self._model.sample_text(prompt, **kwargs)
+    self._count(len(prompt) + len(out))
+    return out
+
+  @override
+  def sample_choice(
+      self, prompt: str, responses: Sequence[str], **kwargs: Any
+  ) -> tuple[int, str, Mapping[str, Any]]:
+    result = self._model.sample_choice(prompt, responses, **kwargs)
+    self._count(len(prompt) + 4)
+    return result
 
 
 def mock_model() -> mock_language_model.CrucibleMock:

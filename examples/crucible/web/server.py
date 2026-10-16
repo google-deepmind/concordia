@@ -42,6 +42,16 @@ _MAX_CALLS = flags.DEFINE_integer('max_calls', 300, 'Live call cap per game.')
 _LIVE = flags.DEFINE_list(
     'live', [], 'Live minds the page may pick besides the mock, e.g. ollama.'
 )
+_BUDGET = flags.DEFINE_float(
+    'live_budget_usd',
+    0.0,
+    'Offer paid minds only while recorded spend is under this.',
+)
+_PRICE = flags.DEFINE_float(
+    'price_per_mtok',
+    1.0,
+    'Estimated dollars per million tokens of a paid mind.',
+)
 _TELEMETRY_DIR = flags.DEFINE_string(
     'telemetry_dir', '/tmp/crucible_telemetry', 'Where games are recorded.'
 )
@@ -55,6 +65,8 @@ def main(argv: list[str]) -> None:
       _MAX_CALLS.value,
       _TELEMETRY_DIR.value,
       _LIVE.value,
+      _BUDGET.value,
+      _PRICE.value,
   )
   server = app.serve(games, _PORT.value, _BASE_PATH.value)
   print(

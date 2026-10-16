@@ -35,6 +35,7 @@ from typing import Any
 from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
+from concordia.utils import concurrency
 from examples.crucible.toys import base
 from examples.crucible.toys.orders import rules
 
@@ -271,9 +272,16 @@ class OrdersToy(base.Toy):
     if strike:
       steps.append(strike)
     before = (ship.progress, ship.damage, ship.supplies)
-    chosen = self.crew_rule.act(
-        ship, kind, lambda member: self.choose(ship, member, turn)
-    )
+    # With a live model, every member reads the order at once (the readings
+    # are independent); the rule then applies them in the fixed crew order.
+    if getattr(self._model, 'parallel_safe', False):
+      readings = concurrency.run_tasks({
+          member: lambda m=member: self.choose(ship, m, turn)
+          for member in self.crew
+      })
+    else:
+      readings = {m: self.choose(ship, m, turn) for m in self.crew}
+    chosen = self.crew_rule.act(ship, kind, lambda member: readings[member])
     steps.append(
         ' '.join(
             f'{m} {self._data["actions"][chosen[m]]["does"]}.'
