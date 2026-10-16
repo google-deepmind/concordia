@@ -591,11 +591,14 @@ scenarios:
     turns: 40
     command: {points: 99, regen: 99, cap: 99, per_words: 99}
     events_cycle: 10 # the event schedule repeats every 10 turns
+    bosun_by_order: true  # 'Bea is bosun' names one; 'no bosun' ends it
     premise: >-
       Free play. You command a crew of four: Ash (bold), Bea (cautious), Cy
       (literal) and Dex (contrary). Give a standing order of at most 12 words, change it
       whenever you like, and watch how each of them reads it as quiet turns,
-      leaks and storms come and go. Nothing is at stake.
+      leaks and storms come and go. Name a bosun ("Bea is bosun") to have
+      your orders passed on in their words, or say "no bosun". Nothing is at
+      stake.
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.

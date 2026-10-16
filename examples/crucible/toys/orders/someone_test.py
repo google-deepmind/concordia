@@ -262,5 +262,27 @@ class WindTest(absltest.TestCase):
     self.assertEqual(toy.world.relayed, 'Build.')
 
 
+class AppointTest(absltest.TestCase):
+
+  def test_free_play_names_a_bosun_by_order(self):
+    toy = toy_lib.OrdersToy(
+        model_setup.mock_model(), toys.load_data('orders'), 'free'
+    )
+    receipt = toy.resolve(toy.commander, 'Ash is bosun; build; Cy, keep watch.')
+    self.assertIn('Ash is bosun now.', str(receipt))
+    self.assertEqual(toy.view()['bosun'], 'Ash')
+    self.assertNotIn('watch', toy.world.relayed)  # the bold drop the watch
+    receipt = toy.resolve(toy.commander, 'No bosun; build.')
+    self.assertIn('No bosun now.', str(receipt))
+    self.assertIsNone(toy.view()['bosun'])
+
+  def test_a_scene_without_it_ignores_the_word(self):
+    toy = toy_lib.OrdersToy(
+        model_setup.mock_model(), toys.load_data('orders'), 'voyage'
+    )
+    toy.resolve(toy.commander, 'Ash is bosun; build.')
+    self.assertIsNone(toy.view()['bosun'])
+
+
 if __name__ == '__main__':
   absltest.main()

@@ -273,9 +273,22 @@ class OrdersToy(base.Toy):
     }
     return self.crew_rule.volunteer(ship, takes, excluded)
 
-  def relay(self, order: str) -> str:
-    """How the bosun passes `order` on to the rest of the crew (cached)."""
-    bosun = self._data['bosun']
+  def bosun_of(self, ship: Ship) -> str | None:
+    """The bosun: named by order (where allowed) or the scene's."""
+    return ship.bosun or self._data.get('bosun')
+
+  def appointed(self, order: str) -> str | None:
+    """A bosun named in `order` ('Bea is bosun'), '' for 'no bosun', or None."""
+    text = order.lower()
+    if re.search(r'\bno bosun\b', text):
+      return ''
+    for member in self.crew:
+      if re.search(rf'\b{member.lower()}\b[^;.]*\bbosun\b', text):
+        return member
+    return None
+
+  def relay(self, order: str, bosun: str) -> str:
+    """How `bosun` passes `order` on to the rest of the crew (cached)."""
     temperament = self._data['crew'][bosun]['temperament']
     props = self._data['temperaments'][temperament]
     law = self._data['relaying']['laws'][props.get('relays', 'word_for_word')]
@@ -336,12 +349,12 @@ class OrdersToy(base.Toy):
     Returns:
       What the bosun said, as a sentence, or '' without an active bosun.
     """
-    bosun = self._data.get('bosun')
+    bosun = self.bosun_of(ship)
     if not bosun or bosun not in self.crew:
       return ''
     if self.rota.off_duty(ship, bosun, turn):
       return f'{bosun} is off duty: the order goes out as you gave it.'
-    relayed = self.relay(self.rota.order_of(ship, bosun))
+    relayed = self.relay(self.rota.order_of(ship, bosun), bosun)
     ship.relayed = relayed
     for member in self.rota.on_duty(ship, turn):
       if member != bosun:
@@ -466,7 +479,8 @@ class OrdersToy(base.Toy):
 
   def earlier(self, ship: Ship) -> str:
     """Who still follows an earlier order, for the commander's prompt."""
-    relayed = ship.relayed if self._data.get('bosun') else None
+    bosun = self.bosun_of(ship)
+    relayed = ship.relayed if bosun else None
     behind = [
         f'{m} ("{self.rota.order_of(ship, m) or "(none)"}")'
         for m in self.crew
@@ -474,7 +488,7 @@ class OrdersToy(base.Toy):
     ]
     text = f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
     if relayed is not None and ship.order:
-      text += f' {self._data["bosun"]} passed it on as: "{relayed}".'
+      text += f' {bosun} passed it on as: "{relayed}".'
     return text
 
   def apply(self, world: Ship, actor: str, action: str) -> base.Receipt:
@@ -485,6 +499,13 @@ class OrdersToy(base.Toy):
       previous, spent = ship.order, ship.spent
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty
+        if self._data.get('bosun_by_order'):
+          named = self.appointed(ship.order)
+          if named is not None and named != ship.bosun:
+            ship.bosun = named
+            if not named:
+              ship.relayed = ''
+            steps.append(f'{named} is bosun now.' if named else 'No bosun now.')
         missed = self.rota.hear(ship, previous, ship.turn + 1)
         if missed:
           steps.append(missed)
@@ -579,7 +600,7 @@ class OrdersToy(base.Toy):
         'beat': self._data.get('beat', ''),
         # What the scene teaches, shown once it is over.
         'lesson': self._data.get('lesson') if self.done() else None,
-        'bosun': self._data.get('bosun'),  # who passes orders on (arc 5)
+        'bosun': self.bosun_of(ship),  # who passes orders on (arc 5)
         'free': self.free,
         'turn': turn,
         'turns': int(self._data['turns']),
@@ -624,9 +645,9 @@ class OrdersToy(base.Toy):
                     else None
                 ),
                 'via_bosun': bool(
-                    self._data.get('bosun')
+                    self.bosun_of(ship)
                     and self.rota.order_of(ship, member) == ship.relayed
-                    and member != self._data['bosun']
+                    and member != self.bosun_of(ship)
                 ),
                 'last': (last or {}).get('actions', {}).get(member),
                 'why': (last or {}).get('why', {}).get(member),

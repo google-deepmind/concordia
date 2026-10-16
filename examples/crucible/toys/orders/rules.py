@@ -61,6 +61,7 @@ class Ship:
   # (off duty when it was given; cycle 23). Others follow `order`.
   heard: dict[str, str] = dataclasses.field(default_factory=dict)
   relayed: str = ''  # what the bosun last passed on (arc 5)
+  bosun: str = ''  # a bosun named by order, where a scene allows it
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
   @property

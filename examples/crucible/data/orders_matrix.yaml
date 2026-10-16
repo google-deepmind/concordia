@@ -56,6 +56,7 @@ cells:
   - {from: rota, to: crew, by: with the bosun off duty an order goes out as the commander gave it (cycle 41), test: test_with_the_bosun_off_duty_the_order_goes_out_as_given}
   - {from: hazards, to: command, by: an order given in a storm that garbles carries only its first clause; the vital clause must come first, or wait for the calm (cycle 51), test: test_an_order_given_in_a_storm_carries_only_its_first_clause}
   - {from: hazards, to: crew, by: in a garbling storm the bosun relays only what the wind left (cycle 51), test: test_the_bosun_relays_what_the_wind_left}
+  - {from: command, to: command, by: in free play an order can name the bosun ('Bea is bosun') or end it ('no bosun') (cycle 57), test: test_free_play_names_a_bosun_by_order}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
