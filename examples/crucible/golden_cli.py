@@ -32,13 +32,17 @@ _MAX_CALLS = flags.DEFINE_integer(
 _REPEATS = flags.DEFINE_integer(
     'repeats', 1, 'Runs of the whole set; every run must pass.'
 )
+_CASES = flags.DEFINE_list(
+    'cases', [], 'Case ids to run (default: all), to run a slow model in parts.'
+)
 
 
 def main(argv: list[str]) -> None:
   del argv
-  calls = _MAX_CALLS.value or 3 * len(golden.cases()) * _REPEATS.value
+  count = len(_CASES.value) or len(golden.cases())
+  calls = _MAX_CALLS.value or 3 * count * _REPEATS.value
   model = model_setup.build_model(_MODE.value, _MODEL_NAME.value, calls)
-  print(golden.main_json(model, _REPEATS.value))
+  print(golden.main_json(model, _REPEATS.value, _CASES.value))
 
 
 if __name__ == '__main__':

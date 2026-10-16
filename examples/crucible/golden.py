@@ -25,10 +25,13 @@ hard case passes and at least `--soft` of the others agree.
   python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b
 """
 
+from collections.abc import Sequence
 import copy
 import json
+import time
 from typing import Any
 
+from absl import logging
 from concordia.contrib.testing import golden_set
 from concordia.language_model import language_model
 
@@ -100,6 +103,7 @@ def run(
     model: language_model.LanguageModel,
     soft_pass: float = SOFT_PASS,
     repeats: int = 1,
+    only: Sequence[str] = (),
 ) -> dict[str, Any]:
   """Runs the golden set `repeats` times (contrib `golden_set`).
 
@@ -107,15 +111,24 @@ def run(
     model: The model that reads for the crew.
     soft_pass: The share of soft cases a run must agree with.
     repeats: How many times to run the whole set; every run must pass.
+    only: Case ids to run (all when empty), so a slow model's set can be
+      run in parts.
 
   Returns:
     The last run's counts (as before), whether every run passed, each
     run's counts, the failures of the last run and the flaky cases.
   """
-  golden_cases = cases()
+  golden_cases = [c for c in cases() if not only or c.id in only]
+
+  def answer(case: golden_set.Case) -> str:
+    began = time.time()
+    reply = run_case(model, case.data)['answer']
+    logging.info('golden %s: %r in %.0f s', case.id, reply, time.time() - began)
+    return reply
+
   report = golden_set.run(
       golden_cases,
-      lambda case: run_case(model, case.data)['answer'],
+      answer,
       repeats=repeats,
       soft_pass=soft_pass,
   )
@@ -149,5 +162,9 @@ def run(
   }
 
 
-def main_json(model: language_model.LanguageModel, repeats: int = 1) -> str:
-  return json.dumps(run(model, repeats=repeats), indent=1)
+def main_json(
+    model: language_model.LanguageModel,
+    repeats: int = 1,
+    only: Sequence[str] = (),
+) -> str:
+  return json.dumps(run(model, repeats=repeats, only=only), indent=1)
