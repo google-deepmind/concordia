@@ -548,7 +548,16 @@ be a rule the campaign never asks a player to learn.
 | Minister Plenipotentiary | Diplomatic negotiation | Toy B's player is not a party; the move is rewording someone else's message |
 | Abstract argumentation (Dung; weighted and bipolar semantics) | Formal acceptability of arguments | Toy A uses weighted bipolar semantics as game physics, with relations judged by a language model from free text |
 
+Update (cycle 27), for arcs 3 and 4:
+
+| Work | What it does | How Twelve Words differs |
+|---|---|---|
+| "Los SIMS LLM" (Universidad Complutense de Madrid) | A space simulation in which the player speaks to the crew in natural language (Gemini) to run research, exploration and resources | Here the speech is the scarce resource: one standing order of at most 12 words, priced by length, read by four fixed temperaments under stated laws, with the consequences kept by a deterministic ledger and scenes built to teach one law at a time |
+| UBOAT (Deep Water Studio) | A submarine simulation with crew shifts, fatigue and duty stations assigned by the player | Duties are not assigned but worded: a clause for "someone" goes to the freshest willing member on duty, an order reaches only those on duty, and a squall no one watched for hurts the most worn |
+
 Sources:
+[Los SIMS LLM](https://docta.ucm.es/entities/publication/29e1d8bf-43b7-4e6a-8bdf-8c43ba0638a1/full),
+[UBOAT crew shifts](https://steamcommunity.com/app/494840/discussions/0/4331979876124626282),
 [IF:CARGO](https://arxiv.org/pdf/2608.12195),
 [wargame agents](https://seangoedecke.com/wargame-agents/),
 [LLM rumour spreading](https://arxiv.org/pdf/2502.01450),
