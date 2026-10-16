@@ -125,6 +125,24 @@ class RotaTest(absltest.TestCase):
         [['Ash'], [], [], ['Ash']],
     )
 
+  def test_a_hurt_member_is_off_duty_and_someone_passes_over_them(self):
+    data = copy.deepcopy(toys.load_data('orders'))
+    voyage = data['scenarios']['voyage']
+    voyage['events'] = {1: 'squall', 2: 'squall'}
+    voyage['hazards'] = {
+        'quiet': {}, 'squall': {'strikes_unwatched': 4, 'injures': 2}
+    }  # fmt: skip
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    toy.world.fatigue['Ash'] = 2  # the most worn
+    receipt = toy.resolve(toy.commander, SOMEONE_WATCH)
+    self.assertIn('Ash is hurt', str(receipt))
+    self.assertTrue(toy.off_duty(toy.world, 'Ash', 2))
+    self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'watch')
+    toy.resolve(toy.commander, toy_lib.HOLD)  # turn 2: watched, no one hurt
+    self.assertEqual(toy.world.injured, {'Ash': 2})
+    self.assertFalse(toy.off_duty(toy.world, 'Ash', 3))
+
 
 if __name__ == '__main__':
   absltest.main()

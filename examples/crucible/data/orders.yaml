@@ -171,6 +171,8 @@ premise: >-
 #   crew_present: who serves; menu: which actions exist
 #   off_duty: the rota, member -> turns off duty (they rest, read nothing)
 #   start.watched: the scene opens just after a watch
+#   hazards.<event>.injures: an unwatched strike hurts the most worn member
+#              on duty, off duty for this many turns
 scenarios:
   one_hand:
     beat: isolate
@@ -427,13 +429,15 @@ scenarios:
     start: {supplies: 6, damage: 0, progress: 0, watched: true}
     events: {1: squall, 2: leak, 3: squall, 4: squall, 5: storm, 6: squall, 7: leak, 8: squall, 9: squall, 10: storm, 11: squall, 12: squall}
     off_duty: {Ash: [3, 4], Bea: [6, 7], Cy: [9, 10], Dex: [11, 12]}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4, injures: 2}}
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
     premise: >-
       All four through the long night: Ash (bold), Bea (cautious), Cy
       (literal) and Dex (contrary). Squalls, leaks and storms; each of them
       is off duty for two turns: Ash on 3 and 4, Bea on 6 and 7, Cy on 9
-      and 10, Dex on 11 and 12. Bring the project to 20 in 12 turns before
-      10 damage.
+      and 10, Dex on 11 and 12. A squall no one watched for does 4 damage
+      and hurts the most worn member on duty, who is off duty for that turn
+      and the next. Bring the project to 20 in 12 turns before 10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40

@@ -449,7 +449,7 @@ crew cards ("heard no order"), and a scene may open just after a watch
 | Isolate | The rota | Ash and Bea, squalls every turn, Bea off on 2-3 and Ash on 4-5, command for one order: a watch named on either lapses; "Someone keep watch; everyone else build." holds it all night (a rush that ignores the watch wins only if the squalls come late, at 1 star) | 100 / 6 / 0 / 0 |
 | Develop | Watches | three crew, squalls and leaks, a rota for each; orders can be changed | 100 / 25 / 0 / 19 |
 | Twist | No volunteers | Ash, Cy and Dex; Ash off on 3-5: the habit "Someone keep watch" finds no one willing (the literal and the contrary never volunteer); name Cy to the watch, and tell Dex to rest so that he builds | 100 / 6 / 0 / 0 |
-| Catharsis | The long night | all four, each off duty for two turns, squalls, leaks and storms over 12 turns | 100 / 19 / 0 / 56 |
+| Catharsis | The long night | all four, each off duty for two turns, squalls, leaks and storms over 12 turns; from cycle 21 an unwatched squall also hurts the most worn member on duty | 100 / 0 / 0 / 0 (before injuries: 100 / 19 / 0 / 56) |
 
 The campaign is 16 chapters. Matrix: +1 system (rota) with 3 cells, +1
 property (off duty) with 2 reading cells; golden set 43 cases (25 hard).
@@ -485,6 +485,20 @@ Every earlier scene's MOCK games are byte-identical to cycle 18.
 - **Simplify**: three helpers nothing used were cut.
 - **Cost**: ≈ $1.17 of $10 so far; a golden pair on Flash ≈ $0.12; a live
   game ≈ $0.01-0.02 (crew readings are two calls per member per turn).
+
+## 2n. Injuries: a rota that moves (cycle 21)
+
+A scripted rota can be planned around with names; a rota that moves cannot.
+In a scene whose squall `injures`, a squall no one watched for also hurts
+the most worn member on duty (the tired are careless), who is off duty for
+that turn and the next. A watch now protects the crew as well as the hull,
+fatigue decides who is lost, and a named duty can break on a turn no one
+planned, while a clause for someone passes to whoever is left. Only The
+long night has it: there the best fixed order of the scene lab ("Cy, keep
+watch; Dex, rest; everyone else build.") now loses one schedule in three,
+random play never wins and the habit never wins (16 seeds: skilled 100,
+random 0, passive 0, habit 0). Matrix: hazards -> rota, fatigue -> rota,
+watch -> rota (61 cells).
 
 ## 3. Prior art (cycle 1 search)
 
@@ -541,3 +555,5 @@ Sources:
 | 17 | Crew cards show the clause each member acted on (DESIGN §2j). Ollama readers keep thinking apart (library round 5). Cell added: crew -> command; 2 cells doubly evidenced. |
 | 18 | Arc 4 mechanics: a clause for "someone" goes to the freshest willing member, counted by the ledger and named in each reading (DESIGN §2k); "cannot help" spelled out in the crew prompt. Cells added: 2 system, 5 reading (operator someone). |
 | 19 | Arc 4 scenes on a rota (off duty: rest, no orders): The rota, Watches, No volunteers, The long night; 16 campaign chapters (DESIGN §2l). Cells added: rota -> crew, rota -> fatigue, rota -> watch; someone x off duty, named x off duty. |
+| 20 | Deep pass (DESIGN §2m): golden cases isolate laws from temperament judgements (g43 literal, g44 soft); a provider failure fails its case, not the run. |
+| 21 | Injuries: in The long night an unwatched squall hurts the most worn member on duty, off duty for two turns (DESIGN §2n). Cells added: hazards -> rota, fatigue -> rota, watch -> rota. |

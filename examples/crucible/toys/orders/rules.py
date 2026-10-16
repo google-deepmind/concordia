@@ -56,6 +56,8 @@ class Ship:
   # only what was seen, quiet otherwise.
   imagine_after: int = -1
   watched: bool = False  # someone kept watch last turn
+  # Members hurt by a squall: the last turn they are off duty (cycle 21).
+  injured: dict[str, int] = dataclasses.field(default_factory=dict)
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
   @property
@@ -134,6 +136,40 @@ class HazardRule:
     if strike:
       return 'The watch saw it coming: the ship weathers it.'
     return ''
+
+  def strikes(self, ship: Ship, kind: str) -> bool:
+    """Whether `kind` strikes this turn (it does damage when unwatched)."""
+    spec = self._hazards.get(kind, {})
+    return bool(int(spec.get('strikes_unwatched', 0))) and not ship.watched
+
+  def injure(
+      self,
+      ship: Ship,
+      kind: str,
+      turn: int,
+      on_duty: Sequence[str],
+  ) -> str:
+    """An event that `injures` hurts the most worn member on duty.
+
+    The tired are the careless: the member with the highest fatigue (the
+    first in crew order on a tie) is off duty this turn and for the rest of
+    the `injures` turns.
+
+    Args:
+      ship: The ledger.
+      kind: The event that struck.
+      turn: This turn.
+      on_duty: The members on duty, in crew order.
+
+    Returns:
+      What happened, or '' when the event hurts no one.
+    """
+    turns = int(self._hazards.get(kind, {}).get('injures', 0))
+    if not turns or not on_duty:
+      return ''
+    hurt = max(on_duty, key=lambda m: ship.fatigue[m])
+    ship.injured[hurt] = turn + turns - 1
+    return f'{hurt} is hurt: off duty for {turns} turns.'
 
   def end(self, ship: Ship) -> str:
     if not ship.leak:

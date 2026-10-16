@@ -33,6 +33,22 @@ def _ship(**kwargs) -> rules.Ship:
   return rules.Ship(fatigue={c: 0 for c in CREW}, **kwargs)
 
 
+class InjuryTest(absltest.TestCase):
+
+  def test_unwatched_squall_hurts_the_most_worn(self):
+    hazards = rules.HazardRule(
+        {'leak_damage': 2}, {'squall': {'strikes_unwatched': 4, 'injures': 2}}
+    )
+    ship = rules.Ship(fatigue={'Ash': 1, 'Bea': 3, 'Cy': 3})
+    self.assertTrue(hazards.strikes(ship, 'squall'))
+    text = hazards.injure(ship, 'squall', 5, ['Ash', 'Bea', 'Cy'])
+    self.assertEqual(ship.injured, {'Bea': 6})  # most worn; first on a tie
+    self.assertIn('Bea is hurt', text)
+    ship.watched = True
+    self.assertFalse(hazards.strikes(ship, 'squall'))
+    self.assertEqual(hazards.injure(ship, 'quiet', 5, ['Ash']), '')
+
+
 class CommandRuleTest(absltest.TestCase):
 
   def setUp(self):
