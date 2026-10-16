@@ -49,6 +49,8 @@ ORDERS = (
     'Someone repair leaks; everyone else build.',
     'If a leak opens, someone repair it; everyone else build.',
     "Don't keep watch.",
+    'Gather supplies for two turns, then build.',
+    'Build for two turns, then repair.',
 )
 
 

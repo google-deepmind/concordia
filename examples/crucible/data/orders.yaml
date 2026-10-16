@@ -596,6 +596,82 @@ scenarios:
       on turns 5 to 7 and Ash on 9 and 10; with the bosun off duty your
       order goes out as you give it. Squalls, leaks and storms; 10 damage
       wrecks the ship. Bring the project to 23 in 12 turns.
+  # Arc 6: timing. An order can hold for a span of turns, then change.
+  two_orders:
+    beat: isolate
+    title: Two orders in one
+    teaches: ['timed x literal', 'command->crew']
+    lesson: "One order can say two things in turn: \"Gather supplies for two turns, then build.\""
+    crew_present: [Cy]
+    menu: [build, gather, rest]
+    turns: 6
+    target: 5
+    wreck_at: 10
+    start: {supplies: 0, damage: 0, progress: 0}
+    events: {}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_words_spoken: 8}, 3: {max_words_spoken: 7}}
+    premise: >-
+      Cy alone, who is literal, with empty stores: building needs a supply,
+      and Cy does exactly what the order says. You have command for one
+      order of up to 7 words. An order can hold for a span: "do this for N
+      turns, then that". Bring the project to 5 in 6 turns.
+  shifts:
+    beat: develop
+    title: Shifts
+    teaches: ['timed x bold', 'stores->project', 'crew->hull']
+    lesson: "A span sets the work in order without your speaking again; the leaks still need a clause of their own."
+    crew_present: [Ash, Cy]
+    turns: 8
+    target: 10
+    wreck_at: 8
+    start: {supplies: 0, damage: 0, progress: 0}
+    events: {5: leak, 8: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 1, cap: 3, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold) and Cy (literal) with empty stores; the hull will leak
+      later in the voyage. Bring the project to 10 in 8 turns before 8
+      damage.
+  a_span_is_a_guess:
+    beat: twist
+    title: A span is a guess
+    teaches: ['conditional x leak', 'timed x literal', 'hazards->hull']
+    lesson: "A span guesses when things will happen; a condition (\"if a leak opens\") waits for them."
+    habit: 'Build for two turns, then repair.'
+    crew_present: [Ash, Cy]
+    turns: 6
+    target: 12
+    wreck_at: 4
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {2: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) and Cy (literal). The hull will spring a leak early, you
+      cannot see when; an open leak adds 2 damage a turn and 4 wrecks the
+      ship. You have command for one order of up to 7 words. Bring the
+      project to 12 in 6 turns.
+  ahead_of_time:
+    beat: catharsis
+    title: Ahead of time
+    teaches: ['timed x bold', 'hazards->command', 'directive x contrary', 'watch->hull']
+    lesson: "Plan the order of the work in one breath, and remember who will do the opposite."
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 24
+    wreck_at: 10
+    start: {supplies: 2, damage: 0, progress: 0, watched: true}
+    events: {3: leak, 5: squall, 6: storm, 8: leak, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {garbles: true}, squall: {strikes_unwatched: 4}}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
+      with stores nearly empty. Leaks and squalls, and a storm in which an
+      order carries only its first clause. Bring the project to 24 in 12
+      turns before 10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
@@ -612,7 +688,7 @@ scenarios:
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.
-campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night, the_bosun, word_of_mouth, contrary_bosun, chain_of_command]
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night, the_bosun, word_of_mouth, contrary_bosun, chain_of_command, two_orders, shifts, a_span_is_a_guess, ahead_of_time]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
 daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}

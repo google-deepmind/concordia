@@ -120,6 +120,24 @@ class BeatsTest(absltest.TestCase):
     self.assertEqual(rates['skilled']['win_pct'], 100)
     self.assertEqual(rates['passive']['win_pct'], 0)
 
+  def test_arc_six_isolate_and_develop(self):
+    rates = _rates('two_orders')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+    rates = audits.win_rates('orders', 'shifts', 8, POLICIES)
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertGreaterEqual(
+        rates['skilled']['win_pct'] - rates['random']['win_pct'], 30
+    )
+
+  def test_arc_six_twist_and_catharsis(self):
+    rates = _rates('a_span_is_a_guess')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['habit']['win_pct'], 0)  # the leak comes off-span
+    rates = _rates('ahead_of_time')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+
   def test_catharsis_rewards_skill(self):
     rates = _rates('voyage')
     self.assertGreaterEqual(

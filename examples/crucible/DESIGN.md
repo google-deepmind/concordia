@@ -620,6 +620,25 @@ watch). On in The crossing, The long night and Chain of command; at 16
 seeds they stay skilled 100, random 0-12, passive 0. Matrix: hazards ->
 command and hazards -> crew (73 cells, 65 of 65 references taught).
 
+## 2v. Arc 6: timing (cycles 62-63)
+
+An order can hold for a span: "Gather supplies for two turns, then build."
+The ledger records the turn an order came into force; in orders with a
+span each reading is told the order's age and a law ("this during the
+first N turns, counting the turn it is given; that afterwards; nothing once
+the span ends with nothing after 'then'"). The mock reads by the same law;
+Flash read every timed golden case right in four runs.
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | Two orders in one | Cy alone, empty stores, one order: only "Gather supplies for two turns, then build." gets the project to 5 | 100 / 0 / 0 / 0 |
+| Develop | Shifts | Ash and Cy with empty stores and leaks later on: a span sets the work in order without speaking again | 100 / 12 / 0 / 56 |
+| Twist | A span is a guess | an early leak on a turn no one knows; the habit "Build for two turns, then repair." repairs at the wrong time; "if a leak opens" waits for it | 100 / 19 / 0 / 0 |
+| Catharsis | Ahead of time | all four, stores nearly empty, leaks, squalls and a garbling storm; the winning order combines a span with Dex told to rest | 100 / 25 / 0 / 0 |
+
+The campaign is 24 chapters. Matrix 77 cells (+timed operator), 67 of 67
+references taught; golden 53 cases (32 hard).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
