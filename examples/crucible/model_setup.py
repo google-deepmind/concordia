@@ -96,6 +96,11 @@ def mock_model() -> mock_language_model.CrucibleMock:
   ])
 
 
+# Seconds an Ollama reply may take before the retry wrapper tries again (a
+# thinking reply has no bound; one golden request hung for good, cycle 17).
+OLLAMA_TIMEOUT = 180.0
+
+
 def build_model(
     mode: str, model_name: str | None = None, max_calls: int = 400
 ) -> language_model.LanguageModel:
@@ -118,7 +123,7 @@ def build_model(
     from concordia.contrib.language_models.ollama import ollama_model  # pylint: disable=g-import-not-at-top
 
     base = ollama_model.OllamaLanguageModel(
-        model_name or DEFAULT_OLLAMA, think=True
+        model_name or DEFAULT_OLLAMA, think=True, timeout=OLLAMA_TIMEOUT
     )
   elif mode == 'together':
     key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(
