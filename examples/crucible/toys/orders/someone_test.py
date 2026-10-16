@@ -144,5 +144,47 @@ class RotaTest(absltest.TestCase):
     self.assertFalse(toy.off_duty(toy.world, 'Ash', 3))
 
 
+class HeardTest(absltest.TestCase):
+
+  def _toy(self, off: dict[str, list[int]]) -> toy_lib.OrdersToy:
+    data = copy.deepcopy(toys.load_data('orders'))
+    data['scenarios']['voyage']['off_duty'] = off
+    data['scenarios']['voyage']['events'] = {}
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    return toy
+
+  def test_an_order_given_off_duty_is_not_heard(self):
+    toy = self._toy({'Bea': [2]})
+    toy.resolve(toy.commander, 'Build.')
+    receipt = toy.resolve(toy.commander, 'Rest.')
+    self.assertIn('Bea is off duty and misses it.', str(receipt))
+    toy.resolve(toy.commander, toy_lib.HOLD)  # turn 3: Bea is back
+    last = toy.world.log[-1]
+    self.assertEqual(last['actions']['Ash'], 'rest')
+    self.assertEqual(last['why']['Bea'], 'Build')  # the order she heard
+    self.assertNotEqual(last['actions']['Bea'], 'rest')
+    bea = next(m for m in toy.view()['crew'] if m['name'] == 'Bea')
+    self.assertEqual(bea['heard'], 'Build.')
+    self.assertIn(
+        'Still on an earlier order: Bea',
+        toy.action_spec(toy.commander).call_to_action,
+    )
+    toy.resolve(toy.commander, 'Rest.')  # said again, it reaches her
+    self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'rest')
+    self.assertEqual(toy.world.heard, {})
+
+  def test_someone_needs_to_have_heard_it(self):
+    toy = self._toy({'Ash': [2]})
+    toy.resolve(toy.commander, 'Build.')
+    toy.resolve(toy.commander, SOMEONE_WATCH)  # Ash is off and misses it
+    toy.resolve(toy.commander, toy_lib.HOLD)
+    last = toy.world.log[-1]
+    # Ash is the freshest (he rested off duty) but never heard "someone".
+    self.assertEqual(last['why']['Ash'], 'Build')
+    self.assertNotEqual(last['actions']['Ash'], 'watch')
+    self.assertEqual(last['actions']['Bea'], 'watch')  # heard it; willing
+
+
 if __name__ == '__main__':
   absltest.main()

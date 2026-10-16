@@ -500,6 +500,20 @@ random play never wins and the habit never wins (16 seeds: skilled 100,
 random 0, passive 0, habit 0). Matrix: hazards -> rota, fatigue -> rota,
 watch -> rota (61 cells).
 
+## 2o. Orders are heard (cycle 23)
+
+An order reaches only the crew on duty when it is given. A member off duty
+(on the rota or hurt) keeps the last order they heard and comes back to it;
+the receipt says who missed it ("Bea is off duty and misses it."), their
+card says what they are still on, and the commander's prompt lists them.
+Saying an order again reaches those who missed it, at its price again. A
+clause for someone is taken up only by a member who heard it. The timing of
+an order now matters on a rota: change it when everyone is aboard, or pay
+twice. The bots' rates in the rota scenes did not move (they rarely change
+orders while someone is off), so this is a lever for people more than a
+balance change. Matrix: rota -> command, command -> crew, command -> watch
+(64 cells).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -557,3 +571,5 @@ Sources:
 | 19 | Arc 4 scenes on a rota (off duty: rest, no orders): The rota, Watches, No volunteers, The long night; 16 campaign chapters (DESIGN §2l). Cells added: rota -> crew, rota -> fatigue, rota -> watch; someone x off duty, named x off duty. |
 | 20 | Deep pass (DESIGN §2m): golden cases isolate laws from temperament judgements (g43 literal, g44 soft); a provider failure fails its case, not the run. |
 | 21 | Injuries: in The long night an unwatched squall hurts the most worn member on duty, off duty for two turns (DESIGN §2n). Cells added: hazards -> rota, fatigue -> rota, watch -> rota. |
+| 22 | The preview marks each crew card with the predicted action and the clause behind it. |
+| 23 | Orders are heard: an order given while a member is off duty does not reach them (DESIGN §2o). Cells added: rota -> command, command -> crew, command -> watch. |

@@ -215,7 +215,9 @@ class OrdersToy(base.Toy):
         for w in self._data.get('someone', {}).get('words', ())
     )
 
-  def volunteer(self, ship: Ship, turn: int) -> str | None:
+  def volunteer(
+      self, ship: Ship, turn: int, order: str | None = None
+  ) -> str | None:
     """Who takes up the order's clause for "someone" this turn (arc 4).
 
     Counting fatigue is the ledger's work, not the reader's: the toy finds
@@ -224,15 +226,20 @@ class OrdersToy(base.Toy):
     Args:
       ship: The ship.
       turn: The turn being read (who is off duty).
+      order: The order with the clause (by default the standing order);
+        only those who heard it can take it up.
 
     Returns:
       The member, or None when no one on duty is willing.
     """
-    words = set(re.findall(r'[a-z]+', ship.order.lower()))
+    order = ship.order if order is None else order
+    words = set(re.findall(r'[a-z]+', order.lower()))
     excluded = [
         m
         for m in self.crew
-        if m.lower() in words or self.off_duty(ship, m, turn)
+        if m.lower() in words
+        or self.off_duty(ship, m, turn)
+        or self.order_of(ship, m) != order
     ]
     takes = {
         m: (
@@ -266,6 +273,36 @@ class OrdersToy(base.Toy):
   def off_on(self, ship: Ship, turn: int) -> list[str]:
     return [m for m in self.crew if self.off_duty(ship, m, turn)]
 
+  def order_of(self, ship: Ship, member: str) -> str:
+    """The order `member` follows: the last one they heard."""
+    return ship.heard.get(member, ship.order)
+
+  def hear(self, ship: Ship, previous: str, turn: int) -> str:
+    """A new order reaches those on duty; the rest keep what they heard.
+
+    Args:
+      ship: The ship; `ship.order` is the order just given.
+      previous: The order before it.
+      turn: The turn it is given for.
+
+    Returns:
+      Who missed it, as a sentence, or ''.
+    """
+    missed = []
+    for member in self.crew:
+      if self.off_duty(ship, member, turn):
+        ship.heard.setdefault(member, previous)
+        missed.append(member)
+      else:
+        ship.heard.pop(member, None)
+    if not missed:
+      return ''
+    verb = 'is' if len(missed) == 1 else 'are'
+    return (
+        f'{" and ".join(missed)} {verb} off duty and'
+        f' miss{"es" if len(missed) == 1 else ""} it.'
+    )
+
   def on_duty(self, ship: Ship, turn: int) -> list[str]:
     return [m for m in self.crew if not self.off_duty(ship, m, turn)]
 
@@ -292,7 +329,8 @@ class OrdersToy(base.Toy):
     """
     temperament = self._data['crew'][member]['temperament']
     props = self._data['temperaments'][temperament]
-    someone = self.asks_someone(ship.order)
+    order = self.order_of(ship, member)
+    someone = self.asks_someone(order)
     laws = list(self._data['reading_laws'])
     if someone:
       laws.append(' '.join(str(self._data['someone']['law']).split()))
@@ -302,7 +340,7 @@ class OrdersToy(base.Toy):
         describe=props['describe'],
         habits=habits(member, props),
         laws='\n'.join(f'- {law}' for law in laws),
-        order=ship.order or '(no order given)',
+        order=order or '(no order given)',
         situation=self.situation(ship, turn),
         supplies=ship.supplies,
         damage=ship.damage,
@@ -311,7 +349,7 @@ class OrdersToy(base.Toy):
         condition=self.condition(ship, member),
     )
     if someone:
-      who = self.volunteer(ship, turn)
+      who = self.volunteer(ship, turn, order)
       statement += SOMEONE.format(name=who) if who else NO_ONE
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
@@ -367,7 +405,8 @@ class OrdersToy(base.Toy):
         f'Stores: {ship.supplies} supplies; {stakes}. Crew: '
         + ', '.join(f'{c} {self.condition(ship, c)}' for c in self.crew)
         + '.\n'
-        f'Current order: "{ship.order or "(none)"}". Command: {ship.points} '
+        f'Current order: "{ship.order or "(none)"}".{self.earlier(ship)}'
+        f' Command: {ship.points} '
         f'points (a new order costs 1, plus 1 per {per_words} words: '
         f'{self.price_table()}; an order you cannot pay for is refused).\n'
         f'{ORDER_MARKER}, {{name}}: a new order of at most '
@@ -376,12 +415,26 @@ class OrdersToy(base.Toy):
     )
     return entity_lib.free_action_spec(call_to_action=call, tag='order')
 
+  def earlier(self, ship: Ship) -> str:
+    """Who still follows an earlier order, for the commander's prompt."""
+    behind = [
+        f'{m} ("{self.order_of(ship, m) or "(none)"}")'
+        for m in self.crew
+        if self.order_of(ship, m) != ship.order
+    ]
+    return f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
+
   def apply(self, world: Ship, actor: str, action: str) -> base.Receipt:
     ship = world
     steps = []
     new_order = action.strip()
     if new_order and new_order.lower().rstrip('.') not in (HOLD, base.PASS):
+      previous, spent = ship.order, ship.spent
       steps.append(self.command.issue(ship, new_order))
+      if ship.spent > spent:  # given: it reaches whoever is on duty
+        missed = self.hear(ship, previous, ship.turn + 1)
+        if missed:
+          steps.append(missed)
     ship.turn += 1
     turn = ship.turn
     kind = self.event(ship, turn)
@@ -497,6 +550,12 @@ class OrdersToy(base.Toy):
                     'worn' if self.crew_rule.worn(ship, member) else 'fresh'
                 ),
                 'off': self.off_duty(ship, member, turn),
+                # The earlier order they still follow, if they missed one.
+                'heard': (
+                    self.order_of(ship, member)
+                    if self.order_of(ship, member) != ship.order
+                    else None
+                ),
                 'last': (last or {}).get('actions', {}).get(member),
                 'why': (last or {}).get('why', {}).get(member),
             }

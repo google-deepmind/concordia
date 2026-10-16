@@ -242,7 +242,9 @@ function renderView(v, receipts) {
       const why = PREDICTED.why && PREDICTED.why[m.name];
       if (why && why !== 'none' && why !== 'off duty') n.append(' \u00b7 \u201c' + why + '\u201d');
     }
-    d.append(head, t, c, l, w, n); crew.appendChild(d);
+    const h = document.createElement('div'); h.className = 'meter'; h.hidden = m.heard === null || m.heard === undefined;
+    if (!h.hidden) h.textContent = 'still on \u201c' + (m.heard || '(no order)') + '\u201d';
+    d.append(head, t, c, l, w, h, n); crew.appendChild(d);
   }
   $('order').textContent = v.order ? '“' + v.order + '”' : '(no order yet: the crew follow their temperaments)';
   countWords();

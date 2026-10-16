@@ -58,6 +58,9 @@ class Ship:
   watched: bool = False  # someone kept watch last turn
   # Members hurt by a squall: the last turn they are off duty (cycle 21).
   injured: dict[str, int] = dataclasses.field(default_factory=dict)
+  # The order each member last heard, for those who missed a newer one
+  # (off duty when it was given; cycle 23). Others follow `order`.
+  heard: dict[str, str] = dataclasses.field(default_factory=dict)
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
   @property

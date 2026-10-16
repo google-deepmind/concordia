@@ -48,6 +48,9 @@ cells:
   - {from: hazards, to: rota, by: an unwatched squall that injures hurts the most worn member on duty, off duty for two turns (cycle 21), test: test_unwatched_squall_hurts_the_most_worn}
   - {from: fatigue, to: rota, by: the most worn is the one a squall hurts, so a rested crew loses less to it (cycle 21), test: test_unwatched_squall_hurts_the_most_worn}
   - {from: watch, to: rota, by: a watch kept the turn before means the squall hurts no one; a hurt member's duties pass to someone (cycle 21), test: test_a_hurt_member_is_off_duty_and_someone_passes_over_them}
+  - {from: rota, to: command, by: an order given while a member is off duty does not reach them; they keep the last order they heard and the commander is told (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
+  - {from: command, to: crew, by: an order said again reaches those who missed it, at its price again (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
+  - {from: command, to: watch, by: only a member who heard a clause for someone can take it up (cycle 23), test: test_someone_needs_to_have_heard_it}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
