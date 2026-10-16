@@ -92,17 +92,15 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   named clauses and verb forms in the mock). All 13 items done; golden
   set PASS on Flash after the law batch (32/32 hard x2, soft 85.7%).
 
-- Model commanders: a live Flash commander never used "someone" and twice
-  "ordered" in narration over the word limit (cycle 20); the human seat is
-  the target, but a model commander could be prompted to answer with the
-  order's words only.
+- Done (cycle 65): model commanders are told the laws and to answer with
+  the order's words alone; a live Flash commander then used the mechanics
+  ("Ash, watch all night, Cy rest.").
 
 - Orders: the skilled bot plans as if unseen turns are quiet; teach it the
   value of a watch (it lost to random in some sweep settings).
-- Library: the Ollama wrapper ignores `max_tokens` and `timeout`; with
-  thinking on, a reply has no bound and a hung request waits forever (cycle
-  17: one golden request never returned). Bound both (num_predict counts the
-  thinking too, so it needs care) and propose it with a test.
+- Done in the library: the Ollama wrapper's `timeout` (cycle 19)
+  and `max_tokens` as `num_predict` unless thinking is kept apart (cycle 86,
+  with a test).
 - Ollama wrapper: an explanation-first JSON template raised qwen3:8b's hard
   laws 6 -> 8 of 10 but lowered soft agreement 82% -> 64% (one run each);
   measure with repeats before proposing.
