@@ -552,8 +552,14 @@ be a rule the campaign never asks a player to learn.
   literal Cy still repaired under "Someone repair the hull.", because by
   the first law (no names, no condition) the clause looked plain. In orders
   that say someone, the someone law now follows the plain-clause law and
-  says it is not one; g38 then passes. Flash on that wording: 25/25 hard
-  twice, soft 74% and 84%.
+  says it is not one, and each reader's habits say whether they
+  volunteer ("Cy never takes up a clause for someone."). One probe then
+  passed g38, but full runs did not: qwen3:8b reads the literal as obeying
+  "repair the hull" whatever the laws say (it calls the clause "plain" two
+  lines after a law saying it is not), 24/25 hard in every run. The law
+  stays; the miss is recorded. Flash on the current wording, through the
+  contrib golden set with two repeats: PASS, 25/25 hard both runs, soft 84%
+  and 79%, flaky soft cases g11, g33, g44.
 - DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
   Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
   run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
