@@ -167,14 +167,21 @@ function label(el, category, key, text) { el.innerHTML = ''; el.append(g(categor
 function stars(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 function beatWord(beat) { return (LOOK && LOOK.beat_words && LOOK.beat_words[beat]) || beat || ''; }
 
+let howtoSet = false;  // How to play opened once for a player with no stars yet
 function renderMenu(state) {
   const box = $('campaign'), c = state.campaign;
+  if (c && !howtoSet && LOOK) {
+    howtoSet = true;
+    $('howto').open = !c.chapters.some((ch) => ch.stars > 0);  // a first visit reads it
+  }
   const key = JSON.stringify(c);
   if (c && box.dataset.key !== key) {
     box.dataset.key = key; box.innerHTML = '';
+    const fresh = !c.chapters.some((x) => x.stars > 0);
     for (const ch of c.chapters) {
       const b = document.createElement('button');
       b.textContent = ch.number + '. ' + ch.title + ' · ' + beatWord(ch.beat) + ' ' + stars(ch.stars) + (ch.open ? '' : ' (locked)');
+      if (fresh && ch.number === 1) { b.className = 'primary'; b.textContent += ' \u2190 start here'; }
       b.disabled = !ch.open; b.onclick = () => start({toy: c.toy, scenario: ch.scenario});
       box.appendChild(b);
     }
