@@ -39,6 +39,13 @@ class MockReadingTest(absltest.TestCase):
     self.assertEqual(self.mock.read(order, set())[:2], (['build'], False))
     self.assertEqual(self.mock.read(order, {'leak'})[:2], (['repair'], False))
 
+  def test_a_forbidden_repair_is_not_done_even_on_a_leak(self):
+    props = toys.load_data('orders')['temperaments']['cautious']
+    action = self.mock.decide(
+        props, "Don't repair.", 'A leak has opened.', 3, 0, False, 'Bea'
+    )
+    self.assertNotEqual(action, 'repair')
+
   def test_temperaments_read_the_same_order_differently(self):
     props = toys.load_data('orders')['temperaments']
     order = 'Gather supplies.'

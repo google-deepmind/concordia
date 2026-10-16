@@ -236,6 +236,7 @@ class OrdersMock:
         leak
         and props['on_leak'] == 'repair'
         and not named
+        and 'repair' not in forbidden  # a forbidding clause wins (cycle 78)
         and (menu is None or 'repair' in menu)
     ):
       return 'repair'
