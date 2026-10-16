@@ -64,6 +64,14 @@ class StormSightTest(absltest.TestCase):
     self.assertEqual(hazards.sight('quiet', watch.sees), 2)
 
 
+class GarbleTest(absltest.TestCase):
+
+  def test_only_marked_events_garble(self):
+    hazards = rules.HazardRule({'leak_damage': 2}, {'storm': {'garbles': True}})
+    self.assertTrue(hazards.garbles('storm'))
+    self.assertFalse(hazards.garbles('quiet'))
+
+
 class RotaRuleTest(absltest.TestCase):
 
   def test_rota_and_injury_put_members_off_duty(self):

@@ -302,6 +302,30 @@ class OrdersToy(base.Toy):
       self._relayed[statement] = ' '.join(relayed.split()[:limit])
     return self._relayed[statement]
 
+  def garble(self, ship: Ship, turn: int) -> str:
+    """An order given in a storm that garbles carries only its first clause.
+
+    The wind takes the rest: everyone on duty (the bosun too) hears only the
+    words before the first ';' or '.'.
+
+    Args:
+      ship: The ship; `ship.order` is the order just given.
+      turn: The turn it is given for.
+
+    Returns:
+      What carried, as a sentence, or ''.
+    """
+    kind = self.event(ship, turn)
+    if not self.hazards.garbles(kind):
+      return ''
+    first = re.split(r'[;.]', ship.order)[0].strip()
+    if not first or first.rstrip('.') == ship.order.rstrip('.'):
+      return ''
+    carried = first + '.'
+    for member in self.rota.on_duty(ship, turn):
+      ship.heard[member] = carried
+    return f'In the {kind} only "{carried}" carries.'
+
   def pass_on(self, ship: Ship, turn: int) -> str:
     """The bosun relays the order just given to the crew on duty (arc 5).
 
@@ -317,7 +341,7 @@ class OrdersToy(base.Toy):
       return ''
     if self.rota.off_duty(ship, bosun, turn):
       return f'{bosun} is off duty: the order goes out as you gave it.'
-    relayed = self.relay(ship.order)
+    relayed = self.relay(self.rota.order_of(ship, bosun))
     ship.relayed = relayed
     for member in self.rota.on_duty(ship, turn):
       if member != bosun:
@@ -464,6 +488,9 @@ class OrdersToy(base.Toy):
         missed = self.rota.hear(ship, previous, ship.turn + 1)
         if missed:
           steps.append(missed)
+        carried = self.garble(ship, ship.turn + 1)
+        if carried:
+          steps.append(carried)
         relayed = self.pass_on(ship, ship.turn + 1)
         if relayed:
           steps.append(relayed)

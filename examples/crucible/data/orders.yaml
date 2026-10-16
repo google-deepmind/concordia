@@ -197,6 +197,8 @@ premise: >-
 #   hazards.<event>.injures: an unwatched strike hurts the most worn member
 #              on duty, off duty for this many turns
 #   hazards.<event>.sight: how many turns ahead a watch sees during it
+#   hazards.<event>.garbles: an order given during it carries only its
+#              first clause
 scenarios:
   one_hand:
     beat: isolate
@@ -321,14 +323,14 @@ scenarios:
   crossing:
     beat: catharsis
     title: The crossing
-    teaches: ['hazards->crew', 'hazards->stores', 'conditional x storm', 'directive x storm', 'hazards->watch']
+    teaches: ['hazards->crew', 'hazards->stores', 'conditional x storm', 'directive x storm', 'hazards->watch', 'hazards->command']
     lesson: "Leaks, storms and squalls together: a watch, a repair clause and builders in one order."
     crew_present: [Ash, Bea, Cy]
     turns: 14
     target: 26
     start: {supplies: 3, damage: 0, progress: 0}
     events: {2: squall, 4: leak, 5: storm, 7: squall, 9: leak, 10: storm, 12: squall}
-    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1}, squall: {strikes_unwatched: 3}}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1, garbles: true}, squall: {strikes_unwatched: 3}}
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 5}}
     premise: >-
       The crossing: everything at once. Leaks, storms and squalls you cannot
@@ -486,7 +488,7 @@ scenarios:
     start: {supplies: 6, damage: 0, progress: 0, watched: true}
     events: {1: squall, 2: leak, 3: squall, 4: squall, 5: storm, 6: squall, 7: leak, 8: squall, 9: squall, 10: storm, 11: squall, 12: squall}
     off_duty: {Ash: [3, 4], Bea: [6, 7], Cy: [9, 10], Dex: [11, 12]}
-    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1}, squall: {strikes_unwatched: 4, injures: 2}}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1, garbles: true}, squall: {strikes_unwatched: 4, injures: 2}}
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
     premise: >-
       All four through the long night: Ash (bold), Bea (cautious), Cy
@@ -575,7 +577,7 @@ scenarios:
     wreck_at: 10
     start: {supplies: 6, damage: 0, progress: 0, watched: true}
     events: {1: squall, 2: leak, 4: squall, 5: storm, 6: squall, 7: leak, 9: squall, 10: storm, 11: squall, 12: leak}
-    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {garbles: true}, squall: {strikes_unwatched: 4}}
     off_duty: {Cy: [5, 6, 7], Ash: [9, 10]}
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
     premise: >-

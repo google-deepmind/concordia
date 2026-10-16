@@ -229,5 +229,38 @@ class BosunTest(absltest.TestCase):
     self.assertEqual(toy.world.log[-1]['actions']['Cy'], 'watch')
 
 
+class WindTest(absltest.TestCase):
+
+  def _toy(self, bosun=None) -> toy_lib.OrdersToy:
+    data = copy.deepcopy(toys.load_data('orders'))
+    voyage = data['scenarios']['voyage']
+    voyage.pop('crew_present', None)
+    voyage.update(
+        events={1: 'storm'},
+        hazards={'quiet': {}, 'storm': {'garbles': True}},
+    )
+    if bosun:
+      voyage['bosun'] = bosun
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    return toy
+
+  def test_an_order_given_in_a_storm_carries_only_its_first_clause(self):
+    toy = self._toy()
+    receipt = toy.resolve(toy.commander, 'Cy, keep watch; everyone else build.')
+    self.assertIn('only "Cy, keep watch." carries', str(receipt))
+    last = toy.world.log[-1]
+    self.assertEqual(last['actions']['Cy'], 'watch')
+    self.assertEqual(last['why']['Ash'], 'none')  # never heard "build"
+    self.assertNotEqual(last['actions']['Bea'], 'build')
+    toy.resolve(toy.commander, 'Build.')  # quiet now: heard in full
+    self.assertEqual(toy.world.log[-1]['actions']['Ash'], 'build')
+
+  def test_the_bosun_relays_what_the_wind_left(self):
+    toy = self._toy(bosun='Cy')
+    toy.resolve(toy.commander, 'Build; Bea, keep watch.')
+    self.assertEqual(toy.world.relayed, 'Build.')
+
+
 if __name__ == '__main__':
   absltest.main()

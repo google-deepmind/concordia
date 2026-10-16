@@ -174,6 +174,10 @@ class HazardRule:
     ship.injured[hurt] = turn + turns - 1
     return f'{hurt} is hurt: off duty for {turns} turns.'
 
+  def garbles(self, kind: str) -> bool:
+    """Whether an order given during `kind` carries only its first clause."""
+    return bool(self._hazards.get(kind, {}).get('garbles', False))
+
   def sight(self, kind: str, default: int) -> int:
     """How many turns ahead a watch sees during `kind` (a storm may hide)."""
     return int(self._hazards.get(kind, {}).get('sight', default))

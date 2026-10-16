@@ -603,6 +603,17 @@ The campaign is 20 chapters. Matrix 71 cells (+relay operator, 4 reading
 cells, 2 system cells), 64 of 64 references taught; golden set 49 cases (28
 hard): the mock passes, Flash passes twice.
 
+## 2u. The wind takes words (cycle 51)
+
+In a scene whose storm `garbles`, an order given during a storm carries
+only its first clause: everyone on duty, the bosun too, hears only the
+words before the first ';' or '.', and the receipt says what carried. The
+vital clause must come first, or the order must wait for the calm, which a
+watch can see coming (and in these scenes a storm also shortens the
+watch). On in The crossing, The long night and Chain of command; at 16
+seeds they stay skilled 100, random 0-12, passive 0. Matrix: hazards ->
+command and hazards -> crew (73 cells, 65 of 65 references taught).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
