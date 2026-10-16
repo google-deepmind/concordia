@@ -29,9 +29,10 @@ class MatrixTest(absltest.TestCase):
     self.assertGreaterEqual(result['counts']['matrix_cells'], 25)
 
   def test_mock_passes_every_golden_case(self):
-    result = golden.run(model_setup.mock_model())
+    result = golden.run(model_setup.mock_model(), repeats=2)
     self.assertEqual(result['failures'], [])
     self.assertTrue(result['passed'])
+    self.assertEqual(result['flaky'], [])  # the mock is deterministic
 
   def test_a_failing_model_fails_the_case_not_the_run(self):
     class Down(language_model.LanguageModel):

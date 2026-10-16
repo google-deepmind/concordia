@@ -26,15 +26,19 @@ from examples.crucible import model_setup
 
 _MODE = flags.DEFINE_enum('mode', 'mock', ['mock', 'ollama', 'together'], '')
 _MODEL_NAME = flags.DEFINE_string('model_name', None, 'Provider model name.')
-_MAX_CALLS = flags.DEFINE_integer('max_calls', 100, 'Live call cap.')
+_MAX_CALLS = flags.DEFINE_integer(
+    'max_calls', 0, 'Live call cap (default: 3 calls per case per run).'
+)
+_REPEATS = flags.DEFINE_integer(
+    'repeats', 1, 'Runs of the whole set; every run must pass.'
+)
 
 
 def main(argv: list[str]) -> None:
   del argv
-  model = model_setup.build_model(
-      _MODE.value, _MODEL_NAME.value, _MAX_CALLS.value
-  )
-  print(golden.main_json(model))
+  calls = _MAX_CALLS.value or 3 * len(golden.cases()) * _REPEATS.value
+  model = model_setup.build_model(_MODE.value, _MODEL_NAME.value, calls)
+  print(golden.main_json(model, _REPEATS.value))
 
 
 if __name__ == '__main__':

@@ -29,6 +29,7 @@ import copy
 import json
 from typing import Any
 
+from concordia.contrib.testing import golden_set
 from concordia.language_model import language_model
 
 from examples.crucible import toys
@@ -78,23 +79,68 @@ def run_case(
   }
 
 
+def cases() -> list[golden_set.Case]:
+  """The golden cases as contrib `golden_set` cases (the YAML in `data`)."""
+  return [
+      golden_set.Case(
+          c['id'], expect=tuple(c['expect']), hard=bool(c.get('hard')), data=c
+      )
+      for c in load_cases()
+  ]
+
+
 def run(
-    model: language_model.LanguageModel, soft_pass: float = SOFT_PASS
+    model: language_model.LanguageModel,
+    soft_pass: float = SOFT_PASS,
+    repeats: int = 1,
 ) -> dict[str, Any]:
-  """Runs every golden case; summarizes hard and soft results."""
-  results = [run_case(model, case) for case in load_cases()]
-  hard = [r for r in results if r['hard']]
-  soft = [r for r in results if not r['hard']]
-  soft_rate = sum(r['ok'] for r in soft) / len(soft) if soft else 1.0
+  """Runs the golden set `repeats` times (contrib `golden_set`).
+
+  Args:
+    model: The model that reads for the crew.
+    soft_pass: The share of soft cases a run must agree with.
+    repeats: How many times to run the whole set; every run must pass.
+
+  Returns:
+    The last run's counts (as before), whether every run passed, each
+    run's counts, the failures of the last run and the flaky cases.
+  """
+  golden_cases = cases()
+  report = golden_set.run(
+      golden_cases,
+      lambda case: run_case(model, case.data)['answer'],
+      repeats=repeats,
+      soft_pass=soft_pass,
+  )
+  last = report.runs[-1]
   return {
-      'cases': len(results),
-      'hard_passed': sum(r['ok'] for r in hard),
-      'hard_total': len(hard),
-      'soft_agreement': round(soft_rate, 3),
-      'passed': all(r['ok'] for r in hard) and soft_rate >= soft_pass,
-      'failures': [r for r in results if not r['ok']],
+      'cases': len(golden_cases),
+      'hard_passed': last.hard_passed,
+      'hard_total': last.hard_total,
+      'soft_agreement': last.soft_agreement,
+      'passed': report.passed,
+      'failures': [
+          {
+              'id': c.id,
+              'hard': c.hard,
+              'expect': list(c.expect),
+              'answer': last.answers[c.id],
+              'ok': False,
+          }
+          for c in golden_cases
+          if last.answers[c.id] not in c.expect
+      ],
+      'runs': [
+          {
+              'hard_passed': r.hard_passed,
+              'soft_agreement': r.soft_agreement,
+              'passed': r.passed,
+          }
+          for r in report.runs
+      ],
+      'flaky': report.flaky,
   }
 
 
-def main_json(model: language_model.LanguageModel) -> str:
-  return json.dumps(run(model), indent=1)
+def main_json(model: language_model.LanguageModel, repeats: int = 1) -> str:
+  return json.dumps(run(model, repeats=repeats), indent=1)
