@@ -90,6 +90,16 @@ stocks:
   points: {glyph: '♦', word: command, color: command}
   foresight: {glyph: '◔', word: forecast, color: command}
 
+# How the page words a scene's star rules (view.star_rules): the first
+# star is the win; each limit is filled with its number.
+star_rules:
+  win: meet the goal
+  max_damage: hull damage at most {n}
+  max_damage_none: no hull damage
+  max_command: at most {n} command spent
+  max_words_spoken: at most {n} words spoken in all
+  max_words_spoken_one: one word spoken in all
+
 # The matrix's properties (data/orders_matrix.yaml `reading.properties`) and
 # where each one's look lives.
 properties:

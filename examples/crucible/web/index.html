@@ -81,6 +81,7 @@
     <div class="row" style="justify-content:space-between">
       <strong id="scene"></strong><span class="meter" id="turn"></span>
     </div>
+    <div class="meter muted" id="starRules"></div>
     <div class="hud" style="margin-top:6px">
       <div><span id="pointsLabel"></span><div class="meter" id="points"></div></div>
       <div><span id="suppliesLabel"></span><div class="meter" id="supplies"></div></div>
@@ -224,8 +225,23 @@ async function start(body) {
   $('share').hidden = true; $('copyShare').textContent = 'Copy';
 }
 
+function starRule(limits) {
+  const words = (LOOK && LOOK.star_rules) || {};
+  return Object.entries(limits).map(([key, n]) => {
+    const special = n === 0 ? words[key + '_none'] : (n === 1 ? words[key + '_one'] : null);
+    return special || (words[key] || key + ' ≤ {n}').replace('{n}', n);
+  }).join(', ');
+}
+function starRules(v) {
+  const rules = v.star_rules || {};
+  if (v.free || !Object.keys(rules).length) return '';
+  const words = (LOOK && LOOK.star_rules) || {};
+  return ['★ ' + (words.win || 'meet the goal')].concat(
+      Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
+}
 function renderView(v, receipts) {
   $('scene').textContent = v.title + (v.beat ? ' · ' + v.beat : '');
+  $('starRules').textContent = starRules(v);
   $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
   label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));
   $('points').textContent = v.points_cap > 10 ? v.points + ' ♦'
@@ -359,6 +375,8 @@ function render(state) {
     $('again').hidden = false; $('retry').hidden = !lastStart;
     const lesson = gm.view && gm.view.lesson;
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
+    const next = gm.view && gm.view.star_rules && gm.view.star_rules[String((o.stars || 0) + 1)];
+    if (o.winner && next) $('status').textContent += ' Next star: ' + starRule(next) + '.';
     if (gm.daily && gm.view) {
       $('shareText').textContent = (LOOK ? LOOK.title : 'Twelve Words') + ' ' + gm.daily + ' \u00b7 ' + gm.view.title
           + ' \u00b7 ' + stars(o.stars || 0) + ' \u00b7 ' + (o.words_spoken || 0) + ' words';

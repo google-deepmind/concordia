@@ -130,6 +130,19 @@ class ViewTest(absltest.TestCase):
         toy.reading(ship, 'Cy', 1), ('repair', 'if a leak opens, repair it')
     )
 
+  def test_every_star_rule_has_words(self):
+    look = toys.load_data('orders_look')['star_rules']
+    data = toys.load_data('orders')
+    for name, scene in data['scenarios'].items():
+      for wants in scene.get('stars', {}).values():
+        for key in wants:
+          self.assertIn(key, look, name)
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'one_hand')
+    self.assertEqual(
+        toy.view()['star_rules'],
+        {'2': {'max_words_spoken': 2}, '3': {'max_words_spoken': 1}},
+    )
+
   def test_the_lesson_is_shown_once_the_scene_is_over(self):
     data = toys.load_data('orders')
     toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'one_hand')

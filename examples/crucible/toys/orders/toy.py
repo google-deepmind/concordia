@@ -591,6 +591,11 @@ class OrdersToy(base.Toy):
         'foresight': ship.foresight,
         'goal': self.goal(),
         'target': int(self._data['target']),
+        # What each star above the first asks, as limits (cycle 89).
+        'star_rules': {
+            str(star): {k: int(v) for k, v in wants.items()}
+            for star, wants in sorted(self._data.get('stars', {}).items())
+        },
         'points': ship.points,
         'points_cap': int(self._data['command']['cap']),
         'per_words': int(self._data['command']['per_words']),
