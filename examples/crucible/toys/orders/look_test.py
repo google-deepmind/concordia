@@ -44,6 +44,13 @@ class LookTest(absltest.TestCase):
         {'fresh', 'worn', 'off_duty'}, set(self.look['conditions'])
     )
 
+  def test_how_to_play_names_every_temperament(self):
+    text = ' '.join(self.look['how_to_play']).lower()
+    for name, member in self.data['crew'].items():
+      self.assertIn(name.lower(), text)
+      self.assertIn(member['temperament'], text)
+    self.assertIn(str(self.data['max_words']), text)
+
   def test_every_matrix_property_has_one_look(self):
     matrix = toys.load_data('orders_matrix')
     properties = set(matrix['reading']['properties'])

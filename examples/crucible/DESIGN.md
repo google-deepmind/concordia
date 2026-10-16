@@ -538,6 +538,24 @@ be a rule the campaign never asks a player to learn.
   snapshot is byte-identical.
 - Cost: no paid calls this cycle; ≈ $1.29 of $10 in all.
 
+## 2r. Golden sets on two kinds of model (cycles 28-30)
+
+- qwen3:8b (Ollama, thinking kept apart) on a CPU-only host: a "someone"
+  reading thought for ~4,700 tokens (4 minutes; 10+ when the CPU was
+  shared). Told plainly whether the clause was theirs, ~2,800. On 44 cases
+  it then kept 23/25 hard laws and every soft case; both misses were
+  someone cases, and one showed a real gap in the law text: a clause for
+  someone was never said to come before the plain clauses for its taker.
+  It now says so (the mock always read it that way).
+- DeepSeek-V4.1-Flash keeps all 25 hard laws in every run since cycle 20.
+  Its soft agreement (temperament judgements, bar 75%) is 74-94% run to
+  run, on prompts that did not change: 79/79, 79/79, then 74/74. A probe
+  showed the slip: the reason says "Ash builds ... there are 3 supplies",
+  the answer is "(b) gather supplies"; every soft miss of that run was
+  option (b). Asking the reason to name the option (84, 79, 74 over three
+  runs) was within the spread and was not adopted. The bar stays where it
+  is; the record keeps every run.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

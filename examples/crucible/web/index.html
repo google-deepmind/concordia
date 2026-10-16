@@ -61,6 +61,7 @@
 <p class="tag" id="tagline"></p>
 
 <div id="menu">
+  <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
   <h2>Campaign</h2>
   <div id="campaign"></div>
   <h2>Free play and earlier toys (Phase 0)</h2>
@@ -286,6 +287,10 @@ function render(state) {
   if (!LOOK && state.look) {
     LOOK = state.look; applyPalette();
     $('title').textContent = LOOK.title; $('tagline').textContent = LOOK.tagline;
+    if (LOOK.how_to_play) {
+      for (const line of LOOK.how_to_play) { const li = document.createElement('li'); li.textContent = line; $('howtolist').appendChild(li); }
+      $('howto').hidden = false;
+    }
   }
   renderMenu(state);
   const gm = state.game;

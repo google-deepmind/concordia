@@ -7,6 +7,15 @@
 title: Twelve Words
 tagline: One standing order. Every crew member reads it their own way.
 
+# How to play, in the order a new player needs it (shown folded on the menu).
+how_to_play:
+  - Each turn you may give the crew one standing order of at most 12 words, or hold the one they have.
+  - Words cost command points (the price is shown as you type); in most chapters points come back a turn at a time, in some you have only enough for one order.
+  - Each member reads the order by their temperament. Bold Ash pushes the work; cautious Bea mends and rests; literal Cy does exactly what is said and nothing else; contrary Dex does the opposite.
+  - A clause can name members ("Bea, keep watch"), wait for a condition ("if a leak opens, repair it"), forbid ("don't build"), or ask "someone".
+  - Preview shows what each member would do, and the clause they would act on, before you spend anything.
+  - The cards say what each member did and why. Chapters open as you earn stars; each ends with the lesson it teaches.
+
 # Colour tokens, light and dark. The page defines them once as CSS variables.
 palette:
   light:
