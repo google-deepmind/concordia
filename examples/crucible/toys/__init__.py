@@ -62,6 +62,9 @@ def registry() -> dict[str, ToyKind]:
   from examples.crucible.toys.orders import bots as orders_bots
   from examples.crucible.toys.orders import mock as orders_mock
   from examples.crucible.toys.orders import toy as orders_toy
+  from examples.crucible.toys.passiton import bots as passiton_bots
+  from examples.crucible.toys.passiton import mock as passiton_mock
+  from examples.crucible.toys.passiton import toy as passiton_toy
   from examples.crucible.toys.relay import bots as relay_bots
   from examples.crucible.toys.relay import mock as relay_mock
   from examples.crucible.toys.relay import toy as relay_toy
@@ -87,5 +90,12 @@ def registry() -> dict[str, ToyKind]:
           mock=orders_mock.OrdersMock,
           policies=orders_bots.POLICIES,
           seat='Commander',
+      ),
+      'passiton': ToyKind(
+          name='passiton',
+          build=passiton_toy.PassItOnToy,
+          mock=passiton_mock.PassItOnMock,
+          policies=passiton_bots.POLICIES,
+          seat=passiton_toy.SEAT,
       ),
   }

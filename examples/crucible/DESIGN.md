@@ -677,6 +677,59 @@ and the mock snapshot byte-identical. Lesson for the guide: a golden set
 checks a model against the mock's reading; only reading the laws against
 the mock finds where both agree with each other and not with the text.
 
+## 2x. The rethink: Pass it on (cycle 98)
+
+**What the owner said, after five games on the phone.** "The game is very
+weird, I don't really understand what to do at all." Then, after two
+legibility passes: "It's still super unclear what is going on, what the
+dashboard means, what my goal is, and what my affordances are. The game
+does nothing to help me understand my options in this world and why it
+exists at all." And: "do some more radical rethinking of the basic design
+... reconfigure it into a very different, and much more legible, game."
+
+**Why Twelve Words did not work for a person.**
+- The player never acts. They write a standing order; four hidden
+  temperaments read it every turn against hidden events; the result is six
+  gauges of numbers. Cause and effect are layered, delayed and invisible.
+- The language models, the reason the game exists, are invisible: the crew
+  never say anything; their readings become icons.
+- The matrix-driven depth (rota, bosun, storms, spans) served bots and
+  balance tables, not a person's first ten minutes.
+
+**The new game.** Each level is one goal ("Get Cy, at the top of the rock,
+to keep watch"). In the gale words go up the rock mouth to ear, and each
+crew member passes them on their own way: literal Cy word for word,
+contrary Dex flipping every instruction, bold Ash dropping anything about
+resting or watching, cautious Bea adding "repair leaks". You type one
+message and watch it change, hop by hop, in each character's own words;
+then the last in line acts. Solved or not, you see exactly which hop
+changed what. Few words earn stars; a level allows a few tries.
+
+- Legible: one goal, one input, every step shown as text, an immediate
+  verdict with its reason. No gauges.
+- The models are the show: each hop is a character rewriting your words in
+  their own way, and the last one reading them.
+- The core rule needs language models: relays rewrite free text and the
+  last in line interprets it; a lookup table could not take arbitrary
+  phrasing. The ledger still accounts: the line, the goal, the verdict,
+  words, tries and stars are code.
+- The puzzle is an inverse problem: phrase a message that survives these
+  particular people (pre-negate for Dex, name the cautious one, put the
+  work where Ash will not drop it).
+
+**Reused.** The orders toy's relay and reading (a hop is a bosun's relay; the
+last in line reads by the laws of reading and their temperament), the
+temperaments, the laws, the mock, the relay golden cases, the phone page,
+stars, chapters, the daily and the telemetry. The orders game stays
+playable as the earlier version.
+
+**Prior art.** Telephone (Chinese whispers) and Gartic Phone pass messages
+through people for the fun of the drift; Codenames and Keep Talking and
+Nobody Explodes are about phrasing for a particular listener. Pass it on
+inverts the telephone: the drift is each character's known habit, written
+as a law and carried out by a language model in character, and the puzzle
+is to design a message that arrives meaning what you need.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

@@ -1,0 +1,116 @@
+# Pass it on (cycle 98): a message goes up the rock mouth to ear.
+#
+# Each level is a line of crew. You speak to the first; each relayer passes
+# what they heard to the next in their own way (their temperament's law of
+# relaying, carried out by a language model); the last stage acts on what
+# reached them, by the orders toy's laws of reading and their temperament.
+# The level is solved when they do what its goal asks.
+#
+#   line:  stages in order; a name relays, a list of names (the last stage)
+#          acts. A level's last stage may be a single name.
+#   goal:  what each of the last stage must do (an action of the orders toy)
+#   event: the turn's situation (quiet or leak): Bea mends an open leak
+#          unless a clause names her for something else
+#   stars: 1 for solving; 2 and 3 for at most this many words
+
+title: Pass it on
+tagline: Your words go up the rock mouth to ear. Make them arrive meaning what you need.
+max_words: 12
+attempts: 3
+default_scenario: straight_up
+
+# How each temperament passes things on in this game (the orders toy's
+# relaying laws; Dex flips, so a message can be pre-flipped for him).
+relays:
+  literal: word_for_word
+  contrary: flips
+  bold: drops_rest
+  cautious: adds_repair
+
+# What to tap to say an action, few words each.
+say:
+  build: build
+  gather: gather supplies
+  repair: repair the hull
+  rest: rest
+  watch: keep watch
+
+scenarios:
+  # Arc 1: mouth to ear. Cy passes things on word for word; the last in line
+  # read them by the laws of reading.
+  straight_up:
+    beat: isolate
+    title: Straight up
+    line: [Cy]
+    goal: {Cy: watch}
+    event: quiet
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: Cy is at the top of the rock and does exactly what Cy hears, nothing else. Get Cy to keep watch.
+    lesson: Cy does exactly what the words say. Name the work.
+  two_at_the_top:
+    beat: develop
+    title: Two at the top
+    line: [Cy, [Ash, Bea]]
+    goal: {Ash: build, Bea: watch}
+    event: quiet
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: Cy passes your words on, word for word, to Ash and Bea. Get Ash to build and Bea to keep watch.
+    lesson: Words for everyone reach everyone. A name in front ("Bea, keep watch") gives one person their own job.
+  beas_habit:
+    beat: twist
+    title: Bea's habit
+    line: [Cy, Bea]
+    goal: {Bea: build}
+    event: leak
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: A leak has opened in the ship below. Bea always mends a leak first, unless the words name Bea for something else. Get Bea to build.
+    lesson: A habit gives way only to words that name the person.
+  two_jobs:
+    beat: catharsis
+    title: Two jobs
+    line: [Cy, [Ash, Bea]]
+    goal: {Ash: repair, Bea: build}
+    event: leak
+    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    task: The leak is still open. Get Ash to repair the hull and Bea to build, with your words going through Cy.
+    lesson: One message, two jobs, a habit to get past. Name who does what.
+
+  # Arc 2: Dex says the opposite of everything.
+  dex_at_the_top:
+    beat: isolate
+    title: Dex at the top
+    line: [Dex]
+    goal: {Dex: build}
+    event: quiet
+    stars: {2: {max_words: 3}, 3: {max_words: 1}}
+    task: Dex is at the top, and Dex does the opposite of whatever Dex is told. Get Dex to build.
+    lesson: To get something from Dex, ask for the opposite.
+  dex_in_the_middle:
+    beat: develop
+    title: Dex in the middle
+    line: [Dex, Cy]
+    goal: {Cy: build}
+    event: quiet
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: Now Dex is in the middle. Dex passes your words on saying the opposite; Cy, at the top, does exactly what Cy hears. Get Cy to build.
+    lesson: Say the opposite of what you need, and Dex turns it the right way round.
+  two_through_dex:
+    beat: twist
+    title: Two through Dex
+    line: [Dex, [Ash, Cy]]
+    goal: {Ash: build, Cy: watch}
+    event: quiet
+    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    task: Dex passes your words to Ash and Cy, saying the opposite of each part. Get Ash to build and Cy to keep watch.
+    lesson: Dex flips every part separately, so flip each part you send.
+  dex_and_the_leak:
+    beat: catharsis
+    title: Dex and the leak
+    line: [Dex, [Bea, Cy]]
+    goal: {Bea: build, Cy: repair}
+    event: leak
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: A leak, Bea's habit, and Dex in the middle. Get Bea to build and Cy to repair the hull.
+    lesson: Flip each part for Dex, and name Bea so the work beats the habit.
+
+campaign: [straight_up, two_at_the_top, beas_habit, two_jobs, dex_at_the_top, dex_in_the_middle, two_through_dex, dex_and_the_leak]

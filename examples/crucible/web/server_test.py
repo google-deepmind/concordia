@@ -120,7 +120,8 @@ class ServerTest(absltest.TestCase):
 
   def test_campaign_gates_chapters_and_records_stars(self):
     state = self.call('/api/state')
-    chapters = state['campaign']['chapters']
+    self.assertEqual(state['campaign']['toy'], 'passiton')  # leads the page
+    chapters = state['campaigns']['orders']['chapters']
     self.assertEqual([c['open'] for c in chapters[:2]], [True, False])
     with self.assertRaises(urllib.error.HTTPError):
       self.call('/api/start', {'toy': 'orders', 'scenario': 'two_hands'})
@@ -138,7 +139,7 @@ class ServerTest(absltest.TestCase):
     game = self.wait_for_request()
     self.assertEqual(game['outcome']['stars'], 3)
     for _ in range(100):  # The end is recorded just after the last move.
-      chapters = self.call('/api/state')['campaign']['chapters']
+      chapters = self.call('/api/state')['campaigns']['orders']['chapters']
       if chapters[0]['stars']:
         break
       time.sleep(0.02)

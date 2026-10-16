@@ -407,10 +407,18 @@ class OrdersMock:
       # Unless a clause already says whether to repair (cycle 83).
       if not any('repair' in sum(self._asks(p)[:2], []) for p in parts):
         parts.append('repair leaks')
-    elif how == 'negates':
+    elif how in ('negates', 'flips'):
 
       def negated(part):
         if self._negations & set(_WORD.findall(part.lower())):
+          if how == 'flips':  # "don't build" -> "build"
+            return re.sub(
+                r"\b(?:don'?t|do not|never|not)\s+",
+                '',
+                part,
+                count=1,
+                flags=re.IGNORECASE,
+            )
           return part
         # After whom it addresses: "Cy, don't keep watch", "everyone else,
         # don't build".
@@ -431,10 +439,15 @@ class OrdersMock:
     if toy_lib.RELAY_MARKER in prompt and found:
       props = self._data['temperaments'].get(found.group(1), {})
       order = _COMMANDER_ORDER.search(prompt)
-      return self.relay(
-          order.group(1) if order else '',
-          props.get('relays', 'word_for_word'),
-      )
+      # The law the prompt states, so a game can give a temperament
+      # another way of passing things on (cycle 98: Pass it on).
+      how = props.get('relays', 'word_for_word')
+      flat = ' '.join(prompt.split())
+      for key, law in self._data.get('relaying', {}).get('laws', {}).items():
+        if f' {" ".join(str(law).split())}.' in flat:
+          how = key
+          break
+      return self.relay(order.group(1) if order else '', how)
     if toy_lib.ORDER_MARKER in prompt:
       return 'Build; if a leak opens, repair it.'
     if toy_lib.CLAUSE_QUESTION.split('{name}')[0] in prompt:

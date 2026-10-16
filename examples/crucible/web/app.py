@@ -35,6 +35,9 @@ from examples.crucible import toys
 _HERE = os.path.dirname(__file__)
 
 
+MAIN_TOY = 'passiton'  # the game the page leads with
+
+
 @dataclasses.dataclass
 class Session:
   """One game in progress (the server holds at most one)."""
@@ -300,18 +303,27 @@ class Games:
         'modes': self.modes,
         'game': None,
     }
+    # Every toy's campaign; the page leads with MAIN_TOY's (cycle 98: Pass
+    # it on), and keeps the others as earlier versions.
+    out['campaigns'] = {}
     for name in toys.registry():
       data = toys.load_data(name)
       if data.get('campaign'):
         progress = self.progress.snapshot()
-        out['campaign'] = {
+        chapters = {
             'toy': name,
+            'title': data.get('title', name),
             'chapters': campaign.chapters(data, progress),
         }
         if data.get('daily'):
           challenge = campaign.daily(data, datetime.date.today())
           challenge['stars'] = progress.get(f'daily:{challenge["date"]}', 0)
-          out['campaign']['daily'] = challenge
+          chapters['daily'] = challenge
+        out['campaigns'][name] = chapters
+    if out['campaigns']:
+      out['campaign'] = out['campaigns'].get(
+          MAIN_TOY, next(iter(out['campaigns'].values()))
+      )
     with self._lock:
       session = self.session
     if session is None:
