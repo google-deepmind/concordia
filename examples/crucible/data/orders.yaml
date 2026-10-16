@@ -169,6 +169,8 @@ premise: >-
 # max_words_spoken (words in all the orders given). `habit` names the order
 # the scene's twist is built to break (default: the first arc's).
 #   crew_present: who serves; menu: which actions exist
+#   off_duty: the rota, member -> turns off duty (they rest, read nothing)
+#   start.watched: the scene opens just after a watch
 scenarios:
   one_hand:
     beat: isolate
@@ -352,6 +354,86 @@ scenarios:
       All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
       through leaks, storms and squalls you cannot see coming unless someone
       keeps watch. Bring the project to 30 in 14 turns before 10 damage.
+  # Arc 4: the rota, and the word "someone".
+  rota:
+    beat: isolate
+    title: The rota
+    habit: 'Bea, keep watch; everyone else build.'
+    crew_present: [Ash, Bea]
+    menu: [build, rest, watch]
+    turns: 9
+    target: 8
+    wreck_at: 8
+    start: {supplies: 10, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Bea: [2, 3], Ash: [4, 5]}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) and Bea (cautious) share a night of squalls. A squall no one
+      watched for does 4 damage, and 8 wrecks the ship; the last watch has
+      just ended, so the first is seen coming. Each is off duty for two
+      turns, resting and hearing no orders: Bea on turns 2 and 3, Ash on 4
+      and 5. A clause for "someone" goes to the freshest willing member on
+      duty. You have command for one order of up to 7 words. Bring the
+      project to 8 in 9 turns.
+  watches:
+    beat: develop
+    title: Watches
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 14
+    wreck_at: 8
+    start: {supplies: 8, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: leak, 4: squall, 5: squall, 6: quiet, 7: squall, 8: leak, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Ash: [3, 4], Cy: [6, 7], Bea: [9]}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal) through squalls and leaks.
+      The rota: Ash is off duty on turns 3 and 4, Cy on 6 and 7, Bea on 9.
+      A squall no one watched for does 4 damage; 8 wrecks the ship. Bring
+      the project to 14 in 10 turns.
+  no_volunteers:
+    beat: twist
+    title: No volunteers
+    habit: 'Someone keep watch; everyone else build.'
+    crew_present: [Ash, Cy, Dex]
+    menu: [build, rest, watch]
+    turns: 9
+    target: 12
+    wreck_at: 8
+    start: {supplies: 10, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Ash: [3, 4, 5]}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 5}}
+    premise: >-
+      Ash (bold), Cy (literal) and Dex (contrary), squalls all night. A
+      squall no one watched for does 4 damage, and 8 wrecks the ship; the
+      last watch has just ended. Ash is off duty on turns 3 to 5. You have
+      command for one order of up to 7 words. Bring the project to 12 in 9
+      turns.
+  long_night:
+    beat: catharsis
+    title: The long night
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 20
+    wreck_at: 10
+    start: {supplies: 6, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: leak, 3: squall, 4: squall, 5: storm, 6: squall, 7: leak, 8: squall, 9: squall, 10: storm, 11: squall, 12: squall}
+    off_duty: {Ash: [3, 4], Bea: [6, 7], Cy: [9, 10], Dex: [11, 12]}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four through the long night: Ash (bold), Bea (cautious), Cy
+      (literal) and Dex (contrary). Squalls, leaks and storms; each of them
+      is off duty for two turns: Ash on 3 and 4, Bea on 6 and 7, Cy on 9
+      and 10, Dex on 11 and 12. Bring the project to 20 in 12 turns before
+      10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
@@ -365,7 +447,7 @@ scenarios:
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.
-campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands]
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
 daily: {scenario: voyage, seeds: 997}

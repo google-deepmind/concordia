@@ -64,6 +64,7 @@ temperaments:
 conditions:
   fresh: {glyph: '·', word: fresh, color: muted}
   worn: {glyph: '◐', word: worn, color: worn}
+  off_duty: {glyph: '◌', word: off duty, color: muted}
 
 actions:
   repair: {glyph: '✚', word: repair, color: hull}
@@ -91,3 +92,4 @@ properties:
   cautious: temperaments.cautious
   literal: temperaments.literal
   contrary: temperaments.contrary
+  off_duty: conditions.off_duty

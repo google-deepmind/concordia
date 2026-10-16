@@ -14,6 +14,7 @@ systems:
   hull: Hull (damage; the wreck)
   fatigue: Fatigue (wear and rest)
   watch: Watch (what the commander knows of the turns ahead)
+  rota: Rota (who is off duty, turn by turn; cycle 19)
 
 # Row system affects column system by mechanism.
 cells:
@@ -41,6 +42,9 @@ cells:
   - {from: watch, to: project, by: in Lookout the forecast itself is the goal (cycle 12), test: test_arc_two_isolate_and_develop}
   - {from: fatigue, to: crew, by: a clause for someone goes to the freshest willing member, so who does it changes as they tire (cycle 18), test: test_someone_goes_to_the_freshest_willing}
   - {from: crew, to: watch, by: '"someone keep watch" passes the watch between members as they tire, so it holds where a named watch lapses (cycle 18)', test: test_someone_keeps_the_watch_where_a_name_lapses}
+  - {from: rota, to: crew, by: an off-duty member rests and reads no order (cycle 19), test: test_off_duty_rests_and_reads_nothing}
+  - {from: rota, to: fatigue, by: an off-duty turn takes two fatigue off (cycle 19), test: test_off_duty_rests_and_reads_nothing}
+  - {from: rota, to: watch, by: a watcher named while off duty leaves the watch undone; a watch for someone passes to whoever is on (cycle 19), test: test_someone_covers_the_rota_where_a_name_lapses}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
@@ -64,6 +68,7 @@ reading:
     cautious: a cautious member
     literal: a literal member
     contrary: a contrary member
+    off_duty: another member is off duty this turn (cycle 19)
   cells:
     - {operator: directive, property: quiet, law: members do the action the order names, golden: [g1, g2]}
     - {operator: directive, property: storm, law: the sensible skip an action that cannot help now; the literal do it anyway, golden: [g3, g4]}
@@ -92,6 +97,8 @@ reading:
     - {operator: someone, property: cautious, law: the cautious take it up when they are the freshest willing, or when the one before them is named elsewhere; otherwise they read the other clauses (cycle 18), golden: [g35, g36, g39]}
     - {operator: someone, property: worn, law: a worn-out cautious member leaves it to the others; a worn-out bold one still takes it up (cycle 18), golden: [g37]}
     - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
+    - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
+    - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43]}
     - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
@@ -139,3 +146,5 @@ golden:
   - {id: g39, order: 'Ash, build; someone keep watch.', event: quiet, member: Bea, expect: [watch], hard: true}
   - {id: g40, order: 'Someone keep watch.', event: quiet, member: Dex, crew: [Cy, Dex], expect: [rest]}
   - {id: g41, order: 'Someone keep watch; everyone else build.', event: quiet, member: Cy, expect: [build], hard: true}
+  - {id: g42, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [watch], hard: true}
+  - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build], hard: true}

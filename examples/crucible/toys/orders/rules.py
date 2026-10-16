@@ -186,7 +186,7 @@ class CrewRule:
       self,
       ship: Ship,
       takes: Mapping[str, str],
-      named: Collection[str] = (),
+      excluded: Collection[str] = (),
   ) -> str | None:
     """Who takes up a clause for "someone": the freshest willing member.
 
@@ -194,7 +194,8 @@ class CrewRule:
       ship: The ledger (fatigue).
       takes: Each member's willingness: 'always', 'fresh' (only when not
         worn out) or 'never'.
-      named: Members named in another clause, who do not take it up.
+      excluded: Members who do not take it up: those named in another
+        clause, and those off duty.
 
     Returns:
       The member with the lowest fatigue among the willing (the first in
@@ -203,7 +204,7 @@ class CrewRule:
     willing = [
         m
         for m in self._crew
-        if m not in named
+        if m not in excluded
         and (
             takes.get(m) == 'always'
             or (takes.get(m) == 'fresh' and not self.worn(ship, m))

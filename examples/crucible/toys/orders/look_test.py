@@ -39,7 +39,10 @@ class LookTest(absltest.TestCase):
         set(self.data['temperaments']), set(self.look['temperaments'])
     )
     self.assertEqual(set(self.data['actions']), set(self.look['actions']))
-    self.assertEqual({'fresh', 'worn'}, set(self.look['conditions']))
+    # A member's condition: fresh or worn, or off duty on the scene's rota.
+    self.assertEqual(
+        {'fresh', 'worn', 'off_duty'}, set(self.look['conditions'])
+    )
 
   def test_every_matrix_property_has_one_look(self):
     matrix = toys.load_data('orders_matrix')

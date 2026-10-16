@@ -60,6 +60,8 @@ CLAUSE_QUESTION = (
 CHOICE_QUESTION = 'What does {name} do this turn?'
 ORDER_MARKER = 'Give your standing order'
 HOLD = 'hold'
+OFF_DUTY = 'off duty'  # what an off-duty member acted on
+OFF_DUTY_ACTION = 'rest'
 
 _OTHERWISE = {
     'build': 'builds if there is a supply',  # 'builds' before ' if '
@@ -151,6 +153,8 @@ class OrdersToy(base.Toy):
         points=self.command.start(),
         fatigue={c: 0 for c in self.crew},
         shift=random.Random(seed).randint(0, 2),
+        # A scene may open just after a watch (its first squall weathered).
+        watched=bool(start.get('watched', False)),
     )
     self._cache: dict[str, tuple[int, str]] = {}
     self.tell(self.commander, str(data['premise']).strip())
@@ -173,6 +177,11 @@ class OrdersToy(base.Toy):
     text = self._data['situations'][kind]
     if ship.leak and kind != 'leak':
       text += ' A leak is still open in the hull.'
+    off = self.off_on(turn)
+    if off:
+      text += (
+          f' {" and ".join(off)} {"is" if len(off) == 1 else "are"} off duty.'
+      )
     return text
 
   def ahead(self, ship: Ship) -> str:
@@ -206,7 +215,7 @@ class OrdersToy(base.Toy):
         for w in self._data.get('someone', {}).get('words', ())
     )
 
-  def volunteer(self, ship: Ship) -> str | None:
+  def volunteer(self, ship: Ship, turn: int) -> str | None:
     """Who takes up the order's clause for "someone" this turn (arc 4).
 
     Counting fatigue is the ledger's work, not the reader's: the toy finds
@@ -214,12 +223,15 @@ class OrdersToy(base.Toy):
 
     Args:
       ship: The ship.
+      turn: The turn being read (who is off duty).
 
     Returns:
-      The member, or None when no one aboard is willing.
+      The member, or None when no one on duty is willing.
     """
     words = set(re.findall(r'[a-z]+', ship.order.lower()))
-    named = [m for m in self.crew if m.lower() in words]
+    excluded = [
+        m for m in self.crew if m.lower() in words or self.off_duty(m, turn)
+    ]
     takes = {
         m: (
             self._data['temperaments'][
@@ -228,7 +240,25 @@ class OrdersToy(base.Toy):
         )
         for m in self.crew
     }
-    return self.crew_rule.volunteer(ship, takes, named)
+    return self.crew_rule.volunteer(ship, takes, excluded)
+
+  def off_duty(self, member: str, turn: int) -> bool:
+    """Whether the scene's rota has `member` off duty on `turn` (arc 4).
+
+    An off-duty member rests and reads no order: a clause naming them goes
+    undone that turn, while a clause for someone passes to whoever is on.
+
+    Args:
+      member: The crew member.
+      turn: The turn (1-based).
+
+    Returns:
+      Whether they are off duty.
+    """
+    return turn in self._data.get('off_duty', {}).get(member, ())
+
+  def off_on(self, turn: int) -> list[str]:
+    return [m for m in self.crew if self.off_duty(m, turn)]
 
   def condition(self, ship: Ship, member: str) -> str:
     return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
@@ -272,7 +302,7 @@ class OrdersToy(base.Toy):
         condition=self.condition(ship, member),
     )
     if someone:
-      who = self.volunteer(ship)
+      who = self.volunteer(ship, turn)
       statement += SOMEONE.format(name=who) if who else NO_ONE
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
@@ -353,19 +383,23 @@ class OrdersToy(base.Toy):
     before = (ship.progress, ship.damage, ship.supplies)
     # With a live model, every member reads the order at once (the readings
     # are independent); the rule then applies them in the fixed crew order.
+    on = [m for m in self.crew if not self.off_duty(m, turn)]
     if getattr(self._model, 'parallel_safe', False):
-      readings = concurrency.run_tasks({
-          member: lambda m=member: self.reading(ship, m, turn)
-          for member in self.crew
-      })
+      readings = dict(
+          concurrency.run_tasks({
+              member: lambda m=member: self.reading(ship, m, turn)
+              for member in on
+          })
+      )
     else:
-      readings = {m: self.reading(ship, m, turn) for m in self.crew}
+      readings = {m: self.reading(ship, m, turn) for m in on}
+    for member in self.crew:
+      if member not in on:  # Off duty: they rest and read nothing.
+        readings[member] = (OFF_DUTY_ACTION, OFF_DUTY)
     chosen = self.crew_rule.act(ship, kind, lambda member: readings[member][0])
+    # The situation already says who is off duty.
     steps.append(
-        ' '.join(
-            f'{m} {self._data["actions"][chosen[m]]["does"]}.'
-            for m in self.crew
-        )
+        ' '.join(f'{m} {self._data["actions"][chosen[m]]["does"]}.' for m in on)
     )
     seen = self.watch.reveal(ship, chosen, lambda t: self.event(ship, t))
     if seen:
@@ -418,8 +452,9 @@ class OrdersToy(base.Toy):
         'now': self.event(ship, turn),
         'leak_open': ship.leak,
         'situation': self.situation(ship, turn),
+        'off': self.off_on(turn),
         'ahead': [
-            {'turn': t, 'event': ship.seen.get(str(t))}
+            {'turn': t, 'event': ship.seen.get(str(t)), 'off': self.off_on(t)}
             for t in range(turn + 1, turn + 1 + sees)
             if t <= int(self._data['turns'])
         ],
@@ -443,6 +478,7 @@ class OrdersToy(base.Toy):
                 'condition': (
                     'worn' if self.crew_rule.worn(ship, member) else 'fresh'
                 ),
+                'off': self.off_duty(member, turn),
                 'last': (last or {}).get('actions', {}).get(member),
                 'why': (last or {}).get('why', {}).get(member),
             }

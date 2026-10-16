@@ -15,6 +15,8 @@
 
 """Arc 4: a clause for "someone" asks one member only."""
 
+import copy
+
 from absl.testing import absltest
 from examples.crucible import model_setup
 from examples.crucible import toys
@@ -70,19 +72,58 @@ class SomeoneTest(absltest.TestCase):
     ship = rules.Ship(fatigue={'Ash': 4, 'Bea': 3, 'Cy': 0, 'Dex': 0})
     takes = {'Ash': 'always', 'Bea': 'fresh', 'Cy': 'never', 'Dex': 'never'}
     self.assertEqual(crew.volunteer(ship, takes), 'Ash')  # worn, but bold
-    self.assertIsNone(crew.volunteer(ship, takes, named=['Ash']))
+    self.assertIsNone(crew.volunteer(ship, takes, excluded=['Ash']))
     ship.fatigue['Bea'] = 1
     self.assertEqual(crew.volunteer(ship, takes), 'Bea')  # the freshest
     toy = _toy('contrary')  # Dex alone: he never takes it up
     toy.world.order = 'Someone keep watch.'
-    self.assertIsNone(toy.volunteer(toy.world))
+    self.assertIsNone(toy.volunteer(toy.world, 1))
 
   def test_only_orders_for_someone_carry_its_law_and_who_takes_it(self):
     toy = _toy()
     self.assertFalse(toy.asks_someone('Bea, keep watch; everyone else build.'))
     self.assertTrue(toy.asks_someone('If a leak opens, one of you repair it.'))
     toy.world.order = 'Ash, build; whoever is fresh, keep watch.'
-    self.assertEqual(toy.volunteer(toy.world), 'Bea')  # Ash is named
+    self.assertEqual(toy.volunteer(toy.world, 1), 'Bea')  # Ash is named
+
+
+class RotaTest(absltest.TestCase):
+
+  def _toy(self, off: dict[str, list[int]]) -> toy_lib.OrdersToy:
+    data = copy.deepcopy(toys.load_data('orders'))
+    data['scenarios']['voyage']['off_duty'] = off
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    return toy
+
+  def test_off_duty_rests_and_reads_nothing(self):
+    toy = self._toy({'Ash': [1]})
+    toy.world.fatigue['Ash'] = 3
+    receipt = toy.resolve(toy.commander, 'Ash, build; everyone else build.')
+    last = toy.world.log[-1]
+    self.assertEqual(last['actions']['Ash'], 'rest')
+    self.assertEqual(last['why']['Ash'], toy_lib.OFF_DUTY)
+    self.assertEqual(toy.world.fatigue['Ash'], 1)
+    self.assertIn('Ash is off duty.', str(receipt))
+    self.assertEqual(toy.view()['crew'][0]['off'], False)  # back on turn 2
+
+  def test_someone_covers_the_rota_where_a_name_lapses(self):
+    def watchers(order):
+      toy = self._toy({'Ash': [2, 3]})
+      out = []
+      for turn in range(4):
+        toy.resolve(toy.commander, order if turn == 0 else toy_lib.HOLD)
+        acts = toy.world.log[-1]['actions']
+        out.append([m for m, a in acts.items() if a == 'watch'])
+      return out
+
+    self.assertEqual(
+        watchers(SOMEONE_WATCH), [['Ash'], ['Bea'], ['Bea'], ['Ash']]
+    )
+    self.assertEqual(
+        watchers('Ash, keep watch; everyone else build.'),
+        [['Ash'], [], [], ['Ash']],
+    )
 
 
 if __name__ == '__main__':

@@ -431,6 +431,30 @@ crew, crew -> watch); golden set 41 cases (23 hard), the mock 41/41. The
 bots' repertoire gained three someone orders; at 16 seeds every scene still
 gives skilled 100, random 0-44, passive 0 (evidence/audit-c18.jsonl).
 
+## 2l. Arc 4: the rota (cycle 19)
+
+The first draft of an isolate scene showed that "someone" was a weaker
+order than a name: the bold keep watching when worn out, so "Ash, keep
+watch" never lapses and "someone" only cost a builder (scene lab:
+`PROG/scene_lab.py`, `PROG/lab/*.yaml`). A fixed assignment fails only when
+the person is not there, so arc 4 adds a **rota**: a scene can put members
+off duty on given turns (`off_duty`), when they rest and hear no orders. A
+named duty lapses then; a clause for someone passes to whoever is on. The
+situation says who is off duty, the board marks it on the turn cells and the
+crew cards ("heard no order"), and a scene may open just after a watch
+(`start.watched`), so a squall on turn 1 is fair.
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | The rota | Ash and Bea, squalls every turn, Bea off on 2-3 and Ash on 4-5, command for one order: a watch named on either lapses; "Someone keep watch; everyone else build." holds it all night (a rush that ignores the watch wins only if the squalls come late, at 1 star) | 100 / 6 / 0 / 0 |
+| Develop | Watches | three crew, squalls and leaks, a rota for each; orders can be changed | 100 / 25 / 0 / 19 |
+| Twist | No volunteers | Ash, Cy and Dex; Ash off on 3-5: the habit "Someone keep watch" finds no one willing (the literal and the contrary never volunteer); name Cy to the watch, and tell Dex to rest so that he builds | 100 / 6 / 0 / 0 |
+| Catharsis | The long night | all four, each off duty for two turns, squalls, leaks and storms over 12 turns | 100 / 19 / 0 / 56 |
+
+The campaign is 16 chapters. Matrix: +1 system (rota) with 3 cells, +1
+property (off duty) with 2 reading cells; golden set 43 cases (25 hard).
+Every earlier scene's MOCK games are byte-identical to cycle 18.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -485,3 +509,4 @@ Sources:
 | 15 | Readings sampled at temperature 0; golden sets run twice per model (DESIGN §2h). Library round 4: ReasonedChoice temperature and words over letters. Arc 3: Dex (contrary) and negation; 12 campaign chapters. Cells added: 6 reading cells. |
 | 17 | Crew cards show the clause each member acted on (DESIGN §2j). Ollama readers keep thinking apart (library round 5). Cell added: crew -> command; 2 cells doubly evidenced. |
 | 18 | Arc 4 mechanics: a clause for "someone" goes to the freshest willing member, counted by the ledger and named in each reading (DESIGN §2k); "cannot help" spelled out in the crew prompt. Cells added: 2 system, 5 reading (operator someone). |
+| 19 | Arc 4 scenes on a rota (off duty: rest, no orders): The rota, Watches, No volunteers, The long night; 16 campaign chapters (DESIGN §2l). Cells added: rota -> crew, rota -> fatigue, rota -> watch; someone x off duty, named x off duty. |

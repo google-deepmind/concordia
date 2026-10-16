@@ -72,7 +72,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. Arc 4 scenes (cycle 19): isolate / develop / twist / catharsis around "someone" (the rotating watch, the builder it costs, a crew with no volunteer); qwen3:8b golden on the 41 cases.
+2. qwen3:8b golden on the 43 cases (twice); live games in the arc 4 scenes (Flash); the Ollama wrapper's bounds (backlog).
 3. Keep deepening: the commander learning from the readings shown (cycle 17), e.g. a scene where the order must be re-worded after a misreading; the owner's games.
 
 ## Backlog
