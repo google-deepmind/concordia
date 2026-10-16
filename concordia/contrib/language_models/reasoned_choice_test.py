@@ -29,11 +29,12 @@ class _Fake(no_language_model.NoLanguageModel):
     super().__init__()
     self.reply = reply
     self.prompts: list[str] = []
+    self.temperatures: list[float | None] = []
     self.choices = 0
 
   def sample_text(self, prompt: str, **kwargs) -> str:
-    del kwargs
     self.prompts.append(prompt)
+    self.temperatures.append(kwargs.get('temperature'))
     return self.reply
 
   def sample_choice(self, prompt: str, responses: Sequence[str], **kwargs):
@@ -73,6 +74,12 @@ class ReasonedChoiceTest(absltest.TestCase):
     model = reasoned_choice.ReasonedChoice(fake)
     idx, _, _ = model.sample_choice('Q?\nAnswer: (', ['a', 'b', 'c'])
     self.assertEqual((idx, fake.choices), (2, 1))
+
+  def test_temperature_reaches_the_reasoned_reply(self):
+    fake = _Fake('So (a).')
+    model = reasoned_choice.ReasonedChoice(fake, temperature=0.0)
+    model.sample_choice('Q?\nAnswer: (', ['a', 'b'])
+    self.assertEqual(fake.temperatures, [0.0])
 
   def test_text_passes_through(self):
     fake = _Fake('hello')

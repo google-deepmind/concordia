@@ -66,6 +66,7 @@ class ReasonedChoice(language_model.LanguageModel):
       *,
       instruction: str = DEFAULT_INSTRUCTION,
       max_tokens: int = 160,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
   ):
     """Initializes the wrapper.
 
@@ -74,10 +75,13 @@ class ReasonedChoice(language_model.LanguageModel):
       instruction: Appended to a multiple-choice prompt; it must ask for the
         answer as a parenthesized option letter.
       max_tokens: The most tokens the reason and answer may take.
+      temperature: The sampling temperature of the reason and answer. A low
+        temperature makes a judgement repeatable.
     """
     self._model = model
     self._instruction = instruction
     self._max_tokens = max_tokens
+    self._temperature = temperature
 
   @override
   def sample_text(
@@ -121,6 +125,7 @@ class ReasonedChoice(language_model.LanguageModel):
         f'{question}\n{self._instruction}',
         max_tokens=self._max_tokens,
         terminators=(),
+        temperature=self._temperature,
         seed=seed,
     )
     letters = [m for m in _LETTER.findall(reply) if m in responses]
