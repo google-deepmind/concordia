@@ -110,25 +110,8 @@ def clause_text(answer: str) -> str:
   return text[:80].rstrip()
 
 
-_VOLUNTEERS = {
-    'always': 'takes up a clause for someone even when worn out',
-    'fresh': 'takes up a clause for someone only when fresh',
-    'never': 'never takes up a clause for someone',
-}
-
-
-def habits(name: str, props: Mapping[str, Any], someone: bool = False) -> str:
-  """A temperament's properties, as the sentences a crew prompt carries.
-
-  Args:
-    name: The member.
-    props: Their temperament's properties.
-    someone: Whether the order has a clause for someone; only then is the
-      `volunteers` property said (so other prompts stay as they were).
-
-  Returns:
-    The sentences.
-  """
+def habits(name: str, props: Mapping[str, Any]) -> str:
+  """A temperament's properties, as the sentences a crew prompt carries."""
   otherwise = ', or else '.join(_OTHERWISE[a] for a in props['otherwise'])
   worn = 'rests' if props['when_worn'] == 'rest' else 'keeps working'
   leak = (
@@ -152,8 +135,6 @@ def habits(name: str, props: Mapping[str, Any], someone: bool = False) -> str:
       f'applies, {name} {otherwise}. When worn out, {name} {worn}. With a '
       f'leak open, {name} {leak}.'
   )
-  if someone:
-    text += f' {name} {_VOLUNTEERS[props.get("volunteers", "never")]}.'
   return text
 
 
@@ -377,7 +358,7 @@ class OrdersToy(base.Toy):
         name=member,
         temperament=temperament,
         describe=props['describe'],
-        habits=habits(member, props, someone),
+        habits=habits(member, props),
         laws='\n'.join(f'- {law}' for law in laws),
         order=order or '(no order given)',
         situation=self.situation(ship, turn),
