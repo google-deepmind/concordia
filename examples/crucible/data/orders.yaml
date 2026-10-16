@@ -351,7 +351,9 @@ scenarios:
     premise: >-
       The crossing: everything at once. Leaks, storms and squalls you cannot
       see coming unless someone keeps watch; three temperaments; command to
-      spend. Bring the project to 26 in 14 turns before 10 damage.
+      spend. In a storm the watch sees only one turn ahead, and an order given
+      in a storm carries only its first clause. Bring the project to 26 in 14
+      turns before 10 damage.
   # Arc 3: negation, and a crew member who does the opposite.
   contrary:
     beat: isolate
@@ -512,7 +514,9 @@ scenarios:
       is off duty for two turns: Ash on 3 and 4, Bea on 6 and 7, Cy on 9
       and 10, Dex on 11 and 12. A squall no one watched for does 4 damage
       and hurts the most worn member on duty, who is off duty for that turn
-      and the next. Bring the project to 20 in 12 turns before 10 damage.
+      and the next. In a storm the watch sees one turn ahead, and an order
+      given then carries only its first clause. Bring the project to 20 in 12
+      turns before 10 damage.
   # Arc 5: the bosun, who passes the order on in their own words.
   the_bosun:
     beat: isolate
@@ -600,8 +604,9 @@ scenarios:
       All four, with Cy (literal) as bosun, who passes your order on word
       for word: Ash (bold), Bea (cautious) and Dex (contrary). Cy is off duty
       on turns 5 to 7 and Ash on 9 and 10; with the bosun off duty your
-      order goes out as you give it. Squalls, leaks and storms; 10 damage
-      wrecks the ship. Bring the project to 23 in 12 turns.
+      order goes out as you give it. Squalls, leaks and storms; an order
+      given in a storm carries only its first clause; 10 damage wrecks the
+      ship. Bring the project to 23 in 12 turns.
   # Arc 6: timing. An order can hold for a span of turns, then change.
   two_orders:
     beat: isolate
