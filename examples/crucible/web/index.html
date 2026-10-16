@@ -38,6 +38,10 @@
   .error { color: var(--squall); }
   pre { white-space: pre-wrap; word-break: break-word; font: 13px/1.4 ui-monospace, monospace; margin: 6px 0; }
   ol { padding-left: 20px; margin: 4px 0; } li { margin: 6px 0; }
+  .goal { font-size: 18px; font-weight: 700; margin: 4px 0 10px; }
+  .cap { font-size: 12px; color: var(--muted); }
+  .chip { display: inline-block; margin: 4px 6px 2px 0; padding: 6px 10px; font-size: 14px; }
+  .chip small { display: block; font-size: 11px; color: var(--muted); }
   #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
           background: var(--paper); border-top: 1px solid var(--line); }
   #dock button { width: 100%; margin: 0; }
@@ -62,6 +66,7 @@
 <p class="tag" id="tagline"></p>
 
 <div id="menu">
+  <details class="card" id="intro"><summary><strong>What is this?</strong></summary><div id="introText"></div></details>
   <details id="howto" hidden><summary>How to play</summary><ol id="howtolist"></ol></details>
   <button id="freeplay">Free play: any order, nothing at stake</button>
   <label id="mindrow" class="meter">Who reads your orders: <select id="mind"></select></label>
@@ -76,6 +81,7 @@
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
+  <p class="goal" id="goalLine"></p>
   <div class="card task"><strong id="taskTitle">Your task</strong><p id="task" style="margin:4px 0 0"></p></div>
   <details class="card" id="how"><summary><strong>How it works</strong></summary><ol id="howSteps"></ol></details>
   <div class="card">
@@ -84,22 +90,32 @@
     </div>
     <div class="meter muted" id="starRules"></div>
     <div class="hud" style="margin-top:6px">
-      <div><span id="pointsLabel"></span><div class="meter" id="points"></div></div>
-      <div><span id="suppliesLabel"></span><div class="meter" id="supplies"></div></div>
-      <div><span id="goalLabel"></span><div class="meter" id="goal"></div></div>
+      <div><span id="pointsLabel"></span><div class="meter" id="points"></div><div class="cap" id="pointsCap"></div></div>
+      <div id="suppliesCell"><span id="suppliesLabel"></span><div class="meter" id="supplies"></div><div class="cap" id="suppliesCap"></div></div>
+      <div hidden><span id="goalLabel"></span><div class="meter" id="goal"></div></div>
     </div>
-    <div style="margin-top:8px"><span id="hullLabel"></span> <span class="meter" id="hull"></span>
-      <div class="bar"><i id="hullBar"></i></div></div>
+    <div style="margin-top:8px" id="hullRow"><span id="hullLabel"></span> <span class="meter" id="hull"></span>
+      <div class="bar"><i id="hullBar"></i></div><div class="cap" id="hullCap"></div></div>
     <div style="margin-top:6px"><span id="goalBarLabel"></span> <span class="meter" id="goalNum"></span>
       <div class="bar"><i id="goalBar"></i></div></div>
   </div>
 
+  <div id="seaBox">
   <h2>The sea, now and ahead</h2>
+  <div class="cap" id="seaCap"></div>
   <div class="strip" id="ahead"></div>
   <p class="meter" id="situation"></p>
+  </div>
 
   <h2>Your crew <span class="meter muted">(each reads your order their own way)</span></h2>
   <div class="crew" id="crew"></div>
+
+  <div class="card" id="can">
+    <strong>What you can tell them</strong> <span class="cap">(tap to add to your order)</span>
+    <div id="canActions"></div>
+    <div id="canNames"></div>
+    <div id="canPhrases"></div>
+  </div>
 
   <h2>Your order <span class="meter muted">(followed every turn until you change it)</span></h2>
   <div class="card order" id="order"></div>
@@ -168,11 +184,15 @@ function stars(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
 function beatWord(beat) { return (LOOK && LOOK.beat_words && LOOK.beat_words[beat]) || beat || ''; }
 
 let howtoSet = false;  // How to play opened once for a player with no stars yet
+let CHAPTERS = {};  // scenario -> chapter number, for the phrases a chapter shows
 function renderMenu(state) {
   const box = $('campaign'), c = state.campaign;
+  if (c) for (const ch of c.chapters) CHAPTERS[ch.scenario] = ch.number;
   if (c && !howtoSet && LOOK) {
     howtoSet = true;
-    $('howto').open = !c.chapters.some((ch) => ch.stars > 0);  // a first visit reads it
+    const fresh = !c.chapters.some((ch) => ch.stars > 0);  // a first visit reads them
+    $('howto').open = fresh; $('intro').open = fresh;
+    for (const line of (LOOK.intro || [])) { const p = document.createElement('p'); p.textContent = line; $('introText').appendChild(p); }
   }
   const key = JSON.stringify(c);
   if (c && box.dataset.key !== key) {
@@ -251,6 +271,70 @@ function starRules(v) {
       Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
 }
 let howFor = null;  // the game the How it works box was last set up for
+function goalLine(v) {
+  if (v.free) return 'Free play: no goal. Try orders and see how each member reads them.';
+  const turn = Math.min(v.turn, v.turns);
+  let g;
+  if (v.goal === 'supplies') g = 'Goal: ' + v.target + ' supplies at the end of turn ' + v.turns + ' (now ' + v.supplies + ')';
+  else if (v.goal === 'foresight') g = 'Goal: see ' + v.target + ' turns ahead within ' + v.turns + ' turns (seen ' + v.foresight + ')';
+  else g = 'Goal: ' + word('stocks', 'progress') + ' ' + v.target + ' by the end of turn ' + v.turns + ' (now ' + v.progress + ')';
+  return g + ' · turn ' + turn + ' of ' + v.turns + (v.calm ? '' : ' · ' + v.wreck_at + ' damage sinks the ship');
+}
+function addWords(text, replace) {
+  const m = $('move');
+  let cur = replace ? '' : m.value.trim();
+  if (cur && !/[.;,:]$/.test(cur)) cur += ';';
+  m.value = (cur ? cur + ' ' : '') + text;
+  countWords();
+}
+function effectOf(a) {
+  const parts = [];
+  for (const [k, n] of Object.entries(a.gives || {})) {
+    const w = k === 'damage' ? 'damage' : word('stocks', k);
+    parts.push((n > 0 ? '+' : '\u2212') + Math.abs(n) + ' ' + w);
+  }
+  for (const [k, n] of Object.entries(a.needs || {})) parts.push('uses ' + n + ' ' + (n === 1 ? 'supply' : 'supplies'));
+  if ((a.closes || []).includes('leak')) parts.push('closes a leak');
+  if ((a.spoiled_by || []).includes('storm')) parts.push('not in a storm');
+  const extra = LOOK && LOOK.effects && LOOK.effects[a.key];
+  if (extra) parts.push(extra);
+  return parts.join(', ');
+}
+let canFor = null;
+function renderCan(v) {
+  const key = (v.scenario || '') + '|' + v.title;
+  if (canFor === key) return;
+  canFor = key;
+  const say = (LOOK && LOOK.say) || {};
+  const acts = $('canActions'); acts.innerHTML = '';
+  for (const a of (v.menu || [])) {
+    const b = document.createElement('button'); b.className = 'chip';
+    b.append(g('actions', a.key), ' ' + (say[a.key] || a.key));
+    const s = document.createElement('small'); s.textContent = effectOf(a); b.appendChild(s);
+    b.onclick = () => addWords(say[a.key] || a.key);
+    acts.appendChild(b);
+  }
+  const names = $('canNames'); names.innerHTML = '';
+  if (v.crew.length > 1) {
+    names.append(Object.assign(document.createElement('div'), {className: 'cap', textContent: 'Name who should do it:'}));
+    for (const m of v.crew) {
+      const b = document.createElement('button'); b.className = 'chip'; b.textContent = m.name + ',';
+      b.onclick = () => addWords(m.name + ','); names.appendChild(b);
+    }
+  }
+  const phrases = $('canPhrases'); phrases.innerHTML = '';
+  const here = v.free ? Infinity : (CHAPTERS[v.scenario] || 1);
+  const shown = ((LOOK && LOOK.phrases) || []).filter((p) => (CHAPTERS[p.from] || 1) <= here);
+  if (shown.length) {
+    phrases.append(Object.assign(document.createElement('div'), {className: 'cap', textContent: 'Ways to say it (tap to use):'}));
+    for (const p of shown) {
+      const b = document.createElement('button'); b.className = 'chip';
+      b.textContent = '\u201c' + p.say + '\u201d';
+      const s = document.createElement('small'); s.textContent = p.means; b.appendChild(s);
+      b.onclick = () => addWords(p.say, true); phrases.appendChild(b);
+    }
+  }
+}
 let howFolded = false;  // folded after the first turn of that game
 function renderView(v, receipts) {
   $('scene').textContent = v.title + (v.beat ? ' · ' + beatWord(v.beat) : '');
@@ -266,6 +350,18 @@ function renderView(v, receipts) {
     $('how').open = !howFolded && (qs.open_in || []).includes(v.scenario || (v.free ? 'free' : ''));
   } else if (receipts.length && !howFolded) { howFolded = true; $('how').open = false; }  // read once
   if (LOOK && LOOK.placeholder) $('move').placeholder = LOOK.placeholder;
+  $('goalLine').textContent = goalLine(v);
+  renderCan(v);
+  const caps = (LOOK && LOOK.captions) || {};
+  $('pointsCap').textContent = caps.points || '';
+  $('suppliesCap').textContent = caps.supplies || '';
+  $('hullCap').textContent = (caps.hull || '').replace('{wreck_at}', v.wreck_at);
+  $('seaCap').textContent = caps.sea || '';
+  // Only what the chapter uses: chapter 1 is Cy, the work and command.
+  const watches = (v.menu || []).some((a) => a.key === 'watch');
+  $('hullRow').hidden = v.calm && !v.damage && !v.leak_open;
+  $('seaBox').hidden = v.calm && !watches;
+  $('suppliesCell').hidden = !v.short_of_supplies && v.goal !== 'supplies';
   $('starRules').textContent = starRules(v);
   $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
   label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));

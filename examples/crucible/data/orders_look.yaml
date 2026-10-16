@@ -89,6 +89,42 @@ stocks:
   points: {glyph: '♦', word: command, color: command}
   foresight: {glyph: '◔', word: forecast, color: command}
 
+# What the game is, for a first visit (cycle 95: the owner could not tell
+# what was going on, what the board meant, what to aim for or what they
+# could do, or why the game exists).
+intro:
+  - Twelve Words is a game about giving orders in plain language.
+  - Your crew are characters played by an AI language model. Each one reads your words through their own temperament, so the same order can mean different things to different people.
+  - You never steer them turn by turn. You give one standing order, and they act on it every turn until you change it. Words cost command, so the puzzle is to say exactly what you mean, to these people, in as few words as will do.
+
+# One line under each part of the board, saying what it is for.
+captions:
+  points: pays for a new order; holding is free
+  supplies: each build uses 1
+  hull: leaks and squalls do damage; at {wreck_at} the ship is lost
+  sea: what each turn brings; someone on watch sees the next turns
+
+# What to tap to say an action (short, so it costs few words), and what
+# actions without a stock change do.
+say:
+  build: build
+  gather: gather supplies
+  repair: repair the hull
+  rest: rest
+  watch: keep watch
+effects:
+  rest: worn-out members recover
+  watch: see the coming turns; a squall seen coming does no harm
+
+# Ways to say things, each from the chapter that first needs it.
+phrases:
+  - {from: one_hand, say: 'Build.', means: name the work}
+  - {from: two_hands, say: 'Ash, build; Cy, gather supplies.', means: say who does what}
+  - {from: two_hands, say: 'If a leak opens, repair it.', means: wait for a condition}
+  - {from: contrary, say: "Don't build.", means: forbid an action}
+  - {from: rota, say: 'Someone keep watch.', means: one member takes it up}
+  - {from: two_orders, say: 'Gather supplies for two turns, then build.', means: change on its own}
+
 # The three steps shown on the board (open in the first chapters and free
 # play, folded elsewhere), and the order box's example (cycle 93: a first
 # player did not know what to do).

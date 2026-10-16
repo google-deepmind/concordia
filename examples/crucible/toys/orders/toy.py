@@ -562,6 +562,26 @@ class OrdersToy(base.Toy):
         'scenario': self.scenario,
         # The scene's task in plain words, for the player (cycle 93).
         'premise': ' '.join(str(self._data.get('premise', '')).split()),
+        # What the crew can be told to do, and what each does (cycle 95).
+        'menu': [
+            {
+                'key': a,
+                **{
+                    k: self._data['actions'][a][k]
+                    for k in ('gives', 'needs', 'closes', 'spoiled_by')
+                    if k in self._data['actions'][a]
+                },
+            }
+            for a in self.menu
+        ],
+        # Nothing happens but the work: the page leaves out hull and sea.
+        'calm': not any(
+            kind != 'quiet' for kind in self._data.get('events', {}).values()
+        ),
+        'short_of_supplies': (
+            int(self._data['start']['supplies'])
+            < int(self._data['turns']) * len(self.crew)
+        ),
         # What the scene teaches, shown once it is over.
         'lesson': self._data.get('lesson') if self.done() else None,
         'bosun': self.bosun_of(ship),  # who passes orders on (arc 5)
