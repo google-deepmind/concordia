@@ -69,6 +69,17 @@ class GoldenSetTest(absltest.TestCase):
     self.assertEqual(report.runs[0].answers['law'], 'error: TimeoutError')
     self.assertFalse(report.passed)
 
+  def test_compare_names_what_a_change_fixed_and_broke(self):
+    old = {'law': 'build', 'style-1': 'build', 'style-2': 'rest'}
+    new = {'law': 'rest', 'style-1': 'rest', 'style-2': 'rest'}
+    before = golden_set.run(CASES, lambda c: old[c.id], repeats=1)
+    after = golden_set.run(CASES, lambda c: new[c.id], repeats=1)
+    diff = golden_set.compare(CASES, before, after)
+    self.assertEqual(diff['fixed'], ['law'])
+    self.assertEqual(diff['broken'], ['style-1'])
+    self.assertEqual(diff['still_failing'], ['style-2'])
+    self.assertEqual(diff['flaky_after'], [])
+
   def test_ids_must_be_unique(self):
     with self.assertRaises(ValueError):
       golden_set.run([CASES[0], CASES[0]], lambda c: 'rest')

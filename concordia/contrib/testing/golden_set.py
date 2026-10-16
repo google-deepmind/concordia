@@ -78,6 +78,40 @@ class Report:
     return dataclasses.asdict(self)
 
 
+def compare(
+    cases: Sequence[Case], before: Report, after: Report
+) -> dict[str, list[str]]:
+  """What a change did to a golden set: cases fixed, broken, still failing.
+
+  A case passes in a report only if every run of it passed.
+
+  Args:
+    cases: The cases both reports ran.
+    before: The report before the change (a prompt, a model, a wrapper).
+    after: The report after it.
+
+  Returns:
+    Case ids under 'fixed', 'broken', 'still_failing' and 'flaky_after'.
+  """
+
+  def passed(report: Report, case: Case) -> bool:
+    return all(r.answers.get(case.id) in case.expect for r in report.runs)
+
+  out: dict[str, list[str]] = {
+      'fixed': [], 'broken': [], 'still_failing': [], 'flaky_after': []
+  }  # fmt: skip
+  for case in cases:
+    was, now = passed(before, case), passed(after, case)
+    if now and not was:
+      out['fixed'].append(case.id)
+    elif was and not now:
+      out['broken'].append(case.id)
+    elif not was and not now:
+      out['still_failing'].append(case.id)
+  out['flaky_after'] = list(after.flaky)
+  return out
+
+
 def run_once(
     cases: Sequence[Case],
     answer: Callable[[Case], str],

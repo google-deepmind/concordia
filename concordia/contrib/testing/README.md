@@ -33,7 +33,9 @@ report.flaky       # cases answered differently across runs
   `repeats` times and passes only if every run does; a case answered
   differently across runs is reported as flaky.
 - A provider failure inside `answer` fails that case, not the run.
+- `golden_set.compare(cases, before, after)` says what a change (a prompt,
+  a model, a wrapper) fixed, broke or left failing, and what is flaky after.
 
 The module knows nothing about prompts: `answer` owns the situation and the
 model call. The crucible example (`examples/crucible/golden.py`) uses it for
-44 cases read by a mock, an Ollama model and a Together model.
+53 cases read by a mock, an Ollama model and a Together model.
