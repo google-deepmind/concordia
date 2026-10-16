@@ -514,6 +514,16 @@ orders while someone is off), so this is a lever for people more than a
 balance change. Matrix: rota -> command, command -> crew, command -> watch
 (64 cells).
 
+## 2p. Every scene names what it teaches (cycle 24)
+
+Each campaign scene now lists the matrix cells it exercises (`teaches`:
+`from->to` for a system cell, `operator x property` for a reading cell) and
+one sentence it teaches (`lesson`), shown on the page when the scene is
+over, won or lost. The audit checks every reference and reports the cells
+no scene teaches: all 59 cell references (system pairs and reading cells)
+are taught by at least one of the 16 scenes. A cell no scene reaches would
+be a rule the campaign never asks a player to learn.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -573,3 +583,4 @@ Sources:
 | 21 | Injuries: in The long night an unwatched squall hurts the most worn member on duty, off duty for two turns (DESIGN §2n). Cells added: hazards -> rota, fatigue -> rota, watch -> rota. |
 | 22 | The preview marks each crew card with the predicted action and the clause behind it. |
 | 23 | Orders are heard: an order given while a member is off duty does not reach them (DESIGN §2o). Cells added: rota -> command, command -> crew, command -> watch. |
+| 24 | Scenes name the cells they teach and a lesson, shown at the end; the audit checks coverage: 59/59 (DESIGN §2p). |

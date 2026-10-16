@@ -177,6 +177,8 @@ scenarios:
   one_hand:
     beat: isolate
     title: One hand
+    teaches: ['command->crew', 'command->command', 'directive x quiet', 'silence x literal', 'crew->command']
+    lesson: "Cy does exactly what the order says and nothing else: name the work, in as few words as will do."
     crew_present: [Cy]
     menu: [build, rest]
     turns: 3
@@ -193,6 +195,8 @@ scenarios:
   two_hands:
     beat: develop
     title: Two hands
+    teaches: ['crew->project', 'hazards->hull', 'crew->hull', 'directive x leak', 'conditional x leak', 'hull->project', 'silence x bold']
+    lesson: "A conditional clause (\"if a leak opens, repair it\") waits until it is needed, so one order covers turns you cannot see."
     crew_present: [Ash, Cy]
     menu: [repair, gather, build, rest]
     turns: 8
@@ -211,6 +215,8 @@ scenarios:
   supply_run:
     beat: twist
     title: Supply run
+    teaches: ['stores->command', 'crew->stores', 'stores->project', 'silence x leak']
+    lesson: "When the port wants stores, every build spends what you are asked to keep: the order must keep the crew from building."
     crew_present: [Ash, Bea, Cy]
     menu: [repair, gather, build, rest]
     goal: supplies    # this time the port wants stores, not progress
@@ -226,12 +232,16 @@ scenarios:
   voyage:            # the game: project 24 by turn 12, before 10 damage
     beat: catharsis
     title: The voyage
+    teaches: ['stores->crew', 'fatigue->crew', 'fatigue->project', 'directive x worn', 'directive x no_supplies', 'crew->fatigue', 'conditional x worn']
+    lesson: "Everything at once: mind the stores and the crew's wear as well as the project."
     crew_present: [Ash, Bea, Cy]
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
   # Arc 2: information. The turns ahead are hidden; a watch reveals them.
   lookout:
     beat: isolate
     title: Lookout
+    teaches: ['crew->watch', 'watch->command', 'watch->project', 'watch x storm']
+    lesson: "Only someone on watch sees ahead; here the forecast itself is the goal."
     crew_present: [Bea]
     menu: [gather, rest, watch]
     goal: foresight   # turns seen ahead
@@ -248,6 +258,8 @@ scenarios:
   squalls:
     beat: develop
     title: Squalls
+    teaches: ['watch->hull', 'hazards->hull', 'named x cautious', 'named x literal']
+    lesson: "A squall seen coming does no damage: keep someone on watch the turn before."
     crew_present: [Ash, Bea, Cy]
     turns: 10
     target: 18
@@ -261,6 +273,8 @@ scenarios:
   night_watch:
     beat: twist
     title: Night watch
+    teaches: ['fatigue->watch', 'watch x worn']
+    lesson: "A cautious watcher rests when worn out and the watch lapses; the bold keep watching tired."
     habit: 'Bea, keep watch; everyone else build.'
     crew_present: [Ash, Bea, Cy]
     turns: 10
@@ -283,6 +297,8 @@ scenarios:
   crossing:
     beat: catharsis
     title: The crossing
+    teaches: ['hazards->crew', 'hazards->stores', 'conditional x storm', 'directive x storm']
+    lesson: "Leaks, storms and squalls together: a watch, a repair clause and builders in one order."
     crew_present: [Ash, Bea, Cy]
     turns: 14
     target: 26
@@ -297,6 +313,8 @@ scenarios:
   contrary:
     beat: isolate
     title: Contrary
+    teaches: ['directive x contrary', 'negation x contrary']
+    lesson: "Dex does the opposite: tell him to rest, or not to build, and he builds."
     habit: 'Build.'
     crew_present: [Dex]
     menu: [build, rest]
@@ -314,6 +332,8 @@ scenarios:
   mixed_hands:
     beat: develop
     title: Mixed hands
+    teaches: ['named x contrary', 'negation x bold']
+    lesson: "One order, two readers: give Dex his own clause, so what moves Ash does not stop him."
     crew_present: [Ash, Dex]
     menu: [repair, gather, build, rest]
     turns: 8
@@ -330,6 +350,8 @@ scenarios:
   the_mender:
     beat: twist
     title: The mender
+    teaches: ['named x contrary', 'negation x literal']
+    lesson: "To get Dex mending, forbid it: \"Dex, don't repair.\""
     habit: 'Dex, rest; everyone else build.'
     crew_present: [Ash, Cy, Dex]
     menu: [repair, gather, build, rest]
@@ -346,6 +368,8 @@ scenarios:
   all_hands:
     beat: catharsis
     title: All hands
+    teaches: ['silence x contrary', 'named x bold', 'conditional x quiet']
+    lesson: "Four temperaments read one order: give each the clause their reading needs."
     crew_present: [Ash, Bea, Cy, Dex]
     turns: 14
     target: 30
@@ -360,6 +384,8 @@ scenarios:
   rota:
     beat: isolate
     title: The rota
+    teaches: ['rota->watch', 'someone x bold', 'someone x off_duty']
+    lesson: "A name binds a duty to one person; \"someone\" passes it to whoever is on duty."
     habit: 'Bea, keep watch; everyone else build.'
     crew_present: [Ash, Bea]
     menu: [build, rest, watch]
@@ -383,6 +409,8 @@ scenarios:
   watches:
     beat: develop
     title: Watches
+    teaches: ['rota->crew', 'rota->fatigue', 'rota->command', 'someone x cautious', 'named x off_duty']
+    lesson: "An order given while someone is off duty does not reach them: change it when they are aboard, or use \"someone\"."
     crew_present: [Ash, Bea, Cy]
     turns: 10
     target: 14
@@ -401,6 +429,8 @@ scenarios:
   no_volunteers:
     beat: twist
     title: No volunteers
+    teaches: ['someone x literal', 'someone x contrary', 'directive x contrary']
+    lesson: "The literal and the contrary never take up \"someone\": with only them aboard, name the watch."
     habit: 'Someone keep watch; everyone else build.'
     crew_present: [Ash, Cy, Dex]
     menu: [build, rest, watch]
@@ -422,6 +452,8 @@ scenarios:
   long_night:
     beat: catharsis
     title: The long night
+    teaches: ['hazards->rota', 'fatigue->rota', 'watch->rota', 'command->watch', 'someone x worn']
+    lesson: "An unwatched squall hurts the most worn on duty: a kept watch saves the crew as well as the hull."
     crew_present: [Ash, Bea, Cy, Dex]
     turns: 12
     target: 20

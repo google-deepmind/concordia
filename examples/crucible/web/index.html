@@ -290,6 +290,8 @@ function render(state) {
   if (gm.finished) {
     const o = gm.outcome || {};
     $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won') + (gm.error ? ' (' + gm.error + ')' : '');
+    const lesson = gm.view && gm.view.lesson;
+    if (lesson) $('status').textContent += ' \u2014 ' + lesson;
     $('menu').hidden = false;
   } else if (req) {
     $('status').textContent = 'Your order, ' + gm.seat + '.';

@@ -66,6 +66,21 @@ def audit() -> dict[str, Any]:
     problems.extend(
         f'missing golden {g}' for g in golden if g not in golden_ids
     )
+  # Every campaign scene names the cells it teaches ('from->to' for system
+  # cells, 'operator x property' for reading cells) and its lesson.
+  refs = {f"{c['from']}->{c['to']}" for c in matrix['cells']} | {
+      f"{c['operator']} x {c['property']}" for c in reading['cells']
+  }
+  data = toys.load_data('orders')
+  taught = set()
+  for name in data.get('campaign', []):
+    scene = data['scenarios'][name]
+    if not scene.get('lesson'):
+      problems.append(f'scene {name!r} has no lesson')
+    for ref in scene.get('teaches', []):
+      if ref not in refs:
+        problems.append(f'scene {name!r} teaches unknown cell {ref!r}')
+      taught.add(ref)
   pairs = {(c['from'], c['to']) for c in matrix['cells']}
   return {
       'counts': {
@@ -81,11 +96,14 @@ def audit() -> dict[str, Any]:
               bool(c.get('hard')) for c in matrix['golden']
           ),
           # Cells checked both ways: a model's reading and the rule's test.
+          'cell_refs': len(refs),
+          'cell_refs_taught_by_scenes': len(taught & refs),
           'doubly_evidenced_cells': sum(
               bool(c.get('test') and c.get('golden'))
               for c in [*matrix['cells'], *reading['cells']]
           ),
       },
+      'untaught': sorted(refs - taught),
       'problems': problems,
   }
 

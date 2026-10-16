@@ -123,6 +123,17 @@ class ViewTest(absltest.TestCase):
         toy.reading(ship, 'Cy', 1), ('repair', 'if a leak opens, repair it')
     )
 
+  def test_the_lesson_is_shown_once_the_scene_is_over(self):
+    data = toys.load_data('orders')
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'one_hand')
+    self.assertIsNone(toy.view()['lesson'])
+    toy.resolve(toy.commander, 'Build.')
+    while not toy.done():
+      toy.resolve(toy.commander, toy_lib.HOLD)
+    self.assertEqual(
+        toy.view()['lesson'], data['scenarios']['one_hand']['lesson']
+    )
+
   def test_the_view_hides_what_was_not_seen(self):
     toy = toy_lib.OrdersToy(model_setup.mock_model(), toys.load_data('orders'))
     self.assertTrue(all(a['event'] is None for a in toy.view()['ahead']))

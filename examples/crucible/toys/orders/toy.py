@@ -513,6 +513,8 @@ class OrdersToy(base.Toy):
             .get('title', self.scenario)
         ),
         'beat': self._data.get('beat', ''),
+        # What the scene teaches, shown once it is over.
+        'lesson': self._data.get('lesson') if self.done() else None,
         'free': self.free,
         'turn': turn,
         'turns': int(self._data['turns']),
