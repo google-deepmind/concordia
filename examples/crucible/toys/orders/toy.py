@@ -634,6 +634,12 @@ class OrdersToy(base.Toy):
         # What the scene teaches, shown once it is over.
         'lesson': self._data.get('lesson') if self.done() else None,
         'bosun': self.bosun_of(ship),  # who passes orders on (arc 5)
+        # For an order with a span: which of its turns the next one is.
+        'order_turn': (
+            turn - ship.order_turn + 1
+            if ship.order and TIMED.search(ship.order)
+            else None
+        ),
         'free': self.free,
         'turn': turn,
         'turns': int(self._data['turns']),

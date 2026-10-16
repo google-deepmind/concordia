@@ -268,7 +268,8 @@ function renderView(v, receipts) {
     if (!h.hidden) h.textContent = (m.via_bosun ? 'heard \u201c' : 'still on \u201c') + (m.heard || '(nothing)') + '\u201d';
     d.append(head, t, c, l, w, h, n); crew.appendChild(d);
   }
-  $('order').textContent = v.order ? '“' + v.order + '”' : '(no order yet: the crew follow their temperaments)';
+  $('order').textContent = (v.order ? '“' + v.order + '”' : '(no order yet: the crew follow their temperaments)')
+      + (v.order_turn ? ' \u00b7 its turn ' + v.order_turn : '');
   countWords();
   const log = $('log');
   if (log.children.length !== receipts.length) {

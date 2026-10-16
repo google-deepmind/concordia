@@ -153,6 +153,7 @@ class ShipTest(absltest.TestCase):
       cy.append(toy.world.log[-1]['actions']['Cy'])
     self.assertEqual(cy, ['build', 'build', 'repair'])
     self.assertEqual(toy.world.order_turn, 1)
+    self.assertEqual(toy.view()['order_turn'], 4)  # the next turn is its 4th
 
   def test_state_round_trip(self):
     toy = _toy(1)
