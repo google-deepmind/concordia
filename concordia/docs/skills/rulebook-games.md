@@ -51,7 +51,7 @@ any seat played by a model, a bot or a person.
 
 The crucible example (`examples/crucible/`) is a complete game built this
 way, with a phone page on `BlockingInput`, bots on `PolicyInput`, and a
-golden set of 49 cases.
+golden set of 53 cases.
 
 ## Pitfalls seen in practice
 
@@ -71,6 +71,14 @@ golden set of 49 cases.
   its thinking, and Ollama applies stop sequences to it, so a newline
   terminator returns an empty answer. Use the Ollama adapter's
   `think=True` (terminators applied to the answer) and a `timeout`.
+- **Read the laws against the mock.** A mock and golden cases written from
+  the same intentions agree with each other, so a golden set cannot see
+  where both depart from the text a model is actually given. In the
+  crucible, one read-only pass over the laws, the mock and the ledger found
+  13 such gaps: a precedence a hard case relied on but no law stated, a
+  habit sentence that left out the storm, a negation that ran on past a
+  comma. Writing the missing laws down raised a model's agreement on the
+  soft cases by several points.
 - **Isolate the law in hard cases.** If a hard case fails because of a
   separate judgement (a temperament's taste, say), move that variant to the
   soft cases and test the law with a member who has no such judgement.
