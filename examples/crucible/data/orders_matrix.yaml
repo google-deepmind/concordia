@@ -116,7 +116,7 @@ reading:
     - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
     - {operator: relay, property: literal, law: a literal bosun passes the order on word for word (cycle 41), golden: [g45], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46, g49], test: test_each_temperament_passes_the_order_on_its_own_way}
-    - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" when no clause repairs (cycle 41), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" unless a clause already says whether to repair (cycles 41, 83), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: contrary, law: a contrary bosun says "don't" before every clause (cycle 41), golden: [g48], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: timed, property: literal, law: 'a clause "for N turns" holds for the first N turns, counting the turn it is given; then what follows "then"; with nothing after it, nothing (cycle 62)', golden: [g50, g51, g53], test: test_a_timed_order_changes_with_its_age}
     - {operator: timed, property: bold, law: 'once the span is over the bold read the part after "then" (cycle 62)', golden: [g52]}

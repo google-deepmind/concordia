@@ -20,6 +20,7 @@ import copy
 from absl.testing import absltest
 from examples.crucible import model_setup
 from examples.crucible import toys
+from examples.crucible.toys.orders import mock as mock_lib
 from examples.crucible.toys.orders import rules
 from examples.crucible.toys.orders import toy as toy_lib
 
@@ -208,6 +209,26 @@ class BosunTest(absltest.TestCase):
     self.assertEqual(relayed['Ash'], 'Build.')  # bold: no watch clause
     self.assertEqual(relayed['Bea'], 'Build; Cy, keep watch; repair leaks.')
     self.assertEqual(relayed['Dex'], "don't build; Cy, don't keep watch.")
+
+  def test_a_relay_goes_by_what_a_clause_asks(self):
+    # Cycle 83: by vocabulary, "tired" read as a clause to rest, "leak" in a
+    # condition as a repair, and "Don't repair" as repairing.
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    self.assertEqual(
+        mock.relay('If tired, build; keep watch.', 'drops_rest'),
+        'If tired, build.',
+    )
+    self.assertEqual(
+        mock.relay("Don't keep watch.", 'drops_rest'), "Don't keep watch."
+    )
+    self.assertEqual(
+        mock.relay('Build; if a leak opens, keep watch.', 'adds_repair'),
+        'Build; if a leak opens, keep watch; repair leaks.',
+    )
+    self.assertEqual(
+        mock.relay("Build; don't repair.", 'adds_repair'),
+        "Build; don't repair.",
+    )
 
   def test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders(self):
     toy = self._toy('Ash')

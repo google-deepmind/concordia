@@ -68,7 +68,7 @@ OFF_DUTY_ACTION = 'rest'
 
 _OTHERWISE = {
     'build': 'builds if there is a supply',  # 'builds' before ' if '
-    'gather': 'gathers supplies',
+    'gather': 'gathers supplies if there is no storm',
     'repair': 'repairs the hull if it is damaged or leaking',
     'rest': 'rests',
     'watch': 'keeps watch',
@@ -120,7 +120,10 @@ def clause_text(answer: str) -> str:
 
 def habits(name: str, props: Mapping[str, Any]) -> str:
   """A temperament's properties, as the sentences a crew prompt carries."""
-  otherwise = ', or else '.join(_OTHERWISE[a] for a in props['otherwise'])
+  fallbacks = list(props['otherwise'])
+  if ' if ' in _OTHERWISE[fallbacks[-1]]:
+    fallbacks.append('rest')  # when none of them can be done (cycle 83)
+  otherwise = ', or else '.join(_OTHERWISE[a] for a in fallbacks)
   worn = 'rests' if props['when_worn'] == 'rest' else 'keeps working'
   leak = (
       'repairs it unless a clause names them to something else'

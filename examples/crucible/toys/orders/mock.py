@@ -179,20 +179,8 @@ class OrdersMock:
       if names and me not in names:
         continue
       conditional = bool(self._if & set(words))
-      said, condition = _TOKEN.findall(clause), []
-      if conditional:
-        said, condition = self._condition(said)
+      verbs, nots, condition = self._asks(clause)
       wants = {k for k, vs in self._conditions.items() if vs & set(condition)}
-      verbs, nots, negated = [], [], False
-      for w in said:
-        if w == ',' or w in self._negation_ends:
-          negated = False  # "Don't rest, build."
-        elif w in self._negations:
-          negated = True
-        else:
-          for a, vs in self._verbs.items():
-            if w in vs:
-              (nots if negated else verbs).append(a)
       key = None
       if conditional:
         holds = bool(wants & now)
@@ -218,6 +206,35 @@ class OrdersMock:
             list(dict.fromkeys(sources[key])),
         )
     return [], False, [], []
+
+  def _asks(self, clause: str) -> tuple[list[str], list[str], list[str]]:
+    """What one clause asks for and forbids, and its condition's words.
+
+    A negation forbids the actions after it up to a comma, "but" or
+    "instead" ("Don't rest, build."); a condition's words are not orders.
+
+    Args:
+      clause: One clause of an order.
+
+    Returns:
+      The actions asked, the actions forbidden, and the condition's tokens
+      (empty for a plain clause).
+    """
+    said = _TOKEN.findall(clause.lower())
+    condition = []
+    if self._if & set(said):
+      said, condition = self._condition(said)
+    verbs, nots, negated = [], [], False
+    for w in said:
+      if w == ',' or w in self._negation_ends:
+        negated = False
+      elif w in self._negations:
+        negated = True
+      else:
+        for a, vs in self._verbs.items():
+          if w in vs:
+            (nots if negated else verbs).append(a)
+    return verbs, nots, condition
 
   def _condition(self, tokens: list[str]) -> tuple[list[str], list[str]]:
     """Splits a conditional clause into (its orders, its condition).
@@ -354,13 +371,14 @@ class OrdersMock:
       return order
     parts = [p.strip() for p in _SENTENCE.split(order) if p.strip()]
 
-    def says(part, action):
-      return bool(set(_WORD.findall(part.lower())) & self._verbs[action])
+    def asks(part, action):
+      return action in self._asks(part)[0]
 
     if how == 'drops_rest':
-      parts = [p for p in parts if not (says(p, 'rest') or says(p, 'watch'))]
+      parts = [p for p in parts if not (asks(p, 'rest') or asks(p, 'watch'))]
     elif how == 'adds_repair':
-      if not any(says(p, 'repair') for p in parts):
+      # Unless a clause already says whether to repair (cycle 83).
+      if not any('repair' in sum(self._asks(p)[:2], []) for p in parts):
         parts.append('repair leaks')
     elif how == 'negates':
 

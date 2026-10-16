@@ -652,6 +652,31 @@ repair on its own turn 3 for them. Giving the same order again is a new
 giving: it costs words again and its span starts again, which is what "its
 turn 1 is the turn it is given" says.
 
+## 2w. The rule audit (cycles 76-83)
+
+After Phase 5, a read-only audit compared the laws the models are given,
+the mock that stands in for them, the ledger and the golden cases. It found
+13 defects, none of which the golden set could see, because the mock and
+the cases had been written from the same intentions. Fixed in cycles 77-83:
+
+- **The ledger:** one member takes up "someone" even through a bosun; a
+  bosun keeps their own name when relaying; no stale relay when the bosun is
+  off duty; storm-cut words are not "an earlier order"; a span is counted
+  from the order each member heard; the crew are told the scene's own goal.
+- **The mock** (the CI's stand-in for a model): a forbidding clause beats a
+  habit; spans per clause; negation ends at a comma or "but"; negated
+  conditions; a damaged hull apart from an open leak; relays by what a
+  clause asks, not by its words.
+- **The laws** (one batch, one golden rerun): a conditional clause that
+  holds comes before a plain one (hard case g5 had rested on it unstated);
+  the fallback habit says "if there is no storm ... or else rests"; the
+  relay laws state the cautious and contrary bosuns' exceptions.
+
+Every fix kept the 24 scenes' bot tables identical (audit-c83 = audit-c77)
+and the mock snapshot byte-identical. Lesson for the guide: a golden set
+checks a model against the mock's reading; only reading the laws against
+the mock finds where both agree with each other and not with the text.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

@@ -85,12 +85,10 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   'no'; cycle 78: a forbidden repair beats the leak habit in the mock;
   cycle 79: a span's age per heard order; cycle 80: the crew are told
   the scene's own goal; cycle 81: the mock reads a span per clause;
-  cycle 82: mock negation scope, negated conditions, a damaged hull).
+  cycle 82: mock negation scope, negated conditions, a damaged hull;
+  cycle 83: the law-text batch: precedence of a conditional that holds,
+  the fallback habit in a storm, the relay laws and the mock's relay).
   Still to do:
-  - Relay law text: the contrary bosun's exception for clauses that already
-    forbid is not in the law; the cautious "repairs" test is by vocabulary.
-  - The fallback habit text vs the mock's "cannot help" test on fallbacks.
-  - No law ranks a conditional clause that holds above a plain one (g5).
   - Smaller: the commander's someone law omits "only those who heard it";
     the commander's prompt lacks a span's turn; "Ash builds, Bea keeps
     watch." is one clause to the mock.
