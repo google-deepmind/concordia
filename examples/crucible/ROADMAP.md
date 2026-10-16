@@ -82,11 +82,8 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 - From the cycle 76 rule audit (fixed in cycle 77: one someone-taker through
   a bosun; the bosun's own name kept in relays; no stale relay when the
   bosun is off duty; storm-cut words not shown as an earlier order; YAML
-  'no'). Still to do:
-  - A span's age per heard order (members on an older order are told the
-    newest order's turn); repeating an order restarts the span for everyone.
-  - The mock lets a cautious member repair a forbidden repair (the leak
-    habit is checked before the forbidden list).
+  'no'; cycle 78: a forbidden repair beats the leak habit in the mock;
+  cycle 79: a span's age per heard order). Still to do:
   - Mock negation: "not" reaches every later verb in a clause; negated
     conditions ("if there is no leak") and damage without a leak.
   - Mock spans: only a trailing "for N turns" is parsed; "For two turns, ..."

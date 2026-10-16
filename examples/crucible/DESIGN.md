@@ -645,6 +645,13 @@ Flash read every timed golden case right in four runs.
 The campaign is 24 chapters. Matrix 77 cells (+timed operator), 67 of 67
 references taught; golden 53 cases (32 hard).
 
+A span is counted from the order each member follows (cycle 79, from the
+rule audit): a member off duty when a new order was given keeps their old
+order and its age, so "Build for two turns, then repair." still turns to
+repair on its own turn 3 for them. Giving the same order again is a new
+giving: it costs words again and its span starts again, which is what "its
+turn 1 is the turn it is given" says.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

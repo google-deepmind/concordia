@@ -63,6 +63,9 @@ class Ship:
   relayed: str = ''  # what the bosun last passed on (arc 5)
   bosun: str = ''  # a bosun named by order, where a scene allows it
   order_turn: int = 0  # the turn the standing order was first in force
+  # For members in `heard`: the turn their order was first in force, so a
+  # span is counted from the order they follow (cycle 79).
+  since: dict[str, int] = dataclasses.field(default_factory=dict)
   carried: str = ''  # what a storm left of the standing order (arc 6)
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
@@ -309,13 +312,20 @@ class RotaRule:
     """The order `member` follows: the last one they heard."""
     return ship.heard.get(member, ship.order)
 
-  def hear(self, ship: Ship, previous: str, turn: int) -> str:
+  def age(self, ship: Ship, member: str, turn: int) -> int:
+    """Which turn of `member`'s order `turn` is, counted from 1."""
+    return turn - ship.since.get(member, ship.order_turn) + 1
+
+  def hear(
+      self, ship: Ship, previous: str, turn: int, previous_turn: int = 0
+  ) -> str:
     """A new order reaches those on duty; the rest keep what they heard.
 
     Args:
       ship: The ship; `ship.order` is the order just given.
       previous: The order before it.
       turn: The turn it is given for.
+      previous_turn: The turn `previous` was first in force.
 
     Returns:
       Who missed it, as a sentence, or ''.
@@ -323,10 +333,13 @@ class RotaRule:
     missed = []
     for member in self._crew:
       if self.off_duty(ship, member, turn):
-        ship.heard.setdefault(member, previous)
+        if member not in ship.heard:
+          ship.heard[member] = previous
+          ship.since[member] = previous_turn
         missed.append(member)
       else:
         ship.heard.pop(member, None)
+        ship.since.pop(member, None)
     if not missed:
       return ''
     verb = 'is' if len(missed) == 1 else 'are'

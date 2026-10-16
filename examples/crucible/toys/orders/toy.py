@@ -337,7 +337,8 @@ class OrdersToy(base.Toy):
     )
     if timed:
       # Counted from 1, so "for N turns" has no off-by-one to argue about.
-      statement += f"This is the order's turn {turn - ship.order_turn + 1}.\n"
+      age = self.rota.age(ship, member, turn)
+      statement += f"This is the order's turn {age}.\n"
     if someone:
       who = self.volunteer(ship, turn)
       if who is None:
@@ -457,7 +458,7 @@ class OrdersToy(base.Toy):
     steps = []
     new_order = action.strip()
     if new_order and new_order.lower().rstrip('.') not in (HOLD, base.PASS):
-      previous, spent = ship.order, ship.spent
+      previous, spent, since = ship.order, ship.spent, ship.order_turn
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty
         ship.order_turn = ship.turn + 1
@@ -469,7 +470,7 @@ class OrdersToy(base.Toy):
             if not named:
               ship.relayed = ''
             steps.append(f'{named} is bosun now.' if named else 'No bosun now.')
-        missed = self.rota.hear(ship, previous, ship.turn + 1)
+        missed = self.rota.hear(ship, previous, ship.turn + 1, since)
         if missed:
           steps.append(missed)
         carried = self.garble(ship, ship.turn + 1)

@@ -162,6 +162,21 @@ class ShipTest(absltest.TestCase):
     self.assertEqual(toy.world.order_turn, 1)
     self.assertEqual(toy.view()['order_turn'], 4)  # the next turn is its 4th
 
+  def test_a_span_is_counted_from_the_order_a_member_heard(self):
+    # Bea is off duty on turn 2 and misses the new order; back on turn 3,
+    # her own order is on its turn 3, not the new order's turn 2.
+    data = toys.load_data('orders')
+    data['scenarios']['voyage']['off_duty'] = {'Bea': [2]}
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    for order in ('Build for two turns, then repair.', 'Gather supplies.'):
+      toy.resolve(toy.commander, order)
+    self.assertEqual(toy.world.since, {'Bea': 1})
+    self.assertEqual(toy.rota.age(toy.world, 'Bea', 3), 3)
+    self.assertEqual(toy.rota.age(toy.world, 'Ash', 3), 2)
+    toy.resolve(toy.commander, toy_lib.HOLD)
+    self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'repair')
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')
