@@ -97,23 +97,28 @@ class OllamaLanguageModel(language_model.LanguageModel):
       timeout: float = -1,
       seed: int | None = None,
   ) -> str:
-    del max_tokens, timeout, seed  # Unused.
+    del timeout, seed  # Unused.
 
     prompt_with_system_message = f'{self._system_message}\n\n{prompt}'
 
     terminators = self._terminators + list(terminators)
 
+    options = {
+        # The server would stop on a terminator inside the thinking too,
+        # so a thinking model's terminators are applied to its answer.
+        'stop': [] if self._think else terminators,
+        'temperature': temperature,
+        'top_p': top_p,
+        'top_k': top_k,
+    }
+    if not self._think:
+      # Ollama counts kept-apart thinking towards `num_predict` as well, so
+      # with think=True a bound could end the thinking before any answer.
+      options['num_predict'] = max_tokens
     response = self._client.generate(
         model=self._model_name,
         prompt=prompt_with_system_message,
-        options={
-            # The server would stop on a terminator inside the thinking too,
-            # so a thinking model's terminators are applied to its answer.
-            'stop': [] if self._think else terminators,
-            'temperature': temperature,
-            'top_p': top_p,
-            'top_k': top_k,
-        },
+        options=options,
         keep_alive='10m',
         think=self._think,
     )

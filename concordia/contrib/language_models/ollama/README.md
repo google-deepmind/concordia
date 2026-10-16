@@ -1,4 +1,4 @@
-# Ollama adapter: thinking models and timeouts
+# Ollama adapter: thinking models, timeouts and reply length
 
 Use `language_models.language_model_setup(api_type='ollama', model_name=...)`
 or construct `ollama_model.OllamaLanguageModel` directly when you need the
@@ -29,8 +29,10 @@ The default (`None`) waits indefinitely. A thinking reply has no length
 bound, and on a host without a GPU one reply can take minutes, so set a
 generous timeout together with `think=True`.
 
-The adapter still ignores `max_tokens`: Ollama counts the thinking towards
-its own limit, so a small limit would cut the thinking before any answer.
+`max_tokens` is sent as Ollama's `num_predict`, except with `think=True`:
+Ollama counts the kept-apart thinking towards that limit too, so a small
+limit would end the thinking before any answer. With `think=None` and a
+thinking model the thinking is part of the reply and counts as well.
 
 ```python
 from concordia.contrib.language_models.ollama import ollama_model

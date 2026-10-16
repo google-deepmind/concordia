@@ -64,6 +64,18 @@ class OllamaLanguageModelTest(absltest.TestCase):
     self.assertEqual(kwargs['options']['stop'], [])
     self.assertIs(kwargs['think'], True)
 
+  def test_max_tokens_bounds_the_reply_unless_thinking_is_kept_apart(self):
+    for think in (None, False):
+      model, client = _model(think=think)
+      client.generate.return_value = {'response': 'a reply'}
+      model.sample_text('Q?', max_tokens=64)
+      options = client.generate.call_args.kwargs['options']
+      self.assertEqual(options['num_predict'], 64, think)
+    model, client = _model(think=True)
+    client.generate.return_value = {'response': 'a reply', 'thinking': '...'}
+    model.sample_text('Q?', max_tokens=64)
+    self.assertNotIn('num_predict', client.generate.call_args.kwargs['options'])
+
   def test_timeout_reaches_the_client_only_when_set(self):
     _, client_cls = _model_and_class()
     client_cls.assert_called_once_with()
