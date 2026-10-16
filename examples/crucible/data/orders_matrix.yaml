@@ -110,7 +110,7 @@ reading:
     - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
     - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
     - {operator: relay, property: literal, law: a literal bosun passes the order on word for word (cycle 41), golden: [g45], test: test_each_temperament_passes_the_order_on_its_own_way}
-    - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46, g49], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" when no clause repairs (cycle 41), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: relay, property: contrary, law: a contrary bosun says "don't" before every clause (cycle 41), golden: [g48], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40], test: test_no_one_willing_means_no_one_does_it}
@@ -164,6 +164,7 @@ golden:
   - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Cy, off_duty: [Ash], expect: [build], hard: true}
   - {id: g44, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build]}
   - {id: g45, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Cy, expect: [watch], hard: true}
-  - {id: g46, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Ash, expect: [build], hard: true}
+  - {id: g46, order: 'Build; Cy, keep watch.', event: quiet, member: Cy, bosun: Ash, expect: [build], hard: true}
   - {id: g47, order: 'Gather supplies.', event: leak, member: Ash, bosun: Bea, expect: [repair, gather]}
   - {id: g48, order: 'Build.', event: quiet, member: Cy, bosun: Dex, expect: [rest], hard: true}
+  - {id: g49, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Ash, expect: [build]}
