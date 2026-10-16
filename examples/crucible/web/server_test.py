@@ -254,6 +254,16 @@ class ServerTest(absltest.TestCase):
     self.assertIn('503', end['usage']['fallback_error'])
     self.assertFalse(end['abandoned'])
 
+  def test_while_a_turn_resolves_the_board_is_as_it_was_asked(self):
+    session = self.games.start('orders', 'mock', 'one_hand')
+    asked = self.wait_for_request()['view']
+    session.game.toy.world.points = 0  # the ledger mid-turn, half applied
+    session.game.toy.world.order = 'Half applied.'
+    with mock.patch.object(session.reader, 'pending', return_value=None):
+      game = self.games.state()['game'] or {}
+    view = game['view']
+    self.assertEqual(view, asked)
+
   def test_a_failed_preview_says_so(self):
     self.call('/api/start', {'toy': 'orders', 'scenario': 'one_hand'})
     self.wait_for_request()

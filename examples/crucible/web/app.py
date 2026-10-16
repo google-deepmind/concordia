@@ -55,6 +55,10 @@ class Session:
   asked_at: float = 0.0
   last_request_id: str = ''
   previews: list[str] = dataclasses.field(default_factory=list)
+  # The board as it was when the pending order was asked: served while the
+  # turn resolves, when the ledger is half applied (cycle 91).
+  shown_view: Any = None
+  shown_turns: int = -1  # receipts there were when it was taken
 
 
 class Games:
@@ -325,11 +329,7 @@ class Games:
         'error': session.error,
         'outcome': session.game.outcome() if session.finished else None,
         'receipts': [str(r) for r in results],
-        'view': (
-            session.game.toy.view()  # pyrefly: ignore[missing-attribute]
-            if hasattr(session.game.toy, 'view')
-            else None
-        ),
+        'view': self._view(session, request, len(results)),
         'request': (
             None
             if request is None
@@ -342,6 +342,31 @@ class Games:
         ),
     }
     return out
+
+  def _view(self, session: Session, request: Any, turns: int) -> Any:
+    """The board, except while a turn resolves: then as it was asked.
+
+    Args:
+      session: The game.
+      request: The order being asked, if any.
+      turns: How many turns have a receipt.
+
+    Returns:
+      The toy's view, or None for a toy without one.
+    """
+    toy = session.game.toy
+    if not hasattr(toy, 'view'):
+      return None
+    resolving = (
+        request is None
+        and not session.finished
+        and turns == session.shown_turns
+        and session.shown_view is not None
+    )
+    if not resolving:
+      session.shown_view = toy.view()  # pyrefly: ignore[missing-attribute]
+      session.shown_turns = turns
+    return session.shown_view
 
   def preview(self, text: str) -> dict[str, Any]:
     with self._lock:

@@ -400,9 +400,11 @@ function render(state) {
   $('context').textContent = req ? req.context + '\n\n' + req.question : '';
   $('reqerror').textContent = req && req.error ? 'Not accepted: ' + req.error : '';
   sendable();
-  if (req && req.question !== lastQuestion) {
-    lastQuestion = req.question; PREDICTED = null;
+  if ((req && req.question !== lastQuestion) || (!req && PREDICTED)) {
+    // A preview is for the order being asked: gone once it is sent.
+    lastQuestion = req ? req.question : ''; PREDICTED = null;
     $('previewout').hidden = true; $('plainpreviewout').textContent = '';
+    if (lastView) renderView(lastView, lastReceipts);
   }
 }
 async function poll() {
