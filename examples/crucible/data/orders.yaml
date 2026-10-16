@@ -117,9 +117,11 @@ relaying:
   laws:
     word_for_word: passes the order on word for word
     drops_rest: passes it on but leaves out any clause to rest or keep watch
+    # Its own sentence (cycle 103: joined with "and", a live relay left it
+    # unclear whether "repair leaks" was only for the member just named).
     adds_repair: >-
-      passes it on and adds "repair leaks" unless a clause already says
-      whether to repair
+      passes it on and adds a sentence of their own, "Repair leaks.", unless
+      a clause already says whether to repair
     negates: >-
       passes it on with "don't" before each clause, leaving a clause that
       already says not, never or don't as it is

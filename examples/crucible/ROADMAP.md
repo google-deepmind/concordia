@@ -27,10 +27,10 @@ Phase 2, overloading
 - [x] The median turn offers three or more moves with a measured effect (audit-c101: 120 to 14640 candidate messages with distinct outcomes)
 
 Phase 3, interaction matrix
-- [ ] Properties live in YAML and component state, not only in prompts
-- [ ] Matrix cells live in YAML and an audit script counts them (25+)
+- [x] Properties live in YAML and component state, not only in prompts (relay laws and temperaments in `orders.yaml`/`passiton.yaml`, the line and goals in `passiton.yaml`; prompts are written from them)
+- [x] Matrix cells live in YAML and an audit script counts them (25+) (`data/passiton_matrix.yaml`, `python -m examples.crucible.audit passiton`: 31 cells, no problems; `audit_test.test_pass_it_on_matrix_has_no_problems`)
 - [ ] Every new feature adds or deepens two cells
-- [ ] Golden sets pass on the mock, an Ollama model and a Together model
+- [ ] Golden sets pass on the mock, an Ollama model and a Together model (mock 22/22 x2 `audit_test`; DeepSeek-V4.1-Flash PASS x2, 20/20 hard, soft 100%, evidence/golden-passiton-flash-c103b-x2.json; qwen3:8b running)
 
 Phase 4, pacing
 - [x] Each arc has Isolate, Develop, Twist and Catharsis levels, gated by stars (`data/passiton.yaml`: arcs Mouth to ear and Dex in the middle; `campaign.chapters`)

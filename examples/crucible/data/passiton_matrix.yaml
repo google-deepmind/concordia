@@ -11,7 +11,6 @@ systems:
   line: Line (who stands where, and who acts at the top)
   reading: Reading (what the last in line make of what reached them)
   temperament: Temperament (what each does with nothing for them)
-  situation: Situation (the level's event)
   verdict: Verdict (each goal checked, tries, stars)
 
 # Row system affects column system by mechanism.
@@ -21,7 +20,6 @@ cells:
   - {from: temperament, to: relay, by: how a relayer passes things on is their temperament's law, test: test_the_view_shows_the_line_and_every_try}
   - {from: line, to: reading, by: everyone at the top hears the same words; a plain clause is for all of them, test: test_the_obvious_message_works_only_where_meant}
   - {from: temperament, to: reading, by: with nothing for them a member does what their temperament does anyway, golden: [p9, p10], test: test_silence_is_an_order_for_cy}
-  - {from: situation, to: reading, by: an open leak sends the cautious to repair unless a clause names them (a coin flip live; cycle 100), golden: [p12]}
   - {from: reading, to: verdict, by: each action at the top is checked against that member's goal, test: test_the_obvious_message_works_only_where_meant}
   - {from: message, to: verdict, by: the solving message's words set the stars, test: test_the_skilled_bot_earns_three_stars_on_the_first_try}
   - {from: verdict, to: message, by: three tries; a message over the limit costs none, test: test_three_tries_then_over_and_a_long_message_costs_no_try}
@@ -75,6 +73,9 @@ reading:
     - {operator: adds_repair, property: no_repair_clause, law: the cautious add "repair leaks" when nothing says whether to repair, golden: [r9]}
     - {operator: adds_repair, property: repair_said, law: the cautious add nothing when a clause already says whether to repair, golden: [r10]}
 
+# (Bea's leak habit against a clause naming her was a coin flip on a live
+# model, cycle 100; the levels built on it were cut, and so is its cell.)
+#
 # Golden cases. A read case asks the model what `reader` does with
 # `message`; a relay case asks the model how `relayer` passes `message` on,
 # then reads the result for `probe` by the laws (the mock), so it tests the
@@ -91,7 +92,6 @@ golden:
   - {id: p9, kind: read, reader: Cy, message: 'Ash, build.', expect: [rest], hard: true}
   - {id: p10, kind: read, reader: Ash, message: 'Cy, keep watch.', expect: [build], hard: true}
   - {id: p11, kind: read, reader: Ash, message: "Ash, don't rest.", expect: [build]}
-  - {id: p12, kind: read, reader: Bea, message: 'Bea, build.', event: leak, expect: [build]}
   - {id: p13, kind: read, reader: Bea, message: 'Ash, build.', expect: [gather]}
   - {id: r1, kind: relay, relayer: Dex, message: Build., probe: Cy, expect: [rest], hard: true}
   - {id: r2, kind: relay, relayer: Dex, message: "Don't build.", probe: Cy, expect: [build], hard: true}

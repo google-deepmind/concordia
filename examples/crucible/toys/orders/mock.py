@@ -211,6 +211,8 @@ class OrdersMock:
   def _by_name(self, part: str) -> list[str]:
     """Splits "Ash builds, Bea keeps watch" at a comma before a name.
 
+    Also at ", and": "Cy, keep watch, and repair leaks" is two clauses.
+
     Only where both sides ask for something: "Ash, keep watch" and "Ash,
     Bea, build" stay whole (cycle 84).
 
@@ -223,7 +225,11 @@ class OrdersMock:
     names = '|'.join(re.escape(n) for n in sorted(self._crew))
     if not names:
       return [part]
-    pieces = re.split(rf',\s*(?=(?:{names})\b)', part, flags=re.IGNORECASE)
+    # A comma before a name, or ", and" (cycle 103: a live relay said "Cy,
+    # keep watch, and repair leaks."), where both sides ask for something.
+    pieces = re.split(
+        rf',\s*(?=(?:{names})\b)|,\s*and\s+', part, flags=re.IGNORECASE
+    )
     out = []
     for piece in pieces:
       if out and not any(self._asks(out[-1])[:2]):
