@@ -259,6 +259,15 @@ class ShipTest(absltest.TestCase):
         prompt,
     )
 
+  def test_hold_variants_and_punctuation_keep_the_order(self):
+    for text in ('hold!', 'Hold on.', '.', '...', ' HOLD '):
+      toy = _toy()
+      toy.resolve(toy.commander, 'Build.')
+      points = toy.world.points
+      toy.resolve(toy.commander, text)
+      self.assertEqual(toy.world.order, 'Build.', text)
+      self.assertGreaterEqual(toy.world.points, points, text)  # nothing paid
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

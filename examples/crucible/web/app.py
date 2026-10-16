@@ -25,6 +25,7 @@ from typing import Any
 import uuid
 
 from concordia.contrib.components.agent import blocking_input
+from concordia.contrib.language_models import fallback as fallback_lib
 
 from examples.crucible import campaign
 from examples.crucible import harness
@@ -45,8 +46,11 @@ class Session:
   mode: str = 'mock'
   daily: str = ''  # the date, for a daily challenge
   model: Any = None
+  # Live minds: the mock answers a call the provider cannot (cycle 88).
+  fallback: fallback_lib.FallbackLanguageModel | None = None
   thread: threading.Thread | None = None
   finished: bool = False
+  abandoned: bool = False  # ended by a new game or quit, not played out
   error: str = ''
   asked_at: float = 0.0
   last_request_id: str = ''
@@ -86,6 +90,9 @@ class Games:
     self._max_calls = max_calls
     self._telemetry_dir = telemetry_dir
     self._lock = threading.Lock()
+    # Held across a whole start, so two quick starts cannot both run games
+    # (cycle 88: the first was left blocked and its record unfinished).
+    self._start_lock = threading.Lock()
     self.session: Session | None = None
     os.makedirs(telemetry_dir, exist_ok=True)
     self.progress = campaign.Progress(
@@ -144,6 +151,12 @@ class Games:
     Raises:
       ValueError: If the scene is a chapter not yet open.
     """
+    with self._start_lock:
+      return self._start(toy, mode, scenario, daily)
+
+  def _start(
+      self, toy: str, mode: str | None, scenario: str | None, daily: bool
+  ) -> Session:
     data = toys.load_data(toy)
     seed = int(time.time()) % 1000
     today = ''
@@ -162,8 +175,16 @@ class Games:
     mode = mode if mode in self.modes else self.modes[0]
     name = self._model_name if mode == self._mode else None
     model = model_setup.build_model(mode, name, self._max_calls)
+    counter = spare = None
     if mode != 'mock':
-      model = model_setup.UsageCounter(model)
+      # A provider error (after retries) or a spent budget no longer ends
+      # the game or fills it with empty readings: the mock, which reads by
+      # the same laws, answers that call.
+      counter = model_setup.UsageCounter(model)
+      spare = fallback_lib.FallbackLanguageModel(
+          counter, model_setup.mock_model(), max_primary_calls=self._max_calls
+      )
+      model = spare
     reader = blocking_input.BlockingInput()
     if scenario not in data.get('scenarios', {}):
       scenario = None
@@ -183,7 +204,8 @@ class Games:
         telemetry_path=os.path.join(self._telemetry_dir, f'{game_id}.jsonl'),
         mode=mode,
         daily=today,
-        model=model,
+        model=counter or model,
+        fallback=spare,
     )
     self._record(
         session,
@@ -210,6 +232,7 @@ class Games:
       session.game.play()
     except blocking_input.InputClosedError:
       session.error = 'Game abandoned.'
+      session.abandoned = True
     except Exception as error:  # pylint: disable=broad-exception-caught
       session.error = f'{type(error).__name__}: {error}'
     session.finished = True
@@ -219,6 +242,9 @@ class Games:
       usd = tokens / 1e6 * self._price if session.mode == 'together' else 0.0
       usage = {'calls': session.model.calls, 'est_tokens': tokens,
                'usd': round(usd, 4)}  # fmt: skip
+      if session.fallback is not None:
+        usage['fallbacks'] = session.fallback.fallbacks
+        usage['fallback_error'] = session.fallback.last_error
       if usd:
         self._add_spend(
             {'game': session.game_id, 'mode': session.mode, **usage}
@@ -235,6 +261,7 @@ class Games:
             'outcome': session.game.outcome(),
             'usage': usage,
             'error': session.error,
+            'abandoned': session.abandoned,
             'truth': session.game.toy.get_state(),
         },
     )
@@ -322,8 +349,14 @@ class Games:
     if session is None or session.reader.pending() is None:
       return {'ok': False, 'summary': 'Nothing to preview now.'}
     toy = session.game.toy
-    receipt, world = toy.simulate(session.game.kind.seat, text)
-    session.previews.append(text)
+    session.previews.append(text)  # tried, even if the preview fails
+    try:
+      receipt, world = toy.simulate(session.game.kind.seat, text)
+    except Exception as error:  # pylint: disable=broad-exception-caught
+      return {
+          'ok': False,
+          'summary': f'The preview failed ({type(error).__name__}); try again.',
+      }
     predicted = None
     log = list(getattr(world, 'log', ()))
     entry = log[-1] if log else {}

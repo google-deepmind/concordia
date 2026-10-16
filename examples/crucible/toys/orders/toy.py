@@ -452,7 +452,9 @@ class OrdersToy(base.Toy):
     ship = world
     steps = []
     new_order = action.strip()
-    if new_order and new_order.lower().rstrip('.') not in (HOLD, base.PASS):
+    # "hold!", "Hold on" and bare punctuation keep the order too (cycle 88).
+    said = ' '.join(re.findall(r'[a-z]+', new_order.lower()))
+    if said and said not in (HOLD, base.PASS, f'{HOLD} on'):
       previous, spent, since = ship.order, ship.spent, ship.order_turn
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty

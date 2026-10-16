@@ -19,10 +19,13 @@ import json
 import os
 import tempfile
 import time
+import threading
 import urllib.error
 import urllib.request
+from unittest import mock
 
 from absl.testing import absltest
+from concordia.language_model import no_language_model
 from examples.crucible import campaign
 from examples.crucible import toys
 from examples.crucible.web import app as server_lib
@@ -188,6 +191,78 @@ class ServerTest(absltest.TestCase):
     games._add_spend({'game': 'g', 'mode': 'together', 'usd': 0.6})  # pylint: disable=protected-access
     self.assertNotIn('together', games.modes)
     self.assertIn('ollama', games.modes)
+
+  def _records(self, games):
+    del games
+    out = []
+    for name in sorted(os.listdir(self.dir)):
+      if name.endswith('.jsonl') and name != 'visits.jsonl':
+        with open(os.path.join(self.dir, name)) as f:
+          out.append([json.loads(line) for line in f if line.strip()])
+    return out
+
+  def test_two_quick_starts_leave_one_game_and_one_abandoned_record(self):
+    threads = [
+        threading.Thread(
+            target=self.games.start, args=('orders', 'mock', 'one_hand')
+        )
+        for _ in range(2)
+    ]
+    for t in threads:
+      t.start()
+    for t in threads:
+      t.join()
+    game = self.wait_for_request()
+    self.assertFalse(game['finished'])
+    for _ in range(100):  # the displaced game writes its end record
+      records = self._records(self.games)
+      ended = [r for r in records if r[-1]['kind'] == 'end']
+      if ended:
+        break
+      time.sleep(0.02)
+    self.assertLen(records, 2)
+    self.assertLen(ended, 1)
+    self.assertTrue(ended[0][-1]['abandoned'])
+
+  def test_a_provider_error_is_answered_by_the_mock_not_the_end(self):
+    class Down(no_language_model.NoLanguageModel):
+
+      def sample_text(self, prompt, **kwargs):
+        raise ConnectionError('503 Service Unavailable')
+
+      def sample_choice(self, prompt, responses, **kwargs):
+        raise ConnectionError('503 Service Unavailable')
+
+    games = server_lib.Games('mock', None, 100, self.dir, ['ollama'])
+    with mock.patch.object(
+        server_lib.model_setup, 'build_model', return_value=Down()
+    ):
+      session = games.start('orders', 'ollama', 'one_hand')
+    for move in ('Build.', 'hold', 'hold'):
+      for _ in range(200):
+        if session.reader.pending() is not None or session.finished:
+          break
+        time.sleep(0.02)
+      if session.finished:
+        break
+      session.reader.submit(session.reader.pending().request_id, move)
+    session.thread.join(timeout=10)
+    self.assertEqual(session.error, '')
+    self.assertTrue(session.game.outcome()['winner'])  # the mock read "Build."
+    end = self._records(games)[-1][-1]
+    self.assertGreater(end['usage']['fallbacks'], 0)
+    self.assertIn('503', end['usage']['fallback_error'])
+    self.assertFalse(end['abandoned'])
+
+  def test_a_failed_preview_says_so(self):
+    self.call('/api/start', {'toy': 'orders', 'scenario': 'one_hand'})
+    self.wait_for_request()
+    with mock.patch.object(
+        self.games.session.game.toy, 'simulate', side_effect=RuntimeError
+    ):
+      reply = self.call('/api/preview', {'text': 'Build.'})
+    self.assertFalse(reply['ok'])
+    self.assertIn('preview failed', reply['summary'])
 
   def test_stale_answer_is_refused(self):
     self.call('/api/start', {'toy': 'orders'})
