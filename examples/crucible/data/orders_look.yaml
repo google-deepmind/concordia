@@ -23,6 +23,7 @@ palette:
     bold: '#c8571b'
     cautious: '#1f8a7a'
     literal: '#4e5662'
+    contrary: '#8a3b8f'
     hull: '#c2412d'
     project: '#5b8c6a'
     supplies: '#8a6b3d'
@@ -41,6 +42,7 @@ palette:
     bold: '#ef8a4a'
     cautious: '#4fc2b1'
     literal: '#a7afba'
+    contrary: '#d08bd4'
     hull: '#ee7a63'
     project: '#7fb38e'
     supplies: '#c9a571'
@@ -57,6 +59,7 @@ temperaments:
   bold: {glyph: '▲', word: bold, color: bold}
   cautious: {glyph: '●', word: cautious, color: cautious}
   literal: {glyph: '■', word: literal, color: literal}
+  contrary: {glyph: '▼', word: contrary, color: contrary}
 
 conditions:
   fresh: {glyph: '·', word: fresh, color: muted}
@@ -87,3 +90,4 @@ properties:
   bold: temperaments.bold
   cautious: temperaments.cautious
   literal: temperaments.literal
+  contrary: temperaments.contrary

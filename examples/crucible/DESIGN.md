@@ -337,6 +337,30 @@ The provider is not fully deterministic even at temperature 0 (the failing
 soft cases change between runs), so the golden set is run at least twice
 per model and both runs must pass.
 
+## 2i. Arc 3: Dex, and the word "not" (cycle 15)
+
+A fourth crew member, Dex, is **contrary**: he does the opposite of a
+clause that applies (told to work, he rests; told to rest, he builds; told
+not to do something, he does it). Contrariness is a temperament property
+(`contrary`, `works`), the prompt states it, and the mock reads it with the
+same law as everyone else. To give him something to reverse, orders gained
+a new operator: **negation** ("not", "never", "don't" forbid the action they
+name), which every temperament reads differently: the bold do what they do
+otherwise, the literal are left with nothing to do, the contrary do exactly
+the forbidden thing.
+
+| Beat | Scene | What changes | Bots, 16 seeds (skilled / random / passive / habit, %) |
+|---|---|---|---|
+| Isolate | Contrary | Dex alone, 1 command point: "Build." makes him rest; "Rest." or "Don't build." makes him build | 100 / 31 / 0 / 0 |
+| Develop | Mixed hands | Ash and Dex read one order: what moves one stops the other | 100 / 44 / 0 / 0 |
+| Twist | The mender | the habit "Dex, rest; everyone else build." gets Dex building while leaks run; he must be told "don't repair" to mend | 100 / 6 / 0 / 0 |
+| Catharsis | All hands | all four, squalls, leaks, storms, 14 turns | 100 / 6 / 0 / 0 |
+
+Matrix: +1 operator (negation), +1 property (contrary), +6 reading cells;
+golden set 33 cases (17 hard), the mock 33/33. Adding Dex's orders to the
+bots' repertoire made random play stronger in Squalls (81%), so Squalls was
+retuned (target 18 from 2 supplies: 100 / 38 / 0).
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
@@ -388,4 +412,4 @@ Sources:
 | 12 | Arc 2 (Lookout, Squalls, Night watch, The crossing): squalls; hazards as data; scenes name their own habit; the skilled bot plans over the premise's schedules. Cells added: hazards->hull, watch->hull, fatigue->watch, watch->project; reading cell watch x worn. |
 | 13 | Title: Twelve Words. One look per kind (`orders_look.yaml`); the board draws `view()`; previews mark each member's next action. |
 | 14 | Live games on DeepSeek-V4.1-Flash (3 scenes, est. $0.05): the commander prompt states order prices, narrated orders are unwrapped. The rule audit (DESIGN §2g). Stars count words spoken. Cell added: conditional x worn. |
-| 15 | Readings sampled at temperature 0; golden sets run twice per model (DESIGN §2h). Library round 4: ReasonedChoice temperature and words over letters. |
+| 15 | Readings sampled at temperature 0; golden sets run twice per model (DESIGN §2h). Library round 4: ReasonedChoice temperature and words over letters. Arc 3: Dex (contrary) and negation; 12 campaign chapters. Cells added: 6 reading cells. |

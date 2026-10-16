@@ -67,6 +67,22 @@ class BeatsTest(absltest.TestCase):
     self.assertEqual(rates['skilled']['win_pct'], 100)
     self.assertEqual(rates['random']['win_pct'], 0)
 
+  def test_arc_three_contrary(self):
+    rates = _rates('contrary')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['habit']['win_pct'], 0)  # "Build." makes Dex rest.
+    rates = _rates('mixed_hands')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+
+  def test_arc_three_twist_and_catharsis(self):
+    rates = _rates('the_mender')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['habit']['win_pct'], 0)  # Dex builds; no one mends.
+    rates = _rates('all_hands')
+    self.assertEqual(rates['skilled']['win_pct'], 100)
+    self.assertEqual(rates['passive']['win_pct'], 0)
+
   def test_catharsis_rewards_skill(self):
     rates = _rates('voyage')
     self.assertGreaterEqual(

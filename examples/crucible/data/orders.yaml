@@ -45,11 +45,22 @@ temperaments:
     when_worn: work
     on_leak: follow
     sensible: false
+  # contrary: does the opposite of a clause that applies: told to work,
+  # rests; told to rest, does `works`; told not to do something, does it.
+  contrary:
+    describe: does the opposite of what he is told
+    otherwise: [rest]
+    when_worn: work
+    on_leak: follow
+    sensible: false
+    contrary: true
+    works: build
 
 crew:
   Ash: {temperament: bold}
   Bea: {temperament: cautious}
   Cy: {temperament: literal}
+  Dex: {temperament: contrary}
 
 # The crew's reading of an order is a judgement, not a story: sampled cold.
 reading_temperature: 0.0
@@ -59,6 +70,7 @@ reading_laws:
   - A plain clause (no names, no condition) applies to every crew member, every turn.
   - A clause that names crew members applies to them alone, and comes before any other.
   - A clause with if, when, whenever or during applies only while its condition holds; a clause with unless applies only while it does not.
+  - A clause that says not, never or don't forbids the action it names.
   - With no clause that applies, a crew member does what their temperament does otherwise.
 
 # The menu, in order. Effects are data read by one law (rules.CrewRule):
@@ -194,6 +206,7 @@ scenarios:
   voyage:            # the game: project 24 by turn 12, before 10 damage
     beat: catharsis
     title: The voyage
+    crew_present: [Ash, Bea, Cy]
     stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
   # Arc 2: information. The turns ahead are hidden; a watch reveals them.
   lookout:
@@ -217,14 +230,14 @@ scenarios:
     title: Squalls
     crew_present: [Ash, Bea, Cy]
     turns: 10
-    target: 14
-    start: {supplies: 4, damage: 0, progress: 0}
+    target: 18
+    start: {supplies: 2, damage: 0, progress: 0}
     events: {3: squall, 6: squall, 8: leak, 9: squall}
     stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 4}}
     premise: >-
       Ash (bold), Bea (cautious) and Cy (literal). Squalls are coming, you
       cannot see when: a squall does 3 damage unless someone kept watch the
-      turn before. Bring the project to 14 in 10 turns before 10 damage.
+      turn before. Bring the project to 18 in 10 turns before 10 damage.
   night_watch:
     beat: twist
     title: Night watch
@@ -250,6 +263,7 @@ scenarios:
   crossing:
     beat: catharsis
     title: The crossing
+    crew_present: [Ash, Bea, Cy]
     turns: 14
     target: 26
     start: {supplies: 3, damage: 0, progress: 0}
@@ -259,20 +273,83 @@ scenarios:
       The crossing: everything at once. Leaks, storms and squalls you cannot
       see coming unless someone keeps watch; three temperaments; command to
       spend. Bring the project to 26 in 14 turns before 10 damage.
+  # Arc 3: negation, and a crew member who does the opposite.
+  contrary:
+    beat: isolate
+    title: Contrary
+    habit: 'Build.'
+    crew_present: [Dex]
+    menu: [build, rest]
+    turns: 3
+    target: 6
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {}
+    command: {points: 1, regen: 0, cap: 1, per_words: 4}
+    stars: {2: {max_words_spoken: 2}, 3: {max_words_spoken: 1}}
+    premise: >-
+      Dex alone, who is contrary: he does the opposite of what he is told.
+      Told to work, he rests; told to rest, he builds; told not to do
+      something, he does it. Bring the project to 6 in 3 turns. You have 1
+      command point: enough for one order of fewer than 4 words.
+  mixed_hands:
+    beat: develop
+    title: Mixed hands
+    crew_present: [Ash, Dex]
+    menu: [repair, gather, build, rest]
+    turns: 8
+    target: 12
+    wreck_at: 8
+    start: {supplies: 4, damage: 0, progress: 0}
+    events: {4: leak}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_words_spoken: 8}}
+    premise: >-
+      Ash, who is bold, and Dex, who is contrary. One order is read by both:
+      what moves Ash may stop Dex. Supplies are short and the hull may
+      leak. Bring the project to 12 in 8 turns before 8 damage.
+  the_mender:
+    beat: twist
+    title: The mender
+    habit: 'Dex, rest; everyone else build.'
+    crew_present: [Ash, Cy, Dex]
+    menu: [repair, gather, build, rest]
+    turns: 12
+    target: 20
+    wreck_at: 8
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {2: leak, 4: leak, 6: leak, 8: leak}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_words_spoken: 8}}
+    premise: >-
+      Ash (bold), Cy (literal) and Dex (contrary). The hull leaks every
+      other turn; an open leak adds 2 damage a turn and 8 wrecks the ship.
+      Bring the project to 20 in 12 turns.
+  all_hands:
+    beat: catharsis
+    title: All hands
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 14
+    target: 30
+    start: {supplies: 4, damage: 0, progress: 0}
+    events: {2: squall, 3: leak, 5: storm, 7: squall, 8: leak, 10: storm, 12: squall}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
+      through leaks, storms and squalls you cannot see coming unless someone
+      keeps watch. Bring the project to 30 in 14 turns before 10 damage.
   free:              # free play: no goal, no end but the turn limit
     free: true
     turns: 40
     command: {points: 99, regen: 99, cap: 99, per_words: 99}
     events_cycle: 10 # the event schedule repeats every 10 turns
     premise: >-
-      Free play. You command a crew of three: Ash (bold), Bea (cautious) and
-      Cy (literal). Give a standing order of at most 12 words, change it
+      Free play. You command a crew of four: Ash (bold), Bea (cautious), Cy
+      (literal) and Dex (contrary). Give a standing order of at most 12 words, change it
       whenever you like, and watch how each of them reads it as quiet turns,
       leaks and storms come and go. Nothing is at stake.
 
 # The campaign: scenes in order. A chapter opens once the one before has a
 # star; the first is open from the start.
-campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing]
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands]
 
 # The daily challenge: one scene, its events shifted by a seed from the date.
 daily: {scenario: voyage, seeds: 997}
@@ -290,3 +367,4 @@ lexicon:
     tired: [tired, exhausted, worn, fatigue]
     squall: [squall, squalls]
   if_words: [if, when, whenever, during, unless]
+  negations: [not, never, don, dont, no]

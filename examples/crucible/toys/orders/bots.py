@@ -39,6 +39,12 @@ ORDERS = (
     'Cy, gather supplies; Ash builds; Bea fixes leaks.',
     'Gather supplies; during storms, build.',
     'Everyone rest.',
+    'Rest.',
+    "Don't build.",
+    'Dex, rest; everyone else build.',
+    "Dex, don't repair; Ash and Cy build.",
+    "Dex, don't repair; everyone else build.",
+    "Ash builds; Dex, don't build.",
 )
 
 

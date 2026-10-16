@@ -47,6 +47,8 @@ def run_case(
   """Asks the model what the case's member does; returns the verdict."""
   data = copy.deepcopy(toys.load_data('orders'))
   data['events'] = {1: case['event']}
+  # The whole crew serves in a golden case, whoever the scene usually has.
+  data['scenarios']['voyage'].pop('crew_present', None)
   toy = orders_lib.OrdersToy(model, data, 'voyage', seed=0)
   ship = toy.world
   ship.shift = 0

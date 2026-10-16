@@ -58,7 +58,7 @@ ORDER_MARKER = 'Give your standing order'
 HOLD = 'hold'
 
 _OTHERWISE = {
-    'build': 'builds if there is a supply',
+    'build': 'builds if there is a supply',  # 'builds' before ' if '
     'gather': 'gathers supplies',
     'repair': 'repairs the hull if it is damaged or leaking',
     'rest': 'rests',
@@ -80,6 +80,12 @@ def habits(name: str, props: Mapping[str, Any]) -> str:
       if props['sensible']
       else 'does an ordered action even when it cannot help this turn'
   )
+  if props.get('contrary'):
+    works = _OTHERWISE[props['works']].split(' if ')[0]
+    ordered = (
+        f'does the opposite: told to work, {name} rests; told to rest, '
+        f'{name} {works}; told not to do something, {name} does it'
+    )
   return (
       f'When a clause applies, {name} {ordered}. With no clause that '
       f'applies, {name} {otherwise}. When worn out, {name} {worn}. With a '

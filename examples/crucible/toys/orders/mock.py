@@ -51,11 +51,23 @@ class OrdersMock:
     self._conditions = {k: frozenset(v) for k, v in lex['conditions'].items()}
     self._if = frozenset(lex['if_words'])
     self._crew = {name.lower() for name in data['crew']}
+    self._negations = frozenset(lex.get('negations', ()))
 
   def ordered(
       self, order: str, now: set[str], member: str | None = None
   ) -> tuple[list[str], bool]:
-    """The actions the order asks of `member` now, and whether by name.
+    """The actions the order asks of `member` now, and whether by name."""
+    wanted, named, _ = self.read(order, now, member)
+    return wanted, named
+
+  def read(
+      self, order: str, now: set[str], member: str | None = None
+  ) -> tuple[list[str], bool, list[str]]:
+    """What the order asks of `member` now: wanted, by name, forbidden.
+
+    Clauses that name crew members apply to them alone and come first; a
+    conditional clause applies only while its condition holds; an action
+    named after "not", "never" or "don't" is forbidden, not wanted.
 
     Args:
       order: The standing order.
@@ -63,12 +75,13 @@ class OrdersMock:
       member: The crew member reading the order.
 
     Returns:
-      The actions asked (in the order named, without repeats), and whether
-      they come from a clause that names the member.
+      The actions asked (in the order named, without repeats), whether they
+      come from a clause that names the member, and the actions forbidden.
     """
     me = (member or '').lower()
     buckets = {(True, True): [], (True, False): [], (False, True): [],
                (False, False): []}  # fmt: skip
+    forbidden = {key: [] for key in buckets}
     for clause in _CLAUSE.split(order.lower()):
       words = _WORD.findall(clause or '')
       if not words:
@@ -85,19 +98,34 @@ class OrdersMock:
           if conditional
           else words
       )
-      verbs = [a for w in said for a, vs in self._verbs.items() if w in vs]
+      verbs, nots, negated = [], [], False
+      for w in said:
+        if w in self._negations:
+          negated = True
+          continue
+        for a, vs in self._verbs.items():
+          if w in vs:
+            (nots if negated else verbs).append(a)
+      key = None
       if conditional:
         holds = bool(wants & now)
         if 'unless' in words:
           holds = not holds
         if holds:
-          buckets[(bool(names), True)].extend(verbs)
+          key = (bool(names), True)
       else:
-        buckets[(bool(names), False)].extend(verbs)
+        key = (bool(names), False)
+      if key is not None:
+        buckets[key].extend(verbs)
+        forbidden[key].extend(nots)
     for key in ((True, True), (True, False), (False, True), (False, False)):
-      if buckets[key]:
-        return list(dict.fromkeys(buckets[key])), key[0]
-    return [], False
+      if buckets[key] or forbidden[key]:
+        return (
+            list(dict.fromkeys(buckets[key])),
+            key[0],
+            list(dict.fromkeys(forbidden[key])),
+        )
+    return [], False, []
 
   def makes_sense(
       self, action: str, supplies: int, damage: int, leak: bool, storm: bool
@@ -133,7 +161,15 @@ class OrdersMock:
     leak = 'leak' in situation.lower()
     storm = 'storm' in situation.lower()
     now = self.conditions_now(situation, worn)
-    wanted, named = self.ordered(order, now, member)
+    wanted, named, forbidden = self.read(order, now, member)
+    if props.get('contrary'):
+      # The opposite of what applies: the forbidden is done; work becomes
+      # rest and rest becomes work.
+      if forbidden:
+        wanted = forbidden[:1]
+      elif wanted:
+        wanted = [props['works'] if 'rest' in wanted else 'rest']
+      forbidden = []
     if menu is not None:
       # An action the scene does not offer cannot be done.
       wanted = [a for a in wanted if a in menu]
@@ -152,8 +188,10 @@ class OrdersMock:
       ):
         return action
     for action in props['otherwise']:
-      if (menu is None or action in menu) and self.makes_sense(
-          action, supplies, damage, leak, storm
+      if (
+          (menu is None or action in menu)
+          and action not in forbidden
+          and self.makes_sense(action, supplies, damage, leak, storm)
       ):
         return action
     return 'rest'

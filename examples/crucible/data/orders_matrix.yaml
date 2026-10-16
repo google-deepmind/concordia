@@ -49,6 +49,7 @@ reading:
     named: a clause that names crew members
     watch: an order to keep watch
     silence: no clause that applies
+    negation: a clause that forbids an action (not, never, don't)
   properties:
     quiet: a quiet turn
     leak: a leak open in the hull
@@ -58,6 +59,7 @@ reading:
     bold: a bold member
     cautious: a cautious member
     literal: a literal member
+    contrary: a contrary member
   cells:
     - {operator: directive, property: quiet, law: members do the action the order names, golden: [g1, g2]}
     - {operator: directive, property: storm, law: the sensible skip an action that cannot help now; the literal do it anyway, golden: [g3, g4]}
@@ -76,6 +78,12 @@ reading:
     - {operator: silence, property: leak, law: with no clause that applies the cautious repair an open leak, golden: [g12]}
     - {operator: watch, property: worn, law: a worn-out cautious member named to watch rests instead; a worn-out bold one keeps watch, golden: [g22, g23]}
     - {operator: conditional, property: worn, law: a clause conditioned on tiredness applies to the worn out; its condition word is not itself an order (cycle 14), golden: [g24, g25]}
+    - {operator: directive, property: contrary, law: the contrary do the opposite of what applies; told to work they rest, told to rest they work (cycle 15), golden: [g26, g27]}
+    - {operator: negation, property: contrary, law: told not to do something, the contrary do it (cycle 15), golden: [g28]}
+    - {operator: negation, property: bold, law: a forbidden action is skipped and the bold do what they do otherwise (cycle 15), golden: [g29]}
+    - {operator: negation, property: literal, law: a clause that only forbids gives the literal nothing to do (cycle 15), golden: [g30]}
+    - {operator: named, property: contrary, law: a clause naming the contrary is reversed for them alone; the others read their own clauses (cycle 15), golden: [g31, g32]}
+    - {operator: silence, property: contrary, law: with no clause that applies the contrary rest (cycle 15), golden: [g33]}
 
 # Golden cases: one situation, one member, the actions the laws allow.
 # `hard` cases follow from a law a model must not break (names, conditions,
@@ -106,3 +114,11 @@ golden:
   - {id: g23, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Ash, worn: true, expect: [watch]}
   - {id: g24, order: 'If tired, build.', event: quiet, member: Cy, worn: true, expect: [build], hard: true}
   - {id: g25, order: 'If tired, build.', event: quiet, member: Cy, expect: [rest]}
+  - {id: g26, order: Build the project., event: quiet, member: Dex, expect: [rest], hard: true}
+  - {id: g27, order: Rest., event: quiet, member: Dex, expect: [build], hard: true}
+  - {id: g28, order: "Don't build.", event: quiet, member: Dex, expect: [build], hard: true}
+  - {id: g29, order: "Don't build.", event: quiet, member: Ash, expect: [gather]}
+  - {id: g30, order: "Don't build.", event: quiet, member: Cy, expect: [rest], hard: true}
+  - {id: g31, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Dex, expect: [repair], hard: true}
+  - {id: g32, order: "Dex, don't repair; Ash and Cy build.", event: quiet, member: Ash, expect: [build], hard: true}
+  - {id: g33, order: '', event: quiet, member: Dex, expect: [rest]}

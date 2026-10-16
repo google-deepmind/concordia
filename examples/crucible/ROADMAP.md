@@ -37,7 +37,7 @@ Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
 ## Phase 4: pacing
 
-- [x] Each arc has Isolate, Develop, Twist and Catharsis scenes. (cycle 10, arc 1: One hand, Two hands, Supply run, The voyage; cycle 12, arc 2: Lookout, Squalls, Night watch, The crossing; `beats_test`)
+- [x] Each arc has Isolate, Develop, Twist and Catharsis scenes. (cycle 10, arc 1: One hand, Two hands, Supply run, The voyage; cycle 12, arc 2: Lookout, Squalls, Night watch, The crossing; cycle 15, arc 3: Contrary, Mixed hands, The mender, All hands; `beats_test`)
 - [x] Bots at many seeds show the skill gaps you target in every scenario. (cycle 11, 16 seeds, skilled - random / skilled - passive: One hand +50/+100, Two hands +50/+100, Supply run +88/+100, voyage +69/+100, claims +100/+100, relay +88/+100; free play has no goal; `PROG/evidence/audit-c11.jsonl`)
 - [x] Human-game telemetry keeps the move, the reading the player saw and the hidden truth. (`web/app.py`: each move with the question shown, answer time and previews; at the end the outcome and the whole state; `server_test`)
 
@@ -66,6 +66,7 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 | 1 (cycle 2) | contrib `rulebook` game master (component + prefab), `seated` entity prefab, `scripted_input` readers | draft PR google-deepmind/concordia#419 |
 | 2 (cycle 5) | contrib `blocking_input` (a `HumanInput` reader answered from another thread) | same PR, second commit |
 | 3 (cycle 9) | contrib `language_models/reasoned_choice` (multiple choice through a short reason) | same PR, third commit |
+| 4 (cycle 15) | `ReasonedChoice`: a temperature for the reasoned reply; the option's words win over a slipped letter | same PR, two commits |
 
 ## Next (Phase 1, orders)
 
