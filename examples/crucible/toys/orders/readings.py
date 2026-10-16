@@ -83,6 +83,30 @@ _CANNOT_HELP = (
 )
 
 
+def clean_relay(bosun: str, answer: str) -> str:
+  """The bosun's words: a 'Name:' or 'Answer:' label and quotes removed.
+
+  Unlike a player's move, a leading name is kept: "Cy keeps watch" passed
+  on by Cy is still a clause naming Cy (cycle 77).
+
+  Args:
+    bosun: The bosun.
+    answer: The model's reply to the relay question.
+
+  Returns:
+    The relayed order on one line.
+  """
+  line = next((l.strip() for l in answer.splitlines() if l.strip()), '')
+  line = re.sub(
+      rf'^(?:answer|{re.escape(bosun)}(?: says)?)\s*:\s*',
+      '',
+      line,
+      flags=re.IGNORECASE,
+  )
+  line = line.strip().strip('"“”\'').strip()
+  return re.sub(r'\s+', ' ', line)
+
+
 def clause_text(answer: str) -> str:
   """A model's answer to the reading question, as a short quote or 'none'."""
   line = next((l.strip() for l in answer.splitlines() if l.strip()), '')

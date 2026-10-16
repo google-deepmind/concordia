@@ -63,6 +63,7 @@ class Ship:
   relayed: str = ''  # what the bosun last passed on (arc 5)
   bosun: str = ''  # a bosun named by order, where a scene allows it
   order_turn: int = 0  # the turn the standing order was first in force
+  carried: str = ''  # what a storm left of the standing order (arc 6)
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
   @property

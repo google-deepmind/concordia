@@ -160,9 +160,7 @@ class OrdersToy(base.Toy):
         for w in self._data.get('someone', {}).get('words', ())
     )
 
-  def volunteer(
-      self, ship: Ship, turn: int, order: str | None = None
-  ) -> str | None:
+  def volunteer(self, ship: Ship, turn: int) -> str | None:
     """Who takes up the order's clause for "someone" this turn (arc 4).
 
     Counting fatigue is the ledger's work, not the reader's: the toy finds
@@ -171,21 +169,25 @@ class OrdersToy(base.Toy):
     Args:
       ship: The ship.
       turn: The turn being read (who is off duty).
-      order: The order with the clause (by default the standing order);
-        only those who heard it can take it up.
+
+    Only members on duty whose heard order has a clause for someone, and who
+    are not named in it, can take it up; one of them does, the same one for
+    every reader (through a bosun the crew hear other words than the bosun,
+    cycle 77).
 
     Returns:
       The member, or None when no one on duty is willing.
     """
-    order = ship.order if order is None else order
-    words = set(re.findall(r'[a-z]+', order.lower()))
-    excluded = [
-        m
-        for m in self.crew
-        if m.lower() in words
-        or self.rota.off_duty(ship, m, turn)
-        or self.rota.order_of(ship, m) != order
-    ]
+
+    def out(member: str) -> bool:
+      heard = self.rota.order_of(ship, member)
+      return (
+          self.rota.off_duty(ship, member, turn)
+          or not self.asks_someone(heard)
+          or member.lower() in set(re.findall(r'[a-z]+', heard.lower()))
+      )
+
+    excluded = [m for m in self.crew if out(m)]
     takes = {
         m: (
             self._data['temperaments'][
@@ -232,7 +234,7 @@ class OrdersToy(base.Toy):
           max_tokens=60,
           temperature=float(self._data.get('reading_temperature', 0.0)),
       )
-      relayed = base.clean_action(bosun, words)
+      relayed = readings.clean_relay(bosun, words)
       # The bosun is held to a little more than the commander's limit.
       limit = int(self._data['max_words']) + 4
       self._relayed[statement] = ' '.join(relayed.split()[:limit])
@@ -258,6 +260,7 @@ class OrdersToy(base.Toy):
     if not first or first.rstrip('.') == ship.order.rstrip('.'):
       return ''
     carried = first + '.'
+    ship.carried = carried
     for member in self.rota.on_duty(ship, turn):
       ship.heard[member] = carried
     return f'In the {kind} only "{carried}" carries.'
@@ -276,6 +279,7 @@ class OrdersToy(base.Toy):
     if not bosun or bosun not in self.crew:
       return ''
     if self.rota.off_duty(ship, bosun, turn):
+      ship.relayed = ''
       return f'{bosun} is off duty: the order goes out as you gave it.'
     relayed = self.relay(self.rota.order_of(ship, bosun), bosun)
     ship.relayed = relayed
@@ -335,7 +339,7 @@ class OrdersToy(base.Toy):
       # Counted from 1, so "for N turns" has no off-by-one to argue about.
       statement += f"This is the order's turn {turn - ship.order_turn + 1}.\n"
     if someone:
-      who = self.volunteer(ship, turn, order)
+      who = self.volunteer(ship, turn)
       if who is None:
         statement += NO_ONE.format(name=member)
       elif who == member:
@@ -438,10 +442,13 @@ class OrdersToy(base.Toy):
     behind = [
         f'{m} ("{self.rota.order_of(ship, m) or "(none)"}")'
         for m in self.crew
-        if self.rota.order_of(ship, m) not in (ship.order, relayed)
+        if self.rota.order_of(ship, m)
+        not in (ship.order, relayed, ship.carried)
     ]
     text = f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
-    if relayed is not None and ship.order:
+    if ship.carried:
+      text += f' In the storm only "{ship.carried}" carried.'
+    if relayed and ship.order:
       text += f' {bosun} passed it on as: "{relayed}".'
     return text
 
@@ -454,6 +461,7 @@ class OrdersToy(base.Toy):
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty
         ship.order_turn = ship.turn + 1
+        ship.carried = ''
         if self._data.get('bosun_by_order'):
           named = self.appointed(ship.order)
           if named is not None and named != ship.bosun:
@@ -604,6 +612,10 @@ class OrdersToy(base.Toy):
                     self.rota.order_of(ship, member)
                     if self.rota.order_of(ship, member) != ship.order
                     else None
+                ),
+                'carried': bool(
+                    ship.carried
+                    and self.rota.order_of(ship, member) == ship.carried
                 ),
                 'via_bosun': bool(
                     self.bosun_of(ship)

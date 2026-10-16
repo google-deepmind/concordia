@@ -284,5 +284,50 @@ class AppointTest(absltest.TestCase):
     self.assertIsNone(toy.view()['bosun'])
 
 
+class AuditTest(absltest.TestCase):
+  """Cases from the cycle 76 rule audit."""
+
+  def _scene(self, name: str) -> toy_lib.OrdersToy:
+    toy = toy_lib.OrdersToy(
+        model_setup.mock_model(), toys.load_data('orders'), name
+    )
+    toy.world.shift = 0
+    return toy
+
+  def test_one_member_takes_up_someone_through_a_bosun(self):
+    toy = self._scene('word_of_mouth')  # Bea relays with "repair leaks"
+    toy.resolve(toy.commander, SOMEONE_WATCH)
+    actions = toy.world.log[-1]['actions']
+    self.assertEqual(sum(a == 'watch' for a in actions.values()), 1)
+
+  def test_a_bosun_named_at_the_start_keeps_his_name(self):
+    toy = self._scene('chain_of_command')  # Cy relays word for word
+    toy.resolve(toy.commander, 'Cy keeps watch; everyone else build.')
+    self.assertEqual(toy.world.relayed, 'Cy keeps watch; everyone else build.')
+    actions = toy.world.log[-1]['actions']
+    self.assertEqual(actions['Cy'], 'watch')
+    self.assertNotEqual(actions['Ash'], 'watch')
+
+  def test_no_stale_relay_once_the_bosun_is_off_duty(self):
+    toy = self._scene('chain_of_command')  # Cy off duty on turns 5-7
+    toy.resolve(toy.commander, 'Build; Bea, keep watch.')
+    for _ in range(3):
+      toy.resolve(toy.commander, toy_lib.HOLD)
+    toy.resolve(toy.commander, 'Build.')  # for turn 5: goes out as given
+    self.assertEqual(toy.world.relayed, '')
+    self.assertNotIn(
+        'passed it on as', toy.action_spec(toy.commander).call_to_action
+    )
+
+  def test_storm_cut_words_are_not_an_earlier_order(self):
+    toy = WindTest()._toy()
+    toy.resolve(toy.commander, 'Cy, keep watch; everyone else build.')
+    prompt = toy.action_spec(toy.commander).call_to_action
+    self.assertNotIn('Still on an earlier order', prompt)
+    self.assertIn('only "Cy, keep watch." carried', prompt)
+    cards = {m['name']: m for m in toy.view()['crew']}
+    self.assertTrue(cards['Ash']['carried'])
+
+
 if __name__ == '__main__':
   absltest.main()

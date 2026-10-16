@@ -717,4 +717,4 @@ lexicon:
     tired: [tired, exhausted, worn, fatigue]
     squall: [squall, squalls]
   if_words: [if, when, whenever, during, unless]
-  negations: [not, never, don, dont, no]
+  negations: [not, never, don, dont]  # 'no' unquoted was YAML false (cycle 77)
