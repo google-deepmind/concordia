@@ -129,7 +129,7 @@
 
 <details><summary class="meter">What your seat knows (the whole prompt)</summary><pre id="context"></pre></details>
 <p class="meter">Grey-box toys of the crucible example, on Concordia.</p>
-<div id="dock"><button id="send" class="primary">Send</button></div>
+<div id="dock" hidden><button id="send" class="primary">Send</button></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -164,6 +164,7 @@ function g(category, key) {  // a glyph span from the look
 function word(category, key) { const s = LOOK && LOOK[category] && LOOK[category][key]; return s ? s.word : key; }
 function label(el, category, key, text) { el.innerHTML = ''; el.append(g(category, key), ' ' + text); }
 function stars(n) { return '★'.repeat(n) + '☆'.repeat(3 - n); }
+function beatWord(beat) { return (LOOK && LOOK.beat_words && LOOK.beat_words[beat]) || beat || ''; }
 
 function renderMenu(state) {
   const box = $('campaign'), c = state.campaign;
@@ -172,13 +173,15 @@ function renderMenu(state) {
     box.dataset.key = key; box.innerHTML = '';
     for (const ch of c.chapters) {
       const b = document.createElement('button');
-      b.textContent = ch.number + '. ' + ch.title + ' (' + ch.beat + ') ' + stars(ch.stars) + (ch.open ? '' : ' (locked)');
+      b.textContent = ch.number + '. ' + ch.title + ' · ' + beatWord(ch.beat) + ' ' + stars(ch.stars) + (ch.open ? '' : ' (locked)');
       b.disabled = !ch.open; b.onclick = () => start({toy: c.toy, scenario: ch.scenario});
       box.appendChild(b);
     }
     if (c.daily) {
       const b = document.createElement('button');
-      b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '') + ' ' + stars(c.daily.stars);
+      const from = c.chapters.find((ch) => ch.scenario === c.daily.scenario);
+      b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '')
+          + (from ? ' (chapter ' + from.number + ', a ' + beatWord(from.beat) + ')' : '') + ' ' + stars(c.daily.stars);
       b.onclick = () => start({toy: c.toy, daily: true}); box.appendChild(b);
     }
   }
@@ -240,7 +243,7 @@ function starRules(v) {
       Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
 }
 function renderView(v, receipts) {
-  $('scene').textContent = v.title + (v.beat ? ' · ' + v.beat : '');
+  $('scene').textContent = v.title + (v.beat ? ' · ' + beatWord(v.beat) : '');
   $('starRules').textContent = starRules(v);
   $('turn').textContent = 'turn ' + Math.min(v.turn, v.turns) + ' of ' + v.turns;
   label($('pointsLabel'), 'stocks', 'points', word('stocks', 'points'));
@@ -350,10 +353,11 @@ function render(state) {
     if (requestId || !$('board').hidden || !$('plain').hidden) {
       $('status').textContent = 'That game was lost (the server restarted). Pick a chapter to start again.';
     }
-    requestId = null; $('send').disabled = true;
+    requestId = null; $('send').disabled = true; $('dock').hidden = true;
     $('board').hidden = true; $('plain').hidden = true; $('menu').hidden = false;
     return;
   }
+  $('dock').hidden = !!gm.finished;  // Send only while a game can take an order
   if (!gm.finished) $('menu').hidden = !menuOpen;
   const req = gm.request;
   mode = gm.view ? 'board' : 'plain';

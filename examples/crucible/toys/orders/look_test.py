@@ -130,6 +130,12 @@ class ViewTest(absltest.TestCase):
         toy.reading(ship, 'Cy', 1), ('repair', 'if a leak opens, repair it')
     )
 
+  def test_every_beat_has_a_player_word(self):
+    words = toys.load_data('orders_look')['beat_words']
+    for name, scene in toys.load_data('orders')['scenarios'].items():
+      if scene.get('beat'):
+        self.assertIn(scene['beat'], words, name)
+
   def test_every_star_rule_has_words(self):
     look = toys.load_data('orders_look')['star_rules']
     data = toys.load_data('orders')

@@ -90,6 +90,14 @@ stocks:
   points: {glyph: '♦', word: command, color: command}
   foresight: {glyph: '◔', word: forecast, color: command}
 
+# The design's beats (isolate, develop, twist, catharsis) as a player
+# reads them on the menu and the board (cycle 90).
+beat_words:
+  isolate: lesson
+  develop: practice
+  twist: twist
+  catharsis: finale
+
 # How the page words a scene's star rules (view.star_rules): the first
 # star is the win; each limit is filled with its number.
 star_rules:
