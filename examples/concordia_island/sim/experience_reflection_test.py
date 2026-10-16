@@ -35,7 +35,6 @@ from concordia.typing import entity as entity_lib
 from examples.concordia_island.sim import experience_reflection as er_lib
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Exact journal responses from the simulation logs of an earlier run
 # ---------------------------------------------------------------------------
@@ -340,6 +339,196 @@ class ExperienceReflectionDeduplicationTest(absltest.TestCase):
 
     self.assertLen(final_results, 1)
     self.assertEqual(final_results[0]['task'], 'test_survey')
+
+  def test_multiline_json_likert_and_mc_not_truncated(self):
+    """Multiline fenced JSON survives models that truncate at terminators."""
+
+    class _TerminatorTruncatingModel(_CannedModel):
+
+      def __init__(self, raw_response: str):
+        super().__init__()
+        self._raw = raw_response
+
+      @override
+      def sample_text(
+          self,
+          prompt: str,
+          *,
+          max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+          terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+          temperature: float = language_model.DEFAULT_TEMPERATURE,
+          top_p: float = language_model.DEFAULT_TOP_P,
+          top_k: int = language_model.DEFAULT_TOP_K,
+          timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+          seed: int | None = None,
+      ) -> str:
+        text = self._raw
+        for sep in terminators:
+          if sep and sep in text:
+            text = text.split(sep, 1)[0]
+        return text
+
+    likert_model = _TerminatorTruncatingModel(
+        '```json\n{\n  "1": 6,\n  "2": 5\n}\n```'
+    )
+    likert_task = er_lib.LikertBatteryTask(
+        name='swls_test',
+        frequency=1,
+        save_to_memory=False,
+        items=(
+            er_lib.LikertItem('Item 1', 'life_satisfaction'),
+            er_lib.LikertItem('Item 2', 'life_satisfaction'),
+        ),
+        scale_labels=('1', '2', '3', '4', '5', '6', '7'),
+    )
+    agent, er = _make_agent_with_er(likert_model, [likert_task])
+    agent.observe(OBS_11AM)
+    agent.act(entity_lib.DEFAULT_ACTION_SPEC)
+    res = er.get_results()[0]
+    # Ratings are 1-based on the prompt scale; dimension scores are 0-based.
+    self.assertEqual(res['item_scores'], {'Item 1': 6, 'Item 2': 5})
+    self.assertAlmostEqual(res['dimension_scores']['life_satisfaction'], 4.5)
+    self.assertNotIn('parse_failed', res)
+
+    mc_model = _TerminatorTruncatingModel('```json\n{\n  "1": "a"\n}\n```')
+    mc_task = er_lib.MultipleChoiceTask(
+        name='ubi_policy',
+        frequency=1,
+        save_to_memory=False,
+        prompt='Support UBI?',
+        items=('ubi_policy',),
+        options_map={'ubi_policy': ('Strongly support', 'Oppose')},
+    )
+    agent_mc, er_mc = _make_agent_with_er(mc_model, [mc_task])
+    agent_mc.observe(OBS_11AM)
+    agent_mc.act(entity_lib.DEFAULT_ACTION_SPEC)
+    res_mc = er_mc.get_results()[0]
+    self.assertEqual(res_mc['results'], {'ubi_policy': 'Strongly support'})
+
+
+class _FixedResponseModel(_CannedModel):
+  """Returns the same raw text for every sample_text call."""
+
+  def __init__(self, raw_response: str):
+    super().__init__()
+    self._raw = raw_response
+
+  @override
+  def sample_text(
+      self,
+      prompt: str,
+      *,
+      max_tokens: int = language_model.DEFAULT_MAX_TOKENS,
+      terminators: Collection[str] = language_model.DEFAULT_TERMINATORS,
+      temperature: float = language_model.DEFAULT_TEMPERATURE,
+      top_p: float = language_model.DEFAULT_TOP_P,
+      top_k: int = language_model.DEFAULT_TOP_K,
+      timeout: float = language_model.DEFAULT_TIMEOUT_SECONDS,
+      seed: int | None = None,
+  ) -> str:
+    self._call_count += 1
+    return self._raw
+
+
+_LIKERT_TASK = er_lib.LikertBatteryTask(
+    name='swls_test',
+    frequency=1,
+    save_to_memory=False,
+    items=(
+        er_lib.LikertItem('Item 1', 'life_satisfaction'),
+        er_lib.LikertItem('Item 2', 'life_satisfaction'),
+    ),
+    scale_labels=('1', '2', '3', '4', '5', '6', '7'),
+)
+
+
+class ExperienceReflectionNoImputationTest(absltest.TestCase):
+  """Unparseable or invalid answers are recorded as missing, never imputed."""
+
+  def _run_likert(self, raw: str):
+    model = _FixedResponseModel(raw)
+    agent, er = _make_agent_with_er(model, [_LIKERT_TASK])
+    agent.observe(OBS_11AM)
+    agent.act(entity_lib.DEFAULT_ACTION_SPEC)
+    return er.get_results()[0], model
+
+  def test_empty_response_is_missing_not_midpoint(self):
+    res, _ = self._run_likert('')
+    self.assertEqual(res['item_scores'], {})
+    self.assertEqual(res['dimension_scores'], {})
+    self.assertTrue(res['parse_failed'])
+    self.assertEqual(res['attempts'], 2)  # One retry, no more.
+
+  def test_unparseable_json_is_missing(self):
+    res, _ = self._run_likert('I would rate these highly.')
+    self.assertEqual(res['item_scores'], {})
+    self.assertTrue(res['parse_failed'])
+
+  def test_out_of_range_and_missing_items_dropped(self):
+    res, _ = self._run_likert('{"1": 9, "2": 3}')
+    self.assertEqual(res['item_scores'], {'Item 2': 3})
+    self.assertAlmostEqual(res['dimension_scores']['life_satisfaction'], 2.0)
+    self.assertEqual(res['n_items_answered'], 1)
+    self.assertNotIn('parse_failed', res)
+
+  def test_zero_rating_is_out_of_range(self):
+    res, _ = self._run_likert('{"1": 0, "2": 0}')
+    self.assertEqual(res['item_scores'], {})
+    self.assertTrue(res['parse_failed'])
+
+  def test_mc_unparseable_is_missing_not_first_option(self):
+    mc_task = er_lib.MultipleChoiceTask(
+        name='ubi_policy',
+        frequency=1,
+        save_to_memory=False,
+        prompt='Support UBI?',
+        items=('ubi_policy',),
+        options_map={'ubi_policy': ('Strongly support', 'Oppose')},
+    )
+    agent, er = _make_agent_with_er(_FixedResponseModel(''), [mc_task])
+    agent.observe(OBS_11AM)
+    agent.act(entity_lib.DEFAULT_ACTION_SPEC)
+    res = er.get_results()[0]
+    self.assertEqual(res['results'], {})
+    self.assertTrue(res['parse_failed'])
+
+  def test_failed_model_call_recorded_as_missing(self):
+
+    class _LLMCallFailedError(RuntimeError):
+      is_llm_call_failure = True  # Duck-types llm_errors.LLMCallFailedError.
+
+    class _FailingModel(_CannedModel):
+
+      @override
+      def sample_text(self, prompt, **kwargs) -> str:
+        raise _LLMCallFailedError('empty_response: no visible text')
+
+    agent, er = _make_agent_with_er(_FailingModel(), [_LIKERT_TASK])
+    agent.observe(OBS_11AM)
+    try:
+      agent.act(entity_lib.DEFAULT_ACTION_SPEC)
+    except _LLMCallFailedError:
+      pass  # The act component's own call fails too; that is the worker's job.
+    res = er.get_results()[0]
+    self.assertTrue(res['llm_failed'])
+    self.assertNotIn('item_scores', res)
+    self.assertIn('empty_response', res['error'])
+
+  def test_mc_invalid_letter_is_missing(self):
+    mc_task = er_lib.MultipleChoiceTask(
+        name='ubi_policy',
+        frequency=1,
+        save_to_memory=False,
+        prompt='Support UBI?',
+        items=('ubi_policy',),
+        options_map={'ubi_policy': ('Strongly support', 'Oppose')},
+    )
+    agent, er = _make_agent_with_er(
+        _FixedResponseModel('{"1": "z"}'), [mc_task]
+    )
+    agent.observe(OBS_11AM)
+    agent.act(entity_lib.DEFAULT_ACTION_SPEC)
+    self.assertEqual(er.get_results()[0]['results'], {})
 
 
 class BigFiveTaskTest(absltest.TestCase):

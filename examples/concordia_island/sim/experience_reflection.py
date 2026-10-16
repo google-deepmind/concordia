@@ -48,9 +48,7 @@ from concordia.document import interactive_document
 from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.utils import concurrency
-
 from examples.concordia_island.sim import component_state
-
 
 # ============================================================================
 # Data structures
@@ -1276,12 +1274,32 @@ class ExperienceReflection(
     Returns:
       A dictionary with results, or None if task type is unknown.
     """
-    if isinstance(task, OpenEndedTask):
-      return self._run_open_ended(task)
-    elif isinstance(task, LikertBatteryTask):
-      return self._run_likert_battery(task)
-    elif isinstance(task, MultipleChoiceTask):
-      return self._run_multiple_choice(task)
+    try:
+      if isinstance(task, OpenEndedTask):
+        return self._run_open_ended(task)
+      elif isinstance(task, LikertBatteryTask):
+        return self._run_likert_battery(task)
+      elif isinstance(task, MultipleChoiceTask):
+        return self._run_multiple_choice(task)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+      if not getattr(e, 'is_llm_call_failure', False):
+        raise
+      # The model call failed (llm_errors.LLMCallFailedError). Record the
+      # task as missing for this tick rather than losing the whole batch or
+      # writing placeholder answers.
+      agent_name = self.get_entity().name
+      logging.error(
+          'ExperienceReflection %s for %s: model call failed; recording as'
+          ' missing: %s',
+          task.name, agent_name, e,
+      )
+      return {
+          'tick': self._tick_count,
+          'task': task.name,
+          'agent': agent_name,
+          'llm_failed': True,
+          'error': str(e)[:500],
+      }
     return None
 
   def _get_emotional_expression_context(self) -> str:
@@ -1430,16 +1448,22 @@ class ExperienceReflection(
     recent_text = '\n'.join(recent)
     preprompt = task.preprompt_template.format(agent_name=agent_name)
 
-    doc = interactive_document.InteractiveDocument(self._model)
+    doc_statements = []
     if agent_context:
-      doc.statement(agent_context + '\n')
+      doc_statements.append(agent_context + '\n')
     if expr_context:
-      doc.statement(expr_context + '\n')
-    doc.statement(f'Recent experiences of {agent_name}:\n{recent_text}')
+      doc_statements.append(expr_context + '\n')
+    doc_statements.append(f'Recent experiences of {agent_name}:\n{recent_text}')
+    doc = interactive_document.InteractiveDocument(self._model)
+    for statement in doc_statements:
+      doc.statement(statement)
 
-    # Build scale description and numbered items list.
+    # Build scale description and numbered items list. Scale points are
+    # numbered 1..N in the prompt (matching how the labels and preprompts
+    # describe the scale, e.g. "Using the 1-7 scale"); the parser maps them
+    # back to 0-indexed raw scores.
     scale_desc = ', '.join(
-        f'{i} = "{label}"' for i, label in enumerate(task.scale_labels)
+        f'{i + 1} = "{label}"' for i, label in enumerate(task.scale_labels)
     )
     items_list = '\n'.join(
         f'  {i + 1}. "{item.statement}"' for i, item in enumerate(task.items)
@@ -1455,33 +1479,53 @@ class ExperienceReflection(
               f'{agent_name}.'
           ),
           max_tokens=2000,
+          terminators=(),
       )
 
-    json_response = doc.open_question(
-        question=(
-            f'{preprompt}\n\n'
-            f'Rate each item on this scale: {scale_desc}\n\n'
-            f'Items:\n{items_list}\n\n'
-            'Respond with ONLY a JSON object mapping the item NUMBER '
-            f'(1-{len(task.items)}) to the numeric rating.\n'
-            'Example: {"1": 3, "2": 0, "3": 5}'
-        ),
-        max_tokens=500,
+    json_question = (
+        f'{preprompt}\n\n'
+        f'Rate each item on this scale: {scale_desc}\n\n'
+        f'Items:\n{items_list}\n\n'
+        'Respond with ONLY a JSON object mapping the item NUMBER '
+        f'(1-{len(task.items)}) to the numeric rating '
+        f'(an integer from 1 to {len(task.scale_labels)}).\n'
+        'Example: {"1": 2, "2": 1}'
     )
-
-    # Parse JSON response into {item_index: raw_score}.
+    # terminators=() is required: models commonly return fenced, multi-line
+    # JSON ("```json\n{...}"), and the InteractiveDocument default ('\n',)
+    # truncates that to "```json", which parses to nothing.
+    json_response = doc.open_question(
+        question=json_question, max_tokens=500, terminators=()
+    )
     parsed_scores = self._parse_batched_likert_json(
         json_response, len(task.items), len(task.scale_labels)
     )
+    attempts = 1
+    if not parsed_scores:
+      # One retry on a fresh document so the failed answer is not in context.
+      retry_doc = interactive_document.InteractiveDocument(self._model)
+      for statement in doc_statements:
+        retry_doc.statement(statement)
+      json_response = retry_doc.open_question(
+          question=json_question, max_tokens=500, terminators=()
+      )
+      parsed_scores = self._parse_batched_likert_json(
+          json_response, len(task.items), len(task.scale_labels)
+      )
+      attempts = 2
 
-    # Collect scores and compute dimensions (same format as before).
+    # Collect scores and compute dimensions. Items the model did not answer
+    # validly are omitted (never imputed); a dimension with no valid items is
+    # omitted from dimension_scores.
     item_scores = {}
     item_reflections = {}
     dimension_sums: dict[str, list[float]] = {}
     scale_max = len(task.scale_labels) - 1
 
     for i, item in enumerate(task.items):
-      raw_score = parsed_scores.get(i, scale_max // 2)
+      raw_score = parsed_scores.get(i)
+      if raw_score is None:
+        continue
       if item.reverse_scored:
         scored_value = scale_max - raw_score
       else:
@@ -1507,7 +1551,21 @@ class ExperienceReflection(
         'agent': agent_name,
         'item_scores': item_scores,
         'dimension_scores': dimension_scores,
+        'n_items_answered': len(item_scores),
+        'n_items': len(task.items),
+        'attempts': attempts,
     }
+    if not parsed_scores:
+      result['parse_failed'] = True
+      result['raw_response'] = json_response[:500]
+      logging.error(
+          'ExperienceReflection %s for %s: no valid ratings after %d attempts;'
+          ' recording as missing (no imputation). Raw response: %r',
+          task.name,
+          agent_name,
+          attempts,
+          json_response[:300],
+      )
     if task.use_cot:
       result['item_reflections'] = item_reflections
 
@@ -1530,17 +1588,21 @@ class ExperienceReflection(
       num_items: int,
       num_labels: int,
   ) -> dict[int, int]:
-    """Parse a JSON response mapping item numbers to ratings.
+    """Parse a JSON response mapping item numbers to 1-based ratings.
 
     Robust to common LLM formatting issues (markdown fences, extra text).
+    Never imputes: unparseable responses yield an empty dict, and individual
+    ratings that are missing, non-integer, or outside 1..num_labels are
+    dropped.
 
     Args:
       response: Raw LLM response text.
       num_items: Expected number of items.
-      num_labels: Number of scale points (for clamping).
+      num_labels: Number of scale points.
 
     Returns:
-      Dict mapping 0-indexed item number to clamped score.
+      Dict mapping 0-indexed item number to 0-indexed raw score, containing
+      only validly answered items.
     """
     # Strip markdown code fences if present.
     text = response.strip()
@@ -1553,33 +1615,43 @@ class ExperienceReflection(
     match = re.search(r'\{[^}]+\}', text, re.DOTALL)
     if not match:
       logging.warning(
-          'Could not find JSON in Likert response, using midpoint defaults: %s',
-          text[:200],
+          'Could not find JSON in Likert response (dropping sample): %r',
+          response[:200],
       )
-      mid = (num_labels - 1) // 2
-      return {i: mid for i in range(num_items)}
+      return {}
 
     try:
       raw = json.loads(match.group())
     except json.JSONDecodeError:
       logging.warning(
-          'JSON parse failed for Likert response, using midpoint defaults: %s',
+          'JSON parse failed for Likert response (dropping sample): %r',
           match.group()[:200],
       )
-      mid = (num_labels - 1) // 2
-      return {i: mid for i in range(num_items)}
+      return {}
+    if not isinstance(raw, dict):
+      return {}
 
-    # Map keys (1-indexed strings or ints) to 0-indexed item numbers.
+    # Map keys (1-indexed) to 0-indexed items and 1-based ratings to 0-based.
     scores: dict[int, int] = {}
-    max_val = num_labels - 1
     for key, val in raw.items():
       try:
-        idx = int(key) - 1  # Convert 1-indexed to 0-indexed.
-        score = max(0, min(max_val, int(val)))
-        if 0 <= idx < num_items:
-          scores[idx] = score
+        idx = int(key) - 1
+        rating = int(val)
       except (ValueError, TypeError):
         continue
+      if isinstance(val, float) and not float(val).is_integer():
+        continue
+      if not 0 <= idx < num_items:
+        continue
+      if not 1 <= rating <= num_labels:
+        logging.warning(
+            'Likert rating %r for item %r outside 1..%d (dropping item).',
+            val,
+            key,
+            num_labels,
+        )
+        continue
+      scores[idx] = rating - 1
 
     return scores
 
@@ -1611,6 +1683,8 @@ class ExperienceReflection(
     recent_text = '\n'.join(recent)
 
     results = {}
+    mc_parse_failed = False
+    mc_raw_response = ''
     items = task.items if task.items else (task.name,)
 
     # Separate single-select and multi-select items.
@@ -1662,10 +1736,21 @@ class ExperienceReflection(
               'Example: {"1": "a", "2": "c"}'
           ),
           max_tokens=500,
+          terminators=(),
       )
 
       # Parse the JSON response.
       parsed = self._parse_mc_json(json_response, item_option_map)
+      if not parsed:
+        mc_parse_failed = True
+        mc_raw_response = json_response[:500]
+        logging.error(
+            'ExperienceReflection %s for %s: no valid MC answers; recording'
+            ' as missing (no default option). Raw response: %r',
+            task.name,
+            agent_name,
+            json_response[:300],
+        )
       results.update(parsed)
 
     # --- Handle multi-select items via open_question (unchanged) ---
@@ -1699,6 +1784,9 @@ class ExperienceReflection(
         'agent': agent_name,
         'results': results,
     }
+    if mc_parse_failed:
+      result['parse_failed'] = True
+      result['raw_response'] = mc_raw_response
 
     self._logging_channel({
         'Key': f'ExperienceReflection/{task.name}',
@@ -1738,29 +1826,27 @@ class ExperienceReflection(
     match = re.search(r'\{[^}]+\}', text, re.DOTALL)
     if not match:
       logging.warning(
-          'Could not find JSON in MC response, using first-option defaults: %s',
-          text[:200],
+          'Could not find JSON in MC response (dropping sample): %r',
+          response[:200],
       )
-      for _, (item_key, options) in item_option_map.items():
-        results[item_key] = options[0]
       return results
 
     try:
       raw = json.loads(match.group())
     except json.JSONDecodeError:
       logging.warning(
-          'JSON parse failed for MC response, using first-option defaults: %s',
+          'JSON parse failed for MC response (dropping sample): %r',
           match.group()[:200],
       )
-      for _, (item_key, options) in item_option_map.items():
-        results[item_key] = options[0]
+      return results
+    if not isinstance(raw, dict):
       return results
 
-    # Map parsed answers to option strings.
+    # Map parsed answers to option strings. Unanswered or unrecognized
+    # answers are omitted (never defaulted to the first option).
     for q_num, (item_key, options) in item_option_map.items():
       val = raw.get(str(q_num)) or raw.get(q_num)
       if val is None:
-        results[item_key] = options[0]
         continue
 
       val_str = str(val).strip().lower()
@@ -1770,17 +1856,13 @@ class ExperienceReflection(
         idx = ord(val_str) - ord('a')
         if 0 <= idx < len(options):
           results[item_key] = options[idx]
-          continue
+        continue
 
       # Try matching full option text (fuzzy).
-      matched = False
       for opt in options:
         if val_str in opt.lower() or opt.lower() in val_str:
           results[item_key] = opt
-          matched = True
           break
-      if not matched:
-        results[item_key] = options[0]
 
     return results
 
@@ -1859,6 +1941,4 @@ class ExperienceReflection(
     if 'results' in state:
       self._results = component_state.as_dict_list(state, 'results')
     self._current_time_str = component_state.as_str(state, 'current_time_str')
-    self._last_run_time_str = component_state.as_str(
-        state, 'last_run_time_str'
-    )
+    self._last_run_time_str = component_state.as_str(state, 'last_run_time_str')
