@@ -171,6 +171,10 @@ class Games:
           challenge['seed'],
           challenge['date'],
       )
+      # A daily is a late chapter's scene: it opens with that chapter
+      # (cycle 96: the owner went from chapter 1 to a finale and lost).
+      if not campaign.is_open(data, self.progress.snapshot(), scenario):
+        raise ValueError("Today's challenge opens with its chapter.")
     elif scenario and not campaign.is_open(
         data, self.progress.snapshot(), scenario
     ):

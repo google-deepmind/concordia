@@ -145,7 +145,14 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(chapters[0]['stars'], 3)
     self.assertTrue(chapters[1]['open'])
 
+  def test_the_daily_opens_with_its_chapter(self):
+    games = server_lib.Games('mock', None, 100, tempfile.mkdtemp())
+    with self.assertRaisesRegex(ValueError, 'opens with its chapter'):
+      games.start('orders', 'mock', None, daily=True)
+
   def test_daily_challenge(self):
+    for chapter in toys.load_data('orders')['campaign']:
+      self.games.progress.record(chapter, 1)  # every chapter open
     self.assertTrue(
         self.call('/api/start', {'toy': 'orders', 'daily': True})['ok']
     )

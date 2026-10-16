@@ -126,6 +126,7 @@
   <div>
     <button id="preview">Preview</button>
     <button id="hold">Hold</button>
+    <button id="holdAll">Hold to the end</button>
     <button id="menuToggle">Menu</button>
   </div>
   </div>
@@ -159,6 +160,8 @@ let menuOpen = false;  // the player opened the menu during a game
 let starting = false;  // a start request is in flight (one game per tap)
 let shownEnd = null;  // the finished game whose result was scrolled to
 let blocked = false;  // the typed order is too long or cannot be paid for
+let autoHold = false;  // Hold to the end: hold each turn until stopped
+let autoHeld = null;  // the request auto-held last
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
@@ -210,6 +213,7 @@ function renderMenu(state) {
       const from = c.chapters.find((ch) => ch.scenario === c.daily.scenario);
       b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '')
           + (from ? ' (chapter ' + from.number + ', a ' + beatWord(from.beat) + ')' : '') + ' ' + stars(c.daily.stars);
+      if (from && !from.open) { b.disabled = true; b.textContent += ' (opens with chapter ' + from.number + ')'; }
       b.onclick = () => start({toy: c.toy, daily: true}); box.appendChild(b);
     }
   }
@@ -271,6 +275,13 @@ function starRules(v) {
       Object.keys(rules).sort().map((s) => '★'.repeat(+s) + ' ' + starRule(rules[s]))).join(' · ');
 }
 let howFor = null;  // the game the How it works box was last set up for
+function whyLost(v) {  // the reason, in the board's own words
+  if (!v || v.free) return '';
+  if (v.damage >= v.wreck_at) return ': the ship was wrecked (' + v.damage + ' damage)';
+  if (v.goal === 'supplies') return ': ' + v.supplies + ' supplies of the ' + v.target + ' wanted';
+  if (v.goal === 'foresight') return ': ' + v.foresight + ' turns seen of the ' + v.target + ' wanted';
+  return ': ' + word('stocks', 'progress') + ' ' + v.progress + ' of ' + v.target + ' when time ran out';
+}
 function goalLine(v) {
   if (v.free) return 'Free play: no goal. Try orders and see how each member reads them.';
   const turn = Math.min(v.turn, v.turns);
@@ -502,7 +513,7 @@ function render(state) {
   $('controls').hidden = gm.finished;  // nothing left to order
   if (gm.finished) {
     const o = gm.outcome || {};
-    $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won') + (gm.error ? ' (' + gm.error + ')' : '');
+    $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won' + whyLost(gm.view)) + (gm.error ? ' (' + gm.error + ')' : '');
     $('again').hidden = false; $('retry').hidden = !lastStart;
     const lesson = gm.view && gm.view.lesson;
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
@@ -526,6 +537,9 @@ function render(state) {
     $('status').textContent = 'The crew are at work…';
   }
   requestId = req ? req.id : null;
+  $('holdAll').textContent = autoHold ? 'Stop holding' : 'Hold to the end';
+  if (gm.finished) autoHold = false;
+  if (autoHold && req && req.id !== autoHeld) { autoHeld = req.id; setTimeout(() => { if (autoHold) send('hold'); }, 600); }
   $('context').textContent = req ? req.context + '\n\n' + req.question : '';
   $('reqerror').textContent = req && req.error ? 'Not accepted: ' + req.error : '';
   sendable();
@@ -568,6 +582,7 @@ $('retry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart));
 $('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
+$('holdAll').onclick = () => { autoHold = !autoHold; $('holdAll').textContent = autoHold ? 'Stop holding' : 'Hold to the end'; if (autoHold && requestId) { autoHeld = requestId; send('hold'); } };
 $('hold').onclick = () => send('hold'); $('plainpass').onclick = () => send('pass');
 $('menuToggle').onclick = () => {
   menuOpen = !menuOpen; $('menu').hidden = !menuOpen;
