@@ -68,12 +68,14 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 | 3 (cycle 9) | contrib `language_models/reasoned_choice` (multiple choice through a short reason) | same PR, third commit |
 | 4 (cycle 15) | `ReasonedChoice`: a temperature for the reasoned reply; the option's words win over a slipped letter | same PR, two commits |
 | 5 (cycle 17) | `OllamaLanguageModel(think=...)`: a thinking model's terminators apply to its answer, not its thinking (open questions on qwen3 came back empty) | same PR |
+| 5b (cycles 19, 26) | `OllamaLanguageModel(timeout=...)` for the client; a README for the Ollama adapter (thinking models, timeouts) | same PR |
+| 6 (cycle 34) | `contrib/testing/golden_set`: golden sets for a model's judgements (hard/soft cases, repeats, flaky answers, provider failures) | same PR; CI green at 3ff3bce |
 
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. qwen3:8b golden on the 44 cases, twice (running since cycle 28; on this CPU-only host a "someone" reading thinks for ~2,800 tokens, minutes each).
-3. Keep deepening: storms shorten the watch's sight (hazards -> watch); the commander learning from the readings shown (a scene where the order must be re-worded after a misreading); the owner's games.
+2. qwen3:8b golden on the 49 cases, twice (it keeps 24/25 of the older set's hard laws; g38, the literal under "Someone repair the hull.", it reads its own way). A larger local model needs the owner's permission to download.
+3. Keep deepening: the commander learning from the readings shown (a scene where the order must be re-worded after a misreading); a bosun who is also on a rota mid-scene; the owner's games.
 
 ## Backlog
 
