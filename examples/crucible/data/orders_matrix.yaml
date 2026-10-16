@@ -52,6 +52,8 @@ cells:
   - {from: command, to: crew, by: an order said again reaches those who missed it, at its price again (cycle 23), test: test_an_order_given_off_duty_is_not_heard}
   - {from: command, to: watch, by: only a member who heard a clause for someone can take it up (cycle 23), test: test_someone_needs_to_have_heard_it}
   - {from: hazards, to: watch, by: a storm hides the horizon; a watch kept in a storm sees one turn ahead, not two (cycle 33), test: test_a_storm_shortens_the_watch}
+  - {from: command, to: crew, by: with a bosun the crew hear the order in the bosun's words; the bosun follows it as given (cycle 41), test: test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders}
+  - {from: rota, to: crew, by: with the bosun off duty an order goes out as the commander gave it (cycle 41), test: test_with_the_bosun_off_duty_the_order_goes_out_as_given}
   - {from: crew, to: command, by: each member reports the clause they acted on and the commander sees it on their card, so a misreading can be answered with the next order (cycle 17), test: test_each_member_says_which_clause_they_acted_on}
 
 # What an order says (operator) against what holds now (property): the law
@@ -65,6 +67,7 @@ reading:
     silence: no clause that applies
     negation: a clause that forbids an action (not, never, don't)
     someone: a clause for someone, which asks one member only (cycle 18)
+    relay: an order passed on by the bosun, in their own words (cycle 41)
   properties:
     quiet: a quiet turn
     leak: a leak open in the hull
@@ -106,6 +109,10 @@ reading:
     - {operator: someone, property: literal, law: the literal never take up a clause for someone; it names no one, and they read the other clauses (cycle 18), golden: [g38, g41]}
     - {operator: someone, property: off_duty, law: a clause for someone passes over whoever is off duty to the freshest willing member on duty (cycle 19), golden: [g42]}
     - {operator: named, property: off_duty, law: a clause naming a member who is off duty goes undone; it does not pass to the others (cycle 19), golden: [g43, g44]}
+    - {operator: relay, property: literal, law: a literal bosun passes the order on word for word (cycle 41), golden: [g45], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: bold, law: a bold bosun leaves out clauses to rest or keep watch (cycle 41), golden: [g46], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: cautious, law: a cautious bosun adds "repair leaks" when no clause repairs (cycle 41), golden: [g47], test: test_each_temperament_passes_the_order_on_its_own_way}
+    - {operator: relay, property: contrary, law: a contrary bosun says "don't" before every clause (cycle 41), golden: [g48], test: test_each_temperament_passes_the_order_on_its_own_way}
     - {operator: someone, property: contrary, law: the contrary never take it up; with no one willing, no one does it (cycle 18), golden: [g40], test: test_no_one_willing_means_no_one_does_it}
 
 # Golden cases: one situation, one member, the actions the laws allow.
@@ -156,3 +163,7 @@ golden:
   - {id: g42, order: 'Someone keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [watch], hard: true}
   - {id: g43, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Cy, off_duty: [Ash], expect: [build], hard: true}
   - {id: g44, order: 'Ash, keep watch; everyone else build.', event: quiet, member: Bea, off_duty: [Ash], expect: [build]}
+  - {id: g45, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Cy, expect: [watch], hard: true}
+  - {id: g46, order: 'Build; Bea, keep watch.', event: quiet, member: Bea, bosun: Ash, expect: [build], hard: true}
+  - {id: g47, order: 'Gather supplies.', event: leak, member: Ash, bosun: Bea, expect: [repair, gather]}
+  - {id: g48, order: 'Build.', event: quiet, member: Cy, bosun: Dex, expect: [rest], hard: true}

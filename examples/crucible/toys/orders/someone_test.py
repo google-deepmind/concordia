@@ -186,5 +186,47 @@ class HeardTest(absltest.TestCase):
     self.assertEqual(last['actions']['Bea'], 'watch')  # heard it; willing
 
 
+class BosunTest(absltest.TestCase):
+
+  def _toy(self, bosun: str, off=None) -> toy_lib.OrdersToy:
+    data = copy.deepcopy(toys.load_data('orders'))
+    voyage = data['scenarios']['voyage']
+    voyage.pop('crew_present', None)
+    voyage.update(bosun=bosun, events={}, off_duty=off or {})
+    toy = toy_lib.OrdersToy(model_setup.mock_model(), data, 'voyage')
+    toy.world.shift = 0
+    return toy
+
+  def test_each_temperament_passes_the_order_on_its_own_way(self):
+    order = 'Build; Cy, keep watch.'
+    relayed = {}
+    for bosun in ('Ash', 'Bea', 'Cy', 'Dex'):
+      toy = self._toy(bosun)
+      toy.resolve(toy.commander, order)
+      relayed[bosun] = toy.world.relayed
+    self.assertEqual(relayed['Cy'], order)  # literal: word for word
+    self.assertEqual(relayed['Ash'], 'Build.')  # bold: no watch clause
+    self.assertEqual(relayed['Bea'], 'Build; Cy, keep watch; repair leaks.')
+    self.assertEqual(relayed['Dex'], "don't build; don't Cy, keep watch.")
+
+  def test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders(self):
+    toy = self._toy('Ash')
+    receipt = toy.resolve(toy.commander, 'Build; Cy, keep watch.')
+    self.assertIn('Ash passes it on: "Build."', str(receipt))
+    self.assertEqual(toy.world.log[-1]['actions']['Cy'], 'build')  # no watch
+    cards = {m['name']: m for m in toy.view()['crew']}
+    self.assertTrue(cards['Cy']['via_bosun'])
+    self.assertFalse(cards['Ash']['via_bosun'])
+    prompt = toy.action_spec(toy.commander).call_to_action
+    self.assertIn('Ash passed it on as: "Build."', prompt)
+    self.assertNotIn('Still on an earlier order', prompt)
+
+  def test_with_the_bosun_off_duty_the_order_goes_out_as_given(self):
+    toy = self._toy('Ash', off={'Ash': [1]})
+    receipt = toy.resolve(toy.commander, 'Build; Cy, keep watch.')
+    self.assertIn('the order goes out as you gave it', str(receipt))
+    self.assertEqual(toy.world.log[-1]['actions']['Cy'], 'watch')
+
+
 if __name__ == '__main__':
   absltest.main()

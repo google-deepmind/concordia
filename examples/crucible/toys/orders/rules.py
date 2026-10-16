@@ -60,6 +60,7 @@ class Ship:
   # The order each member last heard, for those who missed a newer one
   # (off duty when it was given; cycle 23). Others follow `order`.
   heard: dict[str, str] = dataclasses.field(default_factory=dict)
+  relayed: str = ''  # what the bosun last passed on (arc 5)
   log: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
   @property

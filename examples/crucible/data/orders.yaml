@@ -28,6 +28,10 @@ watch: {sees: 2}
 #   sensible:  whether they skip an ordered action that cannot help now
 #   volunteers: who takes up a clause for "someone" (arc 4): 'always',
 #              'fresh' (only when not worn out) or 'never'
+#   relays:    how they pass an order on as bosun (arc 5): 'word_for_word',
+#              'drops_rest' (leaves out clauses to rest or keep watch),
+#              'adds_repair' (adds "repair leaks" if no clause repairs) or
+#              'negates' (says "don't" before each clause)
 temperaments:
   bold:
     describe: keen to push the work forward; shrugs off risk
@@ -36,6 +40,7 @@ temperaments:
     on_leak: follow
     sensible: true
     volunteers: always
+    relays: drops_rest
   cautious:
     describe: worries about damage and about wearing out
     otherwise: [repair, gather]
@@ -43,6 +48,7 @@ temperaments:
     on_leak: repair
     sensible: true
     volunteers: fresh
+    relays: adds_repair
   literal:
     describe: does exactly what the order says and nothing it does not say
     otherwise: [rest]
@@ -50,6 +56,7 @@ temperaments:
     on_leak: follow
     sensible: false
     volunteers: never
+    relays: word_for_word
   # contrary: does the opposite of a clause that applies: told to work,
   # rests; told to rest, does `works`; told not to do something, does it.
   contrary:
@@ -61,6 +68,7 @@ temperaments:
     contrary: true
     works: build
     volunteers: never
+    relays: negates
 
 crew:
   Ash: {temperament: bold}
@@ -89,6 +97,20 @@ someone:
     to one crew member only, the one who takes it up this turn, named below. For them it comes before
     any other clause, as a clause naming them would. It does not apply to
     anyone else, who read the other clauses.
+
+# The bosun (arc 5). In a scene with a `bosun` (a crew member), the
+# commander's order goes to the bosun, who passes it on to the others in
+# their own words; the rest of the crew hear only that. The bosun follows
+# the order as given.
+relaying:
+  laws:
+    word_for_word: passes the order on word for word
+    drops_rest: passes it on but leaves out any clause to rest or keep watch
+    adds_repair: passes it on and adds "repair leaks" if no clause repairs
+    negates: passes it on with "don't" before each clause
+  question: >-
+    How does {name} pass the order on to the rest of the crew? Give only
+    the words {name} says.
 
 # The menu, in order. Effects are data read by one law (rules.CrewRule):
 #   needs:      stock an action spends; without it the action does nothing

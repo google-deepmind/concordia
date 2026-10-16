@@ -71,6 +71,13 @@ CLAUSE_QUESTION = (
 )
 CHOICE_QUESTION = 'What does {name} do this turn?'
 ORDER_MARKER = 'Give your standing order'
+RELAY_STATEMENT = (
+    '{name} is the bosun, who is {temperament}: {describe}. The commander'
+    ' gives the order to {name}, and {name} passes it on to the rest of the'
+    ' crew. {name} {law}.\n'
+    'The commander\'s order: "{order}"\n'
+)
+RELAY_MARKER = 'passes it on to the rest of the crew'
 HOLD = 'hold'
 OFF_DUTY = 'off duty'  # what an off-duty member acted on
 OFF_DUTY_ACTION = 'rest'
@@ -190,6 +197,7 @@ class OrdersToy(base.Toy):
         watched=bool(start.get('watched', False)),
     )
     self._cache: dict[str, tuple[int, str]] = {}
+    self._relayed: dict[str, str] = {}
     self.tell(self.commander, str(data['premise']).strip())
 
   # ---- what is known --------------------------------------------------------
@@ -283,6 +291,57 @@ class OrdersToy(base.Toy):
         for m in self.crew
     }
     return self.crew_rule.volunteer(ship, takes, excluded)
+
+  def relay(self, order: str) -> str:
+    """How the bosun passes `order` on to the rest of the crew (cached)."""
+    bosun = self._data['bosun']
+    temperament = self._data['crew'][bosun]['temperament']
+    props = self._data['temperaments'][temperament]
+    law = self._data['relaying']['laws'][props.get('relays', 'word_for_word')]
+    statement = RELAY_STATEMENT.format(
+        name=bosun,
+        temperament=temperament,
+        describe=props['describe'],
+        law=law,
+        order=order,
+    )
+    if statement not in self._relayed:
+      doc = interactive_document.InteractiveDocument(self._model)
+      doc.statement(statement)
+      words = doc.open_question(
+          ' '.join(str(self._data['relaying']['question']).split()).format(
+              name=bosun
+          ),
+          max_tokens=60,
+          temperature=float(self._data.get('reading_temperature', 0.0)),
+      )
+      relayed = base.clean_action(bosun, words)
+      # The bosun is held to a little more than the commander's limit.
+      limit = int(self._data['max_words']) + 4
+      self._relayed[statement] = ' '.join(relayed.split()[:limit])
+    return self._relayed[statement]
+
+  def pass_on(self, ship: Ship, turn: int) -> str:
+    """The bosun relays the order just given to the crew on duty (arc 5).
+
+    Args:
+      ship: The ship; `ship.order` is the order just given.
+      turn: The turn it is given for.
+
+    Returns:
+      What the bosun said, as a sentence, or '' without an active bosun.
+    """
+    bosun = self._data.get('bosun')
+    if not bosun or bosun not in self.crew:
+      return ''
+    if self.rota.off_duty(ship, bosun, turn):
+      return f'{bosun} is off duty: the order goes out as you gave it.'
+    relayed = self.relay(ship.order)
+    ship.relayed = relayed
+    for member in self.rota.on_duty(ship, turn):
+      if member != bosun:
+        ship.heard[member] = relayed
+    return f'{bosun} passes it on: "{relayed}".'
 
   def condition(self, ship: Ship, member: str) -> str:
     return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
@@ -402,12 +461,16 @@ class OrdersToy(base.Toy):
 
   def earlier(self, ship: Ship) -> str:
     """Who still follows an earlier order, for the commander's prompt."""
+    relayed = ship.relayed if self._data.get('bosun') else None
     behind = [
         f'{m} ("{self.rota.order_of(ship, m) or "(none)"}")'
         for m in self.crew
-        if self.rota.order_of(ship, m) != ship.order
+        if self.rota.order_of(ship, m) not in (ship.order, relayed)
     ]
-    return f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
+    text = f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
+    if relayed is not None and ship.order:
+      text += f' {self._data["bosun"]} passed it on as: "{relayed}".'
+    return text
 
   def apply(self, world: Ship, actor: str, action: str) -> base.Receipt:
     ship = world
@@ -420,6 +483,9 @@ class OrdersToy(base.Toy):
         missed = self.rota.hear(ship, previous, ship.turn + 1)
         if missed:
           steps.append(missed)
+        relayed = self.pass_on(ship, ship.turn + 1)
+        if relayed:
+          steps.append(relayed)
     ship.turn += 1
     turn = ship.turn
     kind = self.event(ship, turn)
@@ -547,6 +613,11 @@ class OrdersToy(base.Toy):
                     self.rota.order_of(ship, member)
                     if self.rota.order_of(ship, member) != ship.order
                     else None
+                ),
+                'via_bosun': bool(
+                    self._data.get('bosun')
+                    and self.rota.order_of(ship, member) == ship.relayed
+                    and member != self._data['bosun']
                 ),
                 'last': (last or {}).get('actions', {}).get(member),
                 'why': (last or {}).get('why', {}).get(member),

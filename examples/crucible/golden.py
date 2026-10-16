@@ -52,6 +52,8 @@ def run_case(
   data['scenarios']['voyage'].pop('crew_present', None)
   if 'crew' in case:
     data['scenarios']['voyage']['crew_present'] = list(case['crew'])
+  if 'bosun' in case:
+    data['scenarios']['voyage']['bosun'] = case['bosun']
   if 'off_duty' in case:
     data['scenarios']['voyage']['off_duty'] = {m: [1] for m in case['off_duty']}
   toy = orders_lib.OrdersToy(model, data, 'voyage', seed=0)
@@ -65,6 +67,8 @@ def run_case(
     ship.fatigue[member] = int(fatigue)
   if case['event'] == 'leak':
     ship.leak = True
+  if 'bosun' in case:
+    toy.pass_on(ship, 1)  # the crew hear the bosun's words
   try:
     action = toy.choose(ship, case['member'], 1)
   except Exception as e:  # pylint: disable=broad-exception-caught

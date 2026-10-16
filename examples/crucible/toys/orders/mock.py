@@ -39,6 +39,8 @@ _STORES = re.compile(
 _SOMEONE = re.compile(
     r'^(\w+) takes up the clause for someone this turn', re.MULTILINE
 )
+_RELAY = re.compile(r'\w+ is the bosun, who is (\w+):')
+_COMMANDER_ORDER = re.compile(r'The commander\'s order: "(.*)"\n')
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
 _SENTENCE = re.compile(r'[.;]')
@@ -262,7 +264,41 @@ class OrdersMock:
     letter = letters.get(wanted)
     return list(responses).index(letter) if letter in responses else None
 
+  def relay(self, order: str, how: str) -> str:
+    """How a bosun passes `order` on, by their temperament's `relays`."""
+    if how == 'word_for_word':
+      return order
+    parts = [p.strip() for p in _SENTENCE.split(order) if p.strip()]
+
+    def says(part, action):
+      return bool(set(_WORD.findall(part.lower())) & self._verbs[action])
+
+    if how == 'drops_rest':
+      parts = [p for p in parts if not (says(p, 'rest') or says(p, 'watch'))]
+    elif how == 'adds_repair':
+      if not any(says(p, 'repair') for p in parts):
+        parts.append('repair leaks')
+    elif how == 'negates':
+
+      def negated(part):
+        if self._negations & set(_WORD.findall(part.lower())):
+          return part
+        first = _WORD.findall(part.lower())[0]
+        keep = first in self._crew  # a name keeps its capital
+        return "don't " + (part if keep else part[0].lower() + part[1:])
+
+      parts = [negated(p) for p in parts]
+    return '; '.join(parts) + '.' if parts else ''
+
   def text(self, prompt: str) -> str | None:
+    found = _RELAY.search(prompt)
+    if toy_lib.RELAY_MARKER in prompt and found:
+      props = self._data['temperaments'].get(found.group(1), {})
+      order = _COMMANDER_ORDER.search(prompt)
+      return self.relay(
+          order.group(1) if order else '',
+          props.get('relays', 'word_for_word'),
+      )
     if toy_lib.ORDER_MARKER in prompt:
       return 'Build; if a leak opens, repair it.'
     if toy_lib.CLAUSE_QUESTION.split('{name}')[0] in prompt:
