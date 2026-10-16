@@ -472,7 +472,7 @@ class OrdersToy(base.Toy):
           f'project {ship.progress} of {self._data["target"]}'
       )
     per_words = int(self._data['command']['per_words'])
-    call = (
+    call = self.laws_for_commander(ship) + (
         f'Turn {turn} of {self._data["turns"]}. {self.situation(ship, turn)}\n'
         f'Ahead: {self.ahead(ship)}.\n'
         f'Stores: {ship.supplies} supplies; {stakes}. Crew: '
@@ -487,6 +487,29 @@ class OrdersToy(base.Toy):
         "one. Answer with the order's words alone."
     )
     return entity_lib.free_action_spec(call_to_action=call, tag='order')
+
+  def laws_for_commander(self, ship: Ship) -> str:
+    """The laws the crew read by, so the commander can plan with them."""
+    laws = list(self._data['reading_laws'])
+    for extra in ('someone', 'timing'):
+      if extra in self._data:
+        laws.append(' '.join(str(self._data[extra]['law']).split()))
+    bosun = self.bosun_of(ship)
+    if bosun:
+      temperament = self._data['crew'][bosun]['temperament']
+      how = self._data['temperaments'][temperament].get(
+          'relays', 'word_for_word'
+      )
+      laws.append(
+          f'Your order goes to {bosun}, the bosun, who '
+          f'{self._data["relaying"]["laws"][how]}; the rest of the crew hear'
+          ' only that.'
+      )
+    return (
+        'How your crew read orders:\n'
+        + '\n'.join(f'- {law}' for law in laws)
+        + '\n'
+    )
 
   def earlier(self, ship: Ship) -> str:
     """Who still follows an earlier order, for the commander's prompt."""
