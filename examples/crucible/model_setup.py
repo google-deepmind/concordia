@@ -70,21 +70,22 @@ def build_model(
   if mode == 'mock':
     return mock_model()
   if mode == 'ollama':
-    model = reasoned_choice.ReasonedChoice(
-        language_models.language_model_setup(
-            api_type='ollama', model_name=model_name or DEFAULT_OLLAMA
-        )
+    base = language_models.language_model_setup(
+        api_type='ollama', model_name=model_name or DEFAULT_OLLAMA
     )
   elif mode == 'together':
     key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(
         'TOGETHER_AI_API_KEY'
     )
-    model = language_models.language_model_setup(
+    base = language_models.language_model_setup(
         api_type='together_ai',
         model_name=model_name or DEFAULT_TOGETHER,
         api_key=key,
     )
   else:
     raise ValueError(f'Unknown mode: {mode}')
+  # Judgements (multiple choice) go through a short reason, at temperature 0
+  # so the same reading gives the same answer.
+  model = reasoned_choice.ReasonedChoice(base, temperature=0.0)
   model = retry_wrapper.RetryLanguageModel(model, retry_tries=2)
   return call_limit_wrapper.CallLimitLanguageModel(model, max_calls=max_calls)

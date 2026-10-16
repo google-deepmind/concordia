@@ -51,6 +51,9 @@ crew:
   Bea: {temperament: cautious}
   Cy: {temperament: literal}
 
+# The crew's reading of an order is a judgement, not a story: sampled cold.
+reading_temperature: 0.0
+
 # The laws of reading, written into every crew member's prompt.
 reading_laws:
   - A plain clause (no names, no condition) applies to every crew member, every turn.

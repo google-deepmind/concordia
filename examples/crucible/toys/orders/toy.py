@@ -194,7 +194,11 @@ class OrdersToy(base.Toy):
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)
       # Reading first: which clause applies, then what to do about it.
-      doc.open_question(CLAUSE_QUESTION.format(name=member), max_tokens=60)
+      doc.open_question(
+          CLAUSE_QUESTION.format(name=member),
+          max_tokens=60,
+          temperature=float(self._data.get('reading_temperature', 0.0)),
+      )
       self._cache[statement] = doc.multiple_choice_question(
           CHOICE_QUESTION.format(name=member),
           [self._data['actions'][a]['text'] for a in self.menu],
