@@ -396,7 +396,7 @@ class OrdersToy(base.Toy):
         f'{self.price_table()}; an order you cannot pay for is refused).\n'
         f'{ORDER_MARKER}, {{name}}: a new order of at most '
         f'{self._data["max_words"]} words, or "{HOLD}" to keep the current '
-        'one.'
+        "one. Answer with the order's words alone."
     )
     return entity_lib.free_action_spec(call_to_action=call, tag='order')
 

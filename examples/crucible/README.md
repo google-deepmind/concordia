@@ -76,8 +76,8 @@ laws?):
 
 ```bash
 python -m examples.crucible.audit
-python -m examples.crucible.golden_cli --mode=mock
-python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b
+python -m examples.crucible.golden_cli --mode=mock --repeats=2
+python -m examples.crucible.golden_cli --mode=ollama --model_name=qwen3:8b --repeats=2
 ```
 
 Each run writes a folder with `log.html` (Concordia's `SimulationLog`),
