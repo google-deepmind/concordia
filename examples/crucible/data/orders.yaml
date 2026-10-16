@@ -101,7 +101,8 @@ someone:
   # The same law as the commander is told it: who takes the clause up.
   commander_law: >-
     A clause for someone (or one of you) goes to one crew member only: of
-    those on duty and not named in another clause, the freshest willing one
+    those on duty who heard it and are not named in another clause, the
+    freshest willing one
     (the bold always take it up, the cautious only when fresh, the literal
     and the contrary never), the first in crew order on a tie.
 
@@ -711,10 +712,10 @@ daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}
 
 # The mock's reading of orders (the lookup-table floor).
 lexicon:
-  repair: [repair, fix, patch, mend, seal, hull, leak, leaks]
-  gather: [gather, collect, forage, fetch, supplies, supply, stock]
+  repair: [repair, repairs, fix, fixes, patch, mend, mends, seal, hull, leak, leaks]
+  gather: [gather, gathers, collect, collects, forage, fetch, supplies, supply, stock]
   build: [build, builds, building, work, project, progress, construct, push]
-  rest: [rest, sleep, recover, pause, break, tired]
+  rest: [rest, rests, sleep, sleeps, recover, pause, break, tired]
   watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
   conditions:
     leak: [leak, leaks, breach]

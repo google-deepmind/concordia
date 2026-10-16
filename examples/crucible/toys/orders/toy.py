@@ -389,7 +389,8 @@ class OrdersToy(base.Toy):
         f'Stores: {ship.supplies} supplies; {stakes}. Crew: '
         + ', '.join(f'{c} {self.condition(ship, c)}' for c in self.crew)
         + '.\n'
-        f'Current order: "{ship.order or "(none)"}".{self.earlier(ship)}'
+        f'Current order: "{ship.order or "(none)"}"{self.span(ship, turn)}.'
+        f'{self.earlier(ship)}'
         f' Command: {ship.points} '
         f'points (a new order costs 1, plus 1 per {per_words} words: '
         f'{self.price_table()}; an order you cannot pay for is refused).\n'
@@ -423,6 +424,12 @@ class OrdersToy(base.Toy):
         + '\n'.join(f'- {law}' for law in laws)
         + '\n'
     )
+
+  def span(self, ship: Ship, turn: int) -> str:
+    """Which turn of a timed standing order `turn` would be, if kept."""
+    if not (ship.order and TIMED.search(ship.order) and 'timing' in self._data):
+      return ''
+    return f' (if kept, its turn {turn - ship.order_turn + 1})'
 
   def earlier(self, ship: Ship) -> str:
     """Who still follows an earlier order, for the commander's prompt."""

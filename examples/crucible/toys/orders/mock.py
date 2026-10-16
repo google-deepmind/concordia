@@ -163,9 +163,10 @@ class OrdersMock:
     forbidden = {key: [] for key in buckets}
     sources = {key: [] for key in buckets}
     parts = [
-        (sentence, part)
+        (piece, part)
         for sentence in _SENTENCE.split(order)
-        for part in _CLAUSE.split(sentence)
+        for piece in self._by_name(sentence)
+        for part in _CLAUSE.split(piece)
     ]
     for written, part in parts:
       clause = part.lower()
@@ -206,6 +207,32 @@ class OrdersMock:
             list(dict.fromkeys(sources[key])),
         )
     return [], False, [], []
+
+  def _by_name(self, part: str) -> list[str]:
+    """Splits "Ash builds, Bea keeps watch" at a comma before a name.
+
+    Only where both sides ask for something: "Ash, keep watch" and "Ash,
+    Bea, build" stay whole (cycle 84).
+
+    Args:
+      part: One sentence of an order.
+
+    Returns:
+      The clauses in it, in order.
+    """
+    names = '|'.join(re.escape(n) for n in sorted(self._crew))
+    if not names:
+      return [part]
+    pieces = re.split(rf',\s*(?=(?:{names})\b)', part, flags=re.IGNORECASE)
+    out = []
+    for piece in pieces:
+      if out and not any(self._asks(out[-1])[:2]):
+        out[-1] += ', ' + piece  # the one before asked nothing: a vocative
+      else:
+        out.append(piece)
+    if len(out) > 1 and not any(self._asks(out[-1])[:2]):
+      out[-2:] = [out[-2] + ', ' + out[-1]]
+    return out
 
   def _asks(self, clause: str) -> tuple[list[str], list[str], list[str]]:
     """What one clause asks for and forbids, and its condition's words.

@@ -238,6 +238,27 @@ class ShipTest(absltest.TestCase):
     self.assertEqual(mock.read(order, now)[0], ['repair'])
     self.assertEqual(mock.read(order, set())[0], ['build'])
 
+  def test_named_clauses_joined_by_a_comma_are_two_clauses(self):
+    mock = mock_lib.OrdersMock(toys.load_data('orders'))
+    order = 'Ash builds, Bea keeps watch.'
+    self.assertEqual(mock.read(order, set(), 'Ash')[:2], (['build'], True))
+    self.assertEqual(mock.read(order, set(), 'Bea')[:2], (['watch'], True))
+    self.assertEqual(mock.read('Ash, keep watch.', set(), 'Ash')[0], ['watch'])
+    self.assertEqual(mock.read('Ash, Bea, build.', set(), 'Bea')[0], ['build'])
+    self.assertEqual(
+        mock.read('If tired, Ash rests.', {'tired'}, 'Ash')[0], ['rest']
+    )
+
+  def test_the_commander_is_told_a_spans_turn(self):
+    toy = _toy()
+    toy.resolve(toy.commander, 'Build for two turns, then repair.')
+    prompt = toy.action_spec(toy.commander).call_to_action
+    self.assertIn(
+        'Current order: "Build for two turns, then repair." (if kept, its'
+        ' turn 2).',
+        prompt,
+    )
+
   def test_state_round_trip(self):
     toy = _toy(1)
     toy.resolve('Commander', 'Gather supplies and build.')

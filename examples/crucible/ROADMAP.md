@@ -87,11 +87,10 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   the scene's own goal; cycle 81: the mock reads a span per clause;
   cycle 82: mock negation scope, negated conditions, a damaged hull;
   cycle 83: the law-text batch: precedence of a conditional that holds,
-  the fallback habit in a storm, the relay laws and the mock's relay).
-  Still to do:
-  - Smaller: the commander's someone law omits "only those who heard it";
-    the commander's prompt lacks a span's turn; "Ash builds, Bea keeps
-    watch." is one clause to the mock.
+  the fallback habit in a storm, the relay laws and the mock's relay;
+  cycle 84: the commander's someone law and a span's turn; comma-joined
+  named clauses and verb forms in the mock). All 13 items done; golden
+  set PASS on Flash after the law batch (32/32 hard x2, soft 85.7%).
 
 - Model commanders: a live Flash commander never used "someone" and twice
   "ordered" in narration over the word limit (cycle 20); the human seat is
