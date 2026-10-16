@@ -72,10 +72,15 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 ## Next (Phase 1, orders)
 
 1. Evidence that a tester pokes the free scenario unprompted (the owner's games).
-2. qwen3:8b golden on the 43 cases (twice); live games in the arc 4 scenes (Flash); the Ollama wrapper's bounds (backlog).
-3. Keep deepening: the commander learning from the readings shown (cycle 17), e.g. a scene where the order must be re-worded after a misreading; the owner's games.
+2. qwen3:8b golden on the 44 cases, twice (running since cycle 28; on this CPU-only host a "someone" reading thinks for ~2,800 tokens, minutes each).
+3. Keep deepening: storms shorten the watch's sight (hazards -> watch); the commander learning from the readings shown (a scene where the order must be re-worded after a misreading); the owner's games.
 
 ## Backlog
+
+- Model commanders: a live Flash commander never used "someone" and twice
+  "ordered" in narration over the word limit (cycle 20); the human seat is
+  the target, but a model commander could be prompted to answer with the
+  order's words only.
 
 - Orders: the skilled bot plans as if unseen turns are quiet; teach it the
   value of a watch (it lost to random in some sweep settings).
