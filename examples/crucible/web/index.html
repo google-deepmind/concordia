@@ -73,6 +73,7 @@
 
 <p id="status" class="muted" aria-live="polite">Pick a chapter to start.</p>
 <p id="announce" class="sr" aria-live="polite"></p>
+<p id="again" hidden><button id="retry">Try again</button></p>
 <p id="share" class="meter" hidden><span id="shareText"></span> <button id="copyShare">Copy</button></p>
 
 <div id="board" hidden>
@@ -202,8 +203,11 @@ function renderMenu(state) {
     pick.dataset.done = '1';
   }
 }
+let lastStart = null;  // what the last game was started with, for Try again
 async function start(body) {
   body.mode = $('mind').value;
+  lastStart = Object.assign({}, body);
+  $('again').hidden = true;
   const r = await api('api/start', body);
   if (!r.ok) { $('status').textContent = r.error || 'Could not start.'; return; }
   $('log').innerHTML = ''; $('plainlog').innerHTML = ''; menuOpen = false; $('menu').hidden = true;
@@ -320,9 +324,11 @@ function render(state) {
     }
     $('question').textContent = req ? req.question : '';
   }
+  $('again').hidden = true;  // shown again below only once a game is over
   if (gm.finished) {
     const o = gm.outcome || {};
     $('status').textContent = 'Game over: ' + (o.winner ? 'won ' + stars(o.stars || 0) : 'not won') + (gm.error ? ' (' + gm.error + ')' : '');
+    $('again').hidden = !lastStart;
     const lesson = gm.view && gm.view.lesson;
     if (lesson) $('status').textContent += ' \u2014 ' + lesson;
     if (gm.daily && gm.view) {
@@ -367,6 +373,7 @@ async function send(text) {
   if (r.ok) { $('move').value = ''; $('plainmove').value = ''; countWords(); }
 }
 $('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
+$('retry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
 $('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : $('plainmove').value.trim());
