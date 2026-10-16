@@ -126,6 +126,25 @@ class PassItOnToy(base.Toy):
       })
     return {'hops': hops, 'acted': acted}
 
+  def rehearse(self, message: str) -> dict[str, Any]:
+    """How the first in line would pass `message` on (a preview).
+
+    Only the first hop: a measured effect of the words, without what the
+    top of the line would do with them, which is the puzzle.
+
+    Args:
+      message: The words the player might send.
+
+    Returns:
+      {'who': the first relayer, 'said': their words}, or {} when the line
+      has no relayer (the player speaks to the top directly).
+    """
+    message = message.strip()
+    if not self.relayers or not message:
+      return {}
+    who = self.relayers[0]
+    return {'who': who, 'said': self._orders.relay(message, who)}
+
   # ---- the rulebook ----------------------------------------------------------
 
   def actors(self) -> list[str]:

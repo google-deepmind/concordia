@@ -15,14 +15,14 @@ Phase 0, toys
 
 Phase 1, grey box
 - [x] A mock run finishes in seconds and reproduces from a seed (`toy_test`, 28 tests in 3 s)
-- [ ] Every move shows a measured preview of its effect before it is sent
+- [x] Every move shows a measured preview of its effect before it is sent (Rehearse with the first in line: how the first relayer would pass the words on, with the changes marked, no try used; the top's reading stays the puzzle. `toy_test.test_a_rehearsal_shows_the_first_hop_only`, `server_test.test_pass_it_on_rehearses_with_the_first_in_line`; checked in the browser pane, cycle 104)
 - [x] Every move gets a receipt saying what it did (each try: every hop's words, what the last in line did, the verdict; `toy_test.test_dex_flips_each_part_...`, page cards, evidence/shots/c99)
 - [ ] A tester with no win condition starts poking the system unprompted (the owner's Pass it on games)
 - [x] The skilled bot beats the random bot (16 seeds, evidence/audit-c101-passiton.jsonl: 100 vs 0-62 in every level)
 
 Phase 2, overloading
-- [ ] Every move carries at least two of directive, cost, side effect, information and timing
-- [ ] Each dimension is its own component with its own test
+- [x] Every move carries at least two of directive, cost, side effect, information and timing (a message is a directive read at the top, golden p1-p13; a cost in words and tries, `test_the_skilled_bot_earns_three_stars_on_the_first_try`, `test_three_tries_then_over_...`; a side effect, each relayer reshaping it for everyone above, `test_the_last_in_line_hear_only_the_relayers_words`, golden r1-r10; and information, every hop shown and the rehearsal, `test_a_rehearsal_shows_the_first_hop_only`)
+- [x] Each dimension is its own component with its own test (directive: `OrdersToy.reading`; side effect: `OrdersToy.relay` and the mock's relay laws, `orders_test`/`someone_test` relay tests; cost and verdict: `PassItOnToy` ledger, `toy_test`; information: `view`/`rehearse`, `toy_test`, `server_test`)
 - [x] Simultaneous acts resolve in a fixed order (the last in line read in line order; deterministic receipts)
 - [x] The median turn offers three or more moves with a measured effect (audit-c101: 120 to 14640 candidate messages with distinct outcomes)
 

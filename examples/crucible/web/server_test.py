@@ -272,6 +272,18 @@ class ServerTest(absltest.TestCase):
     view = game['view']
     self.assertEqual(view, asked)
 
+  def test_pass_it_on_rehearses_with_the_first_in_line(self):
+    for level in toys.load_data('passiton')['campaign']:
+      self.games.progress.record(level, 1)
+    self.call(
+        '/api/start', {'toy': 'passiton', 'scenario': 'dex_in_the_middle'}
+    )
+    game = self.wait_for_request()
+    self.assertEqual(game['view']['kind'], 'passiton')
+    reply = self.call('/api/preview', {'text': 'Build.'})
+    self.assertEqual(reply['rehearsal'], {'who': 'Dex', 'said': "don't build."})
+    self.assertEqual(self.call('/api/state')['game']['view']['attempts'], [])
+
   def test_a_failed_preview_says_so(self):
     self.call('/api/start', {'toy': 'orders', 'scenario': 'one_hand'})
     self.wait_for_request()

@@ -402,6 +402,24 @@ class Games:
       return {'ok': False, 'summary': 'Nothing to preview now.'}
     toy = session.game.toy
     session.previews.append(text)  # tried, even if the preview fails
+    if hasattr(toy, 'rehearse'):  # Pass it on: the first hop only
+      try:
+        hop = toy.rehearse(text)  # pyrefly: ignore[missing-attribute]
+      except Exception as error:  # pylint: disable=broad-exception-caught
+        return {
+            'ok': False,
+            'summary': f'The rehearsal failed ({type(error).__name__}).',
+        }
+      if not hop:
+        return {
+            'ok': True,
+            'summary': 'You speak to the top directly: no one passes it on.',
+        }
+      return {
+          'ok': True,
+          'summary': f'{hop["who"]} would pass it on as: "{hop["said"]}"',
+          'rehearsal': hop,
+      }
     try:
       receipt, world = toy.simulate(session.game.kind.seat, text)
     except Exception as error:  # pylint: disable=broad-exception-caught

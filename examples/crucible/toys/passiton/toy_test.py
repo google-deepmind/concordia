@@ -76,6 +76,14 @@ class LineTest(absltest.TestCase):
     self.assertIn('Dex passes it on: "build."', receipt.summary)
     self.assertTrue(toy.done())
 
+  def test_a_rehearsal_shows_the_first_hop_only(self):
+    toy = _toy('dex_in_the_middle')
+    self.assertEqual(
+        toy.rehearse('Build.'), {'who': 'Dex', 'said': "don't build."}
+    )
+    self.assertEqual(toy.world['attempts'], [])  # no try used
+    self.assertEqual(_toy('straight_up').rehearse('Keep watch.'), {})
+
   def test_the_last_in_line_hear_only_the_relayers_words(self):
     toy = _toy('two_through_dex')
     result = toy.pass_up('Ash, build; Cy, keep watch.')

@@ -155,6 +155,8 @@
   <div id="pControls">
     <textarea id="pmove" aria-label="Your message" placeholder="Your message" autocomplete="off" enterkeyhint="send"></textarea>
     <div class="row"><span class="meter" id="pCount"></span></div>
+    <div><button id="rehearse">Rehearse with the first in line</button></div>
+    <p class="meter" id="rehearsal" hidden></p>
     <div class="cap">Tap to add:</div>
     <div id="pChips"></div>
     <p class="cap" id="pTries"></p>
@@ -403,6 +405,9 @@ function renderPass(v, finished) {
     $('pmove').placeholder = 'Your message (up to ' + v.max_words + ' words)';
   }
   $('pControls').hidden = !!finished;
+  $('rehearse').hidden = !v.line.length;  // no one to rehearse with
+  if (passFor === key && v.attempts.length !== (renderPass.tries || 0)) $('rehearsal').hidden = true;
+  renderPass.tries = v.attempts.length;
   $('pTries').textContent = 'Try ' + Math.min(v.attempts.length + 1, v.tries) + ' of ' + v.tries + '.';
   const hist = $('pHistory'); hist.innerHTML = '';
   if (v.attempts.length > 1 || (finished && v.attempts.length)) {
@@ -622,6 +627,20 @@ function countWords() {
 function sendable() { $('send').disabled = !requestId || ((mode === 'board' || mode === 'pass') && blocked); }
 $('move').addEventListener('input', countWords);
 $('pmove').addEventListener('input', countPass);
+$('rehearse').onclick = async () => {
+  const text = $('pmove').value.trim(), b = $('rehearse');
+  if (!text || b.disabled) return;
+  b.disabled = true; const was = b.textContent; b.textContent = 'Asking\u2026';
+  let r;
+  try { r = await api('api/preview', {text: text}); }
+  catch (e) { r = {summary: 'The rehearsal failed (' + e + ').'}; }
+  finally { b.disabled = false; b.textContent = was; }
+  const out = $('rehearsal'); out.hidden = false; out.innerHTML = '';
+  if (r.rehearsal) {
+    out.append(r.rehearsal.who + ' would pass it on as: ');
+    out.appendChild(wordDiff(text, r.rehearsal.said));
+  } else out.textContent = r.summary;
+};
 $('pmove').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!$('send').disabled) $('send').click(); }
 });
