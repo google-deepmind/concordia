@@ -22,10 +22,12 @@ room to reason: it can explain the right answer in free text yet pick a
 wrong letter when made to answer bare.
 
 `ReasonedChoice` answers `sample_choice` through `sample_text` instead: it
-asks for one sentence of reasoning and then the answer as "(letter)", takes
-the last option letter in the reply, and falls back to the wrapped model's
-own `sample_choice` when no option letter comes back. `sample_text` passes
-through unchanged.
+asks for one sentence of reasoning and then the answer as "(letter)" with
+the option's words, takes the last option letter in the reply, and falls
+back to the wrapped model's own `sample_choice` when no option letter comes
+back. If the words after that letter are another option's words, the words
+win: a model can reason its way to an answer and then slip on the letter.
+`sample_text` passes through unchanged.
 
 Example:
 
@@ -52,9 +54,16 @@ from typing import Any, override
 from concordia.language_model import language_model
 
 _LETTER = re.compile(r'\(([a-z])\)')
+_OPTION = re.compile(r'^\s*\(([a-z])\)\s*(.+?)\s*$', re.MULTILINE)
 DEFAULT_INSTRUCTION = (
-    'In one sentence, say why; then give the answer as (letter).'
+    'In one sentence, say why; then give the answer as (letter) and the'
+    " option's words."
 )
+
+
+def _options(prompt: str) -> dict[str, str]:
+  """The lettered options listed in a prompt: letter -> words, lowercased."""
+  return {k: v.lower().rstrip('.') for k, v in _OPTION.findall(prompt)}
 
 
 class ReasonedChoice(language_model.LanguageModel):
@@ -128,8 +137,16 @@ class ReasonedChoice(language_model.LanguageModel):
         temperature=self._temperature,
         seed=seed,
     )
-    letters = [m for m in _LETTER.findall(reply) if m in responses]
-    if letters:
-      idx = list(responses).index(letters[-1])
+    found = [m for m in _LETTER.finditer(reply) if m.group(1) in responses]
+    if found:
+      letter = found[-1].group(1)
+      after = reply[found[-1].end() :].lower()
+      options = _options(prompt)
+      if options.get(letter) and options[letter] not in after:
+        # The words name another option: the letter slipped.
+        named = [k for k, v in options.items() if v and v in after]
+        if len(named) == 1 and named[0] in responses:
+          letter = named[0]
+      idx = list(responses).index(letter)
       return idx, responses[idx], {'reasoning': reply}
     return self._model.sample_choice(prompt, responses, seed=seed)

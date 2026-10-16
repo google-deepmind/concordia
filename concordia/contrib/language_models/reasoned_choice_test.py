@@ -69,6 +69,21 @@ class ReasonedChoiceTest(absltest.TestCase):
     self.assertEqual((idx, response), (1, 'b'))
     self.assertIn('reasoning', debug)
 
+  def test_the_option_words_win_over_a_slipped_letter(self):
+    prompt = (
+        'Q?\n  (a) repair the hull\n  (b) gather supplies\n'
+        '  (c) build the project\nAnswer: ('
+    )
+    fake = _Fake('So he builds. (b) build the project')
+    model = reasoned_choice.ReasonedChoice(fake)
+    self.assertEqual(model.sample_choice(prompt, ['a', 'b', 'c'])[1], 'c')
+    agree = _Fake('So he gathers. (b) gather supplies')
+    model = reasoned_choice.ReasonedChoice(agree)
+    self.assertEqual(model.sample_choice(prompt, ['a', 'b', 'c'])[1], 'b')
+    bare = _Fake('So (a).')  # No words after the letter: the letter stands.
+    model = reasoned_choice.ReasonedChoice(bare)
+    self.assertEqual(model.sample_choice(prompt, ['a', 'b', 'c'])[1], 'a')
+
   def test_falls_back_to_the_bare_choice(self):
     fake = _Fake('I cannot decide.')
     model = reasoned_choice.ReasonedChoice(fake)
