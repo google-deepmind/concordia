@@ -28,6 +28,7 @@ any seat played by a model, a bot or a person.
 | `PolicyInput`, `ScriptedInput` | `contrib/components/agent/scripted_input.py` | `HumanInput` readers answered by a policy (bots) or a script (tests, replays) |
 | `BlockingInput` | `contrib/components/agent/blocking_input.py` | A reader answered from another thread: a web or chat transport reads `pending()` and calls `submit(request_id, answer)`; `close()` releases a waiting simulation |
 | `ReasonedChoice` | `contrib/language_models/reasoned_choice.py` | Multiple choice through one sentence of reasoning and a "(letter)", optionally at temperature 0, trusting the option's words over a slipped letter |
+| `FallbackLanguageModel` | `contrib/language_models/fallback.py` | Answers with a hosted model and, when it raises or its call budget is spent, with a second model (a local one, or the game's mock): a provider error or a spent budget no longer ends a game or fills it with empty answers |
 | `golden_set` | `contrib/testing/golden_set.py` | Fixed situations with the answers your rules allow, run several times against a model: hard cases must all pass, soft cases need a share, changed answers are flagged as flaky |
 
 ## How a game is put together
@@ -44,7 +45,8 @@ any seat played by a model, a bot or a person.
    (a page) as the reader.
 4. Write a mock language model that answers your prompts by the same rules
    (a lookup table is enough). It is the CI: bots, balance sweeps and tests
-   run without a provider and stay byte-identical across refactors.
+   run without a provider and stay byte-identical across refactors. In a
+   live game it is also the `FallbackLanguageModel`'s second model.
 5. Write golden cases for every judgement a model makes, and run them with
    `golden_set.run(cases, answer, repeats=2)` against each model you mean to
    use.
