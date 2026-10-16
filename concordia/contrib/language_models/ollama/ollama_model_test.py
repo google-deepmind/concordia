@@ -21,9 +21,16 @@ from concordia.contrib.language_models.ollama import ollama_model
 
 
 def _model(**kwargs) -> tuple[ollama_model.OllamaLanguageModel, mock.Mock]:
+  model, client_cls = _model_and_class(**kwargs)
+  return model, client_cls.return_value
+
+
+def _model_and_class(
+    **kwargs,
+) -> tuple[ollama_model.OllamaLanguageModel, mock.Mock]:
   with mock.patch.object(ollama_model.ollama, 'Client') as client_cls:
     model = ollama_model.OllamaLanguageModel('qwen3:8b', **kwargs)
-  return model, client_cls.return_value
+  return model, client_cls
 
 
 class OllamaLanguageModelTest(absltest.TestCase):
@@ -56,6 +63,12 @@ class OllamaLanguageModelTest(absltest.TestCase):
     _, kwargs = client.generate.call_args
     self.assertEqual(kwargs['options']['stop'], [])
     self.assertIs(kwargs['think'], True)
+
+  def test_timeout_reaches_the_client_only_when_set(self):
+    _, client_cls = _model_and_class()
+    client_cls.assert_called_once_with()
+    _, client_cls = _model_and_class(timeout=120.0)
+    client_cls.assert_called_once_with(timeout=120.0)
 
 
 if __name__ == '__main__':

@@ -51,6 +51,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
       think: bool | None = None,
+      timeout: float | None = None,
   ) -> None:
     """Initializes the instance.
 
@@ -67,9 +68,15 @@ class OllamaLanguageModel(language_model.LanguageModel):
           `InteractiveDocument.open_question`) ends it before any answer, so
           the reply is empty. With True the thinking is kept apart and the
           terminators apply to the answer alone; with False there is none.
+        timeout: Seconds the client waits for a reply before raising (so a
+          retry wrapper can try again). None waits indefinitely, as before;
+          a thinking model's replies are unbounded, so set one with it.
     """
     self._model_name = model_name
-    self._client = ollama.Client()
+    if timeout is None:
+      self._client = ollama.Client()
+    else:
+      self._client = ollama.Client(timeout=timeout)
     self._system_message = system_message
     self._terminators = []
 
