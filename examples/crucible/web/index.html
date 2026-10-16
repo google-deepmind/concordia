@@ -245,7 +245,8 @@ function renderView(v, receipts) {
     const d = document.createElement('div'); d.className = 'cell'; d.dataset.name = m.name;
     const head = document.createElement('div'); head.append(g('temperaments', m.temperament), ' ', m.name);
     head.style.fontWeight = '700';
-    const t = document.createElement('div'); t.className = 'meter'; t.textContent = word('temperaments', m.temperament);
+    const t = document.createElement('div'); t.className = 'meter';
+    t.textContent = word('temperaments', m.temperament) + (v.bosun === m.name ? ' \u00b7 bosun' : '');
     const cond = m.off ? 'off_duty' : m.condition;
     const c = document.createElement('div'); c.append(g('conditions', cond), ' ' + word('conditions', cond));
     const l = document.createElement('div'); l.className = 'meter';

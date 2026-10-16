@@ -214,6 +214,7 @@ class BosunTest(absltest.TestCase):
     receipt = toy.resolve(toy.commander, 'Build; Cy, keep watch.')
     self.assertIn('Ash passes it on: "Build."', str(receipt))
     self.assertEqual(toy.world.log[-1]['actions']['Cy'], 'build')  # no watch
+    self.assertEqual(toy.view()['bosun'], 'Ash')
     cards = {m['name']: m for m in toy.view()['crew']}
     self.assertTrue(cards['Cy']['via_bosun'])
     self.assertFalse(cards['Ash']['via_bosun'])

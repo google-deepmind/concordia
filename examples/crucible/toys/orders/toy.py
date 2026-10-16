@@ -552,6 +552,7 @@ class OrdersToy(base.Toy):
         'beat': self._data.get('beat', ''),
         # What the scene teaches, shown once it is over.
         'lesson': self._data.get('lesson') if self.done() else None,
+        'bosun': self._data.get('bosun'),  # who passes orders on (arc 5)
         'free': self.free,
         'turn': turn,
         'turns': int(self._data['turns']),
