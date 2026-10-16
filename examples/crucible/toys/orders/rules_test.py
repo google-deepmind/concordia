@@ -49,6 +49,29 @@ class InjuryTest(absltest.TestCase):
     self.assertEqual(hazards.injure(ship, 'quiet', 5, ['Ash']), '')
 
 
+class RotaRuleTest(absltest.TestCase):
+
+  def test_rota_and_injury_put_members_off_duty(self):
+    rota = rules.RotaRule(['Ash', 'Bea'], {'Bea': [2, 3]})
+    ship = rules.Ship()
+    self.assertEqual(rota.off_on(ship, 2), ['Bea'])
+    ship.injured['Ash'] = 4  # hurt on turn 3: off duty on 3 and 4
+    self.assertEqual(rota.off_on(ship, 3), ['Ash', 'Bea'])
+    self.assertEqual(rota.off_on(ship, 4), ['Ash'])
+    self.assertEqual(rota.on_duty(ship, 5), ['Ash', 'Bea'])
+
+  def test_an_order_reaches_only_those_on_duty(self):
+    rota = rules.RotaRule(['Ash', 'Bea'], {'Bea': [2]})
+    ship = rules.Ship(order='Rest.')
+    self.assertEqual(
+        rota.hear(ship, 'Build.', 2), 'Bea is off duty and misses it.'
+    )
+    self.assertEqual(rota.order_of(ship, 'Bea'), 'Build.')
+    self.assertEqual(rota.order_of(ship, 'Ash'), 'Rest.')
+    self.assertEqual(rota.hear(ship, 'Rest.', 3), '')  # said again, heard
+    self.assertEqual(ship.heard, {})
+
+
 class CommandRuleTest(absltest.TestCase):
 
   def setUp(self):

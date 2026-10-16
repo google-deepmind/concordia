@@ -24,8 +24,7 @@ in the ledger (`Ship`):
 | `HazardRule` | the world: leaks open and bleed, storms blow | `leak`, `damage` from leaks |
 | `CrewRule` | directive: what each member does, as a model reads the order; who takes up a clause for "someone" | supplies, progress, repairs, fatigue |
 | `WatchRule` | information: a member on watch reveals the turns ahead | `seen`, `watched` |
-
-The rota (who is off duty on which turn) is scene data the toy reads.
+| `RotaRule` | presence: who is on duty, and which order each member heard | `heard` (and reads `injured`) |
 
 The toy (`toy.py`) runs them in a fixed order each turn.
 """
@@ -264,6 +263,65 @@ class CrewRule:
     for member in self._crew:
       self._apply(ship, member, chosen[member], kind)
     return chosen
+
+
+class RotaRule:
+  """Who is on duty, and which order each member last heard (arc 4).
+
+  A member is off duty on the scene's rota (`off_duty`: member -> turns) or
+  while hurt (`Ship.injured`). Off duty they rest and read no order: a
+  clause naming them goes undone, while a clause for someone passes to
+  whoever is on. An order reaches only those on duty when it is given; the
+  rest keep the last order they heard (`Ship.heard`).
+  """
+
+  def __init__(
+      self, crew: Sequence[str], schedule: Mapping[str, Sequence[int]]
+  ):
+    self._crew = list(crew)
+    self._schedule = {m: set(turns) for m, turns in schedule.items()}
+
+  def off_duty(self, ship: Ship, member: str, turn: int) -> bool:
+    return (
+        turn in self._schedule.get(member, ())
+        or ship.injured.get(member, 0) >= turn
+    )
+
+  def off_on(self, ship: Ship, turn: int) -> list[str]:
+    return [m for m in self._crew if self.off_duty(ship, m, turn)]
+
+  def on_duty(self, ship: Ship, turn: int) -> list[str]:
+    return [m for m in self._crew if not self.off_duty(ship, m, turn)]
+
+  def order_of(self, ship: Ship, member: str) -> str:
+    """The order `member` follows: the last one they heard."""
+    return ship.heard.get(member, ship.order)
+
+  def hear(self, ship: Ship, previous: str, turn: int) -> str:
+    """A new order reaches those on duty; the rest keep what they heard.
+
+    Args:
+      ship: The ship; `ship.order` is the order just given.
+      previous: The order before it.
+      turn: The turn it is given for.
+
+    Returns:
+      Who missed it, as a sentence, or ''.
+    """
+    missed = []
+    for member in self._crew:
+      if self.off_duty(ship, member, turn):
+        ship.heard.setdefault(member, previous)
+        missed.append(member)
+      else:
+        ship.heard.pop(member, None)
+    if not missed:
+      return ''
+    verb = 'is' if len(missed) == 1 else 'are'
+    return (
+        f'{" and ".join(missed)} {verb} off duty and'
+        f' miss{"es" if len(missed) == 1 else ""} it.'
+    )
 
 
 class WatchRule:

@@ -137,11 +137,11 @@ class RotaTest(absltest.TestCase):
     toy.world.fatigue['Ash'] = 2  # the most worn
     receipt = toy.resolve(toy.commander, SOMEONE_WATCH)
     self.assertIn('Ash is hurt', str(receipt))
-    self.assertTrue(toy.off_duty(toy.world, 'Ash', 2))
+    self.assertTrue(toy.rota.off_duty(toy.world, 'Ash', 2))
     self.assertEqual(toy.world.log[-1]['actions']['Bea'], 'watch')
     toy.resolve(toy.commander, toy_lib.HOLD)  # turn 2: watched, no one hurt
     self.assertEqual(toy.world.injured, {'Ash': 2})
-    self.assertFalse(toy.off_duty(toy.world, 'Ash', 3))
+    self.assertFalse(toy.rota.off_duty(toy.world, 'Ash', 3))
 
 
 class HeardTest(absltest.TestCase):

@@ -145,6 +145,7 @@ class OrdersToy(base.Toy):
     self.hazards = rules.HazardRule(data['effects'], data['hazards'])
     self.crew_rule = rules.CrewRule(self.crew, data['effects'], data['actions'])
     self.watch = rules.WatchRule(int(data['watch']['sees']))
+    self.rota = rules.RotaRule(self.crew, data.get('off_duty', {}))
     start = data['start']
     self.world = Ship(
         supplies=int(start['supplies']),
@@ -177,7 +178,7 @@ class OrdersToy(base.Toy):
     text = self._data['situations'][kind]
     if ship.leak and kind != 'leak':
       text += ' A leak is still open in the hull.'
-    off = self.off_on(ship, turn)
+    off = self.rota.off_on(ship, turn)
     if off:
       text += (
           f' {" and ".join(off)} {"is" if len(off) == 1 else "are"} off duty.'
@@ -238,8 +239,8 @@ class OrdersToy(base.Toy):
         m
         for m in self.crew
         if m.lower() in words
-        or self.off_duty(ship, m, turn)
-        or self.order_of(ship, m) != order
+        or self.rota.off_duty(ship, m, turn)
+        or self.rota.order_of(ship, m) != order
     ]
     takes = {
         m: (
@@ -250,61 +251,6 @@ class OrdersToy(base.Toy):
         for m in self.crew
     }
     return self.crew_rule.volunteer(ship, takes, excluded)
-
-  def off_duty(self, ship: Ship, member: str, turn: int) -> bool:
-    """Whether `member` is off duty on `turn`: on the rota, or hurt (arc 4).
-
-    An off-duty member rests and reads no order: a clause naming them goes
-    undone that turn, while a clause for someone passes to whoever is on.
-
-    Args:
-      ship: The ship (who is hurt).
-      member: The crew member.
-      turn: The turn (1-based).
-
-    Returns:
-      Whether they are off duty.
-    """
-    return (
-        turn in self._data.get('off_duty', {}).get(member, ())
-        or ship.injured.get(member, 0) >= turn
-    )
-
-  def off_on(self, ship: Ship, turn: int) -> list[str]:
-    return [m for m in self.crew if self.off_duty(ship, m, turn)]
-
-  def order_of(self, ship: Ship, member: str) -> str:
-    """The order `member` follows: the last one they heard."""
-    return ship.heard.get(member, ship.order)
-
-  def hear(self, ship: Ship, previous: str, turn: int) -> str:
-    """A new order reaches those on duty; the rest keep what they heard.
-
-    Args:
-      ship: The ship; `ship.order` is the order just given.
-      previous: The order before it.
-      turn: The turn it is given for.
-
-    Returns:
-      Who missed it, as a sentence, or ''.
-    """
-    missed = []
-    for member in self.crew:
-      if self.off_duty(ship, member, turn):
-        ship.heard.setdefault(member, previous)
-        missed.append(member)
-      else:
-        ship.heard.pop(member, None)
-    if not missed:
-      return ''
-    verb = 'is' if len(missed) == 1 else 'are'
-    return (
-        f'{" and ".join(missed)} {verb} off duty and'
-        f' miss{"es" if len(missed) == 1 else ""} it.'
-    )
-
-  def on_duty(self, ship: Ship, turn: int) -> list[str]:
-    return [m for m in self.crew if not self.off_duty(ship, m, turn)]
 
   def condition(self, ship: Ship, member: str) -> str:
     return 'worn out' if self.crew_rule.worn(ship, member) else 'fresh'
@@ -329,7 +275,7 @@ class OrdersToy(base.Toy):
     """
     temperament = self._data['crew'][member]['temperament']
     props = self._data['temperaments'][temperament]
-    order = self.order_of(ship, member)
+    order = self.rota.order_of(ship, member)
     someone = self.asks_someone(order)
     laws = list(self._data['reading_laws'])
     if someone:
@@ -418,9 +364,9 @@ class OrdersToy(base.Toy):
   def earlier(self, ship: Ship) -> str:
     """Who still follows an earlier order, for the commander's prompt."""
     behind = [
-        f'{m} ("{self.order_of(ship, m) or "(none)"}")'
+        f'{m} ("{self.rota.order_of(ship, m) or "(none)"}")'
         for m in self.crew
-        if self.order_of(ship, m) != ship.order
+        if self.rota.order_of(ship, m) != ship.order
     ]
     return f' Still on an earlier order: {", ".join(behind)}.' if behind else ''
 
@@ -432,7 +378,7 @@ class OrdersToy(base.Toy):
       previous, spent = ship.order, ship.spent
       steps.append(self.command.issue(ship, new_order))
       if ship.spent > spent:  # given: it reaches whoever is on duty
-        missed = self.hear(ship, previous, ship.turn + 1)
+        missed = self.rota.hear(ship, previous, ship.turn + 1)
         if missed:
           steps.append(missed)
     ship.turn += 1
@@ -441,7 +387,7 @@ class OrdersToy(base.Toy):
     struck = self.hazards.strikes(ship, kind)
     strike = self.hazards.begin(ship, kind)
     hurt = (
-        self.hazards.injure(ship, kind, turn, self.on_duty(ship, turn))
+        self.hazards.injure(ship, kind, turn, self.rota.on_duty(ship, turn))
         if struck
         else ''
     )
@@ -450,7 +396,7 @@ class OrdersToy(base.Toy):
     before = (ship.progress, ship.damage, ship.supplies)
     # With a live model, every member reads the order at once (the readings
     # are independent); the rule then applies them in the fixed crew order.
-    on = self.on_duty(ship, turn)
+    on = self.rota.on_duty(ship, turn)
     if getattr(self._model, 'parallel_safe', False):
       readings = dict(
           concurrency.run_tasks({
@@ -521,12 +467,12 @@ class OrdersToy(base.Toy):
         'now': self.event(ship, turn),
         'leak_open': ship.leak,
         'situation': self.situation(ship, turn),
-        'off': self.off_on(ship, turn),
+        'off': self.rota.off_on(ship, turn),
         'ahead': [
             {
                 'turn': t,
                 'event': ship.seen.get(str(t)),
-                'off': self.off_on(ship, t),
+                'off': self.rota.off_on(ship, t),
             }
             for t in range(turn + 1, turn + 1 + sees)
             if t <= int(self._data['turns'])
@@ -551,11 +497,11 @@ class OrdersToy(base.Toy):
                 'condition': (
                     'worn' if self.crew_rule.worn(ship, member) else 'fresh'
                 ),
-                'off': self.off_duty(ship, member, turn),
+                'off': self.rota.off_duty(ship, member, turn),
                 # The earlier order they still follow, if they missed one.
                 'heard': (
-                    self.order_of(ship, member)
-                    if self.order_of(ship, member) != ship.order
+                    self.rota.order_of(ship, member)
+                    if self.rota.order_of(ship, member) != ship.order
                     else None
                 ),
                 'last': (last or {}).get('actions', {}).get(member),
