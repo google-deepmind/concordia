@@ -21,6 +21,7 @@ from typing import override
 from concordia.language_model import language_model
 from concordia.utils import measurements as measurements_lib
 from concordia.utils import sampling
+from concordia.utils import text
 import ollama
 
 
@@ -49,6 +50,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
       system_message: str = _DEFAULT_SYSTEM_MESSAGE,
       measurements: measurements_lib.Measurements | None = None,
       channel: str = language_model.DEFAULT_STATS_CHANNEL,
+      think: bool | None = None,
   ) -> None:
     """Initializes the instance.
 
@@ -59,6 +61,12 @@ class OllamaLanguageModel(language_model.LanguageModel):
           model.
         measurements: The measurements object to log usage statistics to.
         channel: The channel to write the statistics to.
+        think: Whether a thinking model (e.g. qwen3) thinks before it answers.
+          None leaves the model's default, but then its reply opens with its
+          thinking and a newline terminator (as in
+          `InteractiveDocument.open_question`) ends it before any answer, so
+          the reply is empty. With True the thinking is kept apart and the
+          terminators apply to the answer alone; with False there is none.
     """
     self._model_name = model_name
     self._client = ollama.Client()
@@ -67,6 +75,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
 
     self._measurements = measurements
     self._channel = channel
+    self._think = think
 
   @override
   def sample_text(
@@ -91,14 +100,19 @@ class OllamaLanguageModel(language_model.LanguageModel):
         model=self._model_name,
         prompt=prompt_with_system_message,
         options={
-            'stop': terminators,
+            # The server would stop on a terminator inside the thinking too,
+            # so a thinking model's terminators are applied to its answer.
+            'stop': [] if self._think else terminators,
             'temperature': temperature,
             'top_p': top_p,
             'top_k': top_k,
         },
         keep_alive='10m',
+        think=self._think,
     )
     result = response['response']
+    if self._think:
+      result = text.truncate(result, delimiters=terminators)
 
     if self._measurements is not None:
       self._measurements.publish_datum(
@@ -135,6 +149,7 @@ class OllamaLanguageModel(language_model.LanguageModel):
           options={'stop': (), 'temperature': temperature},
           format='json',
           keep_alive='10m',
+          think=self._think,
       )
       try:
         json_data_response = json.loads(response['response'])
