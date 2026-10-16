@@ -38,105 +38,27 @@ from concordia.language_model import language_model
 from concordia.typing import entity as entity_lib
 from concordia.utils import concurrency
 from examples.crucible.toys import base
+from examples.crucible.toys.orders import readings
 from examples.crucible.toys.orders import rules
 
 Ship = rules.Ship
 
-CHOICE_STATEMENT = (
-    '{name} is a crew member who is {temperament}: {describe}.\n'
-    '{habits}\n'
-    'How crew members read orders:\n{laws}\n'
-    'The standing order from the commander is: "{order}"\n'
-    'This turn: {situation}\n'
-    'Stores: {supplies} supplies; hull damage {damage}; project {progress}'
-    ' of {target}. {name} is {condition}.\n'
-)
-# Who takes up a clause for someone, told to each reader (cycle 27: named
-# but left to infer it was not them, a thinking model deliberated for
-# minutes).
-TIMED = re.compile(r'\bfor\s+(?:\w+)\s+turns?\b', re.IGNORECASE)
-SOMEONE_YOU = (
-    '{who} takes up the clause for someone this turn: it applies to {who}.\n'
-)
-SOMEONE_OTHER = (
-    '{who} takes up the clause for someone this turn, not {name}: it does'
-    ' not apply to {name}.\n'
-)
-NO_ONE = (
-    'No one takes up the clause for someone this turn: it does not apply to'
-    ' {name}.\n'
-)
-CLAUSE_QUESTION = (
-    'Which clause of the standing order applies to {name} this turn? Quote'
-    ' it, or answer "none".'
-)
-CHOICE_QUESTION = 'What does {name} do this turn?'
-ORDER_MARKER = 'Give your standing order'
-RELAY_STATEMENT = (
-    '{name} is the bosun, who is {temperament}: {describe}. The commander'
-    ' gives the order to {name}, and {name} passes it on to the rest of the'
-    ' crew. {name} {law}.\n'
-    'The commander\'s order: "{order}"\n'
-)
-RELAY_MARKER = 'passes it on to the rest of the crew'
-HOLD = 'hold'
-OFF_DUTY = 'off duty'  # what an off-duty member acted on
-OFF_DUTY_ACTION = 'rest'
-
-_OTHERWISE = {
-    'build': 'builds if there is a supply',  # 'builds' before ' if '
-    'gather': 'gathers supplies',
-    'repair': 'repairs the hull if it is damaged or leaking',
-    'rest': 'rests',
-    'watch': 'keeps watch',
-}
-
-
-# What "cannot help" means, as the mock's `makes_sense` reads it (cycle 18:
-# left unsaid, a model judged building with 3 supplies to be no help).
-_CANNOT_HELP = (
-    'building with no supply, repairing a sound hull with no leak, gathering'
-    ' in a storm'
-)
-
-
-def clause_text(answer: str) -> str:
-  """A model's answer to the reading question, as a short quote or 'none'."""
-  line = next((l.strip() for l in answer.splitlines() if l.strip()), '')
-  line = re.sub(r'^(?:answer|clause)\s*:\s*', '', line, flags=re.IGNORECASE)
-  if not line or line.lower().strip('."\' ').startswith('none'):
-    return 'none'
-  quoted = re.search(r'["“]([^"”]+)["”]', line)
-  text = quoted.group(1) if quoted else line
-  return text[:80].rstrip()
-
-
-def habits(name: str, props: Mapping[str, Any]) -> str:
-  """A temperament's properties, as the sentences a crew prompt carries."""
-  otherwise = ', or else '.join(_OTHERWISE[a] for a in props['otherwise'])
-  worn = 'rests' if props['when_worn'] == 'rest' else 'keeps working'
-  leak = (
-      'repairs it unless a clause names them to something else'
-      if props['on_leak'] == 'repair'
-      else 'follows the order'
-  )
-  ordered = (
-      f'skips an ordered action that cannot help this turn ({_CANNOT_HELP})'
-      if props['sensible']
-      else 'does an ordered action even when it cannot help this turn'
-  )
-  if props.get('contrary'):
-    works = _OTHERWISE[props['works']].split(' if ')[0]
-    ordered = (
-        f'does the opposite: told to work, {name} rests; told to rest, '
-        f'{name} {works}; told not to do something, {name} does it'
-    )
-  text = (
-      f'When a clause applies, {name} {ordered}. With no clause that '
-      f'applies, {name} {otherwise}. When worn out, {name} {worn}. With a '
-      f'leak open, {name} {leak}.'
-  )
-  return text
+# The words live in readings.py; these names stay importable from here.
+CHOICE_STATEMENT = readings.CHOICE_STATEMENT
+TIMED = readings.TIMED
+SOMEONE_YOU = readings.SOMEONE_YOU
+SOMEONE_OTHER = readings.SOMEONE_OTHER
+NO_ONE = readings.NO_ONE
+CLAUSE_QUESTION = readings.CLAUSE_QUESTION
+CHOICE_QUESTION = readings.CHOICE_QUESTION
+ORDER_MARKER = readings.ORDER_MARKER
+RELAY_STATEMENT = readings.RELAY_STATEMENT
+RELAY_MARKER = readings.RELAY_MARKER
+HOLD = readings.HOLD
+OFF_DUTY = readings.OFF_DUTY
+OFF_DUTY_ACTION = readings.OFF_DUTY_ACTION
+clause_text = readings.clause_text
+habits = readings.habits
 
 
 class OrdersToy(base.Toy):
