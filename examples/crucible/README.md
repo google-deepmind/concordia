@@ -48,7 +48,11 @@ and temperaments); `lookout`, `squalls`, `night_watch`, `crossing` (the
 watch); `contrary`, `mixed_hands`, `the_mender`, `all_hands` (Dex and "not");
 `rota`, `watches`, `no_volunteers`, `long_night` (the rota and "someone");
 `the_bosun`, `word_of_mouth`, `contrary_bosun`, `chain_of_command` (the bosun).
-`free` has no goal.
+`free` has no goal. A daily challenge rotates through the four catharsis
+scenes (`voyage`, `crossing`, `all_hands`, `long_night`) and ends with a line
+to share. Scenes can also put members off duty (a rota), let squalls hurt the
+most worn, shorten the watch in storms, carry only an order's first clause
+through a storm, and pass orders through a bosun.
 
 Play any toy from a phone: a plain-text page where you sit in the seat
 through `HumanActComponent` (the contrib `BlockingInput` reader), see the whole
