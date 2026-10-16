@@ -51,8 +51,20 @@ CHOICE_STATEMENT = (
     'Stores: {supplies} supplies; hull damage {damage}; project {progress}'
     ' of {target}. {name} is {condition}.\n'
 )
-SOMEONE = 'The one who takes up a clause for someone this turn is {name}.\n'
-NO_ONE = 'No one takes up a clause for someone this turn.\n'
+# Who takes up a clause for someone, told to each reader (cycle 27: named
+# but left to infer it was not them, a thinking model deliberated for
+# minutes).
+SOMEONE_YOU = (
+    '{who} takes up the clause for someone this turn: it applies to {who}.\n'
+)
+SOMEONE_OTHER = (
+    '{who} takes up the clause for someone this turn, not {name}: it does'
+    ' not apply to {name}.\n'
+)
+NO_ONE = (
+    'No one takes up the clause for someone this turn: it does not apply to'
+    ' {name}.\n'
+)
 CLAUSE_QUESTION = (
     'Which clause of the standing order applies to {name} this turn? Quote'
     ' it, or answer "none".'
@@ -296,7 +308,12 @@ class OrdersToy(base.Toy):
     )
     if someone:
       who = self.volunteer(ship, turn, order)
-      statement += SOMEONE.format(name=who) if who else NO_ONE
+      if who is None:
+        statement += NO_ONE.format(name=member)
+      elif who == member:
+        statement += SOMEONE_YOU.format(who=who)
+      else:
+        statement += SOMEONE_OTHER.format(who=who, name=member)
     if statement not in self._cache:
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)

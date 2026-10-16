@@ -37,7 +37,7 @@ _STORES = re.compile(
     r' \w+ is (worn out|fresh)\.'
 )
 _SOMEONE = re.compile(
-    r'The one who takes up a clause for someone this turn is (\w+)\.'
+    r'^(\w+) takes up the clause for someone this turn', re.MULTILINE
 )
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _WORD = re.compile(r'[a-z]+')
