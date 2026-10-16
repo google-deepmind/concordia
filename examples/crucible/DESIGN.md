@@ -524,6 +524,20 @@ no scene teaches: all 59 cell references (system pairs and reading cells)
 are taught by at least one of the 16 scenes. A cell no scene reaches would
 be a rule the campaign never asks a player to learn.
 
+## 2q. Deep pass (cycle 25)
+
+- Play audit, 16 seeds, all 16 scenes (`evidence/audit-c25.jsonl`):
+  skilled 100%, random 0-44%, passive 0%; only The long night moved since
+  cycle 19 (injuries: random 19% -> 0%, habit 56% -> 0%).
+- Matrix 64 cells, 5 checked both ways; 59 of 59 cell references taught by
+  some scene.
+- Golden prompts are unchanged since cycle 20, so DeepSeek-V4.1-Flash's
+  two passes on the 44-case set stand; the mock passes; qwen3:8b: running.
+- Simplify: the rota logic (who is on duty, which order each member heard)
+  moved from the toy into `rules.RotaRule`, with its own tests; the MOCK
+  snapshot is byte-identical.
+- Cost: no paid calls this cycle; ≈ $1.29 of $10 in all.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

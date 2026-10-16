@@ -108,5 +108,5 @@ examples/crucible/
     ├── base.py          # the Toy interface (a contrib Rulebook)
     ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
     ├── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
-    └── orders/          # Toy C, Twelve Words: rules (ledger), toy (readings, rota, view), mock, bots, tests
+    └── orders/          # Toy C, Twelve Words: rules (ledger; command, hazards, crew, watch, rota), toy (readings, view), mock, bots, tests
 ```
