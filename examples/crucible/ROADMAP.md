@@ -30,7 +30,7 @@ Phase 3, interaction matrix
 - [x] Properties live in YAML and component state, not only in prompts (relay laws and temperaments in `orders.yaml`/`passiton.yaml`, the line and goals in `passiton.yaml`; prompts are written from them)
 - [x] Matrix cells live in YAML and an audit script counts them (25+) (`data/passiton_matrix.yaml`, `python -m examples.crucible.audit passiton`: 31 cells, no problems; `audit_test.test_pass_it_on_matrix_has_no_problems`)
 - [ ] Every new feature adds or deepens two cells
-- [ ] Golden sets pass on the mock, an Ollama model and a Together model (mock 22/22 x2 `audit_test`; DeepSeek-V4.1-Flash PASS x2, 20/20 hard, soft 100%, evidence/golden-passiton-flash-c103b-x2.json; qwen3:8b running)
+- [x] Golden sets pass on the mock, an Ollama model and a Together model (final laws, cycle 110; 21 cases, 19 hard: mock 21/21 x2, `audit_test.test_mock_passes_every_pass_it_on_golden_case`; DeepSeek-V4.1-Flash PASS x2, 19/19 hard, soft 100%, evidence/golden-passiton-flash-c110-x2.json; qwen3:8b PASS x2 on the read cases, 10/10 hard, soft 100%, and x2 on the relay cases, 9/9, evidence/golden-passiton-qwen3-c110-{reads,relays}-x2.json)
 
 Phase 4, pacing
 - [x] Each arc has Isolate, Develop, Twist and Catharsis levels, gated by stars (`data/passiton.yaml`: arcs Mouth to ear and Dex in the middle; `campaign.chapters`)
