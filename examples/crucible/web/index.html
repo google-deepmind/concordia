@@ -48,6 +48,9 @@
   ins { text-decoration: none; background: color-mix(in srgb, var(--project) 25%, transparent); border-radius: 3px; padding: 0 2px; }
   del { color: var(--hull); }
   .ok { color: var(--project); font-weight: 700; }
+  .taboo { border-color: var(--hull); }
+  #pTabooWords { color: var(--hull); font-weight: 700; }
+  .banned { color: var(--hull); font-weight: 700; }
   .bad { color: var(--hull); font-weight: 700; }
   #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
           background: var(--paper); border-top: 1px solid var(--line); }
@@ -155,6 +158,8 @@
 <div id="pass" hidden>
   <p class="goal" id="pGoal"></p>
   <div class="card"><strong id="pTitle"></strong> <span class="cap" id="pStars"></span><p id="pTask" style="margin:4px 0 0"></p></div>
+  <div class="card taboo" id="pTaboo" hidden><strong>You may not say:</strong> <span id="pTabooWords"></span>
+    <div class="cap">Say the jobs another way. The crew still have to understand you.</div></div>
   <h2>The line <span class="meter muted">(your words go up it, mouth to ear)</span></h2>
   <div id="pLine"></div>
   <div id="pControls">
@@ -363,6 +368,8 @@ function renderPass(v, finished) {
   $('pTitle').textContent = (CHAPTERS[v.scenario] ? CHAPTERS[v.scenario] + '. ' : '') + v.title + (v.beat ? ' \u00b7 ' + beatWord(v.beat) : '');
   $('pStars').textContent = starRules(v);
   $('pTask').textContent = v.task;
+  $('pTaboo').hidden = !(v.taboo && v.taboo.length);
+  $('pTabooWords').textContent = (v.taboo || []).join(', ');
   const last = v.attempts.length ? v.attempts[v.attempts.length - 1] : null;
   const box = $('pLine'); box.innerHTML = '';
   const card = (who, sub) => {
@@ -406,7 +413,7 @@ function renderPass(v, finished) {
     $('rehearsal').hidden = true;
     const chips = $('pChips'); chips.innerHTML = '';
     const add = (text) => { addWords(text, false, 'pmove'); countPass(); };
-    for (const a of Object.keys(say)) {
+    for (const a of (v.taboo && v.taboo.length ? [] : Object.keys(say))) {
       const b = document.createElement('button'); b.className = 'chip'; b.append(g('actions', a), ' ' + say[a]);
       b.onclick = () => add(say[a]); chips.appendChild(b);
     }
@@ -438,8 +445,12 @@ function countPass() {
   const m = $('pmove');
   if (/[\r\n]/.test(m.value)) m.value = m.value.replace(/\s*[\r\n]+\s*/g, ' ');
   const words = (m.value.replace(/\u2019/g, "'").match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []).length;  // as the toy counts
-  blocked = !words || words > lastView.max_words;  // an empty message would waste a try
-  $('pCount').textContent = words ? words + ' / ' + lastView.max_words + ' words' + (blocked ? ' \u00b7 too long: shorten it to send' : '') : 'Empty: say something to send.';
+  const banned = (lastView.taboo || []).filter((w) => new RegExp('\\b' + w + '(?:s|es|ed|ing)?\\b', 'i').test(m.value));
+  blocked = !words || words > lastView.max_words || banned.length > 0;  // an empty message would waste a try
+  $('pCount').textContent = !words ? 'Empty: say something to send.'
+      : banned.length ? 'Not allowed here: ' + banned.join(', ') + '. Say it another way.'
+      : words + ' / ' + lastView.max_words + ' words' + (words > lastView.max_words ? ' \u00b7 too long: shorten it to send' : '');
+  $('pCount').className = banned.length ? 'meter banned' : 'meter';
   sendable();
 }
 function whyLost(v) {  // the reason, in the board's own words

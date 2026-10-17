@@ -14,6 +14,7 @@
 
 """Tests for Pass it on: the line, the verdict, the stars and the bots."""
 
+import copy
 import random
 
 from absl.testing import absltest
@@ -41,8 +42,14 @@ _NAIVE = {
 }
 
 
-def _toy(level: str) -> toy_lib.PassItOnToy:
-  return toy_lib.PassItOnToy(model_setup.mock_model(), _DATA, level)
+def _toy(level: str, taboo: bool = True) -> toy_lib.PassItOnToy:
+  """A level; without its forbidden words to test the mechanics alone."""
+  data = _DATA
+  if not taboo:
+    data = copy.deepcopy(_DATA)
+    for scene in data['scenarios'].values():
+      scene.pop('taboo', None)
+  return toy_lib.PassItOnToy(model_setup.mock_model(), data, level)
 
 
 class LevelTest(parameterized.TestCase):
@@ -58,8 +65,19 @@ class LevelTest(parameterized.TestCase):
   @parameterized.parameters(*_DATA['campaign'])
   def test_the_obvious_message_works_only_where_meant(self, level):
     message, works = _NAIVE[level]
-    receipt = _toy(level).preview(toy_lib.SEAT, message)
+    receipt = _toy(level, taboo=False).preview(toy_lib.SEAT, message)
     self.assertEqual(bool(receipt.delta['solved']), works, receipt.summary)
+
+  def test_forbidden_words_are_refused_and_cost_no_try(self):
+    data = copy.deepcopy(_DATA)
+    data['scenarios']['straight_up']['taboo'] = ['watch', 'look']
+    toy = toy_lib.PassItOnToy(model_setup.mock_model(), data, 'straight_up')
+    receipt = toy.resolve(toy_lib.SEAT, 'Keep watching.')
+    self.assertIn('You may not say watch', receipt.summary)
+    self.assertEqual(toy.world['attempts'], [])
+    self.assertEqual(toy.view()['taboo'], ['watch', 'look'])
+    toy.resolve(toy_lib.SEAT, 'Scout.')  # said another way
+    self.assertTrue(toy.world['solved'])
 
   @parameterized.parameters(*_DATA['campaign'])
   def test_saying_nothing_never_solves(self, level):
@@ -69,7 +87,7 @@ class LevelTest(parameterized.TestCase):
 class LineTest(absltest.TestCase):
 
   def test_dex_flips_each_part_and_cy_does_what_reached_cy(self):
-    toy = _toy('dex_in_the_middle')
+    toy = _toy('dex_in_the_middle', taboo=False)
     receipt = toy.resolve(toy_lib.SEAT, "Don't build.")
     attempt = toy.world['attempts'][-1]
     self.assertEqual(attempt['hops'][0]['who'], 'Dex')
@@ -79,7 +97,7 @@ class LineTest(absltest.TestCase):
     self.assertTrue(toy.done())
 
   def test_the_game_tells_its_own_temperaments(self):
-    toy = _toy('two_at_the_top')
+    toy = _toy('two_at_the_top', taboo=False)
     toy.resolve(toy_lib.SEAT, 'Bea, keep watch.')
     ash = next(
         a for a in toy.world['attempts'][0]['acted'] if a['who'] == 'Ash'
@@ -89,7 +107,7 @@ class LineTest(absltest.TestCase):
     self.assertEqual(habits, ['build'])
 
   def test_a_rehearsal_shows_the_first_hop_only(self):
-    toy = _toy('dex_in_the_middle')
+    toy = _toy('dex_in_the_middle', taboo=False)
     self.assertEqual(
         toy.rehearse('Build.'), {'who': 'Dex', 'said': "don't build."}
     )
@@ -110,7 +128,7 @@ class LineTest(absltest.TestCase):
     self.assertEqual((cy['does'], cy['why']), ('rest', 'none'))
 
   def test_three_tries_then_over_and_a_long_message_costs_no_try(self):
-    toy = _toy('dex_at_the_top')
+    toy = _toy('dex_at_the_top', taboo=False)
     receipt = toy.resolve(toy_lib.SEAT, ' '.join(['build'] * 13))
     self.assertIn('over the limit', receipt.summary)
     self.assertEqual(toy.world['attempts'], [])
@@ -121,7 +139,7 @@ class LineTest(absltest.TestCase):
     self.assertEqual(toy.outcome()['stars'], 0)
 
   def test_the_view_shows_the_line_and_every_try(self):
-    toy = _toy('two_through_dex')
+    toy = _toy('two_through_dex', taboo=False)
     toy.resolve(toy_lib.SEAT, 'Build.')
     view = toy.view()
     self.assertEqual([hop['who'] for hop in view['line']], ['Dex'])
@@ -171,7 +189,7 @@ class OwnerGamesTest(parameterized.TestCase):
   def test_the_owners_messages_solve_as_they_did_live(
       self, level, message, stars
   ):
-    toy = _toy(level)
+    toy = _toy(level, taboo=False)  # played before the forbidden words
     toy.resolve(toy_lib.SEAT, message)
     self.assertEqual(toy.outcome()['stars'], stars)
 

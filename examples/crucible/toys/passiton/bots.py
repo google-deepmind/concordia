@@ -36,10 +36,35 @@ def _clause(
   return f'{name}, {words}' if name else words
 
 
-def candidates(toy: toy_lib.PassItOnToy, actor: str = '') -> list[str]:
-  """Messages a player might try, fewest words first."""
+def _say(toy: toy_lib.PassItOnToy) -> dict[str, str]:
+  """Each job in the fewest words the level allows (cycle 118: Taboo)."""
+  view = toy.view()
+  phrasings = toy._data.get('phrasings', {})  # pylint: disable=protected-access
+  out = {}
+  for action, default in view['say'].items():
+    for words in [default, *phrasings.get(action, [])]:
+      if not toy.broken_taboo(words):
+        out[action] = words
+        break
+  return out
+
+
+def candidates(
+    toy: toy_lib.PassItOnToy, actor: str = '', plain: bool = False
+) -> list[str]:
+  """Messages a player might try, fewest words first.
+
+  Args:
+    toy: The level.
+    actor: The seat (one).
+    plain: Use each job's plain words, forbidden or not (a player who has
+      not read the rules), instead of the fewest words the level allows.
+
+  Returns:
+    The messages.
+  """
   del actor  # one seat
-  say = toy.view()['say']
+  say = dict(toy.view()['say']) if plain else _say(toy)
   options = [(a, no) for a in say for no in (False, True)]
   names = toy.receivers
   out = set()
@@ -68,7 +93,7 @@ def skilled(toy: Any, prompt: str, rng: random.Random) -> str:
 
 def random_policy(toy: Any, prompt: str, rng: random.Random) -> str:
   del prompt
-  return rng.choice(candidates(toy))
+  return rng.choice(candidates(toy, plain=True))  # the obvious words
 
 
 def passive(toy: Any, prompt: str, rng: random.Random) -> str:

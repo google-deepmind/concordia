@@ -134,6 +134,20 @@ class PassItOnToy(base.Toy):
   def goal(self) -> dict[str, str]:
     return dict(self._level['goal'])
 
+  @property
+  def taboo(self) -> list[str]:
+    """Words the message may not use (cycle 118)."""
+    return [str(w) for w in self._level.get('taboo', [])]
+
+  def broken_taboo(self, message: str) -> list[str]:
+    """The forbidden words `message` uses, with their -s/-es/-ed/-ing."""
+    found = []
+    for word in self.taboo:
+      pattern = rf'\b{re.escape(word)}(?:s|es|ed|ing)?\b'
+      if re.search(pattern, message, flags=re.IGNORECASE):
+        found.append(word)
+    return found
+
   def temperament(self, name: str) -> str:
     return self._orders._data['crew'][name]['temperament']  # pylint: disable=protected-access
 
@@ -195,6 +209,8 @@ class PassItOnToy(base.Toy):
       return {}
     if words_in(message) > int(self._data['max_words']):
       return {'error': f'over the limit of {self._data["max_words"]} words'}
+    if self.broken_taboo(message):
+      return {'error': f'it says {", ".join(self.broken_taboo(message))}'}
     who = self.relayers[0]
     return {'who': who, 'said': self._orders.relay(message, who)}
 
@@ -223,7 +239,8 @@ class PassItOnToy(base.Toy):
         + ' (who act).\n'
         f'Goal: {goal}. Try {len(self.world["attempts"]) + 1} of'
         f' {self._data["attempts"]}.\n'
-        f'Your message, {{name}}, of at most {self._data["max_words"]} words:'
+        + (f'You may not say: {", ".join(self.taboo)}.\n' if self.taboo else '')
+        + f'Your message, {{name}}, of at most {self._data["max_words"]} words:'
     )
     return entity_lib.free_action_spec(call_to_action=call, tag='message')
 
@@ -240,6 +257,16 @@ class PassItOnToy(base.Toy):
           summary=(
               f'The message is {words} words, over the limit of {limit}:'
               ' say it in fewer. (No try used.)'
+          ),
+      )
+    broken = self.broken_taboo(message)
+    if broken:
+      return base.Receipt(
+          actor=actor,
+          action=message,
+          summary=(
+              f'You may not say {", ".join(broken)} here: say it another way.'
+              ' (No try used.)'
           ),
       )
     result = self.pass_up(message)
@@ -334,6 +361,7 @@ class PassItOnToy(base.Toy):
             for star, wants in sorted(self._level.get('stars', {}).items())
         },
         'say': dict(self._data.get('say', {})),
+        'taboo': self.taboo,
     }
 
   # ---- state -------------------------------------------------------------------

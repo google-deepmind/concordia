@@ -12,6 +12,9 @@
 #   event: the turn's situation (quiet or leak): Bea mends an open leak
 #          unless a clause names her for something else
 #   stars: 1 for solving; 2 and 3 for at most this many words
+#   taboo: words the message may not use (or their -s, -es, -ed, -ing
+#          forms); the job has to be said another way (cycle 118: the
+#          owner found the game "incredibly easy")
 
 title: Pass it on
 tagline: Your words go up the rock mouth to ear. Make them arrive meaning what you need.
@@ -33,6 +36,15 @@ relays:
 # live model to answer "gather" after reasoning that Ash builds.
 temperaments:
   bold: {otherwise: [build]}
+
+# Other ways to say each job, shortest first: the bot says the first that a
+# level does not forbid (cycle 118).
+phrasings:
+  build: [build, construct, raise the tower, stack stones]
+  gather: [gather supplies, forage, fetch supplies]
+  repair: [repair the hull, patch the hull, plug the leak]
+  rest: [rest, nap, doze, relax]
+  watch: [keep watch, scout, stand sentry, scan the horizon]
 
 # What to tap to say an action, few words each.
 say:

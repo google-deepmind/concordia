@@ -741,6 +741,68 @@ not build; Bea, don't not watch; Cy, don't not rest.", double negatives
 built to survive Dex. Cost per game $0.0012-0.0064. It also wrote
 narration ('says, "..."'), now cleaned before a message goes up the line.
 
+## 2y. Story and style (cycle 119)
+
+**The owner, after seven first-try solves:** "This game is boring ... It's
+incredibly easy." Asked which way the challenge should go: "Something story
+driven and interesting but keeping this core 'pass it on' mechanic. Also
+start making the game more aesthetically interesting. It will need a
+unified and distinctive style which you should start by brainstorming ideas
+for and then researching appropriate details."
+
+**Brainstorm (worlds where a message passing down a line is natural).**
+1. *The telegraph night*: a 1920s small-town exchange on one stormy night;
+   messages go through the switchboard operator, the telegraph clerk, a
+   messenger boy and the party line. Telegrams were priced by the word,
+   which is the game's own economy.
+2. *The whispering court*: Renaissance Venetian intrigue; messages through
+   servants, gondoliers and courtiers; marbled paper, wax seals, masks.
+3. *The trench line*: "Send reinforcements, we're going to advance" →
+   "Send three and fourpence, we're going to a dance". A strong hook, grim.
+4. *The beacon road*: runners and signal fires in a mountain kingdom.
+5. *Mission control*: CAPCOM and relay stations in a 1960s space mission.
+
+**Chosen: the telegraph night.** The mechanic is literally what operators
+did; word-priced messages are history, not a contrivance; one night in one
+town gives recurring characters, rising stakes and an ending.
+
+**Research (sources in the journal, cycle 119).**
+- Telegrams peaked in the 1920s-30s, cheaper than a long-distance call. A
+  flat rate covered the first ten words, then a charge per word; address
+  and signature were free. Punctuation was charged, "STOP" was free, hence
+  "STOP" between sentences.
+- Telegraphese: dropped articles and prepositions, "EXPECT ARRIVE SIX
+  EVENING". Businesses had code books ("Lost your money? Wire KUBIT").
+- Western Union delivered on an 8" x 5" yellow form under its crest; the
+  message was machine-printed on narrow ticker-tape strips glued onto it,
+  all capitals.
+- Small-town exchanges ran on a few operators ("hello girls") in shifts;
+  they were not to listen, and often did. Party lines were shared by
+  several houses; listening in was "rubbering" (1923 headline: "Rubbering
+  on Rural Phone Causes Hair Pulling Combat").
+- The telephone-game anecdote dates to 1914 ("Altered in Transit").
+
+**The story.** One night in 1926 the river is rising over a small mill
+town. You are at the telegraph desk. Each chapter is an hour of the night
+and one message that must reach someone across town, through people with
+their own habits: the night clerk who types exactly what she hears, the
+prankster messenger boy who says the opposite, the party-line gossip who
+adds her own line. Each solved chapter prints the next morning's headline
+as a telegram strip; the night ends with the town saved, or not, by what
+your messages made people do.
+
+**The style.**
+- Telegram yellow paper, a dark ink, a single signal red for what went
+  wrong; a crest-like header band.
+- Messages as pasted ticker-tape strips: monospaced capitals, each hop a
+  new strip, the changed words marked in red pencil.
+- Characters as small staff cards (name, job, habit), the line drawn as a
+  telephone wire between them.
+- The word count priced in period money (first ten words flat, then per
+  word); "STOP" free.
+- Fonts: a teletype monospace for the strips, an Art Deco display face for
+  the headers, a plain serif for the story.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

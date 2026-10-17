@@ -729,11 +729,12 @@ daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}
 
 # The mock's reading of orders (the lookup-table floor).
 lexicon:
-  repair: [repair, repairs, fix, fixes, patch, mend, mends, seal, hull, leak, leaks]
+  # Paraphrases too (cycle 118: Pass it on forbids the obvious words).
+  repair: [repair, repairs, fix, fixes, patch, mend, mends, seal, hull, leak, leaks, plug, caulk]
   gather: [gather, gathers, collect, collects, forage, fetch, supplies, supply, stock]
-  build: [build, builds, building, work, project, progress, construct, push, lighthouse, tower, raise, raises, raising]
-  rest: [rest, rests, sleep, sleeps, recover, pause, break, tired]
-  watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look]
+  build: [build, builds, building, work, project, progress, construct, push, lighthouse, tower, raise, raises, raising, erect, stack, stones]
+  rest: [rest, rests, sleep, sleeps, recover, pause, break, tired, nap, doze, relax]
+  watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look, guard, scan]
   conditions:
     leak: [leak, leaks, breach]
     damaged: [damage, damaged, hull]  # holds while hull damage > 0 (cycle 82)
