@@ -10,6 +10,15 @@ interventions:
     cost: 0
     cooldown: 0
     effect: {kind: none}
+  # An omen: a sign every people sees, and up to `max_words` words it is
+  # taken to say (the Steward's free words; without words, the sign alone).
+  # It changes nothing by itself: the peoples hear it as a relay retells it.
+  - key: omen
+    label: speak an omen
+    cost: 2
+    cooldown: 2  # One sign every other turn: the printers retell the newest.
+    effect: {kind: omen, signs: [a red dawn, a comet, ash on the snow], max_words: 25}
+    push: 'a sign every people sees; what it does is what they make of it'
   - key: seed_white
     label: seed white daisies
     cost: 2

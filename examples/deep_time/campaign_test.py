@@ -14,6 +14,7 @@
 
 import datetime
 import os
+from unittest import mock
 
 from absl.testing import absltest
 from examples.deep_time import campaign as campaign_lib
@@ -62,9 +63,11 @@ class CampaignTest(absltest.TestCase):
     self.assertFalse(chapters[2]['open'])
     today = campaign_lib.daily(DAY)
     progress.record(today['scenario'], today['seed'], 3, DAY)
-    self.assertEqual(progress.campaign(DAY)['daily']['stars'], 3)
-    tomorrow = progress.campaign(DAY + datetime.timedelta(days=1))
-    self.assertEqual(tomorrow['daily']['stars'], 0)  # A new day.
+    self.assertIsNone(progress.campaign(DAY)['daily'])  # Not offered now.
+    with mock.patch.object(campaign_lib, 'offered', return_value=True):
+      self.assertEqual(progress.campaign(DAY)['daily']['stars'], 3)
+      tomorrow = progress.campaign(DAY + datetime.timedelta(days=1))
+      self.assertEqual(tomorrow['daily']['stars'], 0)  # A new day.
 
   def test_a_decided_game_knows_its_chapter_and_the_next(self):
     path = os.path.join(self.create_tempdir().full_path, 'progress.json')
@@ -94,7 +97,9 @@ class CampaignTest(absltest.TestCase):
     self.assertIsNone(chapter(last, 5, 3, 0)['next'])
     self.assertIsNone(progress.chapter('no_such_world', 5, 3, 0, DAY))
     today = campaign_lib.daily(DAY)
-    self.assertTrue(chapter(today['scenario'], today['seed'], 1, 0)['daily'])
+    self.assertFalse(chapter(today['scenario'], today['seed'], 1, 0)['daily'])
+    with mock.patch.object(campaign_lib, 'offered', return_value=True):
+      self.assertTrue(chapter(today['scenario'], today['seed'], 1, 0)['daily'])
 
   def test_no_file_no_progress(self):
     progress = campaign_lib.Progress(None)

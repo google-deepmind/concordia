@@ -93,15 +93,21 @@ def stable_index(text: str, n: int) -> int:
   return int.from_bytes(digest[:8], 'big') % max(1, n)
 
 
-def last_question_options(prompt: str) -> dict[str, str]:
-  """Parses `(a) option` lines that follow the last `Question:` in a prompt."""
-  start = prompt.rfind('Question:')
+def last_question_options(
+    prompt: str, label: str = 'Question:'
+) -> dict[str, str]:
+  """Parses `(a) option` lines that follow the last `label` in a prompt."""
+  start = prompt.rfind(label)
   options = {}
   for line in prompt[start if start >= 0 else 0 :].splitlines():
     match = _OPTION_RE.match(line)
     if match:
       options[match.group(1)] = match.group(2).strip()
   return options
+
+
+# The Steward's free question where it may speak an omen (actors.py).
+_SPEAKS = 'or speak an omen by answering'
 
 
 def _find(options: Mapping[str, str], *needles: str) -> str | None:
@@ -555,9 +561,14 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is cooling on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = (
+        'is drifting toward overheating'
+        if trend >= 0
+        else 'is near the top of its band'
+    )
     return (
-        f'At {temp:.0f} C{heading}, the planet is drifting toward'
-        ' overheating. Recommend: seed bright clouds.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
+        ' Recommend: seed bright clouds.'
     )
   if temp < low + early:
     if trend > swing:
@@ -565,8 +576,9 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is warming on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = 'risks freezing' if trend <= 0 else 'is near the bottom of its band'
     return (
-        f'At {temp:.0f} C{heading}, the planet risks freezing.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
         ' Recommend: release a dark haze.'
     )
   if rising > 3.0 and temp > (low + high) / 2 and not ash_soon and not herds:
@@ -742,6 +754,24 @@ def treaty_answer(prompt: str) -> str | None:
       return refusal
     return reason
   return None
+
+
+def relay_answer(prompt: str) -> str | None:
+  """The printers retell an omen: as a warning against coal, always."""
+  match = re.search(
+      r'A sign was seen: (.+?)\. People say it was taken to say: "(.*?)"\.'
+      r' Write',
+      prompt,
+      re.S,
+  )
+  if match is None:
+    return None
+  sign, words = match.groups()
+  return (
+      f'clean air: The Sky Warns the Coal-Burners. {sign.capitalize()} hung'
+      f' over every town, and it was taken to say: "{words}". The furnaces'
+      ' must cool before the harvests fail. -- the Gazette'
+  )
 
 
 def press_answer(prompt: str) -> str | None:
@@ -1463,9 +1493,19 @@ class DeepTimeMockModel(language_model.LanguageModel):
     del max_tokens, terminators, temperature, top_p, top_k, timeout, seed
     with self._lock:
       self._text_calls += 1
+    if _SPEAKS in prompt[prompt.rfind('Exercise:') :]:
+      # The Steward answers in words: the move its choice policy would pick.
+      options = last_question_options(prompt, 'Exercise:')
+      for policy in self._policies:
+        choice = policy(prompt, options)
+        if choice is not None and choice in options.values():
+          return choice
+      texts = sorted(options.values())
+      return texts[stable_index(prompt, len(texts))] if texts else ''
     answer = (
         policy_answer(prompt)
         or treaty_answer(prompt)
+        or relay_answer(prompt)
         or press_answer(prompt)
         or pact_answer(prompt)
         or species_name_answer(prompt)

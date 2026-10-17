@@ -145,9 +145,15 @@ class ServerTest(absltest.TestCase):
     request_id = state['question']['request_id']
     response = state['question']['options'][0]
     answer = {'request_id': request_id, 'response': response}
+    # What the player looks at before choosing is kept with the turn.
+    self.assertEqual(
+        self._post('/api/look', {'what': 'sheet'}),
+        (200, {'ok': True, 'error': ''}),
+    )
     self.assertEqual(
         self._post('/api/choose', answer), (200, {'ok': True, 'error': ''})
     )
+    self.assertEqual(game.seats[game.entity].played[0]['looked'], ['sheet'])
     status, body = self._post('/api/choose', answer)  # Already answered.
     self.assertEqual(status, 200)
     self.assertFalse(body['ok'])
@@ -157,6 +163,7 @@ class ServerTest(absltest.TestCase):
     game.join(30)
     self.assertTrue(game.finished)
     self.assertIsNot(self.games.current, game)
+    self.assertFalse(self._post('/api/look', {'what': 'sheet'})[1]['ok'])
 
   def test_serves_demo_reports_but_nothing_outside_them(self):
     status, index = self._get('/demo/')

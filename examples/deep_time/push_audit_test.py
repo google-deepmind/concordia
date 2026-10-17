@@ -36,7 +36,7 @@ class PushAuditTest(absltest.TestCase):
     )
     self.assertEqual(
         say([0.1, 0.3, 0.6, 0.9], -0.09),
-        'warms about 1 °C over 4 turns; −×0.09 carbon in the air',
+        'warms about 1 °C over 4 turns; lowers CO₂ by 0.09',
     )
     self.assertEqual(say([0.2, -0.1, 0.0, 0.1]), 'hardly changes the warmth')
 
@@ -49,8 +49,7 @@ class PushAuditTest(absltest.TestCase):
     )
     self.assertEqual(
         push_audit.describe([early, late]),
-        'cools about 6 to 16 °C next turn, lasting; up to +×0.02 carbon in the'
-        ' air',
+        'cools about 6 to 16 °C next turn, lasting; raises CO₂ by up to 0.02',
     )
     self.assertEqual(push_audit.starts('great_acceleration'), (6, 20))
 

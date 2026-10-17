@@ -70,6 +70,16 @@ internet.
     strengthens its weakest link and the tech that most helps its goal are
     tagged on the move sheet (and close the question a model playing it reads);
     while research is short of that tech, the sheet says how far off it is.
+-   **Omens.** In the Great Acceleration the Steward may speak: its act is
+    Concordia's free action, a move as written or an omen, a sign every
+    people sees ("a comet") and up to 25 words it is taken to say, for 2 Ω
+    every other turn (the `omen` intervention). The peoples never hear the
+    words but through a relay: the Cedar league's printers, who own the
+    presses, retell each omen a turn later on the Gazette's front page as
+    they see it (`components/relay_mind.py`, published on `media.omens`).
+    Its stance sways every people's consent for coal by the printers'
+    credibility, which the other peoples judge against the sky, as they
+    judge any broadsheet. The page opens the move sheet on the composer.
 -   **Crises.** Trouble the Steward can see coming (the climate leaving its
     band, strain building, hunger, unrest, dwindling life, a goal's last turns)
     leads the page with a countdown and the moves that answer it. Moves you
@@ -210,7 +220,10 @@ rather than holds, how many moves with a measured push each turn offers (now and
 counting the moves it is saving for), the skilled bot's stars and each bot's
 share of side objectives met. The phone server writes every played game to
 `<demo_dir>-telemetry/` (outside the published demo folder; or
-`--telemetry_dir`, `''` for none) for the same questions about people.
+`--telemetry_dir`, `''` for none) for the same questions about people: each
+turn's move, how it was made, the seconds taken, and what the player looked at
+before choosing (the move sheet, each card read for a moment, folds opened,
+plans and armed previews; the page reports them to `/api/look`).
 
 ```bash
 python -m examples.deep_time.push_audit --write
@@ -642,7 +655,8 @@ examples/deep_time/
 │                           #   publishing (topic payloads and renderers), colony (Light Delay)
 ├── components/             # World GM components (world step, specs, resolution); slow minds:
 │                           #   pact and treaty minds, policy compiler, press mind, the
-│                           #   Advisor's mind (with its almanac)
+│                           #   printers' relay mind (omens retold), the Advisor's mind
+│                           #   (with its almanac)
 ├── prefabs/                # World GM, Chronicler, grazers; Steward, species, polity, colonist
 │                           #   and Mission Control configs; the playable entity (a person or
 │                           #   a model)

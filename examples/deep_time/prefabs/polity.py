@@ -38,6 +38,7 @@ from examples.deep_time import perception
 from examples.deep_time.components import pact_mind
 from examples.deep_time.components import policy_compiler
 from examples.deep_time.components import press_mind
+from examples.deep_time.components import relay_mind
 from examples.deep_time.prefabs import playable
 from examples.deep_time.world import data
 from examples.deep_time.world import publishing
@@ -87,10 +88,12 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
     )
   for aim in context.scenario['civilization'].get('aims', ()):
     text += ' ' + civ.aim(polity, str(aim))
-  # What the age asks of the peoples, in this people's numbers.
-  text += crises_lib.shared_words(
-      crises_lib.shared_goal(context.planet, polity)
-  )
+  # What the age asks of the peoples, in this people's numbers (a playbook
+  # line: only for coached minds).
+  if context.coached:
+    text += crises_lib.shared_words(
+        crises_lib.shared_goal(context.planet, polity)
+    )
   # Trouble the people can see coming, as its page shows it.
   actor = context.actors.get(civ.polities[polity].name)
   options = list(actor.action_spec().options) if actor is not None else []
@@ -128,6 +131,10 @@ def polity_config(
     subscriptions['Treaties'] = 'civ.treaties'
   if context.planet.gazette is not None:
     subscriptions['Gazette'] = 'media.gazette'
+  # Where the presses retell the Steward's omens, every people reads them.
+  owner = rules.get('press_owner') if context.planet.gazette else None
+  if owner:
+    subscriptions['The Gazette on the omens'] = 'media.omens'
   # A people a person plays answers treaty offers itself, on its own turn.
   human = people.name in context.humans
   context.add_actor(
@@ -139,6 +146,7 @@ def polity_config(
           automation=context.automation,
           answers_offers=human,
           age=str(rules.get('age', 'the early iron age')),
+          coached=context.coached,
       ),
       hears=(
           'world.tick',
@@ -146,6 +154,7 @@ def polity_config(
           f'civ.{polity}.',
           f'civ.alerts.{polity}',
           f'diplomacy.{polity}.',
+          *(('media.omens',) if owner else ()),
       ),
   )
   if context.wakeups is not None and rules.get('wakeups'):
@@ -238,6 +247,28 @@ def polity_config(
                   context.planet.gazette.latency
                   if context.planet.gazette
                   else 1,
+              ),
+              # The presses' owners retell the Steward's omens, a turn later.
+              **(
+                  {
+                      'Relay mind': context.make_mind(
+                          people.name,
+                          'Relay',
+                          f'civ.{polity}.retelling',
+                          relay_mind.RelayMind(
+                              slow_model,
+                              context,
+                              components=['Census of the peoples'],
+                          ),
+                          int(
+                              context.planet.gazette.relay.get(
+                                  'latency_ticks', 1
+                              )
+                          ),
+                      )
+                  }
+                  if owner == polity and context.planet.gazette is not None
+                  else {}
               ),
               # Writes standing orders (reflex JSON) once they are unlocked.
               'Policy compiler': context.make_mind(

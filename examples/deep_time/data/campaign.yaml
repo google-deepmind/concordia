@@ -16,3 +16,6 @@ chapters:
 # The daily challenge: one chapter's scenario on a world seeded by the date.
 daily:
   seeds: 997
+  # Not offered (deletion audit #1, stage 5): it sent newcomers to worlds the
+  # campaign showed locked. Set true to offer it again.
+  offered: false

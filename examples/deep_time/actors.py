@@ -89,6 +89,15 @@ STEWARD_CALL_TO_ACTION = (
     'You are {name}, Steward of this planet. Read your instruments, then'
     ' choose one intervention for this tick.'
 )
+# Where the Steward may speak an omen, it answers in its own words: one of
+# the interventions as written, or a sign and what it is taken to say.
+STEWARD_SPEAKS = (
+    'You are {name}, Steward of this planet. Read your instruments, then'
+    ' make one intervention for this tick: answer with one of the'
+    ' interventions below exactly as written, or speak an omen by answering'
+    ' with a sign every people will see ({signs}), a colon, and up to'
+    ' {words} words the sign will be taken to say.'
+)
 
 
 class Actor(metaclass=abc.ABCMeta):
@@ -147,6 +156,11 @@ class StewardActor(Actor):
     super().__init__(name, outcome_topic='gaia.omens')
     self._planet = planet
     self._attention = attention
+    # The world's omen, if the Steward may speak one here.
+    self.omen = next(
+        (i for i in planet.interventions() if i.effect['kind'] == 'omen'),
+        None,
+    )
 
   def options(self) -> list[str]:
     # Interventions still recharging, or costing more omega than there is,
@@ -172,24 +186,45 @@ class StewardActor(Actor):
     ]
 
   def action_spec(self) -> entity_lib.ActionSpec:
-    return entity_lib.choice_action_spec(
-        call_to_action=STEWARD_CALL_TO_ACTION,
-        options=self.options(),
+    if self.omen is None:
+      return entity_lib.choice_action_spec(
+          call_to_action=STEWARD_CALL_TO_ACTION,
+          options=self.options(),
+          tag='steward',
+      )
+    # Concordia's free action: the moves are listed as a choice lists them.
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    moves = '\n'.join(
+        f'({letters[i]}) {option}' for i, option in enumerate(self.options())
+    )
+    effect = self.omen.effect
+    return entity_lib.free_action_spec(
+        call_to_action=STEWARD_SPEAKS.replace(
+            '{signs}', ', '.join(effect['signs'])
+        ).replace('{words}', str(effect['max_words']))
+        + '\n'
+        + moves,
         tag='steward',
     )
 
   def resolve(self, action: str) -> str:
+    text = action.strip()
+    if text.startswith(f'{self.name} '):  # A model's free answer.
+      text = text[len(self.name) + 1 :].strip()
     if self._attention is not None:
-      swap = self._attention.options().get(action.strip().lower())
+      swap = self._attention.options().get(text.lower())
       if swap is not None:
         self._attention.swap(*swap)
         return (
             f'{self.name} now watches the {swap[0].lower()} instead of the'
             f' {swap[1].lower()}.'
         )
-    intervention = self._planet.intervention_for_option(action)
+    intervention = self._planet.intervention_for_option(text)
+    if intervention is None and self.omen is not None:
+      # Words that are no move are an omen's.
+      return self._planet.apply_intervention(self.name, self.omen, text)
     if intervention is None:
-      return f'{self.name} hesitated; "{action.strip()}" is not an option.'
+      return f'{self.name} hesitated; "{text}" is not an option.'
     return self._planet.apply_intervention(self.name, intervention)
 
   def aimable(self, option: str) -> bool:
@@ -283,9 +318,14 @@ class PolityActor(Actor):
       automation: automation_lib.Automation | None = None,
       answers_offers: bool = False,
       age: str = 'the early iron age',
+      coached: bool = True,
   ):
     super().__init__(name, outcome_topic=f'civ.{polity}.decrees')
     self.age = age  # Named in the call to action ("a people of …").
+    # Whether its question ends with what matters most and its menu always
+    # keeps the tech worth learning: a playbook, off when a live mind plays
+    # the people as a character (it decides from who the people are).
+    self.coached = coached
     self.polity = polity
     self._planet = planet
     self._share = share
@@ -414,7 +454,7 @@ class PolityActor(Actor):
       # The tech that most helps the goal's chain, the cheapest
       # half, and the most advanced of the rest (the frontier would
       # otherwise hide behind cheap old techs).
-      good = crises_lib.goal_good(self._planet)
+      good = crises_lib.goal_good(self._planet) if self.coached else None
       best = civ.best_tech(self.polity, good) if good else None
       keep = [t for t in affordable if best is not None and t.key == best.key]
       others = [t for t in affordable if t not in keep]
@@ -593,7 +633,11 @@ class PolityActor(Actor):
     options = self.options()
     # What matters most this turn ends the question, where a mind reads
     # last: the crisis a move answers, and the weakest link.
-    found = crises_lib.pressing(self._planet, self.polity, options, {})
+    found = (
+        crises_lib.pressing(self._planet, self.polity, options, {})
+        if self.coached
+        else []
+    )
     return entity_lib.choice_action_spec(
         # Concordia fills in {name}; the age is the scenario's.
         call_to_action=POLITY_CALL_TO_ACTION.replace('{age}', self.age)

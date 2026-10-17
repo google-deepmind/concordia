@@ -116,6 +116,10 @@ class GameContext:
   wakeups: wakeups_lib.WakeUps | None = None
   # Peoples' standing orders as reflexes, in scenarios with a market.
   automation: automation_lib.Automation | None = None
+  # Whether the peoples' minds read stage 4's playbook lines (what the age
+  # asks, what matters most, the tech worth learning). The mock reads them
+  # (its play stays reproducible); live minds play the peoples as characters.
+  coached: bool = True
   # Entities a person plays, by name, and the reader that waits for them.
   humans: dict[str, human_input.HumanInput] = dataclasses.field(
       default_factory=dict
@@ -381,7 +385,7 @@ class GameContext:
     elif (
         len(parts) == 3
         and parts[0] == 'civ'
-        and parts[2] in ('treaty', 'press')
+        and parts[2] in ('treaty', 'press', 'retelling')
         and message.payload
     ):
       with self._inbox_lock:
@@ -409,6 +413,14 @@ class GameContext:
                 self.planet.queue_adaptation(species, answer),
             )
         )
+        continue
+      if kind == 'retelling':
+        # The printers' front page about an omen: on the Gazette, and to
+        # every people as it was printed.
+        news = self.planet.publish_retelling(species, answer)
+        if news is not None:
+          events.append(planet_lib.WorldEvent(planet_lib.CIV_EVENTS, news))
+          self.bus.publish('media.omens', answer.strip(), source='world')
         continue
       if kind == 'press':
         news = self.planet.publish_broadsheet(species, answer)

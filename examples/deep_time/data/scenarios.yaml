@@ -316,6 +316,8 @@ great_acceleration:
     backlash: true
     treaties: true
     media: true
+    # The presses are the Cedar league's: its printers retell the omens.
+    press_owner: cedar
     wakeups: false
     polities:
       - {key: amber, name: Amber folk, home: auto, population: 14.0,
@@ -333,7 +335,7 @@ great_acceleration:
   goal: {kind: industrialize, min_energy: 600, max_co2: 1.3, collapse_fraction: 0.4}
   omega: {start: 8.0, per_tick: 0.8, biodiversity_bonus: 1.0}
   stability_window: 5
-  interventions: [wait, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  interventions: [wait, omen, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
   # Five-year ticks: a dusting of basalt draws down a fifth of the default
   # (60 Gt C, about −×0.09 and −3 °C), a tool to trim the air, not a reset
   # (300 Gt took −×0.46 and froze the world 14 °C; measured c110).

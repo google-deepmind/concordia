@@ -50,6 +50,7 @@ from examples.deep_time import motion as motion_lib
 from examples.deep_time import scenarios
 from examples.deep_time import simulation
 from examples.deep_time.world import data
+from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
 from concordia.typing import human_input
 import numpy as np
@@ -133,6 +134,11 @@ def neutral(options: Sequence[str]) -> str:
   return next((o for o in options if o in NEUTRAL_OPTIONS), options[0])
 
 
+# What a turn's telemetry keeps of what the person looked at.
+LOOKS = 24
+LOOK_CHARS = 48
+
+
 class Seat(human_input.HumanInput):
   """One person's place in a game: the `HumanInput` reader of their entity.
 
@@ -178,6 +184,16 @@ class Seat(human_input.HumanInput):
     # (then it asks the person, saying so in `stopped`).
     self.plans: dict[int, str] = {}
     self.can_make: Callable[[str], str] = lambda option: ''
+    # What the person looked at while this turn was asked (the move sheet,
+    # the cards they read, the folds they opened), kept with the turn.
+    self.looked: list[str] = []
+    # The moves a free question offers (a Steward that may speak an omen
+    # answers in words, and its moves are still there to tap).
+    self.moves: Callable[[], Sequence[str]] = lambda: ()
+
+  def offered(self, request: human_input.HumanInputRequest) -> tuple[str, ...]:
+    """A question's options: its choices, or the moves of a free one."""
+    return tuple(request.action_spec.options) or tuple(self.moves())
 
   def saved(self) -> dict[str, Any]:
     """What a save keeps of the seat."""
@@ -209,7 +225,7 @@ class Seat(human_input.HumanInput):
     option = self.plans.pop(now, None)
     if option is None:
       return None
-    options = request.action_spec.options
+    options = self.offered(request)
     found = next((o for o in options if o == option), None) or next(
         (o for o in options if short_move(o) == short_move(option)), None
     )
@@ -226,7 +242,7 @@ class Seat(human_input.HumanInput):
 
   def _held(self, request: human_input.HumanInputRequest) -> str | None:
     """The neutral move while holding course; None to ask the person."""
-    options = request.action_spec.options
+    options = self.offered(request)
     calm = [o for o in options if o in NEUTRAL_OPTIONS]
     if self.hold <= 0:
       return None
@@ -268,8 +284,17 @@ class Seat(human_input.HumanInput):
         'offered': list(offered),
         'pushes': pushes,
         'seconds': None if seconds is None else round(seconds, 1),
+        'looked': self.looked,
         **self.world(),
     })
+    self.looked = []
+
+  def look(self, what: str) -> None:
+    """Notes that the person looked at something on the page this turn."""
+    what = ' '.join(str(what).split())[:LOOK_CHARS]
+    with self._lock:
+      if what and what not in self.looked and len(self.looked) < LOOKS:
+        self.looked.append(what)
 
   def hold_course(self, turns: int) -> None:
     """Makes the neutral move for `turns` turns (0 stops); answers now if asked."""
@@ -291,7 +316,7 @@ class Seat(human_input.HumanInput):
       decided = self.over() if self.over is not None else False
       if decided:  # The game is decided: nothing to ask.
         self.hold = 0
-        options = request.action_spec.options
+        options = self.offered(request)
         return neutral(options) if options else ''
       planned = self._planned(request)
       if planned is not None:
@@ -321,7 +346,7 @@ class Seat(human_input.HumanInput):
         raise Stopped()
       if not answered and self._request is not None:
         # Out of time: the role makes its most neutral move.
-        options = request.action_spec.options
+        options = self.offered(request)
         self._answer = neutral(options) if options else ''
         self.choices.append(f'(out of time) {self._answer}')
         self._note(self._answer, 'timed out', list(options))
@@ -356,7 +381,7 @@ class Seat(human_input.HumanInput):
       self._note(
           response,
           'chose',
-          list(request.action_spec.options),
+          list(self.offered(request)),
           time.monotonic() - self._asked_at,
       )
     self._answered.set()
@@ -393,9 +418,11 @@ class ReplaySeat(human_input.HumanInput):
     self._moves = {int(m[0]): (str(m[1]), m[2]) for m in moves}
     self._clock = clock
     self._aim = aim
+    # The moves of a free question (as `Seat.moves`).
+    self.moves: Callable[[], Sequence[str]] = lambda: ()
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
-    options = request.action_spec.options
+    options = tuple(request.action_spec.options) or tuple(self.moves())
     move, target = self._moves.get(self._clock(), (None, None))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
@@ -554,6 +581,7 @@ class GameSession:
       )
       place.can_make = lambda option, name=name: self._can_make(name, option)
       place.world = lambda name=name: self._turn_world(name)
+      place.moves = lambda name=name: self._free_moves(name)
     self.entity, self.role = names[0], labels[names[0]]  # The first seat.
     self._cancelled = False
     self.error = ''
@@ -569,19 +597,21 @@ class GameSession:
     self.replay_of: str | None = None
     if replay is not None:  # Watched, with the players' moves played back.
       self.replay_of = str(replay.get('game_id', ''))
-      humans = {
-          name: ReplaySeat(
-              moves,
-              clock=lambda: self.context.planet.tick,
-              aim=lambda target, name=name: self.context.planet.set_target(
-                  name,
-                  self.context.planet.tiles.rows - 1 - int(target[0]),
-                  int(target[1]),
-              ),
-          )
-          for name, moves in (replay.get('moves') or {}).items()
-          if name in labels
-      }
+      humans = {}
+      for name, moves in (replay.get('moves') or {}).items():
+        if name not in labels:
+          continue
+        seat = ReplaySeat(
+            moves,
+            clock=lambda: self.context.planet.tick,
+            aim=lambda target, name=name: self.context.planet.set_target(
+                name,
+                self.context.planet.tiles.rows - 1 - int(target[0]),
+                int(target[1]),
+            ),
+        )
+        seat.moves = lambda name=name: self._free_moves(name)
+        humans[name] = seat
     self._sim, self.context = simulation.build_simulation(
         scenario,
         self.models,
@@ -816,6 +846,7 @@ class GameSession:
             'pushes': turn['pushes'],
             'neutral': turn['move'] in NEUTRAL_OPTIONS,
             'seconds': turn['seconds'],
+            'looked': list(turn.get('looked', ())),
             **{
                 k: turn[k]
                 for k in ('omega', 'read_c', 'forecast_c', 'true_c', 'life')
@@ -885,6 +916,14 @@ class GameSession:
     place.hold_course(turns)
     return None
 
+  def look(self, seat: str | None, what: str) -> str | None:
+    """A player looked at something on the page; None, or why not noted."""
+    if self.mode != 'play' or self._spectating(seat):
+      return "Only a player's looks are kept."
+    entity = seat if seat in self.seats else self.entity
+    self.seats[entity].look(what)
+    return None
+
   def plan(self, seat: str | None, move: str, turns: int) -> str | None:
     """A player plans a move for a later turn; None, or why not."""
     if self.mode != 'play' or self._spectating(seat):
@@ -898,7 +937,7 @@ class GameSession:
     with place._lock:  # pylint: disable=protected-access
       request = place._request  # pylint: disable=protected-access
       offered = (
-          list(request.action_spec.options)
+          list(place.offered(request))
           if request is not None
           else (place.played[-1]['offered'] if place.played else [])
       )
@@ -926,6 +965,27 @@ class GameSession:
       if place.plans.pop(tick, None) is None:
         return f'Nothing is planned for turn {tick}.'
     return None
+
+  def _omen(self, actor: Any, options: Sequence[str]) -> dict[str, Any] | None:
+    """The omen's signs, words and price for the page's composer, or None."""
+    if not isinstance(actor, actors_lib.StewardActor) or actor.omen is None:
+      return None
+    omen = actor.omen
+    return {
+        'option': omen.option,
+        'signs': list(omen.effect['signs']),
+        'max_words': int(omen.effect['max_words']),
+        'cost': omen.cost,
+        # Off its recharge and paid for: it may be spoken this turn.
+        'ready': omen.option in options,
+    }
+
+  def _free_moves(self, entity: str) -> list[str]:
+    """The moves a Steward that answers in words may still tap."""
+    actor = self.context.actors.get(entity)
+    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
+      return actor.options()
+    return []
 
   def _can_make(self, entity: str, option: str) -> str:
     """Why a planned move cannot be made now ('' if it can)."""
@@ -1177,6 +1237,10 @@ class GameSession:
       low, high = planet.band()
       if believed is not None and not low <= believed <= high:
         return 'your thermometer reads outside the band'
+      cap = planet.goal().get('max_co2')
+      air = self.context.believed(entity, 'climate.global', 'co2')
+      if cap is not None and air is not None and air >= float(cap):
+        return f'your thermometer reads the air past ×{float(cap):g} carbon'
       if civ is not None and any(
           p.food_ratio < 0.9 for p in civ.polities.values()
       ):
@@ -1287,6 +1351,10 @@ class GameSession:
       if match is None:
         continue
       age = 0 if match.group(2) == 'fresh' else int(match.group(3))
+      if key == 'Advisor briefing':
+        # As old as the readings the Advisor wrote it from, as the move it
+        # recommends is tagged: it lands its latency after it read them.
+        age += int(data.load('advisor.yaml')['latency_ticks'])
       out.append({'label': key, 'age': age, 'tick': now - age})
     return out
 
@@ -1319,6 +1387,18 @@ class GameSession:
             'text': message.payload,
         })
     seen_sheets = set()
+    # The printers' front pages about the Steward's omens, in full.
+    gazette = self.context.planet.gazette
+    stances = gazette.stances if gazette is not None else {}
+    for message in bus.history('media.omens'):
+      body = media_lib.without_stance(message.payload, stances)
+      seen_sheets.add(media_lib.headline(body))
+      items.append({
+          'tick': int(message.time or 0),
+          'kind': 'press',
+          'who': 'The Gazette on the omen',
+          'text': body,
+      })
     for message in bus.history('media.gazette'):
       try:
         sheets = json.loads(message.payload).get('broadsheets') or []
@@ -1326,7 +1406,7 @@ class GameSession:
         continue
       for sheet in sheets:
         key = (sheet.get('author'), sheet.get('title'))
-        if key in seen_sheets:
+        if key in seen_sheets or sheet.get('title') in seen_sheets:
           continue
         seen_sheets.add(key)
         items.append({
@@ -1876,7 +1956,8 @@ class GameSession:
     colony = planet.colony
     actor = self.context.actors.get(entity)
     stats: list[dict[str, Any]] = [
-        {'label': 'tick', 'value': f'{planet.tick}/{planet.max_ticks}'}
+        # 'turn', as the dock says it.
+        {'label': 'turn', 'value': f'{planet.tick}/{planet.max_ticks}'}
     ]
     omega: dict[str, Any] = {
         'label': 'Ω',
@@ -1906,7 +1987,7 @@ class GameSession:
     # The Omega meter is exact, and it reports biodiversity.
     bio = {'label': 'biodiversity', 'value': f'{planet.biodiversity():.2f}'}
     if reveal or isinstance(actor, actors_lib.StewardActor):
-      return stats + [temp, omega, bio]
+      return stats + [temp, omega, *(self._goal_stats(reveal, entity) or [bio])]
     if isinstance(actor, actors_lib.PolityActor) and planet.civ is not None:
       # A people knows its own storehouse exactly (its sheet says so).
       people = planet.civ.polities[actor.polity]
@@ -1930,6 +2011,58 @@ class GameSession:
     if (entity, 'climate.global') in self.context.beliefs:
       return stats + [temp]
     return stats
+
+  def _goal_stats(self, reveal: bool, entity: str) -> list[dict[str, Any]]:
+    """The numbers a peoples' goal is judged on, as the Steward reads them.
+
+    The air comes through the Steward's thermometer (late and noisy), what
+    the peoples made through their census; the truth once revealed. A
+    reading past its limit is marked. Empty where the goal has no such
+    numbers.
+    """
+    planet = self.context.planet
+    goal = planet.goal()
+    if planet.civ is None or goal['kind'] not in ('industrialize', 'iron_age'):
+      return []
+
+    def read(key: tuple[str, str], path: str, truth: float):
+      """The truth if revealed, else the reading (or None) and its age."""
+      if reveal:
+        return truth, ''
+      message = self.context.beliefs.get(key) or self.context.received.get(key)
+      if message is None:
+        return None, ''
+      value: Any = json.loads(message.payload)
+      for part in path.split('.'):
+        value = value.get(part) if isinstance(value, dict) else None
+      if not isinstance(value, (int, float)):
+        return None, ''
+      sent = message.time
+      age = 0 if sent is None else max(0, planet.tick - int(sent))
+      return value, f', {age} tick{"" if age == 1 else "s"} old' if age else ''
+
+    found = []
+    if goal['kind'] == 'industrialize':
+      cap = float(goal['max_co2'])
+      truth = planet.carbon.relative_co2() if planet.carbon else 1.0
+      co2, age = read((entity, 'climate.global'), 'co2', truth)
+      found.append({
+          'label': f'CO₂ / cap{age}',
+          'value': f'{"?" if co2 is None else f"{co2:.2f}"}/{cap:g}',
+          'warn': co2 is not None and co2 >= cap,
+      })
+    good, need = (
+        ('energy', goal['min_energy'])
+        if goal['kind'] == 'industrialize'
+        else ('iron', goal['min_iron'])
+    )
+    # The peoples' census reaches the Steward at once (its 'Peoples').
+    made, age = read((entity, 'Peoples'), f'made.{good}', planet.civ.made(good))
+    found.append({
+        'label': f'{good} made{age}',
+        'value': f'{"?" if made is None else f"{made:.0f}"}/{float(need):g}',
+    })
+    return found
 
   def _peoples(self, seat: str | None, reveal: bool) -> dict[str, Any] | None:
     """Towns, roads and routes; a people's planned town only to itself."""
@@ -2329,9 +2462,17 @@ class GameSession:
     return 'warm' if push >= 0.5 else 'cool' if push <= -0.5 else 'other'
 
   def _turning(self, place: Seat | None) -> list[dict[str, Any]]:
-    """The game's turning points for a Steward's recap."""
-    if place is None or not isinstance(
-        self.context.actors.get(place.entity), actors_lib.StewardActor
+    """The game's turning points for a Steward's recap.
+
+    Only a played game's: they tell a person's own moves and readings (a
+    watched game's Steward is the mock, whose moves are not kept).
+    """
+    if (
+        self.mode != 'play'
+        or place is None
+        or not isinstance(
+            self.context.actors.get(place.entity), actors_lib.StewardActor
+        )
     ):
       return []
     planet = self.context.planet
@@ -2543,6 +2684,8 @@ class GameSession:
     if request is not None:
       spec = request.action_spec
       actor = self.context.actors.get(entity)
+      # A free question's moves (the Steward may also speak an omen).
+      options = list(place.offered(request))
       saving = (
           actor.out_of_reach()
           if isinstance(actor, actors_lib.StewardActor)
@@ -2551,25 +2694,25 @@ class GameSession:
       question = {
           'request_id': request.request_id,
           'call_to_action': spec.call_to_action,
-          'options': list(spec.options),
+          'options': options,
           # Options that may land where the player taps the map.
-          'targets': [o for o in spec.options if self._targetable(entity, o)],
+          'targets': [o for o in options if self._targetable(entity, o)],
           # Which way each move pushes the world, and about how far.
-          'pushes': self.context.pushes(spec.options, entity),
+          'pushes': self.context.pushes(options, entity),
           # Moves not yet affordable: shown, and plannable.
           'saving': saving,
           'saving_pushes': self.context.pushes(saving, entity),
           # What the Steward's forecast says each climate move would bring:
           # its own late readings, reckoned with the move.
           'what_if': (
-              self._what_if(entity, [*spec.options, *saving])
+              self._what_if(entity, [*options, *saving])
               if isinstance(actor, actors_lib.StewardActor)
               else {}
           ),
           # The Advisor's pick among these moves, and how old its counsel
           # is: a slow mind, reasoning from older readings.
           'advice': (
-              self._advice(entity, [*spec.options, *saving])
+              self._advice(entity, [*options, *saving])
               if isinstance(actor, actors_lib.StewardActor)
               else None
           ),
@@ -2579,14 +2722,16 @@ class GameSession:
               crises_lib.pressing(
                   self.context.planet,
                   actor.polity,
-                  list(spec.options),
-                  self.context.pushes(spec.options, entity),
+                  options,
+                  self.context.pushes(options, entity),
               )
               if isinstance(actor, actors_lib.PolityActor)
               else []
           ),
           'error': request.error or '',
           'context': request.context,
+          # The omen the Steward may speak in its own words, if any.
+          'omen': self._omen(actor, options),
       }
     briefing = bus.latest('gaia.briefings')
     chronicle = bus.latest('chronicle')

@@ -78,6 +78,7 @@ MODULES = (
     'life.js',
     'minds.js',
     'story.js',
+    'omens.js',
     'campaign.js',
     'forecast.js',
     'plans.js',
@@ -495,6 +496,14 @@ class Games:
       return 'No game is running.'
     return game.hold_course(seat, turns)
 
+  def look(self, seat: str | None, what: str) -> str | None:
+    """A player looked at something on the page: None, or why not kept."""
+    with self._lock:
+      game = self.current
+    if game is None:
+      return 'No game is running.'
+    return game.look(seat, what)
+
   def plan(
       self, seat: str | None, move: str, turns: int, cancel: int | None
   ) -> str | None:
@@ -746,6 +755,13 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
           turns = 0
         seat = body.get('seat')
         error = games.hold_course(str(seat) if seat else None, turns)
+        self._json({'ok': error is None, 'error': error or ''})
+      elif path == '/api/look':
+        # What the player looked at this turn, for play telemetry.
+        seat = body.get('seat')
+        error = games.look(
+            str(seat) if seat else None, str(body.get('what', ''))
+        )
         self._json({'ok': error is None, 'error': error or ''})
       elif path == '/api/plan':
         try:
