@@ -730,6 +730,17 @@ inverts the telephone: the drift is each character's known habit, written
 as a law and carried out by a language model in character, and the puzzle
 is to design a message that arrives meaning what you need.
 
+### Pass it on with a live model in the seat (cycle 113)
+
+Flash played four levels with only the rules to go on (Flash also relayed
+and read): it won Two at the top and Dex in the middle on the first try,
+the second with "Don't tell Cy not to build.", a message about the
+message; it lost Two through Dex, mixing up which name gets which job three
+times; and it won Everyone through Dex on its second try with "Ash, don't
+not build; Bea, don't not watch; Cy, don't not rest.", double negatives
+built to survive Dex. Cost per game $0.0012-0.0064. It also wrote
+narration ('says, "..."'), now cleaned before a message goes up the line.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

@@ -46,6 +46,29 @@ def words_in(message: str) -> int:
   return len(_WORDS.findall(message.replace('\u2019', "'")))
 
 
+def clean_message(text: str) -> str:
+  """The words meant to go up the line, without narration or quotes.
+
+  A model in the seat wrote 'says, "Ash, build."' and 'tells Dex, "..."'
+  (cycle 113); a person may type quotes.
+
+  Args:
+    text: The move as the seat gave it.
+
+  Returns:
+    The message, curly apostrophes made straight.
+  """
+  text = text.strip().replace('\u2019', "'")
+  # Narration only when a quote follows it: "Tell Cy: rest." is a message.
+  text = re.sub(
+      r'^(?:says|say|tells?|whispers?|shouts?)(?:\s+\w+)?\s*[,:]?\s*(?=["\u201c])',
+      '',
+      text,
+      flags=re.IGNORECASE,
+  )
+  return text.strip().strip('"\u201c\u201d').strip()
+
+
 _SCENE = '__pass_it_on__'
 _HOLDS = ('', 'hold', 'pass')
 
@@ -165,7 +188,7 @@ class PassItOnToy(base.Toy):
       {'who': the first relayer, 'said': their words}, or {} when the line
       has no relayer (the player speaks to the top directly).
     """
-    message = message.strip().replace('\u2019', "'")
+    message = clean_message(message)
     if ' '.join(re.findall(r'[a-z]+', message.lower())) in _HOLDS:
       message = ''
     if not self.relayers or not message:
@@ -205,7 +228,7 @@ class PassItOnToy(base.Toy):
     return entity_lib.free_action_spec(call_to_action=call, tag='message')
 
   def apply(self, world: Any, actor: str, action: str) -> base.Receipt:
-    message = action.strip().replace('\u2019', "'")
+    message = clean_message(action)
     if ' '.join(re.findall(r'[a-z]+', message.lower())) in _HOLDS:
       message = ''
     words = words_in(message)

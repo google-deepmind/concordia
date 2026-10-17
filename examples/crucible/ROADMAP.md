@@ -18,7 +18,7 @@ Phase 1, grey box
 - [x] Every move shows a measured preview of its effect before it is sent (Rehearse with the first in line: how the first relayer would pass the words on, with the changes marked, no try used; the top's reading stays the puzzle. `toy_test.test_a_rehearsal_shows_the_first_hop_only`, `server_test.test_pass_it_on_rehearses_with_the_first_in_line`; checked in the browser pane, cycle 104)
 - [x] Every move gets a receipt saying what it did (each try: every hop's words, what the last in line did, the verdict; `toy_test.test_dex_flips_each_part_...`, page cards, evidence/shots/c99)
 - [ ] A tester with no win condition starts poking the system unprompted (the owner's Pass it on games)
-- [x] The skilled bot beats the random bot (16 seeds, evidence/audit-c101-passiton.jsonl: 100 vs 0-62 in every level)
+- [x] The skilled bot beats the random bot (16 seeds, evidence/audit-c101-passiton.jsonl, again on the final rules audit-c111-passiton.jsonl: skilled 100 vs random 0-62 in every level)
 
 Phase 2, overloading
 - [x] Every move carries at least two of directive, cost, side effect, information and timing (a message is a directive read at the top, golden p1-p13; a cost in words and tries, `test_the_skilled_bot_earns_three_stars_on_the_first_try`, `test_three_tries_then_over_...`; a side effect, each relayer reshaping it for everyone above, `test_the_last_in_line_hear_only_the_relayers_words`, golden r1-r10; and information, every hop shown and the rehearsal, `test_a_rehearsal_shows_the_first_hop_only`)
@@ -34,7 +34,7 @@ Phase 3, interaction matrix
 
 Phase 4, pacing
 - [x] Each arc has Isolate, Develop, Twist and Catharsis levels, gated by stars (`data/passiton.yaml`: arcs Mouth to ear and Dex in the middle; `campaign.chapters`)
-- [x] Bots at 16 seeds show the skill gaps in every level (audit-c101: skilled - random 38 to 100, skilled - passive 100)
+- [x] Bots at 16 seeds show the skill gaps in every level (audit-c111: skilled - random 38 to 100, skilled - passive 100; plus a daily puzzle made from the date, kept only when the bot's gap holds, cycle 112)
 - [x] Telemetry keeps the move, what the player saw and the hidden truth (the server's move and end records; the end record's truth holds every try's hops)
 
 Phase 5, wrapping

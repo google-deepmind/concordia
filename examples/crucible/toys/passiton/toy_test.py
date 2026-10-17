@@ -155,6 +155,23 @@ class DailyTest(parameterized.TestCase):
     self.assertFalse(other.preview(toy_lib.SEAT, plain + '.').delta['solved'])
 
 
+class CleanMessageTest(absltest.TestCase):
+
+  def test_narration_and_quotes_are_not_sent_up_the_line(self):
+    for move in (
+        'says, "Ash, build; Bea, keep watch."',
+        'tells Dex, "Ash, build; Bea, keep watch."',
+        '"Ash, build; Bea, keep watch."',
+        'Ash, build; Bea, keep watch.',
+    ):
+      self.assertEqual(
+          toy_lib.clean_message(move), 'Ash, build; Bea, keep watch.', move
+      )
+    self.assertEqual(
+        toy_lib.clean_message("Tell Cy: don't rest."), "Tell Cy: don't rest."
+    )
+
+
 class CleanRelayTest(absltest.TestCase):
 
   def test_a_relays_lead_in_and_markdown_are_cleaned(self):
