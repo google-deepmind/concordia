@@ -53,7 +53,7 @@ any seat played by a model, a bot or a person.
 
 The crucible example (`examples/crucible/`) is a complete game built this
 way, with a phone page on `BlockingInput`, bots on `PolicyInput`, and a
-golden set of 53 cases.
+golden set of 53 cases, and a word-of-mouth puzzle (`toys/passiton`) built on the same relays and readings.
 
 ## Pitfalls seen in practice
 
@@ -81,6 +81,18 @@ golden set of 53 cases.
   habit sentence that left out the storm, a negation that ran on past a
   comma. Writing the missing laws down raised a model's agreement on the
   soft cases by several points.
+- **Build levels only on habits a model keeps.** A character's habit
+  written as a law ("passes it on, leaving out anything about resting") is
+  a promise about what a model will do. Before a level depends on it, play
+  the level's intended answer live a few times. In the crucible's word-of-
+  mouth puzzle, a contrary relayer and a literal one kept their laws every
+  time, while a "drop anything about resting" relayer passed "Don't build."
+  on as "Build." three times in four; levels built on it would have felt
+  random, so they were not shipped.
+- **Prefer a habit with no exception.** "Adds 'Repair leaks.' unless a
+  clause already says whether to repair" took three wordings and two
+  models still read the exception differently; "adds 'Repair leaks.'" is
+  read the same way by both, and by players.
 - **Isolate the law in hard cases.** If a hard case fails because of a
   separate judgement (a temperament's taste, say), move that variant to the
   soft cases and test the law with a member who has no such judgement.
