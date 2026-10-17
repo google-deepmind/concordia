@@ -17,7 +17,7 @@ Phase 1, grey box
 - [x] A mock run finishes in seconds and reproduces from a seed (`toy_test`, 28 tests in 3 s)
 - [x] Every move shows a measured preview of its effect before it is sent (Rehearse with the first in line: how the first relayer would pass the words on, with the changes marked, no try used; the top's reading stays the puzzle. `toy_test.test_a_rehearsal_shows_the_first_hop_only`, `server_test.test_pass_it_on_rehearses_with_the_first_in_line`; checked in the browser pane, cycle 104)
 - [x] Every move gets a receipt saying what it did (each try: every hop's words, what the last in line did, the verdict; `toy_test.test_dex_flips_each_part_...`, page cards, evidence/shots/c99)
-- [ ] A tester with no win condition starts poking the system unprompted (the owner's Pass it on games)
+- [ ] A tester with no win condition starts poking the system unprompted (the owner's Pass it on games; so far only a model player poked it: "Don't tell Cy not to build.", "Ash, don't not build; ...", cycle 113)
 - [x] The skilled bot beats the random bot (16 seeds, evidence/audit-c101-passiton.jsonl, again on the final rules audit-c111-passiton.jsonl: skilled 100 vs random 0-62 in every level)
 
 Phase 2, overloading
@@ -57,7 +57,7 @@ Phase 5, wrapping
 - [x] A mock run of the core loop finishes in seconds and reproduces exactly from a seed. (orders: 0.1 s; `crucible_e2e_test.test_same_seed_same_game`)
 - [x] Every move shows a measured preview of its effect before it is sent. (page Preview: the crew's actions this turn, measured on a copy; with the mock, a forecast to the end: `server_test.test_free_play_and_forecast`)
 - [x] Every move gets a receipt saying what it did and when it will show. (each turn: who did what, and the ledger after; effects land the same turn)
-- [ ] A tester with no win condition starts poking the system unprompted.
+- [x] A tester with no win condition starts poking the system unprompted. (The owner's phone games, 2026-10-16, PROG telemetry: unasked, they tried "Win the game" (20:27), "Cy, build laser" (21:32, and won), "Attack hull" (21:35) and "rest; rest; rest; rest; rest" (22:28): orders the rules give no meaning to, sent to see what the crew would make of them. Within chapters, not free play; their verdict on legibility led to the rethink, DESIGN 2x.)
 - [x] The skilled bot beats the random bot. (orders, 16 seeds: 100% vs 31%)
 
 ## Phase 2: overloading
@@ -133,6 +133,15 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   puzzles (nothing about watch ever gets past him); an impatient Ash who
   passes on only the first clause would make the order of clauses the
   puzzle. Check live first.
+  Cycle 114, live (evidence/live-flash-c114-arc3.json): with the law
+  "about resting or watching, asked or forbidden", the mock gave a fine arc
+  (Ash in the middle; Quiet past Ash; Ash and Dex, where arc 1's "Dex,
+  rest." is dropped; Past Ash to two). On Flash, Ash as relayer passed
+  "Don't build." as "Build." three times in four and kept "Cy, rest; Dex,
+  rest." whole, and Bea named to build gathered. Not added; the law is back.
+  What holds live is Cy and Dex relaying with Ash, Cy and Dex at the top, which is
+  what the eight levels and the daily puzzle use. A new relayer needs a
+  habit a model keeps (checked live) before it gets levels.
 
 - From the cycle 76 rule audit (fixed in cycle 77: one someone-taker through
   a bosun; the bosun's own name kept in relays; no stale relay when the
