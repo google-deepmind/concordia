@@ -35,7 +35,7 @@ from examples.crucible import toys
 _HERE = os.path.dirname(__file__)
 
 
-MAIN_TOY = 'passiton'  # the game the page leads with
+MAIN_TOY = 'nightwire'  # the game the page leads with
 
 
 def _optional_data(name: str) -> dict[str, Any]:

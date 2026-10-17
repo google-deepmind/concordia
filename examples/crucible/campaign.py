@@ -42,6 +42,7 @@ def chapters(
         'scenario': scenario,
         'title': scene.get('title', scenario),
         'beat': scene.get('beat', ''),
+        'time': scene.get('time', ''),  # the Night Wire's hour
         'stars': stars,
         'open': previous_stars > 0,
     })

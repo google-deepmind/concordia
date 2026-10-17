@@ -207,7 +207,7 @@ class PassItOnToy(base.Toy):
       message = ''
     if not self.relayers or not message:
       return {}
-    if words_in(message) > int(self._data['max_words']):
+    if self.count_words(message) > int(self._data['max_words']):
       return {'error': f'over the limit of {self._data["max_words"]} words'}
     if self.broken_taboo(message):
       return {'error': f'it says {", ".join(self.broken_taboo(message))}'}
@@ -215,6 +215,10 @@ class PassItOnToy(base.Toy):
     return {'who': who, 'said': self._orders.relay(message, who)}
 
   # ---- the rulebook ----------------------------------------------------------
+
+  def count_words(self, message: str) -> int:
+    """The words that count against the limit and the stars."""
+    return words_in(message)
 
   def actors(self) -> list[str]:
     return [SEAT]
@@ -248,7 +252,7 @@ class PassItOnToy(base.Toy):
     message = clean_message(action)
     if ' '.join(re.findall(r'[a-z]+', message.lower())) in _HOLDS:
       message = ''
-    words = words_in(message)
+    words = self.count_words(message)
     limit = int(self._data['max_words'])
     if words > limit:
       return base.Receipt(

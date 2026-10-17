@@ -2,6 +2,22 @@
 
 Boxes mirror GUIDE.md's checklists. Each ticked box names its evidence.
 
+## The Night Wire (story and style, cycle 119)
+
+The owner, after seven first-try Pass it on solves: "This game is boring
+... incredibly easy", and then: "Something story driven and interesting but
+keeping this core 'pass it on' mechanic ... a unified and distinctive
+style" (DESIGN 2y). Pass it on's ledger, relaying and reading, told as one
+night of a flood in a 1926 mill town, on a telegram-styled page.
+
+- [x] Runs end to end on the mock (`nightwire/toy_test.LineTest.test_a_whole_game_through_the_harness`; 43 tests in 3 s)
+- [x] Every chapter after the first defeats the obvious message, and its lesson solves it (`ChapterTest.test_the_obvious_message_works_only_where_meant`, `test_the_lesson_solves_its_chapter`)
+- [x] The skilled bot beats random by 30+ and passive by 50+ in every chapter (16 seeds, evidence/audit-c119-nightwire.jsonl: skilled 100, random 0-69, gaps 31-100 and 100)
+- [x] The meant and naive messages agree with the mock live (DeepSeek-V4.1-Flash, evidence/live-flash-c119-nightwire-c.json: 14/16, the two misses Harlan's "bold" reading; literal now, 8/8 probes)
+- [x] One look: telegram forms on a desk, ticker tape per hop with red-pencil changes, staff cards on a wire, the morning headline on a solve (`web/index.html` theme `wire`, `data/nightwire_look.yaml`; checked in the browser pane, light and dark, cycle 119)
+- [ ] Golden set and matrix for the story's readers and relays (on the mock, an Ollama model and a Together model)
+- [ ] The owner's Night Wire games reviewed and acted on
+
 ## Pass it on (the rethink, cycle 98): the boxes, re-earned
 
 The owner's verdict on the orders game ("I don't really understand what to

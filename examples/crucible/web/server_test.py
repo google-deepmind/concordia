@@ -120,7 +120,7 @@ class ServerTest(absltest.TestCase):
 
   def test_campaign_gates_chapters_and_records_stars(self):
     state = self.call('/api/state')
-    self.assertEqual(state['campaign']['toy'], 'passiton')  # leads the page
+    self.assertEqual(state['campaign']['toy'], 'nightwire')  # leads the page
     chapters = state['campaigns']['orders']['chapters']
     self.assertEqual([c['open'] for c in chapters[:2]], [True, False])
     with self.assertRaises(urllib.error.HTTPError):
@@ -275,7 +275,8 @@ class ServerTest(absltest.TestCase):
   def test_pass_it_on_has_a_daily_puzzle_once_dex_is_in_the_middle(self):
     state = self.call('/api/state')
     self.assertEqual(
-        state['campaign']['daily']['opens_with'], 'dex_in_the_middle'
+        state['campaigns']['passiton']['daily']['opens_with'],
+        'dex_in_the_middle',
     )
     with self.assertRaises(urllib.error.HTTPError):
       self.call('/api/start', {'toy': 'passiton', 'daily': True})

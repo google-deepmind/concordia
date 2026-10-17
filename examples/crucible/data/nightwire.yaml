@@ -1,0 +1,176 @@
+# The Night Wire (cycle 119): Pass it on as a story.
+#
+# Pinewood, a mill town, the night of 14 April 1926. The river is rising.
+# You are at the telegraph desk. Each chapter is one hour of the night and
+# one message that must reach someone across town through people with their
+# own habits; what they do decides what happens to the town.
+#
+# A chapter, like a Pass it on level:
+#   line:    who it passes through, in order; the last (a name or a list)
+#            act on what reached them
+#   goal:    the job each of the last must do (a key of `jobs`)
+#   jobs:    the jobs on offer to them this hour (keys of `jobs`)
+#   stars:   1 for solving; 2 and 3 for at most this many words
+#   time, headline, lesson: the story around it
+
+title: The Night Wire
+tagline: Pinewood, 14 April 1926. The river is rising, and every word you send costs a cent.
+setting: The Night Wire. Pinewood, a mill town, the night of 14 April 1926. The river is rising.
+max_words: 12
+attempts: 3
+default_scenario: the_sluice
+
+# The people. `relays` is how they pass a message on (when they are in the
+# middle of the line); `reads` is how they take one meant for them (when
+# they are at the end of it); `default` is the job they do when nothing in
+# the message is for them.
+people:
+  Edith:
+    role: the night clerk at the telegraph office
+    relays: word_for_word
+    reads: literal
+    default: stay_put
+  Wilf:
+    role: the messenger boy, a prankster
+    relays: flips
+    reads: literal
+    default: stay_put
+  Harlan:
+    role: the miller
+    # Literal, with his own work to fall back on (cycle 119: as "bold", a
+    # live model kept his wheel turning on a plain "Open the sluice." one
+    # time in four).
+    reads: literal
+    default: grind
+  Cyrus:
+    role: the stationmaster
+    reads: literal
+    default: stay_put
+  Penrose:
+    role: the doctor
+    reads: literal
+    default: stay_put
+  Dexter:
+    role: the mayor, who never does as he is told
+    reads: contrary
+    default: stay_put
+
+# How a relayer passes a message on, as the model is told it.
+relaying:
+  word_for_word: types it out exactly as given, word for word
+  flips: passes it on saying the opposite of each part, keeping the name of anyone a part is for ("go" becomes "don't go", and "don't go" becomes "go")
+
+# How a reader takes a message meant for them.
+reading:
+  laws:
+    - A plain part of the message (no names in it) applies to everyone it reaches.
+    - A part that names someone applies to them alone, and for them it replaces the plain parts.
+    - A part that says not, never or don't forbids what it names, and asks for nothing.
+    - With nothing in the message for them, a person does what they would do anyway.
+  readers:
+    literal: does exactly what the message asks of them, nothing more
+    contrary: never does as told; told to do something, does nothing (stays put); told not to do something, does it
+
+# The jobs. `text` is the option a reader picks; `say` the fewest words to
+# ask for it, in a telegram's style; `words` how the mock recognises it (the
+# model needs no list; "STOP" ends a sentence, so it asks for nothing).
+jobs:
+  open_sluice: {text: open the sluice gates, say: open sluice, words: [sluice, sluices, gate, gates, open]}
+  hold_train: {text: hold the night train, say: hold train, words: [train, hold, halt]}
+  ring_bell: {text: ring the church bell, say: ring bell, words: [bell, ring, toll, peal]}
+  fetch_doctor: {text: go to the mill, say: go to mill, words: [mill, come, go, hurry]}
+  sandbag: {text: sandbag the bridge, say: sandbag bridge, words: [sandbag, sandbags, bridge, bank]}
+  grind: {text: keep the wheel turning, say: keep grinding, words: [grind, grinding, wheel, work, mind]}
+  stay_put: {text: stay put, say: stay put, words: [stay, wait, put, home]}
+
+scenarios:
+  the_sluice:
+    beat: isolate
+    time: '9:40 p.m.'
+    title: The sluice
+    line: [Edith, Harlan]
+    goal: {Harlan: open_sluice}
+    jobs: [open_sluice, grind, stay_put]
+    stars: {2: {max_words: 4}, 3: {max_words: 2}}
+    task: The water is a foot below the mill race. Your message goes from your desk to Edith at the telegraph key, and down the wire to Harlan at the mill. Get Harlan to open the sluice gates.
+    headline: SLUICE OPENED IN TIME STOP MILL RACE HOLDS
+    lesson: Edith sends exactly what you give her. Say the job.
+  the_station:
+    beat: develop
+    time: '10:05 p.m.'
+    title: The night train
+    line: [Edith, [Cyrus, Harlan]]
+    goal: {Cyrus: hold_train, Harlan: open_sluice}
+    jobs: [hold_train, open_sluice, grind, stay_put]
+    stars: {2: {max_words: 7}, 3: {max_words: 5}}
+    task: The 10:40 is due over the river bridge. Edith's wire goes to the station and the mill at once. Get Cyrus to hold the night train, and Harlan to keep the sluice open.
+    headline: NIGHT TRAIN HELD AT PINEWOOD STOP NO ONE ON THE BRIDGE
+    lesson: Everyone on the wire hears every word. A name in front gives one person their own job.
+  the_mayor:
+    beat: twist
+    time: '10:30 p.m.'
+    title: The mayor
+    line: [Dexter]
+    goal: {Dexter: ring_bell}
+    jobs: [ring_bell, stay_put]
+    stars: {2: {max_words: 4}, 3: {max_words: 3}}
+    task: Only the church bell will wake the lower town, and only the mayor has the key. Mayor Dexter never does as he is told. You have him on the telephone. Get him to ring the church bell.
+    headline: CHURCH BELL WAKES LOWER TOWN AT 10:40
+    lesson: Tell the mayor not to, and he will.
+  the_council:
+    beat: catharsis
+    time: '10:55 p.m.'
+    title: The council
+    line: [Edith, [Harlan, Dexter]]
+    goal: {Harlan: sandbag, Dexter: ring_bell}
+    jobs: [sandbag, ring_bell, grind, stay_put]
+    stars: {2: {max_words: 8}, 3: {max_words: 6}}
+    task: The bell has stopped and the bridge needs sandbags. Edith wires the mill and the mayor's house together. Get Harlan to sandbag the bridge and the mayor to ring the bell again.
+    headline: MILLER AND MAYOR SAVE BRIDGE STOP BELL RINGS ALL NIGHT
+    lesson: 'One message, two readers: say each their part, the mayor''s the wrong way round.'
+  wilf:
+    beat: isolate
+    time: '11:20 p.m.'
+    title: Wilf
+    line: [Wilf, Penrose]
+    goal: {Penrose: fetch_doctor}
+    jobs: [fetch_doctor, stay_put]
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: The wire to the doctor's house is down. Wilf, the messenger boy, will cycle your message over, but Wilf is a prankster who says the opposite of everything. Get Dr. Penrose to go to the mill.
+    headline: DOCTOR AT THE MILL BY MIDNIGHT
+    lesson: Give Wilf the opposite of what you need, and he turns it the right way round.
+  two_doors:
+    beat: develop
+    time: '11:45 p.m.'
+    title: Two doors
+    line: [Wilf, [Penrose, Cyrus]]
+    goal: {Penrose: fetch_doctor, Cyrus: hold_train}
+    jobs: [fetch_doctor, hold_train, stay_put]
+    stars: {2: {max_words: 11}, 3: {max_words: 9}}
+    task: Wilf will knock at the doctor's and then the station. Get Dr. Penrose to go to the mill, and Cyrus to keep holding the train.
+    headline: TRAIN STILL HELD STOP DOCTOR ON HER WAY
+    lesson: 'Wilf flips every part on its own: flip each part you send.'
+  say_less:
+    beat: twist
+    time: '12:10 a.m.'
+    title: Say less
+    line: [Wilf, [Harlan, Cyrus]]
+    goal: {Harlan: open_sluice, Cyrus: stay_put}
+    jobs: [open_sluice, hold_train, grind, stay_put]
+    stars: {2: {max_words: 6}, 3: {max_words: 4}}
+    task: The train has gone round by the hill line and Cyrus must stay at his post. Wilf runs the message to the mill and the station. Get Harlan to open the sluice again, and Cyrus to stay put.
+    headline: SECOND OPENING OF SLUICE AT MIDNIGHT STOP STATION QUIET
+    lesson: For someone who does exactly what they hear, saying nothing to them is an order too.
+  the_night:
+    beat: catharsis
+    time: '12:40 a.m.'
+    title: The whole night
+    line: [Wilf, [Harlan, Dexter, Penrose]]
+    goal: {Harlan: sandbag, Dexter: ring_bell, Penrose: stay_put}
+    jobs: [sandbag, ring_bell, fetch_doctor, grind, stay_put]
+    stars: {2: {max_words: 9}, 3: {max_words: 7}}
+    task: The crest is coming. One last message, through Wilf, to the mill, the mayor and the doctor. Get Harlan to sandbag the bridge, the mayor to ring the bell, and Dr. Penrose to stay put with her patients.
+    headline: PINEWOOD HOLDS STOP RIVER CRESTS AT 1 A.M. STOP NO LIVES LOST
+    lesson: Flip each part for Wilf, the mayor's twice, and leave the doctor out.
+
+campaign: [the_sluice, the_station, the_mayor, the_council, wilf, two_doors, say_less, the_night]
