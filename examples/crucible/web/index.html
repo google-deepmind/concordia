@@ -52,6 +52,11 @@
   #dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
           background: var(--paper); border-top: 1px solid var(--line); }
   #dock button { width: 100%; margin: 0; }
+  #resultDock { position: fixed; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+                background: var(--paper); border-top: 3px solid var(--project); box-shadow: 0 -6px 18px rgba(0,0,0,.12); }
+  #resultDock.lost { border-top-color: var(--hull); }
+  #resultText { font-size: 22px; font-weight: 700; }
+  #resultText small { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 4px; }
   .fresh { animation: fade .35s ease-out; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @keyframes fade { from { opacity: .3; } to { opacity: 1; } }
@@ -175,6 +180,14 @@
 <details><summary class="meter">For developers: the commander's full prompt</summary><pre id="context"></pre></details>
 <p class="meter">Twelve Words, a game on Google DeepMind's Concordia.</p>
 <div id="dock" hidden><button id="send" class="primary">Send</button></div>
+<div id="resultDock" hidden>
+  <div id="resultText"></div>
+  <div class="row" style="gap:8px;margin-top:8px">
+    <button id="rNext" class="primary">Next level</button>
+    <button id="rRetry">Try again</button>
+    <button id="rMenu">Levels</button>
+  </div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -437,6 +450,32 @@ function whyLost(v) {  // the reason, in the board's own words
   if (v.goal === 'foresight') return ': ' + v.foresight + ' turns seen of the ' + v.target + ' wanted';
   return ': ' + word('stocks', 'progress') + ' ' + v.progress + ' of ' + v.target + ' when time ran out';
 }
+function showResult(gm) {  // the end of a game, where the thumb is (cycle 117)
+  const box = $('resultDock');
+  if (!gm || !gm.finished) { box.hidden = true; document.body.style.paddingBottom = ''; return; }
+  const o = gm.outcome || {}, v = gm.view || {};
+  const won = !!o.winner;
+  box.className = won ? '' : 'lost';
+  let head, sub;
+  if (v.kind === 'passiton') {
+    head = won ? 'Solved ' + stars(o.stars || 0) + ' in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
+               : 'Not solved in ' + (o.tries || 0) + ' tries';
+    sub = v.lesson || '';
+  } else {
+    head = won ? 'Won ' + stars(o.stars || 0) : 'Not won' + whyLost(v);
+    sub = v.lesson || '';
+  }
+  $('resultText').innerHTML = '';
+  $('resultText').append(head);
+  if (sub) $('resultText').appendChild(Object.assign(document.createElement('small'), {textContent: sub}));
+  const after = nextLevel(v);
+  $('rNext').hidden = !(won && after);
+  $('rNext').onclick = () => start({toy: gm.toy, scenario: after});
+  $('rRetry').hidden = !lastStart;
+  $('rMenu').onclick = () => { box.hidden = true; $('toMenu').click(); };
+  box.hidden = false;
+  document.body.style.paddingBottom = (box.offsetHeight + 12) + 'px';
+}
 function goalLine(v) {
   if (v.free) return 'Free play: no goal. Try orders and see how each member reads them.';
   const turn = Math.min(v.turn, v.turns);
@@ -671,6 +710,7 @@ function render(state) {
     return;
   }
   $('dock').hidden = !!gm.finished;  // Send only while a game can take an order
+  showResult(gm);
   if (!gm.finished) $('menu').hidden = !menuOpen;
   const req = gm.request;
   mode = gm.view ? (gm.view.kind === 'passiton' ? 'pass' : 'board') : 'plain';
@@ -768,6 +808,7 @@ async function send(text) {
 }
 $('copyShare').onclick = () => { try { navigator.clipboard.writeText($('shareText').textContent); $('copyShare').textContent = 'Copied'; } catch (e) {} };
 $('retry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
+$('rRetry').onclick = () => { if (lastStart) start(Object.assign({}, lastStart)); };
 $('freeplay').onclick = () => start({toy: 'orders', scenario: 'free'});
 $('preview').onclick = doPreview; $('plainpreview').onclick = doPreview;
 $('send').onclick = () => send(mode === 'board' ? $('move').value.trim() : mode === 'pass' ? $('pmove').value.trim() : $('plainmove').value.trim());
