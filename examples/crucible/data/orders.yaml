@@ -1,0 +1,750 @@
+# Toy C, "orders": one standing order, read anew by each crew member each
+# turn. Every number and word of the toy lives here.
+
+commander: Commander
+default_scenario: voyage
+turns: 12
+max_words: 12        # longest order
+target: 24           # project progress needed by the last turn
+# What the project is in the story: the crew and the player both call it
+# this (cycle 97: "the project" meant nothing to a first player).
+progress_word: lighthouse
+wreck_at: 10         # damage at which the game is lost
+
+start: {supplies: 3, damage: 0, progress: 0}
+
+# Cost: speaking costs command. A new order costs 1 point, plus 1 for every
+# `per_words` words; points come back each turn up to the cap.
+command: {points: 3, regen: 1, cap: 5, per_words: 4}
+
+# Information: the turns ahead are hidden. A crew member who keeps watch
+# reveals the next `sees` turns.
+watch: {sees: 2}
+
+# Temperaments are properties, not prose: the crew's prompt is written from
+# them, and the mock reads orders by them.
+#   otherwise: with no clause that applies, the first of these that makes
+#              sense (build needs a supply, repair needs damage or a leak)
+#   when_worn: 'rest' (stops to rest when worn out) or 'work'
+#   on_leak:   'repair' (repairs an open leak unless a clause names them
+#              to something else) or 'follow' (follows the order)
+#   sensible:  whether they skip an ordered action that cannot help now
+#   volunteers: who takes up a clause for "someone" (arc 4): 'always',
+#              'fresh' (only when not worn out) or 'never'
+#   relays:    how they pass an order on as bosun (arc 5): 'word_for_word',
+#              'drops_rest' (leaves out clauses to rest or keep watch),
+#              'adds_repair' (adds "Repair leaks." to whatever they pass
+#              on), 'negates' (says "don't" before each clause that does not
+#              already forbid) or 'flips' (the opposite of each clause)
+temperaments:
+  bold:
+    describe: keen to push the work forward; shrugs off risk
+    otherwise: [build, gather]
+    when_worn: work
+    on_leak: follow
+    sensible: true
+    volunteers: always
+    relays: drops_rest
+  cautious:
+    describe: worries about damage and about wearing out
+    otherwise: [repair, gather]
+    when_worn: rest
+    on_leak: repair
+    sensible: true
+    volunteers: fresh
+    relays: adds_repair
+  literal:
+    describe: does exactly what the order says and nothing it does not say
+    otherwise: [rest]
+    when_worn: work
+    on_leak: follow
+    sensible: false
+    volunteers: never
+    relays: word_for_word
+  # contrary: does the opposite of a clause that applies: told to work,
+  # rests; told to rest, does `works`; told not to do something, does it.
+  contrary:
+    describe: does the opposite of what he is told
+    otherwise: [rest]
+    when_worn: work
+    on_leak: follow
+    sensible: false
+    contrary: true
+    works: build
+    volunteers: never
+    relays: negates
+
+crew:
+  Ash: {temperament: bold}
+  Bea: {temperament: cautious}
+  Cy: {temperament: literal}
+  Dex: {temperament: contrary}
+
+# The crew's reading of an order is a judgement, not a story: sampled cold.
+reading_temperature: 0.0
+
+# The laws of reading, written into every crew member's prompt.
+reading_laws:
+  - A plain clause (no names, no condition) applies to every crew member, every turn.
+  - A clause that names crew members applies to them alone, and comes before any other; for them it replaces the plain clauses.
+  - A clause with if, when, whenever or during applies only while its condition holds; a clause with unless applies only while it does not. While it applies, such a clause comes before any plain clause.
+  - A clause that says not, never or don't forbids the action it names.
+  - A clause that only forbids asks for nothing; the member does what their temperament does otherwise, short of the forbidden action, and if that is forbidden too, keeps watch.
+  - With no clause that applies, a crew member does what their temperament does otherwise.
+
+# The word "someone" (arc 4). A clause for someone asks one member only; the
+# law and the crew roster go into a reading only when the order says it, so
+# every other prompt stays as it was.
+someone:
+  words: [someone, somebody, anyone, anybody, whoever, one of you]
+  law: >-
+    A clause for someone (or one of you) is not a plain clause: it applies
+    to one crew member only, the one who takes it up this turn, named below. For them it comes before
+    any other clause, as a clause naming them would. It does not apply to
+    anyone else, who read the other clauses.
+  # The same law as the commander is told it: who takes the clause up.
+  commander_law: >-
+    A clause for someone (or one of you) goes to one crew member only: of
+    those on duty who heard it and are not named in another clause, the
+    freshest willing one
+    (the bold always take it up, the cautious only when fresh, the literal
+    and the contrary never), the first in crew order on a tie.
+
+# The bosun (arc 5). In a scene with a `bosun` (a crew member), the
+# commander's order goes to the bosun, who passes it on to the others in
+# their own words; the rest of the crew hear only that. The bosun follows
+# the order as given.
+relaying:
+  laws:
+    word_for_word: passes the order on word for word
+    # Crisper (cycle 106: on the old wording qwen3 thought past its timeout).
+    drops_rest: >-
+      passes it on word for word, but leaves out any clause that asks
+      someone to rest or to keep watch
+    # Its own sentence (cycle 103: joined with "and", a live relay left it
+    # unclear whether "repair leaks" was only for the member just named).
+    # Always (cycle 110): the exception "unless a clause already says
+    # whether to repair" took three wordings and the two models still read
+    # it differently; a habit with no exception is plainer to everyone.
+    adds_repair: passes it on and adds a sentence of their own, "Repair leaks."
+    negates: >-
+      passes it on with "don't" before each clause, leaving a clause that
+      already says not, never or don't as it is
+    # Pass it on (cycle 98): a true opposite, so a message can be pre-flipped.
+    flips: >-
+      passes it on saying the opposite of each clause, keeping the name of
+      anyone a clause is for: "don't" before a clause that asks for
+      something, and a clause that says not, never or don't without it
+  question: >-
+    How does {name} pass the order on to the rest of the crew? Give only
+    the words {name} says.
+
+# Timing (arc 6). A clause "for N turns" holds only for the first N turns
+# after the order is given; what follows "then" holds after that. The law
+# and the order's age go into a reading only when the order says it.
+timing:
+  law: >-
+    An order "do this for N turns, then that" means this on the order's
+    turns 1 to N (its turn 1 is the turn it is given) and that from its turn
+    N+1 on; with nothing after "then", nothing in it applies from its turn
+    N+1.
+
+# The menu, in order. Effects are data read by one law (rules.CrewRule):
+#   needs:      stock an action spends; without it the action does nothing
+#   gives:      changes to the ship (supplies, progress, damage)
+#   fatigue:    change to the member's fatigue (rest is negative)
+#   spoiled_by: events in which the action gains nothing
+#   worn:       multiplier on gains when the member is worn out
+#   closes:     ship flags the action clears (a repair closes a leak)
+actions:
+  repair:
+    text: repair the hull
+    does: repairs the hull
+    gives: {damage: -2}
+    fatigue: 1
+    closes: [leak]
+  gather:
+    text: gather supplies
+    does: gathers supplies
+    gives: {supplies: 2}
+    fatigue: 1
+    spoiled_by: [storm]
+  build:
+    text: build the lighthouse
+    does: builds
+    needs: {supplies: 1}
+    gives: {progress: 2}
+    fatigue: 1
+    worn: 0.5
+  rest:
+    text: rest
+    does: rests
+    fatigue: -2
+  watch:
+    text: keep watch
+    does: keeps watch
+
+effects:
+  leak_damage: 2        # damage an open leak adds each turn
+  tired_at: 3           # fatigue at which a crew member is worn out
+
+# Hazards are data read by one law (rules.HazardRule):
+#   opens:            ship flags the event sets (a leak opens)
+#   strikes_unwatched: damage the event does if no one kept watch the turn
+#                      before (a squall seen coming is weathered)
+hazards:
+  quiet: {}
+  leak: {opens: [leak]}
+  storm: {}
+  squall: {strikes_unwatched: 3}
+
+# Events by turn (1-based); seeds shift the schedule by 0-2 turns.
+events:
+  3: leak
+  5: storm
+  6: storm
+  8: leak
+  10: storm
+
+situations:
+  quiet: 'All is quiet.'
+  squall: 'A squall strikes: if no one kept watch last turn, it catches the ship unprepared.'
+  leak: 'A leak has opened in the hull: it will add damage every turn until someone repairs it.'
+  storm: 'A storm blows: gathering supplies is impossible this turn.'
+
+premise: >-
+  Your crew are raising a lighthouse on a bare rock before winter, and their
+  ship lies anchored below, taking the weather.
+  You command a crew of three: Ash (bold), Bea (cautious) and Cy (literal).
+  You do not tell them what to do each turn. You give one standing order of
+  at most 12 words, and each turn every crew member reads it against what is
+  happening (a quiet turn, a leak in the hull, a storm) and decides what to
+  do: repair, gather supplies, build the lighthouse, rest, or keep watch.
+  Speaking costs command: a new order costs 1 point plus 1 for every 4
+  words, and you regain 1 point a turn (up to 5). You see only this turn;
+  someone on watch reveals the next two. Win by raising the lighthouse to 24
+  by the end of turn 12 before the hull takes 10 damage.
+
+# Scenarios override the values above. Each is one scene of an arc
+# (GUIDE.md, Phase 4); `beat` says which. Stars: 1 for the win; 2 and 3 for
+# the conditions listed: max_damage, max_command (points spent) and
+# max_words_spoken (words in all the orders given). `habit` names the order
+# the scene's twist is built to break (default: the first arc's).
+#   crew_present: who serves; menu: which actions exist
+#   off_duty: the rota, member -> turns off duty (they rest, read nothing)
+#   start.watched: the scene opens just after a watch
+#   hazards.<event>.injures: an unwatched strike hurts the most worn member
+#              on duty, off duty for this many turns
+#   hazards.<event>.sight: how many turns ahead a watch sees during it
+#   hazards.<event>.garbles: an order given during it carries only its
+#              first clause
+scenarios:
+  one_hand:
+    beat: isolate
+    title: One hand
+    teaches: ['command->crew', 'command->command', 'directive x quiet', 'silence x literal', 'crew->command']
+    lesson: "Cy does exactly what the order says and nothing else: name the work, in as few words as will do."
+    crew_present: [Cy]
+    menu: [build, rest]
+    turns: 3
+    target: 6
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {}
+    command: {points: 1, regen: 0, cap: 1, per_words: 4}
+    stars: {2: {max_words_spoken: 2}, 3: {max_words_spoken: 1}}
+    premise: >-
+      Your first command: one crew member, Cy, who is literal: Cy does
+      exactly what the order says and nothing it does not say. Raise the
+      lighthouse to 6 in 3 turns; nothing else happens. You have 1 command
+      point: enough for one order of fewer than 4 words.
+  two_hands:
+    beat: develop
+    title: Two hands
+    teaches: ['crew->project', 'hazards->hull', 'crew->hull', 'directive x leak', 'conditional x leak', 'hull->project', 'silence x bold']
+    lesson: "A conditional clause (\"if a leak opens, repair it\") waits until it is needed, so one order covers turns you cannot see."
+    crew_present: [Ash, Cy]
+    menu: [repair, gather, build, rest]
+    turns: 8
+    target: 10
+    wreck_at: 8
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {3: leak, 6: leak}
+    command: {points: 2, regen: 1, cap: 3, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Two crew members now: Ash, who is bold and pushes the work forward,
+      and Cy, who is literal. Supplies are short and the hull will spring
+      leaks you cannot see coming; an open leak adds 2 damage a turn, and 8
+      damage wrecks the ship. Raise the lighthouse to 10 in 8 turns. Command is
+      scarce: 2 points to start, 1 back a turn, at most 3.
+  supply_run:
+    beat: twist
+    title: Supply run
+    teaches: ['stores->command', 'crew->stores', 'stores->project', 'silence x leak']
+    lesson: "When the port wants stores, every build spends what you are asked to keep: the order must keep the crew from building."
+    crew_present: [Ash, Bea, Cy]
+    menu: [repair, gather, build, rest]
+    goal: supplies    # this time the port wants stores, not progress
+    turns: 8
+    target: 10
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {3: leak, 5: storm}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal). This time the port wants
+      stores, not progress: hold 10 supplies at the end of turn 8. Building
+      spends a supply. The hull may leak.
+  voyage:            # the game: project 24 by turn 12, before 10 damage
+    beat: catharsis
+    title: The lighthouse
+    teaches: ['stores->crew', 'fatigue->crew', 'fatigue->project', 'directive x worn', 'directive x no_supplies', 'crew->fatigue', 'conditional x worn']
+    lesson: "Everything at once: mind the stores and the crew's wear as well as the lighthouse."
+    crew_present: [Ash, Bea, Cy]
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 4}}
+  # Arc 2: information. The turns ahead are hidden; a watch reveals them.
+  lookout:
+    beat: isolate
+    title: Lookout
+    teaches: ['crew->watch', 'watch->command', 'watch->project', 'watch x storm']
+    lesson: "Only someone on watch sees ahead; here the forecast itself is the goal."
+    crew_present: [Bea]
+    menu: [gather, rest, watch]
+    goal: foresight   # turns seen ahead
+    turns: 3
+    target: 4
+    events: {}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_words_spoken: 3}, 3: {max_words_spoken: 2}}
+    premise: >-
+      Bea alone, who is cautious. The harbour master wants a forecast:
+      learn what 4 of the coming turns hold within 3 turns. Only someone on
+      watch can see ahead (the next 2 turns each time). You have 2 command
+      points.
+  squalls:
+    beat: develop
+    title: Squalls
+    teaches: ['watch->hull', 'hazards->hull', 'named x cautious', 'named x literal']
+    lesson: "A squall seen coming does no damage: keep someone on watch the turn before."
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 18
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {3: squall, 6: squall, 8: leak, 9: squall}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 4}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal). Squalls are coming, you
+      cannot see when: a squall does 3 damage unless someone kept watch the
+      turn before. Raise the lighthouse to 18 in 10 turns before 10 damage.
+  night_watch:
+    beat: twist
+    title: Night watch
+    teaches: ['fatigue->watch', 'watch x worn']
+    lesson: "A cautious watcher rests when worn out and the watch lapses; the bold keep watching tired."
+    habit: 'Bea, keep watch; everyone else build.'
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 14
+    wreck_at: 8
+    start: {supplies: 3, damage: 0, progress: 0}
+    events: {3: squall, 4: squall, 7: squall, 8: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    actions:
+      repair: {text: repair the hull, does: repairs the hull, gives: {damage: -2}, fatigue: 1, closes: [leak]}
+      gather: {text: gather supplies, does: gathers supplies, gives: {supplies: 2}, fatigue: 1, spoiled_by: [storm]}
+      build: {text: build the lighthouse, does: builds, needs: {supplies: 1}, gives: {progress: 2}, fatigue: 1, worn: 0.5}
+      rest: {text: rest, does: rests, fatigue: -2}
+      watch: {text: keep watch, does: keeps watch, fatigue: 3}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Night watch. Squalls come in pairs, an unwatched one does 4 damage,
+      and 8 damage wrecks the ship. Tonight keeping watch is exhausting: one
+      turn on watch wears anyone out. Raise the lighthouse to 14 in 10 turns.
+  crossing:
+    beat: catharsis
+    title: The gale
+    teaches: ['hazards->crew', 'hazards->stores', 'conditional x storm', 'directive x storm', 'hazards->watch', 'hazards->command']
+    lesson: "Leaks, storms and squalls together: a watch, a repair clause and builders in one order."
+    crew_present: [Ash, Bea, Cy]
+    turns: 14
+    target: 26
+    start: {supplies: 3, damage: 0, progress: 0}
+    events: {2: squall, 4: leak, 5: storm, 7: squall, 9: leak, 10: storm, 12: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1, garbles: true}, squall: {strikes_unwatched: 3}}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_command: 5}}
+    premise: >-
+      The gale: everything at once. Leaks, storms and squalls you cannot
+      see coming unless someone keeps watch; three temperaments; command to
+      spend. In a storm the watch sees only one turn ahead, and an order given
+      in a storm carries only its first clause. Raise the lighthouse to 26 in 14
+      turns before 10 damage.
+  # Arc 3: negation, and a crew member who does the opposite.
+  contrary:
+    beat: isolate
+    title: Contrary
+    teaches: ['directive x contrary', 'negation x contrary']
+    lesson: "Dex does the opposite: tell him to rest, or not to build, and he builds."
+    habit: 'Build.'
+    crew_present: [Dex]
+    menu: [build, rest]
+    turns: 3
+    target: 6
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {}
+    command: {points: 1, regen: 0, cap: 1, per_words: 4}
+    stars: {2: {max_words_spoken: 2}, 3: {max_words_spoken: 1}}
+    premise: >-
+      Dex alone, who is contrary: he does the opposite of what he is told.
+      Told to work, he rests; told to rest, he builds; told not to do
+      something, he does it. Raise the lighthouse to 6 in 3 turns. You have 1
+      command point: enough for one order of fewer than 4 words.
+  mixed_hands:
+    beat: develop
+    title: Mixed hands
+    teaches: ['named x contrary', 'negation x bold']
+    lesson: "One order, two readers: give Dex his own clause, so what moves Ash does not stop him."
+    crew_present: [Ash, Dex]
+    menu: [repair, gather, build, rest]
+    turns: 8
+    target: 12
+    wreck_at: 8
+    start: {supplies: 4, damage: 0, progress: 0}
+    events: {4: leak}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_words_spoken: 8}}
+    premise: >-
+      Ash, who is bold, and Dex, who is contrary. One order is read by both:
+      what moves Ash may stop Dex. Supplies are short and the hull may
+      leak. Raise the lighthouse to 12 in 8 turns before 8 damage.
+  the_mender:
+    beat: twist
+    title: The mender
+    teaches: ['named x contrary', 'negation x literal']
+    lesson: "To get Dex mending, forbid it: \"Dex, don't repair.\""
+    habit: 'Dex, rest; everyone else build.'
+    crew_present: [Ash, Cy, Dex]
+    menu: [repair, gather, build, rest]
+    turns: 12
+    target: 20
+    wreck_at: 8
+    start: {supplies: 2, damage: 0, progress: 0}
+    events: {2: leak, 4: leak, 6: leak, 8: leak}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_words_spoken: 8}}
+    premise: >-
+      Ash (bold), Cy (literal) and Dex (contrary). The hull leaks every
+      other turn; an open leak adds 2 damage a turn and 8 wrecks the ship.
+      Raise the lighthouse to 20 in 12 turns.
+  all_hands:
+    beat: catharsis
+    title: All hands
+    teaches: ['silence x contrary', 'named x bold', 'conditional x quiet']
+    lesson: "Four temperaments read one order: give each the clause their reading needs."
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 14
+    target: 30
+    start: {supplies: 4, damage: 0, progress: 0}
+    events: {2: squall, 3: leak, 5: storm, 7: squall, 8: leak, 10: storm, 12: squall}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
+      through leaks, storms and squalls you cannot see coming unless someone
+      keeps watch. Raise the lighthouse to 30 in 14 turns before 10 damage.
+  # Arc 4: the rota, and the word "someone".
+  rota:
+    beat: isolate
+    title: The rota
+    teaches: ['rota->watch', 'someone x bold', 'someone x off_duty']
+    lesson: "A name binds a duty to one person; \"someone\" passes it to whoever is on duty."
+    habit: 'Bea, keep watch; everyone else build.'
+    crew_present: [Ash, Bea]
+    menu: [build, rest, watch]
+    turns: 9
+    target: 8
+    wreck_at: 8
+    start: {supplies: 10, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Bea: [2, 3], Ash: [4, 5]}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) and Bea (cautious) share a night of squalls. A squall no one
+      watched for does 4 damage, and 8 wrecks the ship; the last watch has
+      just ended, so the first is seen coming. Each is off duty for two
+      turns, resting and hearing no orders: Bea on turns 2 and 3, Ash on 4
+      and 5. A clause for "someone" goes to the freshest willing member on
+      duty. You have command for one order of up to 7 words. Raise the
+      lighthouse to 8 in 9 turns.
+  watches:
+    beat: develop
+    title: Watches
+    teaches: ['rota->crew', 'rota->fatigue', 'rota->command', 'someone x cautious', 'named x off_duty']
+    lesson: "An order given while someone is off duty does not reach them: change it when they are aboard, or use \"someone\"."
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 14
+    wreck_at: 8
+    start: {supplies: 8, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: leak, 4: squall, 5: squall, 6: quiet, 7: squall, 8: leak, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Ash: [3, 4], Cy: [6, 7], Bea: [9]}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold), Bea (cautious) and Cy (literal) through squalls and leaks.
+      The rota: Ash is off duty on turns 3 and 4, Cy on 6 and 7, Bea on 9.
+      A squall no one watched for does 4 damage; 8 wrecks the ship. Raise
+      the lighthouse to 14 in 10 turns.
+  no_volunteers:
+    beat: twist
+    title: No volunteers
+    teaches: ['someone x literal', 'someone x contrary', 'directive x contrary']
+    lesson: "The literal and the contrary never take up \"someone\": with only them aboard, name the watch."
+    habit: 'Someone keep watch; everyone else build.'
+    crew_present: [Ash, Cy, Dex]
+    menu: [build, rest, watch]
+    turns: 9
+    target: 12
+    wreck_at: 8
+    start: {supplies: 10, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    off_duty: {Ash: [3, 4, 5]}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 5}}
+    premise: >-
+      Ash (bold), Cy (literal) and Dex (contrary), squalls all night. A
+      squall no one watched for does 4 damage, and 8 wrecks the ship; the
+      last watch has just ended. Ash is off duty on turns 3 to 5. You have
+      command for one order of up to 7 words. Raise the lighthouse to 12 in 9
+      turns.
+  long_night:
+    beat: catharsis
+    title: The long night
+    teaches: ['hazards->rota', 'fatigue->rota', 'watch->rota', 'command->watch', 'someone x worn']
+    lesson: "An unwatched squall hurts the most worn on duty: a kept watch saves the crew as well as the hull."
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 20
+    wreck_at: 10
+    start: {supplies: 6, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: leak, 3: squall, 4: squall, 5: storm, 6: squall, 7: leak, 8: squall, 9: squall, 10: storm, 11: squall, 12: squall}
+    off_duty: {Ash: [3, 4], Bea: [6, 7], Cy: [9, 10], Dex: [11, 12]}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {sight: 1, garbles: true}, squall: {strikes_unwatched: 4, injures: 2}}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four through the long night: Ash (bold), Bea (cautious), Cy
+      (literal) and Dex (contrary). Squalls, leaks and storms; each of them
+      is off duty for two turns: Ash on 3 and 4, Bea on 6 and 7, Cy on 9
+      and 10, Dex on 11 and 12. A squall no one watched for does 4 damage
+      and hurts the most worn member on duty, who is off duty for that turn
+      and the next. In a storm the watch sees one turn ahead, and an order
+      given then carries only its first clause. Raise the lighthouse to 20 in 12
+      turns before 10 damage.
+  # Arc 5: the bosun, who passes the order on in their own words.
+  the_bosun:
+    beat: isolate
+    title: The bosun
+    teaches: ['relay x bold', 'command->crew', 'crew->command']
+    lesson: "A bold bosun leaves out what he thinks idle: give the watch to the bosun himself."
+    bosun: Ash
+    crew_present: [Ash, Cy]
+    menu: [build, rest, watch]
+    turns: 10
+    target: 13
+    wreck_at: 8
+    start: {supplies: 12, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) is bosun: your order goes to Ash, who passes it on to Cy
+      (literal) in his own words, and a bold bosun leaves out any clause to
+      rest or keep watch. Ash himself follows your order as you give it.
+      Squalls all night: one no one watched for does 4 damage, and 8 wrecks
+      the ship; the last watch has just ended. You have command for one
+      order of up to 7 words. Raise the lighthouse to 13 in 10 turns.
+  word_of_mouth:
+    beat: develop
+    title: Word of mouth
+    teaches: ['relay x cautious', 'hazards->hull', 'crew->hull']
+    lesson: "A cautious bosun adds a repair clause to every order: count on it, and spend your words on the rest."
+    bosun: Bea
+    crew_present: [Ash, Bea, Cy]
+    turns: 10
+    target: 20
+    wreck_at: 8
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {1: leak, 3: squall, 4: leak, 6: squall, 7: leak, 9: squall, 10: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 3, regen: 1, cap: 4, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 4}}
+    premise: >-
+      Bea (cautious) is bosun: she passes your order on to Ash (bold) and Cy
+      (literal), and a cautious bosun adds "Repair leaks." to whatever she
+      passes on. Leaks and squalls; 8 damage wrecks the ship. Raise the
+      lighthouse to 20 in 10 turns.
+  contrary_bosun:
+    beat: twist
+    title: The contrary bosun
+    teaches: ['relay x contrary', 'negation x contrary', 'negation x bold']
+    lesson: "A contrary bosun puts \"don't\" before every clause, and does the opposite of your words himself: tell him what not to do."
+    habit: 'Dex, keep watch; everyone else build.'
+    bosun: Dex
+    crew_present: [Ash, Cy, Dex]
+    menu: [build, rest, watch]
+    turns: 10
+    target: 12
+    wreck_at: 8
+    start: {supplies: 12, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: squall, 3: squall, 4: squall, 5: squall, 6: squall, 7: squall, 8: squall, 9: squall, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 3}}
+    premise: >-
+      Dex (contrary) is bosun: he passes your order on to Ash (bold) and Cy
+      (literal) with "don't" before every clause (a clause that already
+      forbids he passes on as it is), and himself does the opposite of what
+      you say. Squalls all night; the last watch has just ended; 8 damage
+      wrecks the ship. You have command for one order of up to 7 words.
+      Raise the lighthouse to 12 in 10 turns.
+  chain_of_command:
+    beat: catharsis
+    title: Chain of command
+    teaches: ['relay x literal', 'rota->command', 'rota->crew', 'someone x off_duty']
+    lesson: "When the bosun is off duty your words reach the crew unchanged; through a faithful bosun, the order is all yours."
+    bosun: Cy
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 23
+    wreck_at: 10
+    start: {supplies: 6, damage: 0, progress: 0, watched: true}
+    events: {1: squall, 2: leak, 4: squall, 5: storm, 6: squall, 7: leak, 9: squall, 10: storm, 11: squall, 12: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {garbles: true}, squall: {strikes_unwatched: 4}}
+    off_duty: {Cy: [5, 6, 7], Ash: [9, 10]}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four, with Cy (literal) as bosun, who passes your order on word
+      for word: Ash (bold), Bea (cautious) and Dex (contrary). Cy is off duty
+      on turns 5 to 7 and Ash on 9 and 10; with the bosun off duty your
+      order goes out as you give it. Squalls, leaks and storms; an order
+      given in a storm carries only its first clause; 10 damage wrecks the
+      ship. Raise the lighthouse to 23 in 12 turns.
+  # Arc 6: timing. An order can hold for a span of turns, then change.
+  two_orders:
+    beat: isolate
+    title: Two orders in one
+    teaches: ['timed x literal', 'command->crew']
+    lesson: "One order can say two things in turn: \"Gather supplies for two turns, then build.\""
+    crew_present: [Cy]
+    menu: [build, gather, rest]
+    turns: 6
+    target: 5
+    wreck_at: 10
+    start: {supplies: 0, damage: 0, progress: 0}
+    events: {}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_words_spoken: 8}, 3: {max_words_spoken: 7}}
+    premise: >-
+      Cy alone, who is literal, with empty stores: building needs a supply,
+      and Cy does exactly what the order says. You have command for one
+      order of up to 7 words. An order can hold for a span: "do this for N
+      turns, then that". Raise the lighthouse to 5 in 6 turns.
+  shifts:
+    beat: develop
+    title: Shifts
+    teaches: ['timed x bold', 'stores->project', 'crew->hull']
+    lesson: "A span sets the work in order without your speaking again; the leaks still need a clause of their own."
+    crew_present: [Ash, Cy]
+    turns: 8
+    target: 10
+    wreck_at: 8
+    start: {supplies: 0, damage: 0, progress: 0}
+    events: {5: leak, 8: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 1, cap: 3, per_words: 4}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 3}}
+    premise: >-
+      Ash (bold) and Cy (literal) with empty stores; the hull will leak
+      later in the voyage. Raise the lighthouse to 10 in 8 turns before 8
+      damage.
+  a_span_is_a_guess:
+    beat: twist
+    title: A span is a guess
+    teaches: ['conditional x leak', 'timed x literal', 'hazards->hull']
+    lesson: "A span guesses when things will happen; a condition (\"if a leak opens\") waits for them."
+    habit: 'Build for two turns, then repair.'
+    crew_present: [Ash, Cy]
+    turns: 6
+    target: 12
+    wreck_at: 4
+    start: {supplies: 6, damage: 0, progress: 0}
+    events: {2: leak}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {}, squall: {strikes_unwatched: 4}}
+    command: {points: 2, regen: 0, cap: 2, per_words: 4}
+    stars: {2: {max_damage: 0}, 3: {max_damage: 0, max_words_spoken: 6}}
+    premise: >-
+      Ash (bold) and Cy (literal). The hull will spring a leak early, you
+      cannot see when; an open leak adds 2 damage a turn and 4 wrecks the
+      ship. You have command for one order of up to 7 words. Raise the
+      lighthouse to 12 in 6 turns.
+  ahead_of_time:
+    beat: catharsis
+    title: Ahead of time
+    teaches: ['timed x bold', 'hazards->command', 'directive x contrary', 'watch->hull']
+    lesson: "Plan the order of the work in one breath, and remember who will do the opposite."
+    crew_present: [Ash, Bea, Cy, Dex]
+    turns: 12
+    target: 24
+    wreck_at: 10
+    start: {supplies: 2, damage: 0, progress: 0, watched: true}
+    events: {3: leak, 5: squall, 6: storm, 8: leak, 10: squall}
+    hazards: {quiet: {}, leak: {opens: [leak]}, storm: {garbles: true}, squall: {strikes_unwatched: 4}}
+    stars: {2: {max_damage: 2}, 3: {max_damage: 2, max_words_spoken: 16}}
+    premise: >-
+      All four: Ash (bold), Bea (cautious), Cy (literal) and Dex (contrary),
+      with stores nearly empty. Leaks and squalls, and a storm in which an
+      order carries only its first clause. Raise the lighthouse to 24 in 12
+      turns before 10 damage.
+  free:              # free play: no goal, no end but the turn limit
+    free: true
+    turns: 40
+    command: {points: 99, regen: 99, cap: 99, per_words: 99}
+    events_cycle: 10 # the event schedule repeats every 10 turns
+    bosun_by_order: true  # 'Bea is bosun' names one; 'no bosun' ends it
+    premise: >-
+      Free play. You command a crew of four: Ash (bold), Bea (cautious), Cy
+      (literal) and Dex (contrary). Give a standing order of at most 12 words, change it
+      whenever you like, and watch how each of them reads it as quiet turns,
+      leaks and storms come and go. Name a bosun ("Bea is bosun") to have
+      your orders passed on in their words, or say "no bosun". Nothing is at
+      stake.
+
+# The campaign: scenes in order. A chapter opens once the one before has a
+# star; the first is open from the start.
+campaign: [one_hand, two_hands, supply_run, voyage, lookout, squalls, night_watch, crossing, contrary, mixed_hands, the_mender, all_hands, rota, watches, no_volunteers, long_night, the_bosun, word_of_mouth, contrary_bosun, chain_of_command, two_orders, shifts, a_span_is_a_guess, ahead_of_time]
+
+# The daily challenge: one scene, its events shifted by a seed from the date.
+daily: {scenarios: [voyage, crossing, all_hands, long_night], seeds: 997}
+
+# The mock's reading of orders (the lookup-table floor).
+lexicon:
+  # Paraphrases too (cycle 118: Pass it on forbids the obvious words).
+  repair: [repair, repairs, fix, fixes, patch, mend, mends, seal, hull, leak, leaks, plug, caulk]
+  gather: [gather, gathers, collect, collects, forage, fetch, supplies, supply, stock]
+  build: [build, builds, building, work, project, progress, construct, push, lighthouse, tower, raise, raises, raising, erect, stack, stones]
+  rest: [rest, rests, sleep, sleeps, recover, pause, break, tired, nap, doze, relax]
+  watch: [watch, monitor, scout, survey, lookout, horizon, report, vigilant, vigilance, sentry, look, guard, scan]
+  conditions:
+    leak: [leak, leaks, breach]
+    damaged: [damage, damaged, hull]  # holds while hull damage > 0 (cycle 82)
+    storm: [storm, storms, weather, wind]
+    tired: [tired, exhausted, worn, fatigue]
+    squall: [squall, squalls]
+  if_words: [if, when, whenever, during, unless]
+  negations: [not, never, don, dont]  # 'no' unquoted was YAML false (cycle 77)
+  # A negation forbids the actions after it up to a comma or one of these.
+  negation_ends: [but, instead]
+  # Besides `negations`, words that turn a condition round ("if there is no
+  # leak").
+  condition_negations: ['no', isn, without, none]
