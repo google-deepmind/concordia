@@ -76,6 +76,8 @@ class PassItOnToy(base.Toy):
     orders = copy.deepcopy(toys.load_data('orders'))
     for temperament, how in data.get('relays', {}).items():
       orders['temperaments'][temperament]['relays'] = how
+    for temperament, props in data.get('temperaments', {}).items():
+      orders['temperaments'][temperament].update(props)
     orders['scenarios'][_SCENE] = {
         'crew_present': [name for stage in self._stages for name in stage],
         'events': {1: self._level.get('event', 'quiet')},

@@ -76,6 +76,16 @@ class LineTest(absltest.TestCase):
     self.assertIn('Dex passes it on: "build."', receipt.summary)
     self.assertTrue(toy.done())
 
+  def test_the_game_tells_its_own_temperaments(self):
+    toy = _toy('two_at_the_top')
+    toy.resolve(toy_lib.SEAT, 'Bea, keep watch.')
+    ash = next(
+        a for a in toy.world['attempts'][0]['acted'] if a['who'] == 'Ash'
+    )
+    self.assertEqual(ash['does'], 'build')
+    habits = toy._orders._data['temperaments']['bold']['otherwise']  # pylint: disable=protected-access
+    self.assertEqual(habits, ['build'])
+
   def test_a_rehearsal_shows_the_first_hop_only(self):
     toy = _toy('dex_in_the_middle')
     self.assertEqual(

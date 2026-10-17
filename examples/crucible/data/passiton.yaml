@@ -27,6 +27,13 @@ relays:
   bold: drops_rest
   cautious: adds_repair
 
+# Temperaments as this game tells them, over the orders toy's (cycle 107):
+# with nothing for them the bold build. The orders game's "or else gathers
+# supplies" never applies here (there is always a supply), and it drew a
+# live model to answer "gather" after reasoning that Ash builds.
+temperaments:
+  bold: {otherwise: [build]}
+
 # What to tap to say an action, few words each.
 say:
   build: build

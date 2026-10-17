@@ -40,7 +40,7 @@ Phase 4, pacing
 Phase 5, wrapping
 - [x] Every fact in a role's prompt has a visual home (the player's prompt: task, each relayer's temperament and law, who acts, the goal, the try, the word limit, all in the view the page draws; `toy_test.LookTest.test_every_fact_in_the_players_prompt_is_in_the_view`)
 - [x] Each property has one look and one word, enforced by a test (each way of passing on has one phrase, each temperament a glyph, a word and a meaning, each action a glyph; `toy_test.LookTest.test_every_way_of_passing_on_and_temperament_has_one_look`)
-- [ ] The rule audit is done and orphan rules are cut
+- [x] The rule audit is done and orphan rules are cut (cycle 105, read-only audit of laws, mock, toy and page: 12 findings, fixed in 1a7460a; the situation cell and its golden case cut in cycle 103, the two Bea-habit levels in cycle 100; DESIGN 2x)
 
 ## Phase 0: toys
 
