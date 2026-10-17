@@ -43,6 +43,19 @@ _NAIVE = {
         'Harlan, sandbag the bridge; Dexter, ring the bell; Penrose, stay put.',
         False,
     ),
+    'the_party_line': ('Harlan, take the boats out.', False),
+    'gossip': (
+        'Harlan, take boats out; Cyrus, stay put; Dexter, ring bell.',
+        False,
+    ),
+    'through_wilf': (
+        'Harlan, take the boats out; Dexter, ring the bell.',
+        False,
+    ),
+    'pruitt_first': (
+        "Harlan, take boats out; Dexter, don't go to hall; Penrose, stay put.",
+        False,
+    ),
 }
 # The answer each chapter is built around (its lesson), in full words.
 _MEANT = {
@@ -54,6 +67,10 @@ _MEANT = {
     'two_doors': "Penrose, don't go to the mill; Cyrus, don't hold the train.",
     'say_less': "Harlan, don't open the sluice.",
     'the_night': "Harlan, don't sandbag the bridge; Dexter, ring the bell.",
+    'the_party_line': 'Harlan, take the boats out; Cyrus, stay put.',
+    'gossip': "Harlan, take boats out; Cyrus, stay put; don't ring bell.",
+    'through_wilf': "Harlan, don't take the boats out; Dexter, ring the bell.",
+    'pruitt_first': "Harlan, don't take the boats out.",
 }
 
 
@@ -97,6 +114,7 @@ class ChapterTest(parameterized.TestCase):
         self.assertIn(job, level['jobs'])
         self.assertIn(_DATA['people'][who]['default'], level['jobs'])
       self.assertTrue(level['time'] and level['headline'] and level['task'])
+      self.assertTrue(level['failure'])
 
 
 class LineTest(absltest.TestCase):
@@ -139,6 +157,23 @@ class LineTest(absltest.TestCase):
     toy_lib.NightWireToy(model, _DATA, 'the_mayor').pass_up('Ring the bell.')
     self.assertNotIn('The same message reached', prompts[0])  # one reader
 
+  def test_mrs_pruitt_adds_her_word_after_whatever_she_is_given(self):
+    toy = _toy('through_wilf')
+    hops = toy.pass_up('Take the boats out.')['hops']
+    self.assertEqual([h['who'] for h in hops], ['Wilf', 'Pruitt'])
+    self.assertEqual(
+        hops[1]['said'],
+        "don't take the boats out. Go to the church hall, everyone!",
+    )
+    self.assertEqual(toy.pass_up('')['hops'][1]['said'], '')  # nothing, no word
+
+  def test_her_word_reaches_only_those_left_out(self):
+    acted = _toy('the_party_line').pass_up('Harlan, take the boats out.')[
+        'acted'
+    ]
+    self.assertEqual({a['who']: a['does'] for a in acted},
+                     {'Harlan': 'launch_boats', 'Cyrus': 'go_to_hall'})  # fmt: skip
+
   def test_edith_sends_exactly_what_she_is_given(self):
     toy = _toy('the_station')
     said = toy.rehearse('Cyrus, hold train STOP Harlan, open sluice')['said']
@@ -174,6 +209,9 @@ class LineTest(absltest.TestCase):
       toy.resolve(toy_lib.SEAT, 'Ring the bell.')
     self.assertTrue(toy.done())
     self.assertIsNone(toy.view()['headline'])
+    self.assertEqual(
+        toy.view()['failure'], _DATA['scenarios']['the_mayor']['failure']
+    )
     toy = _toy('the_mayor')
     toy.resolve(toy_lib.SEAT, "Don't ring the bell.")
     self.assertEqual(

@@ -803,6 +803,38 @@ your messages made people do.
 - Fonts: a teletype monospace for the strips, an Art Deco display face for
   the headers, a plain serif for the story.
 
+## 2z. The Night Wire, built (cycles 119-120)
+
+**Reuse.** The Night Wire is Pass it on's ledger (line, goals, tries,
+words, stars), bots and relaying, with two prompts of its own written in the
+story's words (how someone passes a message on; what someone at the end
+does with it) and the orders mock's clause reader over the story's jobs.
+
+**What live play taught the wording.**
+- Asked which part was "for" the miller, a live model answered "none" to a
+  plain "Open the sluice."; the orders toy's "applies to" fixed it.
+- Not told who else heard the wire, the model read "Sandbag the bridge;
+  Dexter, don't ring the bell." as all for the mayor. Each reader is now
+  told "The same message reached Harlan and Dexter at once."
+- A "bold" miller (does what is asked, else his own work) kept the wheel
+  turning on a plain order one time in four; a literal miller with his own
+  work to fall back on never did.
+- Not told what STOP means, the model found nothing for the miller in "Open
+  sluice STOP Cyrus hold train STOP". The readers are told.
+
+**Challenge after the owner's "incredibly easy".** Every chapter after the
+first is built so the obvious message fails, and its lesson is the
+shortest that works. A third act, After the crest, adds Mrs. Pruitt on the
+party line, who passes every call on and adds her own "Go to the church
+hall, everyone!": anyone left out of a message now gets her word, so
+silence stops being free; her word can do the player's work for the one
+person it sends the right way; through Wilf it comes after his flips, and
+before him it is flipped too, so the contrary mayor obeys it. Four parts no
+longer fit in twelve words, so the player has to choose whom to leave out.
+
+**Failure is part of the story.** Each hour has a headline for success and
+one for failure ("NIGHT TRAIN STRANDED ON RIVER BRIDGE").
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |

@@ -9,7 +9,7 @@ company: Pinewood Telegraph & Telephone Co.
 
 intro:
   - "Pinewood, a mill town, the night of 14 April 1926. The river is rising, and you are at the telegraph desk."
-  - "Each chapter is an hour of the night and one message that must reach someone across town. It goes through people with their own habits: Edith at the telegraph key sends exactly what she is given; Wilf, the messenger boy, says the opposite of everything. At the end of the line, the miller, the stationmaster, the doctor and the mayor each take it their own way."
+  - "Each chapter is an hour of the night and one message that must reach someone across town. It goes through people with their own habits: Edith at the telegraph key sends exactly what she is given; Wilf, the messenger boy, says the opposite of everything; after midnight, Mrs. Pruitt on the party line always adds a word of her own. At the end of the line, the miller, the stationmaster, the doctor and the mayor each take it their own way."
   - "What they do decides what happens to the town. Phrase each message so it arrives meaning what you need, in as few words as you can."
 
 how_to_play:
@@ -28,6 +28,7 @@ rehearse: Rehearse with {who}
 passes_short:
   word_for_word: sends exactly what she is given
   flips: says the opposite of each part
+  adds_hall: passes it on, then adds "Go to the church hall, everyone!"
 
 # How each reads a message meant for them, for their card.
 reads_short:

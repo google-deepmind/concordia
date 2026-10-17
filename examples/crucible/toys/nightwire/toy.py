@@ -223,6 +223,12 @@ class NightWireToy(passiton_lib.PassItOnToy):
         'kind': 'nightwire',
         'time': level.get('time', ''),
         'headline': level.get('headline') if self.world['solved'] else None,
+        # What became of the town when every wire failed.
+        'failure': (
+            level.get('failure')
+            if self.done() and not self.world['solved']
+            else None
+        ),
         'say': {j: self._data['jobs'][j]['say'] for j in level['jobs']},
         'jobs': {j: self.job_text(j) for j in level['jobs']},
         'free_words': ['STOP'],

@@ -62,6 +62,9 @@ class NightWireMock:
     }
 
   def relay(self, message: str, how: str) -> str:
+    added = self._data.get('additions', {}).get(how)
+    if added:  # word for word, then a sentence of their own (Mrs. Pruitt)
+      return f'{message.rstrip()} {added}' if message.strip() else message
     return self._orders.relay(message, how)
 
   def does(self, message: str, name: str, menu: Sequence[str]) -> str:
@@ -71,6 +74,7 @@ class NightWireMock:
     wanted, _, forbidden = self._orders.read(message, set(), name)
     default = person['default']
     wanted = [job for job in wanted if job in menu]
+    forbidden = [job for job in forbidden if job in menu]
     if person['reads'] == 'contrary':
       # Told not to, does it; told to, does nothing.
       if forbidden:

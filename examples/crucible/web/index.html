@@ -116,6 +116,7 @@
   .tape { display: inline-block; background: var(--tape); color: #2b2116; font: 15px/1.5 var(--type); text-transform: uppercase;
     letter-spacing: .05em; padding: 3px 9px; margin: 6px 0 2px; box-shadow: 0 1px 2px rgba(0,0,0,.28); transform: rotate(-.5deg); max-width: 100%; }
   .tape:nth-of-type(even) { transform: rotate(.4deg); }
+  .tape.lost { color: var(--red); }
   .tape ins { background: none; color: var(--red); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; padding: 0; }
   .tape del { color: var(--red); text-decoration: line-through; text-decoration-thickness: 2px; }
   .wireline { position: relative; padding-left: 24px; margin: 6px 0 10px; }
@@ -682,6 +683,7 @@ function showResult(gm) {  // the end of a game, where the thumb is (cycle 117)
     head = won ? stars(o.stars || 0) + ' Got through in ' + o.words + ' word' + (o.words === 1 ? '' : 's')
                : 'The wire did not get through';
     if (won && v.headline) strip = tape(v.headline);
+    if (!won && v.failure) { strip = tape(v.failure); strip.classList.add('lost'); }
     sub = v.lesson || '';
   } else {
     head = won ? 'Won ' + stars(o.stars || 0) : 'Not won' + whyLost(v);
