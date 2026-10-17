@@ -40,6 +40,22 @@ class MatrixTest(absltest.TestCase):
     self.assertTrue(result['passed'])
     self.assertEqual(result['flaky'], [])
 
+  def test_night_wire_matrix_has_no_problems_and_every_cell_is_taught(self):
+    result = audit.audit('nightwire')
+    self.assertEqual(result['problems'], [])
+    self.assertGreaterEqual(result['counts']['matrix_cells'], 25)
+    self.assertEqual(
+        result['untaught'], [ref for ref in result['untaught'] if '->' in ref]
+    )  # every reading cell is a chapter's lesson
+
+  def test_mock_passes_every_night_wire_golden_case(self):
+    result = golden_passiton.run(
+        model_setup.mock_model(), repeats=2, toy='nightwire'
+    )
+    self.assertEqual(result['failures'], [])
+    self.assertTrue(result['passed'])
+    self.assertEqual(result['flaky'], [])
+
   def test_mock_passes_every_golden_case(self):
     result = golden.run(model_setup.mock_model(), repeats=2)
     self.assertEqual(result['failures'], [])

@@ -12,6 +12,7 @@
 #   jobs:    the jobs on offer to them this hour (keys of `jobs`)
 #   stars:   1 for solving; 2 and 3 for at most this many words
 #   time, headline, lesson: the story around it
+#   teaches: the matrix cells it is built on (data/nightwire_matrix.yaml)
 
 title: The Night Wire
 tagline: Pinewood, 14 April 1926. The river is rising, and every word you send costs a cent.
@@ -63,6 +64,8 @@ relaying:
 # How a reader takes a message meant for them.
 reading:
   laws:
+    # Told (cycle 120: not told, a live model found nothing for the miller in "Open sluice STOP Cyrus hold train STOP").
+    - STOP ends a sentence, as on any telegram; each sentence is a part.
     - A plain part of the message (no names in it) applies to everyone it reaches.
     - A part that names someone applies to them alone, and for them it replaces the plain parts.
     - A part that says not, never or don't forbids what it names, and asks for nothing.
@@ -85,6 +88,7 @@ jobs:
 
 scenarios:
   the_sluice:
+    teaches: ['plain x literal', 'people->relay', 'verdict->story']
     beat: isolate
     time: '9:40 p.m.'
     title: The sluice
@@ -96,6 +100,7 @@ scenarios:
     headline: SLUICE OPENED IN TIME STOP MILL RACE HOLDS
     lesson: Edith sends exactly what you give her. Say the job.
   the_station:
+    teaches: ['named x literal', 'others_named x literal', 'line->reading', 'word_for_word x two_parts', 'stop x literal', 'word_for_word x stopped']
     beat: develop
     time: '10:05 p.m.'
     title: The night train
@@ -103,10 +108,11 @@ scenarios:
     goal: {Cyrus: hold_train, Harlan: open_sluice}
     jobs: [hold_train, open_sluice, grind, stay_put]
     stars: {2: {max_words: 7}, 3: {max_words: 5}}
-    task: The 10:40 is due over the river bridge. Edith's wire goes to the station and the mill at once. Get Cyrus to hold the night train, and Harlan to keep the sluice open.
+    task: The 10:40 is due over the river bridge. Edith's wire goes to the station and the mill at once. Get Cyrus to hold the night train, and Harlan to keep the sluice open. (On the wire, STOP ends a sentence, and costs nothing.)
     headline: NIGHT TRAIN HELD AT PINEWOOD STOP NO ONE ON THE BRIDGE
     lesson: Everyone on the wire hears every word. A name in front gives one person their own job.
   the_mayor:
+    teaches: ['plain x contrary', 'negated x contrary']
     beat: twist
     time: '10:30 p.m.'
     title: The mayor
@@ -118,6 +124,7 @@ scenarios:
     headline: CHURCH BELL WAKES LOWER TOWN AT 10:40
     lesson: Tell the mayor not to, and he will.
   the_council:
+    teaches: ['named x contrary', 'others_named x literal', 'word_for_word x negated_part']
     beat: catharsis
     time: '10:55 p.m.'
     title: The council
@@ -129,6 +136,7 @@ scenarios:
     headline: MILLER AND MAYOR SAVE BRIDGE STOP BELL RINGS ALL NIGHT
     lesson: 'One message, two readers: say each their part, the mayor''s the wrong way round.'
   wilf:
+    teaches: ['flips x one_part', 'flips x negated_part', 'negated x literal']
     beat: isolate
     time: '11:20 p.m.'
     title: Wilf
@@ -140,6 +148,7 @@ scenarios:
     headline: DOCTOR AT THE MILL BY MIDNIGHT
     lesson: Give Wilf the opposite of what you need, and he turns it the right way round.
   two_doors:
+    teaches: ['flips x two_parts', 'flips x named_part']
     beat: develop
     time: '11:45 p.m.'
     title: Two doors
@@ -151,6 +160,7 @@ scenarios:
     headline: TRAIN STILL HELD STOP DOCTOR ON HER WAY
     lesson: 'Wilf flips every part on its own: flip each part you send.'
   say_less:
+    teaches: ['silence x literal', 'silence x own_work', 'flips x named_part']
     beat: twist
     time: '12:10 a.m.'
     title: Say less
@@ -162,6 +172,7 @@ scenarios:
     headline: SECOND OPENING OF SLUICE AT MIDNIGHT STOP STATION QUIET
     lesson: For someone who does exactly what they hear, saying nothing to them is an order too.
   the_night:
+    teaches: ['flips x contrary_reader', 'silence x several', 'relay->reading']
     beat: catharsis
     time: '12:40 a.m.'
     title: The whole night

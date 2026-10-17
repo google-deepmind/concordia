@@ -110,6 +110,35 @@ class LineTest(absltest.TestCase):
     )
     self.assertEqual([a['does'] for a in result['acted']], ['stay_put'] * 2)
 
+  def test_the_end_of_the_line_hears_only_what_wilf_said(self):
+    result = _toy('say_less').pass_up(
+        'Harlan, open the sluice; Cyrus, stay put.'
+    )
+    said = result['hops'][0]['said']
+    self.assertEqual(
+        said, "Harlan, don't open the sluice; Cyrus, don't stay put."
+    )
+    self.assertEqual({a['heard'] for a in result['acted']}, {said})
+
+  def test_everyone_at_the_end_is_told_who_else_heard(self):
+    prompts = []
+
+    class Recorder(mock_lib.NightWireMock):
+
+      def text(self, prompt):
+        prompts.append(prompt)
+        return super().text(prompt)
+
+    model = model_setup.mock_language_model.CrucibleMock([Recorder(_DATA)])
+    toy_lib.NightWireToy(model, _DATA, 'the_night').pass_up('Ring the bell.')
+    together = toy_lib.TOGETHER.format(everyone='Harlan, Dexter and Penrose')
+    reads = [p for p in prompts if toy_lib.READ_MARKER in p]
+    self.assertLen(reads, 3)
+    self.assertTrue(all(together in p for p in reads))
+    prompts.clear()
+    toy_lib.NightWireToy(model, _DATA, 'the_mayor').pass_up('Ring the bell.')
+    self.assertNotIn('The same message reached', prompts[0])  # one reader
+
   def test_edith_sends_exactly_what_she_is_given(self):
     toy = _toy('the_station')
     said = toy.rehearse('Cyrus, hold train STOP Harlan, open sluice')['said']

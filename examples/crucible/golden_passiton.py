@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Golden sets for Pass it on (cycle 102): reads and relays.
+"""Golden sets for Pass it on (cycle 102) and the Night Wire: reads, relays.
 
-The cases live in `data/passiton_matrix.yaml` (`golden`). A read case asks
-the model what one member does with a message (`PassItOnToy.pass_up` with
-the member alone in the line). A relay case asks the model how a relayer
-passes a message on, then reads what came out for a probe member by the
-laws (the mock), so the case tests the relay alone.
+The cases live in `data/<toy>_matrix.yaml` (`golden`). A read case asks
+the model what one member does with a message (`pass_up` with the member at
+the end of the line, alone or `with` others who hear it too). A relay case
+asks the model how a relayer passes a message on, then reads what came out
+for a probe member by the laws (the mock), so the case tests the relay
+alone. A Night Wire case names the `chapter` whose jobs are on offer.
 """
 
 from collections.abc import Sequence
@@ -32,7 +33,6 @@ from concordia.contrib.testing import golden_set
 from concordia.language_model import language_model
 from examples.crucible import model_setup
 from examples.crucible import toys
-from examples.crucible.toys.passiton import toy as toy_lib
 
 SOFT_PASS = 0.75
 _LEVEL = '__golden__'
@@ -42,41 +42,51 @@ def _toy(
     model: language_model.LanguageModel,
     line: list[Any],
     goal: dict[str, str],
-    event: str,
-) -> toy_lib.PassItOnToy:
-  data = copy.deepcopy(toys.load_data('passiton'))
+    case: dict[str, Any],
+    toy: str,
+) -> Any:
+  """A one-off level: the case's line, on the case's chapter if it names one."""
+  data = copy.deepcopy(toys.load_data(toy))
+  chapter = data['scenarios'].get(case.get('chapter', ''), {})
   data['scenarios'][_LEVEL] = {
+      **chapter,
       'line': line,
       'goal': goal,
-      'event': event,
+      'event': case.get('event', 'quiet'),
       'title': 'golden',
       'task': '',
       'stars': {},
   }
-  return toy_lib.PassItOnToy(model, data, _LEVEL)
+  return toys.registry()[toy].build(model, data, _LEVEL)
 
 
-def run_case(model: language_model.LanguageModel, case: dict[str, Any]) -> str:
+def run_case(
+    model: language_model.LanguageModel,
+    case: dict[str, Any],
+    toy: str = 'passiton',
+) -> str:
   """The action the case's reader (or probe) ends up taking."""
-  event = case.get('event', 'quiet')
   if case['kind'] == 'read':
-    toy = _toy(
-        model, [case['reader']], {case['reader']: case['expect'][0]}, event
-    )
-    return toy.pass_up(case['message'])['acted'][0]['does']
+    reader = case['reader']
+    end = [reader, *case.get('with', [])]
+    level = _toy(model, [end], {reader: case['expect'][0]}, case, toy)
+    if hasattr(level, 'read'):  # the Night Wire asks the one reader only
+      return level.read(case['message'], reader)[0]
+    acted = level.pass_up(case['message'])['acted']
+    return next(a['does'] for a in acted if a['who'] == reader)
   relayer, probe = case['relayer'], case['probe']
-  toy = _toy(model, [relayer, probe], {probe: case['expect'][0]}, event)
-  said = toy.pass_up(case['message'])['hops'][0]['said']
-  reader = _toy(model_setup.mock_model(), [probe], {}, event)
-  return reader.pass_up(said)['acted'][0]['does']
+  level = _toy(model, [relayer, probe], {probe: case['expect'][0]}, case, toy)
+  said = level.pass_up(case['message'])['hops'][0]['said']
+  mock = _toy(model_setup.mock_model(), [probe], {}, case, toy)
+  return mock.pass_up(said)['acted'][0]['does']
 
 
-def cases() -> list[golden_set.Case]:
+def cases(toy: str = 'passiton') -> list[golden_set.Case]:
   return [
       golden_set.Case(
           c['id'], expect=tuple(c['expect']), hard=bool(c.get('hard')), data=c
       )
-      for c in toys.load_data('passiton_matrix')['golden']
+      for c in toys.load_data(f'{toy}_matrix')['golden']
   ]
 
 
@@ -85,13 +95,14 @@ def run(
     soft_pass: float = SOFT_PASS,
     repeats: int = 1,
     only: Sequence[str] = (),
+    toy: str = 'passiton',
 ) -> dict[str, Any]:
   """Runs the golden set `repeats` times; the same report as golden.run."""
-  golden_cases = [c for c in cases() if not only or c.id in only]
+  golden_cases = [c for c in cases(toy) if not only or c.id in only]
 
   def answer(case: golden_set.Case) -> str:
     began = time.time()
-    reply = run_case(model, case.data)
+    reply = run_case(model, case.data, toy)
     logging.info('golden %s: %r in %.0f s', case.id, reply, time.time() - began)
     return reply
 
@@ -124,5 +135,6 @@ def main_json(
     model: language_model.LanguageModel,
     repeats: int = 1,
     only: Sequence[str] = (),
+    toy: str = 'passiton',
 ) -> str:
-  return json.dumps(run(model, repeats=repeats, only=only), indent=1)
+  return json.dumps(run(model, repeats=repeats, only=only, toy=toy), indent=1)

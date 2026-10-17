@@ -15,7 +15,7 @@ night of a flood in a 1926 mill town, on a telegram-styled page.
 - [x] The skilled bot beats random by 30+ and passive by 50+ in every chapter (16 seeds, evidence/audit-c119-nightwire.jsonl: skilled 100, random 0-69, gaps 31-100 and 100)
 - [x] The meant and naive messages agree with the mock live (DeepSeek-V4.1-Flash, evidence/live-flash-c119-nightwire-c.json: 14/16, the two misses Harlan's "bold" reading; literal now, 8/8 probes)
 - [x] One look: telegram forms on a desk, ticker tape per hop with red-pencil changes, staff cards on a wire, the morning headline on a solve (`web/index.html` theme `wire`, `data/nightwire_look.yaml`; checked in the browser pane, light and dark, cycle 119)
-- [ ] Golden set and matrix for the story's readers and relays (on the mock, an Ollama model and a Together model)
+- [ ] Golden set and matrix for the story's readers and relays (on the mock, an Ollama model and a Together model) (cycle 120: `data/nightwire_matrix.yaml`, 28 cells, every reading cell a chapter's lesson, `audit_test.test_night_wire_matrix_has_no_problems_and_every_cell_is_taught`; 23 golden cases, all hard: mock x2 `test_mock_passes_every_night_wire_golden_case`; DeepSeek-V4.1-Flash PASS x2 23/23, evidence/golden-nightwire-flash-c120-x2.json; qwen3:8b running)
 - [ ] The owner's Night Wire games reviewed and acted on
 
 ## Pass it on (the rethink, cycle 98): the boxes, re-earned
