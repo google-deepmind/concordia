@@ -52,7 +52,7 @@ reading:
     - {operator: plain, property: literal, law: the literal do exactly the clause, golden: [p1]}
     - {operator: plain, property: bold, law: the bold do the clause meant for all, golden: [p2]}
     - {operator: plain, property: contrary, law: the contrary do the opposite of the clause, golden: [p3]}
-    - {operator: named, property: cautious, law: a member named takes that job and leaves the plain clause, golden: [p4]}
+    - {operator: named, property: cautious, law: a member named takes that job and leaves the plain clause, including names without a comma as the owner writes them, golden: [p4, p14]}
     - {operator: named, property: bold, law: a member not named takes the plain clause, golden: [p5]}
     - {operator: named, property: contrary, law: named for one thing, the contrary do the other, golden: [p6]}
     - {operator: negated, property: contrary, law: forbidden something, the contrary do it, golden: [p7]}
@@ -91,6 +91,10 @@ golden:
   - {id: p10, kind: read, reader: Ash, message: 'Cy, keep watch.', expect: [build], hard: true}
   - {id: p11, kind: read, reader: Ash, message: "Ash, don't rest.", expect: [build]}
   - {id: p13, kind: read, reader: Bea, message: 'Ash, build.', expect: [gather]}
+  # From the owner's phone games (2026-10-17): telegraphic names.
+  - {id: p14, kind: read, reader: Bea, message: 'Ash build, Bea watch', expect: [watch], hard: true}
+  # ("Ash work, Dex rest", the owner's level 4 message, solved live, but
+  # Flash read "work" as rest once in two: kept as a mock test, not a case.)
   - {id: r1, kind: relay, relayer: Dex, message: Build., probe: Cy, expect: [rest], hard: true}
   - {id: r2, kind: relay, relayer: Dex, message: "Don't build.", probe: Cy, expect: [build], hard: true}
   - {id: r3, kind: relay, relayer: Dex, message: "Cy, don't keep watch.", probe: Cy, expect: [watch], hard: true}

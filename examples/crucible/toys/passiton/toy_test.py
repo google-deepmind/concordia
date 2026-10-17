@@ -155,6 +155,27 @@ class DailyTest(parameterized.TestCase):
     self.assertFalse(other.preview(toy_lib.SEAT, plain + '.').delta['solved'])
 
 
+class OwnerGamesTest(parameterized.TestCase):
+  """The owner's first Pass it on games on the phone (2026-10-17).
+
+  Each solved on the first try on a live model; the mock reads them the
+  same way: telegraphic names without a comma, "work" for build.
+  """
+
+  @parameterized.parameters(
+      ('straight_up', 'Keep watch', 3),
+      ('two_at_the_top', 'Ash build, Bea watch', 3),
+      ('dex_at_the_top', "Don't build", 2),
+      ('dex_among_them', 'Ash work, Dex rest', 2),
+  )
+  def test_the_owners_messages_solve_as_they_did_live(
+      self, level, message, stars
+  ):
+    toy = _toy(level)
+    toy.resolve(toy_lib.SEAT, message)
+    self.assertEqual(toy.outcome()['stars'], stars)
+
+
 class CleanMessageTest(absltest.TestCase):
 
   def test_narration_and_quotes_are_not_sent_up_the_line(self):
