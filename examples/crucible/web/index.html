@@ -134,6 +134,7 @@
   .ends .end { background: var(--form); color: #2b2116; --muted: #6d5b3c; --line: #c7ad6b; margin: 0; border: 0; border-radius: 3px;
     box-shadow: 0 3px 10px rgba(0,0,0,.12); padding: 8px 10px; }
   .want { font-size: 14px; font-weight: 700; margin-top: 4px; }
+  .take { font-size: 14px; font-style: italic; margin-top: 4px; border-left: 2px solid var(--line); padding-left: 6px; }
   .stamp { display: inline-block; margin: 8px 0 2px; padding: 2px 7px; border: 2px solid currentColor; border-radius: 4px;
     font: 13px/1.3 var(--type); text-transform: uppercase; letter-spacing: .04em; transform: rotate(-2.5deg); }
   .stamp.good { color: var(--good); } .stamp.bad { color: var(--red); }
@@ -579,8 +580,8 @@ function renderWire(v, finished) {
   you.appendChild(line(last ? 'you sent:' : 'your message starts here', 'habit'));
   if (last) you.appendChild(tape(last.message));
   for (const [i, hop] of v.line.entries()) {
-    const d = node('relay'); staff(d, hop.who, (people[hop.who] || {}).role);
-    d.appendChild(line((LOOK && LOOK.passes_short && LOOK.passes_short[hop.how]) || hop.passes, 'habit'));
+    const d = node('relay'); staff(d, hop.who, (people[hop.who] || {}).character ? '' : (people[hop.who] || {}).role);
+    d.appendChild(line((people[hop.who] || {}).character || hop.passes, 'habit'));  // who they are (cycle 121)
     const h = last && last.hops[i];
     if (h) { d.appendChild(line('passed on:', 'cap')); d.appendChild(tape(h.said, h.heard)); }
   }
@@ -588,16 +589,14 @@ function renderWire(v, finished) {
   for (const r of v.receivers) {
     const p = people[r.who] || {};
     const d = document.createElement('div'); d.className = 'end'; ends.appendChild(d);
-    staff(d, r.who, p.role);
-    d.appendChild(line((LOOK && LOOK.reads_short && LOOK.reads_short[p.reads]) || '', 'habit'));
-    if (p.default) d.appendChild(line('With nothing for ' + r.who + ': ' + p.default + '.', 'cap'));
+    staff(d, r.who, p.character ? '' : p.role);
+    d.appendChild(line(p.character || '', 'habit'));  // who they are: all the model is told (cycle 121)
     d.appendChild(Object.assign(document.createElement('div'), {className: 'want', textContent: 'Wanted: ' + wanted(v, r.who)}));
     const a = last && last.acted.find((x) => x.who === r.who);
     if (a) {
       d.appendChild(Object.assign(document.createElement('div'), {className: 'stamp ' + (a.ok ? 'good' : 'bad'),
           textContent: (jobs[a.does] || a.does) + (a.ok ? ' \u2713' : ' \u2717')}));
-      const why = (a.why || '').replace(/^["\u201c]|["\u201d]$/g, '');
-      d.appendChild(line(why && why !== 'none' ? 'acted on \u201c' + why + '\u201d' : 'found nothing in it for ' + r.who, 'cap'));
+      if (a.why) d.appendChild(line(a.why, 'take'));  // how they took it, in their own way
     }
   }
   const key = v.scenario + '|' + v.title;

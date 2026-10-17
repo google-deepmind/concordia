@@ -19,7 +19,8 @@ the model what one member does with a message (`pass_up` with the member at
 the end of the line, alone or `with` others who hear it too). A relay case
 asks the model how a relayer passes a message on, then reads what came out
 for a probe member by the laws (the mock), so the case tests the relay
-alone. A Night Wire case names the `chapter` whose jobs are on offer.
+alone (in the Night Wire, read by the same model: its relayers paraphrase).
+A Night Wire case names the `chapter` whose jobs are on offer.
 """
 
 from collections.abc import Sequence
@@ -77,6 +78,10 @@ def run_case(
   relayer, probe = case['relayer'], case['probe']
   level = _toy(model, [relayer, probe], {probe: case['expect'][0]}, case, toy)
   said = level.pass_up(case['message'])['hops'][0]['said']
+  if hasattr(level, 'read'):
+    # The Night Wire's relayers are people (cycle 121): what they pass on is
+    # read by the same model, not the mock, which knows no paraphrase.
+    return level.read(said, probe)[0]
   mock = _toy(model_setup.mock_model(), [probe], {}, case, toy)
   return mock.pass_up(said)['acted'][0]['does']
 

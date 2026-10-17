@@ -37,10 +37,15 @@ from examples.crucible.toys.orders import readings
 from examples.crucible.toys.passiton import toy as passiton_lib
 
 SEAT = passiton_lib.SEAT
+# People, not laws (cycle 121). The model is told who someone is, in the
+# story's words, and decides in character; no rules of reading. The owner,
+# after the mayor's law ("told to do something, does nothing") left him at
+# home on "Dexter, silence!": "It shouldn't feel like a game of logical
+# negation." As a person, the same model rang the bell.
 RELAY_STATEMENT = (
     '{setting}\n'
-    '{name} is {role}. When passing a message on, {name} {law}.\n'
-    'The message {name} was given: "{message}"\n'
+    '{character}\n'
+    '{name} has been given this message to pass on: "{message}"\n'
 )
 RELAY_QUESTION = (
     'What exactly does {name} pass on? Give only the words {name} says or'
@@ -48,9 +53,8 @@ RELAY_QUESTION = (
 )
 READ_STATEMENT = (
     '{setting}\n'
-    '{name} is {role}. {name} {reader}.\n'
-    'How people here take a message:\n{laws}\n'
-    'With nothing in the message for {name}, {name} would {default}.\n'
+    '{conventions}\n'
+    '{character}\n'
     '{together}'
     'The message that reached {name}: "{message}"\n'
 )
@@ -58,15 +62,11 @@ READ_STATEMENT = (
 # model read "Sandbag the bridge; Dexter, don't ring the bell." as all for
 # the mayor, and the miller found nothing in it for him).
 TOGETHER = 'The same message reached {everyone} at once.\n'
-# "Applies to", as the orders toy asks (cycle 119: asked which part was
-# "for" the miller, a live model answered "none" to a plain "Open the
-# sluice." and he kept the wheel turning).
-CLAUSE_QUESTION = (
-    'Which part of the message applies to {name}? Quote it, or answer "none".'
-)
+# How they take it, in their own way: the sentence the page shows.
+TAKE_QUESTION = 'How does {name} take this message, in one sentence?'
 CHOICE_QUESTION = 'What does {name} do now?'
 # What the mock looks for to know a prompt is the story's.
-MARKER = 'When passing a message on,'
+MARKER = 'has been given this message to pass on'
 # A full stop, as on a real wire: free, and asks for nothing (capitals only:
 # "stop the train" asks for something).
 STOP = re.compile(r'\bSTOP\b')
@@ -118,7 +118,8 @@ class NightWireToy(passiton_lib.PassItOnToy):
     return str(self.person(name)['reads'])
 
   def describe(self, name: str) -> str:
-    return str(self._data['reading']['readers'][self.temperament(name)])
+    """Who `name` is: all the model is told about them."""
+    return ' '.join(str(self.person(name)['character']).split())
 
   def relaying_law(self, name: str) -> str:
     how = self.person(name).get('relays', 'word_for_word')
@@ -130,12 +131,11 @@ class NightWireToy(passiton_lib.PassItOnToy):
   # ---- the two judgements -------------------------------------------------
 
   def relay(self, message: str, name: str) -> str:
-    """How `name` passes `message` on (a model, by their law; cached)."""
+    """How `name` passes `message` on (a model, in character; cached)."""
     statement = RELAY_STATEMENT.format(
         setting=self._data['setting'],
+        character=self.describe(name),
         name=name,
-        role=self.person(name)['role'],
-        law=self.relaying_law(name),
         message=message,
     )
     if statement not in self._relayed:
@@ -150,34 +150,32 @@ class NightWireToy(passiton_lib.PassItOnToy):
     return self._relayed[statement]
 
   def read(self, message: str, name: str) -> tuple[str, str]:
-    """What `name` does with `message`: (job, the part they acted on)."""
+    """What `name` does with `message`: (job, how they took it)."""
     jobs = list(self._level['jobs'])
     statement = READ_STATEMENT.format(
         setting=self._data['setting'],
-        name=name,
-        role=self.person(name)['role'],
-        reader=self.describe(name),
-        laws='\n'.join(f'- {law}' for law in self._data['reading']['laws']),
-        default=self.job_text(self.person(name)['default']),
+        conventions=' '.join(str(self._data['conventions']).split()),
+        character=self.describe(name),
         together=(
             TOGETHER.format(everyone=_listed(self.receivers))
             if len(self.receivers) > 1
             else ''
         ),
+        name=name,
         message=message or '(no message reached them)',
     )
     if statement not in self._read:
       doc = interactive_document.InteractiveDocument(self._model)
       doc.statement(statement)
-      clause = doc.open_question(
-          CLAUSE_QUESTION.format(name=name), max_tokens=60, temperature=0.0
+      take = doc.open_question(
+          TAKE_QUESTION.format(name=name), max_tokens=80, temperature=0.0
       )
       idx = doc.multiple_choice_question(
           CHOICE_QUESTION.format(name=name),
           [self.job_text(j) for j in jobs],
           randomize_choices=False,
       )
-      self._read[statement] = (jobs[idx], readings.clause_text(clause))
+      self._read[statement] = (jobs[idx], ' '.join(take.split()))
     return self._read[statement]
 
   def pass_up(self, message: str) -> dict[str, Any]:
@@ -235,6 +233,7 @@ class NightWireToy(passiton_lib.PassItOnToy):
         'people': {
             who: {
                 'role': self.person(who)['role'],
+                'character': self.describe(who),
                 'reads': self.temperament(who),
                 'default': self.job_text(self.person(who)['default']),
             }

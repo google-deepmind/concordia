@@ -226,6 +226,28 @@ class LineTest(absltest.TestCase):
     self.assertEqual(game.outcome()['stars'], 3)
 
 
+class OwnerGamesTest(parameterized.TestCase):
+  """The owner's Night Wire games on the phone (2026-10-17).
+
+  "Dexter, silence!" left the mayor at home under the old law ("told to do
+  something, does nothing"); as a person the live model rang the bell, and
+  the owner: "It shouldn't feel like a game of logical negation." The mock
+  follows the person.
+  """
+
+  @parameterized.parameters(
+      ('the_sluice', 'Open sluice', True),
+      ('the_station', 'Cyrus, hold; Harlan, open', True),
+      ('the_mayor', "Dexter, don't ring bell", True),
+      ('the_mayor', 'Dexter, silence!', True),
+      ('the_mayor', 'Whatever you do, stay put.', True),
+      ('the_mayor', 'Ring the bell, please, the town is drowning.', False),
+  )
+  def test_the_owners_messages_and_their_cousins(self, chapter, message, works):
+    receipt = _toy(chapter).preview(toy_lib.SEAT, message)
+    self.assertEqual(bool(receipt.delta['solved']), works, receipt.summary)
+
+
 class LookTest(absltest.TestCase):
 
   def test_the_view_tells_the_story_of_each_hop(self):

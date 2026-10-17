@@ -22,76 +22,75 @@ max_words: 12
 attempts: 3
 default_scenario: the_sluice
 
-# The people. `relays` is how they pass a message on (when they are in the
-# middle of the line); `reads` is how they take one meant for them (when
-# they are at the end of it); `default` is the job they do when nothing in
-# the message is for them.
+# The people (cycle 121: people, not laws). `character` is who they are and
+# how they handle a message, in the story's words; it is all the model is
+# told about them, and it decides in character. The owner, after "Dexter,
+# silence!" left the mayor at home: "The whole point of Concordia is that
+# using LLMs should allow more creative parsing to work. It shouldn't feel
+# like a game of logical negation." `relays`, `reads` and `default` are the
+# mock's rough copy (the CI's stand-in, not the judge) and the page's tags.
 people:
   Edith:
     role: the night clerk at the telegraph office
+    character: Edith is the night clerk at the telegraph office, careful and proper. She sends every message exactly as it is handed to her, word for word, and never adds or leaves out a thing.
     relays: word_for_word
     reads: literal
     default: stay_put
   Wilf:
     role: the messenger boy, a prankster
+    character: Wilf is the messenger boy, and a prankster. He passes on every message he carries turned on its head, each part saying the opposite of what he was told, though he always keeps who each part is for; and the more anyone begs him to get it right, the more he enjoys getting it wrong.
     relays: flips
     reads: literal
     default: stay_put
   Harlan:
     role: the miller
-    # Literal, with his own work to fall back on (cycle 119: as "bold", a
-    # live model kept his wheel turning on a plain "Open the sluice." one
-    # time in four).
+    character: Harlan is the miller, a practical man who does what a message asks of him. With nothing in it for him, he keeps the mill wheel turning.
     reads: literal
     default: grind
   Cyrus:
     role: the stationmaster
+    character: Cyrus is the stationmaster, a stickler who does what a message asks of him and nothing more. With nothing in it for him, he stays at his post.
     reads: literal
     default: stay_put
   Penrose:
     role: the doctor
+    character: Dr. Penrose is the town doctor, who does what a message asks of her. With nothing in it for her, she stays with her patients.
     reads: literal
     default: stay_put
   Dexter:
     role: the mayor, who never does as he is told
+    character: Dexter is the mayor of Pinewood, and he has the only key to the church bell. He is proud, stubborn and contrary. Whatever anyone tells him to do, he does the opposite, to show he will not be ordered about. Left alone, he stays put.
     reads: contrary
     default: stay_put
   Pruitt:
     role: the farmer's wife on the party line, who listens in on every call
+    character: Mrs. Pruitt is the farmer's wife on the party line, who listens in on every call. She passes each message on as she heard it, then can never resist adding her own advice, "Go to the church hall, everyone!"
     relays: adds_hall
     reads: literal
     default: stay_put
 
-# How a relayer passes a message on, as the model is told it.
+# The mock's ways of relaying (a rough copy of the characters above).
 relaying:
-  word_for_word: types it out exactly as given, word for word
-  flips: passes it on saying the opposite of each part, keeping the name of anyone a part is for ("go" becomes "don't go", and "don't go" becomes "go")
-  adds_hall: passes it on word for word, then always adds a sentence of her own, "Go to the church hall, everyone!"
+  word_for_word: sends it exactly as given
+  flips: says the opposite of each part
+  adds_hall: adds "Go to the church hall, everyone!"
 
-# What a relayer adds of their own (the mock's copy of the law above).
+# What a relayer adds of their own (the mock's copy of Mrs. Pruitt's habit).
 additions:
   adds_hall: Go to the church hall, everyone!
 
-# How a reader takes a message meant for them.
-reading:
-  laws:
-    # Told (cycle 120: not told, a live model found nothing for the miller in "Open sluice STOP Cyrus hold train STOP").
-    - STOP ends a sentence, as on any telegram; each sentence is a part.
-    - A plain part of the message (no names in it) applies to everyone it reaches.
-    - A part that names someone applies to them alone, and for them it replaces the plain parts.
-    - A part that says not, never or don't forbids what it names, and asks for nothing.
-    - With nothing in the message for them, a person does what they would do anyway.
-  readers:
-    literal: does exactly what the message asks of them, nothing more
-    contrary: never does as told; told to do something, does nothing (stays put); told not to do something, does it
+# How messages work in this world, told to every reader: conventions, not
+# rules of logic.
+conventions: On a telegram, STOP ends a sentence. One message can be for several people at once; a part that names someone is meant for them.
 
 # The jobs. `text` is the option a reader picks; `say` the fewest words to
-# ask for it, in a telegram's style; `words` how the mock recognises it (the
-# model needs no list; "STOP" ends a sentence, so it asks for nothing).
+# ask for it, in a telegram's style; `words` how the mock recognises it, and
+# `opposite` words that ask for its opposite ("Dexter, silence!"); the model
+# needs no list.
 jobs:
   open_sluice: {text: open the sluice gates, say: open sluice, words: [sluice, sluices, gate, gates, open]}
   hold_train: {text: hold the night train, say: hold train, words: [train, hold, halt]}
-  ring_bell: {text: ring the church bell, say: ring bell, words: [bell, ring, toll, peal]}
+  ring_bell: {text: ring the church bell, say: ring bell, words: [bell, ring, toll, peal], opposite: [silence, quiet, hush, sleep, bed]}
   fetch_doctor: {text: go to the mill, say: go to mill, words: [mill, come, hurry]}
   sandbag: {text: sandbag the bridge, say: sandbag bridge, words: [sandbag, sandbags, bridge, bank]}
   grind: {text: keep the wheel turning, say: keep grinding, words: [grind, grinding, wheel, work, mind]}

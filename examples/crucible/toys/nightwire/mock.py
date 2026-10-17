@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The Night Wire's mock: the orders mock's reading, in the story's words.
+"""The Night Wire's mock: a rough, deterministic copy of the characters.
 
-It recognises the Night Wire's two prompts (how someone passes a message
-on, and what someone at the end of the line does) and answers them with the
-orders mock's clause reader and relaying, over a lexicon built from the
-story's jobs. "STOP", as on a real wire, ends a sentence.
+The live model decides in character (cycle 121); this mock is the CI's and
+the bots' stand-in, not the judge. It recognises the Night Wire's two
+prompts (how someone passes a message on, and what someone at the end of
+the line does) and answers them with the orders mock's clause reader and
+relaying over the story's jobs, each person's tags (`relays`, `reads`,
+`default`) and a few opposites ("Dexter, silence!" asks him not to ring the
+bell). "STOP", as on a real wire, ends a sentence.
 """
 
 from collections.abc import Mapping, Sequence
@@ -27,7 +30,9 @@ from typing import Any
 from examples.crucible.toys.nightwire import toy as toy_lib
 from examples.crucible.toys.orders import mock as orders_mock
 
-_GIVEN = re.compile(r'^The message (\w+) was given: "(.*)"$', re.MULTILINE)
+_GIVEN = re.compile(
+    r'^(\w+) has been given this message to pass on: "(.*)"$', re.MULTILINE
+)
 _REACHED = re.compile(r'^The message that reached (\w+): "(.*)"$', re.MULTILINE)
 _OPTION = re.compile(r'^\s*\(([a-z])\) (.+)$', re.MULTILINE)
 _NOTHING = '(no message reached them)'
@@ -36,12 +41,19 @@ _NOTHING = '(no message reached them)'
 def _orders_data(data: Mapping[str, Any]) -> dict[str, Any]:
   """The orders mock's data for the story: its people and its jobs."""
   jobs = data.get('jobs', {})
+  # A job's opposites as an action of its own, "not_<job>" (cycle 121).
+  opposites = {
+      f'not_{job}': list(spec['opposite'])
+      for job, spec in jobs.items()
+      if spec.get('opposite')
+  }
   return {
       'crew': dict(data.get('people', {})),
-      'actions': {job: spec for job, spec in jobs.items()},
+      'actions': {**jobs, **{name: {} for name in opposites}},
       'temperaments': {},
       'lexicon': {
           **{job: list(spec['words']) for job, spec in jobs.items()},
+          **opposites,
           'conditions': {},
           'if_words': [],
           'negations': ['not', 'never', 'don', 'dont'],
@@ -56,10 +68,6 @@ class NightWireMock:
   def __init__(self, data: Mapping[str, Any]):
     self._data = data
     self._orders = orders_mock.OrdersMock(_orders_data(data))
-    self._laws = {
-        ' '.join(str(law).split()): how
-        for how, law in data.get('relaying', {}).items()
-    }
 
   def relay(self, message: str, how: str) -> str:
     added = self._data.get('additions', {}).get(how)
@@ -68,17 +76,24 @@ class NightWireMock:
     return self._orders.relay(message, how)
 
   def does(self, message: str, name: str, menu: Sequence[str]) -> str:
-    """What `name` does with `message`, by how they read (the laws)."""
+    """What `name` does with `message`, roughly as their character would."""
     person = self._data['people'][name]
     message = toy_lib.STOP.sub('.', message)
-    wanted, _, forbidden = self._orders.read(message, set(), name)
+    asked, _, told_not = self._orders.read(message, set(), name)
+    # Asked for a job's opposite is told not to do it, and the other way.
+    wanted = [j for j in asked if not j.startswith('not_')]
+    wanted += [j[4:] for j in told_not if j.startswith('not_')]
+    forbidden = [j for j in told_not if not j.startswith('not_')]
+    forbidden += [j[4:] for j in asked if j.startswith('not_')]
     default = person['default']
     wanted = [job for job in wanted if job in menu]
     forbidden = [job for job in forbidden if job in menu]
     if person['reads'] == 'contrary':
-      # Told not to, does it; told to, does nothing.
+      # Told not to, does it; told to, will not (told to stay put, goes).
       if forbidden:
         return forbidden[0]
+      if wanted == ['stay_put']:
+        return next((j for j in menu if j != 'stay_put'), default)
       return 'stay_put' if wanted else default
     if wanted:
       return wanted[0]
@@ -90,23 +105,24 @@ class NightWireMock:
 
   def text(self, prompt: str) -> str | None:
     relay_question = toy_lib.RELAY_QUESTION.split('{name}')[0]
-    clause_question = toy_lib.CLAUSE_QUESTION.split('{name}')[0]
+    take_question = toy_lib.TAKE_QUESTION.split('{name}')[0]
     if toy_lib.MARKER in prompt and relay_question in prompt:
       given = _GIVEN.search(prompt)
-      flat = ' '.join(prompt.split())
-      how = next(
-          (h for law, h in self._laws.items() if f' {law}.' in flat),
-          'word_for_word',
-      )
-      return self.relay(given.group(2) if given else '', how)
-    if toy_lib.READ_MARKER in prompt and clause_question in prompt:
+      if not given:
+        return None
+      person = self._data['people'].get(given.group(1), {})
+      return self.relay(given.group(2), person.get('relays', 'word_for_word'))
+    if toy_lib.READ_MARKER in prompt and take_question in prompt:
       reached = _REACHED.search(prompt)
       if not reached or reached.group(2) == _NOTHING:
-        return 'none'
+        return 'Nothing reached them.'
+      name = reached.group(1)
       _, _, _, clauses = self._orders.read_clauses(
-          toy_lib.STOP.sub('.', reached.group(2)), set(), reached.group(1)
+          toy_lib.STOP.sub('.', reached.group(2)), set(), name
       )
-      return f'"{"; ".join(clauses)}"' if clauses else 'none'
+      if not clauses:
+        return f'{name} finds nothing in it for {name}.'
+      return f'{name} takes it as "{"; ".join(clauses)}".'
     return None
 
   def choice(self, prompt: str, responses: Sequence[str]) -> int | None:
