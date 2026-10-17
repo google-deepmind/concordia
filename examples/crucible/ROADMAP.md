@@ -119,6 +119,17 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
 
 ## Backlog
 
+- Pass it on, arcs 3 and 4 (Ash and Bea relaying; cycle 108). On the mock
+  the search found good levels: Past Ash ("Don't rest." gets Cy to keep
+  watch), Dex then Ash ("Rest."), All four ("Rest." through Bea, Dex and Ash).
+  Live (Flash, evidence/live-flash-c108-arcs34.json) 5 of 11 disagreed, each
+  on a gap in the laws: Ash drops "Cy, don't rest" as a clause about resting
+  (the page already says "drops anything about resting or watching"; make
+  the law and the mock say so too), once passing "Don't rest." as "Don't.";
+  Cy ignores "Repair leaks." with no leak open (set Bea's levels in a leak);
+  Bea gathered when told "Build.". Redesign on the clarified laws, then
+  check live before adding.
+
 - From the cycle 76 rule audit (fixed in cycle 77: one someone-taker through
   a bosun; the bosun's own name kept in relays; no stale relay when the
   bosun is off duty; storm-cut words not shown as an earlier order; YAML
