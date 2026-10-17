@@ -441,10 +441,8 @@ class OrdersMock:
           kept.append(', '.join(left))
       parts = kept
     elif how == 'adds_repair':
-      # Unless a clause already says whether to repair (cycle 83); as a
-      # sentence of its own (cycle 103).
-      if not any('repair' in sum(self._asks(p)[:2], []) for p in parts):
-        return ('; '.join(parts) + '. ' if parts else '') + 'Repair leaks.'
+      # Always, as a sentence of its own (cycles 103, 110).
+      return ('; '.join(parts) + '. ' if parts else '') + 'Repair leaks.'
     elif how == 'flips':
 
       def flip(seg):

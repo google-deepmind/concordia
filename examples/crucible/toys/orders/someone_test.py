@@ -225,9 +225,9 @@ class BosunTest(absltest.TestCase):
         mock.relay('Build; if a leak opens, keep watch.', 'adds_repair'),
         'Build; if a leak opens, keep watch. Repair leaks.',
     )
-    self.assertEqual(
+    self.assertEqual(  # always, even after a forbidding clause (cycle 110)
         mock.relay("Build; don't repair.", 'adds_repair'),
-        "Build; don't repair.",
+        "Build; don't repair. Repair leaks.",
     )
 
   def test_the_crew_follow_the_bosuns_words_the_bosun_the_commanders(self):

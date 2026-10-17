@@ -48,7 +48,6 @@ reading:
     two_clauses: two clauses
     watch_clause: a clause to keep watch
     no_repair_clause: no clause about repairs
-    repair_said: a clause about repairs
   cells:
     - {operator: plain, property: literal, law: the literal do exactly the clause, golden: [p1]}
     - {operator: plain, property: bold, law: the bold do the clause meant for all, golden: [p2]}
@@ -70,8 +69,7 @@ reading:
     - {operator: word_for_word, property: negated_clause, law: the literal pass on a forbidding clause as it is, golden: [r6]}
     - {operator: drops_rest, property: watch_clause, law: the bold drop a clause to keep watch, golden: [r7]}
     - {operator: drops_rest, property: one_clause, law: the bold pass on a clause of work, golden: [r8]}
-    - {operator: adds_repair, property: no_repair_clause, law: the cautious add "repair leaks" when nothing says whether to repair, golden: [r9]}
-    - {operator: adds_repair, property: repair_said, law: the cautious add nothing when a clause already says whether to repair, golden: [r10]}
+    - {operator: adds_repair, property: no_repair_clause, law: the cautious add "Repair leaks." as a sentence of their own, golden: [r9]}
 
 # (Bea's leak habit against a clause naming her was a coin flip on a live
 # model, cycle 100; the levels built on it were cut, and so is its cell.)
@@ -102,4 +100,3 @@ golden:
   - {id: r7, kind: relay, relayer: Ash, message: 'Build; keep watch.', probe: Cy, expect: [build], hard: true}
   - {id: r8, kind: relay, relayer: Ash, message: Build., probe: Cy, expect: [build], hard: true}
   - {id: r9, kind: relay, relayer: Bea, message: 'Cy, keep watch.', event: leak, probe: Ash, expect: [repair], hard: true}
-  - {id: r10, kind: relay, relayer: Bea, message: "Cy, keep watch; don't repair leaks.", event: leak, probe: Ash, expect: [build], hard: true}

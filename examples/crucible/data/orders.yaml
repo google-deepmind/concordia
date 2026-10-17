@@ -33,9 +33,9 @@ watch: {sees: 2}
 #              'fresh' (only when not worn out) or 'never'
 #   relays:    how they pass an order on as bosun (arc 5): 'word_for_word',
 #              'drops_rest' (leaves out clauses to rest or keep watch),
-#              'adds_repair' (adds "repair leaks" unless a clause already
-#              says whether to repair) or 'negates' (says "don't" before
-#              each clause that does not already forbid)
+#              'adds_repair' (adds "Repair leaks." to whatever they pass
+#              on), 'negates' (says "don't" before each clause that does not
+#              already forbid) or 'flips' (the opposite of each clause)
 temperaments:
   bold:
     describe: keen to push the work forward; shrugs off risk
@@ -123,13 +123,10 @@ relaying:
       someone to rest or to keep watch
     # Its own sentence (cycle 103: joined with "and", a live relay left it
     # unclear whether "repair leaks" was only for the member just named).
-    # "Mentions repairing anything" with an example (cycle 109: on "says
-    # whether to repair" qwen3 thought past its timeout over "don't repair
-    # the hull"; on "mentions repairing" Flash added the sentence anyway).
-    adds_repair: >-
-      passes it on and adds a sentence of their own, "Repair leaks.", unless
-      a clause already mentions repairing anything, to do it or not to
-      ("don't repair the hull" counts)
+    # Always (cycle 110): the exception "unless a clause already says
+    # whether to repair" took three wordings and the two models still read
+    # it differently; a habit with no exception is plainer to everyone.
+    adds_repair: passes it on and adds a sentence of their own, "Repair leaks."
     negates: >-
       passes it on with "don't" before each clause, leaving a clause that
       already says not, never or don't as it is
@@ -584,8 +581,8 @@ scenarios:
     stars: {2: {max_damage: 2}, 3: {max_damage: 0, max_command: 4}}
     premise: >-
       Bea (cautious) is bosun: she passes your order on to Ash (bold) and Cy
-      (literal), and a cautious bosun adds "repair leaks" unless a clause
-      already says whether to repair. Leaks and squalls; 8 damage wrecks the ship. Raise the
+      (literal), and a cautious bosun adds "Repair leaks." to whatever she
+      passes on. Leaks and squalls; 8 damage wrecks the ship. Raise the
       lighthouse to 20 in 10 turns.
   contrary_bosun:
     beat: twist

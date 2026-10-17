@@ -24,7 +24,7 @@ passes_short:
   word_for_word: passes it on word for word
   flips: passes on the opposite of each part
   drops_rest: drops anything about resting or watching
-  adds_repair: adds "Repair leaks." unless you mentioned repairing
+  adds_repair: adds "Repair leaks." to whatever they pass on
 
 # Star rules in words (view.star_rules).
 star_rules:
