@@ -941,6 +941,42 @@ class GameSessionTest(absltest.TestCase):
         daisies._stats(False, 'Gaia')[-1]['label'], 'biodiversity'  # pylint: disable=protected-access
     )
 
+  def test_the_steward_speaks_and_the_printers_retell_it(self):
+    game = session_lib.GameSession('great_acceleration', 'play').start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    question = _question(game)
+    omen = question['omen']
+    self.assertEqual(
+        omen['signs'], ['a red dawn', 'a comet', 'ash on the snow']
+    )
+    self.assertTrue(omen['ready'])
+    self.assertIn(omen['option'], question['options'])  # Moves stay offered.
+    self.assertIn('wait and save omega', question['options'])
+    words = 'a comet: spend the black stone slowly, or the fields go dry'
+    self.assertIsNone(game.choose(question['request_id'], words))
+    _wait_for(lambda: game.state()['tick'] >= 2 and game.state()['question'])
+    self.assertEqual(game.context.planet.omens[0][1], 'a comet')
+    self.assertFalse(game.state()['question']['omen']['ready'])  # Recharging.
+    # Holding course works on a free question: the neutral move is offered.
+    game.seats[game.entity].hold_pace = 0.05
+    game.hold_course(None, 2)
+    _wait_for(lambda: game.state()['tick'] >= 4 and game.state()['question'])
+    told = [
+        i
+        for i in game.state()['story']
+        if i['who'] == 'The Gazette on the omen'
+    ]
+    self.assertLen(told, 1)  # The printers' front page, in full, once.
+    self.assertIn('spend the black stone slowly', told[0]['text'])
+    gazette = game.context.planet.gazette
+    assert gazette is not None
+    self.assertEqual(gazette.printed[-1].kind, 'omen')
+    held = [
+        t['move'] for t in game.seats[game.entity].played if t['how'] == 'held'
+    ]
+    self.assertEqual(held, ['wait and save omega'] * 2)
+
   def test_a_turn_keeps_each_peoples_hands_for_review(self):
     game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
     world = game._turn_world('Amber folk')  # pylint: disable=protected-access

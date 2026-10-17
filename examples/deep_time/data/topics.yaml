@@ -65,6 +65,10 @@ topics:
     retention: replay
     replay_size: 5
     description: Steward interventions, as announced to the world.
+  - name: media.omens
+    retention: replay
+    replay_size: 5
+    description: The Gazette's front pages about the Steward's omens, as the presses' owners retell them.
   - name: gaia.briefings
     retention: latest
     description: Briefings written by the Steward's Advisor (a pubsub.Publisher).

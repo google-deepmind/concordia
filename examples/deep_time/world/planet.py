@@ -93,6 +93,30 @@ def interventions_from_config(
   return [Intervention(**item) for item in config['interventions']]
 
 
+def omen_words(text: str, effect: Mapping[str, Any]) -> tuple[str, str]:
+  """An omen's sign and words from "<sign>: <words>" (or words alone).
+
+  The sign is one the world can show (the first, if none is named); the
+  words are cut to the effect's `max_words`.
+
+  Args:
+    text: What the Steward said.
+    effect: The omen intervention's effect (its `signs` and `max_words`).
+
+  Returns:
+    (sign, words).
+  """
+  signs = [str(s) for s in effect['signs']]
+
+  def bare(sign: str) -> str:
+    return re.sub(r'^(a|an|the) ', '', sign.strip().lower())
+
+  head, colon, rest = text.partition(':')
+  sign = next((s for s in signs if colon and bare(head) == bare(s)), None)
+  words = (rest if sign else text).strip().strip('"“”').split()
+  return sign or signs[0], ' '.join(words[: int(effect['max_words'])])
+
+
 GEO_EVENTS = 'geo.events'
 CIV_EVENTS = 'civ.events'
 COLONY_EVENTS = 'colony.events'
@@ -443,6 +467,8 @@ class Planet:
     # move does turn by turn on this world (push_audit's profiles): the
     # Steward's dead reckoning from its late readings.
     self.made: list[tuple[int, str]] = []
+    # The Steward's omens, as (tick, sign, words), oldest first.
+    self.omens: list[tuple[int, str, str]] = []
     self.move_profiles: dict[str, list[float]] = {}
     self.evolution = evolution
     self.lithosphere = lithosphere
@@ -1184,6 +1210,28 @@ class Planet:
     verdict = 'believe it' if sheet.votes > 0 else 'call it false'
     return (
         f'The {sheet.author} print a {sheet.kind} in the Gazette for'
+        f' {gazette.stances[sheet.stance]}: "{sheet.title}". The other'
+        f' peoples {verdict}.'
+    )
+
+  def publish_retelling(self, polity: str, text: str) -> str | None:
+    """Posts the printers' retelling of an omen on the Gazette; the news."""
+    gazette, civ = self.gazette, self.civ
+    if gazette is None or civ is None:
+      return None
+    sheet = gazette.publish(
+        polity,
+        text,
+        f'generation {self.tick}',
+        self.broadsheet_evidence(),
+        civ,
+        kind='omen',
+    )
+    if sheet is None:
+      return None
+    verdict = 'believe it' if sheet.votes > 0 else 'call it false'
+    return (
+        f"The {sheet.author}'s printers tell the omen in the Gazette for"
         f' {gazette.stances[sheet.stance]}: "{sheet.title}". The other'
         f' peoples {verdict}.'
     )
@@ -2199,7 +2247,9 @@ class Planet:
         return mass
     return where
 
-  def apply_intervention(self, actor: str, intervention: Intervention) -> str:
+  def apply_intervention(
+      self, actor: str, intervention: Intervention, words: str = ''
+  ) -> str:
     """Applies an intervention if affordable and off cooldown.
 
     A person may have chosen where (`set_target`): seeding then plants on
@@ -2211,6 +2261,8 @@ class Planet:
     Args:
       actor: Name of the acting entity, for messages.
       intervention: The intervention to apply.
+      words: For an omen, its sign and what it is taken to say, as
+        "<sign>: <words>" (a sign alone, or nothing, is allowed).
 
     Returns:
       A sentence describing what happened.
@@ -2245,6 +2297,15 @@ class Planet:
     self.omega -= intervention.cost
     self._ready_at[intervention.key] = self.tick + intervention.cooldown
     self.made.append((self.tick, intervention.key))
+    if effect['kind'] == 'omen':
+      sign, said = omen_words(words, effect)
+      self.omens.append((self.tick, sign, said))
+      end = '' if said[-1:] in '.!?' else '.'
+      return f'{actor} sent an omen: {sign} over every land' + (
+          f', and it was taken to say: "{said}{end}"'
+          if said
+          else '; no one could say what it meant.'
+      )
     if effect['kind'] == 'instruments':
       assert self.instrument_tier is not None
       self.instrument_tier += 1
@@ -2643,6 +2704,7 @@ class Planet:
         'recent_temps': list(self._recent_temps),
         'ready_at': dict(self._ready_at),
         'made': [[t, k] for t, k in self.made],
+        'omens': [[t, sign, said] for t, sign, said in self.omens],
         'reserves': {str(k): v for k, v in self.reserves.items()},
         'last_cut': [float(x) for x in self._last_cut],
         'daisies': self.daisies.get_state(),
@@ -2705,6 +2767,10 @@ class Planet:
     self._recent_temps = [float(t) for t in state['recent_temps']]
     self._ready_at = {k: int(v) for k, v in state['ready_at'].items()}
     self.made = [(int(t), str(k)) for t, k in state.get('made', ())]
+    self.omens = [
+        (int(t), str(sign), str(said))
+        for t, sign, said in state.get('omens', ())
+    ]
     self.reserves = {
         int(k): int(v) for k, v in (state.get('reserves') or {}).items()
     }

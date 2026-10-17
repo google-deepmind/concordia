@@ -50,6 +50,7 @@ from examples.deep_time import motion as motion_lib
 from examples.deep_time import scenarios
 from examples.deep_time import simulation
 from examples.deep_time.world import data
+from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
 from concordia.typing import human_input
 import numpy as np
@@ -186,6 +187,13 @@ class Seat(human_input.HumanInput):
     # What the person looked at while this turn was asked (the move sheet,
     # the cards they read, the folds they opened), kept with the turn.
     self.looked: list[str] = []
+    # The moves a free question offers (a Steward that may speak an omen
+    # answers in words, and its moves are still there to tap).
+    self.moves: Callable[[], Sequence[str]] = lambda: ()
+
+  def offered(self, request: human_input.HumanInputRequest) -> tuple[str, ...]:
+    """A question's options: its choices, or the moves of a free one."""
+    return tuple(request.action_spec.options) or tuple(self.moves())
 
   def saved(self) -> dict[str, Any]:
     """What a save keeps of the seat."""
@@ -217,7 +225,7 @@ class Seat(human_input.HumanInput):
     option = self.plans.pop(now, None)
     if option is None:
       return None
-    options = request.action_spec.options
+    options = self.offered(request)
     found = next((o for o in options if o == option), None) or next(
         (o for o in options if short_move(o) == short_move(option)), None
     )
@@ -234,7 +242,7 @@ class Seat(human_input.HumanInput):
 
   def _held(self, request: human_input.HumanInputRequest) -> str | None:
     """The neutral move while holding course; None to ask the person."""
-    options = request.action_spec.options
+    options = self.offered(request)
     calm = [o for o in options if o in NEUTRAL_OPTIONS]
     if self.hold <= 0:
       return None
@@ -308,7 +316,7 @@ class Seat(human_input.HumanInput):
       decided = self.over() if self.over is not None else False
       if decided:  # The game is decided: nothing to ask.
         self.hold = 0
-        options = request.action_spec.options
+        options = self.offered(request)
         return neutral(options) if options else ''
       planned = self._planned(request)
       if planned is not None:
@@ -338,7 +346,7 @@ class Seat(human_input.HumanInput):
         raise Stopped()
       if not answered and self._request is not None:
         # Out of time: the role makes its most neutral move.
-        options = request.action_spec.options
+        options = self.offered(request)
         self._answer = neutral(options) if options else ''
         self.choices.append(f'(out of time) {self._answer}')
         self._note(self._answer, 'timed out', list(options))
@@ -373,7 +381,7 @@ class Seat(human_input.HumanInput):
       self._note(
           response,
           'chose',
-          list(request.action_spec.options),
+          list(self.offered(request)),
           time.monotonic() - self._asked_at,
       )
     self._answered.set()
@@ -410,9 +418,11 @@ class ReplaySeat(human_input.HumanInput):
     self._moves = {int(m[0]): (str(m[1]), m[2]) for m in moves}
     self._clock = clock
     self._aim = aim
+    # The moves of a free question (as `Seat.moves`).
+    self.moves: Callable[[], Sequence[str]] = lambda: ()
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
-    options = request.action_spec.options
+    options = tuple(request.action_spec.options) or tuple(self.moves())
     move, target = self._moves.get(self._clock(), (None, None))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
@@ -571,6 +581,7 @@ class GameSession:
       )
       place.can_make = lambda option, name=name: self._can_make(name, option)
       place.world = lambda name=name: self._turn_world(name)
+      place.moves = lambda name=name: self._free_moves(name)
     self.entity, self.role = names[0], labels[names[0]]  # The first seat.
     self._cancelled = False
     self.error = ''
@@ -586,19 +597,21 @@ class GameSession:
     self.replay_of: str | None = None
     if replay is not None:  # Watched, with the players' moves played back.
       self.replay_of = str(replay.get('game_id', ''))
-      humans = {
-          name: ReplaySeat(
-              moves,
-              clock=lambda: self.context.planet.tick,
-              aim=lambda target, name=name: self.context.planet.set_target(
-                  name,
-                  self.context.planet.tiles.rows - 1 - int(target[0]),
-                  int(target[1]),
-              ),
-          )
-          for name, moves in (replay.get('moves') or {}).items()
-          if name in labels
-      }
+      humans = {}
+      for name, moves in (replay.get('moves') or {}).items():
+        if name not in labels:
+          continue
+        seat = ReplaySeat(
+            moves,
+            clock=lambda: self.context.planet.tick,
+            aim=lambda target, name=name: self.context.planet.set_target(
+                name,
+                self.context.planet.tiles.rows - 1 - int(target[0]),
+                int(target[1]),
+            ),
+        )
+        seat.moves = lambda name=name: self._free_moves(name)
+        humans[name] = seat
     self._sim, self.context = simulation.build_simulation(
         scenario,
         self.models,
@@ -924,7 +937,7 @@ class GameSession:
     with place._lock:  # pylint: disable=protected-access
       request = place._request  # pylint: disable=protected-access
       offered = (
-          list(request.action_spec.options)
+          list(place.offered(request))
           if request is not None
           else (place.played[-1]['offered'] if place.played else [])
       )
@@ -952,6 +965,27 @@ class GameSession:
       if place.plans.pop(tick, None) is None:
         return f'Nothing is planned for turn {tick}.'
     return None
+
+  def _omen(self, actor: Any, options: Sequence[str]) -> dict[str, Any] | None:
+    """The omen's signs, words and price for the page's composer, or None."""
+    if not isinstance(actor, actors_lib.StewardActor) or actor.omen is None:
+      return None
+    omen = actor.omen
+    return {
+        'option': omen.option,
+        'signs': list(omen.effect['signs']),
+        'max_words': int(omen.effect['max_words']),
+        'cost': omen.cost,
+        # Off its recharge and paid for: it may be spoken this turn.
+        'ready': omen.option in options,
+    }
+
+  def _free_moves(self, entity: str) -> list[str]:
+    """The moves a Steward that answers in words may still tap."""
+    actor = self.context.actors.get(entity)
+    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
+      return actor.options()
+    return []
 
   def _can_make(self, entity: str, option: str) -> str:
     """Why a planned move cannot be made now ('' if it can)."""
@@ -1353,6 +1387,18 @@ class GameSession:
             'text': message.payload,
         })
     seen_sheets = set()
+    # The printers' front pages about the Steward's omens, in full.
+    gazette = self.context.planet.gazette
+    stances = gazette.stances if gazette is not None else {}
+    for message in bus.history('media.omens'):
+      body = media_lib.without_stance(message.payload, stances)
+      seen_sheets.add(media_lib.headline(body))
+      items.append({
+          'tick': int(message.time or 0),
+          'kind': 'press',
+          'who': 'The Gazette on the omen',
+          'text': body,
+      })
     for message in bus.history('media.gazette'):
       try:
         sheets = json.loads(message.payload).get('broadsheets') or []
@@ -1360,7 +1406,7 @@ class GameSession:
         continue
       for sheet in sheets:
         key = (sheet.get('author'), sheet.get('title'))
-        if key in seen_sheets:
+        if key in seen_sheets or sheet.get('title') in seen_sheets:
           continue
         seen_sheets.add(key)
         items.append({
@@ -2638,6 +2684,8 @@ class GameSession:
     if request is not None:
       spec = request.action_spec
       actor = self.context.actors.get(entity)
+      # A free question's moves (the Steward may also speak an omen).
+      options = list(place.offered(request))
       saving = (
           actor.out_of_reach()
           if isinstance(actor, actors_lib.StewardActor)
@@ -2646,25 +2694,25 @@ class GameSession:
       question = {
           'request_id': request.request_id,
           'call_to_action': spec.call_to_action,
-          'options': list(spec.options),
+          'options': options,
           # Options that may land where the player taps the map.
-          'targets': [o for o in spec.options if self._targetable(entity, o)],
+          'targets': [o for o in options if self._targetable(entity, o)],
           # Which way each move pushes the world, and about how far.
-          'pushes': self.context.pushes(spec.options, entity),
+          'pushes': self.context.pushes(options, entity),
           # Moves not yet affordable: shown, and plannable.
           'saving': saving,
           'saving_pushes': self.context.pushes(saving, entity),
           # What the Steward's forecast says each climate move would bring:
           # its own late readings, reckoned with the move.
           'what_if': (
-              self._what_if(entity, [*spec.options, *saving])
+              self._what_if(entity, [*options, *saving])
               if isinstance(actor, actors_lib.StewardActor)
               else {}
           ),
           # The Advisor's pick among these moves, and how old its counsel
           # is: a slow mind, reasoning from older readings.
           'advice': (
-              self._advice(entity, [*spec.options, *saving])
+              self._advice(entity, [*options, *saving])
               if isinstance(actor, actors_lib.StewardActor)
               else None
           ),
@@ -2674,14 +2722,16 @@ class GameSession:
               crises_lib.pressing(
                   self.context.planet,
                   actor.polity,
-                  list(spec.options),
-                  self.context.pushes(spec.options, entity),
+                  options,
+                  self.context.pushes(options, entity),
               )
               if isinstance(actor, actors_lib.PolityActor)
               else []
           ),
           'error': request.error or '',
           'context': request.context,
+          # The omen the Steward may speak in its own words, if any.
+          'omen': self._omen(actor, options),
       }
     briefing = bus.latest('gaia.briefings')
     chronicle = bus.latest('chronicle')

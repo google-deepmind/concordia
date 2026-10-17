@@ -78,6 +78,7 @@ MODULES = (
     'life.js',
     'minds.js',
     'story.js',
+    'omens.js',
     'campaign.js',
     'forecast.js',
     'plans.js',

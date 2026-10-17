@@ -154,6 +154,12 @@
   p.rewind { font-size: .85rem; margin: 0 0 8px; }
   .planok { color: var(--good); font-size: .9rem; margin: 0 0 6px; }
   .movelabel { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 4px 0 6px; }
+  .omen { border: 1px solid var(--accent); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+  .omen .signs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .omen .sign { width: auto; flex: 0 0 auto; min-height: 44px; padding: 6px 14px; border-radius: 999px; }
+  .omen .row button { width: auto; flex: 0 0 auto; }
+  .omen .sign.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .omen .row { justify-content: space-between; align-items: center; margin-top: 6px; }
   .trace svg { display: block; width: 100%; height: 96px; }
   .trace .key { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); margin: 2px 0 6px; }
   .trace .key i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 5px; border-top: 2px solid var(--accent); }
@@ -911,7 +917,8 @@ function renderQuestion(q) {
   shownRequest = q.request_id;
   $('planok').hidden = true;
   planIn = 0;
-  $('cta').textContent = askWords(q.call_to_action);  // The tags carry the rest.
+  // The tags carry the rest; a Steward that may speak is asked plainly.
+  $('cta').textContent = q.omen ? OMEN_ASK : askWords(q.call_to_action);
   $('moveerr').textContent = q.error || '';
   $('moveerr').hidden = !q.error;
   endAim();
@@ -963,6 +970,27 @@ function renderQuestion(q) {
       : q.options.map((o, i) => [o, i]).filter(([o]) => !SWAP.test(o))
         .map(([o, i]) => button(o, i)).join('') + swapHtml;
     $('choices').insertAdjacentHTML('beforeend', savingHtml);
+    if (q.omen) {  // The omen first: a sign, and the words it will carry.
+      const plain = $('choices').querySelector(`button[data-i="${q.options.indexOf(q.omen.option)}"]`);
+      if (plain) plain.remove();
+      $('choices').insertAdjacentHTML('afterbegin', omenHtml(q.omen, lastOmega));
+      let sign = q.omen.signs[0];
+      for (const b of $('choices').querySelectorAll('button[data-sign]')) {
+        b.addEventListener('click', () => {
+          sign = b.dataset.sign;
+          for (const x of $('choices').querySelectorAll('button[data-sign]')) {
+            x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b));
+          }
+        });
+      }
+      const box = $('omenwords');
+      box.addEventListener('input', () => {
+        const n = omenWords(box.value, q.omen.max_words).split(' ').filter(Boolean).length;
+        $('omencount').textContent = `${n} of ${q.omen.max_words} words`;
+        looked('typing');
+      });
+      $('omensend').addEventListener('click', () => answer(q.request_id, omenResponse(sign, omenWords(box.value, q.omen.max_words))));
+    }
     for (const b of $('choices').querySelectorAll('button[data-save]')) {
       const option = saving[Number(b.dataset.save)];
       b.addEventListener('click', () => {

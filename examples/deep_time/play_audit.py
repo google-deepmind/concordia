@@ -108,16 +108,22 @@ def play_one(
 
   def recording():
     spec = spec_of()
-    pushes.append(len(context.pushes(spec.options, role)))
+    # A Steward that may speak answers in words; its moves are still offered.
+    offered = list(spec.options) or list(getattr(actor, 'options', list)())
+    pushes.append(len(context.pushes(offered, role)))
     # With the moves being saved for, which may be planned.
     later = list(getattr(actor, 'out_of_reach', lambda: [])())
-    plannable.append(len(context.pushes([*spec.options, *later], role)))
+    plannable.append(len(context.pushes([*offered, *later], role)))
     return spec
 
   actor.action_spec = recording  # This game only: what was on the menu.
   with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
     sim.play(premise='', max_steps=ticks or context.planet.max_ticks)
-  moves = [action.strip().lower() for _, action, _ in actor.log]
+  # A model's free answer starts with its name.
+  moves = [
+      action.strip().lower().removeprefix(f'{role.lower()} ')
+      for _, action, _ in actor.log
+  ]
   neutral = {o.lower() for o in session_lib.NEUTRAL_OPTIONS}
   return {
       'scenario': scenario,
