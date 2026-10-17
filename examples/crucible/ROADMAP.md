@@ -38,8 +38,8 @@ Phase 4, pacing
 - [x] Telemetry keeps the move, what the player saw and the hidden truth (the server's move and end records; the end record's truth holds every try's hops)
 
 Phase 5, wrapping
-- [ ] Every fact in a role's prompt has a visual home
-- [ ] Each property has one look and one word, enforced by a test
+- [x] Every fact in a role's prompt has a visual home (the player's prompt: task, each relayer's temperament and law, who acts, the goal, the try, the word limit, all in the view the page draws; `toy_test.LookTest.test_every_fact_in_the_players_prompt_is_in_the_view`)
+- [x] Each property has one look and one word, enforced by a test (each way of passing on has one phrase, each temperament a glyph, a word and a meaning, each action a glyph; `toy_test.LookTest.test_every_way_of_passing_on_and_temperament_has_one_look`)
 - [ ] The rule audit is done and orphan rules are cut
 
 ## Phase 0: toys

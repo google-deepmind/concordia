@@ -126,5 +126,38 @@ class LineTest(absltest.TestCase):
     self.assertEqual(game.outcome()['stars'], 3)
 
 
+class LookTest(absltest.TestCase):
+
+  def test_every_fact_in_the_players_prompt_is_in_the_view(self):
+    for level in _DATA['campaign']:
+      toy = _toy(level)
+      prompt = toy.action_spec(toy_lib.SEAT).call_to_action
+      view = toy.view()
+      self.assertIn(view['task'], prompt)
+      for hop in view['line']:
+        self.assertIn(
+            f'{hop["who"]} ({hop["temperament"]}: {hop["passes"]})', prompt
+        )
+      for member in view['receivers']:
+        self.assertIn(member['who'], prompt)
+      for who, action in view['goal'].items():
+        self.assertIn(f'{who}: {action}', prompt)
+      self.assertIn(f'of {view["tries"]}', prompt)
+      self.assertIn(f'at most {view["max_words"]} words', prompt)
+
+  def test_every_way_of_passing_on_and_temperament_has_one_look(self):
+    look = toys.load_data('passiton_look')
+    shared = toys.load_data('orders_look')
+    for how in _DATA['relays'].values():
+      self.assertIn(how, look['passes_short'])
+    words = [look['passes_short'][h] for h in _DATA['relays'].values()]
+    self.assertLen(set(words), len(words))  # one phrase each, no two alike
+    for temperament in _DATA['relays']:
+      spec = shared['temperaments'][temperament]
+      self.assertTrue(spec['glyph'] and spec['word'] and spec['means'])
+    for action in _DATA['say']:
+      self.assertIn(action, shared['actions'])  # each chip has a glyph
+
+
 if __name__ == '__main__':
   absltest.main()
