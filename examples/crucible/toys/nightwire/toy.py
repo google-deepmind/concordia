@@ -64,7 +64,9 @@ READ_STATEMENT = (
 TOGETHER = 'The same message reached {everyone} at once.\n'
 # How they take it, in their own way: the sentence the page shows.
 TAKE_QUESTION = 'How does {name} take this message, in one sentence?'
-CHOICE_QUESTION = 'What does {name} do now?'
+# "Closest" (cycle 121: a miller who "unties the boats" was put down as
+# keeping his wheel turning when the options did not say it his way).
+CHOICE_QUESTION = 'Which of these is closest to what {name} does now?'
 # What the mock looks for to know a prompt is the story's.
 MARKER = 'has been given this message to pass on'
 # A full stop, as on a real wire: free, and asks for nothing (capitals only:

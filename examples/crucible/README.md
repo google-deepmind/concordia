@@ -5,11 +5,12 @@ night of 14 April 1926: the river is rising and you are at the telegraph
 desk. Each chapter is an hour of the night and one message of at most twelve
 words that must reach someone across town through people with habits of
 their own (Edith sends exactly what she is given; Wilf, the messenger boy,
-says the opposite of each part; Mrs. Pruitt on the party line adds a word of
-her own), to readers who take it their own way (the mayor never does as he
-is told). A language model plays each of them by a stated law; what they do
-decides what happens to the town. Twelve chapters in three acts, gated by
-stars, on a telegram-styled phone page.
+turns every message on its head), to readers who take it their own way (the
+mayor never does as he is told). A language model plays each of them in
+character, from a few sentences of who they are, and says how they took
+the message; what they do decides what happens to the town. Eight chapters
+in two acts, gated by stars, on a telegram-styled phone page (a third act,
+Mrs. Pruitt's on the party line, is set aside to be rebuilt).
 
 It is Pass it on (`passiton`, the puzzle the rethink of cycle 98 produced)
 told as a story, and Pass it on reused the relaying and reading of Twelve
@@ -23,15 +24,15 @@ of, built mechanic first (see [DESIGN.md](DESIGN.md) and
 ```bash
 python -m examples.crucible.run --toy=nightwire --scenario=the_night --seat=skilled
 python -m examples.crucible.run --toy=nightwire --scenario=the_sluice --seat=human
-python -m examples.crucible.audit nightwire          # the interaction matrix: 34 cells
+python -m examples.crucible.audit nightwire          # the interaction matrix: 33 cells
 python -m examples.crucible.golden_cli --toy=nightwire --mode=mock --repeats=2
 ```
 
 Chapters (`data/nightwire.yaml`, in order): `the_sluice`, `the_station`,
 `the_mayor`, `the_council` (Edith and the mayor); `wilf`, `two_doors`,
-`say_less`, `the_night` (Wilf); `the_party_line`, `gossip`, `through_wilf`,
-`pruitt_first` (Mrs. Pruitt, after the crest). Pass it on's levels play the
-same way with `--toy=passiton`.
+`say_less`, `the_night` (Wilf). Set aside: `the_party_line`, `gossip`,
+`through_wilf`, `pruitt_first` (Mrs. Pruitt, after the crest). Pass it on's
+levels play the same way with `--toy=passiton`.
 
 ## Quickstart
 

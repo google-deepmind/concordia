@@ -44,17 +44,17 @@ people:
     default: stay_put
   Harlan:
     role: the miller
-    character: Harlan is the miller, a practical man who does what a message asks of him. With nothing in it for him, he keeps the mill wheel turning.
+    character: Harlan is the miller; the mill, its wheel, its sluice gates and its boats are his business. A practical man, he does what a message asks of him. With nothing in it for him, he keeps the mill wheel turning.
     reads: literal
     default: grind
   Cyrus:
     role: the stationmaster
-    character: Cyrus is the stationmaster, a stickler who does what a message asks of him and nothing more. With nothing in it for him, he stays at his post.
+    character: Cyrus is the stationmaster; the station and its trains are his business, and nothing else is. A stickler, he does what a message asks of him. With nothing in it for him, he stays at his post.
     reads: literal
     default: stay_put
   Penrose:
     role: the doctor
-    character: Dr. Penrose is the town doctor, who does what a message asks of her. With nothing in it for her, she stays with her patients.
+    character: Dr. Penrose is the town doctor; the sick and the hurt are her business. She does what a message asks of her. With nothing in it for her, she stays with her patients.
     reads: literal
     default: stay_put
   Dexter:
@@ -81,7 +81,7 @@ additions:
 
 # How messages work in this world, told to every reader: conventions, not
 # rules of logic.
-conventions: On a telegram, STOP ends a sentence. One message can be for several people at once; a part that names someone is meant for them.
+conventions: On a telegram, STOP ends a sentence. One message can be for several people at once. A part that names someone (by name or by what they do) is their own instruction, and for them it replaces any part that names no one; a part that names no one is for everyone else it reaches.
 
 # The jobs. `text` is the option a reader picks; `say` the fewest words to
 # ask for it, in a telegram's style; `words` how the mock recognises it, and
@@ -94,7 +94,9 @@ jobs:
   fetch_doctor: {text: go to the mill, say: go to mill, words: [mill, come, hurry]}
   sandbag: {text: sandbag the bridge, say: sandbag bridge, words: [sandbag, sandbags, bridge, bank]}
   grind: {text: keep the wheel turning, say: keep grinding, words: [grind, grinding, wheel, work, mind]}
-  stay_put: {text: stay put, say: stay put, words: [stay, wait, put, home]}
+  # "and do nothing" (cycle 121: for the stationmaster, holding the train
+  # was staying at his post, and a live model took "stay put" for it).
+  stay_put: {text: stay put and do nothing, say: stay put, words: [stay, wait, put, home]}
   launch_boats: {text: take the boats out, say: take boats out, words: [boat, boats, punt, punts, row]}
   go_to_hall: {text: go to the church hall, say: go to hall, words: [hall, shelter]}
 
@@ -220,7 +222,7 @@ scenarios:
     failure: STATIONMASTER LEAVES POST STOP ROOFTOPS WAIT TILL DAWN
     lesson: Mrs. Pruitt has a word for anyone you leave out. Leave no one out.
   gossip:
-    teaches: ['adds x left_out', 'others_named x literal', 'negated x two_asks']
+    teaches: ['adds x left_out', 'others_named x literal', 'negated x contrary']
     beat: develop
     time: '1:35 a.m.'
     title: Her own word
@@ -259,4 +261,9 @@ scenarios:
     failure: DAWN FINDS PINEWOOD STILL COUNTING ITS MISSING
     lesson: Wilf turns Mrs. Pruitt's word round too, and the mayor does what he is told not to.
 
-campaign: [the_sluice, the_station, the_mayor, the_council, wilf, two_doors, say_less, the_night, the_party_line, gossip, through_wilf, pruitt_first]
+campaign: [the_sluice, the_station, the_mayor, the_council, wilf, two_doors, say_less, the_night]
+# Set aside in cycle 121, to be rebuilt on who Mrs. Pruitt is: built on
+# rules of addressing, her act was a coin flip once the people decided in
+# character (a stickler ignores a gossip's advice; a contrary mayor told
+# two things may defy either).
+set_aside: [the_party_line, gossip, through_wilf, pruitt_first]

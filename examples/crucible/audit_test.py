@@ -20,6 +20,7 @@ from examples.crucible import audit
 from examples.crucible import golden
 from examples.crucible import golden_passiton
 from examples.crucible import model_setup
+from examples.crucible import toys
 
 
 class MatrixTest(absltest.TestCase):
@@ -44,8 +45,15 @@ class MatrixTest(absltest.TestCase):
     result = audit.audit('nightwire')
     self.assertEqual(result['problems'], [])
     self.assertGreaterEqual(result['counts']['matrix_cells'], 25)
+    data = toys.load_data('nightwire')
+    set_aside = {  # chapters out of the campaign until they are rebuilt
+        ref
+        for name in data.get('set_aside', [])
+        for ref in data['scenarios'][name].get('teaches', [])
+    }
     self.assertEqual(
-        result['untaught'], [ref for ref in result['untaught'] if '->' in ref]
+        [r for r in result['untaught'] if '->' not in r and r not in set_aside],
+        [],
     )  # every reading cell is a chapter's lesson
 
   def test_mock_passes_every_night_wire_golden_case(self):

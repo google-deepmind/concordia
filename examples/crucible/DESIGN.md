@@ -835,6 +835,49 @@ longer fit in twelve words, so the player has to choose whom to leave out.
 **Failure is part of the story.** Each hour has a headline for success and
 one for failure ("NIGHT TRAIN STRANDED ON RIVER BRIDGE").
 
+## 2z+. People, not laws (cycle 121)
+
+**The owner**, after "Dexter, silence!" left the mayor at home: "I think the
+prompt 'Dexter, Silence!' should have worked maybe. The whole point of
+Concordia is that using LLMs should allow more creative parsing to work. It
+shouldn't feel like a game of logical negation. This observation may point
+to a general issue with the current design."
+
+**The general issue.** (1) The characters were written as logic ("told to
+do something, does nothing; told not to, does it"; "puts don't before each
+part"), so the model was used as a slow rule engine and only negation
+could work. (2) The work was mock-first: every rule had to be something a
+regex mock could compute, and the golden sets rewarded the model for
+agreeing with it, which kept selecting mechanics a lookup table can do,
+the opposite of the goal's core requirement. (3) So the solutions were
+double negations.
+
+**The change.** Each person is a few sentences of who they are and what is
+their business (the mayor: "proud, stubborn and contrary. Whatever anyone
+tells him to do, he does the opposite"; the stationmaster: "the station
+and its trains are his business, and nothing else is"); the model decides
+in character and says, in a sentence the page shows, how they took the
+message. What stays is a convention of the world, not of logic: how a
+telegram to several people addresses each of them. The mock stays as a
+rough copy for CI and the bots, not the judge.
+
+**Live (Flash).** As a person the mayor rings the bell on "Dexter,
+silence!", "Mayor, go back to sleep." and "Keep that bell quiet tonight",
+and still refuses "Ring the bell, please, the town is drowning." Every
+chapter's intended message solves; inventive ones solve in about half
+(and fail for reasons a player can read on the cards). Two findings:
+addressing needed its convention stated as firmly as before (unstated, the
+stationmaster also opened the sluice), and the options had to be matched
+to what a person does in their own words ("closest to"). Mrs. Pruitt's act
+was built on rules of addressing and became a coin flip; it is set aside to
+be rebuilt on who she is.
+
+**Next.** Challenge from personality rather than grammar: each reader gets
+something that moves them (the miller acts to save his mill, the
+stationmaster on the railway's authority, the doctor for someone hurt), so
+a message has to persuade each of them in a few words, through relays who
+reshape it.
+
 ## 3. Prior art (cycle 1 search)
 
 | Work | What it does | How the toys differ |
