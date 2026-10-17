@@ -68,7 +68,7 @@ temperaments:
   bold: {glyph: '▲', word: bold, color: bold, means: 'pushes the work, even tired'}
   cautious: {glyph: '●', word: cautious, color: cautious, means: 'mends leaks first, rests when worn'}
   literal: {glyph: '■', word: literal, color: literal, means: 'does exactly what is said, nothing else'}
-  contrary: {glyph: '▼', word: contrary, color: contrary, means: 'does the opposite of what is said'}
+  contrary: {glyph: '▼', word: contrary, color: contrary, means: 'does the opposite of what is said (told to rest, works)'}
 
 conditions:
   fresh: {glyph: '·', word: fresh, color: muted}

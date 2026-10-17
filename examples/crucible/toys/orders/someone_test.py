@@ -207,7 +207,7 @@ class BosunTest(absltest.TestCase):
       relayed[bosun] = toy.world.relayed
     self.assertEqual(relayed['Cy'], order)  # literal: word for word
     self.assertEqual(relayed['Ash'], 'Build.')  # bold: no watch clause
-    self.assertEqual(relayed['Bea'], 'Build; Cy, keep watch; repair leaks.')
+    self.assertEqual(relayed['Bea'], 'Build; Cy, keep watch. Repair leaks.')
     self.assertEqual(relayed['Dex'], "don't build; Cy, don't keep watch.")
 
   def test_a_relay_goes_by_what_a_clause_asks(self):
@@ -223,7 +223,7 @@ class BosunTest(absltest.TestCase):
     )
     self.assertEqual(
         mock.relay('Build; if a leak opens, keep watch.', 'adds_repair'),
-        'Build; if a leak opens, keep watch; repair leaks.',
+        'Build; if a leak opens, keep watch. Repair leaks.',
     )
     self.assertEqual(
         mock.relay("Build; don't repair.", 'adds_repair'),

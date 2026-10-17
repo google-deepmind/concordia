@@ -86,9 +86,10 @@ reading_temperature: 0.0
 # The laws of reading, written into every crew member's prompt.
 reading_laws:
   - A plain clause (no names, no condition) applies to every crew member, every turn.
-  - A clause that names crew members applies to them alone, and comes before any other.
+  - A clause that names crew members applies to them alone, and comes before any other; for them it replaces the plain clauses.
   - A clause with if, when, whenever or during applies only while its condition holds; a clause with unless applies only while it does not. While it applies, such a clause comes before any plain clause.
   - A clause that says not, never or don't forbids the action it names.
+  - A clause that only forbids asks for nothing; the member does what their temperament does otherwise, short of the forbidden action, and if that is forbidden too, keeps watch.
   - With no clause that applies, a crew member does what their temperament does otherwise.
 
 # The word "someone" (arc 4). A clause for someone asks one member only; the
@@ -116,7 +117,10 @@ someone:
 relaying:
   laws:
     word_for_word: passes the order on word for word
-    drops_rest: passes it on but leaves out any clause to rest or keep watch
+    # Crisper (cycle 106: on the old wording qwen3 thought past its timeout).
+    drops_rest: >-
+      passes it on word for word, but leaves out any clause that asks
+      someone to rest or to keep watch
     # Its own sentence (cycle 103: joined with "and", a live relay left it
     # unclear whether "repair leaks" was only for the member just named).
     adds_repair: >-

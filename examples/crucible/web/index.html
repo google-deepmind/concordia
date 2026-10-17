@@ -390,6 +390,7 @@ function renderPass(v, finished) {
   const key = v.scenario + '|' + v.title;
   if (passFor !== key) {
     passFor = key;
+    $('rehearsal').hidden = true;
     const chips = $('pChips'); chips.innerHTML = '';
     const add = (text) => { addWords(text, false, 'pmove'); countPass(); };
     for (const a of Object.keys(say)) {
@@ -423,7 +424,7 @@ function countPass() {
   if (mode !== 'pass' || !lastView || lastView.kind !== 'passiton') return;
   const m = $('pmove');
   if (/[\r\n]/.test(m.value)) m.value = m.value.replace(/\s*[\r\n]+\s*/g, ' ');
-  const words = m.value.trim().split(/\s+/).filter(Boolean).length;
+  const words = (m.value.replace(/\u2019/g, "'").match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []).length;  // as the toy counts
   blocked = !words || words > lastView.max_words;  // an empty message would waste a try
   $('pCount').textContent = words ? words + ' / ' + lastView.max_words + ' words' + (blocked ? ' \u00b7 too long: shorten it to send' : '') : 'Empty: say something to send.';
   sendable();
@@ -448,7 +449,9 @@ function goalLine(v) {
 function addWords(text, replace, id) {
   const m = $(id || 'move');
   let cur = replace ? '' : m.value.trim();
-  if (cur && !/[.;,:]$/.test(cur) && !/\bdon't$/i.test(cur)) cur += ';';  // "don't" leads into its verb
+  const bareName = lastView && lastView.receivers && lastView.receivers.some((r) => new RegExp('\\b' + r.who + '$', 'i').test(cur));
+  if (bareName) cur += ',';  // "Bea" + "keep watch" is "Bea, keep watch"
+  else if (cur && !/[.;,:]$/.test(cur) && !/\bdon['\u2019]t$/i.test(cur)) cur += ';';  // "don't" leads into its verb
   m.value = (cur ? cur + ' ' : '') + text;
   countWords();
 }
@@ -636,7 +639,7 @@ $('rehearse').onclick = async () => {
   catch (e) { r = {summary: 'The rehearsal failed (' + e + ').'}; }
   finally { b.disabled = false; b.textContent = was; }
   const out = $('rehearsal'); out.hidden = false; out.innerHTML = '';
-  if (r.rehearsal) {
+  if (r.rehearsal && r.rehearsal.said !== undefined) {
     out.append(r.rehearsal.who + ' would pass it on as: ');
     out.appendChild(wordDiff(text, r.rehearsal.said));
   } else out.textContent = r.summary;

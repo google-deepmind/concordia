@@ -37,6 +37,15 @@ from examples.crucible.toys import base
 from examples.crucible.toys.orders import toy as orders_lib
 
 SEAT = 'Player'
+# A word: letters, with an apostrophe inside ("don't"); "Don't-build" is two
+# (cycle 106: whitespace runs let hyphens and missing spaces cheat stars).
+_WORDS = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
+
+
+def words_in(message: str) -> int:
+  return len(_WORDS.findall(message.replace('\u2019', "'")))
+
+
 _SCENE = '__pass_it_on__'
 _HOLDS = ('', 'hold', 'pass')
 
@@ -95,6 +104,13 @@ class PassItOnToy(base.Toy):
   def temperament(self, name: str) -> str:
     return self._orders._data['crew'][name]['temperament']  # pylint: disable=protected-access
 
+  def describe(self, name: str) -> str:
+    """How `name`'s temperament is described to the models."""
+    data = self._orders._data  # pylint: disable=protected-access
+    return ' '.join(
+        str(data['temperaments'][self.temperament(name)]['describe']).split()
+    )
+
   def relaying_law(self, name: str) -> str:
     """How `name` passes things on, as the relayer's prompt states it."""
     data = self._orders._data  # pylint: disable=protected-access
@@ -139,9 +155,13 @@ class PassItOnToy(base.Toy):
       {'who': the first relayer, 'said': their words}, or {} when the line
       has no relayer (the player speaks to the top directly).
     """
-    message = message.strip()
+    message = message.strip().replace('\u2019', "'")
+    if ' '.join(re.findall(r'[a-z]+', message.lower())) in _HOLDS:
+      message = ''
     if not self.relayers or not message:
       return {}
+    if words_in(message) > int(self._data['max_words']):
+      return {'error': f'over the limit of {self._data["max_words"]} words'}
     who = self.relayers[0]
     return {'who': who, 'said': self._orders.relay(message, who)}
 
@@ -151,7 +171,8 @@ class PassItOnToy(base.Toy):
     return [SEAT]
 
   def max_steps(self) -> int:
-    return int(self._data['attempts']) + 1
+    # Room for refused (over-long) messages: `done` ends the game.
+    return int(self._data['attempts']) * 4
 
   def action_spec(self, actor: str) -> entity_lib.ActionSpec:
     line = ' -> '.join(
@@ -162,7 +183,11 @@ class PassItOnToy(base.Toy):
     call = (
         f'{self._level["task"]}\n'
         f'The line: you -> {line + " -> " if line else ""}'
-        f'{" and ".join(self.receivers)} (who act).\n'
+        + ' and '.join(
+            f'{who} ({self.temperament(who)}: {self.describe(who)})'
+            for who in self.receivers
+        )
+        + ' (who act).\n'
         f'Goal: {goal}. Try {len(self.world["attempts"]) + 1} of'
         f' {self._data["attempts"]}.\n'
         f'Your message, {{name}}, of at most {self._data["max_words"]} words:'
@@ -170,10 +195,10 @@ class PassItOnToy(base.Toy):
     return entity_lib.free_action_spec(call_to_action=call, tag='message')
 
   def apply(self, world: Any, actor: str, action: str) -> base.Receipt:
-    message = action.strip()
+    message = action.strip().replace('\u2019', "'")
     if ' '.join(re.findall(r'[a-z]+', message.lower())) in _HOLDS:
       message = ''
-    words = len(message.split())
+    words = words_in(message)
     limit = int(self._data['max_words'])
     if words > limit:
       return base.Receipt(

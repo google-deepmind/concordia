@@ -228,7 +228,9 @@ class OrdersMock:
     # A comma before a name, or ", and" (cycle 103: a live relay said "Cy,
     # keep watch, and repair leaks."), where both sides ask for something.
     pieces = re.split(
-        rf',\s*(?=(?:{names})\b)|,\s*and\s+', part, flags=re.IGNORECASE
+        rf',\s*(?=(?:{names})\b)|,\s*and\s+|\s+and\s+(?=(?:{names})\s*,)',
+        part,
+        flags=re.IGNORECASE,
     )
     out = []
     for piece in pieces:
@@ -368,10 +370,12 @@ class OrdersMock:
           and self.makes_sense(action, supplies, damage, leak, storm)
       ):
         return action
-    # Nothing left that helps: rest, unless rest itself is forbidden (cycle
-    # 100: told only "don't rest", a live Cy kept watch rather than rest).
+    # Nothing left that helps: rest, unless rest itself is forbidden; then
+    # keep watch (the law for a clause that only forbids; cycle 106).
     if 'rest' not in forbidden:
       return 'rest'
+    if 'watch' not in forbidden and (menu is None or 'watch' in menu):
+      return 'watch'
     return next(
         (a for a in menu or self._data['actions'] if a not in forbidden),
         'rest',
@@ -409,29 +413,62 @@ class OrdersMock:
     """How a bosun passes `order` on, by their temperament's `relays`."""
     if how == 'word_for_word':
       return order
+    order = order.replace('\u2019', "'")
     parts = [p.strip() for p in _SENTENCE.split(order) if p.strip()]
 
     def asks(part, action):
       return action in self._asks(part)[0]
 
+    def segments(part):
+      # A part's pieces that each ask or forbid something: "Now, build",
+      # "Build, not rest", "Ash, rest, Cy, keep watch" (cycle 106).
+      pieces = [s.strip() for s in re.split(r',|\s+and\s+', part) if s.strip()]
+      out = []
+      for piece in pieces:
+        if out and not any(self._asks(out[-1])[:2]):
+          out[-1] += ', ' + piece  # a name or a word before the work
+        else:
+          out.append(piece)
+      return out
+
     if how == 'drops_rest':
-      parts = [p for p in parts if not (asks(p, 'rest') or asks(p, 'watch'))]
+      kept = []
+      for p in parts:
+        left = [
+            s for s in segments(p) if not (asks(s, 'rest') or asks(s, 'watch'))
+        ]
+        if left:
+          kept.append(', '.join(left))
+      parts = kept
     elif how == 'adds_repair':
-      # Unless a clause already says whether to repair (cycle 83).
+      # Unless a clause already says whether to repair (cycle 83); as a
+      # sentence of its own (cycle 103).
       if not any('repair' in sum(self._asks(p)[:2], []) for p in parts):
-        parts.append('repair leaks')
-    elif how in ('negates', 'flips'):
+        return ('; '.join(parts) + '. ' if parts else '') + 'Repair leaks.'
+    elif how == 'flips':
+
+      def flip(seg):
+        if self._negations & set(_WORD.findall(seg.lower())):
+          return re.sub(
+              r"\b(?:don't|dont|do not|never|not)\s+",
+              '',
+              seg,
+              flags=re.IGNORECASE,
+          )
+        who = re.match(r'^((?:\w+, )*)(.*)$', seg)
+        head, rest = (who.group(1), who.group(2)) if who else ('', seg)
+        return f"{head}don't {rest[0].lower() + rest[1:]}" if rest else seg
+
+      parts = [
+          ', '.join(
+              flip(s) if any(self._asks(s)[:2]) else s for s in segments(p)
+          )
+          for p in parts
+      ]
+    elif how == 'negates':
 
       def negated(part):
         if self._negations & set(_WORD.findall(part.lower())):
-          if how == 'flips':  # "don't build" -> "build"
-            return re.sub(
-                r"\b(?:don'?t|do not|never|not)\s+",
-                '',
-                part,
-                count=1,
-                flags=re.IGNORECASE,
-            )
           return part
         # After whom it addresses: "Cy, don't keep watch", "everyone else,
         # don't build".

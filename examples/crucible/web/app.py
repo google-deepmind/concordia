@@ -413,7 +413,15 @@ class Games:
       if not hop:
         return {
             'ok': True,
-            'summary': 'You speak to the top directly: no one passes it on.',
+            'summary': (
+                'Nothing to rehearse: say something, and someone'
+                ' must stand between you and the top.'
+            ),
+        }
+      if 'error' in hop:
+        return {
+            'ok': False,
+            'summary': f'Too long to rehearse: {hop["error"]}.',
         }
       return {
           'ok': True,
