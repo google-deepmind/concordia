@@ -37,7 +37,10 @@
   button { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
            background: var(--card); color: var(--ink); cursor: pointer; }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 6px; text-align: center; }
+  .stats div.warn { border-color: var(--bad); } .stats div.warn b { color: var(--bad); }
+  .stats.five b { font-size: .95rem; } .stats.five div { padding: 8px 2px; }
+  .stats.five .agebadge { font-size: .7rem; padding-left: 4px; padding-right: 4px; }
   .stats div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px; }
   .stats b { display: block; font-size: 1.15rem; }
   .stats span { font-size: .78rem; color: var(--muted); }
@@ -386,7 +389,7 @@
       <div class="row"><button id="tourskip">Skip</button><button class="primary" id="tournext">Next</button></div>
     </div>
   </div>
-  <p class="sub">A planet on Concordia's pub/sub. Play a role through Concordia's human acting path, or watch the mock play.</p>
+  <p class="sub">Tend a living planet through deep time: everything you read arrives late, and the peoples and species decide for themselves. Play a role, or watch the computer play.</p>
 
   <div class="hero" id="hero"><canvas id="globe" width="120" height="120" role="img" aria-label="The world you picked, turning"></canvas></div>
   <div id="resumeslot"></div>
@@ -805,7 +808,7 @@ function renderWhen(hasOptions) {
   $('when').innerHTML = hasOptions ? whenHtml(planIn) : '';
   $('choices').classList.toggle('planning', planIn > 0);
   for (const b of $('when').querySelectorAll('button')) {
-    b.addEventListener('click', () => { planIn = Number(b.dataset.when); renderWhen(true); });
+    b.addEventListener('click', () => { planIn = Number(b.dataset.when); renderWhen(true); looked('plan'); });
   }
 }
 async function planMove(option) {
@@ -975,6 +978,7 @@ function renderQuestion(q) {
         // A move the forecast says takes the world out of its band within
         // two turns asks twice: the first tap says so.
         if (asksTwice(whatIfs[option]) && b.dataset.armed !== '1') {
+          looked('armed');
           b.dataset.armed = '1';
           b.classList.add('armed');
           b.insertAdjacentHTML('beforeend', '<span class="armnote">Your forecast says this breaks the band. Tap again to send it.</span>');
@@ -1249,8 +1253,33 @@ function markPressing(q) {
 // while the world turns, a course being held, or the game decided. The turn
 // turning flashes the dock, and the last move's outcome comes back on it.
 let sheetOpen = false, sentNow = null, dockTick = null, firstAsk = true;
+// What the player looks at while a turn is asked (the move sheet, a card
+// read for a moment, a fold opened), kept with the turn's telemetry.
+const lookedNow = new Set();
+let lookedFor = '';
+function looked(what) {
+  const q = lastQuestion;
+  if (!q) return;
+  if (lookedFor !== q.request_id) { lookedFor = q.request_id; lookedNow.clear(); }
+  if (lookedNow.has(what)) return;
+  lookedNow.add(what);
+  const seat = new URLSearchParams(location.search).get('seat');
+  api('api/look', {seat, what}).catch(() => {});
+}
+const reading = new Map();
+const cardWatch = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    clearTimeout(reading.get(e.target.id));
+    const read = e.intersectionRatio >= 0.6 || e.intersectionRect.height >= innerHeight * 0.4;
+    if (read) reading.set(e.target.id, setTimeout(() => looked('card:' + e.target.id), 1200));
+  }
+}, {threshold: [0, 0.3, 0.6]});
+for (const c of document.querySelectorAll('#game .card[id]')) cardWatch.observe(c);
+$('ctxcard').addEventListener('toggle', () => { if ($('ctxcard').open) looked('open:ctxcard'); });
+
 function setSheet(open) {
   sheetOpen = open;
+  if (open) looked('sheet');
   if ($('dockgo')) {
     $('dockgo').textContent = open ? 'Hide' : 'Choose';
     const ds = $('dockbtns').dataset;
@@ -1679,8 +1708,10 @@ function render(state) {
     const aged = /^(.*?),? (\d+) ticks? old$/.exec(s.label);
     const label = aged ? escapeHtml(aged[1])
       + `<br><span class="agebadge ${ageClass(+aged[2])}">${ageWords(+aged[2])}</span>` : escapeHtml(s.label);
-    return `<div><b>${escapeHtml(s.value)}</b><span>${label}</span></div>`;
+    return `<div${s.warn ? ' class="warn"' : ''}><b>${escapeHtml(s.value)}</b><span>${label}</span></div>`;
   }).join('');
+  $('stats').style.setProperty('--n', Math.max(4, state.stats.length));
+  $('stats').classList.toggle('five', state.stats.length >= 5);
   const out = $('outcome');
   out.className = 'outcome ' + (state.outcome || '');
   out.textContent = state.outcome ? `${state.outcome.toUpperCase()}: ${state.outcome_reason}`

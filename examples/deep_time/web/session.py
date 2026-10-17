@@ -133,6 +133,11 @@ def neutral(options: Sequence[str]) -> str:
   return next((o for o in options if o in NEUTRAL_OPTIONS), options[0])
 
 
+# What a turn's telemetry keeps of what the person looked at.
+LOOKS = 24
+LOOK_CHARS = 48
+
+
 class Seat(human_input.HumanInput):
   """One person's place in a game: the `HumanInput` reader of their entity.
 
@@ -178,6 +183,9 @@ class Seat(human_input.HumanInput):
     # (then it asks the person, saying so in `stopped`).
     self.plans: dict[int, str] = {}
     self.can_make: Callable[[str], str] = lambda option: ''
+    # What the person looked at while this turn was asked (the move sheet,
+    # the cards they read, the folds they opened), kept with the turn.
+    self.looked: list[str] = []
 
   def saved(self) -> dict[str, Any]:
     """What a save keeps of the seat."""
@@ -268,8 +276,17 @@ class Seat(human_input.HumanInput):
         'offered': list(offered),
         'pushes': pushes,
         'seconds': None if seconds is None else round(seconds, 1),
+        'looked': self.looked,
         **self.world(),
     })
+    self.looked = []
+
+  def look(self, what: str) -> None:
+    """Notes that the person looked at something on the page this turn."""
+    what = ' '.join(str(what).split())[:LOOK_CHARS]
+    with self._lock:
+      if what and what not in self.looked and len(self.looked) < LOOKS:
+        self.looked.append(what)
 
   def hold_course(self, turns: int) -> None:
     """Makes the neutral move for `turns` turns (0 stops); answers now if asked."""
@@ -816,6 +833,7 @@ class GameSession:
             'pushes': turn['pushes'],
             'neutral': turn['move'] in NEUTRAL_OPTIONS,
             'seconds': turn['seconds'],
+            'looked': list(turn.get('looked', ())),
             **{
                 k: turn[k]
                 for k in ('omega', 'read_c', 'forecast_c', 'true_c', 'life')
@@ -883,6 +901,14 @@ class GameSession:
     if place.guard is None:
       place.guard = lambda: self._needs_you(entity)
     place.hold_course(turns)
+    return None
+
+  def look(self, seat: str | None, what: str) -> str | None:
+    """A player looked at something on the page; None, or why not noted."""
+    if self.mode != 'play' or self._spectating(seat):
+      return "Only a player's looks are kept."
+    entity = seat if seat in self.seats else self.entity
+    self.seats[entity].look(what)
     return None
 
   def plan(self, seat: str | None, move: str, turns: int) -> str | None:
@@ -1177,6 +1203,10 @@ class GameSession:
       low, high = planet.band()
       if believed is not None and not low <= believed <= high:
         return 'your thermometer reads outside the band'
+      cap = planet.goal().get('max_co2')
+      air = self.context.believed(entity, 'climate.global', 'co2')
+      if cap is not None and air is not None and air >= float(cap):
+        return f'your thermometer reads the air past ×{float(cap):g} carbon'
       if civ is not None and any(
           p.food_ratio < 0.9 for p in civ.polities.values()
       ):
@@ -1876,7 +1906,8 @@ class GameSession:
     colony = planet.colony
     actor = self.context.actors.get(entity)
     stats: list[dict[str, Any]] = [
-        {'label': 'tick', 'value': f'{planet.tick}/{planet.max_ticks}'}
+        # 'turn', as the dock says it.
+        {'label': 'turn', 'value': f'{planet.tick}/{planet.max_ticks}'}
     ]
     omega: dict[str, Any] = {
         'label': 'Ω',
@@ -1906,7 +1937,7 @@ class GameSession:
     # The Omega meter is exact, and it reports biodiversity.
     bio = {'label': 'biodiversity', 'value': f'{planet.biodiversity():.2f}'}
     if reveal or isinstance(actor, actors_lib.StewardActor):
-      return stats + [temp, omega, bio]
+      return stats + [temp, omega, *(self._goal_stats(reveal, entity) or [bio])]
     if isinstance(actor, actors_lib.PolityActor) and planet.civ is not None:
       # A people knows its own storehouse exactly (its sheet says so).
       people = planet.civ.polities[actor.polity]
@@ -1930,6 +1961,58 @@ class GameSession:
     if (entity, 'climate.global') in self.context.beliefs:
       return stats + [temp]
     return stats
+
+  def _goal_stats(self, reveal: bool, entity: str) -> list[dict[str, Any]]:
+    """The numbers a peoples' goal is judged on, as the Steward reads them.
+
+    The air comes through the Steward's thermometer (late and noisy), what
+    the peoples made through their census; the truth once revealed. A
+    reading past its limit is marked. Empty where the goal has no such
+    numbers.
+    """
+    planet = self.context.planet
+    goal = planet.goal()
+    if planet.civ is None or goal['kind'] not in ('industrialize', 'iron_age'):
+      return []
+
+    def read(key: tuple[str, str], path: str, truth: float):
+      """The truth if revealed, else the reading (or None) and its age."""
+      if reveal:
+        return truth, ''
+      message = self.context.beliefs.get(key) or self.context.received.get(key)
+      if message is None:
+        return None, ''
+      value: Any = json.loads(message.payload)
+      for part in path.split('.'):
+        value = value.get(part) if isinstance(value, dict) else None
+      if not isinstance(value, (int, float)):
+        return None, ''
+      sent = message.time
+      age = 0 if sent is None else max(0, planet.tick - int(sent))
+      return value, f', {age} tick{"" if age == 1 else "s"} old' if age else ''
+
+    found = []
+    if goal['kind'] == 'industrialize':
+      cap = float(goal['max_co2'])
+      truth = planet.carbon.relative_co2() if planet.carbon else 1.0
+      co2, age = read((entity, 'climate.global'), 'co2', truth)
+      found.append({
+          'label': f'CO₂ / cap{age}',
+          'value': f'{"?" if co2 is None else f"{co2:.2f}"}/{cap:g}',
+          'warn': co2 is not None and co2 >= cap,
+      })
+    good, need = (
+        ('energy', goal['min_energy'])
+        if goal['kind'] == 'industrialize'
+        else ('iron', goal['min_iron'])
+    )
+    # The peoples' census reaches the Steward at once (its 'Peoples').
+    made, age = read((entity, 'Peoples'), f'made.{good}', planet.civ.made(good))
+    found.append({
+        'label': f'{good} made{age}',
+        'value': f'{"?" if made is None else f"{made:.0f}"}/{float(need):g}',
+    })
+    return found
 
   def _peoples(self, seat: str | None, reveal: bool) -> dict[str, Any] | None:
     """Towns, roads and routes; a people's planned town only to itself."""

@@ -8,7 +8,7 @@ archipelago:
   ash_winter: cools about 62 °C next turn, lasting; biodiversity −0.02
   bright_clouds: cools about 6 °C next turn, fading over a few turns
   dark_haze: warms about 6 °C next turn, fading over a few turns
-  plant_forests: greens bare land; hardly changes the warmth; −×0.02 carbon in the air; biodiversity +0.01
+  plant_forests: greens bare land; hardly changes the warmth; lowers CO₂ by 0.02; biodiversity +0.01
   profiles:
     ash_winter: [-61.7, -59.0, -57.0, -53.2, -52.8, -51.1]
     bright_clouds: [-6.4, -3.9, -2.3, -1.4, -0.8, -0.5]
@@ -19,16 +19,16 @@ archipelago:
     sow_grass_little: [-0.1, -0.1, -0.1, -0.2, -0.1, -0.2]
     transplant_forests: [0.0, 0.1, 0.1, 0.1, 0.1, 0.1]
     transplant_grass: [0.1, 0.1, 0.0, 0.0, -0.0, -0.0]
-  runaway_greenhouse: warms about 35 °C next turn, lasting; +×2.31 carbon in the air; biodiversity −0.02
-  sow_grass: greens bare land; hardly changes the warmth; −×0.02 carbon in the air
+  runaway_greenhouse: warms about 35 °C next turn, lasting; raises CO₂ by 2.31; biodiversity −0.02
+  sow_grass: greens bare land; hardly changes the warmth; lowers CO₂ by 0.02
   sow_grass_little: greens a little bare land; hardly changes the warmth
   transplant_forests: 'costs no omega but woods: 4 in 10 seeds are lost; hardly changes the warmth; biodiversity +0.01'
   transplant_grass: 'costs no omega but grass: 4 in 10 seeds are lost; hardly changes the warmth; biodiversity +0.01'
 daisyworld:
-  ash_winter: cools about 53 °C next turn, lasting; +×0.11 to +×0.25 carbon in the air; biodiversity −0.42
-  basalt_dust: cools about 2 °C next turn, fading over a few turns; −×0.20 carbon in the air; biodiversity −0.01 to −0.03
-  bright_clouds: cools about 8 °C next turn, fading over a few turns; +×0.02 carbon in the air; biodiversity +0.01
-  dark_haze: warms about 10 °C next turn, fading slowly; up to +×0.06 carbon in the air; biodiversity −0.01 to −0.08
+  ash_winter: cools about 53 °C next turn, lasting; raises CO₂ by 0.11 to 0.25; biodiversity −0.42
+  basalt_dust: cools about 2 °C next turn, fading over a few turns; lowers CO₂ by 0.20; biodiversity −0.01 to −0.03
+  bright_clouds: cools about 8 °C next turn, fading over a few turns; raises CO₂ by 0.02; biodiversity +0.01
+  dark_haze: warms about 10 °C next turn, fading slowly; raises CO₂ by up to 0.06; biodiversity −0.01 to −0.08
   profiles:
     ash_winter: [-53.4, -52.8, -54.5, -51.2, -49.1, -47.5]
     basalt_dust: [-1.8, -0.9, -0.8, -0.6, -0.6, -0.5]
@@ -38,13 +38,13 @@ daisyworld:
     runaway_greenhouse: [56.0, 47.5, 43.1, 41.8, 38.8, 35.2]
     seed_black: [2.2, 1.9, 1.6, 1.7, 1.6, 1.7]
     seed_white: [-1.8, -1.2, -1.0, -1.3, -1.4, -1.4]
-  rouse_volcanoes: warms about 1 °C next turn, lasting; +×0.10 carbon in the air; biodiversity +0.01
-  runaway_greenhouse: warms about 56 °C next turn, lasting; up to +×0.72 carbon in the air; biodiversity −0.47
+  rouse_volcanoes: warms about 1 °C next turn, lasting; raises CO₂ by 0.10; biodiversity +0.01
+  runaway_greenhouse: warms about 56 °C next turn, lasting; raises CO₂ by up to 0.72; biodiversity −0.47
   seed_black: black petals absorb; warms about 2 °C next turn, lasting; biodiversity up to −0.02
   seed_white: white petals reflect; cools about 2 °C next turn, lasting; biodiversity −0.01
 fire_and_iron:
-  ash_winter: cools about 57 °C next turn, lasting; +×0.12 to +×0.23 carbon in the air; biodiversity −0.16
-  basalt_dust: cools about 3 °C next turn, fading slowly; −×0.24 carbon in the air; biodiversity −0.01
+  ash_winter: cools about 57 °C next turn, lasting; raises CO₂ by 0.12 to 0.23; biodiversity −0.16
+  basalt_dust: cools about 3 °C next turn, fading slowly; lowers CO₂ by 0.24; biodiversity −0.01
   bright_clouds: cools about 6 °C next turn, fading over a few turns; biodiversity up to −0.01
   dark_haze: warms about 6 °C next turn, fading over a few turns; biodiversity +0.01
   plant_forests: greens bare land; hardly changes the warmth
@@ -55,11 +55,11 @@ fire_and_iron:
     dark_haze: [6.3, 3.7, 2.2, 1.2, 0.6, 0.3]
     plant_forests: [0.4, 0.3, 0.3, 0.3, 0.3, 0.3]
     runaway_greenhouse: [33.1, 27.5, 23.4, 20.0, 17.1, 14.6]
-  runaway_greenhouse: warms about 33 °C next turn, fading slowly; +×1.22 carbon in the air; biodiversity −0.12
+  runaway_greenhouse: warms about 33 °C next turn, fading slowly; raises CO₂ by 1.22; biodiversity −0.12
 great_acceleration:
-  ash_winter: cools about 57 °C next turn, lasting; +×0.07 carbon in the air; biodiversity −0.15
-  basalt_dust: cools about 1 °C next turn, lasting; −×0.08 carbon in the air; biodiversity up to −0.01
-  bright_clouds: cools about 6 to 16 °C next turn, lasting; up to +×0.02 carbon in the air; biodiversity −0.01 to −0.04
+  ash_winter: cools about 57 °C next turn, lasting; raises CO₂ by 0.07; biodiversity −0.15
+  basalt_dust: cools about 1 °C next turn, lasting; lowers CO₂ by 0.08; biodiversity up to −0.01
+  bright_clouds: cools about 6 to 16 °C next turn, lasting; raises CO₂ by up to 0.02; biodiversity −0.01 to −0.04
   dark_haze: warms about 6 °C next turn, fading over a few turns; biodiversity +0.00
   plant_forests: greens bare land; hardly changes the warmth; biodiversity up to −0.01
   profiles:
@@ -69,9 +69,9 @@ great_acceleration:
     dark_haze: [6.3, 3.8, 2.1, 1.2, 0.7, 0.3]
     plant_forests: [0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
     runaway_greenhouse: [34.6, 30.1, 26.4, 23.4, 20.9, 18.7]
-  runaway_greenhouse: warms about 35 °C next turn, lasting; +×2.34 carbon in the air; biodiversity −0.12
+  runaway_greenhouse: warms about 35 °C next turn, lasting; raises CO₂ by 2.34; biodiversity −0.12
 great_migration:
-  ash_winter: cools about 57 °C next turn, lasting; +×0.10 carbon in the air; biodiversity −0.16
+  ash_winter: cools about 57 °C next turn, lasting; raises CO₂ by 0.10; biodiversity −0.16
   bright_clouds: cools about 7 °C next turn, fading over a few turns; biodiversity +0.01
   profiles:
     ash_winter: [-57.4, -57.0, -57.1, -55.5, -53.9, -52.4]
@@ -80,13 +80,13 @@ great_migration:
     sow_grass: [-0.3, -0.3, -0.2, -0.2, -0.2, -0.2]
     transplant_forests: [-0.0, 0.0, -0.0, -0.0, -0.0, -0.0]
     transplant_grass: [0.1, 0.0, 0.0, 0.0, 0.0, 0.0]
-  runaway_greenhouse: warms about 36 °C next turn, lasting; +×2.36 carbon in the air; biodiversity −0.15
+  runaway_greenhouse: warms about 36 °C next turn, lasting; raises CO₂ by 2.36; biodiversity −0.15
   sow_grass: greens bare land; hardly changes the warmth; biodiversity −0.01
   transplant_forests: 'costs no omega but woods: 4 in 10 seeds are lost; hardly changes the warmth; biodiversity up to −0.01'
   transplant_grass: 'costs no omega but grass: 4 in 10 seeds are lost; hardly changes the warmth'
 great_oxidation:
-  ash_winter: cools about 25 to 43 °C next turn, lasting; +×0.10 to +×0.27 carbon in the air; biodiversity −0.14
-  basalt_dust: cools about 3 °C next turn, lasting; −×0.22 carbon in the air; biodiversity −0.01 to −0.02
+  ash_winter: cools about 25 to 43 °C next turn, lasting; raises CO₂ by 0.10 to 0.27; biodiversity −0.14
+  basalt_dust: cools about 3 °C next turn, lasting; lowers CO₂ by 0.22; biodiversity −0.01 to −0.02
   bright_clouds: cools about 7 °C next turn, fading over a few turns; biodiversity −0.01
   dark_haze: warms about 7 °C next turn, fading over a few turns; biodiversity +0.01
   profiles:
@@ -98,14 +98,14 @@ great_oxidation:
     runaway_greenhouse: [35.4, 29.4, 24.8, 21.3, 18.4, 15.9]
     seed_aerobes: [-0.6, -0.5, -0.4, -0.3, -0.3, -0.2]
     seed_cyanobacteria: [-0.2, -0.3, -0.3, -0.3, -0.3, -0.5]
-  rouse_volcanoes: warms about 1 °C next turn, fading slowly; +×0.11 carbon in the air; biodiversity up to +0.01
-  runaway_greenhouse: warms about 35 °C next turn, lasting; +×1.24 carbon in the air; biodiversity −0.04 to −0.08
+  rouse_volcanoes: warms about 1 °C next turn, fading slowly; raises CO₂ by 0.11; biodiversity up to +0.01
+  runaway_greenhouse: warms about 35 °C next turn, lasting; raises CO₂ by 1.24; biodiversity −0.04 to −0.08
   seed_aerobes: breathes oxygen, and dies where the air has none; cools about 0.5 °C next turn, lasting; biodiversity +0.04
   seed_cyanobacteria: makes oxygen faster; hardly changes the warmth; biodiversity +0.01
 herds:
-  ash_winter: cools about 45 °C next turn, lasting; +×0.11 to +×0.22 carbon in the air; biodiversity −0.35
-  basalt_dust: cools about 2 °C next turn, fading over a few turns; −×0.20 carbon in the air; biodiversity −0.02 to −0.04
-  bright_clouds: cools about 7 °C next turn, fading over a few turns; +×0.03 carbon in the air; biodiversity −0.01
+  ash_winter: cools about 45 °C next turn, lasting; raises CO₂ by 0.11 to 0.22; biodiversity −0.35
+  basalt_dust: cools about 2 °C next turn, fading over a few turns; lowers CO₂ by 0.20; biodiversity −0.02 to −0.04
+  bright_clouds: cools about 7 °C next turn, fading over a few turns; raises CO₂ by 0.03; biodiversity −0.01
   dark_haze: warms about 9 °C next turn, fading over a few turns; biodiversity −0.04
   profiles:
     ash_winter: [-45.5, -43.6, -42.3, -37.2, -34.0, -32.0]
@@ -116,8 +116,8 @@ herds:
     runaway_greenhouse: [52.0, 45.4, 39.9, 38.2, 36.1, 33.0]
     seed_black: [2.0, 1.7, 1.3, 1.1, 0.9, 0.6]
     seed_white: [-1.8, -1.3, -1.0, -1.1, -1.3, -1.3]
-  rouse_volcanoes: warms about 0.5 °C next turn, fading slowly; +×0.10 carbon in the air; biodiversity +0.01
-  runaway_greenhouse: warms about 52 °C next turn, lasting; +×0.32 to +×0.81 carbon in the air; biodiversity −0.44
+  rouse_volcanoes: warms about 0.5 °C next turn, fading slowly; raises CO₂ by 0.10; biodiversity +0.01
+  runaway_greenhouse: warms about 52 °C next turn, lasting; raises CO₂ by 0.32 to 0.81; biodiversity −0.44
   seed_black: black petals absorb; warms about 2 °C next turn, fading slowly; biodiversity −0.01
   seed_white: white petals reflect; cools about 2 °C next turn, lasting; biodiversity −0.01
 light_delay:
@@ -129,8 +129,8 @@ light_delay:
     solar_farm: power +2.4 a year; food −0.9, air −0.8, water −0.3 a year; the sky −0.6 °C in 4 years
     terraformer: the sky +2.8 °C in 4 years; power −4.2, air −0.8, food −0.8 a year
 sandbox:
-  ash_winter: cools about 60 °C next turn, lasting; +×0.06 carbon in the air; biodiversity −0.15
-  basalt_dust: cools about 5 °C next turn, lasting; −×0.40 carbon in the air; biodiversity −0.03
+  ash_winter: cools about 60 °C next turn, lasting; raises CO₂ by 0.06; biodiversity −0.15
+  basalt_dust: cools about 5 °C next turn, lasting; lowers CO₂ by 0.40; biodiversity −0.03
   bright_clouds: cools about 7 °C next turn, fading over a few turns; biodiversity +0.01
   dark_haze: warms about 7 °C next turn, fading over a few turns
   plant_forests: greens bare land; hardly changes the warmth; biodiversity +0.01
@@ -143,11 +143,11 @@ sandbox:
     protect_wilds: [0.0, 0.0, -0.0, -0.0, 0.0, 0.0]
     runaway_greenhouse: [36.0, 31.4, 27.6, 24.5, 21.9, 19.7]
   protect_wilds: no felling there for 6 turns; hardly changes the warmth
-  runaway_greenhouse: warms about 36 °C next turn, lasting; +×2.34 carbon in the air; biodiversity −0.14
+  runaway_greenhouse: warms about 36 °C next turn, lasting; raises CO₂ by 2.34; biodiversity −0.14
 savanna_fire:
-  ash_winter: cools about 44 °C next turn, lasting; +×0.04 carbon in the air; biodiversity −0.05 to −0.12
-  bright_clouds: cools about 8 °C next turn, fading over a few turns; up to −×0.03 carbon in the air; biodiversity +0.01
-  dark_haze: warms about 7 °C next turn, fading over a few turns; up to +×0.03 carbon in the air; biodiversity −0.01
+  ash_winter: cools about 44 °C next turn, lasting; raises CO₂ by 0.04; biodiversity −0.05 to −0.12
+  bright_clouds: cools about 8 °C next turn, fading over a few turns; lowers CO₂ by up to 0.03; biodiversity +0.01
+  dark_haze: warms about 7 °C next turn, fading over a few turns; raises CO₂ by up to 0.03; biodiversity −0.01
   plant_forests: greens bare land; warms about 1 °C next turn, fading slowly; biodiversity +0.02
   plant_forests_little: greens a little bare land; warms about 0.5 °C next turn, fading slowly; biodiversity +0.01
   profiles:
@@ -159,12 +159,12 @@ savanna_fire:
     runaway_greenhouse: [38.4, 33.3, 29.2, 25.7, 22.7, 20.3]
     transplant_forests: [-0.1, -0.0, -0.1, -0.1, -0.1, -0.1]
     transplant_grass: [0.1, 0.1, 0.1, 0.0, 0.1, 0.0]
-  runaway_greenhouse: warms about 38 °C next turn, lasting; +×2.33 carbon in the air; biodiversity −0.12
+  runaway_greenhouse: warms about 38 °C next turn, lasting; raises CO₂ by 2.33; biodiversity −0.12
   transplant_forests: 'costs no omega but woods: 4 in 10 seeds are lost; hardly changes the warmth; biodiversity −0.01'
   transplant_grass: 'costs no omega but grass: 4 in 10 seeds are lost; hardly changes the warmth'
 snowball:
   ash_winter: cools about 21 °C next turn, lasting
-  basalt_dust: cools about 4 °C next turn, lasting; −×0.50 carbon in the air
+  basalt_dust: cools about 4 °C next turn, lasting; lowers CO₂ by 0.50
   bright_clouds: cools about 6 °C next turn, fading over a few turns
   dark_haze: warms about 6 °C next turn, fading over a few turns
   profiles:
@@ -173,4 +173,4 @@ snowball:
     bright_clouds: [-6.4, -3.9, -2.3, -1.4, -0.8, -0.5]
     dark_haze: [6.4, 3.9, 2.3, 1.4, 0.8, 0.5]
     rouse_volcanoes: [1.2, 1.2, 1.2, 1.2, 1.2, 1.1]
-  rouse_volcanoes: warms about 1 °C next turn, lasting; +×0.25 carbon in the air
+  rouse_volcanoes: warms about 1 °C next turn, lasting; raises CO₂ by 0.25

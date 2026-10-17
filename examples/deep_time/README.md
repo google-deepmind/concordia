@@ -210,7 +210,10 @@ rather than holds, how many moves with a measured push each turn offers (now and
 counting the moves it is saving for), the skilled bot's stars and each bot's
 share of side objectives met. The phone server writes every played game to
 `<demo_dir>-telemetry/` (outside the published demo folder; or
-`--telemetry_dir`, `''` for none) for the same questions about people.
+`--telemetry_dir`, `''` for none) for the same questions about people: each
+turn's move, how it was made, the seconds taken, and what the player looked at
+before choosing (the move sheet, each card read for a moment, folds opened,
+plans and armed previews; the page reports them to `/api/look`).
 
 ```bash
 python -m examples.deep_time.push_audit --write

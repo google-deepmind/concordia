@@ -283,9 +283,14 @@ class PolityActor(Actor):
       automation: automation_lib.Automation | None = None,
       answers_offers: bool = False,
       age: str = 'the early iron age',
+      coached: bool = True,
   ):
     super().__init__(name, outcome_topic=f'civ.{polity}.decrees')
     self.age = age  # Named in the call to action ("a people of …").
+    # Whether its question ends with what matters most and its menu always
+    # keeps the tech worth learning: a playbook, off when a live mind plays
+    # the people as a character (it decides from who the people are).
+    self.coached = coached
     self.polity = polity
     self._planet = planet
     self._share = share
@@ -414,7 +419,7 @@ class PolityActor(Actor):
       # The tech that most helps the goal's chain, the cheapest
       # half, and the most advanced of the rest (the frontier would
       # otherwise hide behind cheap old techs).
-      good = crises_lib.goal_good(self._planet)
+      good = crises_lib.goal_good(self._planet) if self.coached else None
       best = civ.best_tech(self.polity, good) if good else None
       keep = [t for t in affordable if best is not None and t.key == best.key]
       others = [t for t in affordable if t not in keep]
@@ -593,7 +598,11 @@ class PolityActor(Actor):
     options = self.options()
     # What matters most this turn ends the question, where a mind reads
     # last: the crisis a move answers, and the weakest link.
-    found = crises_lib.pressing(self._planet, self.polity, options, {})
+    found = (
+        crises_lib.pressing(self._planet, self.polity, options, {})
+        if self.coached
+        else []
+    )
     return entity_lib.choice_action_spec(
         # Concordia fills in {name}; the age is the scenario's.
         call_to_action=POLITY_CALL_TO_ACTION.replace('{age}', self.age)

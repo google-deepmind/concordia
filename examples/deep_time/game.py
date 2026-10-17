@@ -116,6 +116,10 @@ class GameContext:
   wakeups: wakeups_lib.WakeUps | None = None
   # Peoples' standing orders as reflexes, in scenarios with a market.
   automation: automation_lib.Automation | None = None
+  # Whether the peoples' minds read stage 4's playbook lines (what the age
+  # asks, what matters most, the tech worth learning). The mock reads them
+  # (its play stays reproducible); live minds play the peoples as characters.
+  coached: bool = True
   # Entities a person plays, by name, and the reader that waits for them.
   humans: dict[str, human_input.HumanInput] = dataclasses.field(
       default_factory=dict

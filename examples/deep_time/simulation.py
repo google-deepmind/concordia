@@ -99,6 +99,7 @@ def build_simulation(
   """
   context = game_lib.new_game(scenario_name, time_mode=time_mode, seed=seed)
   context.humans.update(humans or {})
+  context.coached = models.mock is not None
   config = build_config(context, models, max_ticks)
   sim = simulation_lib.Simulation(
       config=config,

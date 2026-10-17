@@ -202,10 +202,11 @@ def describe(changes: Sequence[Change], note: str = '') -> str:
   co2 = max(co2s, key=abs)
   carbon = ''
   if abs(co2) >= 0.02:
+    # In the units the page reads the air in: multiples of its start.
     same = [v for v in co2s if v * co2 > 0]
-    sign = '+' if co2 > 0 else '−'
-    upto, size = _spread(same, lambda v: f'{sign}×{abs(v):.2f}', 0.02)
-    carbon = f'; {upto}{size} carbon in the air'
+    verb = 'raises' if co2 > 0 else 'lowers'
+    upto, size = _spread(same, lambda v: f'{abs(v):.2f}', 0.02)
+    carbon = f'; {verb} CO₂ by {upto}{size}'
   bios = [float(c.get('bio', 0.0)) for c in changes]
   bio = max(bios, key=abs)
   life = ''

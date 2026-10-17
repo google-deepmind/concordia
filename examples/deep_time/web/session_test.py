@@ -24,6 +24,7 @@ from typing import Any, Callable
 
 from absl.testing import absltest
 from concordia.components.agent import human_act_component
+from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import scenarios
 from examples.deep_time.web import session as session_lib
@@ -161,7 +162,7 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     self.assertEqual(game.role, 'White daisies, a species')
     labels = [s['label'] for s in game.state()['stats']]
-    self.assertEqual(labels, ['tick', 'cover', 'seed bank'])
+    self.assertEqual(labels, ['turn', 'cover', 'seed bank'])
     species = game.role_entity()
     assert species is not None
     self.assertIsInstance(
@@ -183,7 +184,7 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     self.assertEqual(game.role, 'Amber folk, a people')
     labels = [s['label'] for s in game.state()['stats']]
-    self.assertEqual(labels, ['tick', 'people', 'fed', 'grain'])
+    self.assertEqual(labels, ['turn', 'people', 'fed', 'grain'])
     for _ in range(5):
       question = _question(game)
       self.assertIn('Our storehouse and labor', question['context'])
@@ -871,6 +872,9 @@ class GameSessionTest(absltest.TestCase):
     seat = game.seats[game.entity]
     question = _question(game)
     seed = next(o for o in question['options'] if o.startswith('seed white'))
+    # What the player looked at before choosing: kept once each, in order.
+    for what in ('sheet', 'card:storycard', 'sheet', '  card:goalcard '):
+      self.assertIsNone(game.look(None, what))
     seat.choose(question['request_id'], seed)
     _wait_for(lambda: game.state()['tick'] >= 2 and game.state()['question'])
     seat.hold_pace = 0.05
@@ -892,11 +896,50 @@ class GameSessionTest(absltest.TestCase):
     self.assertGreater(first['pushes'], 3)  # The Steward's measured moves.
     self.assertTrue(held['neutral'])
     self.assertIsNone(held['seconds'])
+    self.assertEqual(
+        first['looked'], ['sheet', 'card:storycard', 'card:goalcard']
+    )
+    self.assertEqual(held['looked'], [])  # A new turn starts with nothing.
     # What the Steward read and what was true, to review a turn by.
     self.assertGreaterEqual(first['omega'], 0)
     self.assertIsInstance(first['true_c'], float)
     self.assertIn('read_c', first)
     self.assertIn('forecast_c', first)
+
+  def test_the_steward_reads_the_peoples_goal_on_its_strip(self):
+    game = session_lib.GameSession('great_acceleration', 'play')
+    context = game.context
+
+    def reading(topic, payload, tick, kept):
+      kept[('Gaia', topic)] = topics.Message(
+          topic, json.dumps(payload), seq=0, time=tick
+      )
+
+    stats = game._stats(False, 'Gaia')  # pylint: disable=protected-access
+    self.assertEqual(
+        [s['label'] for s in stats][-2:], ['CO₂ / cap', 'energy made']
+    )
+    self.assertEqual([s['value'] for s in stats][-2:], ['?/1.3', '0/600'])
+    context.planet.tick = 6
+    # What the instruments last read, with its age; past the cap is marked.
+    reading('climate.global', {'temp_c': 14.0, 'co2': 1.34}, 5, context.beliefs)
+    # The peoples' census reaches the Steward at once (as 'Peoples').
+    reading('Peoples', {'made': {'energy': 340.4}}, 6, context.received)
+    co2, energy = game._stats(False, 'Gaia')[-2:]  # pylint: disable=protected-access
+    self.assertEqual(
+        (co2['label'], co2['value'], co2['warn']),
+        ('CO₂ / cap, 1 tick old', '1.34/1.3', True),
+    )
+    self.assertEqual(
+        (energy['label'], energy['value']), ('energy made', '340/600')
+    )
+    # Holding course stops for it.
+    self.assertIn('past ×1.3 carbon', game._needs_you('Gaia'))  # pylint: disable=protected-access
+    # Worlds whose goal has no such numbers keep biodiversity.
+    daisies = session_lib.GameSession('daisyworld', 'play')
+    self.assertEqual(
+        daisies._stats(False, 'Gaia')[-1]['label'], 'biodiversity'  # pylint: disable=protected-access
+    )
 
   def test_a_turn_keeps_each_peoples_hands_for_review(self):
     game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')

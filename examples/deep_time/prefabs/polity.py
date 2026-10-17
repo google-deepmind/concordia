@@ -87,10 +87,12 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
     )
   for aim in context.scenario['civilization'].get('aims', ()):
     text += ' ' + civ.aim(polity, str(aim))
-  # What the age asks of the peoples, in this people's numbers.
-  text += crises_lib.shared_words(
-      crises_lib.shared_goal(context.planet, polity)
-  )
+  # What the age asks of the peoples, in this people's numbers (a playbook
+  # line: only for coached minds).
+  if context.coached:
+    text += crises_lib.shared_words(
+        crises_lib.shared_goal(context.planet, polity)
+    )
   # Trouble the people can see coming, as its page shows it.
   actor = context.actors.get(civ.polities[polity].name)
   options = list(actor.action_spec().options) if actor is not None else []
@@ -139,6 +141,7 @@ def polity_config(
           automation=context.automation,
           answers_offers=human,
           age=str(rules.get('age', 'the early iron age')),
+          coached=context.coached,
       ),
       hears=(
           'world.tick',
