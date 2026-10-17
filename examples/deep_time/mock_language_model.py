@@ -555,9 +555,14 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is cooling on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = (
+        'is drifting toward overheating'
+        if trend >= 0
+        else 'is near the top of its band'
+    )
     return (
-        f'At {temp:.0f} C{heading}, the planet is drifting toward'
-        ' overheating. Recommend: seed bright clouds.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
+        ' Recommend: seed bright clouds.'
     )
   if temp < low + early:
     if trend > swing:
@@ -565,8 +570,9 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is warming on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = 'risks freezing' if trend <= 0 else 'is near the bottom of its band'
     return (
-        f'At {temp:.0f} C{heading}, the planet risks freezing.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
         ' Recommend: release a dark haze.'
     )
   if rising > 3.0 and temp > (low + high) / 2 and not ash_soon and not herds:

@@ -1317,6 +1317,10 @@ class GameSession:
       if match is None:
         continue
       age = 0 if match.group(2) == 'fresh' else int(match.group(3))
+      if key == 'Advisor briefing':
+        # As old as the readings the Advisor wrote it from, as the move it
+        # recommends is tagged: it lands its latency after it read them.
+        age += int(data.load('advisor.yaml')['latency_ticks'])
       out.append({'label': key, 'age': age, 'tick': now - age})
     return out
 

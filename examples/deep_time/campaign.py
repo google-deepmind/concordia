@@ -38,6 +38,11 @@ def chapters() -> list[dict[str, str]]:
   return [dict(c) for c in data.load('campaign.yaml')['chapters']]
 
 
+def offered() -> bool:
+  """Whether the start screen offers the daily challenge."""
+  return bool(data.load('campaign.yaml')['daily'].get('offered', True))
+
+
 def daily(day: datetime.date) -> dict[str, Any]:
   """The day's challenge: a chapter's scenario and a world seed."""
   digest = hashlib.sha256(f'deep time {day.isoformat()}'.encode()).digest()
@@ -145,7 +150,10 @@ class Progress:
                 'opened': before == 0 and stars > 0,
             }
         ),
-        'daily': (scenario, seed) == (challenge['scenario'], challenge['seed']),
+        'daily': (
+            offered()
+            and (scenario, seed) == (challenge['scenario'], challenge['seed'])
+        ),
         'total': sum(c['stars'] for c in self.campaign(day)['chapters']),
     }
 
@@ -163,8 +171,12 @@ class Progress:
     challenge = daily(day)
     return {
         'chapters': found,
-        'daily': {
-            **challenge,
-            'stars': int(best['daily'].get(challenge['date'], 0)),
-        },
+        'daily': (
+            {
+                **challenge,
+                'stars': int(best['daily'].get(challenge['date'], 0)),
+            }
+            if offered()
+            else None
+        ),
     }

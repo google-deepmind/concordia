@@ -44,7 +44,10 @@ test('a card shows the world, its age, its premise and its stars', () => {
   assert.match(html, /<b>Archipelago<\/b><small>9,000 years ago<\/small>/);
   assert.match(html, /<span class="spremise">A warm sea strewn with islands.<\/span>/);
   assert.match(html, /3 roles.*★★☆/);
-  assert.match(scenarioCardHtml(s, {when: 'x', stars: 0, open: false}), /class="scard locked".*not yet opened.*🔒/);
+  // Playable from here: a chapter not yet opened shows no lock and no stars.
+  const unopened = scenarioCardHtml(s, {when: 'x', stars: 0, open: false});
+  assert.match(unopened, /class="scard" data-scenario="archipelago"/);
+  assert.doesNotMatch(unopened, /🔒|☆/);
   assert.equal(firstSentence('One. Two.'), 'One.');
 });
 

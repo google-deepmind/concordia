@@ -246,7 +246,6 @@
   .cards { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 10px; margin: 0 -2px 8px; -webkit-overflow-scrolling: touch; }
   .scard { flex: 0 0 78%; scroll-snap-align: center; display: grid; gap: 4px; text-align: left; padding: 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); min-height: 44px; }
   .scard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .scard.locked { opacity: .6; }
   .scard .sthumb { width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--line); image-rendering: auto; }
   .scard .stitle b { display: block; font-size: 1.05rem; } .scard .stitle small { color: var(--muted); font-size: .78rem; }
   .scard .spremise { font-size: .85rem; color: var(--ink); line-height: 1.35; }
@@ -552,6 +551,8 @@ function renderCards() {
       $('scenario').value = b.dataset.scenario;
       chosenSeed = 0;
       showPremise();
+      // The world picked, what comes next in view: its roles and Play.
+      $('play').scrollIntoView({block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth'});
     });
   }
   for (const c of $('cards').querySelectorAll('canvas[data-thumb]')) paintThumb(c);

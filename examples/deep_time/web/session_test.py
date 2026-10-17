@@ -1055,6 +1055,9 @@ class GameSessionTest(absltest.TestCase):
     assert advice is not None
     self.assertIn(advice['move'], [*question['options'], *question['saving']])
     self.assertGreaterEqual(advice['age'], 2)  # The Advisor's own delay.
+    # The briefing's age on the page is the same: from the readings it used.
+    (briefing,) = [t for t in game.timing() if t['label'] == 'Advisor briefing']
+    self.assertGreaterEqual(briefing['age'], 2)
 
   def test_a_peoples_question_names_what_matters_most(self):
     game = session_lib.GameSession(
