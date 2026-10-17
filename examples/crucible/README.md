@@ -1,12 +1,37 @@
-# Crucible (Twelve Words)
+# Crucible (The Night Wire)
 
-**Twelve Words** is the game these toys became: one standing order of at
-most twelve words, read three ways by a bold, a cautious and a literal crew
-member, turn after turn. It is the `orders` toy. Below, the toys it grew out
-of: grey-box toys for an original game on Concordia, built mechanic first (see
-[DESIGN.md](DESIGN.md) and [ROADMAP.md](ROADMAP.md)). Each toy is one
-candidate generative rule in which a language model judges what words mean
-and deterministic code applies the consequences.
+**The Night Wire** is the game these toys became. Pinewood, a mill town, the
+night of 14 April 1926: the river is rising and you are at the telegraph
+desk. Each chapter is an hour of the night and one message of at most twelve
+words that must reach someone across town through people with habits of
+their own (Edith sends exactly what she is given; Wilf, the messenger boy,
+says the opposite of each part; Mrs. Pruitt on the party line adds a word of
+her own), to readers who take it their own way (the mayor never does as he
+is told). A language model plays each of them by a stated law; what they do
+decides what happens to the town. Twelve chapters in three acts, gated by
+stars, on a telegram-styled phone page.
+
+It is Pass it on (`passiton`, the puzzle the rethink of cycle 98 produced)
+told as a story, and Pass it on reused the relaying and reading of Twelve
+Words (`orders`, the first game: one standing order read by four
+temperaments, turn after turn). Below them, the grey-box toys it grew out
+of, built mechanic first (see [DESIGN.md](DESIGN.md) and
+[ROADMAP.md](ROADMAP.md)).
+
+## The Night Wire
+
+```bash
+python -m examples.crucible.run --toy=nightwire --scenario=the_night --seat=skilled
+python -m examples.crucible.run --toy=nightwire --scenario=the_sluice --seat=human
+python -m examples.crucible.audit nightwire          # the interaction matrix: 34 cells
+python -m examples.crucible.golden_cli --toy=nightwire --mode=mock --repeats=2
+```
+
+Chapters (`data/nightwire.yaml`, in order): `the_sluice`, `the_station`,
+`the_mayor`, `the_council` (Edith and the mayor); `wilf`, `two_doors`,
+`say_less`, `the_night` (Wilf); `the_party_line`, `gossip`, `through_wilf`,
+`pruitt_first` (Mrs. Pruitt, after the crest). Pass it on's levels play the
+same way with `--toy=passiton`.
 
 ## Quickstart
 
@@ -126,6 +151,7 @@ examples/crucible/
 ├── audits.py            # play audit
 ├── audit.py             # CLI: the interaction matrix audit (cells, evidence)
 ├── golden.py, golden_cli.py # golden sets: does a model read orders by the laws?
+├── golden_passiton.py   # ... the reads and relays of Pass it on and the Night Wire
 ├── campaign.py          # chapters gated by stars; the daily challenge
 ├── harness.py           # builds a toy as a Concordia Simulation (contrib rulebook GM, seated entities)
 ├── seats.py             # bots (contrib PolicyInput) and the terminal as HumanInput readers
@@ -137,9 +163,13 @@ examples/crucible/
 ├── data/orders.yaml     # ... and of the orders toy (Twelve Words): scenes, campaign, laws
 ├── data/orders_look.yaml   # one glyph, word and colour per kind
 ├── data/orders_matrix.yaml # the interaction matrices and golden cases
+├── data/passiton*.yaml  # Pass it on: levels, look, matrix and golden cases
+├── data/nightwire*.yaml # the Night Wire: the story, its look, matrix and golden cases
 └── toys/
     ├── base.py          # the Toy interface (a contrib Rulebook)
     ├── claims/          # Toy A: world (physics), toy, lexicon, mock, bots, tests
     ├── relay/           # Toy B: toy (ledger and tone), mock, bots, tests
-    └── orders/          # Toy C, Twelve Words: rules (ledger; command, hazards, crew, watch, rota), toy (readings, view), mock, bots, tests
+    ├── orders/          # Toy C, Twelve Words: rules (ledger; command, hazards, crew, watch, rota), toy (readings, view), mock, bots, tests
+    ├── passiton/        # Pass it on: the line, tries and stars over the orders toy's relay and reading; daily puzzles
+    └── nightwire/       # the Night Wire: Pass it on with the story's own relay and reading prompts; mock, tests
 ```
