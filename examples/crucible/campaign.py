@@ -82,7 +82,12 @@ def daily(data: Mapping[str, Any], day: datetime.date) -> dict[str, Any]:
   )
   return {
       'scenario': scenario,
-      'title': data.get('scenarios', {}).get(scenario, {}).get('title', ''),
+      'opens_with': spec.get('opens_with', scenario),
+      'title': (
+          data.get('scenarios', {})
+          .get(scenario, {})
+          .get('title', spec.get('title', "Today's puzzle"))
+      ),
       'seed': day.toordinal() % seeds,
       'date': day.isoformat(),
   }

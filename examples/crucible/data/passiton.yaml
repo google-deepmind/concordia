@@ -128,4 +128,8 @@ scenarios:
     task: Dex passes your words to Ash, Bea and Cy, saying the opposite of each part. Get Ash to build, Bea to keep watch and Cy to rest.
     lesson: Flip each part for Dex, name who does what, and leave Cy out.
 
+# Today's puzzle: a level made from the date (toys/passiton/daily.py), open
+# once Dex in the middle is.
+daily: {scenario: daily, seeds: 997, opens_with: dex_in_the_middle}
+
 campaign: [straight_up, two_at_the_top, dex_at_the_top, dex_among_them, dex_in_the_middle, two_through_dex, saying_less, everyone_through_dex]

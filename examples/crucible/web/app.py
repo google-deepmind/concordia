@@ -183,7 +183,9 @@ class Games:
       )
       # A daily is a late chapter's scene: it opens with that chapter
       # (cycle 96: the owner went from chapter 1 to a finale and lost).
-      if not campaign.is_open(data, self.progress.snapshot(), scenario):
+      if not campaign.is_open(
+          data, self.progress.snapshot(), challenge['opens_with']
+      ):
         raise ValueError("Today's challenge opens with its chapter.")
     elif scenario and not campaign.is_open(
         data, self.progress.snapshot(), scenario
@@ -204,8 +206,8 @@ class Games:
       )
       model = spare
     reader = blocking_input.BlockingInput()
-    if scenario not in data.get('scenarios', {}):
-      scenario = None
+    if scenario not in data.get('scenarios', {}) and not today:
+      scenario = None  # a daily's scene may be made by the toy (Pass it on)
     game = harness.build_game(
         toy,
         model,

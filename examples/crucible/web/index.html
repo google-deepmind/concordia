@@ -260,7 +260,7 @@ function renderMenu(state) {
     }
     if (c.daily) {
       const b = document.createElement('button');
-      const from = c.chapters.find((ch) => ch.scenario === c.daily.scenario);
+      const from = c.chapters.find((ch) => ch.scenario === (c.daily.opens_with || c.daily.scenario));
       b.textContent = 'Daily ' + c.daily.date + (c.daily.title ? ': ' + c.daily.title : '')
           + (from ? ' (chapter ' + from.number + ', a ' + beatWord(from.beat) + ')' : '') + ' ' + stars(c.daily.stars);
       if (from && !from.open) { b.disabled = true; b.textContent += ' (opens with chapter ' + from.number + ')'; }

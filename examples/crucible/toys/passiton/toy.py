@@ -63,7 +63,15 @@ class PassItOnToy(base.Toy):
       seed: int = 0,
   ):
     super().__init__()
-    if scenario not in data.get('scenarios', {}):
+    if scenario == 'daily' and 'daily' not in data.get('scenarios', {}):
+      # Today's puzzle, made from the date's seed (cycle 112).
+      from examples.crucible.toys.passiton import daily  # pylint: disable=g-import-not-at-top
+
+      data = {
+          **data,
+          'scenarios': {**data['scenarios'], 'daily': daily.level(seed)},
+      }
+    elif scenario not in data.get('scenarios', {}):
       scenario = data.get('default_scenario', data['campaign'][0])
     self.scenario = scenario
     self._data = data

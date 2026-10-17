@@ -272,6 +272,22 @@ class ServerTest(absltest.TestCase):
     view = game['view']
     self.assertEqual(view, asked)
 
+  def test_pass_it_on_has_a_daily_puzzle_once_dex_is_in_the_middle(self):
+    state = self.call('/api/state')
+    self.assertEqual(
+        state['campaign']['daily']['opens_with'], 'dex_in_the_middle'
+    )
+    with self.assertRaises(urllib.error.HTTPError):
+      self.call('/api/start', {'toy': 'passiton', 'daily': True})
+    for level in toys.load_data('passiton')['campaign'][:5]:
+      self.games.progress.record(level, 1)
+    self.assertTrue(
+        self.call('/api/start', {'toy': 'passiton', 'daily': True})['ok']
+    )
+    game = self.wait_for_request()
+    self.assertEqual(game['view']['title'], "Today's puzzle")
+    self.assertTrue(game['daily'])
+
   def test_pass_it_on_rehearses_with_the_first_in_line(self):
     for level in toys.load_data('passiton')['campaign']:
       self.games.progress.record(level, 1)

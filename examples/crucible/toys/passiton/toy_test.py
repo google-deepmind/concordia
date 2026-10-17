@@ -23,6 +23,7 @@ from examples.crucible import model_setup
 from examples.crucible import toys
 from examples.crucible.toys.orders import readings
 from examples.crucible.toys.passiton import bots
+from examples.crucible.toys.passiton import daily
 from examples.crucible.toys.passiton import toy as toy_lib
 
 _DATA = toys.load_data('passiton')
@@ -135,6 +136,23 @@ class LineTest(absltest.TestCase):
     )
     game.play()
     self.assertEqual(game.outcome()['stars'], 3)
+
+
+class DailyTest(parameterized.TestCase):
+
+  @parameterized.parameters(1, 2, 3, 4, 5, 763)
+  def test_todays_puzzle_is_fixed_by_the_date_and_solvable(self, seed):
+    level = daily.level(seed)
+    self.assertEqual(level, daily.level(seed))
+    toy = toy_lib.PassItOnToy(model_setup.mock_model(), _DATA, 'daily', seed)
+    self.assertEqual(toy.view()['title'], "Today's puzzle")
+    toy.resolve(toy_lib.SEAT, level['best'])
+    self.assertEqual(toy.outcome()['stars'], 3)
+    plain = '; '.join(
+        f'{who}, {_DATA["say"][act]}' for who, act in level['goal'].items()
+    )
+    other = toy_lib.PassItOnToy(model_setup.mock_model(), _DATA, 'daily', seed)
+    self.assertFalse(other.preview(toy_lib.SEAT, plain + '.').delta['solved'])
 
 
 class CleanRelayTest(absltest.TestCase):
