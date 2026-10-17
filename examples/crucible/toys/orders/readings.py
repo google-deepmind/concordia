@@ -137,9 +137,12 @@ def habits(name: str, props: Mapping[str, Any]) -> str:
   )
   if props.get('contrary'):
     works = _OTHERWISE[props['works']].split(' if ')[0]
+    # Of the clause that applies to them (cycle 105: qwen3 reversed the
+    # plain clause of "Build; Dex, rest." and rested).
     ordered = (
-        f'does the opposite: told to work, {name} rests; told to rest, '
-        f'{name} {works}; told not to do something, {name} does it'
+        f'does the opposite of it (of the clause naming {name}, if one'
+        f' does): told to work, {name} rests; told to rest, {name} {works};'
+        f' told not to do something, {name} does it'
     )
   text = (
       f'When a clause applies, {name} {ordered}. With no clause that '
