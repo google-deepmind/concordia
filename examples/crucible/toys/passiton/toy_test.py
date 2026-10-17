@@ -21,6 +21,7 @@ from absl.testing import parameterized
 from examples.crucible import harness
 from examples.crucible import model_setup
 from examples.crucible import toys
+from examples.crucible.toys.orders import readings
 from examples.crucible.toys.passiton import bots
 from examples.crucible.toys.passiton import toy as toy_lib
 
@@ -134,6 +135,24 @@ class LineTest(absltest.TestCase):
     )
     game.play()
     self.assertEqual(game.outcome()['stars'], 3)
+
+
+class CleanRelayTest(absltest.TestCase):
+
+  def test_a_relays_lead_in_and_markdown_are_cleaned(self):
+    clean = readings.clean_relay
+    for answer in (
+        'The answer is: **"Cy, keep watch; don\'t repair leaks."**',
+        'Bea says: "Cy, keep watch; don\'t repair leaks."',
+        '"Cy, keep watch; don\'t repair leaks."',
+        "Answer: Cy, keep watch; don't repair leaks.",
+    ):
+      self.assertEqual(
+          clean('Bea', answer).rstrip('.'),
+          "Cy, keep watch; don't repair leaks",
+          answer,
+      )
+    self.assertEqual(clean('Cy', 'Cy, keep watch.'), 'Cy, keep watch.')
 
 
 class LookTest(absltest.TestCase):

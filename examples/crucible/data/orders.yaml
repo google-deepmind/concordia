@@ -123,9 +123,13 @@ relaying:
       someone to rest or to keep watch
     # Its own sentence (cycle 103: joined with "and", a live relay left it
     # unclear whether "repair leaks" was only for the member just named).
+    # "Mentions repairing anything" with an example (cycle 109: on "says
+    # whether to repair" qwen3 thought past its timeout over "don't repair
+    # the hull"; on "mentions repairing" Flash added the sentence anyway).
     adds_repair: >-
       passes it on and adds a sentence of their own, "Repair leaks.", unless
-      a clause already says whether to repair
+      a clause already mentions repairing anything, to do it or not to
+      ("don't repair the hull" counts)
     negates: >-
       passes it on with "don't" before each clause, leaving a clause that
       already says not, never or don't as it is

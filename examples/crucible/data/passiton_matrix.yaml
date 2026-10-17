@@ -102,4 +102,4 @@ golden:
   - {id: r7, kind: relay, relayer: Ash, message: 'Build; keep watch.', probe: Cy, expect: [build], hard: true}
   - {id: r8, kind: relay, relayer: Ash, message: Build., probe: Cy, expect: [build], hard: true}
   - {id: r9, kind: relay, relayer: Bea, message: 'Cy, keep watch.', event: leak, probe: Ash, expect: [repair], hard: true}
-  - {id: r10, kind: relay, relayer: Bea, message: "Cy, keep watch; don't repair the hull.", event: leak, probe: Ash, expect: [build], hard: true}
+  - {id: r10, kind: relay, relayer: Bea, message: "Cy, keep watch; don't repair leaks.", event: leak, probe: Ash, expect: [build], hard: true}

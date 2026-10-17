@@ -129,6 +129,10 @@ Round 1 (cycle 2; issue google-deepmind/concordia#418, PR google-deepmind/concor
   Cy ignores "Repair leaks." with no leak open (set Bea's levels in a leak);
   Bea gathered when told "Build.". Redesign on the clarified laws, then
   check live before adding.
+  Idea: under "drops anything about resting or watching" Ash makes thin
+  puzzles (nothing about watch ever gets past him); an impatient Ash who
+  passes on only the first clause would make the order of clauses the
+  puzzle. Check live first.
 
 - From the cycle 76 rule audit (fixed in cycle 77: one someone-taker through
   a bosun; the bosun's own name kept in relays; no stale relay when the

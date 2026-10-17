@@ -97,8 +97,19 @@ def clean_relay(bosun: str, answer: str) -> str:
     The relayed order on one line.
   """
   line = next((l.strip() for l in answer.splitlines() if l.strip()), '')
+  line = line.replace('**', '').replace('__', '')  # markdown (cycle 109)
+  # 'The answer is: "..."' or 'Bea says: "..."' (qwen3, cycle 109): the
+  # quoted words after a lead-in.
+  lead = re.match(
+      rf'^(?:the answer(?: is)?|answer|{re.escape(bosun)}'
+      r'(?: says| would say| passes it on as)?)\s*:?\s*["“](.+?)["”]\s*\.?$',
+      line,
+      flags=re.IGNORECASE,
+  )
+  if lead:
+    return re.sub(r'\s+', ' ', lead.group(1).strip())
   line = re.sub(
-      rf'^(?:answer|{re.escape(bosun)}(?: says)?)\s*:\s*',
+      rf'^(?:the answer is|answer|{re.escape(bosun)}(?: says)?)\s*:\s*',
       '',
       line,
       flags=re.IGNORECASE,
