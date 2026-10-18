@@ -2,6 +2,14 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 18 Oct, late
+    world: great_acceleration
+    text: >-
+      Playing a people on the Great Acceleration, you found your towns by
+      your own move: "found a new town", aimed on the map, once you have the
+      settlers (more people for each town you hold) and 4 grain and 2 tools.
+      Until then it waits among the moves you are saving for, saying what is
+      lacking, and you may plan it. Every people hears of a new town.
   - when: 18 Oct, night
     world: great_acceleration
     text: >-

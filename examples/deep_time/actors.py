@@ -830,12 +830,7 @@ class PolityActor(Actor):
     # Diplomacy, the press and plans may not crowd out every market order.
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     # Where conquest is played, founding a town is a move, with its cost.
-    town = []
-    if not self._planet.can_found(self.polity):
-      cost = ', '.join(
-          f'{v:g} {k}' for k, v in self._planet.founding_cost().items()
-      )
-      town = [f'{FOUND_TOWN} [{cost}]']
+    town = [] if self._planet.can_found(self.polity) else [self._town_move()]
     orders = [*self._trades(), *self._reflexes()]
     room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - len(town) - 1)
     return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
@@ -1011,6 +1006,30 @@ class PolityActor(Actor):
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
     return text.startswith(FOUND_TOWN) or self._focus().get(text) == 'woodcut'
+
+  def _town_move(self) -> str:
+    """Founding a town, with its cost."""
+    cost = ', '.join(
+        f'{v:g} {k}' for k, v in self._planet.founding_cost().items()
+    )
+    return f'{FOUND_TOWN} [{cost}]'
+
+  def out_of_reach(self) -> list[str]:
+    """Founding a town, where conquest is played, while it cannot be yet.
+
+    Not offered this turn, but shown with why (`why_not`) and plannable for
+    a later turn.
+    """
+    towns = self._planet.settlements
+    if towns is None or not towns.conquest:
+      return []
+    return [self._town_move()] if self._planet.can_found(self.polity) else []
+
+  @override
+  def why_not(self, option: str) -> str:
+    if option.strip().lower().startswith(FOUND_TOWN):
+      return self._planet.can_found(self.polity)
+    return ''
 
 
 class ColonyActor(Actor):

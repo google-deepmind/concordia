@@ -170,7 +170,12 @@ class SettlementsTest(absltest.TestCase):
     self.assertFalse(
         any(o.startswith(actors_lib.FOUND_TOWN) for o in people.options())
     )
+    # But shown as a move it is saving for, with why (and plannable).
+    (later,) = people.out_of_reach()
+    self.assertTrue(later.startswith(actors_lib.FOUND_TOWN))
+    self.assertIn('settlers for one more need', people.why_not(later))
     amber.population = 30.0
+    self.assertEqual(people.out_of_reach(), [])  # Now offered instead.
     move = next(
         o for o in people.options() if o.startswith(actors_lib.FOUND_TOWN)
     )
