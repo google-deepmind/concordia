@@ -148,6 +148,30 @@ class ActorComponentsTest(absltest.TestCase):
     self.assertEqual(steward.take_aim('wait @ 9,20', planet), 'wait @ 9,20')
     self.assertEqual(planet.targets, {})
 
+  def test_the_registry_keeps_each_actors_state_with_the_game_master(self):
+    registry = self.context.registry
+    self.assertIs(registry.actors, self.context.actors)
+    component = resolution.ActorResolution(self.context)
+    component.pre_observe(f'{resolution.PUTATIVE_EVENT_TAG} Rose: a')
+    component.pre_act(
+        entity_lib.ActionSpec(
+            call_to_action='?', output_type=entity_lib.OutputType.RESOLVE
+        )
+    )
+    self.active.outbox.append(('test.later', 'not yet sent'))
+    saved = registry.get_state()
+    rose_saved = self.active.get_state()
+    self.assertEqual(saved['Rose'], rose_saved)
+    self.assertEqual(rose_saved['acts'], 1)
+    self.assertEqual(rose_saved['log'][0][1:], ['a', 'Rose did a'])
+    fresh = game_lib.new_game('daisyworld')
+    rose = _EchoActor('Rose')
+    fresh.add_actor(rose)
+    fresh.registry.set_state(saved)
+    self.assertEqual(rose.acts, 1)
+    self.assertEqual(rose.log[0][1:], ('a', 'Rose did a'))
+    self.assertEqual(rose.outbox, [('test.later', 'not yet sent')])
+
   def test_active_entities(self):
     self.assertEqual(self.context.active_entities(), ['Rose'])
 

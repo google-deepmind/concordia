@@ -27,6 +27,7 @@ from concordia.components.game_master import next_acting
 from concordia.environment import engine as engine_lib
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
+from examples.deep_time.components import actor_registry
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
@@ -106,12 +107,26 @@ class ActorActionSpecs(
     end = len(call_to_action) - len(self._suffix)
     return call_to_action[len(self._prefix) : end]
 
+  def _actors(self) -> dict[str, actors_lib.Actor]:
+    """The acting entities' actors: the World GM's registry component."""
+    try:
+      return (
+          self.get_entity()
+          .get_component(
+              actor_registry.DEFAULT_ACTOR_REGISTRY_KEY,
+              type_=actor_registry.ActorRegistry,
+          )
+          .actors
+      )
+    except (AttributeError, KeyError, ValueError, RuntimeError):
+      return self._context.actors  # Not yet on a game master (tests).
+
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if action_spec.output_type != entity_lib.OutputType.NEXT_ACTION_SPEC:
       return ''
     name = self._entity_name(action_spec.call_to_action)
-    actor = self._context.actors.get(name)
+    actor = self._actors().get(name)
     spec = actor.action_spec() if actor and actor.is_active() else SKIP_SPEC
     if actor is not None and name in self._context.humans:
       spec = aimable_spec(actor, spec)

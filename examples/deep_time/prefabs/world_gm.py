@@ -32,6 +32,8 @@ registry |
 | `__clock__` | contrib `NumericClock` shared with the topic bus |
 | `__topic_observations__` | contrib `TopicObservations`: topic messages become
 observations per access list |
+| `__actors__` | `ActorRegistry`: each acting entity's rules (its action spec,
+how its actions resolve), checkpointed with the GM |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it.
@@ -52,6 +54,7 @@ from concordia.contrib.components.game_master import topic_observations
 from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
 from examples.deep_time.components import action_specs
+from examples.deep_time.components import actor_registry
 from examples.deep_time.components import resolution
 from examples.deep_time.components import world_step
 from examples.deep_time.world import publishing
@@ -123,6 +126,8 @@ class WorldGameMaster(prefab_lib.Prefab):
         switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY: resolution.ActorResolution(
             context=context
         ),
+        # The rules of every acting entity, checkpointed with the GM.
+        actor_registry.DEFAULT_ACTOR_REGISTRY_KEY: context.registry,
     }
     act_component = switch_act.SwitchAct(model=model, entity_names=player_names)
     return entity_agent_with_logging.EntityAgentWithLogging(

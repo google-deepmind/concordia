@@ -23,8 +23,9 @@ game-side rule book for one of them.
 # pylint: disable=g-complex-comprehension,g-doc-return-or-yield,missing-function-docstring
 
 import abc
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import re
+from typing import Any
 
 from concordia.contrib.pubsub import topics
 from examples.deep_time import attention as attention_lib
@@ -177,6 +178,29 @@ class Actor(metaclass=abc.ABCMeta):
   def drain_outbox(self) -> list[tuple[str, str]]:
     messages, self.outbox = self.outbox, []
     return messages
+
+  def get_state(self) -> dict[str, Any]:
+    """What a checkpoint keeps (the World GM's actor registry saves it)."""
+    return {
+        'acts': self.acts,
+        'log': [list(entry) for entry in self.log],
+        'outbox': [list(m) for m in self.outbox],
+        'decisions': dict(getattr(self, 'decisions', {})),
+    }
+
+  def set_state(self, state: Mapping[str, Any]) -> None:
+    self.acts = int(state.get('acts', 0))
+    self.log = [
+        (int(t), str(action), str(outcome))
+        for t, action, outcome in state.get('log', ())
+    ]
+    self.outbox = [
+        (str(topic), str(text)) for topic, text in state.get('outbox', ())
+    ]
+    if hasattr(self, 'decisions'):
+      self.decisions = {
+          str(k): int(v) for k, v in state.get('decisions', {}).items()
+      }
 
   def is_active(self) -> bool:
     """Whether the entity acts this tick."""

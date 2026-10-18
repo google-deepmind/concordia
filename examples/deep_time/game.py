@@ -37,6 +37,7 @@ from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import attention as attention_lib
 from examples.deep_time import wakeups as wakeups_lib
+from examples.deep_time.components import actor_registry
 from examples.deep_time.world import automation as automation_lib
 from examples.deep_time.world import data
 from examples.deep_time.world import evolution as evolution_lib
@@ -284,12 +285,17 @@ class GameContext:
     if self.wire is not self.sim:
       self.wire.advance()
 
+  def __post_init__(self) -> None:
+    # The World GM's actor registry component: it shares the actors and the
+    # access lists, and its checkpoint keeps every actor's state.
+    self.registry = actor_registry.ActorRegistry(self.actors, self.access)
+
   def add_actor(
       self, actor: actors_lib.Actor, hears: tuple[str, ...] = ()
   ) -> None:
-    """Registers an actor and the topics it hears as observations."""
-    self.actors[actor.name] = actor
-    self.access[actor.name] = tuple(hears)
+    """Registers an actor (with the World GM's registry) and the topics it
+    hears as observations."""
+    self.registry.add(actor, hears)
 
   def make_mind(
       self,
@@ -401,12 +407,8 @@ class GameContext:
         # Species founded during play (their entities are founded again
         # before a checkpoint is loaded, see `simulation.load_checkpoint`).
         'spawned': list(self.spawned),
-        # What each role's last moves did, as the world resolved them (the
-        # page shows each move's outcome).
-        'logs': {
-            name: [list(entry) for entry in actor.log]
-            for name, actor in sorted(self.actors.items())
-        },
+        # Each role's actor (its log of what its moves did, ...) is kept by
+        # the World GM's actor registry component, checkpointed with it.
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -428,7 +430,7 @@ class GameContext:
     for owner, watched in state.get('attention', {}).items():
       if owner in self.attention:
         self.attention[owner].set_state(watched)
-    for name, entries in state.get('logs', {}).items():
+    for name, entries in state.get('logs', {}).items():  # Older saves.
       if name in self.actors:
         self.actors[name].log = [
             (int(tick), str(action), str(outcome))

@@ -26,7 +26,9 @@ from collections.abc import Sequence
 from typing import override
 
 from concordia.components.game_master import event_resolution
+from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
+from examples.deep_time.components import actor_registry
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
@@ -71,18 +73,33 @@ class ActorResolution(
       self._putative_event = observation[len(PUTATIVE_EVENT_TAG) :].strip()
     return ''
 
+  def _actors(self) -> dict[str, actors_lib.Actor]:
+    """The acting entities' actors: the World GM's registry component."""
+    try:
+      return (
+          self.get_entity()
+          .get_component(
+              actor_registry.DEFAULT_ACTOR_REGISTRY_KEY,
+              type_=actor_registry.ActorRegistry,
+          )
+          .actors
+      )
+    except (AttributeError, KeyError, ValueError, RuntimeError):
+      return self._context.actors  # Not yet on a game master (tests).
+
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if action_spec.output_type != entity_lib.OutputType.RESOLVE:
       return ''
-    actions = split_actions(self._putative_event, list(self._context.actors))
+    actors = self._actors()
+    actions = split_actions(self._putative_event, list(actors))
     outcomes = []
     # The engine joins acts in thread-completion order; resolve them in the
     # fixed order actors were registered, so runs stay reproducible (two
     # offers to one partner in a tick must not race).
-    for name in [n for n in self._context.actors if n in actions]:
+    for name in [n for n in actors if n in actions]:
       action = actions[name]
-      actor = self._context.actors[name]
+      actor = actors[name]
       actor.acts += 1
       outcome = actor.resolve(action)
       if not outcome:
