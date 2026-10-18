@@ -85,10 +85,7 @@ internet.
     grievances, beliefs, how they speak) and the world's conventions are
     stated once (`civilization.conventions`: what a sign is, who prints the
     Gazette); each is a Concordia `Constant` in the people's prompt and its
-    plan. No sheet says how to play. After each retelling every people gives
-    a one-sentence take in its own voice (`components/take_mind.py`, on
-    `civ.<key>.takes`), shown on the peoples' card and in the story; a take
-    decides nothing, the people still acts through its moves.
+    plan. No sheet says how to play.
 -   **Crises.** Trouble the Steward can see coming (the climate leaving its
     band, strain building, hunger, unrest, dwindling life, a goal's last turns)
     leads the page with a countdown and the moves that answer it. Moves you

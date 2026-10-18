@@ -18,7 +18,6 @@ from absl.testing import absltest
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
-from examples.deep_time.components import take_mind
 from examples.deep_time.prefabs import polity as polity_prefab
 from examples.deep_time.world import data
 from examples.deep_time.world import planet as planet_lib
@@ -108,18 +107,6 @@ class StewardSpeaksTest(absltest.TestCase):
         f' sign.\n{options}\nAnswer: Gaia '
     )
     self.assertEqual(model.sample_text(prompt), 'wait and save omega')
-
-
-class TakeTest(absltest.TestCase):
-
-  def test_a_take_is_one_short_line(self):
-    self.assertEqual(
-        take_mind.short_take('  We dig.\nAnd more besides.'), 'We dig.'
-    )
-    long = ' '.join(f'w{i}' for i in range(40)) + ','
-    cut = take_mind.short_take(long)
-    self.assertEqual(len(cut.split()), take_mind.TAKE_WORDS)
-    self.assertTrue(cut.endswith('w29…'))
 
 
 class CharacterTest(absltest.TestCase):

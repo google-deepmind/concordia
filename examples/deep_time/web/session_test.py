@@ -1032,15 +1032,6 @@ class GameSessionTest(absltest.TestCase):
     gazette = game.context.planet.gazette
     assert gazette is not None
     self.assertEqual(gazette.printed[-1].kind, 'omen')
-    # Each people's one-sentence take, in its words, on the card and in the
-    # story.
-    takes = game.state()['takes']
-    self.assertEqual(
-        [t['who'] for t in takes],
-        ['Amber folk', 'Basalt clans', 'Cedar league'],
-    )
-    self.assertTrue(all(t['text'] for t in takes))
-    self.assertLen([i for i in game.state()['story'] if i['kind'] == 'take'], 3)
     held = [
         t['move'] for t in game.seats[game.entity].played if t['how'] == 'held'
     ]

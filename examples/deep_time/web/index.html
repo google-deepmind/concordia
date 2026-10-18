@@ -160,7 +160,6 @@
   .omen .row button { width: auto; flex: 0 0 auto; }
   .omen .sign.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .omen .row { justify-content: space-between; align-items: center; margin-top: 6px; }
-  .takes { list-style: none; padding: 0; margin: 0 0 8px; } .takes li { margin: 6px 0; }
   .whatsnew { border-color: var(--accent); } .whatsnew button { margin: 4px 0 8px; }
   .stale { margin: 8px 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--warn); font-size: .9rem; }
   .stale button { width: auto; margin-left: 6px; }
@@ -500,7 +499,7 @@
     <details class="card ctx" id="ctxcard" hidden><summary><h2 id="ctxhead">What you read</h2></summary><p class="context" id="context"></p></details>
     <div class="card readings" id="readcard" hidden><h2 id="readhead">What they see</h2><div id="readings"></div></div>
     <div class="card" id="climcard" hidden><h2 id="climhead">Climate</h2><p class="small" id="climate"></p><p class="small muted" id="indices"></p></div>
-    <div class="card" id="civcard" hidden><h2>The peoples</h2><div id="takes"></div><p class="small" id="civ"></p><p class="small muted" id="gazette"></p></div>
+    <div class="card" id="civcard" hidden><h2>The peoples</h2><p class="small" id="civ"></p><p class="small muted" id="gazette"></p></div>
     <div class="card" id="colonycard" hidden><h2>The colony</h2><p class="small" id="colony"></p></div>
     <div class="card news" id="newscard" hidden><h2>News</h2><div id="news"></div></div>
     <div class="card" id="chroncard" hidden><h2>Chronicle</h2><p class="small" id="chronicle"></p></div>
@@ -1814,8 +1813,6 @@ function render(state) {
   $('climhead').textContent = playing ? 'The true climate' : 'Climate';
   setText('civ', state.civilization, 'civcard');
   setText('gazette', state.gazette);
-  $('takes').innerHTML = takesHtml(state.takes);  // The peoples, in their words.
-  if (state.takes && state.takes.length) $('civcard').hidden = false;
   setText('colony', state.colony, 'colonycard');
   setText('chronicle', state.chronicle, 'chroncard');
   $('newscard').hidden = !state.revealed;

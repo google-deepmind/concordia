@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {omenHtml, omenResponse, omenWords, takesHtml} from './omens.js';
+import {omenHtml, omenResponse, omenWords} from './omens.js';
 
 const OMEN = {option: 'speak an omen [2 omega]', signs: ['a red dawn', 'a comet', 'ash on the snow'],
               max_words: 25, cost: 2, ready: true};
@@ -43,12 +43,4 @@ test('the words are cut to the limit and sent after the sign', () => {
   assert.equal(omenWords('', 25), '');
   assert.equal(omenResponse('a comet', 'spend it slowly'), 'a comet: spend it slowly');
   assert.equal(omenResponse('a comet', ''), 'a comet:');
-});
-
-test('each people says what it made of the omen, in its own words', () => {
-  const html = takesHtml([{who: 'Basalt clans', tick: 3, text: 'Printers tricks <again>. We dig.'}]);
-  assert.match(html, /What each people made of the omen/);
-  assert.match(html, /<b>Basalt clans<\/b> “Printers tricks &lt;again&gt;\. We dig\.”/);
-  assert.match(html, /t3<\/span><\/li>/);
-  assert.equal(takesHtml([]), '');
 });

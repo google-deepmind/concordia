@@ -45,7 +45,6 @@ from examples.deep_time.components import pact_mind
 from examples.deep_time.components import policy_compiler
 from examples.deep_time.components import press_mind
 from examples.deep_time.components import relay_mind
-from examples.deep_time.components import take_mind
 from examples.deep_time.prefabs import playable
 from examples.deep_time.world import data
 from examples.deep_time.world import publishing
@@ -162,18 +161,6 @@ def newest_omen(context: game_lib.GameContext) -> str:
       ),
       sign=sign,
       words=words or '(nothing anyone could make out)',
-  )
-
-
-def retellings(context: game_lib.GameContext) -> str:
-  """The Gazette's newest retelling of an omen, as a take mind weighs it."""
-  gazette = context.planet.gazette
-  told = context.bus.latest('media.omens')
-  if gazette is None or told is None:
-    return ''
-  return take_mind.retellings_sheet(
-      sum(1 for sheet in gazette.printed if sheet.kind == 'omen'),
-      str(told.payload).strip(),
   )
 
 
@@ -353,8 +340,8 @@ def _instruments(
 def polity_rules(context: game_lib.GameContext, polity: str) -> None:
   """The World GM installs a people's rules.
 
-  Its actor and wake-ups, its takes' topic, its storehouse sheet, what its
-  slow minds weigh, and the instruments it reads.
+  Its actor and wake-ups, its storehouse sheet, what its slow minds weigh,
+  and the instruments it reads.
 
   Args:
     context: Shared game state (its planet must have a civilization).
@@ -405,8 +392,6 @@ def polity_rules(context: game_lib.GameContext, polity: str) -> None:
   if owner == polity:
     perception.publish(context, name, 'omen', lambda: newest_omen(context))
     perception.deliver(context, specs["Our printers' retelling"])
-  if owner and character:
-    perception.publish(context, name, 'retellings', lambda: retellings(context))
   if context.automation is not None:
     perception.deliver(context, specs["Our scribes' draft"])
   perception.publish(context, name, 'scribes', lambda: scribes(context, polity))
@@ -564,30 +549,6 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
                   )
               }
               if owner == polity and context.planet.gazette is not None
-              else {}
-          ),
-          # One sentence, in its own voice, on each omen it reads (kept
-          # on its topic for the page: words, which change nothing).
-          **(
-              {
-                  'Take mind': context.make_mind(
-                      people.name,
-                      'Take',
-                      f'civ.{polity}.takes',
-                      take_mind.TakeMind(
-                          slow_model,
-                          perception.reader(context, people.name, 'retellings'),
-                          civ.polities[owner].name,
-                          components=[
-                              *characters,
-                              'The Gazette on the omens',
-                              'Storehouse',
-                          ],
-                      ),
-                      1,
-                  )
-              }
-              if owner and character
               else {}
           ),
           # The scribes' draft, as counsel: the people adopts it (or not)

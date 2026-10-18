@@ -1052,33 +1052,6 @@ class GameSession:
         'ready': omen.option in options,
     }
 
-  def _take_history(self) -> list[tuple[int, str, str]]:
-    """Every people's recent takes on the omens, from its topic: (tick,
-    people key, take), oldest first (words: the world keeps no record)."""
-    planet = self.context.planet
-    if planet.gazette is None or planet.civ is None:
-      return []
-    found = []
-    for key in planet.civ.polities:
-      for message in self.context.bus.history(f'civ.{key}.takes'):
-        take = str(message.payload).strip()
-        if take:
-          tick = int(message.time) if message.time is not None else 0
-          found.append((tick, message.seq, key, take))
-    return [(t, key, take) for t, _, key, take in sorted(found)]
-
-  def _takes(self) -> list[dict[str, Any]]:
-    """Each people's newest take on an omen: {who, tick, text}."""
-    planet = self.context.planet
-    if planet.civ is None:
-      return []
-    newest = {polity: (t, take) for t, polity, take in self._take_history()}
-    return [
-        {'who': planet.civ.polities[k].name, 'tick': t, 'text': take}
-        for k, (t, take) in sorted(newest.items())
-        if k in planet.civ.polities
-    ]
-
   def _free_moves(self, entity: str) -> list[str]:
     """The moves of a free question (a Steward that may speak an omen, or a
     person whose move may be aimed): the menu the World GM offered."""
@@ -1400,18 +1373,6 @@ class GameSession:
           'who': 'The Gazette on the omen',
           'text': body,
       })
-    names = (
-        {k: p.name for k, p in self.context.planet.civ.polities.items()}
-        if self.context.planet.civ is not None
-        else {}
-    )
-    for tick, polity, take in self._take_history():
-      items.append({
-          'tick': tick,
-          'kind': 'take',
-          'who': names.get(polity, polity),
-          'text': take,
-      })
     for message in bus.history('media.gazette'):
       try:
         sheets = json.loads(message.payload).get('broadsheets') or []
@@ -1451,7 +1412,7 @@ class GameSession:
             'who': 'Chronicler',
             'text': message.payload,
         })
-    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'take': 3, 'news': 4}
+    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'news': 3}
     items.sort(key=lambda i: (-i['tick'], order[i['kind']]))
     return items[:STORY_ITEMS]
 
@@ -2721,7 +2682,6 @@ class GameSession:
         'civilization': rendered('civ.census'),
         'gazette': rendered('media.gazette'),
         # What each people made of the last omen it read, in its words.
-        'takes': self._takes(),
         'colony': rendered('colony.status'),
         # The Advisor counsels the Steward alone (and every watcher).
         'briefing': briefing.payload if briefing and counselled else '',

@@ -51,10 +51,6 @@ from concordia.typing import prefab as prefab_lib
 from concordia.utils import measurements as measurements_lib
 
 
-# How many takes each people's topic keeps (the page's story shows them).
-TAKES_KEPT = 10
-
-
 @dataclasses.dataclass(frozen=True)
 class Mind:
   """A slow mind (a `pubsub.Publisher`), listed for cognition meters."""
@@ -658,13 +654,4 @@ def new_game(
         bus, planet.civ, planet.trade, data.load('trade.yaml')['automation']
     )
   context.publish_state()
-  # Each people's recent takes stay on its topic (the page's story shows
-  # them): declared before any mind publishes there.
-  for polity in planet.civ.polities if planet.civ is not None else ():
-    bus.declare(
-        f'civ.{polity}.takes',
-        retention=topics.Retention.REPLAY,
-        replay_size=TAKES_KEPT,
-        description="A people's one-sentence takes on the omens it read.",
-    )
   return context
