@@ -130,14 +130,15 @@ class DeepTimeE2ETest(parameterized.TestCase):
     out_dir = self.create_tempdir().full_path
     run.run('daisyworld', 'mock', ticks=8, out_dir=out_dir)
     rows = _rows(out_dir)
-    # Triggered by the first act (tick 1), latency 3 -> lands at tick 4,
-    # phased in over ticks 4-5; the busy mind skips ticks 2-3.
+    # Triggered by the first act (tick 1), latency 3 -> lands at tick 4 and
+    # wakes the species, which enacts it by its action that tick; phased in
+    # over ticks 5-6. The busy mind skips ticks 2-3.
     changed = [
         int(r['tick'])
         for prev, r in zip(rows, rows[1:])
         if r['optimum_black'] != prev['optimum_black']
     ]
-    self.assertEqual(changed[:2], [4, 5])
+    self.assertEqual(changed[:2], [5, 6])
 
   def test_async_time_mode_runs(self):
     summary = run.run(

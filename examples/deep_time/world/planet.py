@@ -474,6 +474,9 @@ class Planet:
     self.lithosphere = lithosphere
     self.pending_adaptations: list[evolution_lib.PendingAdaptation] = []
     self.adaptation_counts = {s: 0 for s in self.daisies.species()}
+    # The last draft (a mind's decision published on a topic, by its bus
+    # seq) each entity enacted by an action, by '<entity>:<kind>'.
+    self.enacted: dict[str, int] = {}
     self.behaviours = {s: 'hold' for s in self.daisies.species()}
     self.seed_banks: seedbank_lib.SeedBanks | None = None
     if evolution is not None and evolution.seed_bank_config:
@@ -2711,6 +2714,7 @@ class Planet:
         'history': [dict(row) for row in self.history],
         'pending_adaptations': [p.to_dict() for p in self.pending_adaptations],
         'adaptation_counts': dict(self.adaptation_counts),
+        'enacted': dict(self.enacted),
         'behaviours': dict(self.behaviours),
         'seed_banks': self.seed_banks.get_state() if self.seed_banks else None,
         'lithosphere': (
@@ -2783,6 +2787,7 @@ class Planet:
         for p in state.get('pending_adaptations', [])
     ]
     self.adaptation_counts = dict(state.get('adaptation_counts', {}))
+    self.enacted = {k: int(v) for k, v in state.get('enacted', {}).items()}
     self.behaviours = dict(state.get('behaviours', {}))
     if self.seed_banks is not None and state.get('seed_banks'):
       self.seed_banks.set_state(state['seed_banks'])

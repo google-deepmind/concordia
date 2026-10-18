@@ -35,6 +35,7 @@ from typing import Any
 from concordia.components.agent import constant
 from concordia.components.agent import report_function
 from concordia.contrib.pubsub import operators
+from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises as crises_lib
 from examples.deep_time import game as game_lib
@@ -129,6 +130,20 @@ def character_words(character: Mapping[str, Any]) -> str:
   )
 
 
+def declare_takes(context: game_lib.GameContext, polity: str) -> None:
+  """Keeps a people's recent takes on its topic (the page's story shows them)."""
+  context.bus.declare(
+      f'civ.{polity}.takes',
+      retention=topics.Retention.REPLAY,
+      replay_size=TAKES_KEPT,
+      description="A people's one-sentence takes on the omens it read.",
+  )
+
+
+# How many takes each people's topic keeps (the page's story shows them).
+TAKES_KEPT = 10
+
+
 def polity_config(
     context: game_lib.GameContext,
     polity: str,
@@ -184,6 +199,7 @@ def polity_config(
   }
   # A people a person plays answers treaty offers itself, on its own turn.
   human = people.name in context.humans
+  declare_takes(context, polity)
   context.add_actor(
       actors_lib.PolityActor(
           people.name,
@@ -194,6 +210,9 @@ def polity_config(
           person=human,
           age=str(rules.get('age', 'the early iron age')),
           coached=context.coached,
+          # What its printers write reaches the Gazette by its action.
+          press=lambda: context.bus.latest(f'civ.{polity}.press'),
+          retelling=lambda: context.bus.latest(f'civ.{polity}.retelling'),
       ),
       hears=(
           'world.tick',
@@ -331,7 +350,8 @@ def polity_config(
                   if owner == polity and context.planet.gazette is not None
                   else {}
               ),
-              # One sentence, in its own voice, on each omen it reads.
+              # One sentence, in its own voice, on each omen it reads (kept
+              # on its topic for the page: words, which change nothing).
               **(
                   {
                       'Take mind': context.make_mind(

@@ -72,9 +72,10 @@ class WorldStep(
     if ctx.sim is not None:
       ctx.sim.advance()
     ctx.advance_wire()
-    events = ctx.deliver_adaptations()
+    # Minds' decisions reach the world only through their entities' actions
+    # (resolved by `ActorResolution`), never here.
     report = ctx.planet.advance()
-    events.extend(report.events)
+    events = list(report.events)
     for split in ctx.planet.take_new_species():
       events.append(self._found_species(split))
     # Observations follow from publishing: the World GM's TopicObservations

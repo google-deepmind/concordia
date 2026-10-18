@@ -203,13 +203,16 @@ class GazetteFlowTest(absltest.TestCase):
   def test_peoples_print_and_everyone_reads_the_gazette(self):
     context, planet, civ, _ = _game()
     amber = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.15)
+    press = lambda: context.bus.latest('civ.cedar.press')  # pylint: disable=unnecessary-lambda-assignment
     self.assertNotIn(actors_lib.PRINT_BROADSHEET, amber.options())
     civ.polities['amber'].techs += ['glassmaking', 'printing']
     self.assertNotIn(actors_lib.PRINT_BROADSHEET, amber.options())  # No paper.
     # The menu is curated, but a fresh unlock always shows.
     self.assertIn('put more labor into: make paper', amber.options())
     # The Cedar league start with the press and two sheets of paper.
-    cedar = actors_lib.PolityActor('Cedar league', 'cedar', planet, 0.15)
+    cedar = actors_lib.PolityActor(
+        'Cedar league', 'cedar', planet, 0.15, press=press
+    )
     self.assertIn('paper 2.0', civ.sheet('cedar'))
     self.assertIn(actors_lib.PRINT_BROADSHEET, cedar.options())
     self.assertLessEqual(len(cedar.options()), actors_lib.MAX_OPTIONS)
@@ -226,11 +229,17 @@ class GazetteFlowTest(absltest.TestCase):
     context.bus.publish(
         'civ.cedar.press', 'clean air: Smoke Kills. Burn less coal.'
     )
-    events = context.deliver_adaptations()
-    self.assertIn('The Cedar league print a broadsheet', events[0].text)
-    propaganda = context.bus.latest('civ.cedar.propaganda')
-    assert propaganda is not None
-    self.assertIn('Smoke Kills', propaganda.payload)
+    # The printers' sheet reaches the Gazette only when the people publishes
+    # it (an action).
+    self.assertIsNone(context.bus.latest('civ.cedar.propaganda'))
+    self.assertIn(actors_lib.PUBLISH_BROADSHEET, cedar.options())
+    news = cedar.resolve(actors_lib.PUBLISH_BROADSHEET)
+    self.assertIn('The Cedar league print a broadsheet', news)
+    self.assertIn(
+        ('civ.cedar.propaganda', 'clean air: Smoke Kills. Burn less coal.'),
+        cedar.drain_outbox(),
+    )
+    self.assertNotIn(actors_lib.PUBLISH_BROADSHEET, cedar.options())
     context.publish_state()
     message = context.bus.latest('media.gazette')
     assert message is not None

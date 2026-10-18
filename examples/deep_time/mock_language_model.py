@@ -641,7 +641,7 @@ def grazer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
     return _find(options, 'graze heavily')
   if food <= 25:
     return _find(options, 'wander')
-  return _find(options, 'browse lightly')
+  return _calm(options, 'browse lightly')
 
 
 def grazer_adaptation_answer(prompt: str) -> str | None:
@@ -833,7 +833,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   genome = _genome(prompt)
   reading = _census(prompt, genome[0]) if genome else None
   if genome is None or reading is None:
-    return _find(options, 'hold steady')
+    return _calm(options, 'hold steady')
   optimum = genome[1]
   local, growth = reading
   offer = _find(options, 'propose a pact')
@@ -847,7 +847,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
     return _find(options, 'spread')
   if growth <= 0.15 and abs(local - optimum) > 8:
     return _find(options, 'dormant')
-  return _find(options, 'hold steady')
+  return _calm(options, 'hold steady')
 
 
 def adaptation_answer(prompt: str) -> str | None:
@@ -1425,7 +1425,19 @@ def offer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
 def adopt_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   """Puts the scribes' standing orders to work as soon as they are drafted."""
   del prompt
-  return _find(options, 'adopt the standing orders our scribes wrote')
+  return _find(
+      options,
+      'adopt the standing orders our scribes wrote',
+      'publish the broadsheet our printers wrote',
+      "print our printers' retelling of the omen",
+  )
+
+
+def _calm(options: Mapping[str, str], neutral: str) -> str | None:
+  """On a calm turn (no behaviour to change), enact the slow mind's shift."""
+  return _find(options, 'evolve as our slow mind decided') or _find(
+      options, neutral
+  )
 
 
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (

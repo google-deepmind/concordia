@@ -84,6 +84,8 @@ class WakeUps:
   def _collect(self, message: topics.Message) -> None:
     if self._bus.is_restoring:  # A checkpoint's replay wakes no one.
       return
+    if not str(message.payload).strip():  # An empty message is no news.
+      return
     with self._lock:
       self._inbox.append(message)
 

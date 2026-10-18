@@ -151,16 +151,28 @@ class ActorComponentsTest(absltest.TestCase):
   def test_active_entities(self):
     self.assertEqual(self.context.active_entities(), ['Rose'])
 
-  def test_adaptation_messages_reach_the_planet(self):
-    self.context.bus.publish(
-        'bio.species.white.adaptation', 'paler petals', source='White daisies'
+  def test_an_adaptation_is_enacted_by_the_species_own_action(self):
+    topic = 'bio.species.white.adaptation'
+    white = actors_lib.SpeciesActor(
+        'White daisies',
+        'white',
+        self.context.planet,
+        decided=lambda: self.context.bus.latest(topic),
     )
-    self.context.bus.publish('bio.species.white.behaviour', 'spread')
-    events = self.context.deliver_adaptations()
-    self.assertLen(events, 1)
-    self.assertIn('paler petals', events[0].text)
+    self.context.bus.publish(topic, 'paler petals', source='White daisies')
+    # The mind's decision alone changes nothing in the world.
+    self.assertEqual(self.context.planet.pending_adaptations, [])
+    evolve = next(o for o in white.options() if o.startswith(actors_lib.EVOLVE))
+    self.assertIn('paler', evolve)
+    self.assertIn('begin evolving', white.resolve(evolve))
     self.assertEqual(self.context.planet.pending_adaptations[0].option, 'paler')
-    self.assertEqual(self.context.deliver_adaptations(), [])
+    # Enacted once: no longer offered (and remembered in the planet's state).
+    self.assertFalse(
+        any(o.startswith(actors_lib.EVOLVE) for o in white.options())
+    )
+    self.assertIn(
+        'White daisies:adaptation', self.context.planet.get_state()['enacted']
+    )
 
 
 if __name__ == '__main__':

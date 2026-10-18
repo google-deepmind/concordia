@@ -103,7 +103,6 @@ class PactFlowTest(absltest.TestCase):
     context.bus.publish(
         'bio.species.black.pact', 'Reply to White daisies: accept, gladly.'
     )
-    self.assertEqual(context.deliver_adaptations(), [])
     assert planet.symbiosis is not None
     self.assertFalse(planet.symbiosis.has_pact('white', 'black'))
     news = black.resolve(accept)

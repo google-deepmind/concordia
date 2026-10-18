@@ -990,12 +990,27 @@ class GameSession:
         'ready': omen.option in options,
     }
 
-  def _takes(self) -> list[dict[str, Any]]:
-    """Each people's newest take on an omen: {who, tick, text}."""
+  def _take_history(self) -> list[tuple[int, str, str]]:
+    """Every people's recent takes on the omens, from its topic: (tick,
+    people key, take), oldest first (words: the world keeps no record)."""
     planet = self.context.planet
     if planet.gazette is None or planet.civ is None:
       return []
-    newest = {polity: (t, take) for t, polity, take in planet.gazette.takes}
+    found = []
+    for key in planet.civ.polities:
+      for message in self.context.bus.history(f'civ.{key}.takes'):
+        take = str(message.payload).strip()
+        if take:
+          tick = int(message.time) if message.time is not None else 0
+          found.append((tick, message.seq, key, take))
+    return [(t, key, take) for t, _, key, take in sorted(found)]
+
+  def _takes(self) -> list[dict[str, Any]]:
+    """Each people's newest take on an omen: {who, tick, text}."""
+    planet = self.context.planet
+    if planet.civ is None:
+      return []
+    newest = {polity: (t, take) for t, polity, take in self._take_history()}
     return [
         {'who': planet.civ.polities[k].name, 'tick': t, 'text': take}
         for k, (t, take) in sorted(newest.items())
@@ -1444,7 +1459,7 @@ class GameSession:
         if self.context.planet.civ is not None
         else {}
     )
-    for tick, polity, take in gazette.takes if gazette is not None else ():
+    for tick, polity, take in self._take_history():
       items.append({
           'tick': tick,
           'kind': 'take',

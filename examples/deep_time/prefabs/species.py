@@ -169,7 +169,13 @@ def species_config(
     raise ValueError('Species need evolution rules in the game context.')
   info = evolution.info(species)
   context.add_actor(
-      actors_lib.SpeciesActor(info.name, species, context.planet),
+      actors_lib.SpeciesActor(
+          info.name,
+          species,
+          context.planet,
+          # Its adaptation mind's decision, enacted only by its own action.
+          decided=lambda: context.bus.latest(adaptation_topic(species)),
+      ),
       hears=(
           'world.tick',
           'bio.events',

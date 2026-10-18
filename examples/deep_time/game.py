@@ -24,7 +24,6 @@ World GM and the entities share the planet, the topic bus and the clock.
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import json
-import threading
 from typing import Any
 
 from concordia.components.agent import action_spec_ignored
@@ -124,7 +123,6 @@ class GameContext:
   humans: dict[str, human_input.HumanInput] = dataclasses.field(
       default_factory=dict
   )
-  _inbox: list[tuple[str, str]] = dataclasses.field(default_factory=list)
 
   def with_bus(self, components: Mapping[str, Any]) -> dict[str, Any]:
     """An entity's components behind a contrib `TopicBusComponent`.
@@ -286,10 +284,6 @@ class GameContext:
     if self.wire is not self.sim:
       self.wire.advance()
 
-  _inbox_lock: threading.Lock = dataclasses.field(
-      default_factory=threading.Lock
-  )
-
   def add_actor(
       self, actor: actors_lib.Actor, hears: tuple[str, ...] = ()
   ) -> None:
@@ -370,70 +364,6 @@ class GameContext:
     """Scheduler for a slow mind: sim-time latency, or threads if async."""
     return sim_time.publisher_scheduler(self.sim, latency_ticks, key)
 
-  def on_species_message(self, message: topics.Message) -> None:
-    """Collects slow-mind outputs; may be called from any thread."""
-    if self.bus.is_restoring:  # A checkpoint's replay, not a new answer.
-      return
-    parts = message.topic.split('.')
-    # Replies to pacts and treaties are the answering entity's own action
-    # (on its menu, its mind's counsel in its context), never settled here.
-    if len(parts) == 4 and parts[3] == 'adaptation' and message.payload:
-      with self._inbox_lock:
-        self._inbox.append((parts[2], f'{parts[3]}:{message.payload}'))
-    elif (
-        len(parts) == 3
-        and parts[0] == 'civ'
-        and parts[2] in ('press', 'retelling', 'takes')
-        and message.payload
-    ):
-      with self._inbox_lock:
-        self._inbox.append((parts[1], f'{parts[2]}:{message.payload}'))
-
-  def deliver_adaptations(self) -> list[planet_lib.WorldEvent]:
-    """Hands landed slow-mind answers to the planet, in arrival order.
-
-    Adaptation answers become trait changes; broadsheets go on the Gazette
-    and the author's propaganda topic. (Replies to pacts and treaties are
-    actions, resolved by the World GM.)
-
-    Returns:
-      Events to announce.
-    """
-    with self._inbox_lock:
-      inbox, self._inbox = self._inbox, []
-    events = []
-    for species, message in inbox:
-      kind, answer = message.split(':', 1)
-      if kind == 'adaptation':
-        events.append(
-            planet_lib.WorldEvent(
-                planet_lib.BIO_EVENTS,
-                self.planet.queue_adaptation(species, answer),
-            )
-        )
-        continue
-      if kind == 'retelling':
-        # The printers' front page about an omen: on the Gazette, and to
-        # every people as it was printed.
-        news = self.planet.publish_retelling(species, answer)
-        if news is not None:
-          events.append(planet_lib.WorldEvent(planet_lib.CIV_EVENTS, news))
-          self.bus.publish('media.omens', answer.strip(), source='world')
-        continue
-      if kind == 'takes':  # A people's take on an omen, for the page.
-        if self.planet.gazette is not None:
-          self.planet.gazette.note_take(self.planet.tick, species, answer)
-        continue
-      if kind == 'press':
-        news = self.planet.publish_broadsheet(species, answer)
-        if news is not None:
-          events.append(planet_lib.WorldEvent(planet_lib.CIV_EVENTS, news))
-          self.bus.publish(
-              f'civ.{species}.propaganda', answer.strip(), source='world'
-          )
-        continue
-    return events
-
   def publish_state(self, events: Sequence[planet_lib.WorldEvent] = ()) -> None:
     publishing.publish_state(
         self.bus, self.planet, self.clock.formatted_now(), events
@@ -468,8 +398,6 @@ class GameContext:
             [owner, label, message.to_dict()]
             for (owner, label), message in sorted(self.received.items())
         ],
-        # Slow minds' answers that landed but are not yet handed over.
-        'inbox': [list(item) for item in self._inbox],
         # Species founded during play (their entities are founded again
         # before a checkpoint is loaded, see `simulation.load_checkpoint`).
         'spawned': list(self.spawned),
@@ -492,8 +420,6 @@ class GameContext:
         (owner, label): topics.Message.from_dict(message)
         for owner, label, message in state.get('received', [])
     }
-    with self._inbox_lock:
-      self._inbox = [(str(k), str(v)) for k, v in state.get('inbox', [])]
     self.spawned = [str(name) for name in state.get('spawned', [])]
     if self.wakeups is not None and state.get('wakeups'):
       self.wakeups.set_state(state['wakeups'])
@@ -680,7 +606,5 @@ def new_game(
     context.automation = automation_lib.Automation(
         bus, planet.civ, planet.trade, data.load('trade.yaml')['automation']
     )
-  bus.matching('bio.species.').subscribe(context.on_species_message)
-  bus.matching('civ.').subscribe(context.on_species_message)
   context.publish_state()
   return context

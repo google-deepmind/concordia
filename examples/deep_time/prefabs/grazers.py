@@ -49,7 +49,11 @@ def grazers_config(
   if grazers is None:
     raise ValueError('This scenario has no grazers.')
   context.add_actor(
-      actors_lib.GrazerActor(grazers.name, context.planet),
+      actors_lib.GrazerActor(
+          grazers.name,
+          context.planet,
+          decided=lambda: context.bus.latest(ADAPTATION_TOPIC),
+      ),
       hears=('world.tick', 'bio.events', 'gaia.omens'),
   )
   components = species_lib.senses(context, grazers.name, grazers.genome_text)

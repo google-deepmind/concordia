@@ -119,8 +119,6 @@ class Gazette:
     self.pending: dict[str, str] = {}
     self.last_printed: dict[str, int] = {}
     self.printed: list[Broadsheet] = []
-    # What each people made of the omens it read: (tick, polity, take).
-    self.takes: list[tuple[int, str, str]] = []
 
   def can_print(self, polity: str, tick: int, paper: float) -> bool:
     last = self.last_printed.get(polity)
@@ -223,11 +221,6 @@ class Gazette:
     self.printed.append(sheet)
     return sheet
 
-  def note_take(self, tick: int, polity: str, take: str) -> None:
-    """Keeps a people's take on the omen it read (the newest 30)."""
-    self.takes.append((tick, polity, take.strip()))
-    del self.takes[:-30]
-
   def blame_smoke(self, polity: str, civ: civ_lib.Civilization) -> None:
     """The land struck this people: it blames the smoke."""
     people = civ.polities[polity]
@@ -281,7 +274,6 @@ class Gazette:
         'pending': dict(sorted(self.pending.items())),
         'last_printed': dict(self.last_printed),
         'printed': [dataclasses.asdict(b) for b in self.printed],
-        'takes': [list(t) for t in self.takes],
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -296,7 +288,3 @@ class Gazette:
         k: int(v) for k, v in state.get('last_printed', {}).items()
     }
     self.printed = [Broadsheet(**b) for b in state.get('printed', [])]
-    self.takes = [
-        (int(t), str(polity), str(take))
-        for t, polity, take in state.get('takes', ())
-    ]

@@ -252,7 +252,10 @@ recipes:
 # deliberates when its food or silver changes, an eruption shakes the land,
 # or every two ticks.
 wakeups:
-  prefixes: [geo.events, 'civ.alerts.{key}']
+  # Its own minds' counsel (on an offer, a draft of standing orders, a
+  # broadsheet, a retelling) wakes it too: it enacts them only by acting.
+  prefixes: [geo.events, 'civ.alerts.{key}', 'civ.{key}.treaty',
+             'civ.{key}.policy', 'civ.{key}.press', 'civ.{key}.retelling']
   timer_ticks: 2
   alert_topic: 'civ.alerts.{key}'
   alarms:
