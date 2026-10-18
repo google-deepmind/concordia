@@ -34,6 +34,8 @@ registry |
 observations per access list |
 | `__actors__` | `ActorRegistry`: each acting entity's rules (its action spec,
 how its actions resolve), checkpointed with the GM |
+| `__deliveries__` | `Deliveries`: runs every entity's instruments (their
+transports, ageing and rendering) and hands each what reaches it |
 | `entity_scheduler` | upstream `interrupt_scheduling.EntityScheduler`: the
 event-driven entities' interrupt masks and timers (where there are any) |
 | `__wakeups__` | `wakeups.WakeUps`: the events and alarms that wake them |
@@ -60,6 +62,7 @@ from examples.deep_time import game as game_lib
 from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import action_specs
 from examples.deep_time.components import actor_registry
+from examples.deep_time.components import deliveries
 from examples.deep_time.components import resolution
 from examples.deep_time.components import world_step
 from examples.deep_time.world import publishing
@@ -137,6 +140,8 @@ class WorldGameMaster(prefab_lib.Prefab):
         ),
         # The rules of every acting entity, checkpointed with the GM.
         actor_registry.DEFAULT_ACTOR_REGISTRY_KEY: context.registry,
+        # Every entity's instruments: what reaches whom, when, how.
+        deliveries.DEFAULT_DELIVERIES_KEY: context.deliveries,
         # Who is awake in event-driven eras: the upstream scheduler of masks
         # and timers, and what wakes whom (stepped by `WorldStep`).
         **(

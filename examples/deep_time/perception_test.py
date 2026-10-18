@@ -107,8 +107,12 @@ class PerceptionTest(absltest.TestCase):
         initial='none',
         transported=True,
     )
-    # The tick-0 reading is still on its way (stones are two ticks late).
+    # The tick-0 reading is still on its way (stones are two ticks late):
+    # the World GM carries it (its deliveries' state), not the Steward.
     self.assertEqual(belief.get_current_value(), 'none')
+    in_flight = context.deliveries.get_state()['Gaia/Thermometer']
+    self.assertIn('climate.global', json.dumps(in_flight))
+    self.assertNotIn('operator_state', belief.get_state())
 
     def step():
       context.clock.advance()

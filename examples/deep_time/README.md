@@ -458,7 +458,8 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     `TopicBusComponent` first (as the contrib async-deliberation entity does),
     the World GM's `TopicObservations` and `NumericClock` hold the bus and the
     clock, each slow mind is a `SimTimePublisher` with its work in flight, and
-    each transport keeps its deliveries on the road and its random draws.
+    the World GM's `Deliveries` keeps every instrument's readings on the road
+    and its random draws.
     `WorldStep` carries the world itself (`GameContext.get_state`: the planet,
     queued observations, attention, wake-ups, standing orders).
     `simulation.load_checkpoint(sim, data)` restores a new simulation of the
@@ -476,10 +477,12 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     adds the role's actor to the World GM's registry and builds its components.
 *   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` with
     topic-bound `pubsub.Subscriber` instruments.
-*   **Instruments** (`perception.py`): every belief is a topic-bound
-    `Subscriber` whose stream runs through contrib `operators.with_age`, so it
-    reads e.g. `[tick 7, 2 ticks old]`; news digests merge several topics. The
-    Steward's instruments also run through contrib `operators.transport`: its
+*   **Instruments** (`perception.py`, `components/deliveries.py`): the World
+    GM runs every instrument and hands the entity's stock `TopicSubscriber`
+    only what arrives; each stream runs through contrib `operators.with_age`,
+    so it reads e.g. `[tick 7, 2 ticks old]`; news digests merge several
+    topics. The Steward's instruments also run through contrib
+    `operators.transport` (as do the light delay and a people's couriers): its
     instrument tier (`data/instruments.yaml`: standing stones, naturalists,
     orbital radiometers) sets how late readings arrive, how many are lost and
     how noisy temperatures are, and it can spend Ω to upgrade. The report plots

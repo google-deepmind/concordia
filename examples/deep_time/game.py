@@ -38,6 +38,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import attention as attention_lib
 from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import actor_registry
+from examples.deep_time.components import deliveries as deliveries_lib
 from examples.deep_time.world import automation as automation_lib
 from examples.deep_time.world import data
 from examples.deep_time.world import evolution as evolution_lib
@@ -312,6 +313,9 @@ class GameContext:
     # The World GM's actor registry component: it shares the actors and the
     # access lists, and its checkpoint keeps every actor's state.
     self.registry = actor_registry.ActorRegistry(self.actors, self.access)
+    # The World GM's deliveries component: it runs every entity's
+    # instruments and hands each only what reaches it.
+    self.deliveries = deliveries_lib.Deliveries()
 
   def add_actor(
       self, actor: actors_lib.Actor, hears: tuple[str, ...] = ()

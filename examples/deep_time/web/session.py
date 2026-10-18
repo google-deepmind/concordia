@@ -480,7 +480,8 @@ def load_replay(path: str) -> dict[str, Any] | None:
 # game, removed when the game is decided or given up.
 SAVES = 'saves'
 # 2: roles' params are plain (a species founded in play saves whole).
-SAVE_VERSION = 2
+# 3: the World GM carries the readings in flight (`Deliveries`).
+SAVE_VERSION = 3
 # A limited rewind: a game may go back this many turns in all, to
 # saves kept in memory for the last few turns.
 REWINDS = 3

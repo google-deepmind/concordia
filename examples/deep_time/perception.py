@@ -14,16 +14,20 @@
 
 """Instruments: how entities perceive topics.
 
-Every instrument is a stock `pubsub.Subscriber` built by the contrib
-`TopicBus`. Readings are re-rendered every tick with their age by the contrib
-`operators.with_age` (a `combine_latest` with the `world.tick` stream), so an
-entity can tell a fresh reading from a stale one: staleness is visible.
+Every instrument is run by the World GM (its `Deliveries` component), which
+hands the entity's stock `TopicSubscriber` only what arrives. Readings are
+re-rendered every tick with their age by the contrib `operators.with_age` (a
+`combine_latest` with the `world.tick` stream), so an entity can tell a
+fresh reading from a stale one: staleness is visible.
 
 The Steward's instruments also run through a contrib `operators.transport`
 whose properties come from its current instrument tier (`data/
 instruments.yaml`): readings arrive late, some are lost, and temperatures
-carry noise. What each instrument delivered is kept on the `GameContext`, so
-the report can compare belief with truth (the epistemic gap).
+carry noise; news crosses the light delay and the couriers' roads the same
+way. What each instrument delivered is kept on the `GameContext`, so the
+report can compare belief with truth (the epistemic gap). An entity's own
+state (its storehouse, its genome, what its minds weigh) reaches it as
+sheets the World GM publishes (`sheet`, `brief`).
 """
 
 # pylint: disable=g-doc-args,g-doc-return-or-yield
@@ -197,46 +201,91 @@ def instrument(
     A `pubsub.Subscriber` bound to the topic.
   """
   to_text = render or publishing.renderer_for(topic)
-
-  def shown(message: topics.Message) -> str:
-    if attention is None or attention.watching(label):
-      return to_text(message)
-    return 'Not watched; this reading is out of date'
-
-  aged = operators.with_age(
-      tick_stream(context.bus), render=shown, template=AGE_TEMPLATE
-  )
   # What reached the owner, as data, for the page: only
   # while it is watched, as the prompt shows it (a reading still on its way
   # when the owner looked away is not read).
   context.tapped.add((owner, label))
 
-  def note(message: topics.Message) -> None:
-    if attention is None or attention.watching(label):
-      context.received[(owner, label)] = message
+  def build() -> reactivex.Observable:
+    """The instrument, run by the World GM (`components.deliveries`)."""
 
-  aged = reactivex.compose(ops.do_action(note), aged)
-  if transported:
-    seed = zlib.crc32(f'{context.seed}:{owner}:{topic}'.encode())
-    aged = reactivex.compose(
-        operators.transport(
-            channel or (lambda: context.transport_for(topic)),
-            seed=seed,
-            scheduler=context.wire,
-        ),
-        ops.do_action(lambda m: context.note_belief(owner, m)),
-        aged,
+    def shown(message: topics.Message) -> str:
+      if attention is None or attention.watching(label):
+        return to_text(message)
+      return 'Not watched; this reading is out of date'
+
+    aged = operators.with_age(
+        tick_stream(context.bus), render=shown, template=AGE_TEMPLATE
     )
-  if attention is not None:
-    aged = reactivex.compose(
-        ops.filter(lambda _: attention.watching(label)), aged
-    )
-  return context.bus.make_subscriber(
-      topic,
-      subscriber_name=owner,
-      initial_value=initial,
+
+    def note(message: topics.Message) -> None:
+      if attention is None or attention.watching(label):
+        context.received[(owner, label)] = message
+
+    aged = reactivex.compose(ops.do_action(note), aged)
+    if transported:
+      seed = zlib.crc32(f'{context.seed}:{owner}:{topic}'.encode())
+      aged = reactivex.compose(
+          operators.transport(
+              channel or (lambda: context.transport_for(topic)),
+              seed=seed,
+              scheduler=context.wire,
+          ),
+          ops.do_action(lambda m: context.note_belief(owner, m)),
+          aged,
+      )
+    if attention is not None:
+      aged = reactivex.compose(
+          ops.filter(lambda _: attention.watching(label)), aged
+      )
+    return context.bus.observable(topic).pipe(aged)
+
+  return _arriving(
+      context,
+      [topic],
+      owner=owner,
+      label=label,
+      initial=initial,
       pre_act_label=f'{label} ({topic})',
-      transform=aged,
+      build=build,
+  )
+
+
+def _arriving(
+    context: game_lib.GameContext,
+    topic_names: Sequence[str],
+    *,
+    owner: str,
+    label: str,
+    initial: str,
+    pre_act_label: str,
+    build: Callable[[], reactivex.Observable],
+) -> topics.TopicSubscriber:
+  """An entity's belief in what the World GM delivers of some topics.
+
+  The World GM runs the instrument (`build`: its transport, ageing and
+  rendering, which may read the world) in its `Deliveries` component; the
+  entity's stock `TopicSubscriber` holds what arrives, and nothing else.
+
+  Args:
+    context: Shared game state.
+    topic_names: The topics read (for the bus's topology).
+    owner: The entity.
+    label: The instrument's label (unique for the entity).
+    initial: Belief before the first reading arrives.
+    pre_act_label: The component's label.
+    build: Builds the instrument's stream from the bus.
+
+  Returns:
+    The entity's subscriber.
+  """
+  for name in topic_names:
+    context.bus.register_subscriber(name, owner)
+  return topics.TopicSubscriber(
+      publisher_component_key=None,
+      initial_value=initial,
+      pre_act_label=pre_act_label,
+      subject=context.deliveries.deliver(f'{owner}/{label}', build),
   )
 
 
@@ -301,20 +350,28 @@ def local_news(
     where = 'here' if steps == 0 else f'{steps} region{"s" * (steps > 1)} away'
     return f'tick {message.time:g}: {text} ({where})'
 
-  return context.bus.make_subscriber(
-      [f'local.r{r}' for r in near],
-      subscriber_name=owner,
-      initial_value='No news of nearby lands yet.',
+  names = [f'local.r{r}' for r in near]
+
+  def build() -> reactivex.Observable:
+    """The couriers, run by the World GM (`components.deliveries`)."""
+    return reactivex.merge(*(context.bus.observable(n) for n in names)).pipe(
+        operators.transport(
+            by_distance,
+            per_message=True,
+            seed=zlib.crc32(f'{context.seed}:{owner}:local'.encode()),
+            scheduler=context.wire,
+        ),
+        operators.rolling_digest(size, render=render),
+    )
+
+  return _arriving(
+      context,
+      names,
+      owner=owner,
+      label=label,
+      initial='No news of nearby lands yet.',
       pre_act_label=label,
-      transform=reactivex.compose(
-          operators.transport(
-              by_distance,
-              per_message=True,
-              seed=zlib.crc32(f'{context.seed}:{owner}:local'.encode()),
-              scheduler=context.wire,
-          ),
-          operators.rolling_digest(size, render=render),
-      ),
+      build=build,
   )
 
 
