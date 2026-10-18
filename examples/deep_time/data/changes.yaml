@@ -2,6 +2,14 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 18 Oct, night
+    world: great_acceleration
+    text: >-
+      The peoples no longer give a one-line take on each omen: their
+      characters speak through what they do, the broadsheets and retellings
+      they print, and their answers to pacts and treaties. What is on its way
+      to you lists your own council, printers and scribes as soon as they
+      start.
   - when: 18 Oct, evening
     world: great_acceleration
     text: >-
