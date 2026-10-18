@@ -142,15 +142,26 @@ class Settlements:
     mine = np.isin(self.tiles.region, self.lands[key])
     return np.where(mine, score, -np.inf)
 
-  def _found(
-      self, key: str, score: np.ndarray, capital: bool = False
-  ) -> Settlement | None:
+  def _free(self, score: np.ndarray) -> np.ndarray:
+    """`score` with every tile too near a town ruled out."""
     spacing = int(self.config['spacing'])
     score = score.copy()
     for others in self.places.values():
       for s in others:
         for r, c in self._around(s.row, s.col, spacing - 1):
           score[r, c] = -np.inf
+    return score
+
+  def has_site(self, key: str) -> bool:
+    """Whether a people's lands have a free site for a new town."""
+    return bool(
+        np.isfinite(self._free(self._in_lands(key, self.siting()))).any()
+    )
+
+  def _found(
+      self, key: str, score: np.ndarray, capital: bool = False
+  ) -> Settlement | None:
+    score = self._free(score)
     if not np.isfinite(score).any():
       return None
     cell = int(np.argmax(np.where(np.isfinite(score), score, -1e9)))
@@ -177,8 +188,19 @@ class Settlements:
       return f'on the coast in the {side}'
     return f'in the {biome["name"]} of the {side}'
 
-  def update(self, populations: Mapping[str, float]) -> list[str]:
-    """Founds and abandons towns as each people grows and shrinks."""
+  def update(
+      self, populations: Mapping[str, float], found: bool = True
+  ) -> list[str]:
+    """Founds and abandons towns as each people grows and shrinks.
+
+    Args:
+      populations: Each people's population.
+      found: Whether growth founds towns (where conquest is played, only a
+        people's move founds one).
+
+    Returns:
+      The news.
+    """
     news = []
     per = float(self.config['town_population'])
     top = int(self.config['max_settlements'])
@@ -205,7 +227,7 @@ class Settlements:
             )
         )
         changed = True
-      while len(places) < want:
+      while found and len(places) < want:
         score = self._in_lands(key, self.siting())
         place = self._found(key, score)
         if place is None:
@@ -220,6 +242,42 @@ class Settlements:
     if changed:
       self._route()
     return news
+
+  def founded(self, key: str) -> int:
+    """How many of the towns a people holds it founded itself."""
+    return sum(1 for p in self.places.get(key, []) if p.polity == key)
+
+  def found_at(
+      self, key: str, tile: tuple[int, int] | None
+  ) -> tuple[Settlement | None, str]:
+    """A people founds a town where asked, or on its best free site.
+
+    Args:
+      key: The people.
+      tile: Where it asked (south first), or None for its best free site.
+
+    Returns:
+      The town, or None and why not.
+    """
+    score = self._in_lands(key, self.siting())
+    if tile is not None:
+      r, c = int(tile[0]), int(tile[1])
+      if not self.tiles.land[r, c] or self.tiles.ice[r, c]:
+        return None, 'there is no dry land free of ice there'
+      if not np.isfinite(score[r, c]):
+        return None, 'that is not their land'
+      spacing = int(self.config['spacing'])
+      for others in self.places.values():
+        for s in others:
+          if self._steps(r, c, s.row, s.col) < spacing:
+            return None, 'it is too near another town'
+      score = np.full(score.shape, -np.inf)
+      score[r, c] = 1.0
+    place = self._found(key, score)
+    if place is None:
+      return None, 'there is no free site left in their lands'
+    self._route()
+    return place, ''
 
   def find(self, town: int) -> tuple[Settlement, str] | None:
     """A town by its id, and the people that holds it."""

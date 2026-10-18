@@ -695,7 +695,9 @@ class Planet:
         events.append(WorldEvent(CIV_EVENTS, text))
       if self.settlements is not None and self.pollution is not None:
         for text in self.settlements.update(
-            {k: p.population for k, p in self.civ.polities.items()}
+            {k: p.population for k, p in self.civ.polities.items()},
+            # Where conquest is played, only a people's move founds a town.
+            found=not self.settlements.conquest,
         ):
           events.append(
               WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text))
@@ -914,6 +916,72 @@ class Planet:
     else:
       self.colony.site = target
     return where
+
+  def founding_cost(self) -> dict[str, float]:
+    """What founding a town costs a people (where conquest is played)."""
+    if self.settlements is None:
+      return {}
+    return {
+        k: float(v)
+        for k, v in (self.settlements.config.get('founding') or {}).items()
+    }
+
+  def can_found(self, polity: str) -> str:
+    """Why a people cannot found a town now ('' if it can)."""
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.conquest:
+      return 'they found no towns by choice here'
+    if towns.founded(polity) >= int(towns.config['max_settlements']):
+      return (
+          f'they have founded {towns.founded(polity)} towns, the most they can'
+      )
+    people = civ.polities[polity].population
+    need = float(towns.config['town_population']) * (
+        len(towns.places[polity]) + 1
+    )
+    if people < need:
+      return (
+          f'they are {people:.1f} people in {len(towns.places[polity])} towns;'
+          f' settlers for one more need {need:g}'
+      )
+    if not towns.has_site(polity):
+      return 'there is no free site left in their lands'
+
+    short = [
+        f'{amount:g} {good}'
+        for good, amount in self.founding_cost().items()
+        if civ.stock(polity, good) < amount
+    ]
+    if short:
+      return f'it takes {" and ".join(short)}, which they lack'
+    return ''
+
+  def found_town(self, polity: str, actor: str) -> str:
+    """A people founds a town: where it was aimed, or its best free site.
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+
+    Returns:
+      What happened, or why not.
+    """
+    target = self.targets.pop(actor, None)
+    assert self.civ is not None
+    name = self.civ.polities[polity].name
+    why = self.can_found(polity)
+    if why:
+      return f'{name} found no town: {why}.'
+    assert self.settlements is not None
+    place, why = self.settlements.found_at(polity, target)
+    if place is None:
+      return f'{name} found no town: {why}.'
+    for good, amount in self.founding_cost().items():
+      self.civ.ledger.withdraw(polity, good, amount, 'a new town')
+    return news_lib.located(
+        f'{name} found a town {self.settlements.where(place)}.',
+        (place.row, place.col),
+    )
 
   def change_hands(
       self,

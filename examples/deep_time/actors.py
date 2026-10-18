@@ -45,6 +45,8 @@ POLITY_CALL_TO_ACTION = (
     ' more of your labor this generation.'
 )
 KEEP_LABOR = 'keep the current balance of labor'
+# Where conquest is played: founding a town is a move (its cost follows).
+FOUND_TOWN = 'found a new town'
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
 ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
@@ -827,9 +829,16 @@ class PolityActor(Actor):
     ]
     # Diplomacy, the press and plans may not crowd out every market order.
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
+    # Where conquest is played, founding a town is a move, with its cost.
+    town = []
+    if not self._planet.can_found(self.polity):
+      cost = ', '.join(
+          f'{v:g} {k}' for k, v in self._planet.founding_cost().items()
+      )
+      town = [f'{FOUND_TOWN} [{cost}]']
     orders = [*self._trades(), *self._reflexes()]
-    room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - 1)
-    return [*fixed, *orders[:room], *extras, KEEP_LABOR]
+    room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - len(town) - 1)
+    return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
 
   def is_active(self) -> bool:
     return self.polity not in self._civ().collapsed(0.05)
@@ -956,6 +965,12 @@ class PolityActor(Actor):
         self._automation.note_turn_order()
       verb = 'offer' if order[1] == 'ask' else 'ask to buy'
       return f'{self.name} {verb} {order[0]} at market.'
+    if text.startswith(FOUND_TOWN):
+      self._tally('found')
+      news = self._planet.found_town(self.polity, self.name)
+      if ' found a town ' in news:  # Every people hears of it.
+        self.outbox.append((planet_lib.CIV_EVENTS, news))
+      return news
     recipe = self._focus().get(text)
     if recipe is None:
       self._tally('keep' if text == KEEP_LABOR else 'unmatched')
@@ -995,7 +1010,7 @@ class PolityActor(Actor):
 
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
-    return self._focus().get(text) == 'woodcut'
+    return text.startswith(FOUND_TOWN) or self._focus().get(text) == 'woodcut'
 
 
 class ColonyActor(Actor):

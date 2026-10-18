@@ -16,6 +16,7 @@
 
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
+from examples.deep_time.world import planet as planet_lib
 import numpy as np
 
 
@@ -156,6 +157,52 @@ class SettlementsTest(absltest.TestCase):
     towns = _planet('fire_and_iron').settlements
     self.assertFalse(towns.conquest)
     self.assertNotIn('towns', towns.get_state())
+
+  def test_a_people_founds_a_town_by_its_move_where_it_aims(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    towns, civ = planet.settlements, planet.civ
+    amber = civ.polities['amber']
+    people = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.15)
+    # Too few settlers yet: not offered, and the outcome says why.
+    self.assertIn('settlers for one more need', planet.can_found('amber'))
+    self.assertFalse(
+        any(o.startswith(actors_lib.FOUND_TOWN) for o in people.options())
+    )
+    amber.population = 30.0
+    move = next(
+        o for o in people.options() if o.startswith(actors_lib.FOUND_TOWN)
+    )
+    self.assertIn('4 grain', move)  # Its cost, told.
+    self.assertTrue(people.aimable(move))
+    # Aimed at the sea: no town, and why.
+    sea = next(zip(*np.nonzero(~planet.tiles.land)))
+    planet.set_target('Amber folk', int(sea[0]), int(sea[1]))
+    self.assertIn('no dry land', planet.found_town('amber', 'Amber folk'))
+    # Aimed at a free tile of its lands: the town stands there.
+    lands = np.isin(planet.tiles.region, amber.regions) & planet.tiles.land
+    taken = [(t.row, t.col) for v in towns.places.values() for t in v]
+    spot = next(
+        (int(r), int(c))
+        for r, c in zip(*np.nonzero(lands & ~planet.tiles.ice))
+        if all(towns._steps(r, c, tr, tc) >= 3 for tr, tc in taken)  # pylint: disable=protected-access
+    )
+    before = (len(towns.places['amber']), civ.stock('amber', 'grain'))
+    planet.set_target('Amber folk', *spot)
+    news = people.resolve(move)
+    self.assertIn('Amber folk found a town', news)
+    self.assertIn(spot, [(t.row, t.col) for t in towns.places['amber']])
+    self.assertLen(towns.places['amber'], before[0] + 1)
+    self.assertAlmostEqual(civ.stock('amber', 'grain'), before[1] - 4.0)
+    # Every people hears of it.
+    self.assertIn((planet_lib.CIV_EVENTS, news), people.drain_outbox())
+
+  def test_where_conquest_is_played_growth_founds_no_town(self):
+    towns = _planet('great_acceleration').settlements
+    held = len(towns.places['amber'])
+    towns.update({'amber': 30.0}, found=False)
+    self.assertLen(towns.places['amber'], held)
 
 
 if __name__ == '__main__':
