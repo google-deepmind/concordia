@@ -36,13 +36,14 @@ import os
 import re
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 import zlib
 
 from concordia.agents import entity_agent
 from concordia.components.agent import constant
 from concordia.components.agent import human_act_component
 from concordia.components.agent import pubsub
+from concordia.contrib.prefabs.entity import basic_with_async_deliberation
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises as crises_lib
 from examples.deep_time import forecast as forecast_lib
@@ -540,6 +541,18 @@ def load_save(path: str) -> dict[str, Any] | None:
   if not isinstance(found, dict) or found.get('version') != SAVE_VERSION:
     return None
   return found
+
+
+# A slow mind's answer on its way: (short label, what it is).
+_MIND_WORDS = {
+    'Advisor': ('Advisor', "The Advisor's next briefing"),
+    'Adaptation': ('Evolution', 'Which trait to evolve next'),
+    'Pact': ('Pact', 'An answer on a pact'),
+    'Treaty': ('Treaty', 'An answer to a treaty offer'),
+    'Press': ('Broadsheet', 'The next broadsheet'),
+    'Policy': ('Orders', 'New standing orders'),
+    'Chronicle': ('Chronicle', 'The next chronicle'),
+}
 
 
 class GameSession:
@@ -1463,6 +1476,8 @@ class GameSession:
     elif isinstance(actor, actors_lib.ColonyActor):
       plain['Current plan'] = 'colony.plan'
     ages = {t['label']: t['age'] for t in self.timing(entity)}
+    # Swapped out of the Steward's attention, as the GM says (`views`).
+    unwatched = set(views.latest(context, name, views.UNWATCHED, []))
     out = []
     for key, component in found.get_all_context_components().items():
       if not isinstance(component, pubsub.Subscriber):
@@ -1519,110 +1534,63 @@ class GameSession:
       ):
         if message.time is not None:  # When it was published, for trends.
           payload['tick'] = int(message.time)
-      watch = context.attention.get(name)
       out.append({
           'label': key,
           'topic': topic,
           'age': ages.get(key),
           'data': payload,
           # Swapped out of the Steward's attention: the last reading, frozen.
-          'unwatched': watch is not None and not watch.watching(key),
+          'unwatched': key in unwatched,
       })
-    genome = self._genome(actor)
+    genome = views.latest(context, name, views.TRAITS, None)
     if genome is not None:  # A species knows its own make-up, always fresh.
       out.insert(
           0, {'label': 'Genome', 'topic': 'genome', 'age': 0, 'data': genome}
       )
     return out
 
-  def _genome(self, actor: Any) -> dict[str, Any] | None:
-    """A species' own traits and what it is evolving toward."""
-    planet = self.context.planet
-    if isinstance(actor, actors_lib.SpeciesActor):
-      traits = planet.daisies.traits(actor.species)
-      evolution = planet.evolution
-      return {
-          'optimum_c': round(float(traits.optimum_c), 1),
-          'albedo': round(float(traits.albedo), 2),
-          'evolving': [
-              evolution.option(p.option).label
-              for p in planet.pending_adaptations
-              if p.species == actor.species and evolution is not None
-          ],
-      }
-    grazers = planet.grazers
-    if isinstance(actor, actors_lib.GrazerActor) and grazers is not None:
-      return {
-          'optimum_c': round(float(grazers.optimum_c), 1),
-          'white_diet': round(float(grazers.diet_white), 2),
-          'evolving': [label for label, _ in grazers.evolving()],
-      }
-    return None
-
   def in_flight(self, entity: str | None = None) -> list[dict[str, Any]]:
     """What is on its way to a role, and the turn it lands.
 
-    The other half of lag: a slow mind's answer (queued on the sim-time
-    scheduler under its key), an adaptation phasing in, a transmission
-    crossing the light delay, news a people's couriers are still carrying.
+    The other half of lag: its own slow minds' answers (it knows what it is
+    working on), and what the World GM has on its way to it: an adaptation
+    phasing in, a transmission crossing the light delay, news a people's
+    couriers are still carrying (`views.in_flight`).
     """
     found = self.role_entity(entity)
     if found is None:
       return []
-    name, context = found.name, self.context
-    planet, now = context.planet, context.planet.tick
-    actor = context.actors.get(name)
-    out: list[dict[str, Any]] = []
+    flight = self._deliberating(found)
+    flight.extend(views.latest(self.context, found.name, views.IN_FLIGHT, []))
+    return sorted(flight, key=lambda f: f['lands'])
 
-    def add(label: str, lands: int, kind: str, about: str = '') -> None:
-      if lands > now:
-        out.append({
-            'label': label,
-            'lands': int(lands),
-            'kind': kind,
-            'about': about or label,
-        })
-
-    if context.sim is not None:
-      for due in context.sim.due(name)[:1]:  # A council deliberating.
-        add('Council plan', due, 'mind', "Your council's next plan")
-      for mind in context.minds:
-        if mind.owner == name:
-          label, about = _MIND_WORDS.get(mind.label, (mind.label, ''))
-          for due in context.sim.due(f'{mind.owner}/{mind.label}')[:1]:
-            add(label, due, 'mind', about)
-    steward = isinstance(actor, actors_lib.StewardActor)
-    own = actor.species if isinstance(actor, actors_lib.SpeciesActor) else None
-    evolution = planet.evolution
-    for pending in planet.pending_adaptations:
-      if evolution is not None and (steward or pending.species == own):
-        who = planet.species_name(pending.species)
-        what = evolution.option(pending.option).label
-        add(who, now + pending.ticks_left, 'evolve', f'{what}, phasing in')
-    grazers = planet.grazers
-    if grazers is not None and (
-        steward or isinstance(actor, actors_lib.GrazerActor)
-    ):
-      who = planet.species_name(grazers.key)
-      for what, left in grazers.evolving():
-        add(who, now + left, 'evolve', f'{what}, phasing in')
-    colony = planet.colony
-    if colony is not None and isinstance(actor, actors_lib.MissionActor):
-      for arrival, kind, what in colony.incoming:
-        label, about = {
-            'design': ('Design', colony.design_labels.get(what, what)),
-            'site': ('Survey', 'where to mine the ice'),
-        }.get(kind, ('Directive', what))
-        add(
-            label,
-            now + arrival - colony.generation,
-            'wire',
-            f'{label} for {colony.name}: {about}',
+  def _deliberating(
+      self, found: entity_agent.EntityAgent
+  ) -> list[dict[str, Any]]:
+    """What a role's own slow minds are working on (their components)."""
+    now = self._tick()
+    labels = {
+        id(mind.publisher): mind.label
+        for mind in self.context.minds
+        if mind.owner == found.name
+    }
+    out = []
+    for key, component in found.get_all_context_components().items():
+      if key == basic_with_async_deliberation.DELIBERATION_COMPONENT_KEY:
+        label, about = 'Council plan', "Your council's next plan"
+      elif id(component) in labels:
+        mind = labels[id(component)]
+        label, about = _MIND_WORDS.get(mind, (mind, mind))
+      else:
+        continue
+      state = cast(dict[str, Any], component.get_state())
+      tasks = cast(list[dict[str, Any]], state.get('in_flight_tasks', []))
+      due = [int(t['due_tick']) for t in tasks if int(t['due_tick']) > now]
+      if due:
+        out.append(
+            {'label': label, 'lands': min(due), 'kind': 'mind', 'about': about}
         )
-    civ = planet.civ
-    if civ is not None and isinstance(actor, actors_lib.PolityActor):
-      out.extend(self._news_in_flight(actor.polity))
-    return sorted(out, key=lambda f: f['lands'])
+    return out
 
   def _acts_in(self, entity: str) -> int:
     """Turns until a role's move acts (Mission Control's cross the void)."""
@@ -1631,50 +1599,6 @@ class GameSession:
     if isinstance(actor, actors_lib.MissionActor) and colony is not None:
       return colony.light_delay
     return 1
-
-  def _news_in_flight(self, polity: str) -> list[dict[str, Any]]:
-    """News still on the couriers' road to a people (as `local_news`)."""
-    planet = self.context.planet
-    civ, config, now = planet.civ, planet.news_config, planet.tick
-    assert civ is not None
-    home = civ.polities[polity].home
-    per = float(
-        config[
-            'wired_ticks_per_region'
-            if civ.unlocked(polity, 'wire_news')
-            else 'ticks_per_region'
-        ]
-    )
-    # Where the couriers ride to: the people's capital (map rows north first).
-    north = planet.tiles.rows - 1
-    places = (
-        planet.settlements.places.get(polity, []) if planet.settlements else []
-    )
-    capital = next((p for p in places if p.capital), None)
-    out = []
-    for ripple in planet.ripples:
-      if not ripple.get('local', True):
-        continue
-      region = int(planet.tiles.region[ripple['row'], ripple['col']])
-      steps = planet.region_steps(home, region)
-      lands = ripple['tick'] + math.ceil(steps * per - 1e-9)
-      if steps <= int(config['reach_regions']) and lands > now:
-        away = f'{steps} region{"s" if steps != 1 else ""} off'
-        out.append({
-            'label': 'News',
-            'lands': lands,
-            'kind': 'news',
-            'about': f"News from {away}, on the couriers' road",
-            'sent': int(ripple['tick']),
-            'from': [north - int(ripple['row']), int(ripple['col'])],
-            'to': (
-                [north - capital.row, capital.col]
-                if capital is not None
-                else None
-            ),
-            'topic': str(ripple['topic']).split('.', maxsplit=1)[0],
-        })
-    return out
 
   def _moves(self, place: Seat, entity: str) -> list[dict[str, Any]]:
     """A player's last moves, newest first, each with what it did.
@@ -1800,7 +1724,8 @@ class GameSession:
       return []
     return [
         [*f['from'], *f['to'], f['sent'], f['lands'], f['topic']]
-        for f in self._news_in_flight(actor.polity)
+        for f in self.in_flight(entity)
+        if f['kind'] == 'news'
         if f['to'] is not None
     ]
 
@@ -2979,18 +2904,6 @@ _PLAIN_TOPICS = {
     'Treaties': 'civ.treaties',
     'Gazette': 'media.gazette',
     'Colony status': 'colony.status',
-}
-
-
-# A slow mind's answer on its way: (short label, what it is).
-_MIND_WORDS = {
-    'Advisor': ('Advisor', "The Advisor's next briefing"),
-    'Adaptation': ('Evolution', 'Which trait to evolve next'),
-    'Pact': ('Pact', 'An answer on a pact'),
-    'Treaty': ('Treaty', 'An answer to a treaty offer'),
-    'Press': ('Broadsheet', 'The next broadsheet'),
-    'Policy': ('Orders', 'New standing orders'),
-    'Chronicle': ('Chronicle', 'The next chronicle'),
 }
 
 

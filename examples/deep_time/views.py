@@ -28,6 +28,7 @@ those sheets, never the world.
 # pylint: disable=g-long-ternary
 
 import json
+import math
 from typing import Any
 
 from examples.deep_time import actors as actors_lib
@@ -40,6 +41,9 @@ MENU = 'menu'
 NEEDS = 'needs'
 CRISES = 'crises'
 LOGBOOK = 'logbook'
+IN_FLIGHT = 'in_flight'
+TRAITS = 'traits'
+UNWATCHED = 'unwatched'
 # What a Steward's logbook keeps of each turn: what it read, never the truth.
 READ = ('tick', 'believed_temp_c', 'read_tick', 'read_sigma')
 
@@ -78,9 +82,22 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
           needs_you(context, entity)
       ),
   }
-  if isinstance(context.actors.get(entity), actors_lib.StewardActor):
+  # What is on its way to the role, and when it lands.
+  topics[perception.sheet_topic(entity, IN_FLIGHT)] = lambda: json.dumps(
+      in_flight(context, entity)
+  )
+  actor = context.actors.get(entity)
+  if isinstance(actor, (actors_lib.SpeciesActor, actors_lib.GrazerActor)):
+    topics[perception.sheet_topic(entity, TRAITS)] = lambda: json.dumps(
+        traits(context, entity)
+    )
+  if isinstance(actor, actors_lib.StewardActor):
     topics[perception.sheet_topic(entity, LOGBOOK)] = lambda: json.dumps(
         logbook(context, entity)
+    )
+    # Which of its instruments it does not watch (their readings freeze).
+    topics[perception.sheet_topic(entity, UNWATCHED)] = lambda: json.dumps(
+        unwatched(context, entity)
     )
   for topic, function in topics.items():
     context.add_sheet(topic, function)
@@ -263,3 +280,136 @@ def needs_you(context: game_lib.GameContext, entity: str) -> str:
     ):
       return 'a people goes hungry'
   return ''
+
+
+def unwatched(context: game_lib.GameContext, entity: str) -> list[str]:
+  """The instruments a Steward does not watch now (its attention)."""
+  attention = context.attention.get(entity)
+  return [] if attention is None else attention.unwatched()
+
+
+def traits(context: game_lib.GameContext, name: str) -> dict[str, Any] | None:
+  """A species' own traits and what it is evolving toward (for its page)."""
+  planet = context.planet
+  actor = context.actors.get(name)
+  if isinstance(actor, actors_lib.SpeciesActor):
+    traits = planet.daisies.traits(actor.species)
+    evolution = planet.evolution
+    return {
+        'optimum_c': round(float(traits.optimum_c), 1),
+        'albedo': round(float(traits.albedo), 2),
+        'evolving': [
+            evolution.option(p.option).label
+            for p in planet.pending_adaptations
+            if p.species == actor.species and evolution is not None
+        ],
+    }
+  grazers = planet.grazers
+  if isinstance(actor, actors_lib.GrazerActor) and grazers is not None:
+    return {
+        'optimum_c': round(float(grazers.optimum_c), 1),
+        'white_diet': round(float(grazers.diet_white), 2),
+        'evolving': [label for label, _ in grazers.evolving()],
+    }
+  return None
+
+
+def in_flight(context: game_lib.GameContext, name: str) -> list[dict[str, Any]]:
+  """What the world has on its way to a role, and the turn it lands.
+
+  The other half of lag: an adaptation phasing in, a transmission crossing
+  the light delay, news a people's couriers are still carrying. (What the
+  role's own slow minds are working on, it knows from them.)
+  """
+  planet, now = context.planet, context.planet.tick
+  actor = context.actors.get(name)
+  out: list[dict[str, Any]] = []
+
+  def add(label: str, lands: int, kind: str, about: str = '') -> None:
+    if lands > now:
+      out.append({
+          'label': label,
+          'lands': int(lands),
+          'kind': kind,
+          'about': about or label,
+      })
+
+  steward = isinstance(actor, actors_lib.StewardActor)
+  own = actor.species if isinstance(actor, actors_lib.SpeciesActor) else None
+  evolution = planet.evolution
+  for pending in planet.pending_adaptations:
+    if evolution is not None and (steward or pending.species == own):
+      who = planet.species_name(pending.species)
+      what = evolution.option(pending.option).label
+      add(who, now + pending.ticks_left, 'evolve', f'{what}, phasing in')
+  grazers = planet.grazers
+  if grazers is not None and (
+      steward or isinstance(actor, actors_lib.GrazerActor)
+  ):
+    who = planet.species_name(grazers.key)
+    for what, left in grazers.evolving():
+      add(who, now + left, 'evolve', f'{what}, phasing in')
+  colony = planet.colony
+  if colony is not None and isinstance(actor, actors_lib.MissionActor):
+    for arrival, kind, what in colony.incoming:
+      label, about = {
+          'design': ('Design', colony.design_labels.get(what, what)),
+          'site': ('Survey', 'where to mine the ice'),
+      }.get(kind, ('Directive', what))
+      add(
+          label,
+          now + arrival - colony.generation,
+          'wire',
+          f'{label} for {colony.name}: {about}',
+      )
+  civ = planet.civ
+  if civ is not None and isinstance(actor, actors_lib.PolityActor):
+    out.extend(news_in_flight(context, actor.polity))
+  return sorted(out, key=lambda f: f['lands'])
+
+
+def news_in_flight(
+    context: game_lib.GameContext, polity: str
+) -> list[dict[str, Any]]:
+  """News still on the couriers' road to a people (as `local_news`)."""
+  planet = context.planet
+  civ, config, now = planet.civ, planet.news_config, planet.tick
+  assert civ is not None
+  home = civ.polities[polity].home
+  per = float(
+      config[
+          'wired_ticks_per_region'
+          if civ.unlocked(polity, 'wire_news')
+          else 'ticks_per_region'
+      ]
+  )
+  # Where the couriers ride to: the people's capital (map rows north first).
+  north = planet.tiles.rows - 1
+  places = (
+      planet.settlements.places.get(polity, []) if planet.settlements else []
+  )
+  capital = next((p for p in places if p.capital), None)
+  out = []
+  for ripple in planet.ripples:
+    if not ripple.get('local', True):
+      continue
+    region = int(planet.tiles.region[ripple['row'], ripple['col']])
+    steps = planet.region_steps(home, region)
+    lands = ripple['tick'] + math.ceil(steps * per - 1e-9)
+    if steps <= int(config['reach_regions']) and lands > now:
+      away = f'{steps} region{"s" if steps != 1 else ""} off'
+      out.append({
+          'label': 'News',
+          'lands': lands,
+          'kind': 'news',
+          'about': f"News from {away}, on the couriers' road",
+          'sent': int(ripple['tick']),
+          'from': [north - int(ripple['row']), int(ripple['col'])],
+          'to': (
+              [north - capital.row, capital.col]
+              if capital is not None
+              else None
+          ),
+          'topic': str(ripple['topic']).split('.', maxsplit=1)[0],
+      })
+  return out

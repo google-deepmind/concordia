@@ -837,21 +837,25 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.join, 30)
     self.addCleanup(game.cancel)
     game.seats[game.entity].hold_pace = 0.05
-    _wait_for(lambda: game.state()['question'])
-    game.hold_course(None, 3)
-    _wait_for(lambda: game.state()['tick'] >= 3)
-    _wait_for(lambda: game.state()['question'])
-    state = game.state()
-    flight = state['in_flight']
-    labels = {f['label'] for f in flight}
+    _question(game)
+    labels = set()
+    # The World GM lists what it knows is on its way: a council that began
+    # deliberating when the people was asked, from its next publication.
+    for _ in range(4):
+      tick = game.state()['tick']
+      game.hold_course(None, 1)
+      _wait_for(lambda: game.state()['tick'] > tick and _question(game))
+      state = game.state()
+      flight = state['in_flight']
+      labels |= {f['label'] for f in flight}
+      for f in flight:  # Everything listed is still to come.
+        self.assertGreater(f['lands'], state['tick'])
+      self.assertEqual(
+          [f['lands'] for f in flight], sorted(f['lands'] for f in flight)
+      )
+      self.assertEqual(state['acts_in'], 1)
     self.assertIn('Council plan', labels)  # Its council deliberating.
     self.assertIn('Broadsheet', labels)  # Its press writing.
-    for f in flight:  # Everything listed is still to come.
-      self.assertGreater(f['lands'], state['tick'])
-    self.assertEqual(
-        [f['lands'] for f in flight], sorted(f['lands'] for f in flight)
-    )
-    self.assertEqual(state['acts_in'], 1)
 
   def test_each_reading_comes_as_data_as_it_reached_the_role(self):
     game = session_lib.GameSession('daisyworld', 'play').start()
@@ -1225,6 +1229,7 @@ class GameSessionTest(absltest.TestCase):
         'text': 'A town is founded.',
         'local': True,
     })
+    game.context.publish_sheets()  # As the World GM does each step.
     (news,) = [f for f in game.in_flight() if f['kind'] == 'news']
     per = float(planet.news_config['ticks_per_region'])
     self.assertEqual(news['lands'], planet.tick + round(2 * per))
