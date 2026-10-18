@@ -21,12 +21,15 @@ Entities without an active actor get `SKIP_THIS_STEP`.
 """
 
 import dataclasses
+import json
 from typing import Any, override
 
 from concordia.components.game_master import next_acting
 from concordia.environment import engine as engine_lib
 from examples.deep_time import actors as actors_lib
+from examples.deep_time import crises as crises_lib
 from examples.deep_time import game as game_lib
+from examples.deep_time import perception
 from examples.deep_time.components import actor_registry
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -137,6 +140,12 @@ class ActorActionSpecs(
       self._menus, self._menus_tick = {}, self._context.planet.tick
     if actor is not None and spec is not SKIP_SPEC:
       self._menus[name] = self._menu(actor, name, spec)
+      # The role's menu, for the person who plays it (their seat and page).
+      self._context.bus.publish(
+          perception.sheet_topic(name, 'menu'),
+          json.dumps(self._menus[name]),
+          source='world',
+      )
     self._logging_channel({
         'Key': 'Action spec',
         'Summary': f'{name}: {spec.output_type.name}',
@@ -167,6 +176,25 @@ class ActorActionSpecs(
         'offered': offered,
         'later': later,
         'pushes': self._context.pushes([*offered, *later], name),
+        # Whether it may answer in its own words, and why the moves it is
+        # saving for cannot be made yet.
+        'words': actor.speaks(),
+        'why_not': {m: why for m in later if (why := actor.why_not(m))},
+        # For a people a person plays: the moves answering its most urgent
+        # crisis and strengthening its weakest link.
+        **(
+            {
+                'pressing': crises_lib.pressing(
+                    self._context.planet,
+                    actor.polity,
+                    offered,
+                    self._context.pushes(offered, name),
+                )
+            }
+            if isinstance(actor, actors_lib.PolityActor)
+            and name in self._context.humans
+            else {}
+        ),
     }
 
   @override

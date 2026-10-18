@@ -27,6 +27,7 @@ from concordia.components.agent import human_act_component
 from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import scenarios
+from examples.deep_time import views
 from examples.deep_time.web import session as session_lib
 from examples.deep_time.world import treaties as treaties_lib
 from concordia.typing import entity as entity_lib
@@ -686,7 +687,8 @@ class GameSessionTest(absltest.TestCase):
     low, high = game.context.planet.band()
     reading = {'temp_c': None}
     game.context.believed = lambda owner, topic, path: reading['temp_c']
-    needs = game._needs_you  # pylint: disable=protected-access
+    # What the World GM publishes for the seat (`views`): its own readings.
+    needs = lambda entity: views.needs_you(game.context, entity)
     self.assertEqual(needs('Gaia'), '')  # No reading yet: no reason.
     reading['temp_c'] = (low + high) / 2
     self.assertEqual(needs('Gaia'), '')
@@ -699,7 +701,7 @@ class GameSessionTest(absltest.TestCase):
     )
     treaties = game.context.planet.treaties
     self.assertIsNotNone(treaties)
-    needs = game._needs_you  # pylint: disable=protected-access
+    needs = lambda entity: views.needs_you(game.context, entity)
     self.assertEqual(needs('Amber folk'), '')
     actor = game.context.actors['Amber folk']
     assert isinstance(actor, actors_lib.PolityActor)
@@ -945,7 +947,7 @@ class GameSessionTest(absltest.TestCase):
         (energy['label'], energy['value']), ('energy made', '340/600')
     )
     # Holding course stops for it.
-    self.assertIn('past ×1.3 carbon', game._needs_you('Gaia'))  # pylint: disable=protected-access
+    self.assertIn('past ×1.3 carbon', views.needs_you(game.context, 'Gaia'))
     # Worlds whose goal has no such numbers keep biodiversity.
     daisies = session_lib.GameSession('daisyworld', 'play')
     self.assertEqual(
@@ -1255,14 +1257,15 @@ class CoopTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     colonists = 'Colonists of New Ararat'
 
-    def troubled():  # Both seats hold course until the colonists see one.
+    def troubled():  # Both seats hold course until the colonists see famine.
       for seat in game.seats:
         question = game.state(seat)['question']
         if question:
           game.choose(
               question['request_id'], session_lib.neutral(question['options'])
           )
-      return game.state(colonists)['crises']
+      found = game.state(colonists)['crises']
+      return found if 'famine' in {c['kind'] for c in found} else None
 
     found = _wait_for(troubled)
     self.assertIn('famine', {c['kind'] for c in found})  # Stores run out.

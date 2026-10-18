@@ -406,10 +406,11 @@ class GameContext:
     """Has the World GM publish a sheet on a topic each step."""
     self.sheets[topic] = function
 
-  def publish_sheets(self) -> None:
-    """Publishes every entity's sheet (the World GM's step does)."""
-    for topic, function in self.sheets.items():
-      self.bus.publish(topic, function(), source='world')
+  def publish_sheets(self, topics: Sequence[str] | None = None) -> None:
+    """Publishes entities' sheets: all (the World GM's step), or `topics`."""
+    for topic, function in list(self.sheets.items()):
+      if topics is None or topic in topics:
+        self.bus.publish(topic, function(), source='world')
 
   def publish_state(self, events: Sequence[planet_lib.WorldEvent] = ()) -> None:
     publishing.publish_state(

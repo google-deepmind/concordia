@@ -25,7 +25,7 @@ game-side rule book for one of them.
 import abc
 from collections.abc import Callable, Mapping, Sequence
 import re
-from typing import Any
+from typing import Any, override
 
 from concordia.contrib.pubsub import topics
 from examples.deep_time import attention as attention_lib
@@ -219,6 +219,15 @@ class Actor(metaclass=abc.ABCMeta):
     del option
     return False
 
+  def speaks(self) -> bool:
+    """Whether the role may answer in its own words this turn."""
+    return False
+
+  def why_not(self, option: str) -> str:
+    """Why a move it is saving for cannot be made now ('' if it can)."""
+    del option
+    return ''
+
   def take_aim(self, action: str, planet: planet_lib.Planet) -> str:
     """Sets an aimed action's target on the planet; returns the move."""
     move, target = aimed(action)
@@ -261,6 +270,20 @@ class StewardActor(Actor):
     if self._attention is not None:
       options.extend(self._attention.options())
     return options
+
+  @override
+  def speaks(self) -> bool:
+    return self.omen is not None
+
+  @override
+  def why_not(self, option: str) -> str:
+    found = self._planet.intervention_for_option(option)
+    if found is not None and found.cost > self._planet.omega:
+      return (
+          f'it needs {found.cost:g} omega and there is only'
+          f' {self._planet.omega:.1f}'
+      )
+    return ''
 
   def out_of_reach(self) -> list[str]:
     """Moves off their cooldown that cost more omega than there is yet.

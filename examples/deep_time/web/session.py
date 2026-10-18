@@ -50,6 +50,8 @@ from examples.deep_time import model_setup
 from examples.deep_time import motion as motion_lib
 from examples.deep_time import scenarios
 from examples.deep_time import simulation
+from examples.deep_time import views
+from examples.deep_time.components import world_step
 from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
@@ -600,11 +602,13 @@ class GameSession:
     self.seats = {
         name: Seat(name, labels[name], turn_seconds) for name in names
     }
+    # A seat decides from its request and what the World GM publishes for
+    # its role (`views`): its menu, the tick, the outcome, what needs it.
     for name, place in self.seats.items():
-      place.over = lambda: bool(self.context.planet.outcome)
-      place.clock = lambda: self.context.planet.tick
+      place.over = self._decided
+      place.clock = self._tick
       place.count_pushes = lambda offered, name=name: len(
-          self.context.pushes(offered, name)
+          set(offered) & set(views.menu(self.context, name).get('pushes', {}))
       )
       place.can_make = lambda option, name=name: self._can_make(name, option)
       place.world = lambda name=name: self._turn_world(name)
@@ -647,6 +651,10 @@ class GameSession:
         # lines); live characters play without them.
         coached=self.models.mock is not None,
     )
+    # What the World GM works out for each role the page may show (the
+    # roles people play, and any a watcher follows): crises and needs.
+    for name in sorted(self.context.actors):
+      views.register(self.context, name, mode)
     self._thread = threading.Thread(target=self._run, daemon=True)
     # Identifies this game to pages caching its static terrain.
     self.game_id = f'{scenario}-{seed}-{id(self):x}'
@@ -1037,21 +1045,16 @@ class GameSession:
     ]
 
   def _free_moves(self, entity: str) -> list[str]:
-    """The moves of a free question: a Steward that may speak an omen, or
-    a person whose move may be aimed (the aim comes in the answer)."""
-    actor = self.context.actors.get(entity)
-    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
-      return actor.options()
-    if actor is None:
-      return []
-    return list(actor.action_spec().options)
+    """The moves of a free question (a Steward that may speak an omen, or a
+    person whose move may be aimed): the menu the World GM offered."""
+    return list(views.menu(self.context, entity).get('offered', ()))
 
   def _check(self, entity: str, response: str) -> str:
     """Why a free answer is not a move on offer ('' if it is, or words)."""
-    actor = self.context.actors.get(entity)
-    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
+    menu = views.menu(self.context, entity)
+    if menu.get('words'):
       return ''  # The Steward may speak an omen in its own words.
-    moves = self._free_moves(entity)
+    moves = list(menu.get('offered', ()))
     move, _ = actors_lib.aimed(response)
     if moves and move.strip() not in moves:
       return f'"{move.strip()}" is not one of the moves this turn.'
@@ -1059,111 +1062,24 @@ class GameSession:
 
   def _can_make(self, entity: str, option: str) -> str:
     """Why a planned move cannot be made now ('' if it can)."""
-    planet = self.context.planet
-    actor = self.context.actors.get(entity)
-    if isinstance(actor, actors_lib.StewardActor):
-      intervention = planet.intervention_for_option(option)
-      if intervention is not None and intervention.cost > planet.omega:
-        return (
-            f'it needs {intervention.cost:g} omega and there is only'
-            f' {planet.omega:.1f}'
-        )
-    return ''
+    return str(
+        views.menu(self.context, entity).get('why_not', {}).get(option, '')
+    )
+
+  def _tick(self) -> int:
+    """The tick, as the World GM announced it (`world.tick`)."""
+    message = self.context.bus.latest('world.tick')
+    return int(message.time or 0) if message is not None else 0
+
+  def _decided(self) -> bool:
+    """Whether the World GM has announced the game decided."""
+    return self.context.bus.latest(world_step.OUTCOME_TOPIC) is not None
 
   def _crises(self, entity: str | None) -> list[dict[str, Any]]:
-    """A role's crises: a Steward's or a people's.
-
-    Watching, the Steward's are shown (whoever the page follows); a person
-    playing another role, or a spectator of a played game, sees none here.
-    """
+    """A role's crises, as the World GM worked them out (`views.crises`)."""
     if entity is None:
       return []
-    actor = self.context.actors.get(entity)
-    colony = self.context.planet.colony
-    if (
-        isinstance(actor, (actors_lib.ColonyActor, actors_lib.MissionActor))
-        and colony is not None
-        and self.mode == 'play'
-        and not self.context.planet.outcome
-    ):
-      options = list(actor.action_spec().options)
-      planet = self.context.planet
-      if isinstance(actor, actors_lib.ColonyActor):
-        report, age = colony.payload(planet.tick), 0
-      else:  # Mission Control: the relay, as late as the light delay.
-        message = self.context.received.get((entity, 'Colony relay'))
-        if message is None:
-          return []
-        report = json.loads(message.payload)
-        age = max(0, planet.tick - int(message.time or planet.tick))
-      return crises_lib.colony_crises(
-          report,
-          colony.needs,
-          [(r.label, r.outputs) for r in colony.recipes],
-          options,
-          self.context.pushes(options, entity),
-          age,
-      )
-    if (
-        isinstance(actor, (actors_lib.SpeciesActor, actors_lib.GrazerActor))
-        and self.mode == 'play'
-        and not self.context.planet.outcome
-    ):
-      options = list(actor.action_spec().options)
-      received = {
-          label: message
-          for (owner, label), message in self.context.received.items()
-          if owner == entity
-      }
-      pushes = self.context.pushes(options, entity)
-      if isinstance(actor, actors_lib.GrazerActor):
-        return crises_lib.grazer_crises(
-            self.context.planet, received, options, pushes
-        )
-      return crises_lib.species_crises(
-          self.context.planet, actor.species, received, options, pushes
-      )
-    if isinstance(actor, actors_lib.PolityActor) and self.mode == 'play':
-      if self.context.planet.outcome:
-        return []
-      options = list(actor.action_spec().options)
-      return crises_lib.polity_crises(
-          self.context.planet,
-          actor.polity,
-          options,
-          self.context.pushes(options, entity),
-      )
-    if not isinstance(actor, actors_lib.StewardActor):
-      if self.mode == 'play':
-        return []
-      entity = next(
-          (
-              n
-              for n, a in self.context.actors.items()
-              if isinstance(a, actors_lib.StewardActor)
-          ),
-          None,
-      )
-      actor = self.context.actors.get(entity) if entity else None
-      if not isinstance(actor, actors_lib.StewardActor) or entity is None:
-        return []
-    planet = self.context.planet
-    if planet.outcome:
-      return []
-    received = {
-        label: message
-        for (owner, label), message in self.context.received.items()
-        if owner == entity
-    }
-    options = [*actor.options(), *actor.out_of_reach()]
-    found = forecast_lib.of_planet(
-        planet,
-        acts_in=self._acts_in(entity),
-        planned=self._planned_moves(entity),
-    )
-    return crises_lib.steward_crises(
-        planet, received, found, options, self.context.pushes(options, entity)
-    )
+    return list(views.latest(self.context, entity, views.CRISES, []))
 
   def _turn_world(self, entity: str) -> dict[str, Any]:
     """A turn's world for telemetry: Ω, the last reading, the forecast, the truth.
@@ -1252,21 +1168,18 @@ class GameSession:
   def _what_if(
       self, entity: str, options: Sequence[str]
   ) -> dict[str, dict[str, Any]]:
-    """Each climate move's course in the Steward's forecast."""
-    planet = self.context.planet
-    found = forecast_lib.of_planet(
-        planet,
-        acts_in=self._acts_in(entity),
-        planned=self._planned_moves(entity),
-    )
+    """Each climate move's course in the Steward's forecast (its logbook)."""
+    log = views.latest(self.context, entity, views.LOGBOOK, None)
+    found = views.forecast(log, self._planned_moves(entity))
+    if log is None or found is None:
+      return {}
     out = {}
+    band = tuple(log['band']) if log['band'] else (-1e9, 1e9)
     for option in options:
-      spec = planet.intervention_for_option(option)
+      key = log['keys'].get(option)
       shown = (
-          forecast_lib.what_if(
-              found, planet.move_profiles, spec.key, planet.band()
-          )
-          if spec is not None
+          forecast_lib.what_if(found, log['profiles'], key, band)
+          if key is not None
           else None
       )
       if shown is not None:
@@ -1278,44 +1191,17 @@ class GameSession:
     place = self.seats.get(entity)
     if place is None:
       return []
-    planet = self.context.planet
-    out = []
-    for tick, option in sorted(place.plans.items()):
-      found = planet.intervention_for_option(option)
-      if found is not None:
-        out.append((tick, found.key))
-    return out
+    log = views.latest(self.context, entity, views.LOGBOOK, None) or {}
+    keys = log.get('keys', {})
+    return [
+        (tick, keys[option])
+        for tick, option in sorted(place.plans.items())
+        if option in keys
+    ]
 
   def _needs_you(self, entity: str) -> str:
-    """Why a player holding course should look now ('' if nothing does)."""
-    planet = self.context.planet
-    if planet.outcome:
-      return 'the game is decided'
-    actor = self.context.actors.get(entity)
-    civ = planet.civ
-    if isinstance(actor, actors_lib.PolityActor) and civ is not None:
-      polity = civ.polities.get(actor.polity)
-      if polity is not None and polity.food_ratio < 0.95:
-        return 'your people go hungry'
-      treaties = planet.treaties
-      if treaties is not None and treaties.pending_for(actor.polity):
-        return 'an offer awaits your answer'
-    if isinstance(actor, actors_lib.StewardActor):
-      # What the Steward's own thermometer says (late, noisy, perhaps not
-      # watched at all): holding must not be an oracle for the truth.
-      believed = self.context.believed(entity, 'climate.global', 'temp_c')
-      low, high = planet.band()
-      if believed is not None and not low <= believed <= high:
-        return 'your thermometer reads outside the band'
-      cap = planet.goal().get('max_co2')
-      air = self.context.believed(entity, 'climate.global', 'co2')
-      if cap is not None and air is not None and air >= float(cap):
-        return f'your thermometer reads the air past ×{float(cap):g} carbon'
-      if civ is not None and any(
-          p.food_ratio < 0.9 for p in civ.polities.values()
-      ):
-        return 'a people goes hungry'
-    return ''
+    """Why a player holding course should look now, as the World GM says."""
+    return str(views.latest(self.context, entity, views.NEEDS, ''))
 
   def set_speed(self, speed: str) -> str:
     """Watching: 'pause', 'play' (1x), 'fast' (4x) or 'step' (one tick)."""
@@ -2739,10 +2625,9 @@ class GameSession:
         'forecast': (
             found.to_dict()
             if (
-                found := forecast_lib.of_planet(
-                    planet,
-                    acts_in=self._acts_in(steward),
-                    planned=self._planned_moves(steward),
+                found := views.forecast(
+                    views.latest(self.context, steward, views.LOGBOOK, None),
+                    self._planned_moves(steward),
                 )
             )
             else None
@@ -2795,11 +2680,8 @@ class GameSession:
       actor = self.context.actors.get(entity)
       # A free question's moves (the Steward may also speak an omen).
       options = list(place.offered(request))
-      saving = (
-          actor.out_of_reach()
-          if isinstance(actor, actors_lib.StewardActor)
-          else []
-      )
+      menu = views.menu(self.context, entity)
+      saving = list(menu.get('later', ()))
       question = {
           'request_id': request.request_id,
           'call_to_action': spec.call_to_action,
@@ -2807,10 +2689,14 @@ class GameSession:
           # Options that may land where the player taps the map.
           'targets': [o for o in options if self._targetable(entity, o)],
           # Which way each move pushes the world, and about how far.
-          'pushes': self.context.pushes(options, entity),
+          'pushes': {
+              o: p for o, p in menu.get('pushes', {}).items() if o in options
+          },
           # Moves not yet affordable: shown, and plannable.
           'saving': saving,
-          'saving_pushes': self.context.pushes(saving, entity),
+          'saving_pushes': {
+              o: p for o, p in menu.get('pushes', {}).items() if o in saving
+          },
           # What the Steward's forecast says each climate move would bring:
           # its own late readings, reckoned with the move.
           'what_if': (
@@ -2827,16 +2713,7 @@ class GameSession:
           ),
           # What matters most for a people: the move answering its
           # most urgent crisis, and the one strengthening its weakest link.
-          'pressing': (
-              crises_lib.pressing(
-                  self.context.planet,
-                  actor.polity,
-                  options,
-                  self.context.pushes(options, entity),
-              )
-              if isinstance(actor, actors_lib.PolityActor)
-              else []
-          ),
+          'pressing': list(menu.get('pressing', ())),
           'error': request.error or '',
           'context': request.context,
           # The omen the Steward may speak in its own words, if any.

@@ -40,6 +40,10 @@ from concordia.typing import entity_component
 DEFAULT_TERMINATE_KEY = terminate.DEFAULT_TERMINATE_COMPONENT_KEY
 
 
+# Where the World GM announces that the game is decided.
+OUTCOME_TOPIC = 'world.outcome'
+
+
 class WorldStep(
     next_acting.NextActingAllEntities, entity_component.ComponentWithLogging
 ):
@@ -99,6 +103,8 @@ class WorldStep(
           f' {ctx.planet.outcome_reason}.'
       )
       ctx.bus.publish('chronicle', verdict, source='world')
+      # Decided: for every seat and page (nothing more to ask anyone).
+      ctx.bus.publish(OUTCOME_TOPIC, ctx.planet.outcome, source='world')
       self.get_entity().get_component(
           self._terminate_component_key, type_=terminate.Terminate
       ).terminate()
