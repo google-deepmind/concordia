@@ -163,7 +163,6 @@ class Chronicler(prefab_lib.Prefab):
         agent_name=name,
         act_component=act_component,
         context_components=components,
-        measurements=context.measurements,
     )
 
 

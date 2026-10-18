@@ -99,7 +99,6 @@ def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
       'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 2)),
       'deliberation_model': context.slow(),
       'randomize_choices': False,
-      'measurements': context.measurements,
       **context.act_params(name),
       'extra_components': {
           'Our colony': perception.sheet(

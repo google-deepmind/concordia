@@ -146,7 +146,6 @@ def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
       'extra_components_index': {
           key: 2 + i for i, key in enumerate(components)
       },
-      'measurements': context.measurements,
       'randomize_choices': False,
       **context.act_params(name),
   }

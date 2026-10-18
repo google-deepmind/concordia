@@ -348,7 +348,6 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
       'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 3)),
       'deliberation_model': slow_model,
       'randomize_choices': False,
-      'measurements': context.measurements,
       **context.act_params(people.name),
       'extra_components': {
           **characters,

@@ -72,6 +72,8 @@ class GameContext:
   clock: numeric_time.NumericClock
   bus: topics.TopicBus
   observation_queue: make_observation.ObservationQueue
+  # The topic bus's channels (`topic/<name>`), which the report reads;
+  # each entity and the World GM log to their own.
   measurements: measurements_lib.Measurements
   evolution: evolution_lib.Evolution | None = None
   # Deterministic sim-time scheduler for slow minds; None in real-async mode.

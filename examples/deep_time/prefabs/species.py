@@ -159,7 +159,6 @@ def entity_params(
       'extra_components_index': {
           key: 2 + i for i, key in enumerate(components)
       },
-      'measurements': context.measurements,
       'randomize_choices': False,
       **context.act_params(name),
   }
