@@ -16,8 +16,11 @@
 
 import json
 
+import time
+
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
+from examples.deep_time import views
 import numpy as np
 
 
@@ -110,7 +113,15 @@ class TargetsTest(absltest.TestCase):
   def test_the_session_passes_a_target_only_for_aimable_moves(self):
     from examples.deep_time.web import session as session_lib  # pylint: disable=g-import-not-at-top
 
-    game = session_lib.GameSession('daisyworld', 'play', role='Gaia')
+    game = session_lib.GameSession('daisyworld', 'play', role='Gaia').start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    # What may be aimed is what the GM's menus say (once each role is asked).
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not (
+        game.state()['question'] and views.menu(game.context, 'White daisies')
+    ):
+      time.sleep(0.05)
     aim = game._targetable  # pylint: disable=protected-access
     self.assertTrue(aim('Gaia', 'seed white daisies [2 omega]'))
     self.assertFalse(aim('Gaia', 'wait and save omega'))

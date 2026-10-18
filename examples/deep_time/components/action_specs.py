@@ -187,6 +187,8 @@ class ActorActionSpecs(
         # Whether it may answer in its own words, and why the moves it is
         # saving for cannot be made yet.
         'words': actor.speaks(),
+        # The moves a person may aim on the map.
+        'aimable': [m for m in [*offered, *later] if actor.aimable(m)],
         'why_not': {m: why for m in later if (why := actor.why_not(m))},
         # For a people a person plays: the moves answering its most urgent
         # crisis and strengthening its weakest link.

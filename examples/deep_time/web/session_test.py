@@ -224,6 +224,25 @@ class GameSessionTest(absltest.TestCase):
     )
     self.assertEqual(session_lib.with_draft(request, 'wait'), 'wait')
 
+  def test_a_seat_takes_a_move_with_its_words_from_the_gms_menu(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Cedar league'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _question(game)
+    menu = views.menu(game.context, 'Cedar league')
+    move = menu['offered'][0]
+    check = game._check  # pylint: disable=protected-access
+    self.assertEqual(check('Cedar league', move), '')
+    self.assertEqual(check('Cedar league', f'{move}: our words'), '')
+    self.assertIn('is not one of the moves', check('Cedar league', 'dance'))
+    # Whether a move may be aimed, and what may be planned: the GM's menu.
+    self.assertEqual(
+        [o for o in menu['offered'] if game._targetable('Cedar league', o)],  # pylint: disable=protected-access
+        [o for o in menu['offered'] if o in menu['aimable']],
+    )
+
   def test_a_watched_game_may_have_a_bot_play_a_role(self):
     game = session_lib.GameSession(
         'daisyworld', 'watch', players=['Gaia'], bots=['Gaia']

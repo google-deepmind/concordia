@@ -658,7 +658,7 @@ class GameSession:
       for name, moves in (replay.get('moves') or {}).items():
         if name not in labels:
           continue
-        seat = ReplaySeat(moves, clock=lambda: self.context.planet.tick)
+        seat = ReplaySeat(moves, clock=self._tick)
         seat.moves = lambda name=name: self._free_moves(name)
         humans[name] = seat
     bot = (
@@ -672,14 +672,12 @@ class GameSession:
         seed=seed,
         humans=humans,
         bots={name: bot for name in bots} if bot is not None else None,
-        # The mock's peoples are coached (their rules read the playbook
-        # lines); live characters play without them.
-        coached=self.models.mock is not None,
+        # Live characters play without the playbook lines the mock's rules
+        # read (a scenario flag).
+        overrides=None if self.models.mock is not None else {'coached': False},
+        # The World GM publishes each role's view for the page.
+        views=mode,
     )
-    # What the World GM works out for each role the page may show (the
-    # roles people play, and any a watcher follows): crises and needs.
-    for name in sorted(self.context.actors):
-      views.register(self.context, name, mode)
     self._thread = threading.Thread(target=self._run, daemon=True)
     # Identifies this game to pages caching its static terrain.
     self.game_id = f'{scenario}-{seed}-{id(self):x}'
@@ -1003,14 +1001,13 @@ class GameSession:
           if request is not None
           else (place.played[-1]['offered'] if place.played else [])
       )
-      actor = self.context.actors.get(entity)
-      if isinstance(actor, actors_lib.StewardActor):
-        offered += actor.out_of_reach()  # Plannable for when it is paid for.
+      # Plannable too: the moves it is saving for, as the GM's menu says.
+      offered += list(views.menu(self.context, entity).get('later', ()))
       if move not in offered:
         return 'That move is not one of yours.'
       if move in NEUTRAL_OPTIONS:
         return 'Holding course needs no plan.'
-      tick = self.context.planet.tick + turns
+      tick = self._tick() + turns
       if tick in place.plans:
         return f'Turn {tick} already has a plan: one move a turn.'
       if len(place.plans) >= MAX_PLANS:
@@ -1081,8 +1078,12 @@ class GameSession:
       return ''  # The Steward may speak an omen in its own words.
     moves = list(menu.get('offered', ()))
     move, _ = actors_lib.aimed(response)
-    if moves and move.strip() not in moves:
-      return f'"{move.strip()}" is not one of the moves this turn.'
+    move = move.strip()
+    if moves and not any(
+        move == m or (move.startswith(m) and move[len(m) :].lstrip()[:1] == ':')
+        for m in moves
+    ):
+      return f'"{move}" is not one of the moves this turn.'
     return ''
 
   def _can_make(self, entity: str, option: str) -> str:
@@ -1250,9 +1251,8 @@ class GameSession:
     return 'fast' if self.pace < self._base_pace else 'play'
 
   def _targetable(self, entity: str, option: str) -> bool:
-    """Whether an entity's move may be aimed at a place on the map."""
-    actor = self.context.actors.get(entity)
-    return actor is not None and actor.aimable(option)
+    """Whether a move may be aimed on the map, as the GM's menu says."""
+    return option in views.menu(self.context, entity).get('aimable', ())
 
   def choose(
       self,
