@@ -47,6 +47,8 @@ UNWATCHED = 'unwatched'
 ROLE = 'role'
 READINGS = 'readings'
 MOVES = 'moves'
+STRIP = 'strip'
+PEOPLE = 'people'
 # Each kind of role, by its actor's rules (the most specific first).
 _KINDS = (
     (actors_lib.StewardActor, 'steward'),
@@ -99,6 +101,10 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
       perception.sheet_topic(entity, MOVES): lambda: json.dumps(
           moves(context, entity)
       ),
+      # The numbers its strip shows: what it read, never the truth.
+      perception.sheet_topic(entity, STRIP): lambda: json.dumps(
+          strip(context, entity)
+      ),
       perception.sheet_topic(entity, CRISES): lambda: json.dumps(
           crises(context, entity, mode)
       ),
@@ -114,6 +120,11 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
   if isinstance(actor, (actors_lib.SpeciesActor, actors_lib.GrazerActor)):
     topics[perception.sheet_topic(entity, TRAITS)] = lambda: json.dumps(
         traits(context, entity)
+    )
+  if isinstance(actor, actors_lib.PolityActor):
+    # A people's own numbers, food, labor and stores (its sheet says them).
+    topics[perception.sheet_topic(entity, PEOPLE)] = lambda: json.dumps(
+        own_people(context, entity)
     )
   if isinstance(actor, actors_lib.StewardActor):
     topics[perception.sheet_topic(entity, LOGBOOK)] = lambda: json.dumps(
@@ -171,6 +182,216 @@ def moves(context: game_lib.GameContext, entity: str) -> list[list[Any]]:
   """What a role's moves did: [tick, move, outcome], oldest first."""
   actor = context.actors.get(entity)
   return [list(entry) for entry in actor.log] if actor is not None else []
+
+
+def _believed(
+    context: game_lib.GameContext, entity: str, topic: str, path: str
+) -> tuple[str, str]:
+  """A role's latest reading of a field, and how old it is."""
+  message = context.beliefs.get((entity, topic))
+  value = context.believed(entity, topic, path)
+  if message is None or value is None:
+    return '?', 'no reading'
+  if message.time is None:
+    return f'{value:.1f}', 'read'
+  age = max(0, context.planet.tick - int(message.time))
+  return f'{value:.1f}', 'now' if age == 0 else f'{age} ticks old'
+
+
+def strip(
+    context: game_lib.GameContext, entity: str, reveal: bool = False
+) -> list[dict[str, Any]]:
+  """The strip of numbers: the truth if revealed, else what the role read.
+
+  The Steward reads late, noisy instruments but its Omega meter is exact;
+  Mission Control hears the colony years late; the colonists see their own
+  sky; species and peoples see what their own beliefs last delivered.
+  """
+  planet = context.planet
+  colony = planet.colony
+  kind = role(context, entity)['kind']
+  stats: list[dict[str, Any]] = [
+      # 'turn', as the dock says it.
+      {'label': 'turn', 'value': f'{planet.tick}/{planet.max_ticks}'}
+  ]
+  omega: dict[str, Any] = {
+      'label': 'Ω',
+      'value': f'{planet.omega:.1f}',
+      'exact': round(float(planet.omega), 4),  # For the moves' costs.
+  }
+  if colony is not None:
+    target = f'{colony.target_temp_c:g}'
+    if reveal or kind == 'colony':
+      sky = f'{colony.temp_c:.1f}', f'sky °C (→{target})'
+      people = f'{colony.population:.1f}', 'colonists'
+    else:
+      value, age = _believed(context, entity, 'colony.status', 'temp_c')
+      sky = value, f'sky °C (→{target}), {age}'
+      value, age = _believed(context, entity, 'colony.status', 'colonists')
+      people = value, f'colonists, {age}'
+    # (No Omega: there is no Steward to spend it in Light Delay.)
+    return stats + [
+        {'label': sky[1], 'value': sky[0]},
+        {'label': people[1], 'value': people[0]},
+    ]
+  if reveal:
+    temp = {'label': '°C', 'value': f'{planet.temperature_c():.1f}'}
+  else:
+    value, age = _believed(context, entity, 'climate.global', 'temp_c')
+    temp = {'label': f'°C read, {age}', 'value': value}
+  # The Omega meter is exact, and it reports biodiversity.
+  bio = {'label': 'biodiversity', 'value': f'{planet.biodiversity():.2f}'}
+  if reveal or kind == 'steward':
+    return stats + [
+        temp,
+        omega,
+        *(_goal_stats(context, entity, reveal) or [bio]),
+    ]
+  if kind == 'people' and planet.civ is not None:
+    # A people knows its own storehouse exactly (its sheet says so).
+    polity = role(context, entity)['polity']
+    people = planet.civ.polities[polity]
+    grain = planet.civ.ledger.stock(polity, 'grain')
+    fed = [
+        {'label': 'fed', 'value': f'{min(1.0, people.food_ratio):.0%}'},
+        {'label': 'grain', 'value': f'{grain:.0f}'},
+    ]
+    # The goal all the peoples share, in place of the head count.
+    goal = _goal_stats(context, entity, reveal)
+    if goal:
+      return stats + fed + goal
+    return stats + [
+        {'label': 'people', 'value': f'{people.population:.1f}'},
+        *fed,
+    ]
+  if kind == 'species':
+    # A species senses the census exactly and knows its own seed bank.
+    species = role(context, entity)['species']
+    stats.append({
+        'label': 'cover',
+        'value': f'{planet.daisies.cover(species):.0%}',
+    })
+    if planet.seed_banks is not None:
+      bank = planet.seed_banks.level.get(species, 0.0)
+      stats.append({'label': 'seed bank', 'value': f'{bank:.0%}'})
+    return stats
+  if (entity, 'climate.global') in context.beliefs:
+    return stats + [temp]
+  return stats
+
+
+def _goal_stats(
+    context: game_lib.GameContext, entity: str, reveal: bool
+) -> list[dict[str, Any]]:
+  """The numbers a peoples' goal is judged on, as a role reads them.
+
+  The Steward reads the air through its thermometer (late and noisy) and
+  what the peoples made through their census; a people reads both as they
+  are published; the truth once revealed. A reading past its limit is
+  marked. Empty where the goal has no such numbers.
+  """
+  planet = context.planet
+  goal = planet.goal()
+  if planet.civ is None or goal['kind'] not in ('industrialize', 'iron_age'):
+    return []
+
+  # A people reads the weather and the census as they are published.
+  public = role(context, entity)['kind'] == 'people'
+
+  def read(key: tuple[str, str], path: str, truth: float):
+    """The truth if revealed, else the reading (or None) and its age."""
+    if reveal:
+      return truth, ''
+    topic = {'Peoples': 'civ.census'}.get(key[1], key[1])
+    message = (
+        context.bus.latest(topic)
+        if public
+        else context.beliefs.get(key) or context.received.get(key)
+    )
+    if message is None:
+      return None, ''
+    value: Any = json.loads(message.payload)
+    for part in path.split('.'):
+      value = value.get(part) if isinstance(value, dict) else None
+    if not isinstance(value, (int, float)):
+      return None, ''
+    sent = message.time
+    age = 0 if sent is None else max(0, planet.tick - int(sent))
+    return value, f', {age} tick{"" if age == 1 else "s"} old' if age else ''
+
+  found = []
+  if goal['kind'] == 'industrialize':
+    cap = float(goal['max_co2'])
+    truth = planet.carbon.relative_co2() if planet.carbon else 1.0
+    co2, age = read((entity, 'climate.global'), 'co2', truth)
+    found.append({
+        'label': f'CO₂ / cap{age}',
+        'value': f'{"?" if co2 is None else f"{co2:.2f}"}/{cap:g}',
+        'warn': co2 is not None and co2 >= cap,
+    })
+  good, need = (
+      ('energy', goal['min_energy'])
+      if goal['kind'] == 'industrialize'
+      else ('iron', goal['min_iron'])
+  )
+  # The peoples' census reaches the Steward at once (its 'Peoples').
+  made, age = read((entity, 'Peoples'), f'made.{good}', planet.civ.made(good))
+  found.append({
+      'label': f'{good} made{age}',
+      'value': f'{"?" if made is None else f"{made:.0f}"}/{float(need):g}',
+  })
+  return found
+
+
+def own_people(
+    context: game_lib.GameContext, entity: str
+) -> dict[str, Any] | None:
+  """A people's own numbers, food, where its hands go, and stores."""
+  civ = context.planet.civ
+  key = role(context, entity)['polity']
+  if civ is None or key is None:
+    return None
+  polity = civ.polities.get(key)
+  if polity is None:
+    return None
+  stocks = civ.payload()['polities'][key]['stocks']
+  population = float(polity.population)
+  eats = population * float(civ.food_per_pop)
+  # The goal the peoples share, as their census already tells them, with
+  # the pace it asks and the people's numbers against its floor.
+  shared = crises_lib.shared_goal(context.planet, key)
+  if shared and 'good' in shared:
+    shared['label'] = (
+        f'{shared["good"]} {"forged" if shared["good"] == "iron" else "made"}'
+        ' by all peoples'
+    )
+  return {
+      'name': polity.name,
+      'population': round(population, 1),
+      'fed': round(float(polity.food_ratio), 2),
+      # How many seasons the granary would feed the people.
+      'seasons': round(float(stocks.get('grain', 0.0)) / max(eats, 1e-9), 1),
+      'shared': shared,
+      # The road to what the goal asks for, as the people's sheet says it.
+      'aims': [
+          civ.aim(key, str(aim))
+          for aim in context.scenario['civilization'].get('aims', ())
+      ],
+      'labor': [
+          {
+              'key': k,
+              'label': civ.recipe(k).label,
+              'share': round(float(v), 3),
+          }
+          for k, v in sorted(polity.allocation.items(), key=lambda kv: -kv[1])
+          if v > 0
+      ],
+      # Every trade's label -> key, so new trades in the moves get colours.
+      'trades': {r.label: r.key for r in civ.recipes},
+      'stocks': {
+          k: round(float(v), 1) for k, v in stocks.items() if float(v) > 0.05
+      },
+  }
 
 
 def logbook(context: game_lib.GameContext, entity: str) -> dict[str, Any]:

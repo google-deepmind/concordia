@@ -625,6 +625,7 @@ class GameSessionTest(absltest.TestCase):
     game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
     for _ in range(2):  # The first harvests fill the storehouse.
       game.context.planet.advance()
+    game.context.publish_sheets()  # As the World GM does each step.
     people = game.state()['people']
     self.assertEqual(people['name'], 'Amber folk')
     self.assertAlmostEqual(sum(l['share'] for l in people['labor']), 1.0, 2)
