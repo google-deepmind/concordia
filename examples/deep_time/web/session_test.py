@@ -483,6 +483,7 @@ class GameSessionTest(absltest.TestCase):
     weights[planet.grid.size - 1] = 1.0  # The far north-east region.
     planet.daisies.add_albedo_pulse(0.06, weights)
     planet.daisies.add_albedo_pulse(-0.02)
+    played.context.publish_sheets()  # As the World GM does each step.
     clouds = played.map()['clouds']  # Seen by a player too: the sky.
     self.assertLen(clouds, planet.grid.bands)
     self.assertGreater(clouds[0][-1], 0.0)  # North first: the top row.
@@ -578,6 +579,26 @@ class GameSessionTest(absltest.TestCase):
     self.assertIn('Amber folk', roles['fire_and_iron'])
     self.assertIn('Grazers', roles['herds'])
 
+  def test_a_players_map_is_what_the_world_gm_published(self):
+    game = session_lib.GameSession('great_acceleration', 'play')
+    planet = game.context.planet
+    before = game.map()
+    # The true sky changes; the player sees it once the World GM publishes.
+    planet.daisies.add_albedo_pulse(0.06)
+    assert planet.civ is not None
+    planet.civ.polities['cedar'].food_ratio = 0.5
+    after = game.map()
+    self.assertEqual(after['clouds'], before['clouds'])
+    self.assertEqual(after['peoples'], before['peoples'])
+    game.context.publish_sheets()  # As the World GM does each step.
+    published = game.map()
+    self.assertIsNotNone(published['clouds'])
+    self.assertNotEqual(published['peoples'], before['peoples'])
+    # A watcher sees the world as it is.
+    watched = session_lib.GameSession('great_acceleration', 'watch')
+    watched.context.planet.daisies.add_albedo_pulse(0.06)
+    self.assertIsNotNone(watched.map()['clouds'])
+
   def test_hunger_is_seen_on_the_map(self):
     game = session_lib.GameSession('sandbox', 'play')
     peoples = game.map()['peoples']
@@ -587,6 +608,7 @@ class GameSessionTest(absltest.TestCase):
     assert civ is not None
     polity = civ.polities['cedar']
     polity.food_ratio = 0.6
+    game.context.publish_sheets()  # As the World GM does each step.
     cedar = next(
         p for p in game.map()['peoples']['polities'] if p['key'] == 'cedar'
     )

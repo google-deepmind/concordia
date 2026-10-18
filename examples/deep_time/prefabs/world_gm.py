@@ -121,6 +121,7 @@ class WorldGameMaster(prefab_lib.Prefab):
         context.observe(str(role['params']['name']), premise)
     # For a game a person's page shows: each role's view (crises, needs).
     if self.params.get('views'):
+      views.register_world(context)
       for actor in sorted(context.actors):
         views.register(context, actor, str(self.params['views']))
     player_names = [entity.name for entity in self.entities or ()]

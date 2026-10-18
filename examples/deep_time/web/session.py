@@ -185,6 +185,8 @@ class Seat(human_input.HumanInput):
     # The world as the turn stood, for play telemetry: what the
     # player read and what was true, to tell a rescue from a mistake.
     self.world: Callable[[], dict[str, Any]] = lambda: {}
+    # What the role's own instruments showed this turn (its page's numbers).
+    self.shown: Callable[[], dict[str, Any]] = lambda: {}
     # Moves planned for later turns, by tick: on that turn
     # the seat sends the move itself, unless `can_make` says why it cannot
     # (then it asks the person, saying so in `stopped`).
@@ -295,6 +297,7 @@ class Seat(human_input.HumanInput):
         'pushes': pushes,
         'seconds': None if seconds is None else round(seconds, 1),
         'looked': self.looked,
+        'shown': self.shown(),
         **self.world(),
     })
     self.looked = []
@@ -652,6 +655,7 @@ class GameSession:
       )
       place.can_make = lambda option, name=name: self._can_make(name, option)
       place.world = lambda name=name: self._turn_world(name)
+      place.shown = lambda name=name: self._shown(name)
       place.moves = lambda name=name: self._free_moves(name)
       place.check = lambda response, name=name: self._check(name, response)
     self.entity, self.role = names[0], labels[names[0]]  # The first seat.
@@ -1130,16 +1134,46 @@ class GameSession:
       run.append(turn)
     if len(run) < 2:
       return None
-    first, now = run[-1], self._turn_world(entity)
+    first, now = run[-1].get('shown', {}), self._shown(entity)
     pair = lambda k: [first.get(k), now.get(k)]
     return {
-        'from': int(first['tick']),
+        'from': int(run[-1]['tick']),
         'to': int(run[0]['tick']),
         'turns': len(run),
         'read_c': pair('read_c'),
         'omega': pair('omega'),
         'life': pair('life'),
         'stopped': place.stopped,
+    }
+
+  def _shown(self, entity: str) -> dict[str, Any]:
+    """What a Steward's own instruments showed: the temperature it read
+    (late and noisy), and its Omega meter's omega and biodiversity."""
+    if self._kind(entity) != 'steward':
+      return {}
+    reached = self._readings(entity)
+
+    def field(found: Any, path: str, digits: int) -> float | None:
+      try:
+        value = json.loads(found['payload']).get(path) if found else None
+      except (TypeError, ValueError, AttributeError):
+        value = None
+      return (
+          round(float(value), digits)
+          if isinstance(value, (int, float))
+          else None
+      )
+
+    return {
+        'read_c': field(
+            reached.get('believed', {}).get('climate.global'), 'temp_c', 1
+        ),
+        'omega': field(
+            reached.get('received', {}).get('Omega meter'), 'omega', 1
+        ),
+        'life': field(
+            reached.get('received', {}).get('Omega meter'), 'biodiversity', 2
+        ),
     }
 
   def _advice(
@@ -1167,7 +1201,7 @@ class GameSession:
     return {
         'move': move,
         # Turns since the Advisor read the world it advises on.
-        'age': self.context.planet.tick - int(message.time) + latency,
+        'age': self._tick() - int(message.time) + latency,
     }
 
   def _what_if(
@@ -1309,7 +1343,7 @@ class GameSession:
     found = self.role_entity(entity)
     if found is None:
       return []
-    now = self.context.planet.tick
+    now = self._tick()
     out = []
     for key, component in found.get_all_context_components().items():
       if not isinstance(component, pubsub.Subscriber):
@@ -1607,7 +1641,7 @@ class GameSession:
     if self.mode != 'play' or self._spectating(seat):
       return []
     entity = seat if seat in self.seats else self.entity
-    now = self.context.planet.tick
+    now = self._tick()
     return [
         [*m['target'], m['tick'], m['move']]
         for m in self.seats[entity].sent[-12:]
@@ -1648,7 +1682,7 @@ class GameSession:
       where = {'site': True}
     elif kind != 'steward':
       return []
-    acts = planet.tick - self._acts_in(entity)
+    acts = self._tick() - self._acts_in(entity)
     found = []
     for sent in place.sent[-12:]:
       if sent['tick'] != acts:
@@ -1661,30 +1695,6 @@ class GameSession:
             'move': sent['move'],
             'target': sent['target'],
         })
-    return found
-
-  def _reserves(self) -> list[list[Any]]:
-    """Protected woods: [row (north first), col, radius in tiles, turns left].
-
-    One per protected region, at its tiles' centre. Everyone sees them: the
-    woodcutters find the woods closed.
-    """
-    planet = self.context.planet
-    tiles = planet.tiles
-    found = []
-    for region, until in sorted(planet.reserves.items()):
-      left = until - planet.tick
-      if left <= 0:
-        continue
-      rows, cols = np.nonzero(tiles.region == region)
-      if rows.size == 0:
-        continue
-      found.append([
-          int(tiles.rows - 1 - round(float(rows.mean()))),
-          int(round(float(cols.mean()))),
-          round(float(np.sqrt(len(rows) / np.pi)), 1),
-          int(left),
-      ])
     return found
 
   def _couriers(self, seat: str | None) -> list[list[Any]]:
@@ -1752,25 +1762,6 @@ class GameSession:
       )
     return self._colours[key]
 
-  def _seen_life(self, seat: str | None) -> tuple[int, dict[str, Any]] | None:
-    """The life a seat's own census last saw, and the tick it was taken.
-
-    A role that reads a census (the Steward, a species, the herds) sees the
-    map's life as that census saw it, as late as it arrives: a
-    sowing shows where it was made once a census taken after it is read.
-    """
-    if self.mode != 'play' or self._spectating(seat):
-      return None
-    entity = seat if seat in self.seats else self.entity
-    message = self._arrived(entity, 'Census')
-    if message is None or message.time is None:
-      return None
-    planet, taken = self.context.planet, int(message.time)
-    covers = planet.life_seen.get(taken)
-    if covers is None and taken == planet.tick:
-      covers = dict(planet.tile_life.covers)
-    return None if covers is None else (taken, covers)
-
   def _band_temps(self, seat: str | None) -> list[list[float]] | None:
     """Each latitude band's temperature in the seat's last census."""
     entity = seat if seat in self.seats else self.entity
@@ -1789,65 +1780,31 @@ class GameSession:
         )
     return sorted(found) or None
 
-  def _plantings(self, seat: str | None, seen: int) -> list[dict[str, Any]]:
-    """A Steward's aimed sowings its census has seen, lately."""
-    entity = seat if seat in self.seats else self.entity
-    if self._kind(entity) != 'steward':
-      return []
-    planet = self.context.planet
-    return [
-        {
-            'sown': int(p['tick']) - 1,
-            'species': p['species'],
-            'name': planet.species_name(p['species']),
-            'tiles': [
-                ''.join('#' if v else '.' for v in row)
-                for row in p['tiles'][::-1]
-            ],
-        }
-        for p in planet.plantings
-        if seen - PLANTINGS_SHOWN < int(p['tick']) <= seen
-    ]
+  def _life_tiles(self, covers: Any = None) -> dict[str, Any]:
+    """Sessile life per tile now (`views.life_tiles`), coloured."""
+    return self._coloured(views.life_tiles(self.context.planet, covers))
 
-  def _life_tiles(
-      self, covers: Mapping[str, Any] | None = None
-  ) -> dict[str, Any]:
-    """Sessile life per tile, north first (now, or as a census saw it).
-
-    `dominant` is the commonest species (one character each, indexing
-    `species`), `cover` the total cover in tenths (0-9) and `covers` each
-    species' own cover in 36ths (one base-36 character per tile), which the
-    page draws as a meadow: each tile a patch of dots, one per share.
-    """
-    planet = self.context.planet
-    if covers is None:
-      covers = dict(planet.tile_life.covers)  # One snapshot (game thread).
-    keys, dominant, total = planet.tile_life.dominant(covers)
-    for key in keys:  # A species keeps its colour for the whole game.
+  def _coloured(self, life: Mapping[str, Any]) -> dict[str, Any]:
+    """A life map with each species' colours (kept for the whole game)."""
+    keys = [str(k['key']) for k in life['species']]
+    for key in keys:
       self._species_look(key, keys)
-    species = [
-        {'key': key, 'name': planet.species_name(key), **self._colours[key]}
-        for key in keys
-    ]
-    land = planet.tiles.land
     return {
-        'species': species,
-        'dominant': [
-            ''.join(_BASE36[i] if l else '.' for i, l in zip(row, lrow))
-            for row, lrow in zip(dominant[::-1], land[::-1])
-        ],
-        'cover': [
-            ''.join(str(min(9, int(c * 10))) for c in row)
-            for row in total[::-1]
-        ],
-        'covers': [
-            [
-                ''.join(_BASE36[min(35, int(round(c * 35)))] for c in row)
-                for row in covers[key][::-1]
-            ]
-            for key in keys
-        ],
+        **life,
+        'species': [{**k, **self._colours[k['key']]} for k in life['species']],
     }
+
+  def _surface(self) -> dict[str, Any]:
+    """The map's surface as the World GM published it (`views.surface`)."""
+    message = self.context.bus.latest(views.SURFACE_TOPIC)
+    return json.loads(message.payload) if message is not None else {}
+
+  def _seen(self, seat: str | None) -> dict[str, Any] | None:
+    """The life a seat's census last saw (`views.seen`), if it reads one."""
+    if self.mode != 'play' or self._spectating(seat):
+      return None
+    entity = seat if seat in self.seats else self.entity
+    return views.latest(self.context, entity, views.SEEN, None)
 
   def _stats(self, reveal: bool, entity: str) -> list[dict[str, Any]]:
     """The strip of numbers: what the role read (`views.strip`), or, once
@@ -1855,20 +1812,6 @@ class GameSession:
     if reveal:
       return views.strip(self.context, entity, reveal=True)
     return views.latest(self.context, entity, views.STRIP, [])
-
-  def _peoples(self, seat: str | None, reveal: bool) -> dict[str, Any] | None:
-    """Towns, roads and routes; a people's planned town only to itself."""
-    planet = self.context.planet
-    if planet.settlements is None:
-      return None
-    found = planet.settlements.payload(data.load('settlements.yaml')['colours'])
-    if planet.civ is not None:  # How each people eats: hunger shows from afar.
-      for p in found['polities']:
-        polity = planet.civ.polities.get(p['key'])
-        if polity is not None:
-          p['fed'] = round(float(polity.food_ratio), 2)
-          p['famine'] = bool(polity.famine)
-    return found
 
   def worlds(self) -> list[dict[str, str]]:
     """The worlds this game can map, the one to show first leading."""
@@ -1892,9 +1835,12 @@ class GameSession:
     tiles, colony = world.tiles, world.colony
     reveal = self.mode == 'watch' or self.finished
     entity = seat if seat in self.seats else self.entity
-    on_site = self._kind(entity) == 'colony'
-    frame = world.frames[-1] if reveal or on_site else world.frames[0]
-    late = world.frames[-1]['generation'] - frame['generation']
+    if reveal:
+      frame, late = world.frames[-1], 0
+    else:  # As its light reaches the role (`views.ararat`).
+      view = views.latest(self.context, entity, views.ARARAT, None) or {}
+      frame = view.get('frame') or {'domes': [], 'generation': 0}
+      late = int(view.get('late', 0))
     north = tiles.rows - 1
     colours = data.load('ararat.yaml')['colour']
     found: dict[str, Any] = {
@@ -1907,7 +1853,7 @@ class GameSession:
             ' thawing as the sky warms'
             + (f' (as its light shows it, {late} years ago)' if late else '')
         ),
-        'tick': planet.tick,
+        'tick': self._tick(),
         'rows': world.grid.bands,
         'cols': world.grid.sectors,
         'tile_rows': tiles.rows,
@@ -1951,8 +1897,8 @@ class GameSession:
             'routes': [],
         },
         'site': (
-            [north - colony.site[0], colony.site[1]]
-            if colony.site is not None
+            [north - site[0], site[1]]
+            if (site := colony.site if reveal else frame.get('site'))
             else None
         ),
         'ripples': [],
@@ -1987,44 +1933,45 @@ class GameSession:
     world = world or self.worlds()[0]['key']
     if world == 'ararat' and self.context.planet.colony_world is not None:
       return self.ararat_map(seat, full)
-    planet = self.context.planet
-    grid = planet.grid
+    planet = self.context.planet  # Its fixed shape: the grid and terrain.
+    grid, tiles = planet.grid, planet.tiles
     reveal = self.mode == 'watch' or self.finished
-    seen = None if reveal else self._seen_life(seat)
-    # Fire danger: the truth once revealed, else as the census saw it.
-    risk = (
-        planet.fire.risk(dict(planet.tile_life.covers))
-        if reveal
-        else planet.risk_seen.get(seen[0])
-        if seen is not None
-        else None
-    )
-    land = planet.daisies.land_fraction()
-    temps = planet.daisies.temperatures_c()
-    ice = planet.climate.ice_fraction(temps)
-    life = np.zeros(grid.size)
-    for species in planet.daisies.species():
-      life = life + planet.daisies.cover_map(species)
+    # What anyone sees from afar, as the World GM published it; once
+    # revealed, a watcher's view of the world as it is.
+    sky = views.surface(self.context) if reveal else self._surface()
+    seen = None if reveal else self._seen(seat)
+    now = self._tick()
     regions = []
     for r in range(grid.size):
       band, sector = grid.band_of(r), grid.sector_of(r)
-      item: dict[str, Any] = {
+      regions.append({
           'region': r,
           'row': grid.bands - 1 - band,
           'col': sector,
           'name': grid.region_name(r),
-          'land': round(float(land[r]), 3),
-      }
-      if reveal:
+          'land': sky['land'][r],
+      })
+    if reveal:  # The climate, the ice and life: the truth, once revealed.
+      land = planet.daisies.land_fraction()
+      temps = planet.daisies.temperatures_c()
+      ice = planet.climate.ice_fraction(temps)
+      life = np.zeros(grid.size)
+      for species in planet.daisies.species():
+        life = life + planet.daisies.cover_map(species)
+      for r, item in enumerate(regions):
         item['temp_c'] = round(float(temps[r]), 1)
         item['ice'] = round(float(ice[r]), 3)
         item['life'] = round(float(life[r]) / max(1e-9, float(land[r])), 3)
-      regions.append(item)
-    tiles = planet.tiles
+      risk = planet.fire.risk(dict(planet.tile_life.covers))
+      fire_risk = [
+          ''.join(str(min(9, int(v * 10))) for v in row) for row in risk[::-1]
+      ]
+    else:  # Fire danger as the role's census saw it.
+      fire_risk = seen['fire_risk'] if seen is not None else None
     found: dict[str, Any] = {
         'version': 1,
         'game_id': self.game_id,
-        'tick': planet.tick,
+        'tick': now,
         # News riding toward a people's player's capital.
         'couriers': self._couriers(seat),
         # Where the player's aimed moves landed.
@@ -2032,7 +1979,7 @@ class GameSession:
         # The player's moves acting this turn, and how they show.
         'acting': self._acting(seat),
         # Woods the Steward protects from the peoples' axes.
-        'reserves': self._reserves(),
+        'reserves': sky['reserves'],
         'rows': grid.bands,
         'cols': grid.sectors,
         'tile_rows': tiles.rows,
@@ -2045,26 +1992,19 @@ class GameSession:
                 layer
                 for layer in _map_layers(reveal)
                 # Fire risk only where something can burn.
-                if layer != 'fire'
-                or any(
-                    planet.fire.flammability(k) > 0
-                    for k in planet.daisies.species()
-                )
+                if layer != 'fire' or sky['flammable']
             ]
-            + (['pollution'] if planet.pollution is not None else []),
+            + (['pollution'] if sky['pollution'] is not None else []),
             seen=not reveal and seen is not None,
             # Life first where life is the world's story; after the biomes
             # where peoples are.
-            first=planet.civ is None,
+            first=not sky['civ'],
             # Where something can burn, its danger as the census saw it.
-            burns=any(
-                planet.fire.flammability(k) > 0
-                for k in planet.daisies.species()
-            ),
+            burns=sky['flammable'],
         ),
         'regions': regions,
         'ice': tiles.ice_rows() if reveal else None,
-        'biomes': planet.biomes.rows(),
+        'biomes': sky['biomes'],
         'tile_temp': (
             [
                 [int(round(v)) for v in row]
@@ -2084,70 +2024,47 @@ class GameSession:
         'life_tiles': (
             self._life_tiles()
             if reveal
-            else self._life_tiles(seen[1])
+            else self._coloured(seen['life'])
             if seen is not None
             else None
         ),
         # The player's own sowings that census has seen, and where they
         # took root ('#' per tile, north first): what they did, on the map.
-        'plantings': (
-            [] if reveal or seen is None else self._plantings(seat, seen[0])
-        ),
+        'plantings': [] if reveal or seen is None else seen['plantings'],
         # When the life shown was seen, for a player: their census's tick
         # and how many turns old it is.
         'life_seen': (
             None
             if reveal or seen is None
-            else {'tick': seen[0], 'age': planet.tick - seen[0]}
+            else {'tick': seen['tick'], 'age': now - int(seen['tick'])}
         ),
-        # Fires and their scars are seen from afar, like the biomes ('3'
-        # burned this tick, fading to '0'); the risk is a number, the truth.
-        'herds': planet.herds.payload(),  # Animals are seen by all.
+        'herds': sky['herds'],  # Animals are seen by all.
         # News of places, spreading at the couriers' pace: where it
         # happened, how many ticks ago, what kind, and what it said to those
         # who may read it here (watchers, and the Steward who hears world
         # news); a people's player learns it only as its couriers bring it.
         'ripples': [
             [
-                tiles.rows - 1 - r['row'],
-                r['col'],
-                planet.tick - r['tick'],
-                # Biomes shifting (a tally of the planet) ripple softly.
-                r['topic'].split('.')[0] if r.get('local', True) else 'shift',
-                str(r['text'])
-                if self._reads_news(seat, reveal, r['topic'].split('.')[0])
-                else None,
+                row,
+                col,
+                now - tick,
+                kind,
+                text if self._reads_news(seat, reveal, root) else None,
             ]
-            for r in planet.ripples
+            for row, col, tick, kind, root, text in sky['ripples']
         ],
-        'news_speed': tiles.per / float(planet.news_config['ticks_per_region']),
-        'pollution': (  # Smog and blooms are seen from afar too.
-            planet.pollution.payload() if planet.pollution is not None else None
-        ),
-        'peoples': self._peoples(seat, reveal),  # Towns and roads: public.
+        'news_speed': sky['news_speed'],
+        'pollution': sky['pollution'],  # Smog and blooms, seen from afar.
+        'peoples': sky['peoples'],  # Towns and roads: public.
         # Clouds, haze and ash in the sky (seen from afar): the albedo pulses
         # over each region, north first; none while the sky is clear.
-        'clouds': _clouds(planet),
+        'clouds': sky['clouds'],
         # Rain-soaked ground (seen from afar, like the clouds that brought it).
-        'wet': (
-            [
-                ''.join(str(min(9, int(v * 10))) for v in row)
-                for row in planet.fire.wet[::-1]
-            ]
-            if planet.fire.wet.max() > 0.05
-            else None
-        ),
-        'burns': [
-            ''.join(str(v) for v in row) for row in planet.fire.scar[::-1]
-        ],
-        'fire_risk': (
-            [
-                ''.join(str(min(9, int(v * 10))) for v in row)
-                for row in risk[::-1]
-            ]
-            if risk is not None
-            else None
-        ),
+        'wet': sky['wet'],
+        # Fires and their scars are seen from afar, like the biomes ('3'
+        # burned this tick, fading to '0'); the risk is a number.
+        'burns': sky['burns'],
+        'fire_risk': fire_risk,
         # The temperature each latitude band had in that census, for a
         # player's temperature layer: [degrees of latitude, °C].
         'band_temps': (
@@ -2340,7 +2257,13 @@ class GameSession:
     )
     if steward is None:  # No Steward reads this planet's temperature.
       return None
-    rows = [dict(r) for r in planet.history[-ticks:]]
+    # Its readings as the World GM logs them for it (`views.logbook`); the
+    # world's own history once revealed.
+    log = views.latest(self.context, steward, views.LOGBOOK, None)
+    rows = [
+        dict(r)
+        for r in (planet.history if reveal else (log or {}).get('rows', []))
+    ][-ticks:]
     low, high = planet.band()
     goal = planet.goal()
     return {
@@ -2361,12 +2284,7 @@ class GameSession:
         # Its dead reckoning from those readings and its moves.
         'forecast': (
             found.to_dict()
-            if (
-                found := views.forecast(
-                    views.latest(self.context, steward, views.LOGBOOK, None),
-                    self._planned_moves(steward),
-                )
-            )
+            if (found := views.forecast(log, self._planned_moves(steward)))
             else None
         ),
     }
@@ -2484,7 +2402,7 @@ class GameSession:
             if not spectator and self._kind(entity) == 'steward'
             else []
         ),
-        'tick': planet.tick,
+        'tick': self._tick(),
         'max_ticks': planet.max_ticks,
         'outcome': planet.outcome or '',
         'outcome_reason': planet.outcome_reason or '',
@@ -2571,9 +2489,9 @@ class GameSession:
                 'left': REWINDS - self.rewinds,
                 'can': (
                     self.rewinds < REWINDS
-                    and any(t == planet.tick - 2 for t, _ in self._kept)
+                    and any(t == self._tick() - 2 for t, _ in self._kept)
                 ),
-                'to': planet.tick - 1,
+                'to': self._tick() - 1,
             }
         ),
         # Moves planned for later turns, soonest first.
@@ -2581,7 +2499,7 @@ class GameSession:
             []
             if spectator or self.mode != 'play'
             else [
-                {'tick': t, 'move': m, 'in': t - planet.tick}
+                {'tick': t, 'move': m, 'in': t - self._tick()}
                 for t, m in sorted(place.plans.items())
             ]
         ),
@@ -2658,16 +2576,6 @@ def _peoples_now(planet: Any) -> dict[str, Any] | None:
       }
       for p in civ.polities.values()
   }
-
-
-def _clouds(planet: Any) -> list[list[float]] | None:
-  """Each region's cloud albedo (+ bright cloud or ash, − dark haze)."""
-  field = planet.daisies.cloud_field()
-  if float(np.abs(field).max()) < 0.005:
-    return None
-  grid = planet.grid
-  rows = field.reshape(grid.bands, grid.sectors)[::-1]  # North first.
-  return [[round(float(v), 3) for v in row] for row in rows]
 
 
 # A news digest's lines: "- tick 6: The desert spreads ...".

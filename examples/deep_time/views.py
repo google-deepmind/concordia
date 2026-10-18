@@ -31,11 +31,14 @@ import json
 import math
 from typing import Any
 
+import numpy as np
+
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises as crises_lib
 from examples.deep_time import forecast as forecast_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
+from examples.deep_time.world import data
 
 MENU = 'menu'
 NEEDS = 'needs'
@@ -49,6 +52,14 @@ READINGS = 'readings'
 MOVES = 'moves'
 STRIP = 'strip'
 PEOPLE = 'people'
+SEEN = 'seen'
+ARARAT = 'ararat'
+# What anyone sees of the world from afar, each step (the map's surface).
+SURFACE_TOPIC = 'world.surface'
+# A Steward's aimed sowings its census shows, the last few ticks of them.
+PLANTINGS_SHOWN = 6
+# One character per share, for the map's meadows.
+_BASE36 = '0123456789abcdefghijklmnopqrstuvwxyz'
 # Each kind of role, by its actor's rules (the most specific first).
 _KINDS = (
     (actors_lib.StewardActor, 'steward'),
@@ -121,6 +132,16 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
     topics[perception.sheet_topic(entity, TRAITS)] = lambda: json.dumps(
         traits(context, entity)
     )
+  if (entity, 'Census') in context.tapped:
+    # The life its census last saw, tile by tile, as late as it arrived.
+    topics[perception.sheet_topic(entity, SEEN)] = lambda: json.dumps(
+        seen(context, entity)
+    )
+  if context.planet.colony_world is not None:
+    # The colony's world, as its light shows it from where the role is.
+    topics[perception.sheet_topic(entity, ARARAT)] = lambda: json.dumps(
+        ararat(context, entity)
+    )
   if isinstance(actor, actors_lib.PolityActor):
     # A people's own numbers, food, labor and stores (its sheet says them).
     topics[perception.sheet_topic(entity, PEOPLE)] = lambda: json.dumps(
@@ -138,6 +159,201 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
     context.add_sheet(topic, function)
   # As the world's own state is published when a game is made: from tick 0.
   context.publish_sheets(list(topics))
+
+
+def register_world(context: game_lib.GameContext) -> None:
+  """Has the World GM publish the map's surface each step (`surface`)."""
+  context.add_sheet(SURFACE_TOPIC, lambda: json.dumps(surface(context)))
+  context.publish_sheets([SURFACE_TOPIC])
+
+
+def surface(context: game_lib.GameContext) -> dict[str, Any]:
+  """What anyone sees of the world from afar: the map's surface.
+
+  The land of each region, its biomes, the herds, news spreading from where
+  it happened, smog and blooms, the peoples' towns and roads (and their
+  hunger), clouds, rain-soaked ground, burn scars and protected woods. The
+  climate, the ice and life tile by tile are not here: a role sees those
+  through its own instruments (`seen`).
+  """
+  planet = context.planet
+  tiles = planet.tiles
+  land = planet.daisies.land_fraction()
+  return {
+      'tick': planet.tick,
+      'land': [round(float(v), 3) for v in land],
+      'civ': planet.civ is not None,
+      # Fire risk can be shown only where something can burn.
+      'flammable': any(
+          planet.fire.flammability(k) > 0 for k in planet.daisies.species()
+      ),
+      'biomes': planet.biomes.rows(),
+      'herds': planet.herds.payload(),  # Animals are seen by all.
+      # News of places, spreading at the couriers' pace: [row (north
+      # first), col, tick, kind ('shift' for biomes shifting), topic, text].
+      'ripples': [
+          [
+              tiles.rows - 1 - r['row'],
+              r['col'],
+              int(r['tick']),
+              r['topic'].split('.')[0] if r.get('local', True) else 'shift',
+              r['topic'].split('.')[0],
+              str(r['text']),
+          ]
+          for r in planet.ripples
+      ],
+      'news_speed': tiles.per / float(planet.news_config['ticks_per_region']),
+      'pollution': (
+          planet.pollution.payload() if planet.pollution is not None else None
+      ),
+      'peoples': _peoples(context),
+      'clouds': _clouds(planet),
+      'wet': (
+          [
+              ''.join(str(min(9, int(v * 10))) for v in row)
+              for row in planet.fire.wet[::-1]
+          ]
+          if planet.fire.wet.max() > 0.05
+          else None
+      ),
+      # Fires and their scars ('3' burned this tick, fading to '0').
+      'burns': [''.join(str(v) for v in row) for row in planet.fire.scar[::-1]],
+      'reserves': _reserves(planet),
+  }
+
+
+def _peoples(context: game_lib.GameContext) -> dict[str, Any] | None:
+  """Towns, roads and routes, and how each people eats (seen from afar)."""
+  planet = context.planet
+  if planet.settlements is None:
+    return None
+  found = planet.settlements.payload(data.load('settlements.yaml')['colours'])
+  if planet.civ is not None:  # How each people eats: hunger shows from afar.
+    for p in found['polities']:
+      polity = planet.civ.polities.get(p['key'])
+      if polity is not None:
+        p['fed'] = round(float(polity.food_ratio), 2)
+        p['famine'] = bool(polity.famine)
+  return found
+
+
+def _clouds(planet: Any) -> list[list[float]] | None:
+  """Each region's cloud albedo (+ bright cloud or ash, − dark haze)."""
+  field = planet.daisies.cloud_field()
+  if float(np.abs(field).max()) < 0.005:
+    return None
+  grid = planet.grid
+  rows = field.reshape(grid.bands, grid.sectors)[::-1]  # North first.
+  return [[round(float(v), 3) for v in row] for row in rows]
+
+
+def _reserves(planet: Any) -> list[list[Any]]:
+  """Protected woods: [row (north first), col, radius in tiles, turns left].
+
+  One per protected region, at its tiles' centre. Everyone sees them: the
+  woodcutters find the woods closed.
+  """
+  tiles = planet.tiles
+  found = []
+  for region, until in sorted(planet.reserves.items()):
+    left = until - planet.tick
+    if left <= 0:
+      continue
+    rows, cols = np.nonzero(tiles.region == region)
+    if rows.size == 0:
+      continue
+    found.append([
+        int(tiles.rows - 1 - round(float(rows.mean()))),
+        int(round(float(cols.mean()))),
+        round(float(np.sqrt(len(rows) / np.pi)), 1),
+        int(left),
+    ])
+  return found
+
+
+def life_tiles(planet: Any, covers: Any = None) -> dict[str, Any]:
+  """Sessile life per tile, north first (now, or as a census saw it).
+
+  `dominant` is the commonest species (one character each, indexing
+  `species`), `cover` the total cover in tenths (0-9) and `covers` each
+  species' own cover in 36ths (one base-36 character per tile), which the
+  page draws as a meadow: each tile a patch of dots, one per share.
+  """
+  if covers is None:
+    covers = dict(planet.tile_life.covers)  # One snapshot (game thread).
+  keys, dominant, total = planet.tile_life.dominant(covers)
+  land = planet.tiles.land
+  return {
+      'species': [{'key': k, 'name': planet.species_name(k)} for k in keys],
+      'dominant': [
+          ''.join(_BASE36[i] if l else '.' for i, l in zip(row, lrow))
+          for row, lrow in zip(dominant[::-1], land[::-1])
+      ],
+      'cover': [
+          ''.join(str(min(9, int(c * 10))) for c in row) for row in total[::-1]
+      ],
+      'covers': [
+          [
+              ''.join(_BASE36[min(35, int(round(c * 35)))] for c in row)
+              for row in covers[key][::-1]
+          ]
+          for key in keys
+      ],
+  }
+
+
+def seen(context: game_lib.GameContext, entity: str) -> dict[str, Any] | None:
+  """The life a role's census last saw, tile by tile, and the tick it was
+  taken: as late as the census reached it. A sowing shows where it was made
+  once a census taken after it is read. None before its first census."""
+  message = context.received.get((entity, 'Census'))
+  if message is None or message.time is None:
+    return None
+  planet, taken = context.planet, int(message.time)
+  covers = planet.life_seen.get(taken)
+  if covers is None and taken == planet.tick:
+    covers = dict(planet.tile_life.covers)
+  if covers is None:
+    return None
+  risk = planet.risk_seen.get(taken)
+  steward = isinstance(context.actors.get(entity), actors_lib.StewardActor)
+  return {
+      'tick': taken,
+      'life': life_tiles(planet, covers),
+      'fire_risk': (
+          [''.join(str(min(9, int(v * 10))) for v in row) for row in risk[::-1]]
+          if risk is not None
+          else None
+      ),
+      # A Steward's own aimed sowings that census has seen, lately.
+      'plantings': [
+          {
+              'sown': int(p['tick']) - 1,
+              'species': p['species'],
+              'name': planet.species_name(p['species']),
+              'tiles': [
+                  ''.join('#' if v else '.' for v in row)
+                  for row in p['tiles'][::-1]
+              ],
+          }
+          for p in planet.plantings
+          if steward and taken - PLANTINGS_SHOWN < int(p['tick']) <= taken
+      ],
+  }
+
+
+def ararat(context: game_lib.GameContext, entity: str) -> dict[str, Any] | None:
+  """The colony's world as a role sees it: as it is for the colonists, as
+  its light shows it, years late, for everyone at home."""
+  world = context.planet.colony_world
+  if world is None or not world.frames:
+    return None
+  on_site = isinstance(context.actors.get(entity), actors_lib.ColonyActor)
+  frame = world.frames[-1] if on_site else world.frames[0]
+  return {
+      'frame': frame,
+      'late': world.frames[-1]['generation'] - frame['generation'],
+  }
 
 
 def role(context: game_lib.GameContext, entity: str) -> dict[str, Any]:

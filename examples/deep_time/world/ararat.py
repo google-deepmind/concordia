@@ -112,6 +112,8 @@ class ColonyWorld:
         'ice': self.tiles.ice_rows(),
         'biomes': self.biomes.rows(),
         'domes': self.domes(),
+        # Where the colony mines its ice (as its light shows it at home).
+        'site': list(self.colony.site) if self.colony.site else None,
         'generation': self.colony.generation,
     })
 

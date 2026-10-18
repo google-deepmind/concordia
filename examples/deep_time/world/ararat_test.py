@@ -82,6 +82,7 @@ class ColonyWorldTest(absltest.TestCase):
     world.colony.temp_c = 5.0
     world.colony.generation += 1
     world.update()  # A thaw the light has not yet carried home.
+    game.context.publish_sheets()  # As the World GM does each step.
     home = game.map('Mission Control', world='ararat')
     self.assertTrue(all(set(row) == {'1'} for row in home['ice']))
     self.assertIn('years ago', home['title'])
@@ -92,6 +93,7 @@ class ColonyWorldTest(absltest.TestCase):
     assert there is not None
     there.colony.temp_c = 5.0
     there.update()
+    colonists.context.publish_sheets()
     seen = colonists.map('Colonists of New Ararat', world='ararat')
     self.assertFalse(all(set(row) == {'1'} for row in seen['ice']))
 
