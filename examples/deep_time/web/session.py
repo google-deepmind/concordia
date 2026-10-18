@@ -48,6 +48,7 @@ from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises as crises_lib
 from examples.deep_time import forecast as forecast_lib
+from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import motion as motion_lib
 from examples.deep_time import scenarios
@@ -95,16 +96,14 @@ def roles(scenario: str) -> tuple[tuple[str, str], ...]:
   species that arise later cannot be chosen); the Steward, or Mission
   Control, comes first.
   """
-  sim, context = simulation.build_simulation(
-      scenario, model_setup.make_models('mock')
-  )
+  context = game_lib.new_game(scenario)
+  context.slow_model = model_setup.make_models('mock').slow
   found = []
-  for entity in sim.get_entities():
-    role = views.role(context, entity.name)['kind']
+  for name, role in simulation.role_kinds(context):
     for rank, (kind, words) in enumerate(_KINDS):
       if role == kind:
-        label = f'{entity.name}, {words}' if words else entity.name
-        found.append((rank > 1, entity.name, label))
+        label = f'{name}, {words}' if words else name
+        found.append((rank > 1, name, label))
         break
   found.sort(key=lambda role: role[0])  # Stable: leaders first.
   return tuple((name, label) for _, name, label in found)
@@ -1577,7 +1576,7 @@ class GameSession:
         keys = list(payload.get('cover', {}))
         payload['look'] = {
             k: {
-                'name': context.planet.species_name(k),
+                'name': self._species().get(k, {}).get('name', k),
                 **self._species_look(k, keys),
             }
             for k in keys
@@ -1801,9 +1800,10 @@ class GameSession:
     """A species' colours, light and dark, the same everywhere all game."""
     if key not in self._colours:
       colours = data.load('tilelife.yaml').get('colours', {})
+      seen = self._species().get(key, {})
       self._colours[key] = _species_colours(
           key,
-          self.context.planet.daisies.traits(key).albedo,
+          float(seen.get('albedo', 0.5)),
           colours,
           [c['light'] for c in self._colours.values()]
           + [c['light'] for k, c in colours.items() if k in keys],
@@ -1841,6 +1841,12 @@ class GameSession:
         **life,
         'species': [{**k, **self._colours[k['key']]} for k in life['species']],
     }
+
+  def _species(self) -> dict[str, Any]:
+    """Each species as anyone sees it (the World GM's surface)."""
+    if self.mode == 'watch' or self.finished:
+      return views.species_looks(self.context.planet)
+    return self._surface().get('species', {})
 
   def _surface(self) -> dict[str, Any]:
     """The map's surface as the World GM published it (`views.surface`)."""

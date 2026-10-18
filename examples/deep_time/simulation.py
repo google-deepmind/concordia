@@ -46,6 +46,28 @@ WORLD_GM_PREFAB = 'deep_time_world__GameMaster'
 WORLD_GM_NAME = 'Deep Time'
 
 
+# Each role prefab, by the kind of role it builds.
+ROLE_KINDS = {
+    steward.STEWARD_PREFAB: 'steward',
+    mission.MISSION_PREFAB: 'mission',
+    species_prefab.SPECIES_PREFAB: 'species',
+    grazers.GRAZER_PREFAB: 'herds',
+    polity.POLITY_PREFAB: 'people',
+    colony.COLONY_PREFAB: 'colony',
+    chronicler.CHRONICLER_PREFAB: 'chronicler',
+}
+
+
+def role_kinds(context: game_lib.GameContext) -> list[tuple[str, str]]:
+  """Each role of a new game, in order: (entity name, kind), from its
+  instance config (the prefab that builds it)."""
+  return [
+      (str(i.params['name']), ROLE_KINDS.get(i.prefab, ''))
+      for i in build_config(context).instances
+      if i.role == prefab_lib.Role.ENTITY
+  ]
+
+
 def build_config(
     context: game_lib.GameContext,
     max_ticks: int | None = None,

@@ -219,6 +219,18 @@ def surface(context: game_lib.GameContext) -> dict[str, Any]:
       # Fires and their scars ('3' burned this tick, fading to '0').
       'burns': [''.join(str(v) for v in row) for row in planet.fire.scar[::-1]],
       'reserves': _reserves(planet),
+      'species': species_looks(planet),
+  }
+
+
+def species_looks(planet: Any) -> dict[str, dict[str, Any]]:
+  """Each species as anyone sees it: its name and how bright it looks."""
+  return {
+      k: {
+          'name': planet.species_name(k),
+          'albedo': round(float(planet.daisies.traits(k).albedo), 3),
+      }
+      for k in planet.daisies.species()
   }
 
 
