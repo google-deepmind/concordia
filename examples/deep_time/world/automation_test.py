@@ -21,6 +21,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
 from examples.deep_time.components import policy_compiler
+from examples.deep_time.components import standing_orders
 from examples.deep_time.prefabs import polity as polity_prefab
 
 
@@ -165,11 +166,13 @@ class AutomationTest(absltest.TestCase):
     context, automation, civ, _ = _context()
     civ.polities['cedar'].techs = ['granaries']
     automation.adopt('cedar', 'ask', 'charcoal')
-    state = context.get_state()
+    # The World GM's component checkpoints the standing orders.
+    state = standing_orders.StandingOrders(automation).get_state()
     other, other_automation, other_civ, _ = _context()
     other_civ.polities['cedar'].techs = ['granaries']
-    other.set_state(state)
+    standing_orders.StandingOrders(other_automation).set_state(state)
     self.assertEqual(other_automation.engine.names(), ['cedar:ask:charcoal'])
+    self.assertNotIn('automation', context.get_state())
 
 
 if __name__ == '__main__':

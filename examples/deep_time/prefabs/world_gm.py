@@ -39,6 +39,7 @@ transports, ageing and rendering) and hands each what reaches it |
 | `entity_scheduler` | upstream `interrupt_scheduling.EntityScheduler`: the
 event-driven entities' interrupt masks and timers (where there are any) |
 | `__wakeups__` | `wakeups.WakeUps`: the events and alarms that wake them |
+| `__standing_orders__` | `StandingOrders`: the peoples' adopted reflexes |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it.
@@ -64,6 +65,7 @@ from examples.deep_time.components import action_specs
 from examples.deep_time.components import actor_registry
 from examples.deep_time.components import deliveries
 from examples.deep_time.components import resolution
+from examples.deep_time.components import standing_orders
 from examples.deep_time.components import world_step
 from examples.deep_time.world import publishing
 from concordia.language_model import language_model
@@ -152,6 +154,16 @@ class WorldGameMaster(prefab_lib.Prefab):
                 wakeups_lib.DEFAULT_WAKEUPS_COMPONENT_KEY: context.wakeups,
             }
             if context.wakeups is not None
+            else {}
+        ),
+        # The peoples' adopted standing orders (reflexes on the bus).
+        **(
+            {
+                standing_orders.DEFAULT_STANDING_ORDERS_KEY: (
+                    standing_orders.StandingOrders(context.automation)
+                )
+            }
+            if context.automation is not None
             else {}
         ),
     }
