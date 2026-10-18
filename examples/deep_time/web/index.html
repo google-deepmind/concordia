@@ -2591,43 +2591,6 @@ function drawRipples(ctx, v, k, X, Y) {
   }
 }
 
-// News on the road to a people's player: a courier rides
-// from where it happened to the capital, arriving on the turn the people
-// reads it, the rest of the road dashed and the turns left beside it. The
-// map's ripples show news spreading to everyone; this is the player's own.
-function drawCouriers(ctx, v, k, X, Y) {
-  if (!v.couriers || !v.couriers.length) return;
-  const tile = X(1) - X(0), world = X(v.cols) - X(0), dark = v.theme === 'dark';
-  for (const [fr, fc, tr, tc, sent, lands, kind] of v.couriers) {
-    let dc = tc - fc;  // The short way round: longitude wraps.
-    if (Math.abs(dc) > v.cols / 2) dc -= Math.sign(dc) * v.cols;
-    const f = Math.max(0, Math.min(1, (v.tick - 1 + k - sent) / Math.max(1, lands - sent)));
-    const r = fr + f * (tr - fr), c = fc + f * dc;
-    const col = RIPPLE_COLOURS[kind] || [220, 220, 220], left = lands - v.tick;
-    for (const shift of [0, -world, world]) {
-      const x = X(c + 0.5) + shift, y = Y(r + 0.5);
-      const ex = X(fc + dc + 0.5) + shift, ey = Y(tr + 0.5);
-      if (Math.max(x, ex) < -20 || Math.min(x, ex) > v.width + 20) continue;
-      ctx.save();  // The road still to ride.
-      ctx.setLineDash([3, 4]); ctx.lineWidth = 1.6;
-      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},.75)`;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
-      ctx.restore();
-      const rad = Math.max(4.5, tile * 0.5);  // The courier.
-      ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fill();
-      ctx.lineWidth = 1.6; ctx.strokeStyle = dark ? '#111' : '#fff'; ctx.stroke();
-      if (left > 0) {  // Turns until the people read it.
-        ctx.font = `600 ${Math.max(9, Math.round(rad * 1.6))}px system-ui, sans-serif`;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.lineWidth = 3; ctx.strokeStyle = dark ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.9)';
-        ctx.strokeText(String(left), x + rad + 2, y - rad);
-        ctx.fillStyle = dark ? '#fff' : '#1d2a22'; ctx.fillText(String(left), x + rad + 2, y - rad);
-      }
-    }
-  }
-}
-
 // Where the player's aimed moves landed: a pin and a ring,
 // labelled with the turn, fading over four turns.
 // Woods the Steward protects: a green dashed ring over each
@@ -3178,7 +3141,7 @@ function showHerds(m, base, width, height, dpr, theme) {
                            plantings: m.plantings || [],
                            lifeSpecies: m.life_tiles ? m.life_tiles.species : [],
                            peoples: m.peoples, ripples: m.ripples, newsSpeed: m.news_speed, site: m.site,
-                           couriers: m.couriers || [], pins: m.pins || [], reserves: m.reserves || []});
+                           pins: m.pins || [], reserves: m.reserves || []});
   // The player's moves acting this turn, laid out to play over the glide.
   herdView.sprites = motionSprites(m.acting || [], {rows: m.tile_rows, cols: m.tile_cols, site: m.site,
     terrain: terrainCache && terrainCache.terrain ? terrainCache.terrain.terrain : [],
@@ -3301,7 +3264,6 @@ function drawHerds(k) {
   drawPlantings(ctx, v, X, Y);
   drawRipples(ctx, v, k, X, Y);
   drawActing(ctx, v, X, Y, k, herds);
-  drawCouriers(ctx, v, k, X, Y);
   drawReserves(ctx, v, X, Y);
   drawCrisisMarks(ctx, v, X, Y);
   drawPins(ctx, v, X, Y, k);

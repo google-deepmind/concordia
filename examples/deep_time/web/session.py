@@ -1854,28 +1854,6 @@ class GameSession:
         })
     return found
 
-  def _couriers(self, seat: str | None) -> list[list[Any]]:
-    """A people's player's news still on the road, as couriers on the map.
-
-    Each is [from row, from col, to row, to col, sent tick, landing tick,
-    kind of news], rows north first: the courier rides from where it
-    happened to the people's capital, arriving on the turn the people reads
-    it. Others see none (the ripples show the news spreading to everyone).
-    """
-    if self.mode != 'play' or self.finished or self._spectating(seat):
-      return []
-    settlements = self.context.planet.settlements
-    if settlements is None or not settlements.config.get('couriers', True):
-      return []
-    entity = seat if seat in self.seats else self.entity
-    if self._kind(entity) != 'people':
-      return []
-    return [
-        [*f['from'], *f['to'], f['sent'], f['lands'], f['topic']]
-        for f in self.in_flight(entity)
-        if f['kind'] == 'news' and f['to'] is not None
-    ]
-
   def readings(self, entity: str | None = None) -> list[dict[str, Any]]:
     """What a role's own pub/sub subscribers hold now (for watchers)."""
     found = self.role_entity(entity)
@@ -2134,8 +2112,6 @@ class GameSession:
         'version': 1,
         'game_id': self.game_id,
         'tick': now,
-        # News riding toward a people's player's capital.
-        'couriers': self._couriers(seat),
         # Where the player's aimed moves landed.
         'pins': self._pins(seat),
         # The player's moves acting this turn, and how they show.

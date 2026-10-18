@@ -1309,11 +1309,8 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(news['from'], [north - row, col])
     capital = planet.settlements.places['amber'][0]
     self.assertEqual(news['to'], [north - capital.row, capital.col])
-    # Cut from the map (a tap only zoomed it); a data flag brings it back.
-    self.assertEqual(game.map(None)['couriers'], [])
-    # Only a people's player has couriers: the ripples show everyone else.
-    watched = session_lib.GameSession('fire_and_iron', 'watch')
-    self.assertEqual(watched.map(None)['couriers'], [])
+    # Not drawn as couriers on the map (deleted: a tap only zoomed it).
+    self.assertNotIn('couriers', game.map(None))
 
   def test_mission_control_sees_its_transmissions_cross_the_void(self):
     game = session_lib.GameSession('light_delay', 'play').start()

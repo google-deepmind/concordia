@@ -1,10 +1,8 @@
 # Peoples on the map: settlements on tiles, the land they work,
 # and the roads and trade routes between them.
-# Cut in stage 5 (the owner's games of 18 Oct): news riding the roads to a
-# people's capital is no longer drawn (a tap only zoomed the map). Set true
-# to have it back. (Planning where the next town stands was deleted in
-# stage 6: it marked a spot and nothing showed.)
-couriers: false
+# (Deleted: couriers drawn riding the roads to a people's capital, cut by
+# the owner's games of 18 Oct, a tap only zoomed the map; and planning where
+# the next town stands, which marked a spot and nothing showed.)
 town_population: 3.0       # one settlement per this much population (and a capital)
 max_settlements: 6         # per people (the towns it founds)
 # Where conquest is played, towns are founded only by a people's move, at

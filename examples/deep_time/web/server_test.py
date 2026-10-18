@@ -112,6 +112,8 @@ class ServerTest(absltest.TestCase):
   def test_the_page_is_self_contained_and_light(self):
     _, page = self._get('/')
     self.assertLess(len(page), 500_000)  # No page over 500 KB.
+    # The stage's guard: lighter than stage 4's page (266 KB).
+    self.assertLess(len(page), 266_000)
     self.assertNotRegex(page, rb'<script[^>]+src=')  # No external scripts.
     self.assertNotRegex(page, rb'<link[^>]+href=["\']?https?:')
     self.assertNotIn(b'fetch("/', page)  # Relative URLs only (tailnet path).
