@@ -23,6 +23,12 @@ from examples.deep_time import perception
 INSTRUMENTS = ('Thermometer', 'Census', 'Air gauge', 'Tide gauge')
 
 
+def _held(context, spec):
+  """An instrument the World GM runs, as its entity holds it."""
+  perception.deliver(context, spec)
+  return perception.subscribe(context, spec)
+
+
 class AttentionTest(absltest.TestCase):
 
   def test_watches_the_first_instruments_and_follows_the_slots(self):
@@ -76,14 +82,17 @@ class AttentionTest(absltest.TestCase):
     attention = attention_lib.Attention(
         ('Thermometer', 'Air gauge'), lambda: slots[0]
     )
-    gauge = perception.instrument(
+    gauge = _held(
         context,
-        'cycles.carbon',
-        owner='Gaia',
-        label='Air gauge',
-        initial='none',
-        transported=True,
-        attention=attention,
+        perception.instrument(
+            context,
+            'cycles.carbon',
+            owner='Gaia',
+            label='Air gauge',
+            initial='none',
+            transported=True,
+            attention=attention,
+        ),
     )
     context.clock.advance()
     context.publish_state()

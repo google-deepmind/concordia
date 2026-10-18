@@ -68,21 +68,36 @@ def adaptation_topic(species: str) -> str:
   return f'bio.species.{species}.adaptation'
 
 
+def _senses(
+    context: game_lib.GameContext, owner: str
+) -> dict[str, perception.Instrument]:
+  """A species' (or the grazers') climate and census instruments."""
+  return {
+      key: perception.instrument(
+          context, topic, owner=owner, label=key, initial=initial
+      )
+      for key, topic, initial in INSTRUMENTS
+  }
+
+
+def senses_rules(
+    context: game_lib.GameContext, owner: str, genome: Callable[[], str]
+) -> None:
+  """The World GM publishes the genome sheet and runs the instruments."""
+  perception.publish(context, owner, 'genome', genome)
+  for spec in _senses(context, owner).values():
+    perception.deliver(context, spec)
+
+
 def senses(
-    context: game_lib.GameContext,
-    owner: str,
-    genome: Callable[[], str],
+    context: game_lib.GameContext, owner: str
 ) -> dict[str, entity_component.ContextComponent]:
   """Genome sheet, climate and census instruments, and biological news."""
   components: dict[str, entity_component.ContextComponent] = {
-      'Genome': perception.sheet(
-          context, owner, 'genome', genome, label='Genome'
-      )
+      'Genome': perception.read(context, owner, 'genome', label='Genome')
   }
-  for key, topic, initial in INSTRUMENTS:
-    components[key] = perception.instrument(
-        context, topic, owner=owner, label=key, initial=initial
-    )
+  for key, spec in _senses(context, owner).items():
+    components[key] = perception.subscribe(context, spec)
   components['Biological news'] = perception.news_digest(
       context,
       ['bio.events'],
@@ -137,8 +152,8 @@ def adaptation_mind(
 
 def evolving_toward(
     context: game_lib.GameContext, owner: str, topic: str
-) -> pubsub.Subscriber:
-  """The belief showing what the adaptation mind last decided."""
+) -> perception.Instrument:
+  """The instrument showing what the adaptation mind last decided."""
   return perception.instrument(
       context,
       topic,
@@ -189,6 +204,12 @@ class Species(playable.Role):
         str(params['lore']),
     )
 
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    species_rules(context, str(params['species']), str(params['name']))
+
 
 def species_config(
     context: game_lib.GameContext, species: str
@@ -213,10 +234,77 @@ def species_config(
   )
 
 
+def _pact_instruments(
+    context: game_lib.GameContext, name: str, species: str
+) -> dict[str, perception.Instrument]:
+  """The pacts' instruments, where symbiosis is played."""
+  if context.planet.symbiosis is None:
+    return {}
+  return {
+      'Pacts': perception.instrument(
+          context,
+          'bio.pacts',
+          owner=name,
+          label='Pacts',
+          initial='No pacts yet.',
+      ),
+      # Its pact mind's counsel on an offer; the species answers on its menu.
+      'Counsel on the pact': perception.instrument(
+          context,
+          f'bio.species.{species}.pact',
+          owner=name,
+          label='Counsel on the pact',
+          initial='No pact awaits our answer.',
+          render=lambda message: str(message.payload),
+      ),
+  }
+
+
+def species_rules(
+    context: game_lib.GameContext, species: str, name: str
+) -> None:
+  """The World GM installs a species' rules.
+
+  Its actor and wake-ups, its genome sheet and instruments, and the offer
+  its pact mind weighs.
+
+  Args:
+    context: Shared game state.
+    species: Species key.
+    name: The species' name.
+  """
+  context.add_actor(
+      actors_lib.SpeciesActor(name, species, context.planet),
+      hears=(
+          'world.tick',
+          'bio.events',
+          'gaia.omens',
+          f'diplomacy.{species}.',
+          f'bio.alerts.{species}',
+      ),
+  )
+  if context.wakeups is not None and context.scenario.get('wakeups'):
+    context.wakeups.add(name, species, data.load('species.yaml')['wakeups'])
+  senses_rules(
+      context,
+      name,
+      lambda: context.planet.genome_text(species) + last_shift(context, name),
+  )
+  for spec in _pact_instruments(context, name, species).values():
+    perception.deliver(context, spec)
+  if context.planet.symbiosis is not None:
+    perception.publish(
+        context, name, 'offer', lambda: pact_offer(context, species)
+    )
+  perception.deliver(
+      context, evolving_toward(context, name, adaptation_topic(species))
+  )
+
+
 def species_params(
     context: game_lib.GameContext, species: str, name: str, lore: str
 ) -> dict[str, Any]:
-  """Registers a species actor and returns its `minimal__Entity` params.
+  """A species' `minimal__Entity` params, its components included.
 
   Args:
     context: Shared game state.
@@ -231,28 +319,7 @@ def species_params(
   if evolution is None:
     raise ValueError('Species need evolution rules in the game context.')
   slow_model = context.slow()
-  context.add_actor(
-      actors_lib.SpeciesActor(
-          name,
-          species,
-          context.planet,
-      ),
-      hears=(
-          'world.tick',
-          'bio.events',
-          'gaia.omens',
-          f'diplomacy.{species}.',
-          f'bio.alerts.{species}',
-      ),
-  )
-  if context.wakeups is not None and context.scenario.get('wakeups'):
-    context.wakeups.add(name, species, data.load('species.yaml')['wakeups'])
-
-  components = senses(
-      context,
-      name,
-      lambda: context.planet.genome_text(species) + last_shift(context, name),
-  )
+  components = senses(context, name)
   components['Adaptation mind'] = adaptation_mind(
       context,
       name,
@@ -261,43 +328,23 @@ def species_params(
       evolution.question,
       evolution.latency_ticks,
   )
+  for key, spec in _pact_instruments(context, name, species).items():
+    components[key] = perception.subscribe(context, spec)
   if context.planet.symbiosis is not None:
-    components['Pacts'] = perception.instrument(
-        context,
-        'bio.pacts',
-        owner=name,
-        label='Pacts',
-        initial='No pacts yet.',
-    )
-    # Deliberates over a pact offer; its counsel is in the species' context,
-    # and the species answers on its menu.
-    components['Counsel on the pact'] = perception.instrument(
-        context,
-        f'bio.species.{species}.pact',
-        owner=name,
-        label='Counsel on the pact',
-        initial='No pact awaits our answer.',
-        render=lambda message: str(message.payload),
-    )
     components['Pact mind'] = context.make_mind(
         name,
         'Pact',
         f'bio.species.{species}.pact',
         pact_mind.PactMind(
             slow_model,
-            perception.brief(
-                context,
-                name,
-                'offer',
-                lambda: pact_offer(context, species),
-            ),
+            perception.reader(context, name, 'offer'),
             components=['Genome', 'Census'],
         ),
         context.planet.symbiosis.answer_latency,
         trigger_on_observe=True,
     )
-  components['Evolving toward'] = evolving_toward(
-      context, name, adaptation_topic(species)
+  components['Evolving toward'] = perception.subscribe(
+      context, evolving_toward(context, name, adaptation_topic(species))
   )
   return entity_params(
       context,

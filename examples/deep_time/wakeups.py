@@ -87,13 +87,16 @@ class WakeUps(entity_component.ContextComponent):
     self._inbox: list[topics.Message] = []
     self._lock = threading.Lock()
     self.awake: set[str] = set()
+    # While the World GM restores a checkpoint (rules installed again for
+    # entities founded in play), a replayed reading sounds no alarm.
+    self.quiet = False
     self.woken_by: dict[str, dict[str, int]] = {}
     # Each alarm's deadband (checkpointed: the value it last fired at).
     self._alarm_hooks: list[operators.StateHook] = []
     bus.matching('').subscribe(self._collect)
 
   def _collect(self, message: topics.Message) -> None:
-    if self._bus.is_restoring:  # A checkpoint's replay wakes no one.
+    if self._bus.is_restoring or self.quiet:  # A replay wakes no one.
       return
     if not str(message.payload).strip():  # An empty message is no news.
       return
@@ -125,7 +128,7 @@ class WakeUps(entity_component.ContextComponent):
 
     for rule in rules.get('alarms', ()):
       stream = self._bus.observable(str(rule['topic'])).pipe(
-          ops.filter(lambda _: not self._bus.is_restoring),
+          ops.filter(lambda _: not (self._bus.is_restoring or self.quiet)),
           operators.json_field(str(rule['path']).format(key=key)),
           operators.deadband(float(rule['threshold'])),
       )

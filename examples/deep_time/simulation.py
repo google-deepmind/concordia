@@ -51,13 +51,28 @@ def build_config(
 ) -> prefab_lib.Config:
   """Returns the Concordia config for the context's scenario."""
   instances = scenarios.builder(context.scenario_name)(context)
+  # The World GM installs every role's rules from the role's params.
+  roles = [
+      {'prefab': instance.prefab, 'params': dict(instance.params)}
+      for instance in instances
+      if instance.role == prefab_lib.Role.ENTITY
+  ]
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=WORLD_GM_PREFAB,
           role=prefab_lib.Role.GAME_MASTER,
-          params={'name': WORLD_GM_NAME},
+          params={'name': WORLD_GM_NAME, 'roles': roles},
       )
   )
+  role_prefabs = {
+      chronicler.CHRONICLER_PREFAB: chronicler.Chronicler(context=context),
+      steward.STEWARD_PREFAB: steward.Steward(context=context),
+      species_prefab.SPECIES_PREFAB: species_prefab.Species(context=context),
+      grazers.GRAZER_PREFAB: grazers.Grazers(context=context),
+      polity.POLITY_PREFAB: polity.Polity(context=context),
+      mission.MISSION_PREFAB: mission.Mission(context=context),
+      colony.COLONY_PREFAB: colony.Colony(context=context),
+  }
   premise = str(context.scenario.get('premise', ''))
   for instance in instances:
     if instance.role == prefab_lib.Role.ENTITY and premise:
@@ -68,16 +83,10 @@ def build_config(
       # Each role's prefab holds the game; its instances' params are plain.
       prefabs={
           **helper_functions.get_package_classes(entity_prefabs),
-          WORLD_GM_PREFAB: world_gm.WorldGameMaster(context=context),
-          chronicler.CHRONICLER_PREFAB: chronicler.Chronicler(context=context),
-          steward.STEWARD_PREFAB: steward.Steward(context=context),
-          species_prefab.SPECIES_PREFAB: species_prefab.Species(
-              context=context
+          **role_prefabs,
+          WORLD_GM_PREFAB: world_gm.WorldGameMaster(
+              context=context, roles=role_prefabs
           ),
-          grazers.GRAZER_PREFAB: grazers.Grazers(context=context),
-          polity.POLITY_PREFAB: polity.Polity(context=context),
-          mission.MISSION_PREFAB: mission.Mission(context=context),
-          colony.COLONY_PREFAB: colony.Colony(context=context),
       },
       instances=instances,
   )

@@ -99,6 +99,12 @@ class Steward(playable.Role):
   ) -> Mapping[str, Any]:
     return steward_params(context, str(params['name']))
 
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    steward_rules(context, str(params['name']))
+
 
 def steward_config(
     context: game_lib.GameContext, name: str = 'Gaia'
@@ -112,32 +118,22 @@ def steward_config(
   )
 
 
-def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
-  """Registers a Steward actor and returns its `minimal__Entity` params.
+def _instruments(
+    context: game_lib.GameContext,
+    name: str,
+    attention: attention_lib.Attention | None = None,
+) -> dict[str, perception.Instrument]:
+  """The Steward's instruments, by component key (the advisor's briefing last).
 
   Args:
     context: Shared game state.
     name: Entity name.
+    attention: Its attention (for the World GM, which runs them).
 
   Returns:
-    The base prefab's params, its components included.
+    Their specs.
   """
-  instruments = INSTRUMENTS + (
-      # Where there are peoples, their plight is seen from afar (like their
-      # towns): at once, and without taking an instrument's attention.
-      (PEOPLES,)
-      if context.planet.civ is not None
-      else ()
-  )
-  watchable = [key for key, _, _, transported in instruments if transported]
-  attention = attention_lib.Attention(watchable, context.attention_slots)
-  context.attention[name] = attention
-  context.add_actor(
-      actors_lib.StewardActor(name, context.planet, attention),
-      hears=('world.tick', *_news_topics(context)),
-  )
-  advisor_config = data.load('advisor.yaml')
-  components: dict[str, entity_component.ContextComponent] = {
+  specs = {
       key: perception.instrument(
           context,
           topic,
@@ -156,7 +152,73 @@ def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
           transported=transported,
           attention=attention if transported else None,
       )
-      for key, topic, initial, transported in instruments
+      for key, topic, initial, transported in _readings(context)
+  }
+  specs['Advisor briefing'] = perception.instrument(
+      context,
+      BRIEFINGS_TOPIC,
+      owner=name,
+      label='Advisor briefing',
+      initial='The advisor has not reported yet.',
+  )
+  return specs
+
+
+def _readings(
+    context: game_lib.GameContext,
+) -> tuple[tuple[str, str, str, bool], ...]:
+  """The Steward's readings: its instruments, and the peoples where any."""
+  return INSTRUMENTS + (
+      # Where there are peoples, their plight is seen from afar (like their
+      # towns): at once, and without taking an instrument's attention.
+      (PEOPLES,)
+      if context.planet.civ is not None
+      else ()
+  )
+
+
+def steward_rules(context: game_lib.GameContext, name: str) -> None:
+  """The World GM installs the Steward's rules.
+
+  Its actor and attention, its instruments (late, lossy, noisy) and the
+  almanac its Advisor weighs.
+
+  Args:
+    context: Shared game state.
+    name: Entity name.
+  """
+  watchable = [
+      key for key, _, _, transported in _readings(context) if transported
+  ]
+  attention = attention_lib.Attention(watchable, context.attention_slots)
+  context.attention[name] = attention
+  context.add_actor(
+      actors_lib.StewardActor(name, context.planet, attention),
+      hears=('world.tick', *_news_topics(context)),
+  )
+  instruments = _instruments(context, name, attention)
+  for key, spec in instruments.items():
+    if key != 'Advisor briefing':
+      perception.deliver(context, spec)
+  perception.publish(context, name, 'almanac', context.planet.almanac)
+  perception.deliver(context, instruments['Advisor briefing'])
+
+
+def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+  """The Steward's `minimal__Entity` params, its components included.
+
+  Args:
+    context: Shared game state.
+    name: Entity name.
+
+  Returns:
+    The base prefab's params.
+  """
+  instruments = _instruments(context, name)
+  components: dict[str, entity_component.ContextComponent] = {
+      key: perception.subscribe(context, spec)
+      for key, spec in instruments.items()
+      if key != 'Advisor briefing'
   }
   components['World news'] = perception.news_digest(
       context,
@@ -173,10 +235,9 @@ def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
         label='News of the peoples (civ.events)',
         initial='Nothing has happened among the peoples.',
     )
+  advisor_config = data.load('advisor.yaml')
   advisor = advisor_mind.AdvisorMind(
-      almanac=perception.brief(
-          context, name, 'almanac', context.planet.almanac
-      ),
+      almanac=perception.reader(context, name, 'almanac'),
       model=context.slow(),
       pre_act_label='Advisor',
       question=advisor_question(advisor_config, context),
@@ -193,12 +254,8 @@ def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
       advisor,
       int(advisor_config['latency_ticks']),
   )
-  components['Advisor briefing'] = perception.instrument(
-      context,
-      BRIEFINGS_TOPIC,
-      owner=name,
-      label='Advisor briefing',
-      initial='The advisor has not reported yet.',
+  components['Advisor briefing'] = perception.subscribe(
+      context, instruments['Advisor briefing']
   )
   components = context.with_bus(components)  # The bus is restored first.
   return {

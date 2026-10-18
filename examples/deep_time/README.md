@@ -473,8 +473,13 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     `WorldGameMaster`) on the upstream `minimal__Entity` or the contrib
     async-deliberation entity (`playable.Role`, `playable.RolePolity`). Its
     instances' params are plain (a name, a species' key); the prefab holds the
-    game (`GameContext`, shared like a contrib `TopicBus`) and its `build`
-    adds the role's actor to the World GM's registry and builds its components.
+    game (`GameContext`, shared like a contrib `TopicBus`). Its `build` makes
+    the entity's components (subscribers to its sheets and to what its
+    instruments deliver, its slow minds); its `rules` (the actor in the World
+    GM's registry, wake-ups and attention, the sheets the GM publishes and the
+    instruments it runs) are installed by the World GM's prefab as it builds,
+    from the roles' params it is given (`params['roles']`), or by its world
+    step for a species founded in play.
 *   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` with
     topic-bound `pubsub.Subscriber` instruments.
 *   **Instruments** (`perception.py`, `components/deliveries.py`): the World

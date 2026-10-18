@@ -45,34 +45,46 @@ class Deliveries(entity_component.ContextComponent):
     self._lock = threading.Lock()
     # Each instrument's checkpoint hooks, by '<owner>/<label>'.
     self._hooks: dict[str, list[operators.StateHook]] = {}
+    # What reaches each instrument's entity, by '<owner>/<label>'.
+    self._channels: dict[str, reactivex_subject.ReplaySubject] = {}
+
+  def channel(self, key: str) -> reactivex_subject.ReplaySubject:
+    """What reaches an entity through an instrument (keeps the latest).
+
+    The entity's subscriber may join before the World GM runs the
+    instrument (`deliver`), or after: it hears the latest arrival either way.
+
+    Args:
+      key: The instrument, as '<owner>/<label>'.
+
+    Returns:
+      The rendered readings as they arrive.
+    """
+    with self._lock:
+      if key not in self._channels:
+        self._channels[key] = reactivex_subject.ReplaySubject(buffer_size=1)
+      return self._channels[key]
 
   def deliver(
       self, key: str, build: Callable[[], reactivex.Observable]
-  ) -> reactivex.Observable:
-    """Runs an instrument for an entity; returns what reaches the entity.
+  ) -> None:
+    """Runs an instrument for an entity, into its channel (`channel`).
 
     Args:
       key: The instrument, as '<owner>/<label>' (unique).
       build: Builds the instrument's stream from the bus (its transport,
         ageing and rendering).
-
-    Returns:
-      The rendered readings as they arrive, for the entity's subscriber.
     """
     with operators.collect_hooks() as collected:
       stream = build()
     hooks = list(getattr(stream, operators.HOOKS_ATTR, ()))
     hooks.extend(h for h in collected if h not in hooks)
-    # The latest arrival is kept for the entity's subscriber, which joins
-    # just after (the bus replays a topic's latest message at once).
-    arrived = reactivex_subject.ReplaySubject(buffer_size=1)
-    # Subscribed now, as the entity's own subscriber was: the same order.
-    stream.subscribe(on_next=arrived.on_next)
+    arrived = self.channel(key)
     with self._lock:
       if key in self._hooks:
         raise ValueError(f'Instrument {key!r} is delivered twice.')
       self._hooks[key] = hooks
-    return arrived
+    stream.subscribe(on_next=arrived.on_next)
 
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:

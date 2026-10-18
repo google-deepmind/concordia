@@ -231,20 +231,6 @@ def character_words(character: Mapping[str, Any]) -> str:
   )
 
 
-def declare_takes(context: game_lib.GameContext, polity: str) -> None:
-  """Keeps a people's recent takes on its topic (the page's story shows them)."""
-  context.bus.declare(
-      f'civ.{polity}.takes',
-      retention=topics.Retention.REPLAY,
-      replay_size=TAKES_KEPT,
-      description="A people's one-sentence takes on the omens it read.",
-  )
-
-
-# How many takes each people's topic keeps (the page's story shows them).
-TAKES_KEPT = 10
-
-
 @dataclasses.dataclass
 class Polity(playable.RolePolity):
   """A people: its beliefs, its slow minds and its actor."""
@@ -254,6 +240,12 @@ class Polity(playable.RolePolity):
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
     return polity_params(context, str(params['polity']))
+
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    polity_rules(context, str(params['polity']))
 
 
 def polity_config(
@@ -278,8 +270,150 @@ def polity_config(
   )
 
 
+def _press_owner(context: game_lib.GameContext) -> str | None:
+  """The people whose presses retell the Steward's omens, if any."""
+  if context.planet.gazette is None:
+    return None
+  return context.scenario['civilization'].get('press_owner')
+
+
+def _instruments(
+    context: game_lib.GameContext, polity: str
+) -> dict[str, perception.Instrument]:
+  """A people's instruments, by component key."""
+  civ = context.planet.civ
+  assert civ is not None
+  name = civ.polities[polity].name
+  owner = _press_owner(context)
+  specs = {
+      # News of nearby lands, later the farther away.
+      'Local news': perception.local_news(context, owner=name, polity=polity),
+      # Prices arrive by courier until the telegraph: news as old as the
+      # people's comms (a contrib transport with that latency).
+      'Market': perception.instrument(
+          context,
+          'econ.prices',
+          owner=name,
+          label='Market',
+          initial='No market news has reached us yet.',
+          transported=True,
+          channel=lambda: operators.Transport(
+              latency=float(
+                  context.planet.trade.news_lag(polity)
+                  if context.planet.trade
+                  else 0
+              )
+          ),
+      ),
+      # Its treaty mind's counsel on an offer; the people answers on its menu.
+      'Counsel on the offer': perception.instrument(
+          context,
+          f'civ.{polity}.treaty',
+          owner=name,
+          label='Counsel on the offer',
+          initial='No offer awaits our answer.',
+          render=lambda message: str(message.payload),
+      ),
+      # What its printers wrote, for the people to publish (its action
+      # carries the words).
+      "Our printers' sheet": perception.instrument(
+          context,
+          f'civ.{polity}.press',
+          owner=name,
+          label="Our printers' sheet",
+          initial='Our printers have written nothing yet.',
+          render=lambda message: str(message.payload),
+      ),
+  }
+  if owner == polity:
+    # What its printers made of the newest omen, for the people that owns
+    # the presses to print (its action carries the words).
+    specs["Our printers' retelling"] = perception.instrument(
+        context,
+        f'civ.{polity}.retelling',
+        owner=name,
+        label="Our printers' retelling",
+        initial='Our printers have retold no omen yet.',
+        render=lambda message: str(message.payload),
+    )
+  if context.automation is not None:
+    # The scribes' draft, as counsel: the people adopts it (or not) by an
+    # action carrying it.
+    specs["Our scribes' draft"] = perception.instrument(
+        context,
+        f'civ.{polity}.policy',
+        owner=name,
+        label="Our scribes' draft",
+        initial='Our scribes have drafted no standing orders.',
+        render=lambda message: scribes_draft(context, polity, message),
+    )
+  return specs
+
+
+def polity_rules(context: game_lib.GameContext, polity: str) -> None:
+  """The World GM installs a people's rules.
+
+  Its actor and wake-ups, its takes' topic, its storehouse sheet, what its
+  slow minds weigh, and the instruments it reads.
+
+  Args:
+    context: Shared game state (its planet must have a civilization).
+    polity: The polity's key in the scenario.
+  """
+  civ = context.planet.civ
+  if civ is None:
+    raise ValueError('Polities need a civilization in the scenario.')
+  name = civ.polities[polity].name
+  rules = context.scenario['civilization']
+  owner = _press_owner(context)
+  character = (rules.get('characters') or {}).get(polity)
+  context.add_actor(
+      actors_lib.PolityActor(
+          name,
+          polity,
+          context.planet,
+          share=float(rules.get('focus_share', 0.15)),
+          automation=context.automation,
+          age=str(rules.get('age', 'the early iron age')),
+          coached=context.coached,
+      ),
+      hears=(
+          'world.tick',
+          'geo.events',
+          f'civ.{polity}.',
+          f'civ.alerts.{polity}',
+          f'diplomacy.{polity}.',
+          *(('media.omens',) if owner else ()),
+      ),
+  )
+  if context.wakeups is not None and rules.get('wakeups'):
+    context.wakeups.add(name, polity, data.load('civ.yaml')['wakeups'])
+  specs = _instruments(context, polity)
+  for key in ('Local news', 'Market'):
+    perception.deliver(context, specs[key])
+  perception.publish(
+      context, name, 'storehouse', lambda: storehouse(context, polity)
+  )
+  perception.deliver(context, specs['Counsel on the offer'])
+  perception.publish(
+      context, name, 'offer', lambda: treaty_offer(context, polity)
+  )
+  perception.deliver(context, specs["Our printers' sheet"])
+  perception.publish(
+      context, name, 'commission', lambda: commission(context, polity)
+  )
+  if owner == polity:
+    perception.publish(context, name, 'omen', lambda: newest_omen(context))
+    perception.deliver(context, specs["Our printers' retelling"])
+  if owner and character:
+    perception.publish(context, name, 'retellings', lambda: retellings(context))
+  if context.automation is not None:
+    perception.deliver(context, specs["Our scribes' draft"])
+  perception.publish(context, name, 'scribes', lambda: scribes(context, polity))
+
+
 def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
-  """Registers a polity actor and returns its async-deliberation params.
+  """A people's async-deliberation params, its components included.
 
   Args:
     context: Shared game state (its planet must have a civilization).
@@ -327,28 +461,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           else {}
       ),
   }
-  declare_takes(context, polity)
-  context.add_actor(
-      actors_lib.PolityActor(
-          people.name,
-          polity,
-          context.planet,
-          share=float(rules.get('focus_share', 0.15)),
-          automation=context.automation,
-          age=str(rules.get('age', 'the early iron age')),
-          coached=context.coached,
-      ),
-      hears=(
-          'world.tick',
-          'geo.events',
-          f'civ.{polity}.',
-          f'civ.alerts.{polity}',
-          f'diplomacy.{polity}.',
-          *(('media.omens',) if owner else ()),
-      ),
-  )
-  if context.wakeups is not None and rules.get('wakeups'):
-    context.wakeups.add(people.name, polity, data.load('civ.yaml')['wakeups'])
+  specs = _instruments(context, polity)
   return {
       'name': people.name,
       'goal': rules.get('polity_goal', DEFAULT_GOAL),
@@ -371,43 +484,21 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
       'extra_components': {
           **characters,
           # News of nearby lands, later the farther away.
-          'Local news': perception.local_news(
-              context, owner=people.name, polity=polity
-          ),
+          'Local news': perception.subscribe(context, specs['Local news']),
           # Prices arrive by courier until the telegraph: news as old as
           # the people's comms (a contrib transport with that latency).
-          'Market': perception.instrument(
-              context,
-              'econ.prices',
-              owner=people.name,
-              label='Market',
-              initial='No market news has reached us yet.',
-              transported=True,
-              channel=lambda: operators.Transport(
-                  latency=float(
-                      context.planet.trade.news_lag(polity)
-                      if context.planet.trade
-                      else 0
-                  )
-              ),
-          ),
-          'Storehouse': perception.sheet(
+          'Market': perception.subscribe(context, specs['Market']),
+          'Storehouse': perception.read(
               context,
               people.name,
               'storehouse',
-              lambda: storehouse(context, polity),
               label='\nOur storehouse and labor',
           ),
           # Deliberates over a treaty offer the moment it is observed; its
           # counsel is in the people's context, whoever plays it, and the
           # people answers on its menu.
-          'Counsel on the offer': perception.instrument(
-              context,
-              f'civ.{polity}.treaty',
-              owner=people.name,
-              label='Counsel on the offer',
-              initial='No offer awaits our answer.',
-              render=lambda message: str(message.payload),
+          'Counsel on the offer': perception.subscribe(
+              context, specs['Counsel on the offer']
           ),
           'Treaty mind': context.make_mind(
               people.name,
@@ -415,12 +506,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               f'civ.{polity}.treaty',
               pact_mind.PactMind(
                   slow_model,
-                  perception.brief(
-                      context,
-                      people.name,
-                      'offer',
-                      lambda: treaty_offer(context, polity),
-                  ),
+                  perception.reader(context, people.name, 'offer'),
                   components=[
                       'Storehouse',
                       'Census of the peoples',
@@ -433,13 +519,8 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           ),
           # What its printers wrote, for the people to publish (its action
           # carries the words).
-          "Our printers' sheet": perception.instrument(
-              context,
-              f'civ.{polity}.press',
-              owner=people.name,
-              label="Our printers' sheet",
-              initial='Our printers have written nothing yet.',
-              render=lambda message: str(message.payload),
+          "Our printers' sheet": perception.subscribe(
+              context, specs["Our printers' sheet"]
           ),
           # Writes the broadsheets the people pays paper for.
           'Press mind': context.make_mind(
@@ -448,12 +529,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               f'civ.{polity}.press',
               press_mind.PressMind(
                   slow_model,
-                  perception.brief(
-                      context,
-                      people.name,
-                      'commission',
-                      lambda: commission(context, polity),
-                  ),
+                  perception.reader(context, people.name, 'commission'),
                   components=['Storehouse', 'Census of the peoples'],
               ),
               context.planet.gazette.latency if context.planet.gazette else 1,
@@ -467,12 +543,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
                       f'civ.{polity}.retelling',
                       relay_mind.RelayMind(
                           slow_model,
-                          perception.brief(
-                              context,
-                              people.name,
-                              'omen',
-                              lambda: newest_omen(context),
-                          ),
+                          perception.reader(context, people.name, 'omen'),
                           components=[
                               *characters,
                               'Census of the peoples',
@@ -488,13 +559,8 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           # owns the presses to print (its action carries the words).
           **(
               {
-                  "Our printers' retelling": perception.instrument(
-                      context,
-                      f'civ.{polity}.retelling',
-                      owner=people.name,
-                      label="Our printers' retelling",
-                      initial='Our printers have retold no omen yet.',
-                      render=lambda message: str(message.payload),
+                  "Our printers' retelling": perception.subscribe(
+                      context, specs["Our printers' retelling"]
                   )
               }
               if owner == polity and context.planet.gazette is not None
@@ -510,12 +576,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
                       f'civ.{polity}.takes',
                       take_mind.TakeMind(
                           slow_model,
-                          perception.brief(
-                              context,
-                              people.name,
-                              'retellings',
-                              lambda: retellings(context),
-                          ),
+                          perception.reader(context, people.name, 'retellings'),
                           civ.polities[owner].name,
                           components=[
                               *characters,
@@ -533,15 +594,8 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           # by an action on its menu.
           **(
               {
-                  "Our scribes' draft": perception.instrument(
-                      context,
-                      f'civ.{polity}.policy',
-                      owner=people.name,
-                      label="Our scribes' draft",
-                      initial='Our scribes have drafted no standing orders.',
-                      render=lambda message: scribes_draft(
-                          context, polity, message
-                      ),
+                  "Our scribes' draft": perception.subscribe(
+                      context, specs["Our scribes' draft"]
                   )
               }
               if context.automation is not None
@@ -554,12 +608,7 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               f'civ.{polity}.policy',
               policy_compiler.PolicyCompiler(
                   slow_model,
-                  perception.brief(
-                      context,
-                      people.name,
-                      'scribes',
-                      lambda: scribes(context, polity),
-                  ),
+                  perception.reader(context, people.name, 'scribes'),
                   polity,
                   components=['Storehouse', 'Market'],
               ),

@@ -81,10 +81,13 @@ class WorldGameMaster(prefab_lib.Prefab):
       ' topics, resolves structured actions. Makes no language model calls.'
   )
   params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {'name': 'Deep Time'}
+      default_factory=lambda: {'name': 'Deep Time', 'roles': []}
   )
   # The game (a shared service: copying the prefab keeps it).
   context: game_lib.GameContext | None = None
+  # Each role's prefab, by its prefab key: the World GM installs each role's
+  # rules from the role's plain params (`params['roles']`) as it builds.
+  roles: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
   def build(
       self,
@@ -106,6 +109,11 @@ class WorldGameMaster(prefab_lib.Prefab):
     context = self.context
     if context is None:
       raise ValueError('The World GM needs the game context.')
+    # Every role's rules (its actor, wake-ups and attention, the sheets the
+    # GM publishes for it and the instruments it runs), from its params, in
+    # the order the roles were listed.
+    for role in self.params.get('roles', ()):
+      self.roles[role['prefab']].rules(context, role['params'])
     player_names = [entity.name for entity in self.entities or ()]
 
     components = {

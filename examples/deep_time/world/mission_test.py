@@ -29,6 +29,12 @@ def _game():
   return context, context.planet, colony
 
 
+def _held(context, spec):
+  """An instrument the World GM runs, as its entity holds it."""
+  perception.deliver(context, spec)
+  return perception.subscribe(context, spec)
+
+
 class MissionTest(absltest.TestCase):
 
   def test_designs_arrive_after_the_light_delay(self):
@@ -70,14 +76,17 @@ class MissionTest(absltest.TestCase):
 
   def test_home_reads_the_colony_years_late(self):
     context, planet, _ = _game()
-    relay = perception.instrument(
+    relay = _held(
         context,
-        'colony.status',
-        owner='Mission Control',
-        label='Colony relay',
-        initial='nothing yet',
-        transported=True,
-        channel=lambda: mission.light_delay(context),
+        perception.instrument(
+            context,
+            'colony.status',
+            owner='Mission Control',
+            label='Colony relay',
+            initial='nothing yet',
+            transported=True,
+            channel=lambda: mission.light_delay(context),
+        ),
     )
     for _ in range(6):
       context.clock.advance()

@@ -33,6 +33,7 @@ sheets the World GM publishes (`sheet`, `brief`).
 # pylint: disable=g-doc-args,g-doc-return-or-yield
 
 from collections.abc import Callable, Sequence
+import dataclasses
 import json
 import zlib
 
@@ -95,65 +96,44 @@ def with_earlier_readings(
   return out
 
 
-def sheet(
+def publish(
     context: game_lib.GameContext,
     owner: str,
     kind: str,
     function: Callable[[], str],
-    *,
-    label: str,
-) -> pubsub.Subscriber:
-  """What an entity knows of its own state: a sheet the World GM publishes.
+) -> None:
+  """The World GM publishes an entity's sheet each step (a role's rules).
 
-  The World GM computes `function` each step (`GameContext.publish_sheets`,
-  from its `WorldStep`) and publishes it on the entity's own topic
-  (`sheets.<owner>.<kind>`, which no entity hears as observations); the
-  entity reads the latest with a stock `Subscriber`, as it read a
-  `ReportFunction` before, but never from the world itself.
+  What an entity knows of its own state (its storehouse, its genome) and what
+  its slow minds weigh (the offer awaiting it, the almanac): the World GM
+  computes `function` each step and publishes it on the entity's own topic
+  (`sheets.<owner>.<kind>`, which no entity hears as observations).
 
   Args:
     context: Shared game state.
     owner: The entity.
-    kind: The sheet ('storehouse', 'genome', ...).
-    function: The sheet's text, computed by the GM.
-    label: Component label.
-
-  Returns:
-    The subscriber.
+    kind: The sheet ('storehouse', 'genome', 'offer', ...).
+    function: The sheet's text, computed by the GM ('' for nothing).
   """
-  topic = sheet_topic(owner, kind)
-  context.add_sheet(topic, function)
+  context.add_sheet(sheet_topic(owner, kind), function)
+
+
+def read(
+    context: game_lib.GameContext, owner: str, kind: str, *, label: str
+) -> pubsub.Subscriber:
+  """An entity's stock `Subscriber` to its own sheet (never the world)."""
   return pubsub.Subscriber(
       initial_value='',
       pre_act_label=label,
-      subject=context.bus.values(topic),
+      subject=context.bus.values(sheet_topic(owner, kind)),
   )
 
 
-def brief(
-    context: game_lib.GameContext,
-    owner: str,
-    kind: str,
-    function: Callable[[], str],
+def reader(
+    context: game_lib.GameContext, owner: str, kind: str
 ) -> Callable[[], str]:
-  """What an entity's slow mind is asked to weigh: a sheet the GM publishes.
-
-  Like `sheet`, but read by a mind (a component computed in the background)
-  rather than shown in the entity's context: the mind reads the latest
-  sheet the World GM published, never the world itself.
-
-  Args:
-    context: Shared game state.
-    owner: The entity.
-    kind: The sheet ('offer', 'almanac', ...).
-    function: The sheet's text ('' when there is nothing to weigh), computed
-      by the GM.
-
-  Returns:
-    Reads the latest published sheet ('' before the first).
-  """
+  """Reads the latest sheet the World GM published for a mind ('' before)."""
   topic = sheet_topic(owner, kind)
-  context.add_sheet(topic, function)
 
   def latest() -> str:
     message = context.bus.latest(topic)
@@ -168,6 +148,59 @@ def sheet_topic(owner: str, kind: str) -> str:
   return f'sheets.{slug}.{kind}'
 
 
+@dataclasses.dataclass(frozen=True)
+class Instrument:
+  """An entity's instrument: what it reads of some topics, and how.
+
+  A spec: the World GM runs it in its `Deliveries` (`deliver`, from the
+  role's rules: its transport, ageing and rendering, which may read the
+  world), and the entity's stock `TopicSubscriber` holds what arrives
+  (`subscribe`, among its components), and nothing else.
+
+  Attributes:
+    owner: The entity.
+    label: The instrument's label (unique for the entity).
+    topics: The topics it reads.
+    initial: Belief before the first reading arrives.
+    pre_act_label: The component's label.
+    build: Builds the instrument's stream from the bus (for the GM).
+    tapped: Whether what reaches the owner is kept for the page.
+  """
+
+  owner: str
+  label: str
+  topics: tuple[str, ...]
+  initial: str
+  pre_act_label: str
+  build: Callable[[], reactivex.Observable]
+  tapped: bool = True
+
+  @property
+  def key(self) -> str:
+    return f'{self.owner}/{self.label}'
+
+
+def deliver(context: game_lib.GameContext, instrument: Instrument) -> None:
+  """The World GM runs an instrument (a role's rules install it)."""
+  if instrument.tapped:
+    context.tapped.add((instrument.owner, instrument.label))
+  for name in instrument.topics:
+    context.bus.register_subscriber(name, instrument.owner)
+  context.deliveries.deliver(instrument.key, instrument.build)
+
+
+def subscribe(
+    context: game_lib.GameContext, instrument: Instrument
+) -> topics.TopicSubscriber:
+  """An entity's stock `TopicSubscriber` to what its instrument delivers."""
+  return topics.TopicSubscriber(
+      publisher_component_key=None,
+      initial_value=instrument.initial,
+      pre_act_label=instrument.pre_act_label,
+      subject=context.deliveries.channel(instrument.key),
+  )
+
+
 def instrument(
     context: game_lib.GameContext,
     topic: str,
@@ -179,8 +212,8 @@ def instrument(
     transported: bool = False,
     attention: attention_lib.Attention | None = None,
     channel: Callable[[], operators.Transport] | None = None,
-) -> pubsub.Subscriber:
-  """A belief about one topic that shows the age of its latest reading.
+) -> Instrument:
+  """An instrument on one topic whose readings show their age.
 
   Args:
     context: Shared game state.
@@ -198,13 +231,9 @@ def instrument(
       worlds is a channel with latency.
 
   Returns:
-    A `pubsub.Subscriber` bound to the topic.
+    Its spec (`deliver` runs it; `subscribe` holds what arrives).
   """
   to_text = render or publishing.renderer_for(topic)
-  # What reached the owner, as data, for the page: only
-  # while it is watched, as the prompt shows it (a reading still on its way
-  # when the owner looked away is not read).
-  context.tapped.add((owner, label))
 
   def build() -> reactivex.Observable:
     """The instrument, run by the World GM (`components.deliveries`)."""
@@ -218,6 +247,9 @@ def instrument(
         tick_stream(context.bus), render=shown, template=AGE_TEMPLATE
     )
 
+    # What reached the owner, as data, for the page: only while it is
+    # watched, as the prompt shows it (a reading still on its way when the
+    # owner looked away is not read).
     def note(message: topics.Message) -> None:
       if attention is None or attention.watching(label):
         context.received[(owner, label)] = message
@@ -240,52 +272,13 @@ def instrument(
       )
     return context.bus.observable(topic).pipe(aged)
 
-  return _arriving(
-      context,
-      [topic],
+  return Instrument(
       owner=owner,
       label=label,
+      topics=(topic,),
       initial=initial,
       pre_act_label=f'{label} ({topic})',
       build=build,
-  )
-
-
-def _arriving(
-    context: game_lib.GameContext,
-    topic_names: Sequence[str],
-    *,
-    owner: str,
-    label: str,
-    initial: str,
-    pre_act_label: str,
-    build: Callable[[], reactivex.Observable],
-) -> topics.TopicSubscriber:
-  """An entity's belief in what the World GM delivers of some topics.
-
-  The World GM runs the instrument (`build`: its transport, ageing and
-  rendering, which may read the world) in its `Deliveries` component; the
-  entity's stock `TopicSubscriber` holds what arrives, and nothing else.
-
-  Args:
-    context: Shared game state.
-    topic_names: The topics read (for the bus's topology).
-    owner: The entity.
-    label: The instrument's label (unique for the entity).
-    initial: Belief before the first reading arrives.
-    pre_act_label: The component's label.
-    build: Builds the instrument's stream from the bus.
-
-  Returns:
-    The entity's subscriber.
-  """
-  for name in topic_names:
-    context.bus.register_subscriber(name, owner)
-  return topics.TopicSubscriber(
-      publisher_component_key=None,
-      initial_value=initial,
-      pre_act_label=pre_act_label,
-      subject=context.deliveries.deliver(f'{owner}/{label}', build),
   )
 
 
@@ -296,7 +289,7 @@ def local_news(
     polity: str,
     label: str = 'Local news',
     size: int = 4,
-) -> pubsub.Subscriber:
+) -> Instrument:
   """News of places near a people's home, later the farther away.
 
   The people subscribes to the local topics of the regions within reach of
@@ -312,7 +305,7 @@ def local_news(
     size: How many items the digest keeps.
 
   Returns:
-    The subscriber component.
+    Its spec: the couriers, run by the World GM.
   """
   planet = context.planet
   assert planet.civ is not None
@@ -364,14 +357,14 @@ def local_news(
         operators.rolling_digest(size, render=render),
     )
 
-  return _arriving(
-      context,
-      names,
+  return Instrument(
       owner=owner,
       label=label,
+      topics=tuple(names),
       initial='No news of nearby lands yet.',
       pre_act_label=label,
       build=build,
+      tapped=False,
   )
 
 

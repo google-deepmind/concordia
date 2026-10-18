@@ -146,6 +146,8 @@ class WorldStep(
       name = f'{name} of {split.where}'
     evolution.rename(split.child, name, lore)
     if ctx.spawner is not None and ctx.slow_model is not None:
+      # Its rules are the World GM's to install; its entity, the simulation's.
+      species_prefab.species_rules(ctx, split.child, name)
       ctx.spawner(species_prefab.species_config(ctx, split.child))
       ctx.spawned.append(name)
     return planet_lib.WorldEvent(
@@ -180,3 +182,17 @@ class WorldStep(
     world = state.get('world')
     if isinstance(world, Mapping):
       self._context.set_state(cast(Mapping[str, Any], world))
+      # Species founded in play: their rules, as when they were founded
+      # (their entities are the simulation's, `simulation.load_checkpoint`).
+      evolution = self._context.planet.evolution
+      wakeups = self._context.wakeups
+      if wakeups is not None:
+        wakeups.quiet = True  # The bus replays: no alarm, no wake-up.
+      try:
+        for name in self._context.spawned:
+          if name not in self._context.actors and evolution is not None:
+            info = next(s for s in evolution.species if s.name == name)
+            species_prefab.species_rules(self._context, info.key, name)
+      finally:
+        if wakeups is not None:
+          wakeups.quiet = False

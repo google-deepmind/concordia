@@ -25,16 +25,25 @@ from examples.deep_time.world import planet as planet_lib
 from examples.deep_time.world import publishing
 
 
+def _held(context, spec):
+  """An instrument the World GM runs, as its entity holds it."""
+  perception.deliver(context, spec)
+  return perception.subscribe(context, spec)
+
+
 class PerceptionTest(absltest.TestCase):
 
   def test_instrument_shows_tick_and_age(self):
     context = game_lib.new_game('daisyworld')
-    belief = perception.instrument(
+    belief = _held(
         context,
-        'gaia.briefings',
-        owner='Gaia',
-        label='Advisor briefing',
-        initial='nothing yet',
+        perception.instrument(
+            context,
+            'gaia.briefings',
+            owner='Gaia',
+            label='Advisor briefing',
+            initial='nothing yet',
+        ),
     )
     self.assertEqual(belief.get_current_value(), 'nothing yet')
     self.assertEqual(
@@ -57,16 +66,17 @@ class PerceptionTest(absltest.TestCase):
   def test_an_entity_knows_its_own_state_only_as_the_gm_publishes_it(self):
     context = game_lib.new_game('daisyworld')
     state = {'stores': 'grain 3'}
-    sheet = perception.sheet(
-        context,
-        'Amber folk',
-        'storehouse',
-        lambda: state['stores'],
-        label='Storehouse',
+    # The World GM publishes them (a role's rules); the entity reads them.
+    perception.publish(
+        context, 'Amber folk', 'storehouse', lambda: state['stores']
     )
-    brief = perception.brief(
+    perception.publish(
         context, 'Amber folk', 'offer', lambda: state['stores'] + ' offered'
     )
+    sheet = perception.read(
+        context, 'Amber folk', 'storehouse', label='Storehouse'
+    )
+    brief = perception.reader(context, 'Amber folk', 'offer')
     # Nothing is known until the World GM publishes.
     self.assertEqual(sheet.get_current_value(), '')
     self.assertEqual(brief(), '')
@@ -87,8 +97,15 @@ class PerceptionTest(absltest.TestCase):
 
   def test_climate_instrument_renders_readings(self):
     context = game_lib.new_game('daisyworld')
-    belief = perception.instrument(
-        context, 'climate.global', owner='Gaia', label='Thermometer', initial=''
+    belief = _held(
+        context,
+        perception.instrument(
+            context,
+            'climate.global',
+            owner='Gaia',
+            label='Thermometer',
+            initial='',
+        ),
     )
     self.assertStartsWith(belief.get_current_value(), 'Global mean temperature')
     self.assertEndsWith(belief.get_current_value(), '[tick 0, fresh]')
@@ -99,13 +116,16 @@ class PerceptionTest(absltest.TestCase):
     tier = planet.instrument()
     assert tier is not None
     self.assertEqual(tier['key'], 'stones')
-    belief = perception.instrument(
+    belief = _held(
         context,
-        'climate.global',
-        owner='Gaia',
-        label='Thermometer',
-        initial='none',
-        transported=True,
+        perception.instrument(
+            context,
+            'climate.global',
+            owner='Gaia',
+            label='Thermometer',
+            initial='none',
+            transported=True,
+        ),
     )
     # The tick-0 reading is still on its way (stones are two ticks late):
     # the World GM carries it (its deliveries' state), not the Steward.
@@ -169,7 +189,10 @@ class PerceptionTest(absltest.TestCase):
     planet = context.planet
     assert planet.civ is not None
     home = planet.civ.polities['amber'].home
-    news = perception.local_news(context, owner='Amber folk', polity='amber')
+    news = _held(
+        context,
+        perception.local_news(context, owner='Amber folk', polity='amber'),
+    )
     grid = planet.grid
     by_steps = {}
     for r in range(grid.size):

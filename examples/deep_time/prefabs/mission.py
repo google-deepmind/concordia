@@ -93,6 +93,12 @@ class Mission(playable.Role):
   ) -> Mapping[str, Any]:
     return mission_params(context, str(params['name']))
 
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    mission_rules(context, str(params['name']))
+
 
 def mission_config(
     context: game_lib.GameContext, name: str = 'Mission Control'
@@ -106,11 +112,11 @@ def mission_config(
   )
 
 
-def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
-  """Registers Mission Control's actor and returns its entity params."""
-  # Mission Control thinks in its act; no slow mind yet.
-  context.add_actor(actors_lib.MissionActor(name, context.planet))
-  components: dict[str, entity_component.ContextComponent] = {
+def _instruments(
+    context: game_lib.GameContext, name: str
+) -> dict[str, perception.Instrument]:
+  """Mission Control's instruments: the colony, four light-years late."""
+  return {
       'Colony relay': perception.instrument(
           context,
           'colony.status',
@@ -129,14 +135,27 @@ def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
           transported=True,
           channel=lambda: light_delay(context),
       ),
-      'Transmissions in flight': perception.sheet(
-          context,
-          name,
-          'in_flight',
-          lambda: in_flight(context),
-          label='\nTransmissions in flight',
-      ),
   }
+
+
+def mission_rules(context: game_lib.GameContext, name: str) -> None:
+  """The World GM installs Mission Control's rules: actor, sheet, relay."""
+  # Mission Control thinks in its act; no slow mind yet.
+  context.add_actor(actors_lib.MissionActor(name, context.planet))
+  for spec in _instruments(context, name).values():
+    perception.deliver(context, spec)
+  perception.publish(context, name, 'in_flight', lambda: in_flight(context))
+
+
+def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+  """Mission Control's entity params, its components included."""
+  components: dict[str, entity_component.ContextComponent] = {
+      key: perception.subscribe(context, spec)
+      for key, spec in _instruments(context, name).items()
+  }
+  components['Transmissions in flight'] = perception.read(
+      context, name, 'in_flight', label='\nTransmissions in flight'
+  )
   components = context.with_bus(components)  # The bus is restored first.
   return {
       'name': name,

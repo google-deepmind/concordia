@@ -28,6 +28,7 @@ from typing import Any, override
 
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
+from examples.deep_time import perception
 from examples.deep_time.prefabs import playable
 from examples.deep_time.prefabs import species as species_lib
 from concordia.typing import prefab as prefab_lib
@@ -54,6 +55,13 @@ class Grazers(playable.Role):
     del params  # One clade a game.
     return grazers_params(context)
 
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    del params  # One clade a game.
+    grazers_rules(context)
+
 
 def grazers_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   """The grazers' instance config (plain params; `Grazers` builds it)."""
@@ -67,24 +75,33 @@ def grazers_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   )
 
 
-def grazers_params(context: game_lib.GameContext) -> dict[str, Any]:
-  """Registers the grazer actor and returns its `minimal__Entity` params."""
+def grazers_rules(context: game_lib.GameContext) -> None:
+  """The World GM installs the grazers' rules: actor, sheet, instruments."""
   grazers = context.planet.grazers
   if grazers is None:
     raise ValueError('This scenario has no grazers.')
   context.add_actor(
-      actors_lib.GrazerActor(
-          grazers.name,
-          context.planet,
-      ),
+      actors_lib.GrazerActor(grazers.name, context.planet),
       hears=('world.tick', 'bio.events', 'gaia.omens'),
   )
-  components = species_lib.senses(
+  species_lib.senses_rules(
       context,
       grazers.name,
       lambda: grazers.genome_text()
       + species_lib.last_shift(context, grazers.name),
   )
+  perception.deliver(
+      context,
+      species_lib.evolving_toward(context, grazers.name, ADAPTATION_TOPIC),
+  )
+
+
+def grazers_params(context: game_lib.GameContext) -> dict[str, Any]:
+  """The grazers' `minimal__Entity` params, their components included."""
+  grazers = context.planet.grazers
+  if grazers is None:
+    raise ValueError('This scenario has no grazers.')
+  components = species_lib.senses(context, grazers.name)
   components['Adaptation mind'] = species_lib.adaptation_mind(
       context,
       grazers.name,
@@ -93,8 +110,9 @@ def grazers_params(context: game_lib.GameContext) -> dict[str, Any]:
       grazers.question,
       grazers.latency_ticks,
   )
-  components['Evolving toward'] = species_lib.evolving_toward(
-      context, grazers.name, ADAPTATION_TOPIC
+  components['Evolving toward'] = perception.subscribe(
+      context,
+      species_lib.evolving_toward(context, grazers.name, ADAPTATION_TOPIC),
   )
   return species_lib.entity_params(
       context,

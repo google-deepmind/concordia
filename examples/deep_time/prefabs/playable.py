@@ -109,10 +109,11 @@ class Role(PlayableEntity):
   An instance's params are plain (a name, a species' key, ...), so the stock
   checkpoint saves them whole and `Simulation.load_from_checkpoint` can
   rebuild the entity from them, even one founded during play. `build` turns
-  them into the base prefab's params (`assemble`): it adds the role's actor to
-  the World GM's registry and builds the role's components over the game,
-  which the prefab holds (`context`, a shared service: copying the prefab
-  keeps it, as copying a contrib `TopicBus` does).
+  them into the base prefab's params (`assemble`): the role's components,
+  over the game the prefab holds (`context`, a shared service: copying the
+  prefab keeps it, as copying a contrib `TopicBus` does). The role's rules
+  (its actor, the sheets and instruments the GM runs for it) are the World
+  GM's to install, from the same params (`rules`).
   """
 
   context: game_lib.GameContext | None = None
@@ -121,6 +122,22 @@ class Role(PlayableEntity):
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
     """The base prefab's params, components included, for a role's params."""
+    raise NotImplementedError
+
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    """Installs the role's rules in the World GM, from the role's params.
+
+    Its actor (in the GM's registry), its wake-ups and attention, the sheets
+    the GM publishes for it and the instruments the GM runs for it: called by
+    the World GM's prefab (`WorldGameMaster`) as it builds, never by the
+    entity's.
+
+    Args:
+      context: Shared game state.
+      params: The role's instance params (plain).
+    """
     raise NotImplementedError
 
   @override
@@ -156,6 +173,22 @@ class RolePolity(PlayablePolity):
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
     """The base prefab's params, components included, for a role's params."""
+    raise NotImplementedError
+
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    """Installs the role's rules in the World GM, from the role's params.
+
+    Its actor (in the GM's registry), its wake-ups and attention, the sheets
+    the GM publishes for it and the instruments the GM runs for it: called by
+    the World GM's prefab (`WorldGameMaster`) as it builds, never by the
+    entity's.
+
+    Args:
+      context: Shared game state.
+      params: The role's instance params (plain).
+    """
     raise NotImplementedError
 
   @override

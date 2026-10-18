@@ -57,6 +57,28 @@ INSTRUCTIONS = (
 )
 
 
+def _instruments(
+    context: game_lib.GameContext, name: str
+) -> dict[str, perception.Instrument]:
+  """What the Chronicler reads: the thermometer and its previous chapter."""
+  return {
+      'Thermometer': perception.instrument(
+          context,
+          'climate.global',
+          owner=name,
+          label='Thermometer',
+          initial='No reading yet.',
+      ),
+      'Previous chapter': perception.instrument(
+          context,
+          CHRONICLE_TOPIC,
+          owner=name,
+          label='Previous chapter',
+          initial='This is the first chapter.',
+      ),
+  }
+
+
 @dataclasses.dataclass
 class Chronicler(prefab_lib.Prefab):
   """An entity whose only output is a slow chronicle on a topic."""
@@ -70,6 +92,25 @@ class Chronicler(prefab_lib.Prefab):
   )
   # The game (a shared service: copying the prefab keeps it).
   context: game_lib.GameContext | None = None
+
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    """The World GM installs the Chronicler's rules: its actor, its readings."""
+    name = str(params.get('name', 'Chronicler'))
+    context.add_actor(
+        actors_lib.ChroniclerActor(name),
+        hears=(
+            'world.tick',
+            'geo.events',
+            'bio.events',
+            'ocean.alerts',
+            'gaia.omens',
+            'world.resolutions',
+        ),
+    )
+    for spec in _instruments(context, name).values():
+      perception.deliver(context, spec)
 
   def build(
       self,
@@ -90,17 +131,6 @@ class Chronicler(prefab_lib.Prefab):
     if context is None:
       raise ValueError('The Chronicler needs the game context.')
     slow_model = context.slow()
-    context.add_actor(
-        actors_lib.ChroniclerActor(name),
-        hears=(
-            'world.tick',
-            'geo.events',
-            'bio.events',
-            'ocean.alerts',
-            'gaia.omens',
-            'world.resolutions',
-        ),
-    )
     config = data.load('chronicler.yaml')
 
     components: dict[str, entity_component.ContextComponent] = {
@@ -121,20 +151,10 @@ class Chronicler(prefab_lib.Prefab):
         agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (
             agent_components.observation.LastNObservations(history_length=20)
         ),
-        'Thermometer': perception.instrument(
-            context,
-            'climate.global',
-            owner=name,
-            label='Thermometer',
-            initial='No reading yet.',
-        ),
-        'Previous chapter': perception.instrument(
-            context,
-            CHRONICLE_TOPIC,
-            owner=name,
-            label='Previous chapter',
-            initial='This is the first chapter.',
-        ),
+        **{
+            key: perception.subscribe(context, spec)
+            for key, spec in _instruments(context, name).items()
+        },
     }
     chapter_writer = question_of_recent_memories.QuestionOfRecentMemories(
         model=slow_model,

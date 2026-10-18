@@ -53,6 +53,13 @@ class Colony(playable.RolePolity):
     del params  # One colony a game.
     return colony_params(context)
 
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    del params  # One colony a game.
+    colony_rules(context)
+
 
 def colony_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   """The colonists' instance config (plain params; `Colony` builds it)."""
@@ -66,8 +73,23 @@ def colony_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   )
 
 
-def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
-  """Registers the colonists' actor and returns their entity params."""
+def _messages(
+    context: game_lib.GameContext, name: str
+) -> perception.Instrument:
+  """Home's transmissions, heard years after they were sent."""
+  return perception.instrument(
+      context,
+      'mission.uplink',
+      owner=name,
+      label='Messages from home',
+      initial='No message from home has reached us yet.',
+      transported=True,
+      channel=lambda: mission_prefab.light_delay(context),
+  )
+
+
+def colony_rules(context: game_lib.GameContext) -> None:
+  """The World GM installs the colonists' rules: actor, sheet, messages."""
   colony = context.planet.colony
   if colony is None:
     raise ValueError('Colonists need a colony in the scenario.')
@@ -84,6 +106,17 @@ def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
       # (that is their 'Colony status' reading, rendered).
       hears=('world.tick', 'colony.events', 'colony.decrees'),
   )
+  perception.publish(context, name, 'colony', colony.sheet)
+  perception.deliver(context, _messages(context, name))
+
+
+def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
+  """The colonists' entity params, their components included."""
+  colony = context.planet.colony
+  if colony is None:
+    raise ValueError('Colonists need a colony in the scenario.')
+  rules = context.scenario['colony']
+  name = f'Colonists of {colony.name}'
   return {
       'name': name,
       'goal': rules.get('goal', DEFAULT_GOAL),
@@ -101,18 +134,11 @@ def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
       'randomize_choices': False,
       **context.act_params(name),
       'extra_components': {
-          'Our colony': perception.sheet(
-              context, name, 'colony', colony.sheet, label='\nOur colony'
+          'Our colony': perception.read(
+              context, name, 'colony', label='\nOur colony'
           ),
-          # Home's transmissions, heard years after they were sent.
-          'Messages from home': perception.instrument(
-              context,
-              'mission.uplink',
-              owner=name,
-              label='Messages from home',
-              initial='No message from home has reached us yet.',
-              transported=True,
-              channel=lambda: mission_prefab.light_delay(context),
+          'Messages from home': perception.subscribe(
+              context, _messages(context, name)
           ),
       },
   }
