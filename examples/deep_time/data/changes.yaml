@@ -11,7 +11,10 @@ changes:
       people to hear, and stops trade between you for a while. Each people
       remembers wrongs done to it (towns taken or razed, pacts broken), and
       its sheet says so; a people holding half the towns is named to all.
-      Taking towns no longer makes you abandon your own.
+      You may send your own words to another people from the move sheet (it
+      hears them as it hears offers; its words to you show in your story,
+      marked 💬). Taking towns no longer makes you abandon your own. The tab
+      of moves you made is now "Past moves".
   - when: 19 Oct, evening
     world: great_acceleration
     text: >-

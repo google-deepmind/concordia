@@ -349,6 +349,10 @@
   .inspect { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font-size: .84rem; }
   .inspect .ihead { display: flex; justify-content: space-between; align-items: center; }
   .inspect button { border: 0; background: none; color: var(--muted); font-size: 1.3rem; padding: 0 4px; }
+  .wordsrow { display: flex; gap: 6px; margin: 6px 0; }
+  .wordsrow select { flex: none; width: 36%; margin: 0; }
+  .wordsrow input { flex: 1; min-width: 0; width: auto; margin: 0; }
+  .options .wordsrow button { width: auto; min-height: 0; margin: 0; }
   #townorders button { display: inline; width: auto; min-height: 0; border: 0; background: none; color: var(--muted); padding: 0 6px; margin: 0; }
   .inspect button.tord { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: .84rem; padding: 4px 10px; margin: 2px 4px 2px 0; }
   .inspect dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 0; }
@@ -489,6 +493,7 @@
       <p class="err" id="moveerr" hidden></p>
       <p class="planok" id="planok" hidden></p>
       <p class="planok" id="townorders" hidden></p>
+      <div class="wordsrow" id="wordsrow" hidden><select id="wordsto" aria-label="To which people"></select><input id="wordstext" maxlength="240" placeholder="Your words to them"><button id="wordsadd">Add</button></div>
       <div class="plans" id="sheetplans"></div>
       <div class="when" id="when"></div>
       <div id="choices"></div>
@@ -632,8 +637,10 @@ function showPremise() {
   }
   $('premise').textContent = s ? s.premise : '';
   if (mindsOffered) loadMinds(false);  // The minds as measured in this world.
+  const picked = $('rolepick').value;  // A second tap on the world keeps the role picked.
   $('rolepick').innerHTML = (s ? s.roles : []).map((r) =>
     `<option value="${escapeHtml(r.name)}">Play ${escapeHtml(r.label)}</option>`).join('');
+  if (s && s.roles.some((r) => r.name === picked)) $('rolepick').value = picked;
   showFriends();
 }
 
@@ -779,7 +786,8 @@ function setText(id, text, cardId) {
 async function answer(requestId, response, target) {
   for (const x of $('choices').querySelectorAll('button, textarea')) x.disabled = true;
   // Its towns' orders go with the move, a line each.
-  const lines = townOrders.map((o) => `\ntown ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`);
+  const lines = townOrders.map((o) => (o.to ? `\nwords to the ${o.to}: ${o.text}`
+    : `\ntown ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`));
   const body = {request_id: requestId, response: response + lines.join('')};
   if (target) body.target = [target.r, target.c];
   $('dockmain').textContent = `Sending: ${shortMove(response)}…`;
@@ -847,7 +855,7 @@ function townOrder(id, i) {
   $('aimtext').textContent = `Tap the map where this town should ${moveWords(move)}.`;
 }
 function queueTownOrder(at, move, target) {
-  townOrders = townOrders.filter((o) => o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
+  townOrders = townOrders.filter((o) => !o.at || o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
   townOrders.push({at, move, target});
   showTownOrders(); showInspect(); redrawMap();
 }
@@ -855,6 +863,7 @@ function showTownOrders() {
   const p = $('townorders');
   p.hidden = !townOrders.length;
   p.innerHTML = townOrders.map((o, i) => {
+    if (o.to) return `To the ${escapeHtml(o.to)}: “${escapeHtml(o.text)}” <button data-drop="${i}" aria-label="Drop these words">✕</button>`;
     const lat = 90 - (o.at[0] + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
     return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ' (aimed)' : ''}`
       + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
@@ -973,6 +982,9 @@ function renderQuestion(q) {
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
   townOrders = []; showTownOrders();
+  const peoples = q.speak || [];  // Words to other peoples (where conquest is).
+  $('wordsrow').hidden = !peoples.length;
+  $('wordsto').innerHTML = peoples.map((p) => `<option>${escapeHtml(p)}</option>`).join('');
   $('planok').hidden = true;
   planIn = 0;
   // The tags carry the rest; a Steward that may speak is asked plainly.
@@ -3738,7 +3750,7 @@ function showInspect() {
       add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
       const mine = lastQuestion && lastQuestion.towns && lastQuestion.towns[town[1]];
       if (mine) {  // Your town: the orders it may give this turn.
-        const given = townOrders.find((o) => o.at[0] === r && o.at[1] === c);
+        const given = townOrders.find((o) => o.at && o.at[0] === r && o.at[1] === c);
         add('Orders', (given ? `<b>Ordered: ${escapeHtml(moveWords(given.move))}</b><br>` : '')
           + mine.orders.map((o, i) => `<button class="tord" data-t="${town[1]}" data-o="${i}">${escapeHtml(moveWords(o))}</button>`).join(' '));
       }
@@ -3808,6 +3820,14 @@ for (const b of document.querySelectorAll('#speed button')) {
     refresh();
   });
 }
+$('wordsadd').addEventListener('click', () => {
+  const to = $('wordsto').value, text = $('wordstext').value.replace(/\s+/g, ' ').trim();
+  if (!to || !text) return;
+  townOrders = townOrders.filter((o) => o.to !== to);  // Once a people, a turn.
+  townOrders.push({to, text});
+  $('wordstext').value = '';
+  showTownOrders();
+});
 $('aimgo').addEventListener('click', () => {
   const a = aim; endAim();
   if (a && a.town) { if (a.target) queueTownOrder(a.town, a.option, a.target); return; }

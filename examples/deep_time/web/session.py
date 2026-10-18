@@ -1164,7 +1164,7 @@ class GameSession:
     if menu.get('words'):
       return ''  # The Steward may speak an omen in its own words.
     moves = list(menu.get('offered', ()))
-    move, _ = actors_lib.aimed(actors_lib.town_orders(response)[0])
+    move, _ = actors_lib.aimed(actors_lib.people_order(response))
     move = move.strip()
     if moves and not any(
         move == m or (move.startswith(m) and move[len(m) :].lstrip()[:1] == ':')
@@ -1424,9 +1424,14 @@ class GameSession:
     for name, seat in self.seats.items():
       request = seat.pending()
       if request is not None and request.request_id == request_id:
-        # The people's move, then its towns' orders (a line each).
+        # The people's move, then its towns' orders and its words to other
+        # peoples (a line each).
         response, orders = actors_lib.town_orders(response)
-        lines = [f'town {r},{c}: {order}' for r, c, order in orders]
+        response, words = actors_lib.spoken(response)
+        lines = [
+            *(f'town {r},{c}: {order}' for r, c, order in orders),
+            *(f'words to the {who}: {said}' for who, said in words),
+        ]
         aim = target is not None and self._targetable(name, response)
         # A move enacting a draft carries its words, as the role reads them
         # (the move itself is what is kept, for the page and replays).
@@ -1613,7 +1618,23 @@ class GameSession:
             'who': 'Chronicler',
             'text': message.payload,
         })
-    order = {'chronicle': 0, 'war': 1, 'advisor': 2, 'press': 3, 'news': 4}
+      # Words and offers other peoples sent it, told as it heard them.
+      for topic in bus.topics(f'diplomacy.{own}.'):
+        for message in bus.history(topic):
+          items.append({
+              'tick': int(message.time or 0),
+              'kind': 'words',
+              'who': 'Words',
+              'text': message.payload,
+          })
+    order = {
+        'chronicle': 0,
+        'war': 1,
+        'words': 2,
+        'advisor': 3,
+        'press': 4,
+        'news': 5,
+    }
     items.sort(key=lambda i: (-i['tick'], order[i['kind']]))
     return items[:STORY_ITEMS]
 
@@ -2478,8 +2499,10 @@ class GameSession:
           'options': options,
           # Options that may land where the player taps the map.
           'targets': [o for o in options if self._targetable(entity, o)],
-          # The orders each of a people's towns may give (tapped on the map).
+          # The orders each of a people's towns may give (tapped on the map),
+          # and the peoples it may send words to.
           'towns': menu.get('towns', {}),
+          'speak': list(menu.get('speak', ())),
           # Which way each move pushes the world, and about how far.
           'pushes': {
               o: p for o, p in menu.get('pushes', {}).items() if o in options

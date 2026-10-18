@@ -62,6 +62,16 @@ TOWN_ORDER = re.compile(
     r'^\s*town\s+(\d+)\s*,\s*(\d+)\s*:\s*(.*?)\s*$',
     re.IGNORECASE | re.MULTILINE,
 )
+# Words a people sends another (stage 6, C7): a line of its answer, which
+# the World GM delivers to the other people as it hears offers.
+WORDS_LINE = re.compile(
+    r'^\s*words to the (.+?):\s*(.+?)\s*$', re.IGNORECASE | re.MULTILINE
+)
+WORDS_MAX = 40  # Words a message may carry.
+WORDS_HINT = (
+    'You may also send your own words to another people, on a line of its'
+    ' own: "words to the <people>: <words>".'
+)
 ORDERS_HINT = (
     'Each of your towns may also give one order this turn (march from it,'
     ' send grain and envoys, hold a feast in it, found a new town), each on'
@@ -166,6 +176,26 @@ def town_orders(action: str) -> tuple[str, list[tuple[int, int, str]]]:
   if not orders:
     return action, []
   return TOWN_ORDER.sub('', action).strip(), orders
+
+
+def spoken(action: str) -> tuple[str, list[tuple[str, str]]]:
+  """An answer without its words to other peoples, and those words.
+
+  Args:
+    action: The answer, perhaps with lines `"words to the <people>: ..."`.
+
+  Returns:
+    The answer without those lines; and each (people's name, words).
+  """
+  words = [(m.group(1), m.group(2)) for m in WORDS_LINE.finditer(action)]
+  if not words:
+    return action, []
+  return WORDS_LINE.sub('', action).strip(), words
+
+
+def people_order(action: str) -> str:
+  """A people's own order: its answer without town orders or words."""
+  return spoken(town_orders(action)[0])[0]
 
 
 def aimed(action: str) -> tuple[str, tuple[int, int] | None]:
@@ -953,23 +983,61 @@ class PolityActor(Actor):
 
   @override
   def understood(self, action: str) -> str:
-    """The people's order read as the move it names; towns' orders kept."""
+    """The people's order read as the move it names; towns' orders and
+    words to other peoples kept."""
     rest, orders = town_orders(action)
-    if not orders:
+    rest, words = spoken(rest)
+    if not orders and not words:
       return super().understood(action)
     return '\n'.join([
         *([super().understood(rest)] if rest else []),
         *(f'town {r},{c}: {order}' for r, c, order in orders),
+        *(f'words to the {who}: {said_}' for who, said_ in words),
     ])
 
   def resolve(self, action: str) -> str:
-    """The people's order, then each of its towns' orders, in turn."""
+    """The people's order, each of its towns' orders, then its words."""
     rest, orders = town_orders(action)
-    outcomes = [self._resolve_people(rest)] if rest or not orders else []
+    rest, words = spoken(rest)
+    outcomes = (
+        [self._resolve_people(rest)] if rest or not (orders or words) else []
+    )
     given: set[int] = set()
     for row, col, order in orders:
       outcomes.append(self._town_order(row, col, order, given))
+    spoken_to: set[str] = set()
+    for who, words_ in words:
+      outcomes.append(self._send_words(who, words_, spoken_to))
     return '\n'.join(o for o in outcomes if o)
+
+  def _send_words(self, who: str, words: str, spoken_to: set[str]) -> str:
+    """Words to another people, delivered as it hears offers; or why not.
+
+    Args:
+      who: The people's name, as written ("Amber folk").
+      words: What is said (at most `WORDS_MAX` words are carried).
+      spoken_to: The peoples already spoken to this turn (once each).
+
+    Returns:
+      What happened, or why not.
+    """
+    civ = self._civ()
+    wanted = who.strip().lower().removeprefix('the ')
+    other = next(
+        (k for k, p in civ.polities.items() if p.name.lower() == wanted), None
+    )
+    if other is None or other == self.polity:
+      return f'{self.name} found no people called "{who.strip()}" to speak to.'
+    if other in spoken_to:
+      return f'{self.name} spoke to the {civ.polities[other].name} already.'
+    spoken_to.add(other)
+    text = ' '.join(words.split()[:WORDS_MAX]).strip('"')
+    self._tally('words')
+    self.outbox.append((
+        f'diplomacy.{other}.{self.polity}',
+        f'The {self.name} say to the {civ.polities[other].name}: "{text}"',
+    ))
+    return f'{self.name} send words to the {civ.polities[other].name}.'
 
   def _resolve_people(self, action: str) -> str:
     """The people's own order: what happened, or why not."""
@@ -1185,6 +1253,14 @@ class PolityActor(Actor):
     elif text.startswith(WAR_MOVES):  # On the town nearest it.
       self._planet.set_target(self.name, town.row, town.col)
     return self._town_move(text, town.id)
+
+  def speaks_to(self) -> list[str]:
+    """The peoples it may send words to (where conquest is played)."""
+    towns = self._planet.settlements
+    if towns is None or not towns.war:
+      return []
+    civ = self._civ()
+    return [p.name for k, p in sorted(civ.polities.items()) if k != self.polity]
 
   def town_menu(self) -> dict[str, dict[str, Any]]:
     """The orders each of this people's towns may give now, for the page.

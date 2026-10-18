@@ -18,7 +18,7 @@
 
 import {escapeHtml} from './util.js';
 
-export const STORY_ICONS = {advisor: '🧭', press: '📰', news: '📣', chronicle: '📜', war: '⚔️'};
+export const STORY_ICONS = {advisor: '🧭', press: '📰', news: '📣', chronicle: '📜', war: '⚔️', words: '💬'};
 
 /**
  * The feed as HTML (`items` from the game's state, newest first). Long

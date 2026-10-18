@@ -68,6 +68,8 @@ def aimable_spec(
       hints.insert(0, actors_lib.DRAFT_HINT)
     if getattr(actor, 'town_menu', dict)():  # Its towns' own orders.
       hints.append(actors_lib.ORDERS_HINT)
+    if getattr(actor, 'speaks_to', list)():  # Its words to other peoples.
+      hints.append(actors_lib.WORDS_HINT)
     return entity_lib.free_action_spec(
         call_to_action='\n'.join([spec.call_to_action, moves, *hints]),
         tag=spec.tag,
@@ -212,6 +214,7 @@ class ActorActionSpecs(
           self._context.pushes(offered, name),
       )
       menu['towns'] = actor.town_menu()
+      menu['speak'] = actor.speaks_to()
     return menu
 
   @override

@@ -647,6 +647,41 @@ class SettlementsTest(absltest.TestCase):
     told = [e.text for e in planet.advance().events]  # Named once.
     self.assertFalse(any('now hold' in t for t in told))
 
+  def test_words_reach_another_people_as_it_hears_offers(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    self.assertEqual(basalt.speaks_to(), ['Amber folk', 'Cedar league'])
+    long = ' '.join(['grain'] * 60)
+    answer = '\n'.join([
+        actors_lib.KEEP_LABOR,
+        'words to the Amber folk: Let us trade in peace.',
+        'words to the amber folk: And again.',  # Once a people, a turn.
+        f'words to the Cedar league: {long}',
+        'words to the Moon folk: Hello?',
+    ])
+    self.assertEqual(actors_lib.people_order(answer), actors_lib.KEEP_LABOR)
+    self.assertEqual(basalt.understood(answer).count('words to the'), 4)
+    outcome = basalt.resolve(answer).split('\n')
+    self.assertEqual(
+        outcome[1:],
+        [
+            'Basalt clans send words to the Amber folk.',
+            'Basalt clans spoke to the Amber folk already.',
+            'Basalt clans send words to the Cedar league.',
+            'Basalt clans found no people called "Moon folk" to speak to.',
+        ],
+    )
+    outbox = dict(basalt.drain_outbox())
+    self.assertEqual(
+        outbox['diplomacy.amber.basalt'],
+        'The Basalt clans say to the Amber folk: "Let us trade in peace."',
+    )
+    self.assertLen(  # At most forty words are carried.
+        outbox['diplomacy.cedar.basalt'].split('"')[1].split(), 40
+    )
+
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()
     towns.court(town.id, 'basalt', 0.3)
