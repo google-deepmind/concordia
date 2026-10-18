@@ -26,6 +26,7 @@ from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios
+from examples.deep_time.components import rule_act
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import colony
 from examples.deep_time.prefabs import grazers
@@ -100,6 +101,7 @@ def build_simulation(
     overrides: Mapping[str, Any] | None = None,
     bots: Mapping[str, language_model.LanguageModel] | None = None,
     views: str | None = None,
+    scripted: Mapping[str, rule_act.Rule] | None = None,
 ) -> tuple[simulation_lib.Simulation, game_lib.GameContext]:
   """Creates the shared game state and the simulation for a scenario.
 
@@ -119,6 +121,9 @@ def build_simulation(
     views: For a game a person's page shows: 'play' or 'watch'. The World GM
       then publishes each role's view (`views.py`: its crises, its needs and
       a Steward's logbook); None for a game no page shows.
+    scripted: Entities a rule plays (by name; a harness's script that
+      measures the game): the role's own entity, its act component the rule
+      (`rule_act.RuleAct`).
 
   Returns:
     The simulation and the shared game context.
@@ -128,6 +133,7 @@ def build_simulation(
   )
   context.humans.update(humans or {})
   context.bots.update(bots or {})
+  context.scripted.update(scripted or {})
   # The roles' slow minds think with it (and so do species founded later).
   context.slow_model = models.slow
   config = build_config(context, max_ticks, views=views)

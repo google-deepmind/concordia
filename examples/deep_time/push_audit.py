@@ -46,10 +46,10 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import simulation
+from examples.deep_time.components import rule_act
 from examples.deep_time.world import data
 from concordia.prefabs.simulation import generic as simulation_lib
 from concordia.typing import entity as entity_lib
-from concordia.typing import human_input
 import numpy as np
 import yaml
 
@@ -98,11 +98,10 @@ HEADER = """\
 
 
 class Script:
-  """A person who makes one move when it is next offered, then keeps still.
+  """A rule that makes one move when it is next offered, then keeps still.
 
-  A stock `HumanInput`: the role's `HumanActComponent` asks it as it asks a
-  person at the page, so the audit's moves are made in the game, as actions
-  the World GM resolves.
+  The role's act component (`rule_act.RuleAct`) asks it each question, so
+  the audit's moves are made in the game, as actions the World GM resolves.
   """
 
   def __init__(self, still: str, move: str | None = None):
@@ -115,8 +114,7 @@ class Script:
     self._still = still
     self._move = move
 
-  def __call__(self, request: human_input.HumanInputRequest) -> str:
-    spec = request.action_spec
+  def __call__(self, spec: entity_lib.ActionSpec) -> str:
     if self._move is not None and (
         self._move in spec.options
         or spec.output_type == entity_lib.OutputType.FREE
@@ -130,7 +128,7 @@ def _play(
     scenario: str,
     seed: int,
     steps: int,
-    humans: Mapping[str, human_input.HumanInput],
+    scripted: Mapping[str, rule_act.Rule],
     checkpoint: Mapping[str, Any] | None = None,
     overrides: Mapping[str, Any] | None = None,
 ) -> tuple[simulation_lib.Simulation, game_lib.GameContext]:
@@ -139,7 +137,7 @@ def _play(
       scenario,
       model_setup.make_models('mock'),
       seed=seed,
-      humans=humans,
+      scripted=scripted,
       overrides=overrides,
   )
   if checkpoint is not None:

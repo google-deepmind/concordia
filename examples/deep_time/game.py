@@ -39,6 +39,7 @@ from examples.deep_time import attention as attention_lib
 from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import actor_registry
 from examples.deep_time.components import deliveries as deliveries_lib
+from examples.deep_time.components import rule_act
 from examples.deep_time.world import automation as automation_lib
 from examples.deep_time.world import data
 from examples.deep_time.world import evolution as evolution_lib
@@ -135,6 +136,9 @@ class GameContext:
   bots: dict[str, language_model.LanguageModel] = dataclasses.field(
       default_factory=dict
   )
+  # Entities a rule plays (a harness's script), by name: their act component
+  # (`rule_act.RuleAct`) answers each question by the rule.
+  scripted: dict[str, rule_act.Rule] = dataclasses.field(default_factory=dict)
 
   def slow(self) -> language_model.LanguageModel:
     """The slow minds' model (set before the simulation builds the roles)."""
@@ -225,7 +229,7 @@ class GameContext:
     return found
 
   def act_params(self, name: str) -> dict[str, Any]:
-    """Prefab params that hand `name`'s actions to its person, if any.
+    """Prefab params that hand `name`'s actions to its person or rule, if any.
 
     The upstream `HumanActComponent` replaces the model's act component; it
     is given the same component order, so the person reads exactly the
@@ -235,8 +239,12 @@ class GameContext:
       name: The entity's name.
 
     Returns:
-      `{'act_component_factory': ...}` for a human-played entity, else `{}`.
+      `{'act_component_factory': ...}` for an entity a person or a rule
+      plays, else `{}`.
     """
+    rule = self.scripted.get(name)
+    if rule is not None:
+      return {'act_component_factory': lambda order: rule_act.RuleAct(rule)}
     reader = self.humans.get(name)
     if reader is None:
       return {}

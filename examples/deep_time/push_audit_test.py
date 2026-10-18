@@ -15,6 +15,7 @@
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
 from examples.deep_time import push_audit
+from examples.deep_time.components import rule_act
 from examples.deep_time.world import data
 
 
@@ -89,13 +90,16 @@ class PushAuditTest(absltest.TestCase):
   def test_a_scripted_steward_moves_in_the_game(self):
     ash = 'bury the sky in ash (a volcanic winter, for years)'
     script = push_audit.Script(push_audit.WAIT, ash)
-    _, context = push_audit._play(  # pylint: disable=protected-access
+    sim, context = push_audit._play(  # pylint: disable=protected-access
         'daisyworld',
         0,
         8,
         {push_audit.STEWARD: script},
         overrides=push_audit.RICH,
     )
+    # The Steward's own entity, played by the rule (not as a person).
+    (steward,) = [e for e in sim.entities if e.name == push_audit.STEWARD]
+    self.assertIsInstance(steward.get_act_component(), rule_act.RuleAct)
     log = context.actors[push_audit.STEWARD].log
     # The move is made once, as an action the World GM resolved; then waits.
     self.assertEqual([action for _, action, _ in log].count(ash), 1)
