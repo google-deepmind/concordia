@@ -35,8 +35,19 @@ from concordia.typing import entity_component
 QUESTION = (
     'The Gazette, printed by the {owner}, says of the sign: "{retelling}".'
     ' In one sentence, in your own voice: what do {name} make of it, and what'
-    ' will you do about it?'
+    ' will you do about it? Answer as the {name} themselves, saying "we", in'
+    ' at most {words} words.'
 )
+# A take is one short sentence: what is said beyond this is cut.
+TAKE_WORDS = 30
+
+
+def short_take(answer: str) -> str:
+  """The first line of an answer, cut to `TAKE_WORDS` words."""
+  words = answer.strip().split('\n')[0].split()
+  if len(words) <= TAKE_WORDS:
+    return ' '.join(words)
+  return ' '.join(words[:TAKE_WORDS]).rstrip(',;:') + '…'
 
 
 class TakeMind(action_spec_ignored.ActionSpecIgnored):
@@ -86,11 +97,12 @@ class TakeMind(action_spec_ignored.ActionSpecIgnored):
             owner=self._owner,
             retelling=told.payload.strip(),
             name=self.get_entity().name,
+            words=TAKE_WORDS,
         ),
         max_tokens=120,
         terminators=(),  # Some served models refuse stop words.
     )
-    return answer.strip().split('\n')[0].strip()
+    return short_take(answer)
 
   @override
   def get_state(self) -> entity_component.ComponentState:
