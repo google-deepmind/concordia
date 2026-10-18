@@ -88,11 +88,21 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
       text += f' An offer awaits our answer: {offer.text}'
     for kind, spec in treaties.kinds.items():
       bound = [civ.polities[k].name for k in treaties.bound(polity, kind)]
-      if bound:
+      if bound and kind == 'peace':
+        text += (
+            f' We are at peace by {spec.plural} with the {", ".join(bound)}:'
+            " neither marches on the other's towns."
+        )
+      elif bound:
         text += (
             f' We are bound by {spec.plural} with the {", ".join(bound)}: at'
             f' most {spec.cap:g} {spec.unit} a generation.'
         )
+    grievances = treaties.describe_grievances(
+        polity, {k: p.name for k, p in civ.polities.items()}
+    )
+    if grievances:  # Wrongs remembered (where conquest is played).
+      text += ' ' + grievances
   towns = context.planet.settlements
   arms = towns.describe_arms(polity) if towns is not None else ''
   if arms:  # Where conquest is played, once it has raised some.

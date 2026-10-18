@@ -797,7 +797,7 @@ class PolityActor(Actor):
     """
     planet = self._planet
     civ, treaties = self._civ(), planet.treaties
-    if treaties is None or not civ.unlocked(self.polity, 'treaties'):
+    if treaties is None:
       return {}
     options = {}
 
@@ -806,6 +806,8 @@ class PolityActor(Actor):
 
     for kind, spec in treaties.kinds.items():
       for key, p in sorted(civ.polities.items()):
+        if kind == 'peace' and not self._war_between(key):
+          continue  # Peace is offered once war is possible.
         if (
             key != self.polity
             and all(
@@ -815,6 +817,14 @@ class PolityActor(Actor):
         ):
           options[f'propose a {spec.name} to the {p.name}'] = (key, kind)
     return options
+
+  def _war_between(self, other: str) -> bool:
+    """Whether this people and another could fight: either holds arms."""
+    towns = self._planet.settlements
+    return towns is not None and any(
+        towns.arms_of(k) or any(a.polity == k for a in towns.armies)
+        for k in (self.polity, other)
+    )
 
   def _plans(self) -> dict[str, str]:
     """Option text -> target recipe, for balanced chains worth planning."""

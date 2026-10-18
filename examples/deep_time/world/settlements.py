@@ -124,6 +124,8 @@ class Settlements:
     # Armies on the march, and the next army's id.
     self.armies: list[Army] = []
     self.next_army = 1
+    # The people named as holding much of the map (C7), '' if none.
+    self.leader = ''
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -240,9 +242,11 @@ class Settlements:
         continue
       want = int(np.clip(1 + people // per, 1, top))
       places = self.places[key]
-      while len(places) > want:
-        # The newest town it founded itself: a town it won is never
-        # abandoned for want of people (nor is the capital).
+      # Only the towns it founded count: a town it won is never abandoned
+      # for want of people (nor is the capital), and winning one never makes
+      # it abandon its own.
+      while sum(p.polity == key for p in places) > want:
+        # The newest town it founded itself.
         lost = next(
             (p for p in reversed(places) if p.polity == key and not p.capital),
             None,
@@ -689,6 +693,14 @@ class Settlements:
             f' {army.arrives}; it stands {self.defence(town):.1f} strong'
             ' with its people and walls.'
         )
+    leader = self.lead()
+    if leader is not None:
+      key, held, total = leader
+      words.append(
+          f'We hold {held} of the {total} towns; the other peoples watch us.'
+          if key == polity
+          else f'The {self._name(key)} hold {held} of the {total} towns.'
+      )
     for holder, towns in self.places.items():
       for town in towns:
         need = self.need(town)
@@ -908,6 +920,22 @@ class Settlements:
           found.append((town, holder, 'warn'))
     return found
 
+  def lead(self) -> tuple[str, int, int] | None:
+    """The people holding at least `leader_share` of all towns, if any.
+
+    Returns:
+      (people, towns it holds, all towns), or None.
+    """
+    total = sum(len(v) for v in self.places.values())
+    share = float(self.war.get('leader_share', 0.5))
+    if not total or not self.war:
+      return None
+    key = max(sorted(self.places), key=lambda k: len(self.places[k]))
+    held = len(self.places[key])
+    if held < share * total or held <= 1:
+      return None
+    return key, held, total
+
   def need(self, place: Settlement) -> float:
     """The regard a town needs to join another people (C5).
 
@@ -1079,6 +1107,7 @@ class Settlements:
                 },
                 'armies': [dataclasses.asdict(a) for a in self.armies],
                 'next_army': self.next_army,
+                **({'leader': self.leader} if self.leader else {}),
             }
             if self.conquest
             else {}
@@ -1133,4 +1162,5 @@ class Settlements:
         for a in state.get('armies', ())
     ]
     self.next_army = int(state.get('next_army', 1))
+    self.leader = str(state.get('leader', ''))
     self._route()

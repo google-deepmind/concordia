@@ -2,6 +2,16 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night
+    world: great_acceleration
+    text: >-
+      Peace and its breaking. Once anyone has raised arms, any two peoples
+      may offer each other a peace pact (no tech needed): neither marches on
+      the other's towns. A march on your partner breaks it at once, for every
+      people to hear, and stops trade between you for a while. Each people
+      remembers wrongs done to it (towns taken or razed, pacts broken), and
+      its sheet says so; a people holding half the towns is named to all.
+      Taking towns no longer makes you abandon your own.
   - when: 19 Oct, evening
     world: great_acceleration
     text: >-

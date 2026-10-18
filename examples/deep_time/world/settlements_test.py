@@ -576,6 +576,77 @@ class SettlementsTest(absltest.TestCase):
         'march to take a town @ 4,5\ntown 1,2: hold a feast in a town',
     )
 
+  def test_peace_is_made_and_broken_by_a_march_and_remembered(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+    from examples.deep_time.prefabs import polity as polity_prefab  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    context = game_lib.GameContext.__new__(game_lib.GameContext)
+    towns, treaties = planet.settlements, planet.treaties
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    # Any two peoples may offer peace (no diplomacy needed), once either
+    # holds arms.
+    offer = 'propose a peace pact to the Amber folk'
+    self.assertNotIn(offer, basalt.options())
+    towns.muster('amber', 'levies', 2.0)
+    self.assertIn(offer, basalt.options())
+    self.assertIn('neither marches on the', basalt.resolve(offer))
+    settled = planet.answer_treaty(
+        'amber', 'Reply to Basalt clans (peace pact): accept', True
+    )
+    self.assertIsNotNone(settled)
+    self.assertTrue(treaties.at_peace('basalt', 'amber'))
+    del context
+    # A march on the partner's town breaks it, for all to see.
+    towns.muster('basalt', 'levies', 40.0)
+    town, _ = towns.nearest_town('basalt', None)
+    if town.polity != 'amber':
+      planet.set_target('Basalt clans', *self._amber_town(towns))
+    news = basalt.resolve(actors_lib.MARCH_TAKE)
+    self.assertIn('break their peace pact with the Amber folk', news)
+    self.assertFalse(treaties.at_peace('basalt', 'amber'))
+    self.assertTrue(treaties.embargoed('basalt', 'amber'))
+    names = {k: p.name for k, p in planet.civ.polities.items()}
+    self.assertEqual(
+        treaties.describe_grievances('amber', names),
+        'We hold grievances against the Basalt clans (broke their peace pact).',
+    )
+    # Taking the town adds its own grievance; saves keep them.
+    while towns.armies:
+      planet.advance()
+    self.assertIn('took a town', treaties.describe_grievances('amber', names))
+    again = _planet('great_acceleration').treaties
+    again.set_state(treaties.get_state())
+    self.assertEqual(again.grievances, treaties.grievances)
+    del polity_prefab
+
+  def _amber_town(self, towns):
+    capital = towns.capital('amber')
+    return capital.row, capital.col
+
+  def test_a_people_holding_half_the_towns_is_named(self):
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    self.assertIsNone(towns.lead())
+    # Founding alone never makes one (6 of 16 at most); conquest does.
+    for town in [t for t in towns.places['amber'] if not t.capital][:3]:
+      planet.change_hands(town.id, 'basalt', stay=0.8, loyalty=0.35)
+    key, held, total = towns.lead()
+    self.assertEqual((key, held, total), ('basalt', 8, 15))
+    told = [e.text for e in planet.advance().events]
+    self.assertTrue(
+        any('Basalt clans now hold 8 of the 15 towns' in t for t in told), told
+    )
+    # Winning towns never makes a people abandon its own.
+    self.assertLen(towns.places['basalt'], 8)
+    self.assertFalse(any('abandon' in t for t in told), told)
+    self.assertIn('the other peoples watch us', towns.describe_war('basalt'))
+    self.assertIn(
+        'The Basalt clans hold 8 of the 15', towns.describe_war('amber')
+    )
+    told = [e.text for e in planet.advance().events]  # Named once.
+    self.assertFalse(any('now hold' in t for t in told))
+
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()
     towns.court(town.id, 'basalt', 0.3)

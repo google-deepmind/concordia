@@ -1122,11 +1122,20 @@ class Planet:
         f'{n:.1f} {towns.arms[k]["label"]}'
         for k, n in sorted(army.units.items())
     )
+    held_by = civ.polities[holder].name
+    broke = ''
+    if self.treaties is not None and self.treaties.break_pact(
+        polity, holder, self.tick
+    ):  # Its word is broken for all to see.
+      broke = (
+          f' So they break their peace pact with the {held_by}: trade between'
+          f' them stops for {self.treaties.embargo_ticks} generations.'
+      )
     return (
         news_lib.located(
-            f'{name} march {kinds} on a town of the'
-            f' {civ.polities[holder].name} {towns.where(town)}, to {intent}'
-            f' it; they arrive in turn {army.arrives}.',
+            f'{name} march {kinds} on a town of the {held_by}'
+            f' {towns.where(town)}, to {intent} it; they arrive in turn'
+            f' {army.arrives}.{broke}',
             (town.row, town.col),
         ),
         holder,
@@ -1364,6 +1373,8 @@ class Planet:
             },
         )
       elif army.intent == 'raze':
+        if self.treaties is not None:
+          self.treaties.aggrieve(holder, army.polity, f'razed a town {where}')
         _, share = towns.raze(town.id)
         civ.polities[holder].population *= 1.0 - share
         towns.come_home(army.polity, result['survivors'])
@@ -1384,6 +1395,8 @@ class Planet:
             },
         )
       else:
+        if self.treaties is not None:
+          self.treaties.aggrieve(holder, army.polity, f'took a town {where}')
         events.append(
             self.change_hands(
                 town.id,
@@ -1407,6 +1420,14 @@ class Planet:
             )
         )
     towns.fade_regard()
+    leader = towns.lead()
+    if leader is not None and leader[0] != towns.leader:
+      held, total = leader[1], leader[2]
+      told(
+          f'The {civ.polities[leader[0]].name} now hold {held} of the {total}'
+          ' towns: more than any people has held, and the others take note.'
+      )
+    towns.leader = leader[0] if leader is not None else ''
     for town, holder, kind in towns.unrest():
       held_by = civ.polities[holder].name
       if kind == 'warn':

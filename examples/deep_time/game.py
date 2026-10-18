@@ -494,6 +494,17 @@ class GameContext:
         ]
 
 
+def _with_peace(treaties: Mapping[str, Any]) -> dict[str, Any]:
+  """The treaties' config with peace pacts among its kinds (`arms.yaml`)."""
+  return {
+      **treaties,
+      'kinds': {
+          **treaties.get('kinds', {}),
+          'peace': data.load('arms.yaml')['peace'],
+      },
+  }
+
+
 def _merged(base: Mapping[str, Any], overrides: Mapping[str, Any]):
   """`base` with `overrides` merged in, recursively (for per-scenario data)."""
   merged = dict(base)
@@ -627,6 +638,13 @@ def new_game(
                   {
                       'arms': data.load('arms.yaml')['kinds'],
                       'war': data.load('arms.yaml')['war'],
+                      # Peace pacts join the treaties (C7).
+                      'treaties': _with_peace(
+                          _merged(
+                              data.load('civ.yaml'),
+                              scenario.get('civ_overrides', {}),
+                          )['treaties']
+                      ),
                       'recipes': [
                           *_merged(
                               data.load('civ.yaml'),
