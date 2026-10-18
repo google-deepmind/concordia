@@ -8,8 +8,10 @@ changes:
       Conquest can win the age. Playing a people, hold three of every four
       towns (taken by arms, won with grain, risen to you) and the game ends:
       you win, every other player loses. Your goal says so beside the shared
-      one. A people that loses towns no longer counts as starving for it:
-      only hunger breaks a people now.
+      one. Taking or razing a people's towns no longer ends the game as a
+      famine (your game of 19 Oct): only hunger breaks a people now, and a
+      people that loses its last town is gone from the map (every people
+      hears it) while the age goes on.
   - when: 19 Oct, night
     world: great_acceleration
     text: >-

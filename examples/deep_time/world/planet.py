@@ -1032,7 +1032,22 @@ class Planet:
     self.civ.start_population[holder] -= base
     self.civ.start_population[taker] += base * stay
     text = self.settlements.change_hands(town, taker, loyalty, how)
-    return WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text))
+    where = news_lib.place_of(text)
+    gone = self._gone(holder)
+    if gone and where is not None:  # Its last town: it is gone, told there.
+      text = news_lib.located(text + gone, where)
+    return WorldEvent(CIV_EVENTS, text, where=where)
+
+  def _gone(self, people: str) -> str:
+    """' They are gone from the map.' if a people lost its last town."""
+    if self.settlements is None or self.civ is None:
+      return ''
+    if self.settlements.places.get(people):
+      return ''
+    return (
+        f' The {self.civ.polities[people].name} hold no town any more: they'
+        ' are gone from the map.'
+    )
 
   def queue_adaptation(self, species: str, answer: str) -> str:
     """Queues the adaptation named in a slow mind's answer.
@@ -1387,7 +1402,8 @@ class Planet:
         told(
             news_lib.located(
                 f'The {name} raze a town of the {held_by} {where}; its people'
-                ' are scattered.',
+                ' are scattered.'
+                + self._gone(holder),
                 (town.row, town.col),
             ),
             **{

@@ -962,6 +962,13 @@ class PolityActor(Actor):
     return [*fixed, *orders[:room], *extras, *arms, *town, KEEP_LABOR]
 
   def is_active(self) -> bool:
+    towns = self._planet.settlements
+    if (
+        towns is not None
+        and towns.conquest
+        and not towns.places.get(self.polity)
+    ):
+      return False  # Gone from the map: it holds no town (it no longer acts).
     return self.polity not in self._civ().collapsed(0.05)
 
   def action_spec(self) -> entity_lib.ActionSpec:

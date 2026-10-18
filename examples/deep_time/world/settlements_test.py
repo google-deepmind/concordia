@@ -16,6 +16,7 @@
 
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
+from examples.deep_time.world import news as news_lib
 from examples.deep_time.world import planet as planet_lib
 import numpy as np
 
@@ -718,6 +719,28 @@ class SettlementsTest(absltest.TestCase):
     again = _planet('great_acceleration')
     again.set_state(planet.get_state())
     self.assertEqual(again.winner, 'basalt')
+
+  def test_a_people_wiped_off_the_map_does_not_end_the_age(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    # The owner's game of 19 Oct: the Amber folk took the Basalt clans'
+    # towns, and the age ended as "famine broke the Basalt clans".
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    told = [
+        planet.change_hands(t.id, 'amber', stay=0.8, loyalty=0.35).text
+        for t in list(towns.places['basalt'])
+    ]
+    self.assertIn(
+        'The Basalt clans hold no town any more: they are gone from the map.',
+        told[-1],
+    )
+    self.assertIsNotNone(news_lib.place_of(told[-1]))  # Told where.
+    for _ in range(3):
+      planet.advance()
+    self.assertIsNone(planet.outcome)  # The age goes on.
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    self.assertFalse(basalt.is_active())  # And they no longer act.
 
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()
