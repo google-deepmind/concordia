@@ -2,6 +2,16 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, later
+    world: great_acceleration
+    text: >-
+      Bread as a road to conquest, on the Great Acceleration. Send a cart of
+      grain and envoys to another people's town (3 grain, aimed on the map):
+      its regard for you grows, twice as fast while its people go hungry,
+      and it joins you when that reaches its loyalty to its holder. Each cart
+      tells you how far there is to go, and a ring round the town in your
+      colour fills as it nears. Capitals hold to their own. A town courted by
+      others, or one you took by arms, can be held with a feast in it.
   - when: 19 Oct
     world: great_acceleration
     text: >-

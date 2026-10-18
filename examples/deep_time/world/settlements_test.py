@@ -361,6 +361,155 @@ class SettlementsTest(absltest.TestCase):
     self.assertEqual(again.armies, towns.armies)
     self.assertEqual(again.upkeep('basalt'), 2.5)  # They eat on the march.
 
+  def _courted(self):
+    """A Great Acceleration with a town of the Amber folk to court."""
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    towns, civ = planet.settlements, planet.civ
+    town, why = towns.found_at('amber', None)
+    self.assertEqual(why, '')
+    civ.ledger.deposit('basalt', 'grain', 60.0, 'test')
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    return planet, towns, civ, town, basalt
+
+  def test_a_town_is_won_over_with_grain_and_envoys(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet, towns, civ, town, basalt = self._courted()
+    (move,) = [
+        o for o in basalt.options() if o.startswith(actors_lib.SEND_ENVOYS)
+    ]
+    self.assertIn('3 grain', move)  # Its cost, told.
+    self.assertTrue(basalt.aimable(move))
+    # A capital holds to its own people (and the cart is not spent).
+    capital = towns.capital('amber')
+    grain = civ.stock('basalt', 'grain')
+    planet.set_target('Basalt clans', capital.row, capital.col)
+    self.assertIn('holds to its own people', basalt.resolve(move))
+    self.assertEqual(civ.stock('basalt', 'grain'), grain)
+    # A cart to the town: how far it is, said to both sides.
+    planet.set_target('Basalt clans', town.row, town.col)
+    news = basalt.resolve(move)
+    self.assertIn('its regard for them is 0.15 of the 1.00 it needs', news)
+    self.assertIn('85% to go', news)
+    self.assertAlmostEqual(civ.stock('basalt', 'grain'), grain - 3.0)
+    (heard,) = basalt.drain_outbox()
+    self.assertEqual(heard[0], planet.war_topic('amber'))
+    self.assertIn('to leave us (85% to go)', heard[1])
+    self.assertIn('Our envoys court a town', towns.describe_war('basalt'))
+    self.assertIn(
+        'The Basalt clans court our town', towns.describe_war('amber')
+    )
+    pi = list(towns.places).index('basalt')
+    self.assertEqual(
+        towns.payload({})['leaning'], {str(town.id): [pi, 0.15, 1.0]}
+    )
+    # A hungry town warms twice as fast; a model's cart goes to the town
+    # nearest to joining; and the town joins at its need, garrison and all
+    # people kept (the garrison walks home).
+    civ.polities['amber'].food_ratio = 0.5
+    town.garrison = {'levies': 2.0}
+    people = (
+        civ.polities['amber'].population + civ.polities['basalt'].population
+    )
+    told = []
+    for _ in range(4):
+      if towns.find(town.id)[1] == 'basalt':
+        break
+      told.append(basalt.resolve(move))
+    self.assertIn('twice as warm', told[0])
+    self.assertIn('0.45 of the 1.00', told[0])
+    self.assertIn('and it joins them', told[-1])
+    self.assertEqual(towns.find(town.id)[1], 'basalt')
+    outbox = basalt.drain_outbox()
+    self.assertIn(planet_lib.CIV_EVENTS, [t for t, _ in outbox])
+    self.assertTrue(any('win over a town of the Amber' in w for _, w in outbox))
+    self.assertTrue(any('walked home' in w for _, w in outbox))
+    self.assertEqual(towns.capital('amber').garrison, {'levies': 2.0})
+    self.assertAlmostEqual(
+        civ.polities['amber'].population + civ.polities['basalt'].population,
+        people,
+    )
+    self.assertAlmostEqual(town.loyalty, 0.6)
+    self.assertFalse(town.taken)
+    # A town won over is content: it settles without arms.
+    told = [e.text for e in planet.advance().events]
+    self.assertFalse(any('restless' in t for t in told), told)
+    self.assertAlmostEqual(town.loyalty, 0.65)
+
+  def test_a_feast_answers_envoys_and_settles_a_taken_town(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet, towns, civ, town, basalt = self._courted()
+    amber = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.15)
+    civ.ledger.deposit('amber', 'grain', 60.0, 'test')
+
+    def feast_move(people):
+      return [
+          o for o in people.options() if o.startswith(actors_lib.HOLD_FEAST)
+      ]
+
+    self.assertEqual(feast_move(amber), [])  # Nothing to answer yet.
+    towns.court(town.id, 'basalt', 0.4)
+    (move,) = feast_move(amber)
+    news = amber.resolve(move)
+    self.assertIn('Amber folk feast their town', news)
+    self.assertIn("others' regard there falls", news)
+    self.assertAlmostEqual(town.regard['basalt'], 0.25)
+    (heard,) = amber.drain_outbox()
+    self.assertEqual(heard[0], planet.war_topic('basalt'))
+    # A town taken by arms is restless; a feast settles it some.
+    planet.change_hands(town.id, 'basalt', stay=0.8, loyalty=0.35, how='take')
+    self.assertTrue(town.taken)
+    self.assertEqual(town.regard, {})
+    self.assertEqual(towns.payload({})['restless'], {str(town.id): 0.35})
+    (move,) = feast_move(basalt)
+    self.assertIn('holds to them at 0.50', basalt.resolve(move))
+    self.assertIn('holds to us at 0.50', towns.describe_war('basalt'))
+    # Without grain: shown, saying why.
+    civ.ledger.withdraw('basalt', 'grain', civ.stock('basalt', 'grain'), 't')
+    self.assertEqual(feast_move(basalt), [])
+    (later,) = [
+        o for o in basalt.out_of_reach() if o.startswith(actors_lib.HOLD_FEAST)
+    ]
+    self.assertIn('which they lack', basalt.why_not(later))
+
+  def test_a_crowded_menu_keeps_its_letters_and_its_town_moves(self):
+    from unittest import mock  # pylint: disable=g-import-not-at-top
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet, towns, _, town, basalt = self._courted()
+    towns.muster('basalt', 'levies', 5.0)
+    towns.court(towns.capital('basalt').id, 'amber', 0.1)
+    full = basalt.options()
+    with mock.patch.object(actors_lib, 'MAX_OPTIONS', len(full) - 2):
+      menu = basalt.options()
+    self.assertLessEqual(len(menu), len(full) - 2)
+    for move in (
+        actors_lib.SEND_ENVOYS,
+        actors_lib.HOLD_FEAST,
+        actors_lib.MARCH_TAKE,
+    ):
+      self.assertTrue(any(o.startswith(move) for o in menu), move)
+    del planet, town
+
+  def test_regard_fades_and_is_saved(self):
+    planet, towns, _, town, _ = self._courted()
+    towns.court(town.id, 'basalt', 0.3)
+    towns.fade_regard()
+    self.assertAlmostEqual(town.regard['basalt'], 0.28)
+    state = towns.get_state()
+    again = _planet('great_acceleration').settlements
+    again.set_state(state)
+    self.assertEqual(again.find(town.id)[0].regard, town.regard)
+    for v in state['towns'].values():  # A save from before C5.
+      del v[5:]
+    again.set_state(state)
+    self.assertEqual(again.find(town.id)[0].regard, {})
+    self.assertFalse(again.find(town.id)[0].taken)
+    del planet
+
 
 if __name__ == '__main__':
   absltest.main()

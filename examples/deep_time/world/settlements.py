@@ -63,6 +63,10 @@ class Settlement:
   garrison: dict[str, float] = dataclasses.field(default_factory=dict)
   # A won town warned it would rise (it does next turn, unless settled).
   warned: bool = False
+  # Taken by arms and not yet settled: restless unless held (C4).
+  taken: bool = False
+  # Its regard for other peoples that court it with grain and envoys (C5).
+  regard: dict[str, float] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -350,6 +354,8 @@ class Settlements:
     place.loyalty = float(loyalty)
     place.garrison = {}
     place.warned = False
+    place.taken = how == 'take'
+    place.regard = {}
     if place.capital:  # A people that lost its capital rules from its oldest.
       place.capital = False
       if self.places[holder]:
@@ -597,7 +603,26 @@ class Settlements:
                     for v in self.places.values()
                     for s in v
                     if s.garrison
-                }
+                },
+                # Each courted town: the people it leans to most, its
+                # regard for them and the regard it needs to join them.
+                'leaning': {
+                    str(s.id): [
+                        keys.index(lean[0]),
+                        round(lean[1], 2),
+                        round(self.need(s), 2),
+                    ]
+                    for v in self.places.values()
+                    for s in v
+                    if (lean := self.courted_by(s)) is not None
+                },
+                # Each taken town not yet settled: its loyalty to its holder.
+                'restless': {
+                    str(s.id): round(s.loyalty, 2)
+                    for v in self.places.values()
+                    for s in v
+                    if s.taken
+                },
             }
             if self.conquest
             else {}
@@ -664,6 +689,30 @@ class Settlements:
             f' {army.arrives}; it stands {self.defence(town):.1f} strong'
             ' with its people and walls.'
         )
+    for holder, towns in self.places.items():
+      for town in towns:
+        need = self.need(town)
+        if holder != polity and town.regard.get(polity, 0.0) > 1e-6:
+          words.append(
+              f'Our envoys court a town of the {self._name(holder)}'
+              f' {self.where(town)}: its regard for us is'
+              f' {town.regard[polity]:.2f} of the {need:.2f} it needs'
+              f' ({self.to_go(town, polity):.0%} to go).'
+          )
+        if holder != polity:
+          continue
+        for other, regard in sorted(town.regard.items()):
+          words.append(
+              f'The {self._name(other)} court our town {self.where(town)}:'
+              f' its regard for them is {regard:.2f} of the {need:.2f} it'
+              f' needs to leave us ({self.to_go(town, other):.0%} to go).'
+          )
+        if town.taken:
+          words.append(
+              f'Our town {self.where(town)}, taken from the'
+              f' {self._name(town.polity)}, holds to us at'
+              f' {town.loyalty:.2f} (settled at 1.00).'
+          )
     return ' '.join(words)
 
   def capital(self, polity: str) -> Settlement | None:
@@ -814,7 +863,10 @@ class Settlements:
     return holder, share
 
   def unrest(self) -> list[tuple[Settlement, str, str]]:
-    """Won towns settle when held by arms, or grow restless and rise.
+    """Taken towns settle when held by arms, or grow restless and rise.
+
+    A taken town held until its loyalty is whole is settled; a town won
+    over grows content a step a turn.
 
     Returns:
       (town, holder, 'warn' or 'rise') for each town that warns or rises.
@@ -827,10 +879,14 @@ class Settlements:
       for town in towns:
         if town.polity == holder:
           continue
-        held = self.strength(town) >= need
+        held = not town.taken or self.strength(town) >= need
         town.loyalty = min(
             1.0, max(0.0, town.loyalty + (step if held else -step))
         )
+        if town.loyalty >= 1.0:
+          town.taken = False
+        if not town.taken:
+          continue
         if town.loyalty >= rise_at:
           town.warned = False
         elif town.warned and self.places.get(town.polity):
@@ -839,6 +895,113 @@ class Settlements:
           town.warned = True
           found.append((town, holder, 'warn'))
     return found
+
+  def need(self, place: Settlement) -> float:
+    """The regard a town needs to join another people (C5).
+
+    Its loyalty to its holder, and never less than the floor, so a fresh
+    conquest does not change hands for one cart of grain.
+    """
+    return max(place.loyalty, float(self.war.get('win_floor', 0.5)))
+
+  def to_go(self, place: Settlement, polity: str) -> float:
+    """How far a town is from joining a people, as a share of its need."""
+    need = self.need(place)
+    return max(0.0, need - place.regard.get(polity, 0.0)) / need
+
+  def courtable(self, polity: str) -> list[tuple[Settlement, str]]:
+    """Other peoples' towns a people may court (capitals hold to their own)."""
+    return [
+        (t, k)
+        for k, towns in self.places.items()
+        if k != polity
+        for t in towns
+        if not t.capital
+    ]
+
+  def best_court(
+      self, polity: str, tile: tuple[int, int] | None = None
+  ) -> tuple[Settlement, str] | None:
+    """The town a people courts: nearest a tile, or nearest to joining it."""
+    towns = self.courtable(polity)
+    if tile is not None:
+      found = self.nearest_town(polity, tile)
+      return found
+    home = self.capital(polity)
+    if not towns or home is None:
+      return None
+    return min(
+        towns,
+        key=lambda tk: (
+            round(self.to_go(tk[0], polity), 6),
+            self._steps(home.row, home.col, tk[0].row, tk[0].col),
+            tk[0].id,
+        ),
+    )
+
+  def court(self, town: int, polity: str, gain: float) -> float:
+    """A people's grain and envoys reach a town; its regard for them now."""
+    found = self.find(town)
+    if found is None:
+      raise KeyError(town)
+    place = found[0]
+    regard = min(1.0, place.regard.get(polity, 0.0) + gain)
+    place.regard[polity] = regard
+    return regard
+
+  def courted_by(self, place: Settlement) -> tuple[str, float] | None:
+    """The people a town leans to most, and its regard for them."""
+    if not place.regard:
+      return None
+    key = max(sorted(place.regard), key=lambda k: place.regard[k])
+    return key, place.regard[key]
+
+  def unsettled(
+      self, polity: str, tile: tuple[int, int] | None = None
+  ) -> Settlement | None:
+    """A people's own town to feast: nearest a tile, or its least settled.
+
+    Least settled: courted nearest to leaving it, or taken and restless.
+    """
+    towns = self.places.get(polity) or []
+    if tile is not None:
+      r, c = tile
+      return min(
+          towns,
+          key=lambda t: (self._steps(r, c, t.row, t.col), t.id),
+          default=None,
+      )
+
+    def at_risk(place: Settlement) -> float:
+      leaning = self.courted_by(place)
+      courted = leaning[1] / self.need(place) if leaning else 0.0
+      restless = 1.0 - place.loyalty if place.taken else 0.0
+      return max(courted, restless)
+
+    risky = [t for t in towns if at_risk(t) > 1e-9]
+    return min(risky, key=lambda t: (-at_risk(t), t.id), default=None)
+
+  def feast(self, town: int, gain: float) -> None:
+    """A town feasted by its holder: loyalty up, others' regard down."""
+    found = self.find(town)
+    if found is None:
+      raise KeyError(town)
+    place = found[0]
+    place.loyalty = min(1.0, place.loyalty + gain)
+    if place.loyalty >= float(self.war.get('rise_at', 0.2)):
+      place.warned = False
+    place.regard = {
+        k: v - gain for k, v in place.regard.items() if v - gain > 1e-6
+    }
+
+  def fade_regard(self) -> None:
+    """Regard not renewed fades a little each turn."""
+    fade = float(self.war.get('regard_fade', 0.02))
+    for towns in self.places.values():
+      for place in towns:
+        place.regard = {
+            k: v - fade for k, v in place.regard.items() if v - fade > 1e-6
+        }
 
   def muster(self, polity: str, kind: str, count: float) -> None:
     """New arms join the garrison of the people's capital."""
@@ -896,6 +1059,8 @@ class Settlements:
                         s.walls,
                         dict(s.garrison),
                         s.warned,
+                        s.taken,
+                        dict(s.regard),
                     ]
                     for v in self.places.values()
                     for s in v
@@ -926,9 +1091,16 @@ class Settlements:
     ).items():
       found = self.find(int(town))
       if found is not None:
-        place = found[0]
+        place, holder = found
         place.polity, place.loyalty = str(founder), float(loyalty)
         place.warned = bool(rest[0]) if rest else False
+        # Older saves: every town held by another people was taken.
+        place.taken = bool(rest[1]) if len(rest) > 1 else place.polity != holder
+        place.regard = (
+            {str(k): float(v) for k, v in rest[2].items()}
+            if len(rest) > 2
+            else {}
+        )
         place.walls = int(walls)
         if isinstance(garrison, Mapping):
           place.garrison = {str(k): float(v) for k, v in garrison.items()}

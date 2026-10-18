@@ -51,6 +51,9 @@ FOUND_TOWN = 'found a new town'
 MARCH_TAKE = 'march to take a town'
 MARCH_RAZE = 'march to raze a town'
 WAR_MOVES = (MARCH_TAKE, MARCH_RAZE)
+# Winning a town over (stage 6, C5), and the holder's answer.
+SEND_ENVOYS = 'send grain and envoys to a town'
+HOLD_FEAST = 'hold a feast in a town'
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
 ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
@@ -862,12 +865,23 @@ class PolityActor(Actor):
         *list(self._plans())[-MAX_PLANS:],
         *(text for text, _ in more),
     ]
-    # Diplomacy, the press and plans may not crowd out every market order.
-    extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
-    # Where conquest is played, founding a town is a move, with its cost.
+    # Where conquest is played, founding a town is a move, with its cost;
+    # and so are courting another people's town and feasting one's own.
     town = [] if self._planet.can_found(self.polity) else [self._town_move()]
+    town += [
+        move
+        for move in (self._gift_move(SEND_ENVOYS), self._gift_move(HOLD_FEAST))
+        if move and not self._why_not_gift(move)
+    ]
     # Raising arms, apart from the trades, and marching them.
     arms = [*self._arms(), *([] if self._why_not_march() else WAR_MOVES)]
+    # Diplomacy, the press and plans may not crowd out every market order,
+    # nor push the menu past its letters.
+    extras = extras[
+        : max(
+            0, MAX_OPTIONS - len(fixed) - len(arms) - len(town) - 1 - MIN_ORDERS
+        )
+    ]
     orders = [*self._trades(), *self._reflexes()]
     room = max(
         0, MAX_OPTIONS - len(fixed) - len(extras) - len(arms) - len(town) - 1
@@ -1010,6 +1024,20 @@ class PolityActor(Actor):
         self.outbox.append((planet_lib.CIV_EVENTS, news))
         self.outbox.append((self._planet.war_topic(holder), news))
       return news
+    if text.startswith(SEND_ENVOYS):
+      self._tally('envoys')
+      news, told, joined = self._planet.send_envoys(self.polity, self.name)
+      for key, words in told.items():  # Each side hears at once.
+        self.outbox.append((self._planet.war_topic(key), words))
+      if joined:  # Every people hears of a town won over.
+        self.outbox.append((planet_lib.CIV_EVENTS, joined))
+      return news
+    if text.startswith(HOLD_FEAST):
+      self._tally('feast')
+      news, told = self._planet.feast(self.polity, self.name)
+      for key, words in told.items():
+        self.outbox.append((self._planet.war_topic(key), words))
+      return news
     if text.startswith(FOUND_TOWN):
       self._tally('found')
       news = self._planet.found_town(self.polity, self.name)
@@ -1056,9 +1084,34 @@ class PolityActor(Actor):
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
     return (
-        text.startswith((FOUND_TOWN, *WAR_MOVES))
+        text.startswith((FOUND_TOWN, *WAR_MOVES, SEND_ENVOYS, HOLD_FEAST))
         or self._focus().get(text) == 'woodcut'
     )
+
+  def _gift_move(self, move: str) -> str:
+    """Courting a town or feasting one's own, with its cost ('' if neither).
+
+    Where conquest is played and its war settings say what a cart takes.
+    """
+    towns = self._planet.settlements
+    if towns is None or not towns.war:
+      return ''
+    return f'{move} [{float(towns.war.get("gift_grain", 3.0)):g} grain]'
+
+  def _why_not_gift(self, option: str) -> str:
+    """Why this people cannot court a town or feast one now ('' if it can)."""
+    towns = self._planet.settlements
+    if towns is None or not towns.war:
+      return 'they court no towns here'
+    feast = option.startswith(HOLD_FEAST)
+    if feast and towns.unsettled(self.polity) is None:
+      return 'no town of theirs is restless or courted'
+    if not feast and not towns.courtable(self.polity):
+      return 'there is no town of another people to court'
+    cost = float(towns.war.get('gift_grain', 3.0))
+    if self._civ().stock(self.polity, 'grain') < cost:
+      return f'a cart takes {cost:g} grain, which they lack'
+    return ''
 
   def _town_move(self) -> str:
     """Founding a town, with its cost."""
@@ -1068,7 +1121,7 @@ class PolityActor(Actor):
     return f'{FOUND_TOWN} [{cost}]'
 
   def out_of_reach(self) -> list[str]:
-    """Founding a town, where conquest is played, while it cannot be yet.
+    """Founding, marching, courting and feasting, while they cannot be yet.
 
     Not offered this turn, but shown with why (`why_not`) and plannable for
     a later turn.
@@ -1082,6 +1135,10 @@ class PolityActor(Actor):
         and self._why_not_march() == 'there are no arms in their capital'
     ):
       later.extend(WAR_MOVES)  # Shown, saying why, until there are arms.
+    for move in (self._gift_move(SEND_ENVOYS), self._gift_move(HOLD_FEAST)):
+      # Shown while only grain is lacking.
+      if move and self._why_not_gift(move).endswith('which they lack'):
+        later.append(move)
     return later
 
   @override
@@ -1091,6 +1148,8 @@ class PolityActor(Actor):
       return self._planet.can_found(self.polity)
     if text.startswith(WAR_MOVES):
       return self._why_not_march()
+    if text.startswith((SEND_ENVOYS, HOLD_FEAST)):
+      return self._why_not_gift(text)
     return ''
 
 

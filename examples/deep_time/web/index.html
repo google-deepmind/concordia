@@ -3037,6 +3037,13 @@ function drawSettlements(ctx, v, unit, X, Y) {
       ctx.strokeStyle = v.theme === 'dark' ? 'rgba(255,120,100,.95)' : 'rgba(196,40,28,.9)';
       ctx.stroke();
     }
+    const lean = (peoples.leaning || {})[id];
+    if (lean && peoples.polities[lean[0]]) {  // Courted: a ring in the courting colour, filled as far as it is to joining.
+      ctx.lineWidth = 1.2 * unit;
+      ctx.beginPath(); ctx.arc(x, y, h * 2.4, 0, 2 * Math.PI); ctx.strokeStyle = halo; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, h * 2.4, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * Math.min(1, lean[1] / lean[2]));
+      ctx.strokeStyle = rgb(peoples.polities[lean[0]][v.theme]); ctx.stroke();
+    }
     if (founder !== undefined) {  // A town won from another people: its old colour inside.
       const old = peoples.polities[founder];
       ctx.beginPath(); ctx.rect(x - h * 0.45, y - h * 0.45, h * 0.9, h * 0.9);
@@ -3723,6 +3730,13 @@ function showInspect() {
         add('Marching on it', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
           + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}, to ${a[8]} it, in turn ${a[7]}`);
       }
+      const lean = (m.peoples.leaning || {})[town[1]];
+      if (lean) {  // Courted with grain and envoys: how far it is to joining.
+        add('Leaning', `to the ${escapeHtml(m.peoples.polities[lean[0]].name)}: regard ${lean[1].toFixed(2)}`
+          + ` of the ${lean[2].toFixed(2)} it needs to join them (${Math.round(100 * Math.max(0, 1 - lean[1] / lean[2]))}% to go)`);
+      }
+      const restless = (m.peoples.restless || {})[town[1]];
+      if (restless !== undefined) add('Restless', `taken by arms: holds to its people at ${restless.toFixed(2)} (settled at 1.00)`);
       const held = (m.peoples.garrisons || {})[town[1]];
       if (held) {  // Its garrison: the arms stationed there, by kind.
         add('Garrison', `${Object.entries(held[1]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`

@@ -43,3 +43,12 @@ war:
   hold_need: 2.0          # garrison strength that settles a restless town
   loyalty_step: 0.05      # a turn's settling (held) or unrest (not held)
   rise_at: 0.2            # below this a won town rises (warned a turn first)
+  # Winning a town over (C5): carts of grain with envoys. A town joins the
+  # people whose regard it holds when that reaches its loyalty to its holder
+  # (and never less than `win_floor`); capitals hold to their own people.
+  gift_grain: 3.0         # grain a cart of gifts (or a feast) takes
+  gift_regard: 0.15       # regard a cart wins (doubled while the holder's people go hungry)
+  regard_fade: 0.02       # a turn's fading of regard not renewed
+  win_floor: 0.5          # the least regard a town joins at (one cart never wins a fresh conquest)
+  win_loyalty: 0.6        # how a town won over holds to its new people (it grows content)
+  feast_loyalty: 0.15     # a feast in a people's own town: loyalty gained, and others' regard lost
