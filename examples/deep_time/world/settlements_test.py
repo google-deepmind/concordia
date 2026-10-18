@@ -106,6 +106,57 @@ class SettlementsTest(absltest.TestCase):
     self.assertLen(payload['polities'], 3)
     self.assertNotEmpty(payload['routes'])
 
+  def test_a_town_changes_hands_with_its_share_of_the_people(self):
+    planet = _planet('great_acceleration')
+    towns, civ = planet.settlements, planet.civ
+    self.assertTrue(towns.conquest)
+    amber = civ.polities['amber']
+    basalt = civ.polities['basalt']
+    shares = towns.shares('basalt')
+    self.assertAlmostEqual(sum(shares.values()), 1.0)
+    town = towns.places['basalt'][-1]
+    before = (amber.population, basalt.population, len(towns.places['amber']))
+    moved = basalt.population * shares[town.id]
+    event = planet.change_hands(town.id, 'amber', stay=0.5, loyalty=0.3)
+    # The town is the Amber folk's now, founded by the Basalt clans.
+    self.assertIs(towns.find(town.id)[0], town)
+    self.assertEqual(towns.find(town.id)[1], 'amber')
+    self.assertEqual(town.polity, 'basalt')
+    self.assertEqual(town.loyalty, 0.3)
+    self.assertLen(towns.places['amber'], before[2] + 1)
+    # Its share of the people moved; half of it stayed.
+    self.assertAlmostEqual(basalt.population, before[1] - moved)
+    self.assertAlmostEqual(amber.population, before[0] + 0.5 * moved)
+    # News for every people, where it happened; on the map in two colours.
+    self.assertIn('Amber folk take a town of the Basalt clans', event.text)
+    self.assertEqual(event.where, (town.row, town.col))
+    payload = towns.payload({})
+    row = next(r for r in payload['settlements'] if r[1] == town.id)
+    keys = [p['key'] for p in payload['polities']]
+    self.assertEqual((keys[row[0]], keys[row[6]]), ('amber', 'basalt'))
+    # A won town is never abandoned for want of people.
+    towns.update({'amber': 0.5})
+    self.assertEqual(towns.find(town.id)[1], 'amber')
+    # It survives a checkpoint, founder, loyalty and all.
+    state = towns.get_state()
+    other = _planet('great_acceleration').settlements
+    other.set_state(state)
+    self.assertEqual(other.get_state(), state)
+    self.assertEqual(other.find(town.id)[0].polity, 'basalt')
+
+  def test_a_captured_capital_hands_the_rule_to_the_oldest_town(self):
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    capital = towns.places['cedar'][0]
+    planet.change_hands(capital.id, 'basalt', stay=1.0, loyalty=0.2)
+    self.assertFalse(capital.capital)
+    self.assertTrue(towns.places['cedar'][0].capital)
+
+  def test_without_conquest_towns_keep_their_old_state(self):
+    towns = _planet('fire_and_iron').settlements
+    self.assertFalse(towns.conquest)
+    self.assertNotIn('towns', towns.get_state())
+
 
 if __name__ == '__main__':
   absltest.main()

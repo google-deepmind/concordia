@@ -2976,7 +2976,7 @@ function drawSettlements(ctx, v, unit, X, Y) {
   const halo = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
   ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
   ctx.textBaseline = 'middle';
-  for (const [i, , r, c, capital, port] of peoples.settlements) {
+  for (const [i, , r, c, capital, port, founder] of peoples.settlements) {
     const sp = peoples.polities[i];
     const x = X(c + 0.5), y = Y(r + 0.5), h = (capital ? 3.6 : 2.4) * unit;
     if (x < -40 || x > v.width + 40 || y < -20 || y > v.height + 20) continue;
@@ -2997,6 +2997,11 @@ function drawSettlements(ctx, v, unit, X, Y) {
       ctx.lineWidth = (hunger === 'famine' ? 2.2 : 1.4) * unit * 0.6;
       ctx.strokeStyle = v.theme === 'dark' ? 'rgba(255,120,100,.95)' : 'rgba(196,40,28,.9)';
       ctx.stroke();
+    }
+    if (founder !== undefined) {  // A town won from another people: its old colour inside.
+      const old = peoples.polities[founder];
+      ctx.beginPath(); ctx.rect(x - h * 0.45, y - h * 0.45, h * 0.9, h * 0.9);
+      ctx.fillStyle = rgb(old[v.theme]); ctx.fill();
     }
     if (port) {
       ctx.beginPath(); ctx.arc(x + h, y + h, 1.2 * unit, 0, 2 * Math.PI);
@@ -3657,7 +3662,8 @@ function showInspect() {
     const town = m.peoples.settlements.find((s) => s[2] === r && s[3] === c);
     if (town) {
       const who = m.peoples.polities[town[0]].name;
-      add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${town[5] ? ' · a port' : ''}`);
+      const won = town[6] === undefined ? '' : `, won from the ${m.peoples.polities[town[6]].name}`;
+      add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
     }
   }
   box.innerHTML = `<div class="ihead"><b>${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}</b>`

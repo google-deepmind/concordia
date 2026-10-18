@@ -28,6 +28,12 @@ settlements
 (each new one to the nearest already joined), and trade routes join the
 capitals of peoples that trade, over land and across the sea, along the
 cheapest tiles.
+
+Where conquest is played (`civilization.conquest`), a town can change hands:
+it is kept by the people that holds it, apart from the people that founded
+it, with its loyalty, walls and garrison; a town's people are its holder's
+population split across the holder's towns by the farmland each works, and
+a change of hands moves that share.
 """
 
 # pylint: disable=g-complex-comprehension,g-doc-return-or-yield,missing-function-docstring
@@ -46,10 +52,15 @@ import numpy as np
 @dataclasses.dataclass
 class Settlement:
   id: int
-  polity: str
+  polity: str  # The people that founded it.
   row: int  # Tile row, south first.
   col: int
   capital: bool = False
+  # Where conquest is played: how firmly the town holds to its people (0-1),
+  # its walls, and the arms stationed there.
+  loyalty: float = 1.0
+  walls: int = 0
+  garrison: float = 0.0
 
 
 class Settlements:
@@ -64,6 +75,7 @@ class Settlements:
       names: Mapping[str, str],
       config: Mapping[str, Any],
       trade: bool = False,
+      conquest: bool = False,
   ):
     """Lays out the capitals.
 
@@ -75,11 +87,13 @@ class Settlements:
       names: Each people's name.
       config: `data/settlements.yaml`.
       trade: Whether the peoples trade (trade routes join their capitals).
+      conquest: Whether towns can change hands.
     """
     self.tiles = tile_map
     self.biomes = biomes
     self.config = config
     self.trade = trade
+    self.conquest = conquest
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -87,6 +101,8 @@ class Settlements:
     )
     self.lands = {k: list(v) for k, v in lands.items()}
     self.names = dict(names)
+    # Each people's towns: those it holds (founded, or won where conquest is
+    # played), capital first.
     self.places: dict[str, list[Settlement]] = {k: [] for k in lands}
     self.next_id = 1
     # Each settlement's worked land when it was laid out, by id.
@@ -173,7 +189,15 @@ class Settlements:
       want = int(np.clip(1 + people // per, 1, top))
       places = self.places[key]
       while len(places) > want:
-        lost = places.pop()
+        # The newest town it founded itself: a town it won is never
+        # abandoned for want of people (nor is the capital).
+        lost = next(
+            (p for p in reversed(places) if p.polity == key and not p.capital),
+            None,
+        )
+        if lost is None:
+          break
+        places.remove(lost)
         news.append(
             news_lib.located(
                 f'{self._name(key)} abandon their town {self.where(lost)}.',
@@ -196,6 +220,61 @@ class Settlements:
     if changed:
       self._route()
     return news
+
+  def find(self, town: int) -> tuple[Settlement, str] | None:
+    """A town by its id, and the people that holds it."""
+    for key, places in self.places.items():
+      for place in places:
+        if place.id == town:
+          return place, key
+    return None
+
+  def shares(self, key: str) -> dict[int, float]:
+    """Each of a people's towns' share of its people: the farmland it works."""
+    farmland = self.farmland()
+    land = {
+        p.id: float(farmland[self._works(p)].sum()) for p in self.places[key]
+    }
+    total = sum(land.values())
+    if total <= 1e-9:
+      return {town: 1.0 / len(land) for town in land} if land else {}
+    return {town: value / total for town, value in land.items()}
+
+  def change_hands(
+      self, town: int, taker: str, loyalty: float, how: str = 'take'
+  ) -> str:
+    """Moves a town to the people that took or won it; the news of it.
+
+    Args:
+      town: The town's id.
+      taker: The people that holds it now.
+      loyalty: Its loyalty to its new holder.
+      how: 'take' (by arms) or 'win' (won over).
+
+    Returns:
+      The news.
+    """
+    found = self.find(town)
+    if found is None:
+      raise KeyError(town)
+    place, holder = found
+    if holder == taker:
+      raise ValueError(f'{taker} already hold town {town}')
+    self.places[holder].remove(place)
+    self.places[taker].append(place)
+    place.loyalty = float(loyalty)
+    place.garrison = 0.0
+    if place.capital:  # A people that lost its capital rules from its oldest.
+      place.capital = False
+      if self.places[holder]:
+        self.places[holder][0].capital = True
+    self._route()
+    verb = 'take' if how == 'take' else 'win over'
+    return news_lib.located(
+        f'{self._name(taker)} {verb} a town of the {self._name(holder)}'
+        f' {self.where(place)}.',
+        (place.row, place.col),
+    )
 
   def tiles_of(self, key: str) -> list[tuple[int, int]]:
     """Where a people's settlements stand."""
@@ -376,6 +455,8 @@ class Settlements:
                 s.col,
                 int(s.capital),
                 int(self._port(s)),
+                # A town won from another people: its founder.
+                *([keys.index(s.polity)] if s.polity != k else []),
             ]
             for i, k in enumerate(keys)
             for s in self.places[k]
@@ -400,6 +481,19 @@ class Settlements:
             k: [[s.id, s.row, s.col, int(s.capital)] for s in v]
             for k, v in self.places.items()
         },
+        # Where conquest is played: each town's founder, loyalty, walls
+        # and garrison.
+        **(
+            {
+                'towns': {
+                    str(s.id): [s.polity, s.loyalty, s.walls, s.garrison]
+                    for v in self.places.values()
+                    for s in v
+                }
+            }
+            if self.conquest
+            else {}
+        ),
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -415,4 +509,12 @@ class Settlements:
         ]
         for k, v in state['places'].items()
     }
+    for town, (founder, loyalty, walls, garrison) in state.get(
+        'towns', {}
+    ).items():
+      found = self.find(int(town))
+      if found is not None:
+        place = found[0]
+        place.polity, place.loyalty = str(founder), float(loyalty)
+        place.walls, place.garrison = int(walls), float(garrison)
     self._route()

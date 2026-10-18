@@ -392,6 +392,7 @@ class Planet:
           {k: p.name for k, p in self.civ.polities.items()},
           data.load('settlements.yaml'),
           trade=self.trade is not None,
+          conquest=bool(scenario['civilization'].get('conquest')),
       )
       self.settlements.update(
           {k: p.population for k, p in self.civ.polities.items()}
@@ -913,6 +914,46 @@ class Planet:
     else:
       self.colony.site = target
     return where
+
+  def change_hands(
+      self,
+      town: int,
+      taker: str,
+      *,
+      stay: float,
+      loyalty: float,
+      how: str = 'take',
+  ) -> WorldEvent:
+    """A town passes to another people, with its share of the people.
+
+    The town's people are its holder's population split across the
+    holder's towns by the farmland each works (`Settlements.shares`); the
+    holder loses that share, and the taker gains the part that stays.
+
+    Args:
+      town: The town's id.
+      taker: The people that takes or wins it.
+      stay: The share of the town's people that stays under the taker.
+      loyalty: Its loyalty to the taker.
+      how: 'take' (by arms) or 'win' (won over).
+
+    Returns:
+      The news, for every people (where it happened).
+    """
+    if self.settlements is None or self.civ is None:
+      raise ValueError('No towns to change hands.')
+    found = self.settlements.find(town)
+    if found is None:
+      raise KeyError(town)
+    holder = found[1]
+    moved = (
+        self.civ.polities[holder].population
+        * self.settlements.shares(holder)[town]
+    )
+    self.civ.polities[holder].population -= moved
+    self.civ.polities[taker].population += moved * stay
+    text = self.settlements.change_hands(town, taker, loyalty, how)
+    return WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text))
 
   def queue_adaptation(self, species: str, answer: str) -> str:
     """Queues the adaptation named in a slow mind's answer.

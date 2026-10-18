@@ -316,6 +316,9 @@ great_acceleration:
     backlash: true
     treaties: true
     media: true
+    # Towns can change hands (stage 6, C1): each kept by its holder, apart
+    # from its founder, with loyalty, walls and a garrison.
+    conquest: true
     # The presses are the Cedar league's: its printers retell the omens.
     press_owner: cedar
     printers: >-
