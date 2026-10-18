@@ -778,60 +778,60 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(needs('Amber folk'), 'an offer awaits your answer')
 
   def test_a_decided_game_is_recapped(self):
-    game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
+    # A short game (a scenario flag), played to the World GM's verdict.
+    game = session_lib.GameSession(
+        'fire_and_iron', 'play', role='Amber folk', overrides={'max_ticks': 4}
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
     self.assertIsNone(game.state()['recap'])
+    _question(game)
+    game.hold_course(None, 10)
+    _wait_for(lambda: game.state()['outcome'])
+    state = game.state()
+    recap = state['recap']
+    self.assertIn(state['outcome'], ('victory', 'defeat'))
+    self.assertEqual(recap['outcome'], state['outcome'])
+    self.assertTrue(state['outcome_reason'])  # As the World GM said it.
     planet = game.context.planet
-    for _ in range(3):
-      planet.advance()
-    seat = game.seats['Amber folk']
-    seat.choices += [
-        'put more labor into: farm the land',
-        'put more labor into: farm the land',
-        '(holding course) keep the current balance of labor',
-        'plan where our next town will stand',
-    ]
-    planet.outcome, planet.outcome_reason = 'defeat', 'only 90 iron was forged'
-    recap = game.state()['recap']
-    self.assertEqual(recap['outcome'], 'defeat')
     self.assertLen(recap['temps'], len(planet.history))
-    self.assertEqual(
-        recap['moves'][0], ['put more labor into: farm the land', 2]
-    )
-    self.assertEqual(recap['held'], 1)
+    self.assertGreaterEqual(recap['held'], 1)  # It held its course.
     self.assertEqual(recap['band'], list(planet.band()))
-    self.assertIsNone(recap['play'])  # No turn was played through the page.
-    self.assertIsNone(game.state()['hold'])  # Nothing left to hold.
+    self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
+    self.assertTrue(all(s['met'] is not None for s in state['stars']))
 
   def test_the_recap_marks_where_each_move_acted(self):
-    game = session_lib.GameSession('daisyworld', 'play')
-    planet = game.context.planet
-    for _ in range(4):
-      planet.advance()
+    game = session_lib.GameSession(
+        'daisyworld', 'play', overrides={'max_ticks': 4}
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
     clouds = next(
-        i.option for i in planet.interventions() if i.key == 'bright_clouds'
+        i.option
+        for i in game.context.planet.interventions()
+        if i.key == 'bright_clouds'
     )
-    turn = {'offered': [], 'pushes': 0, 'seconds': None}
-    game.seats['Gaia'].played += [
-        {**turn, 'tick': 1, 'move': clouds, 'how': 'chose'},
-        {**turn, 'tick': 2, 'move': 'wait and save omega', 'how': 'chose'},
-        {**turn, 'tick': 3, 'move': 'wait and save omega', 'how': 'held'},
-    ]
-    planet.outcome, planet.outcome_reason = 'victory', 'the planet stayed alive'
+    question = _question(game)
+    sent = game.state()['tick']
+    self.assertIsNone(game.choose(question['request_id'], clouds))
+    _wait_for(lambda: game.state()['tick'] > sent)
+    game.hold_course(None, 10)
+    _wait_for(lambda: game.state()['outcome'])
     recap = game.state()['recap']
     # Acted the turn after it was chosen; cooled, as measured on this world.
-    self.assertEqual(recap['marks'], [[2, 'seed bright clouds', 'cool']])
+    self.assertIn([sent + 1, 'seed bright clouds', 'cool'], recap['marks'])
     self.assertIsInstance(recap['seen'], list)  # The Steward's readings.
-    # A cold snap after the clouds acted: a turning point, told with them.
-    for row, temp in zip(planet.history[1:4], (20.0, 9.0, 2.0)):
-      row['temp_c'] = temp
-    turning = game.state()['recap']['turning']
-    (point,) = [p for p in turning if p['to_c'] < p['from_c']]
-    watched = session_lib.GameSession('daisyworld', 'watch')
-    watched.context.planet.outcome = 'victory'
+    self.assertIsInstance(recap['turning'], list)  # (`forecast` tests them.)
+    watched = session_lib.GameSession(
+        'daisyworld', 'watch', pace_seconds=0, overrides={'max_ticks': 3}
+    ).start()
+    self.addCleanup(watched.join, 30)
+    self.addCleanup(watched.cancel)
+    _wait_for(lambda: watched.state()['outcome'])
     self.assertEqual(watched.state()['recap']['turning'], [])  # No player.
-    self.assertEqual((point['move'], point['move_tick']), (clouds, 1))
-    self.assertLess(point['to_c'] - point['from_c'], -8)
 
   def test_each_role_sees_how_old_what_it_knows_is(self):
     game = session_lib.GameSession('daisyworld', 'play').start()

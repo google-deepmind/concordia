@@ -584,6 +584,7 @@ class GameSession:
       resume: Mapping[str, Any] | None = None,
       replay: Mapping[str, Any] | None = None,
       bots: Sequence[str] = (),
+      overrides: Mapping[str, Any] | None = None,
   ):
     """Builds the game (start it with `start`).
 
@@ -614,6 +615,8 @@ class GameSession:
       bots: Roles the mock's skilled policies play, inside their own entities,
         whoever plays the rest (e.g. a watched game of live minds with a
         skilled Steward, to measure the minds).
+      overrides: Scenario flags (`game.new_game`), e.g. a shorter game; a
+        save keeps them, and a game resumed from it plays with them.
 
     Raises:
       KeyError: For an unknown scenario or role.
@@ -664,6 +667,12 @@ class GameSession:
     self.finished = False
     self.minds = minds
     self.models = model_setup.make_models(minds, max_calls=max_calls)
+    # Scenario flags: a resumed game keeps those it was saved with.
+    self.overrides: dict[str, Any] = dict(
+        overrides
+        if overrides is not None
+        else (resume or {}).get('overrides') or {}
+    )
     self._on_end = on_end
     # Its place in the campaign once decided, set as it ends.
     self.chapter: dict[str, Any] | None = None
@@ -693,7 +702,11 @@ class GameSession:
         bots={name: bot for name in bots} if bot is not None else None,
         # Live characters play without the playbook lines the mock's rules
         # read (a scenario flag).
-        overrides=None if self.models.mock is not None else {'coached': False},
+        overrides={
+            **({} if self.models.mock is not None else {'coached': False}),
+            **self.overrides,
+        }
+        or None,
         # The World GM publishes each role's view for the page.
         views=mode,
     )
@@ -783,6 +796,7 @@ class GameSession:
         'scenario': self.scenario,
         'mode': self.mode,
         'seed': self.seed,
+        'overrides': self.overrides,
         'players': list(self.seats),
         'minds': self.minds,
         'turn_seconds': self.turn_seconds,
@@ -866,6 +880,7 @@ class GameSession:
         'scenario': self.scenario,
         'title': str(self.context.scenario.get('title', self.scenario)),
         'seed': self.seed,
+        'overrides': self.overrides,
         'players': list(self.seats),
         'outcome': planet.outcome,
         'stars': planet.star_count(),
@@ -986,7 +1001,7 @@ class GameSession:
     """A player holds course for some turns (0 stops); None, or why not."""
     if self.mode != 'play' or self._spectating(seat):
       return 'Only a player can hold course.'
-    if self.finished or self.context.planet.outcome:
+    if self.finished or self._decided():
       return 'The game is decided.'
     entity = seat if seat in self.seats else self.entity
     place = self.seats[entity]
@@ -1007,7 +1022,7 @@ class GameSession:
     """A player plans a move for a later turn; None, or why not."""
     if self.mode != 'play' or self._spectating(seat):
       return 'Only a player can plan a move.'
-    if self.finished or self.context.planet.outcome:
+    if self.finished or self._decided():
       return 'The game is decided.'
     entity = seat if seat in self.seats else self.entity
     place = self.seats[entity]
@@ -1086,6 +1101,39 @@ class GameSession:
   def _decided(self) -> bool:
     """Whether the World GM has announced the game decided."""
     return self.context.bus.latest(world_step.OUTCOME_TOPIC) is not None
+
+  def _outcome(self) -> dict[str, Any]:
+    """The World GM's verdict (`world.outcome`): outcome, reason, stars."""
+    message = self.context.bus.latest(world_step.OUTCOME_TOPIC)
+    if message is None:
+      return {}
+    try:
+      found = json.loads(message.payload)
+    except (TypeError, ValueError):
+      found = None
+    if not isinstance(found, dict):  # Older saves announced the outcome only.
+      return {'outcome': str(message.payload), 'reason': '', 'stars': None}
+    return found
+
+  def _star_rules(self) -> list[dict[str, Any]]:
+    """The scenario's stars, known from the start (met once decided)."""
+    rules = data.scenario(self.scenario).get('stars') or ()
+    return [{'text': 'Reach the goal', 'met': None}] + [
+        {'text': str(rule['text']), 'met': None} for rule in rules
+    ]
+
+  def _side_rules(self) -> list[dict[str, Any]]:
+    """The Steward's side objectives as the scenario states them."""
+    return [
+        {
+            'key': str(rule['key']),
+            'text': str(rule['text']),
+            'from': int(rule.get('from', 1)),
+            'until': int(rule['until']),
+            'reward': float(rule.get('reward', 0.0)),
+        }
+        for rule in data.scenario(self.scenario).get('side') or ()
+    ]
 
   def _crises(self, entity: str | None) -> list[dict[str, Any]]:
     """A role's crises, as the World GM worked them out (`views.crises`)."""
@@ -2199,7 +2247,7 @@ class GameSession:
         'side': planet.side_payload(),
         # Whether it can be watched again exactly, and as which game.
         'replayable': bool(
-            self.mode == 'play' and self.minds == 'mock' and planet.outcome
+            self.mode == 'play' and self.minds == 'mock' and self._decided()
         ),
         'game_id': self.game_id,
         # Its chapter of the campaign, best stars and the next.
@@ -2390,22 +2438,23 @@ class GameSession:
             if n != entity and self.mode == 'play' and p.pending() is not None
         ],
         'goal': '' if spectator else self.goal(entity),
-        # The scenario's stars, known from the start; met once decided.
-        'stars': planet.stars(),
+        # The scenario's stars, known from the start; met once decided (the
+        # World GM's verdict).
+        'stars': self._outcome().get('stars') or self._star_rules(),
         # The Steward's side objectives: their rules, known from
         # the start; how they stand, it reads on its omega meter.
         'side': (
             [
                 {k: o[k] for k in ('key', 'text', 'from', 'until', 'reward')}
-                for o in planet.side_payload()
+                for o in self._side_rules()
             ]
             if not spectator and self._kind(entity) == 'steward'
             else []
         ),
         'tick': self._tick(),
         'max_ticks': planet.max_ticks,
-        'outcome': planet.outcome or '',
-        'outcome_reason': planet.outcome_reason or '',
+        'outcome': self._outcome().get('outcome') or '',
+        'outcome_reason': self._outcome().get('reason') or '',
         'finished': self.finished,
         'error': self.error,
         'revealed': reveal,
@@ -2448,7 +2497,7 @@ class GameSession:
         # The game told once it is decided: its course and your moves.
         'recap': (
             self._recap(None if spectator else place)
-            if planet.outcome
+            if self._decided()
             else None
         ),
         'chronicle': chronicle.payload if chronicle and reveal else '',
@@ -2467,7 +2516,7 @@ class GameSession:
             if spectator
             or self.mode != 'play'
             or self.finished
-            or planet.outcome
+            or self._decided()
             else {'turns': place.hold, 'stopped': place.stopped}
         ),
         # What came of the course just held, in the player's own readings:
@@ -2478,7 +2527,7 @@ class GameSession:
         # The game this one replays, and whether this one may be.
         'replay_of': self.replay_of,
         'replayable': bool(
-            self.mode == 'play' and self.minds == 'mock' and planet.outcome
+            self.mode == 'play' and self.minds == 'mock' and self._decided()
         ),
         'game_id': self.game_id,
         # Turns that may still be taken back, and whether one can now.

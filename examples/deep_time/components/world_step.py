@@ -26,6 +26,7 @@ its parent,
 """
 
 from collections.abc import Mapping
+import json
 from typing import Any, cast, override
 
 from concordia.components.game_master import next_acting
@@ -103,8 +104,17 @@ class WorldStep(
           f' {ctx.planet.outcome_reason}.'
       )
       ctx.bus.publish('chronicle', verdict, source='world')
-      # Decided: for every seat and page (nothing more to ask anyone).
-      ctx.bus.publish(OUTCOME_TOPIC, ctx.planet.outcome, source='world')
+      # Decided: for every seat and page (nothing more to ask anyone), with
+      # the verdict and the stars earned, judged on the world.
+      ctx.bus.publish(
+          OUTCOME_TOPIC,
+          json.dumps({
+              'outcome': ctx.planet.outcome,
+              'reason': ctx.planet.outcome_reason or '',
+              'stars': ctx.planet.stars(),
+          }),
+          source='world',
+      )
       self.get_entity().get_component(
           self._terminate_component_key, type_=terminate.Terminate
       ).terminate()
