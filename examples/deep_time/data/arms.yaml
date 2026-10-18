@@ -55,6 +55,9 @@ war:
   # A leader (C7): a people holding this share of all towns is named to every
   # people, once, and on each people's sheet while it holds it.
   leader_share: 0.5
+  # Conquest (C8): a people holding this share of all towns conquers the map
+  # and the game ends (founding alone never reaches it).
+  conquest_share: 0.75
 # Peace (stage 6, C7): a treaty any two peoples may make where conquest is
 # played (no tech needed), offered and answered like the others. A march on
 # the other's towns breaks it at once, for all to see.

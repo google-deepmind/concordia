@@ -310,7 +310,9 @@ great_acceleration:
       Keep your people fed, and power your machines: mine coal, learn steam
       power and burn coal in steam engines to make energy (the peoples
       together must make 600 energy), but keep the air under 1.3 times its
-      old carbon, for your harvests depend on the climate.
+      old carbon, for your harvests depend on the climate. Or win alone:
+      hold three of every four towns, taken by arms, won with grain or
+      risen to you, and the age is yours.
     aims: [energy]
     trade: true
     backlash: true

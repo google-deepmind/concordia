@@ -697,6 +697,28 @@ class SettlementsTest(absltest.TestCase):
         planet.settlements.describe_towns('basalt'),
     )
 
+  def test_three_towns_in_four_conquer_the_map(self):
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    others = [
+        t for k in ('amber', 'cedar') for t in towns.places[k] if not t.capital
+    ]
+    for town in others[:6]:  # 11 of 15: not yet.
+      planet.change_hands(town.id, 'basalt', stay=0.8, loyalty=0.35)
+    planet.advance()
+    self.assertIsNone(planet.outcome)
+    planet.change_hands(others[6].id, 'basalt', stay=0.8, loyalty=0.35)
+    planet.advance()  # 12 of 15: the map is the Basalt clans'.
+    self.assertEqual(planet.outcome, planet_lib.DEFEAT)  # The age cut short.
+    self.assertEqual(planet.winner, 'basalt')
+    self.assertEqual(
+        planet.outcome_reason,
+        'the Basalt clans conquered the map (12 of the 15 towns)',
+    )
+    again = _planet('great_acceleration')
+    again.set_state(planet.get_state())
+    self.assertEqual(again.winner, 'basalt')
+
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()
     towns.court(town.id, 'basalt', 0.3)

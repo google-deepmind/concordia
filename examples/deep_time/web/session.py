@@ -1201,6 +1201,18 @@ class GameSession:
       return {'outcome': str(message.payload), 'reason': '', 'stars': None}
     return found
 
+  def _own_outcome(self, entity: str, spectator: bool) -> str:
+    """A seat's own result: the world's, unless a people conquered the map.
+
+    Then the conqueror's player wins and every other player loses.
+    """
+    verdict = self._outcome()
+    winner = verdict.get('winner')
+    if not winner or spectator:
+      return str(verdict.get('outcome') or '')
+    won = self._role(entity).get('polity') == winner
+    return 'victory' if won else 'defeat'
+
   def _star_rules(self) -> list[dict[str, Any]]:
     """The scenario's stars, known from the start (met once decided)."""
     rules = data.scenario(self.scenario).get('stars') or ()
@@ -2568,7 +2580,7 @@ class GameSession:
         ),
         'tick': self._tick(),
         'max_ticks': planet.max_ticks,
-        'outcome': self._outcome().get('outcome') or '',
+        'outcome': self._own_outcome(entity, spectator),
         'outcome_reason': self._outcome().get('reason') or '',
         'finished': self.finished,
         'error': self.error,

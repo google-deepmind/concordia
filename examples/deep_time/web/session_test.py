@@ -31,6 +31,7 @@ from examples.deep_time import game as game_lib
 from examples.deep_time import scenarios
 from examples.deep_time import views
 from examples.deep_time.components import rule_act
+from examples.deep_time.components import world_step
 from examples.deep_time.web import session as session_lib
 from examples.deep_time.world import treaties as treaties_lib
 from concordia.typing import entity as entity_lib
@@ -321,6 +322,30 @@ class GameSessionTest(absltest.TestCase):
         check=False,
     )
     self.assertIn('asked', done.stdout)
+
+  def test_a_conquest_is_its_conquerors_victory_alone(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', players=['Amber folk', 'Basalt clans']
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _wait_for(lambda: game.state('Basalt clans')['question'])
+    # The World GM's verdict, as it publishes one for a conquered map.
+    game.context.bus.publish(
+        world_step.OUTCOME_TOPIC,
+        json.dumps({
+            'outcome': 'defeat',
+            'reason': 'the Basalt clans conquered the map (12 of the 15 towns)',
+            'stars': None,
+            'winner': 'basalt',
+        }),
+        source='world',
+    )
+    self.assertEqual(game.state('Basalt clans')['outcome'], 'victory')
+    self.assertEqual(game.state('Amber folk')['outcome'], 'defeat')
+    self.assertIn(
+        'conquered the map', game.state('Amber folk')['outcome_reason']
+    )
 
   def test_two_people_play_one_game_from_two_phones(self):
     game = session_lib.GameSession(

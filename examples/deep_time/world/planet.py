@@ -455,6 +455,8 @@ class Planet:
     )
     self.outcome: str | None = None
     self.outcome_reason = ''
+    # Where conquest is played: the people that conquered the map, if one did.
+    self.winner = ''
     self.history: list[dict[str, Any]] = []
     # The life on each tile at the last few ticks: a role
     # sees the map's life as its own census saw it, as late as that.
@@ -1020,12 +1022,15 @@ class Planet:
     if found is None:
       raise KeyError(town)
     holder = found[1]
-    moved = (
-        self.civ.polities[holder].population
-        * self.settlements.shares(holder)[town]
-    )
+    share = self.settlements.shares(holder)[town]
+    moved = self.civ.polities[holder].population * share
     self.civ.polities[holder].population -= moved
     self.civ.polities[taker].population += moved * stay
+    # What a people's numbers are measured against (its collapse) moves with
+    # the town: losing towns is not a famine.
+    base = self.civ.start_population[holder] * share
+    self.civ.start_population[holder] -= base
+    self.civ.start_population[taker] += base * stay
     text = self.settlements.change_hands(town, taker, loyalty, how)
     return WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text))
 
@@ -1377,6 +1382,7 @@ class Planet:
           self.treaties.aggrieve(holder, army.polity, f'razed a town {where}')
         _, share = towns.raze(town.id)
         civ.polities[holder].population *= 1.0 - share
+        civ.start_population[holder] *= 1.0 - share  # Not a famine either.
         towns.come_home(army.polity, result['survivors'])
         told(
             news_lib.located(
@@ -2300,6 +2306,31 @@ class Planet:
       return 0.0
     return max(0.0, self.out_of_band - float(recovery))
 
+  def _conquest(self) -> bool:
+    """Ends the game if one people holds `conquest_share` of all towns.
+
+    The age's shared goal is cut short (the world's verdict is a defeat)
+    and the conqueror is named (`winner`): its player wins, the others lose.
+
+    Returns:
+      Whether the map was conquered.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.war:
+      return False
+    lead = towns.lead()
+    share = float(towns.war.get('conquest_share', 0.75))
+    if lead is None or lead[1] < share * lead[2]:
+      return False
+    key, held, total = lead
+    self.winner = key
+    self.outcome = DEFEAT
+    self.outcome_reason = (
+        f'the {civ.polities[key].name} conquered the map ({held} of the'
+        f' {total} towns)'
+    )
+    return True
+
   def _band_defeat(self) -> str:
     """Why a planet strained out of its band is lost."""
     low, high = self.band()
@@ -2318,6 +2349,8 @@ class Planet:
 
   def _judge(self) -> None:
     if self.outcome is not None:
+      return
+    if self._conquest():
       return
     goal = self.goal()
     if goal['kind'] == 'iron_age' and self.civ is not None:
@@ -3227,6 +3260,7 @@ class Planet:
         'instrument_tier': self.instrument_tier,
         'outcome': self.outcome,
         'outcome_reason': self.outcome_reason,
+        **({'winner': self.winner} if self.winner else {}),
         'recent_temps': list(self._recent_temps),
         'ready_at': dict(self._ready_at),
         'made': [[t, k] for t, k in self.made],
@@ -3291,6 +3325,7 @@ class Planet:
     self.instrument_tier = state.get('instrument_tier', self.instrument_tier)
     self.outcome = state['outcome']
     self.outcome_reason = str(state['outcome_reason'])
+    self.winner = str(state.get('winner', ''))
     self._recent_temps = [float(t) for t in state['recent_temps']]
     self._ready_at = {k: int(v) for k, v in state['ready_at'].items()}
     self.made = [(int(t), str(k)) for t, k in state.get('made', ())]

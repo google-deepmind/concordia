@@ -2,6 +2,14 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, morning
+    world: great_acceleration
+    text: >-
+      Conquest can win the age. Playing a people, hold three of every four
+      towns (taken by arms, won with grain, risen to you) and the game ends:
+      you win, every other player loses. Your goal says so beside the shared
+      one. A people that loses towns no longer counts as starving for it:
+      only hunger breaks a people now.
   - when: 19 Oct, night
     world: great_acceleration
     text: >-
