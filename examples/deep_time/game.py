@@ -51,6 +51,9 @@ from concordia.typing import human_input
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import measurements as measurements_lib
 
+# How many of a people's war news its topic keeps (the page's story).
+WAR_NEWS_KEPT = 12
+
 
 @dataclasses.dataclass(frozen=True)
 class Mind:
@@ -623,6 +626,7 @@ def new_game(
               **(
                   {
                       'arms': data.load('arms.yaml')['kinds'],
+                      'war': data.load('arms.yaml')['war'],
                       'recipes': [
                           *_merged(
                               data.load('civ.yaml'),
@@ -685,4 +689,14 @@ def new_game(
         bus, planet.civ, planet.trade, data.load('trade.yaml')['automation']
     )
   context.publish_state()
+  # Where conquest is played, each people hears of its own wars at once and
+  # keeps the last few (the page's story shows them).
+  if planet.settlements is not None and planet.settlements.war:
+    for polity in planet.civ.polities if planet.civ is not None else ():
+      bus.declare(
+          planet.war_topic(polity),
+          retention=topics.Retention.REPLAY,
+          replay_size=WAR_NEWS_KEPT,
+          description="A people's own news of its wars, told at once.",
+      )
   return context

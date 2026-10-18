@@ -394,6 +394,7 @@ class Planet:
           trade=self.trade is not None,
           conquest=bool(scenario['civilization'].get('conquest')),
           arms=(civ_config or {}).get('arms'),
+          war=(civ_config or {}).get('war'),
       )
       self.settlements.update(
           {k: p.population for k, p in self.civ.polities.items()}
@@ -696,6 +697,7 @@ class Planet:
         events.append(WorldEvent(CIV_EVENTS, text))
       for text in self._muster():  # Arms join their garrisons and eat.
         events.append(WorldEvent(CIV_EVENTS, text))
+      events.extend(self._wars())  # Armies march, fight, towns rise.
       if self.settlements is not None and self.pollution is not None:
         for text in self.settlements.update(
             {k: p.population for k, p in self.civ.polities.items()},
@@ -1006,7 +1008,8 @@ class Planet:
       taker: The people that takes or wins it.
       stay: The share of the town's people that stays under the taker.
       loyalty: Its loyalty to the taker.
-      how: 'take' (by arms) or 'win' (won over).
+      how: 'take' (by arms), 'win' (won over) or 'rise' (back to its
+        founder).
 
     Returns:
       The news, for every people (where it happened).
@@ -1080,6 +1083,196 @@ class Planet:
             )
         )
     self.pending_adaptations = still_pending
+    return events
+
+  def war_topic(self, polity: str) -> str:
+    """Where a people hears of its own wars at once (`civ.<key>.war`)."""
+    return f'civ.{polity}.war'
+
+  def march(self, polity: str, actor: str, intent: str) -> tuple[str, str]:
+    """A people marches its capital's garrison on another people's town.
+
+    The town nearest where the move was aimed (by a person on the map), or
+    nearest the people's capital (a model's move).
+
+    Args:
+      polity: The people.
+      actor: Its entity's name (whose aim, if any, says where).
+      intent: 'take' or 'raze'.
+
+    Returns:
+      Where the army goes and when it arrives, or why not; and the people
+      whose town it marches on ('' if none).
+    """
+    target = self.targets.pop(actor, None)
+    towns, civ = self.settlements, self.civ
+    assert towns is not None and civ is not None
+    name = civ.polities[polity].name
+    found = towns.nearest_town(polity, target)
+    if found is None:
+      return f'{name} march nowhere: there is no town of another people.', ''
+    town, holder = found
+    army, why = towns.march(polity, town.id, intent, self.tick)
+    if army is None:
+      return f'{name} march nowhere: {why}.', ''
+    kinds = ' and '.join(
+        f'{n:.1f} {towns.arms[k]["label"]}'
+        for k, n in sorted(army.units.items())
+    )
+    return (
+        news_lib.located(
+            f'{name} march {kinds} on a town of the'
+            f' {civ.polities[holder].name} {towns.where(town)}, to {intent}'
+            f' it; they arrive in turn {army.arrives}.',
+            (town.row, town.col),
+        ),
+        holder,
+    )
+
+  def _wars(self) -> list[WorldEvent]:
+    """Armies march; those arriving fight; won towns settle or rise.
+
+    Where conquest is played (`data/arms.yaml`, `war`). Every outcome is news
+    for every people, where it happened.
+
+    Returns:
+      The news.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.war:
+      return []
+    events = []
+
+    def told(text: str, **own: str) -> None:
+      """News for every people; and, at once, each side's own words."""
+      events.append(WorldEvent(CIV_EVENTS, text, where=news_lib.place_of(text)))
+      for key, words in own.items():
+        events.append(WorldEvent(self.war_topic(key), words))
+
+    for army in towns.march_on(self.tick):
+      draw = float(
+          np.random.default_rng([self.tiles.seed, army.id, self.tick]).random()
+      )
+      result = towns.fight(army, draw)
+      name = civ.polities[army.polity].name
+      kept = (
+          ' and '.join(
+              f'{n:.1f} {towns.arms[k]["label"]}'
+              for k, n in sorted(result['survivors'].items())
+          )
+          or 'no one'
+      )
+      if result['outcome'] == 'gone':
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            f'The army of the {name} finds no town to fight for and turns'
+            ' home.',
+            **{
+                army.polity: (
+                    f'Our army found no town to fight for; {kept} came home.'
+                )
+            },
+        )
+        continue
+      town, holder = result['town'], result['holder']
+      held_by = civ.polities[holder].name
+      where = towns.where(town)
+      if result['outcome'] == 'repelled':
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            news_lib.located(
+                f'The army of the {name} is thrown back from a town of the'
+                f' {held_by} {where}.',
+                (town.row, town.col),
+            ),
+            **{
+                army.polity: (
+                    f'Our army was thrown back from a town of the {held_by}'
+                    f' {where}; {kept} came home.'
+                ),
+                holder: f'Our town {where} threw back the army of the {name}.',
+            },
+        )
+      elif army.intent == 'raze':
+        _, share = towns.raze(town.id)
+        civ.polities[holder].population *= 1.0 - share
+        towns.come_home(army.polity, result['survivors'])
+        told(
+            news_lib.located(
+                f'The {name} raze a town of the {held_by} {where}; its people'
+                ' are scattered.',
+                (town.row, town.col),
+            ),
+            **{
+                army.polity: (
+                    f'Our army razed a town of the {held_by} {where}; {kept}'
+                    ' came home.'
+                ),
+                holder: (
+                    f'The {name} razed our town {where}; its people are gone.'
+                ),
+            },
+        )
+      else:
+        events.append(
+            self.change_hands(
+                town.id,
+                army.polity,
+                stay=0.8,
+                loyalty=float(towns.war.get('taken_loyalty', 0.35)),
+                how='take',
+            )
+        )
+        town.garrison = dict(result['survivors'])  # It holds what it took.
+        events.append(
+            WorldEvent(
+                self.war_topic(army.polity),
+                f'Our army took a town of the {held_by} {where}; {kept} hold'
+                ' it. It is restless: it holds to us while our arms stay.',
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(holder), f'The {name} took our town {where}.'
+            )
+        )
+    for town, holder, kind in towns.unrest():
+      held_by = civ.polities[holder].name
+      if kind == 'warn':
+        need = float(towns.war.get('hold_need', 2.0))
+        told(
+            news_lib.located(
+                f'A town {towns.where(town)} held by the {held_by} is restless:'
+                ' it will rise unless held by arms.',
+                (town.row, town.col),
+            ),
+            **{
+                holder: (
+                    f'Our town {towns.where(town)} is restless: it rises next'
+                    f' turn unless arms of strength {need:g} hold it.'
+                )
+            },
+        )
+      else:
+        events.append(
+            self.change_hands(
+                town.id, town.polity, stay=1.0, loyalty=0.6, how='rise'
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(holder),
+                f'Our town {towns.where(town)} rose against us and returned'
+                f' to the {civ.polities[town.polity].name}.',
+            )
+        )
+        events.append(
+            WorldEvent(
+                self.war_topic(town.polity),
+                f'Our old town {towns.where(town)} rose against the'
+                f' {held_by} and is ours again.',
+            )
+        )
     return events
 
   def _muster(self) -> list[str]:

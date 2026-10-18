@@ -61,6 +61,23 @@ class Settlement:
   loyalty: float = 1.0
   walls: int = 0
   garrison: dict[str, float] = dataclasses.field(default_factory=dict)
+  # A won town warned it would rise (it does next turn, unless settled).
+  warned: bool = False
+
+
+@dataclasses.dataclass
+class Army:
+  """A garrison on the march (where conquest is played, stage 6 C4)."""
+
+  id: int
+  polity: str  # The people it marches for.
+  units: dict[str, float]  # Arms by kind.
+  path: list[tuple[int, int]]  # Tiles from its town to its target.
+  at: int  # How far along the path it is.
+  target: int  # The town it marches on.
+  intent: str  # 'take' or 'raze'.
+  arrives: int  # The tick it reaches the town.
+  per_turn: int  # Tiles it covers a turn.
 
 
 class Settlements:
@@ -77,6 +94,7 @@ class Settlements:
       trade: bool = False,
       conquest: bool = False,
       arms: Mapping[str, Mapping[str, Any]] | None = None,
+      war: Mapping[str, Any] | None = None,
   ):
     """Lays out the capitals.
 
@@ -90,6 +108,7 @@ class Settlements:
       trade: Whether the peoples trade (trade routes join their capitals).
       conquest: Whether towns can change hands.
       arms: The kinds of arms (`data/arms.yaml`), where conquest is played.
+      war: How marches, fights and their aftermath go (`data/arms.yaml`).
     """
     self.tiles = tile_map
     self.biomes = biomes
@@ -97,6 +116,10 @@ class Settlements:
     self.trade = trade
     self.conquest = conquest
     self.arms = {k: dict(v) for k, v in (arms or {}).items()}
+    self.war = dict(war or {})
+    # Armies on the march, and the next army's id.
+    self.armies: list[Army] = []
+    self.next_army = 1
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -310,7 +333,8 @@ class Settlements:
       town: The town's id.
       taker: The people that holds it now.
       loyalty: Its loyalty to its new holder.
-      how: 'take' (by arms) or 'win' (won over).
+      how: 'take' (by arms), 'win' (won over) or 'rise' (a won town
+        returning to its founder).
 
     Returns:
       The news.
@@ -325,17 +349,24 @@ class Settlements:
     self.places[taker].append(place)
     place.loyalty = float(loyalty)
     place.garrison = {}
+    place.warned = False
     if place.capital:  # A people that lost its capital rules from its oldest.
       place.capital = False
       if self.places[holder]:
         self.places[holder][0].capital = True
     self._route()
-    verb = 'take' if how == 'take' else 'win over'
-    return news_lib.located(
-        f'{self._name(taker)} {verb} a town of the {self._name(holder)}'
-        f' {self.where(place)}.',
-        (place.row, place.col),
-    )
+    if how == 'rise':
+      text = (
+          f'A town {self.where(place)} rises against the'
+          f' {self._name(holder)} and returns to the {self._name(taker)}.'
+      )
+    else:
+      verb = 'take' if how == 'take' else 'win over'
+      text = (
+          f'{self._name(taker)} {verb} a town of the {self._name(holder)}'
+          f' {self.where(place)}.'
+      )
+    return news_lib.located(text, (place.row, place.col))
 
   def tiles_of(self, key: str) -> list[tuple[int, int]]:
     """Where a people's settlements stand."""
@@ -526,6 +557,32 @@ class Settlements:
             [kind, [[north - r, c] for r, c in path]]
             for kind, path in self.routes
         ],
+        # Armies on the march: [people, row, col, strength, arms by kind,
+        # target row, target col, arrival tick, 'take' or 'raze'].
+        **(
+            {
+                'armies': [
+                    [
+                        keys.index(a.polity),
+                        north - a.path[a.at][0],
+                        a.path[a.at][1],
+                        round(self.army_strength(a), 1),
+                        {
+                            self.arms.get(k, {}).get('label', k): round(n, 1)
+                            for k, n in sorted(a.units.items())
+                        },
+                        north - a.path[-1][0],
+                        a.path[-1][1],
+                        a.arrives,
+                        a.intent,
+                    ]
+                    for a in self.armies
+                    if a.polity in keys
+                ]
+            }
+            if self.conquest
+            else {}
+        ),
         # Each garrisoned town's strength and its arms by kind.
         **(
             {
@@ -582,19 +639,224 @@ class Settlements:
         f' they eat {self.upkeep(polity):.1f} grain a turn.'
     )
 
+  def describe_war(self, polity: str) -> str:
+    """Armies a people has on the march, and those marching on its towns."""
+    words = []
+    for army in self.armies:
+      found = self.find(army.target)
+      if found is None:
+        continue
+      town, holder = found
+      kinds = ' and '.join(
+          f'{n:.1f} {self.arms.get(k, {}).get("label", k)}'
+          for k, n in sorted(army.units.items())
+      )
+      if army.polity == polity:
+        words.append(
+            f'Our army of {kinds} marches to {army.intent} a town of the'
+            f' {self._name(holder)} {self.where(town)}, arriving in turn'
+            f' {army.arrives}.'
+        )
+      elif holder == polity:
+        words.append(
+            f'An army of the {self._name(army.polity)} ({kinds}) marches to'
+            f' {army.intent} our town {self.where(town)}, arriving in turn'
+            f' {army.arrives}; it stands {self.defence(town):.1f} strong'
+            ' with its people and walls.'
+        )
+    return ' '.join(words)
+
+  def capital(self, polity: str) -> Settlement | None:
+    """A people's capital (its first town if it has none)."""
+    towns = self.places.get(polity) or []
+    return next((t for t in towns if t.capital), towns[0] if towns else None)
+
+  def nearest_town(
+      self, polity: str, tile: tuple[int, int] | None
+  ) -> tuple[Settlement, str] | None:
+    """Another people's town nearest a tile (or the people's capital)."""
+    home = self.capital(polity)
+    if tile is None and home is None:
+      return None
+    r, c = tile if tile is not None else (home.row, home.col)  # type: ignore
+    others = [
+        (self._steps(r, c, t.row, t.col), t.id, t, k)
+        for k, towns in self.places.items()
+        if k != polity
+        for t in towns
+    ]
+    if not others:
+      return None
+    _, _, town, holder = min(others, key=lambda x: (x[0], x[1]))
+    return town, holder
+
+  def march(
+      self, polity: str, town: int, intent: str, tick: int
+  ) -> tuple[Army | None, str]:
+    """A people sends its capital's garrison to take or raze a town.
+
+    Args:
+      polity: The people that marches.
+      town: The town marched on (another people's).
+      intent: 'take' or 'raze'.
+      tick: Now.
+
+    Returns:
+      The army, or None and why not.
+    """
+    home = self.capital(polity)
+    found = self.find(town)
+    if home is None:
+      return None, 'they hold no town to march from'
+    if found is None or found[1] == polity:
+      return None, 'there is no town of another people there'
+    if not home.garrison:
+      return None, 'there are no arms in their capital'
+    target = found[0]
+    path = self._path((home.row, home.col), (target.row, target.col), True)
+    if not path:
+      return None, 'there is no way there'
+    speed = min(
+        int(self.arms.get(k, {}).get('speed', 1)) for k in home.garrison
+    )
+    per_turn = max(1, int(self.war.get('march_tiles', 8)) * speed)
+    turns = max(1, -(-(len(path) - 1) // per_turn))
+    army = Army(
+        id=self.next_army,
+        polity=polity,
+        units=dict(home.garrison),
+        path=path,
+        at=0,
+        target=town,
+        intent=intent,
+        arrives=tick + turns,
+        per_turn=per_turn,
+    )
+    self.next_army += 1
+    home.garrison = {}
+    self.armies.append(army)
+    return army, ''
+
+  def army_strength(self, army: Army) -> float:
+    return sum(
+        n * float(self.arms.get(k, {}).get('strength', 1.0))
+        for k, n in army.units.items()
+    )
+
+  def defence(self, place: Settlement) -> float:
+    """What a town fights with: its garrison and its people, behind walls."""
+    militia = float(
+        self.war.get('capital_militia' if place.capital else 'militia', 1.0)
+    )
+    walls = 1.0 + float(self.war.get('walls_bonus', 0.5)) * place.walls
+    return (self.strength(place) + militia) * walls
+
+  def march_on(self, tick: int) -> list[Army]:
+    """Armies move a turn's way; those arriving now (taken off the march)."""
+    arrived = []
+    for army in list(self.armies):
+      if tick >= army.arrives:
+        army.at = len(army.path) - 1
+        self.armies.remove(army)
+        arrived.append(army)
+      else:
+        army.at = min(len(army.path) - 1, army.at + army.per_turn)
+    return arrived
+
+  def fight(self, army: Army, draw: float) -> dict[str, Any]:
+    """An army at its target: the fight, and what is left of each side.
+
+    Args:
+      army: The army, arrived.
+      draw: A seeded draw in [0, 1).
+
+    Returns:
+      `{'outcome': 'won'|'repelled'|'gone', 'town', 'holder', 'survivors'}`:
+      'gone' if the town is no longer another people's to fight for.
+    """
+    found = self.find(army.target)
+    if found is None or found[1] == army.polity:
+      return {'outcome': 'gone', 'survivors': dict(army.units)}
+    town, holder = found
+    attack, defend = self.army_strength(army), self.defence(town)
+    won = draw < attack**2 / max(1e-9, attack**2 + defend**2)
+    if won:  # The attackers lose in proportion to the defence they met.
+      kept = max(0.1, 1.0 - 0.5 * min(1.0, defend / max(attack, 1e-9)))
+      town.garrison = {}
+    else:  # Thrown back: the attackers lose most; the defenders some.
+      kept = 0.4
+      hurt = 1.0 - min(0.5, 0.3 * attack / max(defend, 1e-9))
+      town.garrison = {k: n * hurt for k, n in town.garrison.items()}
+    survivors = {k: n * kept for k, n in army.units.items() if n * kept > 1e-3}
+    return {
+        'outcome': 'won' if won else 'repelled',
+        'town': town,
+        'holder': holder,
+        'survivors': survivors,
+    }
+
+  def come_home(self, polity: str, units: Mapping[str, float]) -> None:
+    """Survivors join their people's capital (if it still stands)."""
+    for kind, n in units.items():
+      self.muster(polity, kind, n)
+
+  def raze(self, town: int) -> tuple[str, float]:
+    """A town razed: gone from its holder; the holder and its share."""
+    found = self.find(town)
+    if found is None:
+      raise KeyError(town)
+    place, holder = found
+    share = self.shares(holder).get(place.id, 0.0)
+    self.places[holder].remove(place)
+    if place.capital and self.places[holder]:
+      self.places[holder][0].capital = True
+    self._route()
+    return holder, share
+
+  def unrest(self) -> list[tuple[Settlement, str, str]]:
+    """Won towns settle when held by arms, or grow restless and rise.
+
+    Returns:
+      (town, holder, 'warn' or 'rise') for each town that warns or rises.
+    """
+    step = float(self.war.get('loyalty_step', 0.05))
+    need = float(self.war.get('hold_need', 2.0))
+    rise_at = float(self.war.get('rise_at', 0.2))
+    found = []
+    for holder, towns in self.places.items():
+      for town in towns:
+        if town.polity == holder:
+          continue
+        held = self.strength(town) >= need
+        town.loyalty = min(
+            1.0, max(0.0, town.loyalty + (step if held else -step))
+        )
+        if town.loyalty >= rise_at:
+          town.warned = False
+        elif town.warned and self.places.get(town.polity):
+          found.append((town, holder, 'rise'))
+        elif not town.warned:
+          town.warned = True
+          found.append((town, holder, 'warn'))
+    return found
+
   def muster(self, polity: str, kind: str, count: float) -> None:
     """New arms join the garrison of the people's capital."""
-    towns = self.places.get(polity)
-    if not towns or count <= 0:
+    capital = self.capital(polity)
+    if capital is None or count <= 0:
       return
-    capital = next((t for t in towns if t.capital), towns[0])
     capital.garrison[kind] = capital.garrison.get(kind, 0.0) + float(count)
 
   def upkeep(self, polity: str) -> float:
-    """The grain a people's arms eat in a turn."""
+    """The grain a people's arms eat in a turn (on the march too)."""
+    held = dict(self.arms_of(polity))
+    for army in self.armies:
+      if army.polity == polity:
+        for kind, n in army.units.items():
+          held[kind] = held.get(kind, 0.0) + n
     return sum(
         n * float(self.arms.get(k, {}).get('upkeep', 0.0))
-        for k, n in self.arms_of(polity).items()
+        for k, n in held.items()
     )
 
   def desert(self, polity: str, share: float) -> dict[str, float]:
@@ -628,10 +890,18 @@ class Settlements:
         **(
             {
                 'towns': {
-                    str(s.id): [s.polity, s.loyalty, s.walls, dict(s.garrison)]
+                    str(s.id): [
+                        s.polity,
+                        s.loyalty,
+                        s.walls,
+                        dict(s.garrison),
+                        s.warned,
+                    ]
                     for v in self.places.values()
                     for s in v
-                }
+                },
+                'armies': [dataclasses.asdict(a) for a in self.armies],
+                'next_army': self.next_army,
             }
             if self.conquest
             else {}
@@ -651,16 +921,32 @@ class Settlements:
         ]
         for k, v in state['places'].items()
     }
-    for town, (founder, loyalty, walls, garrison) in state.get(
+    for town, (founder, loyalty, walls, garrison, *rest) in state.get(
         'towns', {}
     ).items():
       found = self.find(int(town))
       if found is not None:
         place = found[0]
         place.polity, place.loyalty = str(founder), float(loyalty)
+        place.warned = bool(rest[0]) if rest else False
         place.walls = int(walls)
         if isinstance(garrison, Mapping):
           place.garrison = {str(k): float(v) for k, v in garrison.items()}
         else:  # Older saves: one number, before arms had kinds.
           place.garrison = {'levies': float(garrison)} if garrison else {}
+    self.armies = [
+        Army(
+            id=int(a['id']),
+            polity=str(a['polity']),
+            units={str(k): float(v) for k, v in a['units'].items()},
+            path=[(int(r), int(c)) for r, c in a['path']],
+            at=int(a['at']),
+            target=int(a['target']),
+            intent=str(a['intent']),
+            arrives=int(a['arrives']),
+            per_turn=int(a['per_turn']),
+        )
+        for a in state.get('armies', ())
+    ]
+    self.next_army = int(state.get('next_army', 1))
     self._route()

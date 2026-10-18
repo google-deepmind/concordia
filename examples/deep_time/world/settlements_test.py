@@ -171,11 +171,14 @@ class SettlementsTest(absltest.TestCase):
         any(o.startswith(actors_lib.FOUND_TOWN) for o in people.options())
     )
     # But shown as a move it is saving for, with why (and plannable).
-    (later,) = people.out_of_reach()
-    self.assertTrue(later.startswith(actors_lib.FOUND_TOWN))
+    (later,) = [
+        o for o in people.out_of_reach() if o.startswith(actors_lib.FOUND_TOWN)
+    ]
     self.assertIn('settlers for one more need', people.why_not(later))
     amber.population = 30.0
-    self.assertEqual(people.out_of_reach(), [])  # Now offered instead.
+    self.assertFalse(  # Now offered instead.
+        any(o.startswith(actors_lib.FOUND_TOWN) for o in people.out_of_reach())
+    )
     move = next(
         o for o in people.options() if o.startswith(actors_lib.FOUND_TOWN)
     )
@@ -277,6 +280,86 @@ class SettlementsTest(absltest.TestCase):
     planet = _planet('fire_and_iron')
     self.assertEqual(planet.settlements.arms, {})
     self.assertFalse(any(r.key.startswith('arm_') for r in planet.civ.recipes))
+
+  def _march(self, intent):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    # No arms yet: the march waits among the moves saved for, saying why.
+    self.assertIn(actors_lib.MARCH_TAKE, basalt.out_of_reach())
+    self.assertEqual(
+        basalt.why_not(actors_lib.MARCH_TAKE),
+        'there are no arms in their capital',
+    )
+    towns.muster('basalt', 'levies', 40.0)
+    move = actors_lib.MARCH_RAZE if intent == 'raze' else actors_lib.MARCH_TAKE
+    self.assertIn(move, basalt.options())
+    self.assertTrue(basalt.aimable(move))
+    town, holder = towns.nearest_town('basalt', None)
+    news = basalt.resolve(move)
+    self.assertIn(f'to {intent} it; they arrive in turn', news)
+    outbox = basalt.drain_outbox()
+    self.assertIn((planet_lib.CIV_EVENTS, news), outbox)  # Every people.
+    self.assertIn((planet.war_topic(holder), news), outbox)  # Its target.
+    (army,) = towns.armies
+    self.assertEqual(towns.capital('basalt').garrison, {})  # It marched.
+    self.assertLen(towns.payload({})['armies'], 1)  # Drawn on the map.
+    told = []
+    while towns.armies:
+      told.extend(e.text for e in planet.advance().events)
+    self.assertGreaterEqual(planet.tick, army.arrives)
+    return planet, towns, town, holder, told
+
+  def test_an_army_marches_takes_a_town_that_settles_or_rises(self):
+    planet, towns, town, holder, told = self._march('take')
+    self.assertEqual(towns.find(town.id)[1], 'basalt')
+    self.assertTrue(
+        any('Basalt clans take a town of the' in t for t in told), told
+    )
+    self.assertGreater(towns.strength(town), 2.0)  # It holds what it took.
+    # Each side hears it at once, in its own words.
+    self.assertTrue(any(t.startswith('Our army took a town') for t in told))
+    self.assertTrue(
+        any(t.startswith('The Basalt clans took our town') for t in told)
+    )
+    self.assertAlmostEqual(town.loyalty, 0.35, 1)
+    # Left unheld, it grows restless, warns, and rises to its founder.
+    town.garrison = {}
+    told = []
+    for _ in range(8):
+      told.extend(e.text for e in planet.advance().events)
+      if towns.find(town.id)[1] == holder:
+        break
+    self.assertTrue(any('is restless' in t for t in told), told)
+    self.assertTrue(any('rises against the Basalt clans' in t for t in told))
+    self.assertTrue(any('rose against us' in t for t in told))
+    self.assertTrue(
+        any(t.startswith('Our town') and 'rises next turn' in t for t in told)
+    )
+    self.assertEqual(towns.find(town.id)[1], holder)
+
+  def test_an_army_razes_a_town_and_its_people_are_lost(self):
+    planet = _planet('great_acceleration')
+    planet, towns, town, holder, told = self._march('raze')
+    self.assertIsNone(towns.find(town.id))
+    self.assertTrue(any('raze a town of the' in t for t in told), told)
+    # The survivors came home.
+    self.assertGreater(towns.strength(towns.capital('basalt')), 0.0)
+
+  def test_armies_on_the_march_are_saved_and_restored(self):
+    planet = _planet('great_acceleration')
+    towns = planet.settlements
+    towns.muster('basalt', 'riders', 5.0)
+    town, _ = towns.nearest_town('basalt', None)
+    army, why = towns.march('basalt', town.id, 'take', planet.tick)
+    self.assertEqual(why, '')
+    self.assertEqual(army.per_turn, 16)  # Riders cover two legs a turn.
+    again = _planet('great_acceleration').settlements
+    again.set_state(towns.get_state())
+    self.assertEqual(again.armies, towns.armies)
+    self.assertEqual(again.upkeep('basalt'), 2.5)  # They eat on the march.
 
 
 if __name__ == '__main__':

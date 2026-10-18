@@ -2967,6 +2967,38 @@ function drawHeadline(ctx, v) {
 
 // Settlements on top of everything: a capital as a house with its people's
 // name, towns as small squares, ports with a dot of sea blue.
+// Armies on the march: a pennant in their people's colour where they are,
+// a dashed line to the town they march on, their strength and the turn
+// they arrive (a fire for a town they mean to raze).
+function drawArmies(ctx, v, unit, X, Y) {
+  const armies = (v.peoples && v.peoples.armies) || [];
+  for (const [pi, r, c, strength, , tr, tc, arrives, intent] of armies) {
+    const sp = v.peoples.polities[pi];
+    if (!sp) continue;
+    let tcol = tc;  // The short way round, across the date line.
+    if (Math.abs(tcol - c) > v.cols / 2) tcol += tcol > c ? -v.cols : v.cols;
+    const x = X(c + 0.5), y = Y(r + 0.5), tx = X(tcol + 0.5), ty = Y(tr + 0.5);
+    ctx.save();
+    ctx.setLineDash([4 * unit * 0.5, 3 * unit * 0.5]);
+    ctx.lineWidth = 1.6 * unit * 0.6;
+    ctx.strokeStyle = rgb(sp[v.theme]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+    ctx.restore();
+    const h = 3 * unit;  // A pennant on a pole.
+    ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y - h * 1.4);
+    ctx.lineTo(x + h * 1.6, y - h * 0.9); ctx.lineTo(x, y - h * 0.4); ctx.closePath();
+    ctx.fillStyle = rgb(sp[v.theme]); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = v.theme === 'dark' ? '#000' : '#fff'; ctx.stroke();
+    const label = `${intent === 'raze' ? '🔥' : '⚔️'}${Math.round(strength)} → turn ${arrives}`;
+    ctx.font = `700 ${Math.max(10, 5.4 * unit)}px system-ui, sans-serif`;
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.strokeStyle = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
+    ctx.strokeText(label, x + h * 1.8, y - h * 0.9);
+    ctx.fillStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+    ctx.fillText(label, x + h * 1.8, y - h * 0.9);
+  }
+}
+
 function drawSettlements(ctx, v, unit, X, Y) {
   if (v.site) {  // The colony's ice mine: a diamond and its name.
     const x = X(v.site[1] + 0.5), y = Y(v.site[0] + 0.5), h = 3.4 * unit;
@@ -3016,7 +3048,7 @@ function drawSettlements(ctx, v, unit, X, Y) {
     }
     const held = (peoples.garrisons || {})[id];
     if (held && held[0] >= 0.5) {  // Its garrison's strength, below it.
-      const label = `⚔${Math.round(held[0])}`;
+      const label = `⚔️${Math.round(held[0])}`;
       ctx.font = `700 ${Math.max(10, 5.6 * unit)}px system-ui, sans-serif`;
       ctx.lineWidth = 3; ctx.strokeStyle = halo;
       ctx.strokeText(label, x - h, y + h + 5 * unit);
@@ -3219,6 +3251,7 @@ function drawHerds(k) {
   drawCrisisMarks(ctx, v, X, Y);
   drawPins(ctx, v, X, Y, k);
   drawSettlements(ctx, v, unit, X, Y);
+  drawArmies(ctx, v, unit, X, Y);
   drawHeadline(ctx, v);
   if (aim && aim.target) {  // Where the aimed move will land: a pin and a halo.
     const x = X(aim.target.c + 0.5), y = Y(aim.target.r + 0.5), rad = (X(1) - X(0)) * 2.5;
@@ -3676,11 +3709,20 @@ function showInspect() {
     add(age === 0 ? 'News now' : `News, ${age} turn${age === 1 ? '' : 's'} ago`, escapeHtml(text));
   }
   if (m.peoples) {
+    for (const a of (m.peoples.armies || []).filter((a) => a[1] === r && a[2] === c)) {
+      add('Army', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
+        + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')} (strength ${a[3]}), `
+        + `marching to ${a[8]} a town, arriving in turn ${a[7]}`);
+    }
     const town = m.peoples.settlements.find((s) => s[2] === r && s[3] === c);
     if (town) {
       const who = m.peoples.polities[town[0]].name;
       const won = town[6] === undefined ? '' : `, won from the ${m.peoples.polities[town[6]].name}`;
       add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
+      for (const a of (m.peoples.armies || []).filter((a) => a[5] === r && a[6] === c)) {
+        add('Marching on it', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
+          + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}, to ${a[8]} it, in turn ${a[7]}`);
+      }
       const held = (m.peoples.garrisons || {})[town[1]];
       if (held) {  // Its garrison: the arms stationed there, by kind.
         add('Garrison', `${Object.entries(held[1]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`

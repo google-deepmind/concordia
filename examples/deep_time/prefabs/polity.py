@@ -97,6 +97,9 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
   arms = towns.describe_arms(polity) if towns is not None else ''
   if arms:  # Where conquest is played, once it has raised some.
     text += ' ' + arms
+  war = towns.describe_war(polity) if towns is not None else ''
+  if war:  # Armies on the march: its own, and those coming for its towns.
+    text += ' ' + war
   gazette = context.planet.gazette
   if gazette is not None:
     text += (

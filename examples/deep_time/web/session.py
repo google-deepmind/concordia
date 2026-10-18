@@ -1565,6 +1565,17 @@ class GameSession:
               'who': reading['label'],
               'text': str(item.get('text', '')),
           })
+    # A people's own news of its wars, told at once (its marches, its towns
+    # taken, razed, restless or risen).
+    own = self._role(entity).get('polity') if entity is not None else None
+    if own:
+      for message in bus.history(f'civ.{own}.war'):
+        items.append({
+            'tick': int(message.time or 0),
+            'kind': 'war',
+            'who': 'War',
+            'text': message.payload,
+        })
     if reveal:
       for message in bus.history('chronicle'):
         items.append({
@@ -1573,7 +1584,7 @@ class GameSession:
             'who': 'Chronicler',
             'text': message.payload,
         })
-    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'news': 3}
+    order = {'chronicle': 0, 'war': 1, 'advisor': 2, 'press': 3, 'news': 4}
     items.sort(key=lambda i: (-i['tick'], order[i['kind']]))
     return items[:STORY_ITEMS]
 

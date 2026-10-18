@@ -31,3 +31,15 @@ recipes:
     inputs: {steel: 1.0, tools: 0.5}
     outputs: {guns: 1.0}
     requires: steelmaking
+# Marches and their aftermath (stage 6, C4). An army is a town's garrison
+# sent along the cheapest road (by sea where it must) to take or raze
+# another people's town.
+war:
+  march_tiles: 8          # tiles an army covers a turn at speed 1
+  militia: 1.0            # what a town's own people count for, unarmed
+  capital_militia: 2.0    # ... in a capital
+  walls_bonus: 0.5        # each level of walls adds this share to defenders
+  taken_loyalty: 0.35     # how a town holds to the people that took it
+  hold_need: 2.0          # garrison strength that settles a restless town
+  loyalty_step: 0.05      # a turn's settling (held) or unrest (not held)
+  rise_at: 0.2            # below this a won town rises (warned a turn first)

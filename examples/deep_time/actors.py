@@ -47,6 +47,10 @@ POLITY_CALL_TO_ACTION = (
 KEEP_LABOR = 'keep the current balance of labor'
 # Where conquest is played: founding a town is a move (its cost follows).
 FOUND_TOWN = 'found a new town'
+# ... and marching the capital's garrison on another people's town (C4).
+MARCH_TAKE = 'march to take a town'
+MARCH_RAZE = 'march to raze a town'
+WAR_MOVES = (MARCH_TAKE, MARCH_RAZE)
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
 ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
@@ -605,6 +609,20 @@ class PolityActor(Actor):
         f'put more labor into: {r.label}': r.key for r in wanted[:MAX_FOCUS]
     }
 
+  def _why_not_march(self) -> str:
+    """Why this people cannot march now ('' if it can)."""
+    towns = self._planet.settlements
+    if towns is None or not towns.war:
+      return 'they make no war here'
+    capital = towns.capital(self.polity)
+    if capital is None:
+      return 'they hold no town to march from'
+    if not capital.garrison:
+      return 'there are no arms in their capital'
+    if towns.nearest_town(self.polity, None) is None:
+      return 'there is no town of another people'
+    return ''
+
   def _arms(self) -> dict[str, str]:
     """Option text -> recipe key, for raising arms (where conquest is played).
 
@@ -848,7 +866,8 @@ class PolityActor(Actor):
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     # Where conquest is played, founding a town is a move, with its cost.
     town = [] if self._planet.can_found(self.polity) else [self._town_move()]
-    arms = list(self._arms())  # Raising arms, apart from the trades.
+    # Raising arms, apart from the trades, and marching them.
+    arms = [*self._arms(), *([] if self._why_not_march() else WAR_MOVES)]
     orders = [*self._trades(), *self._reflexes()]
     room = max(
         0, MAX_OPTIONS - len(fixed) - len(extras) - len(arms) - len(town) - 1
@@ -980,6 +999,17 @@ class PolityActor(Actor):
         self._automation.note_turn_order()
       verb = 'offer' if order[1] == 'ask' else 'ask to buy'
       return f'{self.name} {verb} {order[0]} at market.'
+    if text.startswith(WAR_MOVES):
+      self._tally('march')
+      news, holder = self._planet.march(
+          self.polity,
+          self.name,
+          'raze' if text.startswith(MARCH_RAZE) else 'take',
+      )
+      if holder:  # Every people sees an army march; its target at once.
+        self.outbox.append((planet_lib.CIV_EVENTS, news))
+        self.outbox.append((self._planet.war_topic(holder), news))
+      return news
     if text.startswith(FOUND_TOWN):
       self._tally('found')
       news = self._planet.found_town(self.polity, self.name)
@@ -1025,7 +1055,10 @@ class PolityActor(Actor):
 
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
-    return text.startswith(FOUND_TOWN) or self._focus().get(text) == 'woodcut'
+    return (
+        text.startswith((FOUND_TOWN, *WAR_MOVES))
+        or self._focus().get(text) == 'woodcut'
+    )
 
   def _town_move(self) -> str:
     """Founding a town, with its cost."""
@@ -1043,12 +1076,21 @@ class PolityActor(Actor):
     towns = self._planet.settlements
     if towns is None or not towns.conquest:
       return []
-    return [self._town_move()] if self._planet.can_found(self.polity) else []
+    later = [self._town_move()] if self._planet.can_found(self.polity) else []
+    if (
+        towns.war
+        and self._why_not_march() == 'there are no arms in their capital'
+    ):
+      later.extend(WAR_MOVES)  # Shown, saying why, until there are arms.
+    return later
 
   @override
   def why_not(self, option: str) -> str:
-    if option.strip().lower().startswith(FOUND_TOWN):
+    text = option.strip().lower()
+    if text.startswith(FOUND_TOWN):
       return self._planet.can_found(self.polity)
+    if text.startswith(WAR_MOVES):
+      return self._why_not_march()
     return ''
 
 

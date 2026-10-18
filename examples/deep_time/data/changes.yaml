@@ -2,6 +2,15 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct
+    world: great_acceleration
+    text: >-
+      War, on the Great Acceleration. With arms in your capital you may march
+      them on another people's town, aimed on the map, to take it or to raze
+      it: the army shows on the map with its strength and the turn it
+      arrives, and the fight is told to both sides at once. A taken town is
+      restless: hold it with arms or it warns, then rises back to its
+      founder. Every people hears of every march, fight and rising.
   - when: 18 Oct, later still
     world: great_acceleration
     text: >-
