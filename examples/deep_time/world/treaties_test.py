@@ -352,7 +352,7 @@ class HumanDiplomacyTest(absltest.TestCase):
     amber = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.15)
     self.assertTrue(any(o.startswith('accept') for o in amber.options()))
 
-  def test_a_human_people_has_no_treaty_mind_and_sees_the_terms(self):
+  def test_every_people_has_its_treaty_mind_and_sees_the_terms(self):
     sim, context = simulation.build_simulation(
         'great_acceleration',
         model_setup.make_models('mock'),
@@ -363,7 +363,8 @@ class HumanDiplomacyTest(absltest.TestCase):
         for e in sim.get_entities()
         if isinstance(e, entity_agent.EntityAgent)
     }
-    self.assertNotIn('Treaty mind', components['Basalt clans'])
+    # Whoever plays it: a person or a model.
+    self.assertIn('Treaty mind', components['Basalt clans'])
     self.assertIn('Treaty mind', components['Amber folk'])
     civ = context.planet.civ
     assert civ is not None

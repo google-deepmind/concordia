@@ -46,9 +46,6 @@ POLITY_CALL_TO_ACTION = (
     ' more of your labor this generation.'
 )
 KEEP_LABOR = 'keep the current balance of labor'
-# Offered to a people a person plays, when it has towns: the next town rises
-# where the person taps the map.
-PLAN_TOWN = 'plan where our next town will stand'
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
 ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
@@ -174,6 +171,44 @@ class Actor(metaclass=abc.ABCMeta):
     self.log: list[tuple[int, str, str]] = []
     # Extra (topic, text) messages to publish after resolution.
     self.outbox: list[tuple[str, str]] = []
+    # The moves offered with its last question (set by `ActorActionSpecs`).
+    self.offered: list[str] = []
+
+  def understood(self, action: str) -> str:
+    """A free answer read as the offered move it names, its aim kept.
+
+    Where a role's moves may be aimed, every player answers a free question
+    listing them (a person's page aims; a model may word its answer loosely,
+    "(c) put more labor into: mine ice, since ..."). The answer is read as
+    the offered move it is, or starts with (after any "(c)" letter), or,
+    for a role that does not answer in its own words, the move it names
+    first; otherwise it is left as it is.
+
+    Args:
+      action: The answer, perhaps aimed (" @ row,col").
+
+    Returns:
+      The move it names, aimed as it was; or the answer unchanged.
+    """
+    move, aim = aimed(action)
+    text = move.strip().lower()
+    if text.startswith(f'{self.name.lower()} '):  # A model's answer, signed.
+      text = text[len(self.name) + 1 :]
+    text = re.sub(r'^\(?[a-z]\)\s+', '', text)
+    offered = sorted(self.offered, key=len, reverse=True)
+    found = next((o for o in offered if text == o.lower()), None) or next(
+        (o for o in offered if text.startswith(o.lower())), None
+    )
+    if found is None and not self.speaks():
+      named = [
+          (m.start(), o)
+          for o in offered
+          if (m := re.search(rf'(?<!\w){re.escape(o.lower())}(?!\w)', text))
+      ]
+      found = min(named)[1] if named else None
+    if found is None:
+      return action
+    return found if aim is None else f'{found} @ {aim[0]},{aim[1]}'
 
   def drain_outbox(self) -> list[tuple[str, str]]:
     messages, self.outbox = self.outbox, []
@@ -483,7 +518,6 @@ class PolityActor(Actor):
       planet: planet_lib.Planet,
       share: float,
       automation: automation_lib.Automation | None = None,
-      person: bool = False,
       age: str = 'the early iron age',
       coached: bool = True,
       press: Latest | None = None,
@@ -499,10 +533,6 @@ class PolityActor(Actor):
     self._planet = planet
     self._share = share
     self._automation = automation
-    # Whether a person plays this people (some moves are a person's only).
-    # Every people answers treaty offers on its menu: a person, or a model
-    # with its treaty mind's counsel in its context.
-    self.person = person
     # What its printers last wrote (a broadsheet; a retelling of an omen, for
     # the people that owns the presses): published only by its action.
     self._press = press
@@ -816,15 +846,7 @@ class PolityActor(Actor):
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     orders = [*self._trades(), *self._reflexes()]
     room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - 1)
-    settlements = self._planet.settlements
-    town = (
-        [PLAN_TOWN]
-        if self.person
-        and settlements is not None
-        and settlements.config.get('players_plan_towns', True)
-        else []
-    )
-    return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
+    return [*fixed, *orders[:room], *extras, KEEP_LABOR]
 
   def is_active(self) -> bool:
     return self.polity not in self._civ().collapsed(0.05)
@@ -943,9 +965,6 @@ class PolityActor(Actor):
         self._automation.note_turn_order()
       verb = 'offer' if order[1] == 'ask' else 'ask to buy'
       return f'{self.name} {verb} {order[0]} at market.'
-    if text == PLAN_TOWN and self._planet.settlements is not None:
-      self._tally('town')
-      return self._planet.plan_town(self.polity, self.name)
     recipe = self._focus().get(text)
     if recipe is None:
       self._tally('keep' if text == KEEP_LABOR else 'unmatched')
@@ -962,7 +981,7 @@ class PolityActor(Actor):
 
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
-    return text == PLAN_TOWN or self._focus().get(text) == 'woodcut'
+    return self._focus().get(text) == 'woodcut'
 
 
 class ColonyActor(Actor):

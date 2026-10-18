@@ -108,7 +108,7 @@ class ActorComponentsTest(absltest.TestCase):
         self.context.observation_queue.get_and_clear('Rose'), ['Rose did b']
     )
 
-  def test_a_persons_question_is_free_when_a_move_may_be_aimed(self):
+  def test_the_question_is_free_when_a_move_may_be_aimed(self):
     class _Aiming(_EchoActor):
 
       def aimable(self, option: str) -> bool:
@@ -116,19 +116,17 @@ class ActorComponentsTest(absltest.TestCase):
 
     self.context.add_actor(_Aiming('Sower'))
     component = action_specs.ActorActionSpecs(self.context)
-    model_spec = engine_lib.action_spec_parser(
-        component.pre_act(_spec_call('Sower'))
-    )
-    self.assertEqual(model_spec.output_type, entity_lib.OutputType.CHOICE)
-    self.context.humans['Sower'] = lambda request: 'a'
-    person_spec = engine_lib.action_spec_parser(
-        component.pre_act(_spec_call('Sower'))
-    )
-    self.assertEqual(person_spec.output_type, entity_lib.OutputType.FREE)
-    self.assertIn('(a) a\n(b) b', person_spec.call_to_action)
-    self.assertIn(actors_lib.AIM_HINT, person_spec.call_to_action)
-    # Not aimable: a person still gets the choice.
-    self.context.humans['Rose'] = lambda request: 'a'
+    # The same question whoever plays it (a model, or a person).
+    spec = engine_lib.action_spec_parser(component.pre_act(_spec_call('Sower')))
+    self.assertEqual(spec.output_type, entity_lib.OutputType.FREE)
+    self.assertIn('(a) a\n(b) b', spec.call_to_action)
+    self.assertIn(actors_lib.AIM_HINT, spec.call_to_action)
+    # A free answer is read as the move it names, its aim kept.
+    sower = self.context.actors['Sower']
+    self.assertEqual(sower.understood('Sower (b) b, for the rain'), 'b')
+    self.assertEqual(sower.understood('a @ 3,4'), 'a @ 3,4')
+    self.assertEqual(sower.understood('nothing at all'), 'nothing at all')
+    # Not aimable: the choice.
     rose = engine_lib.action_spec_parser(component.pre_act(_spec_call('Rose')))
     self.assertEqual(rose.output_type, entity_lib.OutputType.CHOICE)
 

@@ -134,12 +134,15 @@ class ActorActionSpecs(
     name = self._entity_name(action_spec.call_to_action)
     actor = self._actors().get(name)
     spec = actor.action_spec() if actor and actor.is_active() else SKIP_SPEC
-    if actor is not None and name in self._context.humans:
+    # Its moves, before a free question lists them in words.
+    choices = list(spec.options)
+    if actor is not None:
+      # The same question whoever plays: free where a move may be aimed.
       spec = aimable_spec(actor, spec)
     if self._menus_tick != self._context.planet.tick:
       self._menus, self._menus_tick = {}, self._context.planet.tick
     if actor is not None and spec is not SKIP_SPEC:
-      self._menus[name] = self._menu(actor, name, spec)
+      self._menus[name] = self._menu(actor, name, choices)
       # The role's menu, for the person who plays it (their seat and page).
       self._context.bus.publish(
           perception.sheet_topic(name, 'menu'),
@@ -156,21 +159,23 @@ class ActorActionSpecs(
     return engine_lib.action_spec_to_string(spec)
 
   def _menu(
-      self, actor: actors_lib.Actor, name: str, spec: entity_lib.ActionSpec
+      self, actor: actors_lib.Actor, name: str, choices: list[str]
   ) -> dict[str, Any]:
     """What an entity was offered: its moves, those saved for, their pushes.
 
     Args:
       actor: The entity's actor.
       name: The entity's name.
-      spec: The spec it is asked with.
+      choices: The moves its question offers (none for a Steward that may
+        speak: then its moves).
 
     Returns:
       `offered` (a Steward that may speak still has its moves), `later`
       (moves it is saving for, plannable for a later turn) and `pushes`
       (move -> what it does to the world, measured, for those that say).
     """
-    offered = list(spec.options) or list(getattr(actor, 'options', list)())
+    offered = choices or list(getattr(actor, 'options', list)())
+    actor.offered = offered  # How its answer is read (`Actor.understood`).
     later = list(getattr(actor, 'out_of_reach', list)())
     return {
         'offered': offered,
@@ -192,7 +197,6 @@ class ActorActionSpecs(
                 )
             }
             if isinstance(actor, actors_lib.PolityActor)
-            and name in self._context.humans
             else {}
         ),
     }

@@ -80,7 +80,12 @@ class AlmanacTest(absltest.TestCase):
     briefings = [t for t in texts if 'advisor of Gaia' in t]
     self.assertNotEmpty(briefings)
     self.assertTrue(all('Almanac (known only to' in t for t in briefings))
-    steward = [c for c in choices if 'wait and save omega' in c]
+    # The Steward's own question (free: its moves may be aimed).
+    steward = [
+        c
+        for c in [*texts, *choices]
+        if 'wait and save omega' in c and 'advisor of Gaia' not in c
+    ]
     self.assertNotEmpty(steward)
     self.assertFalse(any('Almanac (known only to' in c for c in steward))
 

@@ -92,8 +92,6 @@ class Settlements:
     # Each settlement's worked land when it was laid out, by id.
     self.start: dict[int, dict[str, float]] = {}
     self.routes: list[tuple[str, list[tuple[int, int]]]] = []
-    # Where a person asked a people's next town to stand (tile, south first).
-    self.planned: dict[str, tuple[int, int]] = {}
     region = tile_map.region
     for key, home in homes.items():
       score = np.where(region == home, self.siting(), -np.inf)
@@ -154,18 +152,6 @@ class Settlements:
         for dc in range(-reach, reach + 1)
     ]
 
-  def plan(self, key: str, tile: tuple[int, int]) -> bool:
-    """Marks where a people's next town should stand; False if it can't."""
-    r, c = tile
-    if not (
-        self.tiles.land[r, c]
-        and not self.tiles.ice[r, c]
-        and int(self.tiles.region[r, c]) in self.lands.get(key, [])
-    ):
-      return False
-    self.planned[key] = (int(r), int(c))
-    return True
-
   def where(self, place: Settlement) -> str:
     """A few words for where a settlement stands."""
     biome = self.biomes.specs[int(self.biomes.biome[place.row, place.col])]
@@ -197,10 +183,6 @@ class Settlements:
         changed = True
       while len(places) < want:
         score = self._in_lands(key, self.siting())
-        planned = self.planned.pop(key, None)
-        if planned is not None and np.isfinite(score[planned]):
-          score = np.where(np.isfinite(score), score - 10.0, score)
-          score[planned] = 1e6  # The planned site, unless crowded out.
         place = self._found(key, score)
         if place is None:
           break
@@ -402,10 +384,6 @@ class Settlements:
             [kind, [[north - r, c] for r, c in path]]
             for kind, path in self.routes
         ],
-        'planned': [
-            [keys.index(k), north - r, c]
-            for k, (r, c) in list(self.planned.items())  # Game thread writes.
-        ],
     }
 
   def _port(self, place: Settlement) -> bool:
@@ -422,7 +400,6 @@ class Settlements:
             k: [[s.id, s.row, s.col, int(s.capital)] for s in v]
             for k, v in self.places.items()
         },
-        'planned': {k: list(v) for k, v in self.planned.items()},
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -437,8 +414,5 @@ class Settlements:
             for i, r, c, cap in v
         ]
         for k, v in state['places'].items()
-    }
-    self.planned = {
-        k: (int(v[0]), int(v[1])) for k, v in state.get('planned', {}).items()
     }
     self._route()

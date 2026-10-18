@@ -159,7 +159,7 @@ class TargetsTest(absltest.TestCase):
           scenario,
       )
 
-  def test_a_people_plans_its_next_town_and_aims_its_woodcutters(self):
+  def test_a_people_aims_its_woodcutters(self):
     planet = _planet('fire_and_iron')
     key = 'amber'
     polity = planet.civ.polities[key]
@@ -176,35 +176,16 @@ class TargetsTest(absltest.TestCase):
         )
     )
     planet.set_target('Amber folk', *spot)
-    self.assertIn('next town', planet.plan_town(key, 'Amber folk'))
-    towns.update({key: polity.population + 6.0})
-    self.assertIn(spot, [(s.row, s.col) for s in towns.places[key]])
-    sea = next(zip(*np.nonzero(~planet.tiles.land)))
-    planet.set_target('Amber folk', *sea)
-    self.assertIn('cannot', planet.plan_town(key, 'Amber folk'))
-    planet.set_target('Amber folk', *spot)
     self.assertIn('around', planet.aim_felling(key, 'Amber folk'))
     self.assertIsNotNone(polity.felling)
 
-  def test_only_a_person_playing_a_people_may_plan_a_town(self):
+  def test_woodcutters_may_be_aimed(self):
     from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
 
-    planet = _planet('fire_and_iron')
-    person = actors_lib.PolityActor(
-        'Amber folk', 'amber', planet, 0.1, person=True
+    people = actors_lib.PolityActor(
+        'Amber folk', 'amber', _planet('fire_and_iron'), 0.1
     )
-    model = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.1)
-    # Cut from the menu (towns rise by themselves); a data flag brings it.
-    self.assertNotIn(actors_lib.PLAN_TOWN, person.options())
-    assert planet.settlements is not None
-    planet.settlements.config = {
-        **planet.settlements.config,
-        'players_plan_towns': True,
-    }
-    self.assertIn(actors_lib.PLAN_TOWN, person.options())
-    self.assertNotIn(actors_lib.PLAN_TOWN, model.options())
-    self.assertTrue(person.aimable(actors_lib.PLAN_TOWN))
-    self.assertTrue(person.aimable('put more labor into: cut wood'))
+    self.assertTrue(people.aimable('put more labor into: cut wood'))
 
 
 if __name__ == '__main__':

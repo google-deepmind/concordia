@@ -109,6 +109,9 @@ def last_question_options(
 
 # The Steward's free question where it may speak an omen (actors.py).
 _SPEAKS = 'or speak an omen by answering'
+# A free question listing a role's moves, some of which may be aimed
+# (`actors.AIM_HINT`): answered with the move its choice policy would pick.
+_AIMS = 'To aim a move that lands on the map'
 
 
 def _find(options: Mapping[str, str], *needles: str) -> str | None:
@@ -635,7 +638,9 @@ def grazer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   """Grazes heavily in lush meadows, browses lightly when food is short."""
   if _find(options, 'graze heavily') is None:
     return None
-  covers = dict(_COVER_RE.findall(prompt)[-2:])
+  # The meadows as the herds read them (their context, not the question).
+  asked = max(prompt.rfind('Question:'), prompt.rfind('Exercise:'))
+  covers = dict(_COVER_RE.findall(prompt[:asked] if asked > 0 else prompt)[-2:])
   food = sum(int(v) for v in covers.values())
   if food >= 50:
     return _find(options, 'graze heavily')
@@ -1561,8 +1566,10 @@ class DeepTimeMockModel(language_model.LanguageModel):
     del max_tokens, terminators, temperature, top_p, top_k, timeout, seed
     with self._lock:
       self._text_calls += 1
-    if _SPEAKS in prompt[prompt.rfind('Exercise:') :]:
-      # The Steward answers in words: the move its choice policy would pick.
+    exercise = prompt[prompt.rfind('Exercise:') :]
+    if _SPEAKS in exercise or _AIMS in exercise:
+      # A free question of moves (the Steward may also answer in words): the
+      # move its choice policy would pick.
       options = last_question_options(prompt, 'Exercise:')
       for policy in self._policies:
         choice = policy(prompt, options)

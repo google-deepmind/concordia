@@ -98,8 +98,9 @@ class ActorResolution(
     # fixed order actors were registered, so runs stay reproducible (two
     # offers to one partner in a tick must not race).
     for name in [n for n in actors if n in actions]:
-      action = actions[name]
       actor = actors[name]
+      # A free answer is read as the move it names (`Actor.understood`).
+      action = actor.understood(actions[name])
       actor.acts += 1
       outcome = actor.resolve(action)
       if not outcome:

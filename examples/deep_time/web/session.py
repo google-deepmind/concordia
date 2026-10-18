@@ -2071,14 +2071,6 @@ class GameSession:
         if polity is not None:
           p['fed'] = round(float(polity.food_ratio), 2)
           p['famine'] = bool(polity.famine)
-    if not reveal:
-      entity = seat if seat in self.seats else self.entity
-      actor = self.context.actors.get(entity)
-      own = actor.polity if isinstance(actor, actors_lib.PolityActor) else None
-      keys = [p['key'] for p in found['polities']]
-      found['planned'] = [
-          p for p in found['planned'] if own is not None and keys[p[0]] == own
-      ]
     return found
 
   def worlds(self) -> list[dict[str, str]]:
@@ -2162,7 +2154,6 @@ class GameSession:
                 for i, (r, c) in enumerate(frame['domes'])
             ],
             'routes': [],
-            'planned': [],
         },
         'site': (
             [north - colony.site[0], colony.site[1]]

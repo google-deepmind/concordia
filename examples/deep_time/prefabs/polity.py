@@ -85,7 +85,7 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
   treaties = context.planet.treaties
   if treaties is not None:
     offer = treaties.pending_for(polity)
-    if offer is not None and civ.polities[polity].name in context.humans:
+    if offer is not None:
       text += f' An offer awaits our answer: {offer.text}'
     for kind, spec in treaties.kinds.items():
       bound = [civ.polities[k].name for k in treaties.bound(polity, kind)]
@@ -302,8 +302,6 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           else {}
       ),
   }
-  # A people a person plays answers treaty offers itself, on its own turn.
-  human = people.name in context.humans
   declare_takes(context, polity)
   context.add_actor(
       actors_lib.PolityActor(
@@ -312,7 +310,6 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           context.planet,
           share=float(rules.get('focus_share', 0.15)),
           automation=context.automation,
-          person=human,
           age=str(rules.get('age', 'the early iron age')),
           coached=context.coached,
           # What its printers write reaches the Gazette by its action.
@@ -379,44 +376,38 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               lambda: storehouse(context, polity),
               label='\nOur storehouse and labor',
           ),
-          # Deliberates over a treaty offer the moment it is observed;
-          # its counsel is in the people's context, and the people
-          # answers on its menu (a person plays without the mind).
-          **(
-              {}
-              if human
-              else {
-                  'Counsel on the offer': perception.instrument(
+          # Deliberates over a treaty offer the moment it is observed; its
+          # counsel is in the people's context, whoever plays it, and the
+          # people answers on its menu.
+          'Counsel on the offer': perception.instrument(
+              context,
+              f'civ.{polity}.treaty',
+              owner=people.name,
+              label='Counsel on the offer',
+              initial='No offer awaits our answer.',
+              render=lambda message: str(message.payload),
+          ),
+          'Treaty mind': context.make_mind(
+              people.name,
+              'Treaty',
+              f'civ.{polity}.treaty',
+              pact_mind.PactMind(
+                  slow_model,
+                  perception.brief(
                       context,
-                      f'civ.{polity}.treaty',
-                      owner=people.name,
-                      label='Counsel on the offer',
-                      initial='No offer awaits our answer.',
-                      render=lambda message: str(message.payload),
-                  ),
-                  'Treaty mind': context.make_mind(
                       people.name,
-                      'Treaty',
-                      f'civ.{polity}.treaty',
-                      pact_mind.PactMind(
-                          slow_model,
-                          perception.brief(
-                              context,
-                              people.name,
-                              'offer',
-                              lambda: treaty_offer(context, polity),
-                          ),
-                          components=[
-                              'Storehouse',
-                              'Census of the peoples',
-                          ],
-                      ),
-                      context.planet.treaties.answer_latency
-                      if context.planet.treaties
-                      else 1,
-                      trigger_on_observe=True,
+                      'offer',
+                      lambda: treaty_offer(context, polity),
                   ),
-              }
+                  components=[
+                      'Storehouse',
+                      'Census of the peoples',
+                  ],
+              ),
+              context.planet.treaties.answer_latency
+              if context.planet.treaties
+              else 1,
+              trigger_on_observe=True,
           ),
           # Writes the broadsheets the people pays paper for.
           'Press mind': context.make_mind(

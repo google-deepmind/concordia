@@ -914,16 +914,6 @@ class Planet:
       self.colony.site = target
     return where
 
-  def plan_town(self, polity: str, actor: str) -> str:
-    """Marks where a people's next town will stand (the tile tapped)."""
-    target = self.targets.pop(actor, None)
-    name = self.civ.polities[polity].name if self.civ else polity
-    if self.settlements is None or target is None:
-      return f'{name} talk of a new town but settle on no place.'
-    if not self.settlements.plan(polity, target):
-      return f'{name} cannot raise a town there; it is not their land.'
-    return f'{name} will raise their next town{self._place_words(target)}.'
-
   def queue_adaptation(self, species: str, answer: str) -> str:
     """Queues the adaptation named in a slow mind's answer.
 

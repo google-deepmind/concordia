@@ -2976,14 +2976,6 @@ function drawSettlements(ctx, v, unit, X, Y) {
   }
   const peoples = v.peoples;
   if (!peoples) return;
-  for (const [i, r, c] of peoples.planned || []) {  // A planned town: dashed.
-    const x = X(c + 0.5), y = Y(r + 0.5), h = 2.8 * unit;
-    ctx.setLineDash([2, 2]);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = rgb(peoples.polities[i][v.theme]);
-    ctx.strokeRect(x - h, y - h, 2 * h, 2 * h);
-    ctx.setLineDash([]);
-  }
   const halo = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
   ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
   ctx.textBaseline = 'middle';
