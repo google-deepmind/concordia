@@ -15,7 +15,9 @@
 """Instruments: how entities perceive topics.
 
 Every instrument is run by the World GM (its `Deliveries` component), which
-hands the entity's stock `TopicSubscriber` only what arrives. Readings are
+publishes only what arrives on the entity's own topic (`reading_topic`); the
+entity's stock `TopicSubscriber` reads that topic, and its build needs only
+the reading's static description (`Reading`: label, initial belief). Readings are
 re-rendered every tick with their age by the contrib `operators.with_age` (a
 `combine_latest` with the `world.tick` stream), so an entity can tell a
 fresh reading from a stale one: staleness is visible.
@@ -148,21 +150,61 @@ def sheet_topic(owner: str, kind: str) -> str:
   return f'sheets.{slug}.{kind}'
 
 
+def reading_topic(owner: str, label: str) -> str:
+  """The topic on which the World GM delivers an entity's instrument."""
+  slug = ''.join(c if c.isalnum() else '_' for c in label.lower()).strip('_')
+  return sheet_topic(owner, f'reading.{slug}')
+
+
+@dataclasses.dataclass(frozen=True)
+class Reading:
+  """What an entity reads through one of its instruments: static data.
+
+  The entity's build needs only this (from its params): its stock
+  `TopicSubscriber` reads the topic on which the World GM delivers what
+  arrives (`reading_topic`), and nothing else.
+
+  Attributes:
+    owner: The entity.
+    label: The instrument's label (unique for the entity).
+    initial: Belief before the first reading arrives.
+    pre_act_label: The component's label.
+  """
+
+  owner: str
+  label: str
+  initial: str
+  pre_act_label: str
+
+  @property
+  def topic(self) -> str:
+    return reading_topic(self.owner, self.label)
+
+
+def reading(
+    owner: str, label: str, initial: str, *, topic: str | None = None
+) -> Reading:
+  """An entity's reading; its label names the topic read, if one."""
+  return Reading(
+      owner=owner,
+      label=label,
+      initial=initial,
+      pre_act_label=f'{label} ({topic})' if topic else label,
+  )
+
+
 @dataclasses.dataclass(frozen=True)
 class Instrument:
-  """An entity's instrument: what it reads of some topics, and how.
+  """An entity's instrument as the World GM runs it.
 
-  A spec: the World GM runs it in its `Deliveries` (`deliver`, from the
-  role's rules: its transport, ageing and rendering, which may read the
-  world), and the entity's stock `TopicSubscriber` holds what arrives
-  (`subscribe`, among its components), and nothing else.
+  A spec the role's rules install (`deliver`): its transport, ageing and
+  rendering, which may read the world. What arrives is published on the
+  owner's own topic (`reading_topic`), which its `Reading` subscribes to.
 
   Attributes:
     owner: The entity.
     label: The instrument's label (unique for the entity).
     topics: The topics it reads.
-    initial: Belief before the first reading arrives.
-    pre_act_label: The component's label.
     build: Builds the instrument's stream from the bus (for the GM).
     tapped: Whether what reaches the owner is kept for the page.
   """
@@ -170,14 +212,16 @@ class Instrument:
   owner: str
   label: str
   topics: tuple[str, ...]
-  initial: str
-  pre_act_label: str
   build: Callable[[], reactivex.Observable]
   tapped: bool = True
 
   @property
   def key(self) -> str:
     return f'{self.owner}/{self.label}'
+
+  @property
+  def topic(self) -> str:
+    return reading_topic(self.owner, self.label)
 
 
 def deliver(context: game_lib.GameContext, instrument: Instrument) -> None:
@@ -186,18 +230,18 @@ def deliver(context: game_lib.GameContext, instrument: Instrument) -> None:
     context.tapped.add((instrument.owner, instrument.label))
   for name in instrument.topics:
     context.bus.register_subscriber(name, instrument.owner)
-  context.deliveries.deliver(instrument.key, instrument.build)
+  context.deliveries.deliver(instrument.key, instrument.topic, instrument.build)
 
 
 def subscribe(
-    context: game_lib.GameContext, instrument: Instrument
+    context: game_lib.GameContext, of: Reading
 ) -> topics.TopicSubscriber:
-  """An entity's stock `TopicSubscriber` to what its instrument delivers."""
+  """An entity's stock `TopicSubscriber` to its own reading's topic."""
   return topics.TopicSubscriber(
       publisher_component_key=None,
-      initial_value=instrument.initial,
-      pre_act_label=instrument.pre_act_label,
-      subject=context.deliveries.channel(instrument.key),
+      initial_value=of.initial,
+      pre_act_label=of.pre_act_label,
+      subject=context.bus.values(of.topic),
   )
 
 
@@ -207,7 +251,6 @@ def instrument(
     *,
     owner: str,
     label: str,
-    initial: str,
     render: Callable[[topics.Message], str] | None = None,
     transported: bool = False,
     attention: attention_lib.Attention | None = None,
@@ -220,7 +263,6 @@ def instrument(
     topic: Topic to read.
     owner: Entity that holds the belief.
     label: Component label.
-    initial: Belief before the first reading arrives.
     render: Message to text (defaults to the topic's renderer).
     transported: Carry readings over the Steward's current instrument tier
       (late, lossy, noisy) instead of delivering them exactly.
@@ -231,7 +273,7 @@ def instrument(
       worlds is a channel with latency.
 
   Returns:
-    Its spec (`deliver` runs it; `subscribe` holds what arrives).
+    Its spec (`deliver` runs it; the owner's `Reading` holds what arrives).
   """
   to_text = render or publishing.renderer_for(topic)
 
@@ -276,8 +318,6 @@ def instrument(
       owner=owner,
       label=label,
       topics=(topic,),
-      initial=initial,
-      pre_act_label=f'{label} ({topic})',
       build=build,
   )
 
@@ -361,8 +401,6 @@ def local_news(
       owner=owner,
       label=label,
       topics=tuple(names),
-      initial='No news of nearby lands yet.',
-      pre_act_label=label,
       build=build,
       tapped=False,
   )

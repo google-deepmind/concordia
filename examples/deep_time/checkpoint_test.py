@@ -22,7 +22,7 @@ simulation. The restored game must then play on exactly as the live one does.
 
 import copy
 import json
-from typing import Any
+from typing import Any, cast
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -32,6 +32,7 @@ from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios
 from examples.deep_time import simulation
+from examples.deep_time.world import planet as planet_lib
 
 
 def _build(scenario: str):
@@ -54,6 +55,13 @@ def _after(context: game_lib.GameContext, tick: int) -> dict[str, Any]:
       },
       'bus_seq': context.bus.get_state()['seq'],
   }
+
+
+class _NoWorld:
+  """Stands in for the planet where nothing may read the world."""
+
+  def __getattr__(self, name: str) -> Any:
+    raise AssertionError(f'An entity build read the world: planet.{name}')
 
 
 class CheckpointTest(parameterized.TestCase):
@@ -89,14 +97,22 @@ class CheckpointTest(parameterized.TestCase):
 
 class RolesTest(parameterized.TestCase):
 
-  @parameterized.parameters('daisyworld', 'great_acceleration', 'light_delay')
+  @parameterized.parameters(
+      'daisyworld',
+      'great_acceleration',
+      'light_delay',
+      'herds',
+      'great_oxidation',
+  )
   def test_the_world_gm_installs_every_roles_rules(self, scenario):
     context = game_lib.new_game(scenario)
     models = model_setup.make_models('mock')
     context.slow_model = models.slow
     config = simulation.build_config(context)
     roles = [i for i in config.instances if i.role == prefab_lib.Role.ENTITY]
-    # Building the roles' entities installs nothing in the World GM.
+    # Building the roles' entities installs nothing in the World GM, and
+    # reads nothing of the world: static settings come in their params.
+    planet, context.planet = context.planet, cast(planet_lib.Planet, _NoWorld())
     entities = []
     for instance in roles:
       prefab = copy.deepcopy(config.prefabs[instance.prefab])
@@ -109,6 +125,7 @@ class RolesTest(parameterized.TestCase):
               ),
           )
       )
+    context.planet = planet
     self.assertEqual(context.actors, {})
     self.assertEqual(context.sheets, {})
     # The World GM installs each role's rules, from its params, in order.

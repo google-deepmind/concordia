@@ -50,8 +50,7 @@ class Colony(playable.RolePolity):
   def assemble(
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
-    del params  # One colony a game.
-    return colony_params(context)
+    return colony_params(context, str(params['name']))
 
   @override
   def rules(
@@ -73,16 +72,24 @@ def colony_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   )
 
 
+# Home's transmissions, as they reach the colonists: (label, topic, initial).
+MESSAGES = (
+    'Messages from home',
+    'mission.uplink',
+    'No message from home has reached us yet.',
+)
+
+
 def _messages(
     context: game_lib.GameContext, name: str
 ) -> perception.Instrument:
   """Home's transmissions, heard years after they were sent."""
+  label, topic, _ = MESSAGES
   return perception.instrument(
       context,
-      'mission.uplink',
+      topic,
       owner=name,
-      label='Messages from home',
-      initial='No message from home has reached us yet.',
+      label=label,
       transported=True,
       channel=lambda: mission_prefab.light_delay(context),
   )
@@ -110,13 +117,10 @@ def colony_rules(context: game_lib.GameContext) -> None:
   perception.deliver(context, _messages(context, name))
 
 
-def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
+def colony_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
   """The colonists' entity params, their components included."""
-  colony = context.planet.colony
-  if colony is None:
-    raise ValueError('Colonists need a colony in the scenario.')
   rules = context.scenario['colony']
-  name = f'Colonists of {colony.name}'
+  label, topic, initial = MESSAGES
   return {
       'name': name,
       'goal': rules.get('goal', DEFAULT_GOAL),
@@ -137,8 +141,8 @@ def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
           'Our colony': perception.read(
               context, name, 'colony', label='\nOur colony'
           ),
-          'Messages from home': perception.subscribe(
-              context, _messages(context, name)
+          label: perception.subscribe(
+              context, perception.reading(name, label, initial, topic=topic)
           ),
       },
   }

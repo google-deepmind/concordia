@@ -480,8 +480,11 @@ stock `Simultaneous` engine. Deep Time adds no engine.
 *   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` with
     topic-bound `pubsub.Subscriber` instruments.
 *   **Instruments** (`perception.py`, `components/deliveries.py`): the World
-    GM runs every instrument and hands the entity's stock `TopicSubscriber`
-    only what arrives; each stream runs through contrib `operators.with_age`,
+    GM runs every instrument and publishes only what arrives on the entity's
+    own topic, which its stock `TopicSubscriber` reads; an entity's build
+    needs only its readings' static description (`perception.Reading`, from
+    its params), never the world. Each stream runs through contrib
+    `operators.with_age`,
     so it reads e.g. `[tick 7, 2 ticks old]`; news digests merge several
     topics. The Steward's instruments also run through contrib
     `operators.transport` (as do the light delay and a people's couriers): its

@@ -52,8 +52,7 @@ class Grazers(playable.Role):
   def assemble(
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
-    del params  # One clade a game.
-    return grazers_params(context)
+    return grazers_params(context, params)
 
   @override
   def rules(
@@ -64,14 +63,23 @@ class Grazers(playable.Role):
 
 
 def grazers_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
-  """The grazers' instance config (plain params; `Grazers` builds it)."""
+  """The grazers' instance config (plain params; `Grazers` builds it).
+
+  Their static settings are read once from the game: who they are, and what
+  their adaptation mind asks and how long it takes.
+  """
   grazers = context.planet.grazers
   if grazers is None:
     raise ValueError('This scenario has no grazers.')
   return prefab_lib.InstanceConfig(
       prefab=GRAZER_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={'name': grazers.name},
+      params={
+          'name': grazers.name,
+          'lore': grazers.lore,
+          'question': grazers.question,
+          'latency_ticks': grazers.latency_ticks,
+      },
   )
 
 
@@ -96,29 +104,28 @@ def grazers_rules(context: game_lib.GameContext) -> None:
   )
 
 
-def grazers_params(context: game_lib.GameContext) -> dict[str, Any]:
+def grazers_params(
+    context: game_lib.GameContext, params: Mapping[str, Any]
+) -> dict[str, Any]:
   """The grazers' `minimal__Entity` params, their components included."""
-  grazers = context.planet.grazers
-  if grazers is None:
-    raise ValueError('This scenario has no grazers.')
-  components = species_lib.senses(context, grazers.name)
+  name = str(params['name'])
+  components = species_lib.senses(context, name)
   components['Adaptation mind'] = species_lib.adaptation_mind(
       context,
-      grazers.name,
+      name,
       ADAPTATION_TOPIC,
       context.slow(),
-      grazers.question,
-      grazers.latency_ticks,
+      str(params['question']),
+      int(params['latency_ticks']),
   )
   components['Evolving toward'] = perception.subscribe(
-      context,
-      species_lib.evolving_toward(context, grazers.name, ADAPTATION_TOPIC),
+      context, species_lib.evolving_reading(name, ADAPTATION_TOPIC)
   )
   return species_lib.entity_params(
       context,
-      grazers.name,
+      name,
       'Keep your herds fed and growing without eating out the meadows'
       ' that feed them.',
-      INSTRUCTIONS.format(name=grazers.name, lore=grazers.lore),
+      INSTRUCTIONS.format(name=name, lore=params['lore']),
       components,
   )

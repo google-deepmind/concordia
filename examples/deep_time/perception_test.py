@@ -25,10 +25,13 @@ from examples.deep_time.world import planet as planet_lib
 from examples.deep_time.world import publishing
 
 
-def _held(context, spec):
+def _held(context, spec, initial=''):
   """An instrument the World GM runs, as its entity holds it."""
   perception.deliver(context, spec)
-  return perception.subscribe(context, spec)
+  return perception.subscribe(
+      context,
+      perception.reading(spec.owner, spec.label, initial, topic=spec.topics[0]),
+  )
 
 
 class PerceptionTest(absltest.TestCase):
@@ -42,8 +45,8 @@ class PerceptionTest(absltest.TestCase):
             'gaia.briefings',
             owner='Gaia',
             label='Advisor briefing',
-            initial='nothing yet',
         ),
+        initial='nothing yet',
     )
     self.assertEqual(belief.get_current_value(), 'nothing yet')
     self.assertEqual(
@@ -104,8 +107,8 @@ class PerceptionTest(absltest.TestCase):
             'climate.global',
             owner='Gaia',
             label='Thermometer',
-            initial='',
         ),
+        initial='',
     )
     self.assertStartsWith(belief.get_current_value(), 'Global mean temperature')
     self.assertEndsWith(belief.get_current_value(), '[tick 0, fresh]')
@@ -123,9 +126,9 @@ class PerceptionTest(absltest.TestCase):
             'climate.global',
             owner='Gaia',
             label='Thermometer',
-            initial='none',
             transported=True,
         ),
+        initial='none',
     )
     # The tick-0 reading is still on its way (stones are two ticks late):
     # the World GM carries it (its deliveries' state), not the Steward.
@@ -271,9 +274,13 @@ class PerceptionTest(absltest.TestCase):
     self.assertTrue(text.startswith('The peoples: Amber folk'))
     self.assertIn('people, fed 100%', text)
     for name, need in (('sandbox', True), ('daisyworld', False)):
-      context = game_lib.new_game(name)
+      # A static setting of the Steward's, from its params.
+      peoples = steward.steward_config(game_lib.new_game(name)).params[
+          'peoples'
+      ]
+      self.assertEqual(peoples, need)
       self.assertEqual(
-          'civ.events' in steward._news_topics(context), need  # pylint: disable=protected-access
+          'civ.events' in steward._news_topics(peoples), need  # pylint: disable=protected-access
       )
 
 

@@ -35,7 +35,8 @@ observations per access list |
 | `__actors__` | `ActorRegistry`: each acting entity's rules (its action spec,
 how its actions resolve), checkpointed with the GM |
 | `__deliveries__` | `Deliveries`: runs every entity's instruments (their
-transports, ageing and rendering) and hands each what reaches it |
+transports, ageing and rendering) and publishes what reaches each on its
+own topic |
 | `entity_scheduler` | upstream `interrupt_scheduling.EntityScheduler`: the
 event-driven entities' interrupt masks and timers (where there are any) |
 | `__wakeups__` | `wakeups.WakeUps`: the events and alarms that wake them |

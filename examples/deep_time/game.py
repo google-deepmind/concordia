@@ -320,7 +320,7 @@ class GameContext:
     self.registry = actor_registry.ActorRegistry(self.actors, self.access)
     # The World GM's deliveries component: it runs every entity's
     # instruments and hands each only what reaches it.
-    self.deliveries = deliveries_lib.Deliveries()
+    self.deliveries = deliveries_lib.Deliveries(self.bus)
 
   def add_actor(
       self, actor: actors_lib.Actor, hears: tuple[str, ...] = ()

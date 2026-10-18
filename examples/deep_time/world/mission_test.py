@@ -29,10 +29,13 @@ def _game():
   return context, context.planet, colony
 
 
-def _held(context, spec):
+def _held(context, spec, initial=''):
   """An instrument the World GM runs, as its entity holds it."""
   perception.deliver(context, spec)
-  return perception.subscribe(context, spec)
+  return perception.subscribe(
+      context,
+      perception.reading(spec.owner, spec.label, initial, topic=spec.topics[0]),
+  )
 
 
 class MissionTest(absltest.TestCase):
@@ -83,10 +86,10 @@ class MissionTest(absltest.TestCase):
             'colony.status',
             owner='Mission Control',
             label='Colony relay',
-            initial='nothing yet',
             transported=True,
             channel=lambda: mission.light_delay(context),
         ),
+        initial='nothing yet',
     )
     for _ in range(6):
       context.clock.advance()

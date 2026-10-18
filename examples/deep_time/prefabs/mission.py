@@ -112,29 +112,35 @@ def mission_config(
   )
 
 
+# What Mission Control reads of the colony: (key, topic, initial belief).
+READINGS = (
+    (
+        'Colony relay',
+        'colony.status',
+        'No word from the colony has reached home yet.',
+    ),
+    (
+        'Colony news',
+        'colony.events',
+        'No news from the colony has reached home yet.',
+    ),
+)
+
+
 def _instruments(
     context: game_lib.GameContext, name: str
 ) -> dict[str, perception.Instrument]:
   """Mission Control's instruments: the colony, four light-years late."""
   return {
-      'Colony relay': perception.instrument(
+      key: perception.instrument(
           context,
-          'colony.status',
+          topic,
           owner=name,
-          label='Colony relay',
-          initial='No word from the colony has reached home yet.',
+          label=key,
           transported=True,
           channel=lambda: light_delay(context),
-      ),
-      'Colony news': perception.instrument(
-          context,
-          'colony.events',
-          owner=name,
-          label='Colony news',
-          initial='No news from the colony has reached home yet.',
-          transported=True,
-          channel=lambda: light_delay(context),
-      ),
+      )
+      for key, topic, _ in READINGS
   }
 
 
@@ -150,8 +156,10 @@ def mission_rules(context: game_lib.GameContext, name: str) -> None:
 def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
   """Mission Control's entity params, its components included."""
   components: dict[str, entity_component.ContextComponent] = {
-      key: perception.subscribe(context, spec)
-      for key, spec in _instruments(context, name).items()
+      key: perception.subscribe(
+          context, perception.reading(name, key, initial, topic=topic)
+      )
+      for key, topic, initial in READINGS
   }
   components['Transmissions in flight'] = perception.read(
       context, name, 'in_flight', label='\nTransmissions in flight'

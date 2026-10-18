@@ -18,10 +18,11 @@ An entity reads a topic through an instrument: its readings arrive late,
 some are lost, some carry noise (a contrib `operators.transport` whose
 channel the world sets: the Steward's instrument tier, the light delay
 between worlds, a people's couriers), and each shows its age (contrib
-`operators.with_age`). The World GM runs every instrument here and hands the
-entity only what arrives, rendered, through a stock `TopicSubscriber`; the
-readings still on their way and the channels' random draws are this
-component's state, checkpointed with the GM.
+`operators.with_age`). The World GM runs every instrument here and publishes
+only what arrives, rendered, on the entity's own topic, which the entity's
+stock `TopicSubscriber` reads (`perception.Reading`); the readings still on
+their way and the channels' random draws are this component's state,
+checkpointed with the GM.
 """
 
 from collections.abc import Callable
@@ -29,10 +30,10 @@ import threading
 from typing import Any, cast, override
 
 from concordia.contrib.pubsub import operators
+from concordia.contrib.pubsub import topics
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 import reactivex
-from reactivex import subject as reactivex_subject
 
 DEFAULT_DELIVERIES_KEY = '__deliveries__'
 
@@ -40,38 +41,29 @@ DEFAULT_DELIVERIES_KEY = '__deliveries__'
 class Deliveries(entity_component.ContextComponent):
   """Runs each entity's instruments for the World GM; keeps what is in flight."""
 
-  def __init__(self):
+  def __init__(self, bus: topics.TopicBus):
+    """Initializes the component.
+
+    Args:
+      bus: The topic bus, where what arrives is published.
+    """
     super().__init__()
+    self._bus = bus
     self._lock = threading.Lock()
     # Each instrument's checkpoint hooks, by '<owner>/<label>'.
     self._hooks: dict[str, list[operators.StateHook]] = {}
-    # What reaches each instrument's entity, by '<owner>/<label>'.
-    self._channels: dict[str, reactivex_subject.ReplaySubject] = {}
-
-  def channel(self, key: str) -> reactivex_subject.ReplaySubject:
-    """What reaches an entity through an instrument (keeps the latest).
-
-    The entity's subscriber may join before the World GM runs the
-    instrument (`deliver`), or after: it hears the latest arrival either way.
-
-    Args:
-      key: The instrument, as '<owner>/<label>'.
-
-    Returns:
-      The rendered readings as they arrive.
-    """
-    with self._lock:
-      if key not in self._channels:
-        self._channels[key] = reactivex_subject.ReplaySubject(buffer_size=1)
-      return self._channels[key]
 
   def deliver(
-      self, key: str, build: Callable[[], reactivex.Observable]
+      self, key: str, topic: str, build: Callable[[], reactivex.Observable]
   ) -> None:
-    """Runs an instrument for an entity, into its channel (`channel`).
+    """Runs an instrument for an entity, publishing what arrives on its topic.
+
+    The entity's subscriber may join before the World GM runs the
+    instrument, or after: the topic keeps the latest arrival.
 
     Args:
       key: The instrument, as '<owner>/<label>' (unique).
+      topic: The entity's own topic for it.
       build: Builds the instrument's stream from the bus (its transport,
         ageing and rendering).
     """
@@ -79,12 +71,19 @@ class Deliveries(entity_component.ContextComponent):
       stream = build()
     hooks = list(getattr(stream, operators.HOOKS_ATTR, ()))
     hooks.extend(h for h in collected if h not in hooks)
-    arrived = self.channel(key)
     with self._lock:
       if key in self._hooks:
         raise ValueError(f'Instrument {key!r} is delivered twice.')
       self._hooks[key] = hooks
-    stream.subscribe(on_next=arrived.on_next)
+
+    def arrived(text: str) -> None:
+      # What already reached the entity is no news (a restored game runs its
+      # instruments again over the restored topics).
+      latest = self._bus.latest(topic)
+      if latest is None or latest.payload != text:
+        self._bus.publish(topic, text, source='world')
+
+    stream.subscribe(on_next=arrived)
 
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:

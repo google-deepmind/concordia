@@ -61,19 +61,8 @@ INSTRUCTIONS = (
 )
 
 
-def _instruments(
-    context: game_lib.GameContext, name: str
-) -> dict[str, perception.Instrument]:
-  """What the Chronicler reads of the world: the thermometer."""
-  return {
-      'Thermometer': perception.instrument(
-          context,
-          'climate.global',
-          owner=name,
-          label='Thermometer',
-          initial='No reading yet.',
-      ),
-  }
+# What the Chronicler reads of the world: (key, topic, initial belief).
+READINGS = (('Thermometer', 'climate.global', 'No reading yet.'),)
 
 
 @dataclasses.dataclass
@@ -106,8 +95,11 @@ class Chronicler(prefab_lib.Prefab):
             'world.resolutions',
         ),
     )
-    for spec in _instruments(context, name).values():
-      perception.deliver(context, spec)
+    for key, topic, _ in READINGS:
+      perception.deliver(
+          context,
+          perception.instrument(context, topic, owner=name, label=key),
+      )
 
   def build(
       self,
@@ -151,8 +143,10 @@ class Chronicler(prefab_lib.Prefab):
             agent_components.observation.LastNObservations(history_length=20)
         ),
         **{
-            key: perception.subscribe(context, spec)
-            for key, spec in _instruments(context, name).items()
+            key: perception.subscribe(
+                context, perception.reading(name, key, initial, topic=topic)
+            )
+            for key, topic, initial in READINGS
         },
     }
     chapter_writer = question_of_recent_memories.QuestionOfRecentMemories(
