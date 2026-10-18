@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 
-import {campaignHtml, campaignTotal, chapterHtml, dailyHtml, nextChapterHtml, savedHtml} from './campaign.js';
+import {campaignHtml, campaignTotal, chapterHtml, dailyHtml, nextChapterHtml, savedHtml, whatsNewHtml} from './campaign.js';
 
 const campaign = {
   chapters: [
@@ -30,6 +30,9 @@ const campaign = {
 
 test('open chapters show their best stars; closed ones are locked', () => {
   const html = campaignHtml(campaign);
+  const named = campaignHtml({chapters: [{scenario: 'great_acceleration', title: 'Coal and steam',
+                                          when: '230 years ago', world: 'Great Acceleration', stars: 0, open: true}]});
+  assert.match(named, /<small>230 years ago · Great Acceleration<\/small>/);
   assert.match(html, /data-scenario="daisyworld">.*A young sun.*★★☆/);
   assert.match(html, /data-scenario="herds">.*☆☆☆/);
   assert.match(html, /class="chapter locked" disabled aria-label="The first breath, locked">/);
@@ -80,4 +83,17 @@ test('a recap tells its chapter, the best stars and the way on', () => {
   assert.match(nextChapterHtml({...chapter, next: null}), /last chapter/);
   assert.equal(chapterHtml(null), '');
   assert.equal(nextChapterHtml(null), '');
+});
+
+test('the start screen says what is new, with a way to play it, and the build', () => {
+  const changes = [{when: '18 Oct', world: 'great_acceleration', text: 'The Steward speaks.'},
+                   {when: '17 Oct', text: 'A clearer start.'}];
+  const html = whatsNewHtml(changes, {commit: 'abc1234', when: '18 Oct 03:23'},
+                            {great_acceleration: 'Great Acceleration'});
+  assert.match(html, /What's new<\/h2><p class="small"><b>18 Oct\.<\/b> The Steward speaks\.<\/p>/);
+  assert.match(html, /<button class="primary" data-world="great_acceleration">Play Great Acceleration<\/button>/);
+  assert.match(html, /Build abc1234 · 18 Oct 03:23/);
+  assert.doesNotMatch(html, /clearer start/);  // The newest only.
+  assert.equal(whatsNewHtml([], null), '');
+  assert.match(whatsNewHtml(null, {commit: 'abc1234', when: 'now'}), /^<p class="small muted">Build abc1234/);
 });

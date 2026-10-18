@@ -1,0 +1,17 @@
+# What changed for players, newest first. The start screen shows the newest
+# with a button to its world, so a person knows what to look for. Add an
+# entry in the cycle that changes play.
+changes:
+  - when: 18 Oct
+    world: great_acceleration
+    text: >-
+      The Great Acceleration speaks. As the Steward you may send the peoples
+      an omen: a sign every people sees and up to 25 words it is taken to
+      say. The Cedar league's printers retell it in the Gazette as they see
+      it, and each people says, in its own voice, what it makes of it. Your
+      strip shows the air and the energy against the goal.
+  - when: 17 Oct
+    text: >-
+      A clearer start: no daily challenge, no locks on worlds you can play,
+      Play in view once a world is picked; the Advisor's counsel shows how
+      old its readings are.

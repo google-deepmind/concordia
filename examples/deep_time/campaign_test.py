@@ -53,8 +53,14 @@ class CampaignTest(absltest.TestCase):
   def test_a_star_opens_the_next_chapter_and_bests_are_kept(self):
     path = os.path.join(self.create_tempdir().full_path, 'progress.json')
     progress = campaign_lib.Progress(path)
-    opened = [c['open'] for c in progress.campaign(DAY)['chapters']]
-    self.assertEqual(opened[:2], [True, False])  # Only the first is open.
+    shown = progress.campaign(DAY)['chapters']
+    opened = [c['open'] for c in shown]
+    self.assertEqual(opened[:2], [True, False])  # Only the first is open,
+    acceleration = next(
+        c for c in shown if c['scenario'] == 'great_acceleration'
+    )
+    self.assertTrue(acceleration['open'])  # and the world marked open.
+    self.assertEqual(acceleration['world'], 'Great Acceleration')
     first = campaign_lib.chapters()[0]['scenario']
     progress.record(first, 0, 2, DAY)
     progress.record(first, 0, 1, DAY)  # A worse game keeps the best.

@@ -40,6 +40,7 @@ import http.server
 import json
 import os
 import re
+import subprocess
 import threading
 import time
 from typing import Any
@@ -103,6 +104,28 @@ PER_GAME_USD = 0.5
 TURN_SECONDS = 180.0  # A player's time to answer, when several share a game.
 
 
+def build() -> dict[str, str]:
+  """The code this server runs: its commit and when it was made, if known."""
+  try:
+    out = subprocess.run(
+        ['git', 'log', '-1', '--format=%h|%cd', '--date=format:%d %b %H:%M'],
+        cwd=_WEB_DIR,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    ).stdout.strip()
+    commit, when = out.split('|', 1)
+  except (OSError, subprocess.SubprocessError, ValueError):
+    return {'commit': '', 'when': ''}
+  return {'commit': commit, 'when': when}
+
+
+# Read once: a deploy restarts the server.
+BUILD = build()
+BUILD_MARK = '/*@build*/null'
+
+
 def page() -> bytes:
   """The page, with its script modules inlined (one self-contained file).
 
@@ -118,7 +141,11 @@ def page() -> bytes:
   for name in MODULES:
     with open(os.path.join(SCRIPTS, name), encoding='utf-8') as f:
       code.append(_EXPORT.sub('', _IMPORT.sub('', f.read())))
-  return page_html.replace(MODULES_MARK, '\n'.join(code), 1).encode('utf-8')
+  return (
+      page_html.replace(MODULES_MARK, '\n'.join(code), 1)
+      .replace(BUILD_MARK, json.dumps(BUILD), 1)
+      .encode('utf-8')
+  )
 
 
 class Games:
@@ -154,6 +181,9 @@ class Games:
     for the start screen to offer to play on.
     """
     found = self.progress.campaign(datetime.date.today())
+    # Which code this is, and what changed for players lately.
+    found['build'] = BUILD
+    found['changes'] = data.load('changes.yaml')['changes'][:2]
     found['saved'] = self.saved()
     found['replays'] = (
         session_lib.list_replays(self.telemetry_dir)
@@ -617,7 +647,11 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         self._send(200, page(), 'text/html; charset=utf-8')
       elif path == '/api/state':
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        self._json(games.state((query.get('seat') or [None])[0]))
+        # With the build, so a page left open knows when it is out of date.
+        self._json({
+            **games.state((query.get('seat') or [None])[0]),
+            'build': BUILD['commit'],
+        })
       elif path == '/api/map':
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         self._json(

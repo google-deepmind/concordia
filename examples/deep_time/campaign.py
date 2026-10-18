@@ -146,8 +146,8 @@ class Progress:
                 'scenario': later['scenario'],
                 'title': later['title'],
                 'when': later['when'],
-                'open': best > 0,
-                'opened': before == 0 and stars > 0,
+                'open': best > 0 or bool(later.get('open')),
+                'opened': before == 0 and stars > 0 and not later.get('open'),
             }
         ),
         'daily': (
@@ -166,7 +166,13 @@ class Progress:
     found, opened = [], True
     for chapter in chapters():
       stars = int(best['scenarios'].get(chapter['scenario'], 0))
-      found.append({**chapter, 'stars': stars, 'open': opened})
+      found.append({
+          **chapter,
+          # The world's own name, as its card on the start screen has it.
+          'world': str(data.scenario(chapter['scenario'])['title']),
+          'stars': stars,
+          'open': opened or bool(chapter.get('open')),
+      })
       opened = stars > 0
     challenge = daily(day)
     return {

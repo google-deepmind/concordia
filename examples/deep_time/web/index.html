@@ -161,6 +161,9 @@
   .omen .sign.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .omen .row { justify-content: space-between; align-items: center; margin-top: 6px; }
   .takes { list-style: none; padding: 0; margin: 0 0 8px; } .takes li { margin: 6px 0; }
+  .whatsnew { border-color: var(--accent); } .whatsnew button { margin: 4px 0 8px; }
+  .stale { margin: 8px 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--warn); font-size: .9rem; }
+  .stale button { width: auto; margin-left: 6px; }
   .trace svg { display: block; width: 100%; height: 96px; }
   .trace .key { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); margin: 2px 0 6px; }
   .trace .key i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 5px; border-top: 2px solid var(--accent); }
@@ -399,7 +402,9 @@
 
   <div class="hero" id="hero"><canvas id="globe" width="120" height="120" role="img" aria-label="The world you picked, turning"></canvas></div>
   <div id="resumeslot"></div>
+  <p class="stale" id="stale" role="status" hidden></p>
   <section class="card replays" id="replays" hidden></section>
+  <section class="card whatsnew" id="whatsnew" hidden></section>
   <section class="card" id="campaigncard" hidden>
     <h2>The campaign <span class="muted" id="campaigntotal"></span></h2>
     <p class="small muted">Deep time, oldest world first: a star in a chapter opens the next.</p>
@@ -511,6 +516,9 @@
 </main>
 <script>
 /*@modules*/  // web/js/*.js, inlined by the server.
+// The build the server put in this page ({commit, when}), to tell a page
+// left open from before a redeploy.
+const BUILD = /*@build*/null;
 // The page may be served under a path (e.g. /deep-time/ behind `tailscale
 // serve`): every request is relative to the page's own directory.
 if (!location.pathname.endsWith('/') && !location.pathname.endsWith('.html')) {
@@ -681,6 +689,18 @@ async function loadCampaign() {
   $('replays').hidden = !(c.replays && c.replays.length) || !$('game').hidden;
   for (const b of $('replays').querySelectorAll('button[data-game]')) {
     b.addEventListener('click', () => watchReplay(b.dataset.game));
+  }
+  $('whatsnew').innerHTML = whatsNewHtml(c.changes, c.build, titles);
+  $('whatsnew').hidden = !$('whatsnew').innerHTML || !$('game').hidden;
+  for (const b of $('whatsnew').querySelectorAll('button[data-world]')) {
+    b.addEventListener('click', () => {  // The world that changed, ready to play.
+      $('scenario').value = b.dataset.world;
+      chosenSeed = 0;
+      showPremise();
+      $('play').scrollIntoView({behavior: 'smooth', block: 'center'});
+      const card = $('cards').querySelector(`button[data-scenario="${b.dataset.world}"]`);
+      if (card) card.scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'});
+    });
   }
   const total = campaignTotal(c);
   $('campaigntotal').textContent = `· ${total.stars} of ${total.of} ★`;
@@ -1714,6 +1734,15 @@ function render(state) {
   if ($('hero').hidden !== !onStart) { $('hero').hidden = !onStart; if (onStart) spinGlobe(); }
   if (!onStart) $('replays').hidden = true;
   $('campaigncard').hidden = !onStart || !campaignReady;
+  $('whatsnew').hidden = !onStart || !$('whatsnew').innerHTML;
+  // A page left open across a redeploy says so (the game runs the new code).
+  const stale = !!(BUILD && BUILD.commit && state.build && state.build !== BUILD.commit);
+  $('stale').hidden = !stale;
+  if (stale && !$('stale').innerHTML) {
+    $('stale').innerHTML = `This page is from build ${escapeHtml(BUILD.commit)}; the game now runs`
+      + ` ${escapeHtml(state.build)}. <button id="reload">Reload</button>`;
+    $('reload').addEventListener('click', () => location.reload());
+  }
   if (onStart && onStartBefore === false) loadCampaign();
   onStartBefore = onStart;
   document.body.classList.toggle('ingame', !$('game').hidden);
