@@ -151,11 +151,7 @@ class PerceptionTest(absltest.TestCase):
     self.assertNotIn('operator_state', belief.get_state())
 
     def step():
-      context.clock.advance()
-      context.wire.advance()
-      planet.advance()
-      context.publish_state()
-      context.record_beliefs()
+      _world_gm_step(context)  # The World GM's own order of operations.
 
     for _ in range(12):
       step()

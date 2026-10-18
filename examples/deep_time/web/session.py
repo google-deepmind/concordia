@@ -29,7 +29,6 @@ mock plays every role, and each step is paced so a viewer can follow it.
 
 from collections.abc import Callable, Mapping, Sequence
 import colorsys
-import contextlib
 import functools
 import io
 import json
@@ -583,8 +582,8 @@ def scripted_save(
       views='play',
   )
   shared['context'] = context
-  with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
-    sim.play(max_steps=max(0, int(tick)))
+  # (No stdout redirection: it is process-wide, not per thread.)
+  sim.play(max_steps=max(0, int(tick)))
   return {
       'version': SAVE_VERSION,
       'game_id': f'{scenario}-{seed}-from-{context.planet.tick}',

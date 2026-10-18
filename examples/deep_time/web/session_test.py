@@ -788,14 +788,19 @@ class GameSessionTest(absltest.TestCase):
   def test_a_held_steward_stops_on_its_own_thermometer_not_the_truth(self):
     game = session_lib.GameSession('daisyworld', 'play')
     low, high = game.context.planet.band()
-    reading = {'temp_c': None}
-    game.context.believed = lambda owner, topic, path: reading['temp_c']
-    # What the World GM publishes for the seat (`views`): its own readings.
+
+    def read(temp_c):  # What the Steward's thermometer delivered (GM state).
+      game.context.beliefs[('Gaia', 'climate.global')] = topics.Message(
+          'climate.global', json.dumps({'temp_c': temp_c}), seq=0, time=0
+      )
+
+    # What the World GM works out for the seat (`views`): its own readings.
     needs = lambda entity: views.needs_you(game.context, entity)
+    game.context.beliefs.pop(('Gaia', 'climate.global'), None)
     self.assertEqual(needs('Gaia'), '')  # No reading yet: no reason.
-    reading['temp_c'] = (low + high) / 2
+    read((low + high) / 2)
     self.assertEqual(needs('Gaia'), '')
-    reading['temp_c'] = high + 5
+    read(high + 5)
     self.assertEqual(needs('Gaia'), 'your thermometer reads outside the band')
 
   def test_a_held_people_stops_for_a_treaty_offer(self):

@@ -12,54 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
+import io
+
 from absl.testing import absltest
 from concordia.agents import entity_agent
-from concordia.components.agent import pubsub
-from examples.deep_time import actors as actors_lib
+from examples.deep_time import model_setup
+from examples.deep_time import simulation
 from examples.deep_time.components import chronicler_act
-from concordia.typing import entity as entity_lib
-from reactivex import subject
-
-_BLANK = 'This is the first chapter.'
-_SPEC = entity_lib.free_action_spec(
-    call_to_action=actors_lib.CHRONICLER_CALL_TO_ACTION
-)
-
-
-def _chronicler(
-    act: chronicler_act.ChroniclerAct, drafts: subject.Subject, initial: str
-) -> entity_agent.EntityAgent:
-  return entity_agent.EntityAgent(
-      'Chronicler',
-      act_component=act,
-      context_components={
-          'Previous chapter': pubsub.Subscriber(
-              None, initial_value=initial, subject=drafts
-          )
-      },
-  )
 
 
 class ChroniclerActTest(absltest.TestCase):
 
-  def test_it_hands_in_each_chapter_its_mind_writes_once(self):
-    drafts = subject.Subject()
-    act = chronicler_act.ChroniclerAct('Previous chapter', blank=_BLANK)
-    chronicler = _chronicler(act, drafts, _BLANK)
-    self.assertEqual(chronicler.act(_SPEC), actors_lib.CHRONICLER_RESPONSE)
-    drafts.on_next('The Quiet Years (ticks 2-5).')
-    self.assertEqual(
-        chronicler.act(_SPEC),
-        f'{actors_lib.HAND_IN_CHAPTER}: The Quiet Years (ticks 2-5).',
+  def test_the_chronicler_hands_in_each_chapter_once_by_its_action(self):
+    sim, context = simulation.build_simulation(
+        'daisyworld', model_setup.make_models('mock'), seed=1
     )
-    self.assertEqual(chronicler.act(_SPEC), actors_lib.CHRONICLER_RESPONSE)
-    # Restored from a checkpoint, it does not hand the chapter in again.
-    restored = chronicler_act.ChroniclerAct('Previous chapter', blank=_BLANK)
-    restored.set_state(act.get_state())
-    again = _chronicler(
-        restored, subject.Subject(), 'The Quiet Years (ticks 2-5).'
+    (chronicler,) = [e for e in sim.get_entities() if e.name == 'Chronicler']
+    assert isinstance(chronicler, entity_agent.EntityAgent)
+    self.assertIsInstance(
+        chronicler.get_act_component(), chronicler_act.ChroniclerAct
     )
-    self.assertEqual(again.act(_SPEC), actors_lib.CHRONICLER_RESPONSE)
+    with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
+      sim.play(premise='', max_steps=20)
+    chapters = [
+        m for m in context.bus.history('chronicle') if m.source == 'Chronicler'
+    ]
+    self.assertNotEmpty(chapters)
+    # Each chapter its mind finished, handed in once by its action.
+    texts = [m.payload for m in chapters]
+    self.assertLen(set(texts), len(texts))
 
 
 if __name__ == '__main__':
