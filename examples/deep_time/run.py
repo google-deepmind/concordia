@@ -230,8 +230,8 @@ def run(
       ticks,
       time_mode=time_mode,
       seed=seed,
-      # The mock's peoples are coached; live characters play without.
-      coached=models.mock is not None,
+      # Live characters play without the playbook lines (a scenario flag).
+      overrides=None if models.mock is not None else {'coached': False},
   )
   start = time.perf_counter()
   log = sim.play(max_steps=ticks)

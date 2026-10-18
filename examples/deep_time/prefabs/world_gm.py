@@ -60,6 +60,7 @@ from concordia.contrib.components.game_master import numeric_time
 from concordia.contrib.components.game_master import topic_observations
 from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
+from examples.deep_time import views
 from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import action_specs
 from examples.deep_time.components import actor_registry
@@ -112,8 +113,15 @@ class WorldGameMaster(prefab_lib.Prefab):
     # Every role's rules (its actor, wake-ups and attention, the sheets the
     # GM publishes for it and the instruments it runs), from its params, in
     # the order the roles were listed.
+    premise = str(context.scenario.get('premise', ''))
     for role in self.params.get('roles', ()):
       self.roles[role['prefab']].rules(context, role['params'])
+      if premise:  # Every role hears the premise first.
+        context.observe(str(role['params']['name']), premise)
+    # For a game a person's page shows: each role's view (crises, needs).
+    if self.params.get('views'):
+      for actor in sorted(context.actors):
+        views.register(context, actor, str(self.params['views']))
     player_names = [entity.name for entity in self.entities or ()]
 
     components = {
