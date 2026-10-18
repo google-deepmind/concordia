@@ -34,6 +34,9 @@ registry |
 observations per access list |
 | `__actors__` | `ActorRegistry`: each acting entity's rules (its action spec,
 how its actions resolve), checkpointed with the GM |
+| `entity_scheduler` | upstream `interrupt_scheduling.EntityScheduler`: the
+event-driven entities' interrupt masks and timers (where there are any) |
+| `__wakeups__` | `wakeups.WakeUps`: the events and alarms that wake them |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it.
@@ -45,6 +48,7 @@ from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
+from concordia.components.game_master import interrupt_scheduling
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
 from concordia.components.game_master import switch_act
@@ -53,6 +57,7 @@ from concordia.contrib.components.game_master import numeric_time
 from concordia.contrib.components.game_master import topic_observations
 from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
+from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import action_specs
 from examples.deep_time.components import actor_registry
 from examples.deep_time.components import resolution
@@ -132,6 +137,18 @@ class WorldGameMaster(prefab_lib.Prefab):
         ),
         # The rules of every acting entity, checkpointed with the GM.
         actor_registry.DEFAULT_ACTOR_REGISTRY_KEY: context.registry,
+        # Who is awake in event-driven eras: the upstream scheduler of masks
+        # and timers, and what wakes whom (stepped by `WorldStep`).
+        **(
+            {
+                interrupt_scheduling.DEFAULT_SCHEDULER_COMPONENT_KEY: (
+                    context.wakeups.scheduler
+                ),
+                wakeups_lib.DEFAULT_WAKEUPS_COMPONENT_KEY: context.wakeups,
+            }
+            if context.wakeups is not None
+            else {}
+        ),
     }
     act_component = switch_act.SwitchAct(model=model, entity_names=player_names)
     return entity_agent_with_logging.EntityAgentWithLogging(

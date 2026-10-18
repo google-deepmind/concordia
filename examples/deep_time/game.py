@@ -408,10 +408,11 @@ class GameContext:
   def get_state(self) -> dict[str, Any]:
     """The world's own state, checkpointed by the World GM's `WorldStep`.
 
-    The topic bus, the sim-time scheduler and the clock are components'
-    state, checkpointed the standard Concordia way (`TopicBusComponent` and
-    `TopicObservations`, `SimTimePublisher` and the transports' operator
-    state, `NumericClock`), not here.
+    The topic bus, the sim-time scheduler, the clock, the actor registry and
+    the wake-ups are components' state, checkpointed the standard Concordia
+    way (`TopicBusComponent` and `TopicObservations`, `SimTimePublisher` and
+    the transports' operator state, `NumericClock`, the World GM's
+    `ActorRegistry`, `EntityScheduler` and `WakeUps`), not here.
 
     Returns:
       JSON-safe state.
@@ -422,7 +423,6 @@ class GameContext:
         'planet': self.planet.get_state(),
         'observation_queue': self.observation_queue.get_all(),
         'attention': {k: a.get_state() for k, a in self.attention.items()},
-        'wakeups': self.wakeups.get_state() if self.wakeups else None,
         'automation': self.automation.get_state() if self.automation else None,
         # What each instrument last delivered (the epistemic gap and the
         # page read these between deliveries).
@@ -453,8 +453,6 @@ class GameContext:
         for owner, label, message in state.get('received', [])
     }
     self.spawned = [str(name) for name in state.get('spawned', [])]
-    if self.wakeups is not None and state.get('wakeups'):
-      self.wakeups.set_state(state['wakeups'])
     if self.automation is not None and state.get('automation'):
       self.automation.set_state(state['automation'])
     for owner, watched in state.get('attention', {}).items():

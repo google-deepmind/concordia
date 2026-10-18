@@ -24,7 +24,9 @@ event-driven.
 Everything here is stock Concordia or contrib: the upstream
 `interrupt_scheduling.EntityScheduler` keeps masks and timers, contrib
 `topics.as_interrupt_event` turns bus messages into its `Event`s, and the
-alarms are contrib `operators.deadband` reflexes over the census.
+alarms are contrib `operators.deadband` reflexes over the census. Both the
+scheduler and the wake-ups are World GM components, checkpointed with it;
+the GM's `WorldStep` steps them.
 """
 
 # pylint: disable=missing-function-docstring
@@ -32,13 +34,16 @@ alarms are contrib `operators.deadband` reflexes over the census.
 from collections.abc import Mapping
 import json
 import threading
-from typing import Any
+from typing import Any, cast
 
 from concordia.components.game_master import interrupt_scheduling
 from concordia.contrib.components.game_master import numeric_time
 from concordia.contrib.pubsub import operators
 from concordia.contrib.pubsub import topics
+from concordia.typing import entity_component
 from reactivex import operators as ops
+
+DEFAULT_WAKEUPS_COMPONENT_KEY = '__wakeups__'
 
 
 class _Scheduler(interrupt_scheduling.EntityScheduler):
@@ -55,8 +60,13 @@ class _Scheduler(interrupt_scheduling.EntityScheduler):
     self._pending[name] = []
 
 
-class WakeUps:
-  """Decides which event-driven entities are awake each tick."""
+class WakeUps(entity_component.ContextComponent):
+  """A World GM component: which event-driven entities are awake each tick.
+
+  Its masks and timers are kept by the upstream `EntityScheduler`
+  (`scheduler`), another World GM component; this one keeps what wakes whom:
+  the events since the last step, the alarms' deadbands and the tallies.
+  """
 
   def __init__(self, bus: topics.TopicBus):
     """Initializes wake-ups.
@@ -64,6 +74,7 @@ class WakeUps:
     Args:
       bus: The topic bus whose messages are the events.
     """
+    super().__init__()
     self._bus = bus
     self.scheduler = _Scheduler(
         player_names=[],
@@ -159,15 +170,11 @@ class WakeUps:
   def is_awake(self, name: str) -> bool:
     return not self.managed(name) or name in self.awake
 
-  def get_state(self) -> dict[str, Any]:
-    timers = {}
-    for name in self.scheduler.player_names:
-      timer = self.scheduler.get_timer(name)
-      timers[name] = timer.expiry if timer is not None else None
+  def get_state(self) -> entity_component.ComponentState:
+    # Masks and timers are the scheduler's state (its own component).
     with self._lock:
       inbox = [m.to_dict() for m in self._inbox]
     return {
-        'timers': timers,
         'awake': sorted(self.awake),
         'woken_by': json.loads(json.dumps(self.woken_by)),
         # Events since the last step (they wake entities at the next), and
@@ -176,27 +183,15 @@ class WakeUps:
         'alarms': [get() for get, _ in self._alarm_hooks],
     }
 
-  def set_state(self, state: Mapping[str, Any]) -> None:
-    for name, expiry in state.get('timers', {}).items():
-      if name not in self._masks:
-        continue
-      self.scheduler.set_mask(name, self._masks[name])
-      if expiry is None:
-        self.scheduler.clear_timer(name)
-      else:
-        self.scheduler.set_timer(
-            name,
-            interrupt_scheduling.Timer(
-                expiry=expiry, entity_name=name, description='reconsider'
-            ),
-        )
-    self.awake = set(state.get('awake', []))
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    saved = cast(Mapping[str, Any], state)
+    self.awake = set(saved.get('awake', []))
     with self._lock:
       self._inbox = [
-          topics.Message.from_dict(m) for m in state.get('inbox', [])
+          topics.Message.from_dict(m) for m in saved.get('inbox', [])
       ]
-    for (_, restore), saved in zip(self._alarm_hooks, state.get('alarms', [])):
-      restore(saved)
+    for (_, restore), alarm in zip(self._alarm_hooks, saved.get('alarms', [])):
+      restore(alarm)
     self.woken_by = {
-        name: dict(counts) for name, counts in state.get('woken_by', {}).items()
+        name: dict(counts) for name, counts in saved.get('woken_by', {}).items()
     }
