@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
+import io
+
 from absl.testing import absltest
 from examples.deep_time import mock_language_model
+from examples.deep_time import model_setup
 from examples.deep_time import play_audit
+from examples.deep_time import simulation
 
 
 class PlayAuditTest(absltest.TestCase):
@@ -44,6 +49,20 @@ class PlayAuditTest(absltest.TestCase):
         summary['gap_passive'],
         round(summary['wins']['default'] - summary['wins']['passive'], 3),
     )
+
+  def test_the_world_gm_logs_every_menu_of_a_step(self):
+    sim, _ = simulation.build_simulation(
+        'great_acceleration', model_setup.make_models('mock'), max_ticks=3
+    )
+    with contextlib.redirect_stdout(io.StringIO()):
+      log = sim.play(premise='', max_steps=3)
+    # Not only the last entity asked (the engine keeps one log a step).
+    for role in ('Gaia', 'Amber folk', 'Cedar league'):
+      menus = play_audit.menus(log, role)
+      self.assertLen(menus, 3)
+      self.assertNotEmpty(menus[0]['offered'])
+    gaia = play_audit.menus(log, 'Gaia')[0]
+    self.assertTrue(set(gaia['pushes']) <= {*gaia['offered'], *gaia['later']})
 
   def test_mission_control_is_light_delays_main_role(self):
     row = play_audit.play_one('light_delay', 'random', seed=0, ticks=4)

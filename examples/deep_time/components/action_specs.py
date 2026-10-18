@@ -21,7 +21,7 @@ Entities without an active actor get `SKIP_THIS_STEP`.
 """
 
 import dataclasses
-from typing import override
+from typing import Any, override
 
 from concordia.components.game_master import next_acting
 from concordia.environment import engine as engine_lib
@@ -97,6 +97,9 @@ class ActorActionSpecs(
     super().__init__()
     self._context = context
     self._prefix, self._suffix = call_to_next_action_spec.split('{name}')
+    # This step's menus, by entity (the engine logs only the last call).
+    self._menus: dict[str, dict[str, Any]] = {}
+    self._menus_tick: int | None = None
 
   def _entity_name(self, call_to_action: str) -> str:
     if not (
@@ -130,12 +133,41 @@ class ActorActionSpecs(
     spec = actor.action_spec() if actor and actor.is_active() else SKIP_SPEC
     if actor is not None and name in self._context.humans:
       spec = aimable_spec(actor, spec)
+    if self._menus_tick != self._context.planet.tick:
+      self._menus, self._menus_tick = {}, self._context.planet.tick
+    if actor is not None and spec is not SKIP_SPEC:
+      self._menus[name] = self._menu(actor, name, spec)
     self._logging_channel({
         'Key': 'Action spec',
         'Summary': f'{name}: {spec.output_type.name}',
         'Value': spec.to_dict(),
+        # Every menu offered so far this step, with what each move does.
+        'Menus': dict(self._menus),
     })
     return engine_lib.action_spec_to_string(spec)
+
+  def _menu(
+      self, actor: actors_lib.Actor, name: str, spec: entity_lib.ActionSpec
+  ) -> dict[str, Any]:
+    """What an entity was offered: its moves, those saved for, their pushes.
+
+    Args:
+      actor: The entity's actor.
+      name: The entity's name.
+      spec: The spec it is asked with.
+
+    Returns:
+      `offered` (a Steward that may speak still has its moves), `later`
+      (moves it is saving for, plannable for a later turn) and `pushes`
+      (move -> what it does to the world, measured, for those that say).
+    """
+    offered = list(spec.options) or list(getattr(actor, 'options', list)())
+    later = list(getattr(actor, 'out_of_reach', list)())
+    return {
+        'offered': offered,
+        'later': later,
+        'pushes': self._context.pushes([*offered, *later], name),
+    }
 
   @override
   def get_state(self) -> entity_component.ComponentState:
