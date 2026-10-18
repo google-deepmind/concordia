@@ -114,7 +114,10 @@ class Script:
     self._still = still
     self._move = move
 
-  def __call__(self, spec: entity_lib.ActionSpec) -> str:
+  def __call__(
+      self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    del contexts  # A script reads only the question.
     if self._move is not None and (
         self._move in spec.options
         or spec.output_type == entity_lib.OutputType.FREE

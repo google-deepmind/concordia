@@ -59,6 +59,7 @@ from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
 from concordia.prefabs.entity import minimal
+from concordia.typing import entity as entity_lib
 from concordia.typing import human_input
 import numpy as np
 
@@ -429,8 +430,8 @@ REPLAYS = 'replays'
 REPLAYS_LISTED = 6
 
 
-class ReplaySeat(human_input.HumanInput):
-  """Answers a seat's turns with the moves its player made.
+class ReplayRule:
+  """Plays a role by the moves its player made (a rule, `rule_act.RuleAct`).
 
   Each recorded move is sent on its turn, aimed where it was aimed; a turn
   with nothing recorded (or a move not on offer) makes the neutral move.
@@ -446,14 +447,16 @@ class ReplaySeat(human_input.HumanInput):
     # The moves of a free question (as `Seat.moves`).
     self.moves: Callable[[], Sequence[str]] = lambda: ()
 
-  def __call__(self, request: human_input.HumanInputRequest) -> str:
-    options = tuple(request.action_spec.options) or tuple(self.moves())
+  def __call__(
+      self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    options = tuple(spec.options) or tuple(self.moves())
     move, target = self._moves.get(self._clock(), (None, None))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
     if target:  # Aimed where it was aimed, in the action itself.
       return f'{move} @ {int(target[0])},{int(target[1])}'
-    return with_draft(request, move)  # A draft's words, as the role reads.
+    return with_draft(contexts, move)  # A draft's words, as the role reads.
 
 
 # Moves that enact a slow mind's draft, and the role's context component that
@@ -467,14 +470,14 @@ DRAFTS = {
 _AGED = re.compile(r'\s*\[tick [^\]]*\]\s*$')
 
 
-def with_draft(request: human_input.HumanInputRequest, move: str) -> str:
+def with_draft(contexts: Mapping[str, str], move: str) -> str:
   """A move enacting a draft, with the draft's words as the role reads them."""
   for enact, key in DRAFTS.items():
     if not move.strip().lower().startswith(enact.lower()):
       continue
     if move.strip()[len(enact) :].lstrip().startswith(':'):
       return move  # Its words are given.
-    text = _AGED.sub('', str(request.contexts.get(key, ''))).strip()
+    text = _AGED.sub('', str(contexts.get(key, ''))).strip()
     if enact == actors_lib.ADOPT_ORDERS:  # The orders as the scribes wrote.
       text = text.split('As written: ', 1)[1] if 'As written: ' in text else ''
     return f'{move}: {text}' if text else move
@@ -666,11 +669,12 @@ class GameSession:
     self.finished = False
     self.minds = minds
     self.models = model_setup.make_models(minds, max_calls=max_calls)
-    # Scenario flags: a resumed game keeps those it was saved with.
+    # Scenario flags: a resumed or replayed game keeps those it was played
+    # with.
     self.overrides: dict[str, Any] = dict(
         overrides
         if overrides is not None
-        else (resume or {}).get('overrides') or {}
+        else (resume or replay or {}).get('overrides') or {}
     )
     self._on_end = on_end
     # Its place in the campaign once decided, set as it ends.
@@ -679,15 +683,17 @@ class GameSession:
         dict(self.seats) if mode == 'play' else None
     )
     self.replay_of: str | None = None
+    # Roles a rule plays: in a replay, the players' moves played back.
+    scripted: dict[str, ReplayRule] = {}
     if replay is not None:  # Watched, with the players' moves played back.
       self.replay_of = str(replay.get('game_id', ''))
-      humans = {}
+      humans = None
       for name, moves in (replay.get('moves') or {}).items():
         if name not in labels:
           continue
-        seat = ReplaySeat(moves, clock=self._tick)
-        seat.moves = lambda name=name: self._free_moves(name)
-        humans[name] = seat
+        rule = ReplayRule(moves, clock=self._tick)
+        rule.moves = lambda name=name: self._free_moves(name)
+        scripted[name] = rule
     bot = (
         model_setup.make_models('mock', max_calls=max_calls).fast
         if bots
@@ -698,6 +704,7 @@ class GameSession:
         self.models,
         seed=seed,
         humans=humans,
+        scripted=scripted or None,
         bots={name: bot for name in bots} if bot is not None else None,
         # Live characters play without the playbook lines the mock's rules
         # read (a scenario flag).
@@ -1337,7 +1344,7 @@ class GameSession:
         aim = target is not None and self._targetable(name, response)
         # A move enacting a draft carries its words, as the role reads them
         # (the move itself is what is kept, for the page and replays).
-        action = with_draft(request, response)
+        action = with_draft(request.contexts, response)
         error = seat.choose(
             request_id,
             # The aim travels in the action; the actor sets it as the World

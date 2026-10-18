@@ -28,6 +28,7 @@ from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import scenarios
 from examples.deep_time import views
+from examples.deep_time.components import rule_act
 from examples.deep_time.web import session as session_lib
 from examples.deep_time.world import treaties as treaties_lib
 from concordia.typing import entity as entity_lib
@@ -215,14 +216,14 @@ class GameSessionTest(absltest.TestCase):
     )
     move = actors_lib.PUBLISH_BROADSHEET
     self.assertEqual(
-        session_lib.with_draft(request, move),
+        session_lib.with_draft(request.contexts, move),
         f'{move}: clean air: Smoke Kills.',
     )
     self.assertEqual(
-        session_lib.with_draft(request, actors_lib.ADOPT_ORDERS),
+        session_lib.with_draft(request.contexts, actors_lib.ADOPT_ORDERS),
         f'{actors_lib.ADOPT_ORDERS}: [{{"name": "x"}}]',
     )
-    self.assertEqual(session_lib.with_draft(request, 'wait'), 'wait')
+    self.assertEqual(session_lib.with_draft(request.contexts, 'wait'), 'wait')
 
   def test_a_seat_takes_a_move_with_its_words_from_the_gms_menu(self):
     game = session_lib.GameSession(
@@ -1385,6 +1386,10 @@ class ReplayTest(absltest.TestCase):
 
     self.assertEqual(history(again), history(game))
     self.assertEqual(again.context.planet.outcome, game.context.planet.outcome)
+    # The player's role was played back by a rule, not as a person.
+    replayed = again.role_entity(game.entity)
+    assert replayed is not None
+    self.assertIsInstance(replayed.get_act_component(), rule_act.RuleAct)
 
 
 class SaveTest(absltest.TestCase):
