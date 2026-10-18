@@ -449,7 +449,32 @@ class ReplaySeat(human_input.HumanInput):
       return neutral(options) if options else ''
     if target:  # Aimed where it was aimed, in the action itself.
       return f'{move} @ {int(target[0])},{int(target[1])}'
-    return move
+    return with_draft(request, move)  # A draft's words, as the role reads.
+
+
+# Moves that enact a slow mind's draft, and the role's context component that
+# holds it: the move carries the draft's words ("<move>: <words>").
+DRAFTS = {
+    actors_lib.EVOLVE: 'Evolving toward',
+    actors_lib.PUBLISH_BROADSHEET: "Our printers' sheet",
+    actors_lib.PRINT_RETELLING: "Our printers' retelling",
+    actors_lib.ADOPT_ORDERS: "Our scribes' draft",
+}
+_AGED = re.compile(r'\s*\[tick [^\]]*\]\s*$')
+
+
+def with_draft(request: human_input.HumanInputRequest, move: str) -> str:
+  """A move enacting a draft, with the draft's words as the role reads them."""
+  for enact, key in DRAFTS.items():
+    if not move.strip().lower().startswith(enact.lower()):
+      continue
+    if move.strip()[len(enact) :].lstrip().startswith(':'):
+      return move  # Its words are given.
+    text = _AGED.sub('', str(request.contexts.get(key, ''))).strip()
+    if enact == actors_lib.ADOPT_ORDERS:  # The orders as the scribes wrote.
+      text = text.split('As written: ', 1)[1] if 'As written: ' in text else ''
+    return f'{move}: {text}' if text else move
+  return move
 
 
 def list_replays(telemetry_dir: str) -> list[dict[str, Any]]:
@@ -1250,13 +1275,16 @@ class GameSession:
       request = seat.pending()
       if request is not None and request.request_id == request_id:
         aim = target is not None and self._targetable(name, response)
+        # A move enacting a draft carries its words, as the role reads them
+        # (the move itself is what is kept, for the page and replays).
+        action = with_draft(request, response)
         error = seat.choose(
             request_id,
             # The aim travels in the action; the actor sets it as the World
             # GM resolves the move.
-            f'{response} @ {int(target[0])},{int(target[1])}'
+            f'{action} @ {int(target[0])},{int(target[1])}'
             if aim and target is not None
-            else response,
+            else action,
             move=response,
         )
         if error is None and aim and target is not None:

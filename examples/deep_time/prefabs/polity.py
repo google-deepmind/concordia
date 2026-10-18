@@ -102,6 +102,7 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
     )
   for aim in context.scenario['civilization'].get('aims', ()):
     text += ' ' + civ.aim(polity, str(aim))
+  text += our_acts(context, polity)
   # What the age asks of the peoples, in this people's numbers (a playbook
   # line: only for coached minds).
   if context.coached:
@@ -186,15 +187,39 @@ def scribes(context: game_lib.GameContext, polity: str) -> str:
   )
 
 
-def scribes_draft(context: game_lib.GameContext, polity: str) -> str:
-  """The scribes' latest draft, in the orders it would place."""
-  latest = context.bus.latest(f'civ.{polity}.policy')
-  if latest is None or context.automation is None:
-    return 'Our scribes have drafted no standing orders.'
+def scribes_draft(
+    context: game_lib.GameContext, polity: str, message: topics.Message
+) -> str:
+  """The scribes' draft as it reaches the people: its orders, as written."""
+  if context.automation is None:
+    return str(message.payload)
   return (
-      'Standing orders our scribes drafted (adopt them to put them to work): '
-      + context.automation.summary(polity, str(latest.payload))
+      'Standing orders our scribes drafted (adopt them, as written, to put'
+      ' them to work): '
+      + context.automation.summary(polity, str(message.payload))
+      + '. As written: '
+      + ' '.join(str(message.payload).split())
   )
+
+
+def our_acts(context: game_lib.GameContext, polity: str) -> str:
+  """When the people last enacted its printers' and scribes' drafts."""
+  civ = context.planet.civ
+  assert civ is not None
+  name = civ.polities[polity].name
+  said = {
+      'commission': 'paid its printers for a sheet',
+      'press': 'published a broadsheet',
+      'retelling': "printed its printers' retelling of an omen",
+      'orders': "adopted its scribes' standing orders",
+  }
+  done = [
+      f'{what} at tick {tick}'
+      for key, what in said.items()
+      if (tick := actors_lib.made_at(context.planet, f'{name}:{key}'))
+      is not None
+  ]
+  return f' Our people last {"; ".join(done)}.' if done else ''
 
 
 def character_words(character: Mapping[str, Any]) -> str:
@@ -312,9 +337,6 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           automation=context.automation,
           age=str(rules.get('age', 'the early iron age')),
           coached=context.coached,
-          # What its printers write reaches the Gazette by its action.
-          press=lambda: context.bus.latest(f'civ.{polity}.press'),
-          retelling=lambda: context.bus.latest(f'civ.{polity}.retelling'),
       ),
       hears=(
           'world.tick',
@@ -409,6 +431,16 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               else 1,
               trigger_on_observe=True,
           ),
+          # What its printers wrote, for the people to publish (its action
+          # carries the words).
+          "Our printers' sheet": perception.instrument(
+              context,
+              f'civ.{polity}.press',
+              owner=people.name,
+              label="Our printers' sheet",
+              initial='Our printers have written nothing yet.',
+              render=lambda message: str(message.payload),
+          ),
           # Writes the broadsheets the people pays paper for.
           'Press mind': context.make_mind(
               people.name,
@@ -452,6 +484,22 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
               if owner == polity and context.planet.gazette is not None
               else {}
           ),
+          # What its printers made of the newest omen, for the people that
+          # owns the presses to print (its action carries the words).
+          **(
+              {
+                  "Our printers' retelling": perception.instrument(
+                      context,
+                      f'civ.{polity}.retelling',
+                      owner=people.name,
+                      label="Our printers' retelling",
+                      initial='Our printers have retold no omen yet.',
+                      render=lambda message: str(message.payload),
+                  )
+              }
+              if owner == polity and context.planet.gazette is not None
+              else {}
+          ),
           # One sentence, in its own voice, on each omen it reads (kept
           # on its topic for the page: words, which change nothing).
           **(
@@ -485,12 +533,15 @@ def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
           # by an action on its menu.
           **(
               {
-                  "Our scribes' draft": perception.sheet(
+                  "Our scribes' draft": perception.instrument(
                       context,
-                      people.name,
-                      'draft',
-                      lambda: scribes_draft(context, polity),
+                      f'civ.{polity}.policy',
+                      owner=people.name,
                       label="Our scribes' draft",
+                      initial='Our scribes have drafted no standing orders.',
+                      render=lambda message: scribes_draft(
+                          context, polity, message
+                      ),
                   )
               }
               if context.automation is not None

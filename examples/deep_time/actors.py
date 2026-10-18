@@ -78,6 +78,8 @@ PAY_PAMPHLETS = 'pay the coal guilds for pamphlets'
 # What a people's printers wrote reaches the Gazette only by its action.
 PUBLISH_BROADSHEET = 'publish the broadsheet our printers wrote'
 PRINT_RETELLING = "print our printers' retelling of the omen"
+# The moves that enact a draft (their action carries the draft's words).
+ENACTS = (EVOLVE, ADOPT_ORDERS, PUBLISH_BROADSHEET, PRINT_RETELLING)
 MAX_PLANS = 3
 MIN_ORDERS = 3  # Trade and reflex options always kept on a crowded menu.
 # A target with less of the labor than this may be planned (again).
@@ -112,6 +114,11 @@ STEWARD_SPEAKS = (
 # as the page draws the map). The target travels in the action and is set
 # while the World GM resolves it (never beside the action).
 AIMED = re.compile(r'\s*@\s*(\d+)\s*,\s*(\d+)\s*$')
+# Moves that enact a slow mind's draft: the action carries its words.
+DRAFT_HINT = (
+    'To enact a draft (evolve, adopt, publish, print), answer with the move'
+    " as written, a colon, then the draft's words as your context gives them."
+)
 AIM_HINT = (
     'To aim a move that lands on the map, answer with the move as written,'
     ' then " @ row,col".'
@@ -126,32 +133,17 @@ def aimed(action: str) -> tuple[str, tuple[int, int] | None]:
   return action[: found.start()], (int(found.group(1)), int(found.group(2)))
 
 
-# A mind's latest published decision (a topic's latest message), or None.
-Latest = Callable[[], topics.Message | None]
+def said(action: str, move: str) -> str:
+  """The words an action carries after its move ("<move>: <words>")."""
+  text = action.strip()
+  if not text.lower().startswith(move.lower()):
+    return ''
+  return text[len(move) :].lstrip(' :').strip()
 
 
-def new_draft(
-    planet: planet_lib.Planet, latest: Latest | None, key: str
-) -> str | None:
-  """A mind's decision not yet enacted (its entity enacts it by an action)."""
-  message = latest() if latest is not None else None
-  if message is None or not str(message.payload).strip():
-    return None
-  if message.seq <= planet.enacted.get(key, -1):
-    return None
-  return str(message.payload)
-
-
-def enact(
-    planet: planet_lib.Planet, latest: Latest | None, key: str
-) -> str | None:
-  """Marks a mind's latest decision enacted; returns it (None if none)."""
-  draft = new_draft(planet, latest, key)
-  message = latest() if latest is not None else None
-  if draft is None or message is None:
-    return None
-  planet.enacted[key] = message.seq
-  return draft
+def made_at(planet: planet_lib.Planet, key: str) -> int | None:
+  """The tick an actor last made the act `key` ('Amber folk:press'), if ever."""
+  return planet.enacted.get(key)
 
 
 class Actor(metaclass=abc.ABCMeta):
@@ -182,19 +174,22 @@ class Actor(metaclass=abc.ABCMeta):
     "(c) put more labor into: mine ice, since ..."). The answer is read as
     the offered move it is, or starts with (after any "(c)" letter), or,
     for a role that does not answer in its own words, the move it names
-    first; otherwise it is left as it is.
+    first; otherwise it is left as it is. Words a move carries after a colon
+    ("publish the broadsheet our printers wrote: <the sheet>") are kept.
 
     Args:
       action: The answer, perhaps aimed (" @ row,col").
 
     Returns:
-      The move it names, aimed as it was; or the answer unchanged.
+      The move it names (with its words), aimed as it was; or the answer
+      unchanged.
     """
     move, aim = aimed(action)
-    text = move.strip().lower()
-    if text.startswith(f'{self.name.lower()} '):  # A model's answer, signed.
-      text = text[len(self.name) + 1 :]
-    text = re.sub(r'^\(?[a-z]\)\s+', '', text)
+    original = move.strip()
+    if original.lower().startswith(f'{self.name.lower()} '):  # Signed.
+      original = original[len(self.name) + 1 :]
+    original = re.sub(r'^\(?[a-zA-Z]\)\s+', '', original)
+    text = original.lower()
     offered = sorted(self.offered, key=len, reverse=True)
     found = next((o for o in offered if text == o.lower()), None) or next(
         (o for o in offered if text.startswith(o.lower())), None
@@ -208,6 +203,9 @@ class Actor(metaclass=abc.ABCMeta):
       found = min(named)[1] if named else None
     if found is None:
       return action
+    rest = original[len(found) :] if text.startswith(found.lower()) else ''
+    if rest.lstrip().startswith(':'):  # The words the move carries.
+      found += rest.rstrip()
     return found if aim is None else f'{found} @ {aim[0]},{aim[1]}'
 
   def drain_outbox(self) -> list[tuple[str, str]]:
@@ -387,23 +385,19 @@ class SpeciesActor(Actor):
       name: str,
       species: str,
       planet: planet_lib.Planet,
-      decided: Latest | None = None,
   ):
     super().__init__(name, outcome_topic=f'bio.species.{species}.behaviour')
     self.species = species
     self._planet = planet
-    # What its adaptation mind last decided (it evolves only by an action).
-    self._decided = decided
 
-  def _evolving(self) -> dict[str, str]:
-    """Option text -> the mind's decision, if it decided a new shift."""
-    draft = new_draft(self._planet, self._decided, f'{self.name}:adaptation')
-    if draft is None:
-      return {}
-    option = self._evolution().parse_adaptation(draft)
-    if option is None or option.key == 'none':
-      return {}
-    return {f'{EVOLVE} ({option.label})': draft}
+  def _evolving(self) -> list[str]:
+    """Evolving: the species names the shift in its action.
+
+    "evolve as our slow mind decided: <the shift>", from its slow mind's
+    counsel in its context (paced by that mind: a shift is decided only as
+    fast as it thinks); a shift already under way is not begun again.
+    """
+    return [EVOLVE]
 
   def _evolution(self):
     evolution = self._planet.evolution
@@ -463,10 +457,17 @@ class SpeciesActor(Actor):
   def resolve(self, action: str) -> str:
     action = self.take_aim(action, self._planet)
     if action.strip().lower().startswith(EVOLVE):
-      draft = enact(self._planet, self._decided, f'{self.name}:adaptation')
-      if draft is None:
-        return f'{self.name} have no new shift to make.'
-      news = self._planet.queue_adaptation(self.species, draft)
+      words = said(action, EVOLVE)
+      option = self._evolution().parse_adaptation(words) if words else None
+      if option is None or option.key == 'none':
+        return f'{self.name} make no shift: they named none.'
+      if any(
+          p.species == self.species and p.option == option.key
+          for p in self._planet.pending_adaptations
+      ):
+        return f'{self.name} are already evolving a {option.label}.'
+      self._planet.enacted[f'{self.name}:adaptation'] = self._planet.tick
+      news = self._planet.queue_adaptation(self.species, words)
       self.outbox.append((planet_lib.BIO_EVENTS, news))
       return news
     answers = {k.lower(): v for k, v in self._answers().items()}
@@ -520,8 +521,6 @@ class PolityActor(Actor):
       automation: automation_lib.Automation | None = None,
       age: str = 'the early iron age',
       coached: bool = True,
-      press: Latest | None = None,
-      retelling: Latest | None = None,
   ):
     super().__init__(name, outcome_topic=f'civ.{polity}.decrees')
     self.age = age  # Named in the call to action ("a people of …").
@@ -533,10 +532,6 @@ class PolityActor(Actor):
     self._planet = planet
     self._share = share
     self._automation = automation
-    # What its printers last wrote (a broadsheet; a retelling of an omen, for
-    # the people that owns the presses): published only by its action.
-    self._press = press
-    self._retelling = retelling
     # How often each kind of decision was made: labor, learn, trade,
     # reflex, keep.
     self.decisions: dict[str, int] = {}
@@ -814,25 +809,12 @@ class PolityActor(Actor):
     first, more = [], []
     for text, (_, kind) in self._treaty_partners().items():
       (more if any(k == kind for _, k in first) else first).append((text, kind))
+    # What its scribes and printers drafted, enacted by its action, which
+    # carries their words ("<move>: <words>"): offered when the world allows.
     drafted = [
-        *(
-            [ADOPT_ORDERS]
-            if self._automation is not None
-            and self._automation.draft(self.polity) is not None
-            else []
-        ),
-        *(
-            [PUBLISH_BROADSHEET]
-            if new_draft(self._planet, self._press, f'{self.name}:press')
-            else []
-        ),
-        *(
-            [PRINT_RETELLING]
-            if new_draft(
-                self._planet, self._retelling, f'{self.name}:retelling'
-            )
-            else []
-        ),
+        *([ADOPT_ORDERS] if self._may_adopt() else []),
+        *([PUBLISH_BROADSHEET] if self._may_publish() else []),
+        *([PRINT_RETELLING] if self._may_retell() else []),
     ]
     extras = [
         *drafted,
@@ -914,41 +896,49 @@ class PolityActor(Actor):
     if text == PAY_PAMPHLETS and self._can_pamphlet():
       self._tally('press')
       news = self._planet.commission_pamphlet(self.polity)
+      if news:
+        self._planet.enacted[f'{self.name}:commission'] = self._planet.tick
       return news or f'{self.name} could not pay for pamphlets.'
     if text == PRINT_BROADSHEET.lower() and self._can_print():
       self._tally('press')
       news = self._planet.commission_broadsheet(self.polity)
+      if news:  # When its printers were paid (their sheet comes later).
+        self._planet.enacted[f'{self.name}:commission'] = self._planet.tick
       return news or f'{self.name} could not print a broadsheet.'
-    if text == PUBLISH_BROADSHEET:
-      draft = enact(self._planet, self._press, f'{self.name}:press')
+    if text.startswith(PUBLISH_BROADSHEET) and self._may_publish():
+      words = said(action, PUBLISH_BROADSHEET)
       news = (
-          self._planet.publish_broadsheet(self.polity, draft)
-          if draft is not None
-          else None
+          self._planet.publish_broadsheet(self.polity, words) if words else None
       )
-      if draft is None or news is None:
+      if news is None:
         return f'The Gazette would not print a broadsheet of the {self.name}.'
       self._tally('press')
-      self.outbox.append((f'civ.{self.polity}.propaganda', draft.strip()))
+      self._planet.enacted[f'{self.name}:press'] = self._planet.tick
+      self.outbox.append((f'civ.{self.polity}.propaganda', words))
       self.outbox.append((planet_lib.CIV_EVENTS, news))
       return news
-    if text == PRINT_RETELLING.lower():
-      draft = enact(self._planet, self._retelling, f'{self.name}:retelling')
+    if text.startswith(PRINT_RETELLING.lower()) and self._may_retell():
+      words = said(action, PRINT_RETELLING)
       news = (
-          self._planet.publish_retelling(self.polity, draft)
-          if draft is not None
-          else None
+          self._planet.publish_retelling(self.polity, words) if words else None
       )
-      if draft is None or news is None:
+      if news is None:
         return f'The printers of the {self.name} have no retelling to print.'
       self._tally('press')
+      # The omens told so far (one retelling for the newest).
+      self._planet.enacted[f'{self.name}:omens'] = len(self._planet.omens)
+      self._planet.enacted[f'{self.name}:retelling'] = self._planet.tick
       # Every people reads the omen as the printers told it.
-      self.outbox.append(('media.omens', draft.strip()))
+      self.outbox.append(('media.omens', words))
       self.outbox.append((planet_lib.CIV_EVENTS, news))
       return news
-    if text == ADOPT_ORDERS and self._automation is not None:
+    if text.startswith(ADOPT_ORDERS) and self._may_adopt():
+      assert self._automation is not None
       self._tally('reflex')
-      news = self._automation.adopt_draft(self.polity)
+      news = self._automation.adopt_text(
+          self.polity, said(action, ADOPT_ORDERS)
+      )
+      self._planet.enacted[f'{self.name}:orders'] = self._planet.tick
       self.outbox.append((planet_lib.CIV_EVENTS, news))
       return news
     reflex = self._reflexes().get(text)
@@ -977,6 +967,29 @@ class PolityActor(Actor):
     return (
         f'{self.name} put more of their labor into {text.split(": ")[1]}'
         f'{where}.'
+    )
+
+  def _may_adopt(self) -> bool:
+    """Whether its scribes may write standing orders (its techs allow)."""
+    automation = self._automation
+    return automation is not None and 'threshold' in automation.allowed_ops(
+        self.polity
+    )
+
+  def _may_publish(self) -> bool:
+    """Whether it paid its printers for a sheet not yet published."""
+    gazette = self._planet.gazette
+    return gazette is not None and self.polity in gazette.pending
+
+  def _may_retell(self) -> bool:
+    """Whether it owns the presses and an omen awaits their retelling."""
+    gazette = self._planet.gazette
+    owner = self._planet.scenario.get('civilization', {}).get('press_owner')
+    told = made_at(self._planet, f'{self.name}:omens') or 0
+    return (
+        gazette is not None
+        and owner == self.polity
+        and len(self._planet.omens) > told
     )
 
   def aimable(self, option: str) -> bool:
@@ -1167,18 +1180,13 @@ class GrazerActor(Actor):
       self,
       name: str,
       planet: planet_lib.Planet,
-      decided: Latest | None = None,
   ):
     super().__init__(name, outcome_topic='bio.species.grazers.behaviour')
     self._planet = planet
-    self._decided = decided
 
   def _evolving(self) -> list[str]:
-    draft = new_draft(self._planet, self._decided, f'{self.name}:adaptation')
-    if draft is None:
-      return []
-    option = self._grazers().parse_adaptation(draft)
-    return [f'{EVOLVE} ({option.label})'] if option is not None else []
+    """Evolving: the grazers name the shift in their action."""
+    return [EVOLVE]
 
   def _grazers(self):
     grazers = self._planet.grazers
@@ -1203,10 +1211,12 @@ class GrazerActor(Actor):
     action = self.take_aim(action, self._planet)
     grazers = self._grazers()
     if action.strip().lower().startswith(EVOLVE):
-      draft = enact(self._planet, self._decided, f'{self.name}:adaptation')
-      if draft is None:
-        return f'{self.name} have no new shift to make.'
-      news = self._planet.queue_adaptation(grazers.key, draft)
+      words = said(action, EVOLVE)
+      option = grazers.parse_adaptation(words) if words else None
+      if option is None or option.key == 'none':
+        return f'{self.name} make no shift: they named none.'
+      self._planet.enacted[f'{self.name}:adaptation'] = self._planet.tick
+      news = self._planet.queue_adaptation(grazers.key, words)
       self.outbox.append((planet_lib.BIO_EVENTS, news))
       return news
     behaviour = grazers.behaviour_for_option(action)

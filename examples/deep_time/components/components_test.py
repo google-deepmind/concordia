@@ -174,26 +174,26 @@ class ActorComponentsTest(absltest.TestCase):
     self.assertEqual(self.context.active_entities(), ['Rose'])
 
   def test_an_adaptation_is_enacted_by_the_species_own_action(self):
-    topic = 'bio.species.white.adaptation'
     white = actors_lib.SpeciesActor(
-        'White daisies',
-        'white',
-        self.context.planet,
-        decided=lambda: self.context.bus.latest(topic),
+        'White daisies', 'white', self.context.planet
     )
-    self.context.bus.publish(topic, 'paler petals', source='White daisies')
-    # The mind's decision alone changes nothing in the world.
-    self.assertEqual(self.context.planet.pending_adaptations, [])
-    evolve = next(o for o in white.options() if o.startswith(actors_lib.EVOLVE))
-    self.assertIn('paler', evolve)
-    self.assertIn('begin evolving', white.resolve(evolve))
-    self.assertEqual(self.context.planet.pending_adaptations[0].option, 'paler')
-    # Enacted once: no longer offered (and remembered in the planet's state).
-    self.assertFalse(
-        any(o.startswith(actors_lib.EVOLVE) for o in white.options())
-    )
+    # Its slow mind's decision is counsel; its action names the shift.
+    self.assertIn(actors_lib.EVOLVE, white.options())
     self.assertIn(
-        'White daisies:adaptation', self.context.planet.get_state()['enacted']
+        'named none', white.resolve(actors_lib.EVOLVE)
+    )  # No words: nothing changes, and the time is not spent.
+    self.assertEqual(self.context.planet.pending_adaptations, [])
+    news = white.resolve(f'{actors_lib.EVOLVE}: paler petals')
+    self.assertIn('begin evolving', news)
+    self.assertEqual(self.context.planet.pending_adaptations[0].option, 'paler')
+    # A shift under way is not begun again (its mind paces the next).
+    self.assertIn(
+        'already evolving', white.resolve(f'{actors_lib.EVOLVE}: paler petals')
+    )
+    self.assertLen(self.context.planet.pending_adaptations, 1)
+    self.assertEqual(
+        self.context.planet.get_state()['enacted']['White daisies:adaptation'],
+        self.context.planet.tick,
     )
 
 

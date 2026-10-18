@@ -63,8 +63,11 @@ def aimable_spec(
     moves = '\n'.join(
         f'({letters[i % 26]}) {o}' for i, o in enumerate(spec.options)
     )
+    hints = [actors_lib.AIM_HINT]
+    if any(o.startswith(actors_lib.ENACTS) for o in spec.options):
+      hints.insert(0, actors_lib.DRAFT_HINT)
     return entity_lib.free_action_spec(
-        call_to_action=f'{spec.call_to_action}\n{moves}\n{actors_lib.AIM_HINT}',
+        call_to_action='\n'.join([spec.call_to_action, moves, *hints]),
         tag=spec.tag,
     )
   if spec.output_type == entity_lib.OutputType.FREE and (

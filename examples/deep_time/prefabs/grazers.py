@@ -76,11 +76,15 @@ def grazers_params(context: game_lib.GameContext) -> dict[str, Any]:
       actors_lib.GrazerActor(
           grazers.name,
           context.planet,
-          decided=lambda: context.bus.latest(ADAPTATION_TOPIC),
       ),
       hears=('world.tick', 'bio.events', 'gaia.omens'),
   )
-  components = species_lib.senses(context, grazers.name, grazers.genome_text)
+  components = species_lib.senses(
+      context,
+      grazers.name,
+      lambda: grazers.genome_text()
+      + species_lib.last_shift(context, grazers.name),
+  )
   components['Adaptation mind'] = species_lib.adaptation_mind(
       context,
       grazers.name,

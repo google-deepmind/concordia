@@ -200,6 +200,30 @@ class GameSessionTest(absltest.TestCase):
     self.assertIsNotNone(game.context.bus.latest('gaia.briefings'))
     self.assertEqual(state['briefing'], '')
 
+  def test_a_seat_enacts_a_draft_with_its_words(self):
+    request = human_input.HumanInputRequest(
+        request_id='1',
+        entity_name='Cedar league',
+        action_spec=entity_lib.free_action_spec(call_to_action='Act'),
+        contexts={
+            "Our printers' sheet": 'clean air: Smoke Kills. [tick 4, fresh]',
+            "Our scribes' draft": (
+                'Standing orders ...: sell charcoal. As'
+                ' written: [{"name": "x"}] [tick 3, 1 tick old]'
+            ),
+        },
+    )
+    move = actors_lib.PUBLISH_BROADSHEET
+    self.assertEqual(
+        session_lib.with_draft(request, move),
+        f'{move}: clean air: Smoke Kills.',
+    )
+    self.assertEqual(
+        session_lib.with_draft(request, actors_lib.ADOPT_ORDERS),
+        f'{actors_lib.ADOPT_ORDERS}: [{{"name": "x"}}]',
+    )
+    self.assertEqual(session_lib.with_draft(request, 'wait'), 'wait')
+
   def test_a_watched_game_may_have_a_bot_play_a_role(self):
     game = session_lib.GameSession(
         'daisyworld', 'watch', players=['Gaia'], bots=['Gaia']

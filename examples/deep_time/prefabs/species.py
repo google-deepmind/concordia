@@ -94,6 +94,12 @@ def senses(
   return components
 
 
+def last_shift(context: game_lib.GameContext, name: str) -> str:
+  """When the species (or the grazers) last made a heritable shift."""
+  tick = actors_lib.made_at(context.planet, f'{name}:adaptation')
+  return f' Our last shift was made at tick {tick}.' if tick is not None else ''
+
+
 def pact_offer(context: game_lib.GameContext, species: str) -> str:
   """The pact awaiting the species' answer, as its pact mind weighs it."""
   symbiosis = context.planet.symbiosis
@@ -230,8 +236,6 @@ def species_params(
           name,
           species,
           context.planet,
-          # Its adaptation mind's decision, enacted only by its own action.
-          decided=lambda: context.bus.latest(adaptation_topic(species)),
       ),
       hears=(
           'world.tick',
@@ -245,7 +249,9 @@ def species_params(
     context.wakeups.add(name, species, data.load('species.yaml')['wakeups'])
 
   components = senses(
-      context, name, lambda: context.planet.genome_text(species)
+      context,
+      name,
+      lambda: context.planet.genome_text(species) + last_shift(context, name),
   )
   components['Adaptation mind'] = adaptation_mind(
       context,

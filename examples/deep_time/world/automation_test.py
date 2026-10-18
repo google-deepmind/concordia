@@ -146,21 +146,23 @@ class AutomationTest(absltest.TestCase):
         ' poor in ore. ... "topic": "civ.cedar.orders" ...'
     )
     context.bus.publish('civ.cedar.policy', draft, source='Cedar league')
-    # Published by the scribes' mind: nothing installed, an option offered.
+    # Published by the scribes' mind: counsel, nothing installed.
     self.assertEqual(automation.engine.names('cedar'), [])
-    self.assertEqual(automation.draft('cedar'), draft)
     self.assertIn('sell charcoal', automation.summary('cedar', draft))
     cedar = actors_lib.PolityActor(
         'Cedar league', 'cedar', context.planet, 0.15, automation=automation
     )
+    # Offered once its techs let its scribes write orders; the action
+    # carries the orders as written.
     self.assertIn(actors_lib.ADOPT_ORDERS, cedar.options())
-    news = cedar.resolve(actors_lib.ADOPT_ORDERS)
+    self.assertIn('named none', cedar.resolve(actors_lib.ADOPT_ORDERS))
+    news = cedar.resolve(f'{actors_lib.ADOPT_ORDERS}: {draft}')
     self.assertIn("adopt their scribes' 2 standing orders", news)
     self.assertLen(automation.engine.names('cedar'), 2)
-    # Adopted: no longer offered, and kept in the state.
-    self.assertIsNone(automation.draft('cedar'))
-    self.assertNotIn(actors_lib.ADOPT_ORDERS, cedar.options())
-    self.assertIn('cedar', automation.get_state()['adopted'])
+    self.assertEqual(
+        actors_lib.made_at(context.planet, 'Cedar league:orders'),
+        context.planet.tick,
+    )
 
   def test_state_round_trip(self):
     context, automation, civ, _ = _context()

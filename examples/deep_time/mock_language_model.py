@@ -646,7 +646,7 @@ def grazer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
     return _find(options, 'graze heavily')
   if food <= 25:
     return _find(options, 'wander')
-  return _calm(options, 'browse lightly')
+  return _calm(options, 'browse lightly', prompt)
 
 
 def grazer_adaptation_answer(prompt: str) -> str | None:
@@ -838,7 +838,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   genome = _genome(prompt)
   reading = _census(prompt, genome[0]) if genome else None
   if genome is None or reading is None:
-    return _calm(options, 'hold steady')
+    return _calm(options, 'hold steady', prompt)
   optimum = genome[1]
   local, growth = reading
   offer = _find(options, 'propose a pact')
@@ -852,7 +852,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
     return _find(options, 'spread')
   if growth <= 0.15 and abs(local - optimum) > 8:
     return _find(options, 'dormant')
-  return _calm(options, 'hold steady')
+  return _calm(options, 'hold steady', prompt)
 
 
 def adaptation_answer(prompt: str) -> str | None:
@@ -1427,22 +1427,80 @@ def offer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   return next(t for t, accept in answers.items() if accept == said)
 
 
+# Moves that enact a slow mind's draft, the draft's context line, and when
+# the role last made that act (as its own sheets say). The action carries
+# the draft's words ("<move>: <words>").
+_ENACTS = {
+    'adopt the standing orders our scribes wrote': (
+        "Our scribes' draft",
+        "adopted its scribes' standing orders",
+    ),
+    'publish the broadsheet our printers wrote': (
+        "Our printers' sheet",
+        'published a broadsheet',
+    ),
+    "print our printers' retelling of the omen": (
+        "Our printers' retelling",
+        "printed its printers' retelling of an omen",
+    ),
+    'evolve as our slow mind decided': (
+        'Evolving toward (slow mind)',
+        'Our last shift was made',
+    ),
+}
+
+
+def _words(prompt: str, move: str) -> str | None:
+  """A draft's words for an enacting move, if new since the act was made."""
+  label, done = _ENACTS[move]
+  found = re.findall(
+      re.escape(label) + r' \([^)]*\):\n(.*?) \[tick (\d+), [^\]]*\]',
+      prompt,
+      re.S,
+  )
+  if not found:
+    return None
+  text, tick = found[-1][0].strip(), int(found[-1][1])
+  made = re.findall(re.escape(done) + r' at tick (\d+)', prompt)
+  if not text or (made and int(made[-1]) >= tick):
+    return None
+  if move.startswith('adopt'):  # The orders as the scribes wrote them.
+    if 'nothing that can be kept' in text or 'As written: ' not in text:
+      return None
+    text = text.split('As written: ', 1)[1]
+  if move.startswith('evolve') and text.lower().startswith(
+      ('no change', 'instinct only')
+  ):
+    return None
+  return text
+
+
+def with_words(prompt: str, choice: str) -> str:
+  """An enacting move with its draft's words (other moves as they are)."""
+  for move in _ENACTS:
+    if choice.lower().startswith(move):
+      words = _words(prompt, move)
+      return f'{choice}: {words}' if words else choice
+  return choice
+
+
 def adopt_policy(prompt: str, options: Mapping[str, str]) -> str | None:
-  """Puts the scribes' standing orders to work as soon as they are drafted."""
-  del prompt
-  return _find(
-      options,
-      'adopt the standing orders our scribes wrote',
-      'publish the broadsheet our printers wrote',
-      "print our printers' retelling of the omen",
-  )
+  """Puts the scribes' and printers' drafts to work as soon as they are new."""
+  for move in list(_ENACTS)[:3]:
+    found = _find(options, move)
+    if found is not None and _words(prompt, move):
+      return found
+  return None
 
 
-def _calm(options: Mapping[str, str], neutral: str) -> str | None:
+def _calm(
+    options: Mapping[str, str], neutral: str, prompt: str = ''
+) -> str | None:
   """On a calm turn (no behaviour to change), enact the slow mind's shift."""
-  return _find(options, 'evolve as our slow mind decided') or _find(
-      options, neutral
-  )
+  evolve = _find(options, 'evolve as our slow mind decided')
+  if evolve is not None and _words(prompt, 'evolve as our slow mind decided'):
+    return evolve
+  return _find(options, neutral)
 
 
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
@@ -1574,7 +1632,7 @@ class DeepTimeMockModel(language_model.LanguageModel):
       for policy in self._policies:
         choice = policy(prompt, options)
         if choice is not None and choice in options.values():
-          return choice
+          return with_words(prompt, choice)
       texts = sorted(options.values())
       return texts[stable_index(prompt, len(texts))] if texts else ''
     answer = (
