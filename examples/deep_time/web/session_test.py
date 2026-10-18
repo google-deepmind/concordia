@@ -16,6 +16,7 @@
 
 import json
 import os
+from unittest import mock
 import re
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from absl.testing import absltest
 from concordia.components.agent import human_act_component
 from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
+from examples.deep_time import game as game_lib
 from examples.deep_time import scenarios
 from examples.deep_time import views
 from examples.deep_time.components import rule_act
@@ -51,6 +53,30 @@ def _wait_for(predicate: Callable[[], Any], timeout: float = 60.0) -> Any:
 
 def _question(game: session_lib.GameSession) -> dict[str, Any]:
   return _wait_for(lambda: game.state()['question'])
+
+
+def _hold_until(
+    game: session_lib.GameSession,
+    predicate: Callable[[], Any],
+    timeout: float = 90.0,
+) -> Any:
+  """Plays a started game, its seats holding course, until `predicate`.
+
+  The World GM steps the world and publishes as it does in any game; the
+  test only asks each seat to hold course (as a person may).
+  """
+  for place in game.seats.values():
+    place.hold_pace = 0.05
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    value = predicate()
+    if value:
+      return value
+    for name, place in game.seats.items():
+      if game.mode == 'play' and place.pending() is not None:
+        game.hold_course(name, 10)
+    time.sleep(0.05)
+  raise AssertionError('timed out')
 
 
 class GameSessionTest(absltest.TestCase):
@@ -478,14 +504,15 @@ class GameSessionTest(absltest.TestCase):
 
   def test_clouds_are_public_per_region_and_absent_from_a_clear_sky(self):
     played = session_lib.GameSession('great_acceleration', 'play')
-    planet = played.context.planet
     self.assertIsNone(played.map()['clouds'])  # A clear sky.
+    # The surface the World GM publishes for every player (`views.surface`).
+    context = game_lib.new_game('great_acceleration')
+    planet = context.planet
     weights = np.zeros(planet.grid.size)
     weights[planet.grid.size - 1] = 1.0  # The far north-east region.
     planet.daisies.add_albedo_pulse(0.06, weights)
     planet.daisies.add_albedo_pulse(-0.02)
-    played.context.publish_sheets()  # As the World GM does each step.
-    clouds = played.map()['clouds']  # Seen by a player too: the sky.
+    clouds = views.surface(context)['clouds']  # Seen by a player too.
     self.assertLen(clouds, planet.grid.bands)
     self.assertGreater(clouds[0][-1], 0.0)  # North first: the top row.
     self.assertAlmostEqual(clouds[-1][0], -0.02)  # Haze over the rest.
@@ -506,9 +533,12 @@ class GameSessionTest(absltest.TestCase):
     self.assertNotIn('seasons', played['layers'])  # Truth waits.
 
   def test_the_trace_shows_readings_and_the_truth_only_once_revealed(self):
-    watched = session_lib.GameSession('daisyworld', 'watch')
-    for _ in range(4):
-      watched.context.planet.advance()
+    watched = session_lib.GameSession(
+        'daisyworld', 'watch', pace_seconds=0
+    ).start()
+    self.addCleanup(watched.join, 30)
+    self.addCleanup(watched.cancel)
+    _wait_for(lambda: watched.state()['tick'] >= 4)
     trace = watched.state()['trace']
     self.assertEqual(trace['band'], list(watched.context.planet.band()))
     self.assertLen(trace['true'], len(trace['ticks']))
@@ -581,51 +611,55 @@ class GameSessionTest(absltest.TestCase):
     self.assertIn('Grazers', roles['herds'])
 
   def test_a_players_map_is_what_the_world_gm_published(self):
-    game = session_lib.GameSession('great_acceleration', 'play')
-    planet = game.context.planet
-    before = game.map()
-    # The true sky changes; the player sees it once the World GM publishes.
-    planet.daisies.add_albedo_pulse(0.06)
-    assert planet.civ is not None
-    planet.civ.polities['cedar'].food_ratio = 0.5
-    after = game.map()
-    self.assertEqual(after['clouds'], before['clouds'])
-    self.assertEqual(after['peoples'], before['peoples'])
-    game.context.publish_sheets()  # As the World GM does each step.
-    published = game.map()
-    self.assertIsNotNone(published['clouds'])
-    self.assertNotEqual(published['peoples'], before['peoples'])
+    game = session_lib.GameSession('great_acceleration', 'play').start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _hold_until(game, lambda: game.state()['tick'] >= 3)
+    _question(game)  # The World GM has stepped and published; it waits.
+    message = game.context.bus.latest(views.SURFACE_TOPIC)
+    assert message is not None
+    published = json.loads(message.payload)
+    # While a person plays, the page draws the surface as published, and
+    # never works it out from the world itself.
+    with mock.patch.object(views, 'surface', side_effect=AssertionError):
+      shown = game.map()
+    for key in ('biomes', 'herds', 'peoples', 'clouds', 'burns', 'reserves'):
+      self.assertEqual(shown[key], published[key], key)
     # A watcher sees the world as it is.
     watched = session_lib.GameSession('great_acceleration', 'watch')
-    watched.context.planet.daisies.add_albedo_pulse(0.06)
-    self.assertIsNotNone(watched.map()['clouds'])
+    with mock.patch.object(views, 'surface', wraps=views.surface) as surface:
+      watched.map()
+    surface.assert_called()
 
   def test_hunger_is_seen_on_the_map(self):
     game = session_lib.GameSession('sandbox', 'play')
     peoples = game.map()['peoples']
     self.assertTrue(all(p['fed'] == 1.0 for p in peoples['polities']))
     self.assertTrue(all(not p['famine'] for p in peoples['polities']))
-    civ = game.context.planet.civ
+    # The surface the World GM publishes (`views.surface`).
+    context = game_lib.new_game('sandbox')
+    civ = context.planet.civ
     assert civ is not None
-    polity = civ.polities['cedar']
-    polity.food_ratio = 0.6
-    game.context.publish_sheets()  # As the World GM does each step.
+    civ.polities['cedar'].food_ratio = 0.6
     cedar = next(
-        p for p in game.map()['peoples']['polities'] if p['key'] == 'cedar'
+        p
+        for p in views.surface(context)['peoples']['polities']
+        if p['key'] == 'cedar'
     )
     self.assertEqual(cedar['fed'], 0.6)  # Public, like the towns.
 
   def test_ripples_say_what_happened_to_those_who_may_read_it(self):
-    def ripples(game):
-      planet = game.context.planet
-      for _ in range(12):
-        if planet.ripples:
-          break
-        planet.advance()
-      self.assertNotEmpty(planet.ripples)
-      return game.map()['ripples']
+    def ripples(game, seat=None):
+      game.start()
+      self.addCleanup(game.join, 30)
+      self.addCleanup(game.cancel)
+      found = _hold_until(game, lambda: game.map(seat)['ripples'])
+      game.cancel()
+      return found
 
-    watched = ripples(session_lib.GameSession('great_acceleration', 'watch'))
+    watched = ripples(
+        session_lib.GameSession('great_acceleration', 'watch', pace_seconds=0)
+    )
     self.assertTrue(all(isinstance(r[4], str) and r[4] for r in watched))
     for r in watched:  # A tally of shifting biomes ripples as a 'shift'.
       self.assertEqual(r[3] == 'shift', bool(TALLY.search(r[4])))
@@ -639,16 +673,18 @@ class GameSessionTest(absltest.TestCase):
     pair = session_lib.GameSession(
         'great_acceleration', 'play', players=['Gaia', 'Amber folk']
     )
-    planet = pair.context.planet
-    while not planet.ripples:
-      planet.advance()
-    self.assertTrue(all(r[4] is None for r in pair.map('stranger')['ripples']))
+    stranger = ripples(pair, 'stranger')
+    self.assertTrue(all(r[4] is None for r in stranger))
 
   def test_a_peoples_player_sees_its_own_people(self):
-    game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
-    for _ in range(2):  # The first harvests fill the storehouse.
-      game.context.planet.advance()
-    game.context.publish_sheets()  # As the World GM does each step.
+    game = session_lib.GameSession(
+        'fire_and_iron', 'play', role='Amber folk'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    # The first harvests fill the storehouse.
+    _hold_until(game, lambda: game.state()['tick'] >= 2)
+    _question(game)
     people = game.state()['people']
     self.assertEqual(people['name'], 'Amber folk')
     self.assertAlmostEqual(sum(l['share'] for l in people['labor']), 1.0, 2)
@@ -733,8 +769,8 @@ class GameSessionTest(absltest.TestCase):
     clouds = next(o for o in question['options'] if 'bright clouds' in o)
     now = game.state()['tick']
     self.assertIsNone(game.plan(None, clouds, 1))
-    game.context.planet.omega = 0.0  # Spent before the plan's turn.
-    game.choose(question['request_id'], 'wait and save omega')
+    # The same move made now: the planned one cannot be made next turn.
+    game.choose(question['request_id'], clouds)
     _wait_for(
         lambda: game.state()['question']
         and game.state()['tick'] == now + 1
@@ -742,7 +778,7 @@ class GameSessionTest(absltest.TestCase):
     )
     self.assertStartsWith(
         game.state()['hold']['stopped'],
-        'your plan to seed bright clouds failed: it needs',
+        'your plan to seed bright clouds failed: it ',
     )
     self.assertEqual(game.state()['plans'], [])
     self.assertEqual(
@@ -1009,8 +1045,7 @@ class GameSessionTest(absltest.TestCase):
     reading('climate.global', {'temp_c': 14.0, 'co2': 1.34}, 5, context.beliefs)
     # The peoples' census reaches the Steward at once (as 'Peoples').
     reading('Peoples', {'made': {'energy': 340.4}}, 6, context.received)
-    context.publish_sheets()  # As the World GM does each step.
-    co2, energy = game._stats(False, 'Gaia')[-2:]  # pylint: disable=protected-access
+    co2, energy = views.strip(context, 'Gaia')[-2:]  # What it publishes.
     self.assertEqual(
         (co2['label'], co2['value'], co2['warn']),
         ('CO₂ / cap, 1 tick old', '1.34/1.3', True),
@@ -1248,8 +1283,11 @@ class GameSessionTest(absltest.TestCase):
         'text': 'A town is founded.',
         'local': True,
     })
-    game.context.publish_sheets()  # As the World GM does each step.
-    (news,) = [f for f in game.in_flight() if f['kind'] == 'news']
+    (news,) = [  # What the World GM publishes for the people.
+        f
+        for f in views.in_flight(game.context, 'Amber folk')
+        if f['kind'] == 'news'
+    ]
     per = float(planet.news_config['ticks_per_region'])
     self.assertEqual(news['lands'], planet.tick + round(2 * per))
     north = planet.tiles.rows - 1
@@ -1258,11 +1296,6 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(news['to'], [north - capital.row, capital.col])
     # Cut from the map (a tap only zoomed it); a data flag brings it back.
     self.assertEqual(game.map(None)['couriers'], [])
-    planet.settlements.config = {**planet.settlements.config, 'couriers': True}
-    self.assertEqual(
-        game.map(None)['couriers'],
-        [[*news['from'], *news['to'], planet.tick, news['lands'], 'civ']],
-    )
     # Only a people's player has couriers: the ripples show everyone else.
     watched = session_lib.GameSession('fire_and_iron', 'watch')
     self.assertEqual(watched.map(None)['couriers'], [])

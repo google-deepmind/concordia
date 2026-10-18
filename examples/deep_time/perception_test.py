@@ -20,9 +20,22 @@ from absl.testing import absltest
 from concordia.contrib.pubsub import topics
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
+from examples.deep_time.components import world_step
 from examples.deep_time.prefabs import steward
 from examples.deep_time.world import planet as planet_lib
 from examples.deep_time.world import publishing
+from concordia.typing import entity as entity_lib
+
+
+def _world_gm_step(context):
+  """One step of the World GM's `WorldStep` (it steps the world, publishes)."""
+  world_step.WorldStep(context, player_names=['Amber folk']).pre_act(
+      entity_lib.ActionSpec(  # As the engine asks it each step.
+          call_to_action='Which entities act next?',
+          output_type=entity_lib.OutputType.NEXT_ACTING,
+          options=('Amber folk',),
+      )
+  )
 
 
 def _held(context, spec, initial=''):
@@ -83,13 +96,13 @@ class PerceptionTest(absltest.TestCase):
     # Nothing is known until the World GM publishes.
     self.assertEqual(sheet.get_current_value(), '')
     self.assertEqual(brief(), '')
-    context.publish_sheets()
+    _world_gm_step(context)
     self.assertEqual(sheet.get_current_value(), 'grain 3')
     self.assertEqual(brief(), 'grain 3 offered')
     # The world changes; the entity learns it at the GM's next publication.
     state['stores'] = 'grain 1'
     self.assertEqual(sheet.get_current_value(), 'grain 3')
-    context.publish_sheets()
+    _world_gm_step(context)
     self.assertEqual(sheet.get_current_value(), 'grain 1')
     self.assertEqual(
         perception.sheet_topic('Amber folk', 'storehouse'),
