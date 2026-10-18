@@ -17,9 +17,11 @@
 Wrapped in a `pubsub.Publisher`, it runs in the background. It is gated like
 the pact mind: unless the people has just commissioned a broadsheet (paid
 paper for it), it returns at once and costs nothing. Its answer (a stance,
-a headline and the body) is published on `civ.<key>.press`, where the game
-posts it on the Gazette (a contrib `forum.ForumState`) for every people to
-read and judge.
+a headline and the body) is published on `civ.<key>.press`: a draft, which
+reaches the people through its "Our printers' sheet" reading. The people
+publishes it by an action carrying the words ("publish the broadsheet our
+printers wrote: ..."), which the World GM resolves onto the Gazette (a
+contrib `forum.ForumState`) for every people to read and judge.
 """
 
 from collections.abc import Callable, Sequence

@@ -123,6 +123,14 @@ def steward_config(
       role=prefab_lib.Role.ENTITY,
       params={
           'name': name,
+          'goal': (
+              context.scenario.get('steward_goal', '')
+              or (
+                  'Keep the global temperature inside the habitable band until'
+                  ' the end of the scenario without letting the daisies die'
+                  ' out.'
+              )
+          ),
           'peoples': context.planet.civ is not None,
           'interventions': [
               i.label.split(' (')[0] for i in context.planet.interventions()
@@ -273,14 +281,7 @@ def steward_params(
   components = context.with_bus(components)  # The bus is restored first.
   return {
       'name': name,
-      'goal': (
-          context.scenario.get('steward_goal', '')
-          or (
-              'Keep the global temperature inside the habitable band until'
-              ' the end of the scenario without letting the daisies die'
-              ' out.'
-          )
-      ),
+      'goal': str(params['goal']),
       'custom_instructions': STEWARD_INSTRUCTIONS.format(name=name),
       'extra_components': components,
       'extra_components_index': {

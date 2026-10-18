@@ -50,7 +50,7 @@ class Colony(playable.RolePolity):
   def assemble(
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
-    return colony_params(context, str(params['name']))
+    return colony_params(context, params)
 
   @override
   def rules(
@@ -65,10 +65,15 @@ def colony_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
   colony = context.planet.colony
   if colony is None:
     raise ValueError('Colonists need a colony in the scenario.')
+  rules = context.scenario['colony']
   return prefab_lib.InstanceConfig(
       prefab=COLONY_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={'name': f'Colonists of {colony.name}'},
+      params={
+          'name': f'Colonists of {colony.name}',
+          'goal': rules.get('goal', DEFAULT_GOAL),
+          'plan_latency': int(rules.get('plan_latency_ticks', 2)),
+      },
   )
 
 
@@ -117,13 +122,15 @@ def colony_rules(context: game_lib.GameContext) -> None:
   perception.deliver(context, _messages(context, name))
 
 
-def colony_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+def colony_params(
+    context: game_lib.GameContext, params: Mapping[str, Any]
+) -> dict[str, Any]:
   """The colonists' entity params, their components included."""
-  rules = context.scenario['colony']
+  name = str(params['name'])
   label, topic, initial = MESSAGES
   return {
       'name': name,
-      'goal': rules.get('goal', DEFAULT_GOAL),
+      'goal': params['goal'],
       'bus': context.bus,
       'subscriptions': dict(SUBSCRIPTIONS),
       'renderers': {
@@ -133,7 +140,7 @@ def colony_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
       'clock_topic': 'world.tick',
       'plan_topic': 'colony.plan',
       'sim_scheduler': context.sim,
-      'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 2)),
+      'deliberation_latency_ticks': int(params['plan_latency']),
       'deliberation_model': context.slow(),
       'randomize_choices': False,
       **context.act_params(name),

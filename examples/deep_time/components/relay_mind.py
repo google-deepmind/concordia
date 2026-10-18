@@ -18,9 +18,11 @@ Wrapped in a `pubsub.Publisher` in the people that owns the presses, it runs
 in the background like the press mind. When the Steward has spoken an omen
 it has not yet retold, its printers write the Gazette's front page about it,
 in character: a stance, a headline and two sentences, published on
-`civ.<key>.retelling`. The game posts it on the Gazette, where its stance
-sways every people's consent for coal as a broadsheet's does, and on
-`media.omens`, which every people hears. The retelling is the printers'
+`civ.<key>.retelling`: a draft, which reaches the people through its
+"Our printers' retelling" reading. The people prints it by an action
+carrying the words; the World GM resolves it onto the Gazette, where its
+stance sways every people's consent for coal as a broadsheet's does, and
+onto `media.omens`, which every people hears. The retelling is the printers'
 reading of the sign, not the sign: the peoples never hear the Steward's
 words but through them.
 """

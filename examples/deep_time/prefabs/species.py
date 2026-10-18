@@ -189,7 +189,8 @@ def entity_params(
 class Species(playable.Role):
   """A species: its senses, its slow minds and its actor.
 
-  Its params say all it needs (`name`, `species`, `lore`, `pact_latency`),
+  Its params say all it needs (`name`, `species`, `lore`, its minds'
+  question and latencies),
   so a species founded during play is rebuilt from a checkpoint before the
   world is.
   """
@@ -232,6 +233,9 @@ def species_config(
           'name': info.name,
           'species': species,
           'lore': info.lore,
+          # What its adaptation mind asks, and how long it takes.
+          'question': evolution.question,
+          'latency_ticks': evolution.latency_ticks,
           'pact_latency': symbiosis.answer_latency if symbiosis else None,
       },
   )
@@ -310,7 +314,7 @@ def species_params(
   """A species' `minimal__Entity` params, its components included.
 
   Args:
-    context: Shared game state (its services and the evolution rules).
+    context: Shared game state (its services: the bus, the slow minds).
     params: Its instance params (`species_config`).
 
   Returns:
@@ -318,9 +322,6 @@ def species_params(
   """
   species, name = str(params['species']), str(params['name'])
   lore, pact_latency = str(params['lore']), params.get('pact_latency')
-  evolution = context.evolution
-  if evolution is None:
-    raise ValueError('Species need evolution rules in the game context.')
   slow_model = context.slow()
   components = senses(context, name)
   components['Adaptation mind'] = adaptation_mind(
@@ -328,8 +329,8 @@ def species_params(
       name,
       adaptation_topic(species),
       slow_model,
-      evolution.question,
-      evolution.latency_ticks,
+      str(params['question']),
+      int(params['latency_ticks']),
   )
   if pact_latency is not None:
     for key, topic, initial in _pact_readings(species):

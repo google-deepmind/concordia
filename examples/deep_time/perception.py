@@ -29,7 +29,8 @@ carry noise; news crosses the light delay and the couriers' roads the same
 way. What each instrument delivered is kept on the `GameContext`, so the
 report can compare belief with truth (the epistemic gap). An entity's own
 state (its storehouse, its genome, what its minds weigh) reaches it as
-sheets the World GM publishes (`sheet`, `brief`).
+sheets the World GM publishes (`publish`; the entity's `read`, a mind's
+`reader`).
 """
 
 # pylint: disable=g-doc-args,g-doc-return-or-yield

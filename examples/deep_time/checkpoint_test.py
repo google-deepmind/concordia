@@ -58,10 +58,16 @@ def _after(context: game_lib.GameContext, tick: int) -> dict[str, Any]:
 
 
 class _NoWorld:
-  """Stands in for the planet where nothing may read the world."""
+  """Stands in for what an entity's build may not read (the world, rules)."""
+
+  def __init__(self, what: str):
+    self._what = what
 
   def __getattr__(self, name: str) -> Any:
-    raise AssertionError(f'An entity build read the world: planet.{name}')
+    raise AssertionError(f'An entity build read {self._what}.{name}')
+
+  def __getitem__(self, key: Any) -> Any:
+    raise AssertionError(f'An entity build read {self._what}[{key!r}]')
 
 
 class CheckpointTest(parameterized.TestCase):
@@ -111,8 +117,16 @@ class RolesTest(parameterized.TestCase):
     config = simulation.build_config(context)
     roles = [i for i in config.instances if i.role == prefab_lib.Role.ENTITY]
     # Building the roles' entities installs nothing in the World GM, and
-    # reads nothing of the world: static settings come in their params.
-    planet, context.planet = context.planet, cast(planet_lib.Planet, _NoWorld())
+    # reads nothing of the world, the scenario or the rules: their static
+    # settings come in their params.
+    planet, scenario, evolution = (
+        context.planet,
+        context.scenario,
+        context.evolution,
+    )
+    context.planet = cast(planet_lib.Planet, _NoWorld('planet'))
+    context.scenario = cast(dict[str, Any], _NoWorld('scenario'))
+    context.evolution = cast(Any, _NoWorld('evolution'))
     entities = []
     for instance in roles:
       prefab = copy.deepcopy(config.prefabs[instance.prefab])
@@ -125,7 +139,11 @@ class RolesTest(parameterized.TestCase):
               ),
           )
       )
-    context.planet = planet
+    context.planet, context.scenario, context.evolution = (
+        planet,
+        scenario,
+        evolution,
+    )
     self.assertEqual(context.actors, {})
     self.assertEqual(context.sheets, {})
     # The World GM installs each role's rules, from its params, in order.

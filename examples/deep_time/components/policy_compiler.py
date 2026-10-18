@@ -18,9 +18,11 @@ Wrapped in a `pubsub.Publisher`, it runs in the background a few ticks at a
 time. Once the people can write reflexes (its techs unlock the
 `threshold` operator) it asks the slow model for standing orders as JSON;
 before that it returns at once and costs nothing. Its answer is published on
-`civ.<key>.policy`, where the game parses it with the contrib
+`civ.<key>.policy`: a draft, which reaches the people through its "Our
+scribes' draft" reading. The people adopts it by an action carrying the
+orders as written; resolving it, the World GM parses them with the contrib
 `reflexes.parse_specs`, checks that each reflex only reads public topics and
-only places this people's own orders, and installs it.
+only places this people's own orders, and installs them.
 """
 
 from collections.abc import Callable, Sequence

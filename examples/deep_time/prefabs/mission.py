@@ -91,7 +91,7 @@ class Mission(playable.Role):
   def assemble(
       self, context: game_lib.GameContext, params: Mapping[str, Any]
   ) -> Mapping[str, Any]:
-    return mission_params(context, str(params['name']))
+    return mission_params(context, params)
 
   @override
   def rules(
@@ -104,11 +104,10 @@ def mission_config(
     context: game_lib.GameContext, name: str = 'Mission Control'
 ) -> prefab_lib.InstanceConfig:
   """Mission Control's instance config (plain params; `Mission` builds it)."""
-  del context  # One Mission Control a game.
   return prefab_lib.InstanceConfig(
       prefab=MISSION_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={'name': name},
+      params={'name': name, 'goal': context.scenario.get('steward_goal', '')},
   )
 
 
@@ -153,8 +152,11 @@ def mission_rules(context: game_lib.GameContext, name: str) -> None:
   perception.publish(context, name, 'in_flight', lambda: in_flight(context))
 
 
-def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+def mission_params(
+    context: game_lib.GameContext, params: Mapping[str, Any]
+) -> dict[str, Any]:
   """Mission Control's entity params, its components included."""
+  name = str(params['name'])
   components: dict[str, entity_component.ContextComponent] = {
       key: perception.subscribe(
           context, perception.reading(name, key, initial, topic=topic)
@@ -167,7 +169,7 @@ def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
   components = context.with_bus(components)  # The bus is restored first.
   return {
       'name': name,
-      'goal': context.scenario.get('steward_goal', ''),
+      'goal': str(params['goal']),
       'custom_instructions': MISSION_INSTRUCTIONS.format(name=name),
       'extra_components': components,
       'extra_components_index': {

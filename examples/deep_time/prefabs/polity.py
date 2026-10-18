@@ -253,12 +253,20 @@ def polity_config(
   # Its static settings, read once from the new game: who owns the presses,
   # whether it keeps scribes, and how long its slow minds take.
   treaties, gazette = context.planet.treaties, context.planet.gazette
+  rules = context.scenario['civilization']
+  character = (rules.get('characters') or {}).get(polity)
   return prefab_lib.InstanceConfig(
       prefab=POLITY_PREFAB,
       role=prefab_lib.Role.ENTITY,
       params={
           'name': civ.polities[polity].name,
           'polity': polity,
+          # The people written as people, and the world's conventions.
+          'character': character_words(character) if character else '',
+          'conventions': str(rules.get('conventions') or '').strip(),
+          'goal': rules.get('polity_goal', DEFAULT_GOAL),
+          'plan_latency': int(rules.get('plan_latency_ticks', 3)),
+          'policy_latency': int(rules.get('policy_latency_ticks', 4)),
           'press_owner': _press_owner(context),
           'scribes': context.automation is not None,
           'treaty_latency': treaties.answer_latency if treaties else None,
@@ -455,7 +463,7 @@ def polity_params(
   """A people's async-deliberation params, its components included.
 
   Args:
-    context: Shared game state (its services, and the scenario's words).
+    context: Shared game state (its services: the bus, the slow minds).
     params: Its instance params (`polity_config`).
 
   Returns:
@@ -465,7 +473,6 @@ def polity_params(
   owner = params.get('press_owner')
   gazette = params.get('press_latency') is not None
   slow_model = context.slow()
-  rules = context.scenario['civilization']
   subscriptions = dict(SUBSCRIPTIONS)
   if params.get('treaty_latency') is not None:
     subscriptions['Treaties'] = 'civ.treaties'
@@ -475,13 +482,12 @@ def polity_params(
   if owner:
     subscriptions['The Gazette on the omens'] = 'media.omens'
   # The people written as people, and the world's conventions, if given.
-  character = (rules.get('characters') or {}).get(polity)
-  conventions = str(rules.get('conventions') or '').strip()
+  character, conventions = str(params['character']), str(params['conventions'])
   characters = {
       **(
           {
               'Who we are': constant.Constant(
-                  state=character_words(character),
+                  state=character,
                   pre_act_label=f'\nWho the {name} are',
               )
           }
@@ -506,7 +512,7 @@ def polity_params(
   }
   return {
       'name': name,
-      'goal': rules.get('polity_goal', DEFAULT_GOAL),
+      'goal': params['goal'],
       'bus': context.bus,
       'subscriptions': subscriptions,
       'renderers': {
@@ -519,7 +525,7 @@ def polity_params(
       # a people plans as who it is.
       'plan_components': ['Market', *characters],
       'sim_scheduler': context.sim,
-      'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 3)),
+      'deliberation_latency_ticks': int(params['plan_latency']),
       'deliberation_model': slow_model,
       'randomize_choices': False,
       **context.act_params(name),
@@ -628,7 +634,7 @@ def polity_params(
                   polity,
                   components=['Storehouse', 'Market'],
               ),
-              int(rules.get('policy_latency_ticks', 4)),
+              int(params['policy_latency']),
           ),
       },
   }
