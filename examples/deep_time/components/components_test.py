@@ -108,6 +108,46 @@ class ActorComponentsTest(absltest.TestCase):
         self.context.observation_queue.get_and_clear('Rose'), ['Rose did b']
     )
 
+  def test_a_persons_question_is_free_when_a_move_may_be_aimed(self):
+    class _Aiming(_EchoActor):
+
+      def aimable(self, option: str) -> bool:
+        return option == 'a'
+
+    self.context.add_actor(_Aiming('Sower'))
+    component = action_specs.ActorActionSpecs(self.context)
+    model_spec = engine_lib.action_spec_parser(
+        component.pre_act(_spec_call('Sower'))
+    )
+    self.assertEqual(model_spec.output_type, entity_lib.OutputType.CHOICE)
+    self.context.humans['Sower'] = lambda request: 'a'
+    person_spec = engine_lib.action_spec_parser(
+        component.pre_act(_spec_call('Sower'))
+    )
+    self.assertEqual(person_spec.output_type, entity_lib.OutputType.FREE)
+    self.assertIn('(a) a\n(b) b', person_spec.call_to_action)
+    self.assertIn(actors_lib.AIM_HINT, person_spec.call_to_action)
+    # Not aimable: a person still gets the choice.
+    self.context.humans['Rose'] = lambda request: 'a'
+    rose = engine_lib.action_spec_parser(component.pre_act(_spec_call('Rose')))
+    self.assertEqual(rose.output_type, entity_lib.OutputType.CHOICE)
+
+  def test_an_aimed_move_is_aimed_as_it_is_resolved(self):
+    self.assertEqual(
+        actors_lib.aimed('seed white daisies @ 9, 20'),
+        ('seed white daisies', (9, 20)),
+    )
+    self.assertEqual(actors_lib.aimed('wait'), ('wait', None))
+    planet = self.context.planet
+    steward = actors_lib.StewardActor('Gaia', planet)
+    seed = next(o for o in steward.options() if steward.aimable(o))
+    self.assertEqual(steward.take_aim(f'{seed} @ 9,20', planet), seed)
+    self.assertEqual(planet.targets['Gaia'], (planet.tiles.rows - 1 - 9, 20))
+    # A move that cannot be aimed keeps its words, and aims nothing.
+    planet.targets.clear()
+    self.assertEqual(steward.take_aim('wait @ 9,20', planet), 'wait @ 9,20')
+    self.assertEqual(planet.targets, {})
+
   def test_active_entities(self):
     self.assertEqual(self.context.active_entities(), ['Rose'])
 

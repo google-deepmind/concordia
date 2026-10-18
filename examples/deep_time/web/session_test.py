@@ -1378,7 +1378,7 @@ class StoryTest(absltest.TestCase):
         if request is not None:
           seat.choose(
               request.request_id,
-              session_lib.neutral(request.action_spec.options),
+              session_lib.neutral(seat.offered(request)),
           )
       return game.context.planet.tick >= tick
 

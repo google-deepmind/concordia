@@ -173,5 +173,9 @@ export function pressingTag(p) {
  * @return {string}
  */
 export function askWords(callToAction) {
-  return String(callToAction || '').split(/ (?=Most pressing now: |Our weakest link: )/)[0];
+  // A person's free question lists its moves as a choice does ("(a) ...",
+  // when a move may be aimed): the page shows them as buttons instead.
+  return String(callToAction || '')
+    .split(/\n\(a\) /)[0]
+    .split(/ (?=Most pressing now: |Our weakest link: )/)[0];
 }

@@ -23,6 +23,7 @@ game-side rule book for one of them.
 # pylint: disable=g-complex-comprehension,g-doc-return-or-yield,missing-function-docstring
 
 import abc
+import re
 from collections.abc import Sequence
 
 from examples.deep_time import attention as attention_lib
@@ -100,6 +101,24 @@ STEWARD_SPEAKS = (
 )
 
 
+# An aimed move: the move as offered, then ` @ row,col` (row from the north,
+# as the page draws the map). The target travels in the action and is set
+# while the World GM resolves it (never beside the action).
+AIMED = re.compile(r'\s*@\s*(\d+)\s*,\s*(\d+)\s*$')
+AIM_HINT = (
+    'To aim a move that lands on the map, answer with the move as written,'
+    ' then " @ row,col".'
+)
+
+
+def aimed(action: str) -> tuple[str, tuple[int, int] | None]:
+  """An action without its aim, and the aim (row from the north, col)."""
+  found = AIMED.search(action)
+  if found is None:
+    return action, None
+  return action[: found.start()], (int(found.group(1)), int(found.group(2)))
+
+
 class Actor(metaclass=abc.ABCMeta):
   """Rules for one acting entity."""
 
@@ -138,6 +157,14 @@ class Actor(metaclass=abc.ABCMeta):
     """Whether a person may aim this option at a place on the map."""
     del option
     return False
+
+  def take_aim(self, action: str, planet: planet_lib.Planet) -> str:
+    """Sets an aimed action's target on the planet; returns the move."""
+    move, target = aimed(action)
+    if target is None or not self.aimable(move.strip()):
+      return action
+    planet.set_target(self.name, planet.tiles.rows - 1 - target[0], target[1])
+    return move
 
 
 class StewardActor(Actor):
@@ -208,6 +235,7 @@ class StewardActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip()
     if text.startswith(f'{self.name} '):  # A model's free answer.
       text = text[len(self.name) + 1 :].strip()
@@ -280,6 +308,7 @@ class SpeciesActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     partner = self._pact_partners().get(action.strip().lower()) or next(
         (
             key
@@ -652,6 +681,7 @@ class PolityActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     answers = {k.lower(): v for k, v in self._answers().items()}
     if text in answers:
@@ -786,6 +816,7 @@ class ColonyActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     colony = self._colony()
     target = self._plans().get(text)
@@ -857,6 +888,7 @@ class MissionActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     colony = self._colony()
     design = self._designs().get(text)
@@ -935,6 +967,7 @@ class GrazerActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     grazers = self._grazers()
     behaviour = grazers.behaviour_for_option(action)
     if behaviour is None:

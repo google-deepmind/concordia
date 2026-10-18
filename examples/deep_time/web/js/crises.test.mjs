@@ -111,6 +111,8 @@ test('the sheet heads with the question alone', () => {
   const base = 'You are Basalt clans, a people of the early iron age. Choose where to put more of your labor this generation.';
   assert.equal(askWords(base + ' Most pressing now: The granary is nearly empty; farm answers it. Our weakest link: wood.'), base);
   assert.equal(askWords(base + ' Our weakest link: wood.'), base);
+  // A free question that may be aimed lists its moves; the header does not.
+  assert.equal(askWords(base + '\n(a) seed white daisies\n(b) wait\nTo aim a move ...'), base);
   assert.equal(askWords(base), base);
   assert.equal(askWords(undefined), '');
 });

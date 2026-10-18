@@ -20,10 +20,12 @@ picks a behaviour), so this component asks each entity's `Actor` instead.
 Entities without an active actor get `SKIP_THIS_STEP`.
 """
 
+import dataclasses
 from typing import override
 
 from concordia.components.game_master import next_acting
 from concordia.environment import engine as engine_lib
+from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
@@ -31,6 +33,45 @@ from concordia.typing import entity_component
 SKIP_SPEC = entity_lib.ActionSpec(
     call_to_action='', output_type=entity_lib.OutputType.SKIP_THIS_STEP
 )
+
+
+def aimable_spec(
+    actor: actors_lib.Actor, spec: entity_lib.ActionSpec
+) -> entity_lib.ActionSpec:
+  """A person's spec, free when a move may be aimed (the aim is in the answer).
+
+  A choice must be answered with an option exactly, so a move a person aims
+  on the map comes as a free answer, `"<move> @ row,col"`, listing the moves
+  as a choice lists them; the actor's `resolve` reads the aim. Models keep
+  the choice (they do not aim).
+
+  Args:
+    actor: The person's actor.
+    spec: Its spec this tick.
+
+  Returns:
+    The spec to ask with.
+  """
+  if spec.output_type == entity_lib.OutputType.CHOICE:
+    if not any(actor.aimable(o) for o in spec.options):
+      return spec
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    moves = '\n'.join(
+        f'({letters[i % 26]}) {o}' for i, o in enumerate(spec.options)
+    )
+    return entity_lib.free_action_spec(
+        call_to_action=f'{spec.call_to_action}\n{moves}\n{actors_lib.AIM_HINT}',
+        tag=spec.tag,
+    )
+  if spec.output_type == entity_lib.OutputType.FREE and (
+      actors_lib.AIM_HINT not in spec.call_to_action
+  ):
+    moves = getattr(actor, 'options', lambda: [])()
+    if any(actor.aimable(o) for o in moves):
+      return dataclasses.replace(
+          spec, call_to_action=f'{spec.call_to_action}\n{actors_lib.AIM_HINT}'
+      )
+  return spec
 
 
 class ActorActionSpecs(
@@ -72,6 +113,8 @@ class ActorActionSpecs(
     name = self._entity_name(action_spec.call_to_action)
     actor = self._context.actors.get(name)
     spec = actor.action_spec() if actor and actor.is_active() else SKIP_SPEC
+    if actor is not None and name in self._context.humans:
+      spec = aimable_spec(actor, spec)
     self._logging_channel({
         'Key': 'Action spec',
         'Summary': f'{name}: {spec.output_type.name}',

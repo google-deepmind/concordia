@@ -190,6 +190,10 @@ class Seat(human_input.HumanInput):
     # The moves a free question offers (a Steward that may speak an omen
     # answers in words, and its moves are still there to tap).
     self.moves: Callable[[], Sequence[str]] = lambda: ()
+    # Why an answer to a free question cannot be taken ('' if it can): a
+    # person's free question is a choice that may be aimed, so its answer
+    # is one of the moves (unless the role may answer in words).
+    self.check: Callable[[str], str] = lambda response: ''
 
   def offered(self, request: human_input.HumanInputRequest) -> tuple[str, ...]:
     """A question's options: its choices, or the moves of a free one."""
@@ -365,8 +369,20 @@ class Seat(human_input.HumanInput):
     with self._lock:
       return self._request
 
-  def choose(self, request_id: str, response: str) -> str | None:
-    """Answers the pending request; None if accepted, else why not."""
+  def choose(
+      self, request_id: str, response: str, move: str | None = None
+  ) -> str | None:
+    """Answers the pending request; None if accepted, else why not.
+
+    Args:
+      request_id: The request answered.
+      response: The answer the act component gets (a move, words, or an
+        aimed move `"<move> @ row,col"`).
+      move: The move as the page shows it, if not the response itself.
+
+    Returns:
+      None if accepted, otherwise why not.
+    """
     with self._lock:
       request = self._request
       if request is None or request.request_id != request_id:
@@ -375,11 +391,14 @@ class Seat(human_input.HumanInput):
         human_act_component.validate_response(response, request.action_spec)
       except ValueError as error:
         return str(error)
+      reason = self.check(response)
+      if reason:
+        return reason
       self._answer = response
       self._request = None  # Answered: a second tap must not count.
-      self.choices.append(response)
+      self.choices.append(move or response)
       self._note(
-          response,
+          move or response,
           'chose',
           list(self.offered(request)),
           time.monotonic() - self._asked_at,
@@ -413,11 +432,9 @@ class ReplaySeat(human_input.HumanInput):
       self,
       moves: Sequence[Sequence[Any]],
       clock: Callable[[], int],
-      aim: Callable[[Sequence[int]], None],
   ):
     self._moves = {int(m[0]): (str(m[1]), m[2]) for m in moves}
     self._clock = clock
-    self._aim = aim
     # The moves of a free question (as `Seat.moves`).
     self.moves: Callable[[], Sequence[str]] = lambda: ()
 
@@ -426,8 +443,8 @@ class ReplaySeat(human_input.HumanInput):
     move, target = self._moves.get(self._clock(), (None, None))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
-    if target:
-      self._aim(target)
+    if target:  # Aimed where it was aimed, in the action itself.
+      return f'{move} @ {int(target[0])},{int(target[1])}'
     return move
 
 
@@ -582,6 +599,7 @@ class GameSession:
       place.can_make = lambda option, name=name: self._can_make(name, option)
       place.world = lambda name=name: self._turn_world(name)
       place.moves = lambda name=name: self._free_moves(name)
+      place.check = lambda response, name=name: self._check(name, response)
     self.entity, self.role = names[0], labels[names[0]]  # The first seat.
     self._cancelled = False
     self.error = ''
@@ -601,15 +619,7 @@ class GameSession:
       for name, moves in (replay.get('moves') or {}).items():
         if name not in labels:
           continue
-        seat = ReplaySeat(
-            moves,
-            clock=lambda: self.context.planet.tick,
-            aim=lambda target, name=name: self.context.planet.set_target(
-                name,
-                self.context.planet.tiles.rows - 1 - int(target[0]),
-                int(target[1]),
-            ),
-        )
+        seat = ReplaySeat(moves, clock=lambda: self.context.planet.tick)
         seat.moves = lambda name=name: self._free_moves(name)
         humans[name] = seat
     self._sim, self.context = simulation.build_simulation(
@@ -993,11 +1003,25 @@ class GameSession:
     ]
 
   def _free_moves(self, entity: str) -> list[str]:
-    """The moves a Steward that answers in words may still tap."""
+    """The moves of a free question: a Steward that may speak an omen, or
+    a person whose move may be aimed (the aim comes in the answer)."""
     actor = self.context.actors.get(entity)
     if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
       return actor.options()
-    return []
+    if actor is None:
+      return []
+    return list(actor.action_spec().options)
+
+  def _check(self, entity: str, response: str) -> str:
+    """Why a free answer is not a move on offer ('' if it is, or words)."""
+    actor = self.context.actors.get(entity)
+    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
+      return ''  # The Steward may speak an omen in its own words.
+    moves = self._free_moves(entity)
+    move, _ = actors_lib.aimed(response)
+    if moves and move.strip() not in moves:
+      return f'"{move.strip()}" is not one of the moves this turn.'
+    return ''
 
   def _can_make(self, entity: str, option: str) -> str:
     """Why a planned move cannot be made now ('' if it can)."""
@@ -1302,16 +1326,20 @@ class GameSession:
     Returns:
       None if accepted, otherwise why not (for the page to show).
     """
-    planet = self.context.planet
     for name, seat in self.seats.items():
       request = seat.pending()
       if request is not None and request.request_id == request_id:
-        if target is not None and self._targetable(name, response):
-          planet.set_target(name, planet.tiles.rows - 1 - target[0], target[1])
-        error = seat.choose(request_id, response)
-        if error is not None:
-          planet.targets.pop(name, None)
-        elif target is not None and self._targetable(name, response):
+        aim = target is not None and self._targetable(name, response)
+        error = seat.choose(
+            request_id,
+            # The aim travels in the action; the actor sets it as the World
+            # GM resolves the move.
+            f'{response} @ {int(target[0])},{int(target[1])}'
+            if aim and target is not None
+            else response,
+            move=response,
+        )
+        if error is None and aim and target is not None:
           seat.sent[-1]['target'] = [int(target[0]), int(target[1])]
         return error
     return 'That question has already been answered.'
