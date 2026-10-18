@@ -727,6 +727,32 @@ class Settlements:
           )
     return ' '.join(words)
 
+  def describe_towns(self, polity: str) -> str:
+    """Where every people's towns stand, by tile, for a people's own sheet.
+
+    Where conquest is played, a town gives orders and is aimed at by its
+    tile (row from the north, column), so a people's sheet says where each
+    stands: its own first.
+    """
+    if not self.war:
+      return ''
+    north = self.tiles.rows - 1
+
+    def tiles(key: str) -> str:
+      return ', '.join(
+          f'{north - t.row},{t.col}' + (' (capital)' if t.capital else '')
+          for t in self.places.get(key, ())
+      )
+
+    others = '; '.join(
+        f'the {self._name(k)} at {tiles(k)}'
+        for k in self.places
+        if k != polity and self.places[k]
+    )
+    return f'Our towns stand at {tiles(polity)} (row,col)' + (
+        f'; towns of others: {others}.' if others else '.'
+    )
+
   def capital(self, polity: str) -> Settlement | None:
     """A people's capital (its first town if it has none)."""
     towns = self.places.get(polity) or []

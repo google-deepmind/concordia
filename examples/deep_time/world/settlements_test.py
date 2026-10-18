@@ -681,6 +681,21 @@ class SettlementsTest(absltest.TestCase):
     self.assertLen(  # At most forty words are carried.
         outbox['diplomacy.cedar.basalt'].split('"')[1].split(), 40
     )
+    # Cut at the last whole sentence when one ends past halfway.
+    said_ = ' '.join(['grain'] * 30) + ' is ours. ' + ' '.join(['more'] * 20)
+    basalt.resolve(f'words to the Amber folk: {said_}')
+    self.assertTrue(
+        dict(basalt.drain_outbox())['diplomacy.amber.basalt'].endswith(
+            'is ours."'
+        )
+    )
+    # A people's sheet says where every town stands, to order and aim.
+    north = planet.tiles.rows - 1
+    capital = planet.settlements.capital('basalt')
+    self.assertIn(
+        f'Our towns stand at {north - capital.row},{capital.col} (capital)',
+        planet.settlements.describe_towns('basalt'),
+    )
 
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()

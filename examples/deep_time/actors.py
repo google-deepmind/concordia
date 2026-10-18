@@ -1031,7 +1031,12 @@ class PolityActor(Actor):
     if other in spoken_to:
       return f'{self.name} spoke to the {civ.polities[other].name} already.'
     spoken_to.add(other)
-    text = ' '.join(words.split()[:WORDS_MAX]).strip('"')
+    kept = words.split()
+    text = ' '.join(kept[:WORDS_MAX]).strip('"')
+    if len(kept) > WORDS_MAX:  # Cut at its last whole sentence, if any.
+      end = max(text.rfind(p) for p in '.!?')
+      if end > len(text) // 2:
+        text = text[: end + 1]
     self._tally('words')
     self.outbox.append((
         f'diplomacy.{other}.{self.polity}',
