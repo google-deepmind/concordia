@@ -210,7 +210,12 @@ def steward_rules(context: game_lib.GameContext, name: str) -> None:
   context.attention[name] = attention
   context.add_actor(
       actors_lib.StewardActor(name, context.planet, attention),
-      hears=('world.tick', *_news_topics(peoples)),
+      hears=(
+          'world.tick',
+          *_news_topics(peoples),
+          # What the printers made of its omens, where there are presses.
+          *(('media.omens',) if context.planet.gazette is not None else ()),
+      ),
   )
   instruments = _instruments(context, name, attention)
   for key, spec in instruments.items():

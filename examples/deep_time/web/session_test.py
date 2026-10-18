@@ -1031,6 +1031,9 @@ class GameSessionTest(absltest.TestCase):
     ]
     self.assertLen(told, 1)  # The printers' front page, in full, once.
     self.assertIn('spend the black stone slowly', told[0]['text'])
+    # A species reads no Gazette: none of it is in its story.
+    story = game._story('Grasslands', False, False)  # pylint: disable=protected-access
+    self.assertNotIn('press', {i['kind'] for i in story})
     gazette = game.context.planet.gazette
     assert gazette is not None
     self.assertEqual(gazette.printed[-1].kind, 'omen')

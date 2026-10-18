@@ -149,6 +149,8 @@ def role(context: game_lib.GameContext, entity: str) -> dict[str, Any]:
       'polity': getattr(actor, 'polity', None) if kind == 'people' else None,
       'species': getattr(actor, 'species', None) if kind == 'species' else None,
       'acts_in': acts_in(context, entity),
+      # The topics it hears as observations (its access list).
+      'hears': list(context.access.get(entity, ())),
   }
 
 

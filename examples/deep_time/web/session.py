@@ -1330,8 +1330,9 @@ class GameSession:
   ) -> list[dict[str, Any]]:
     """The story so far as a role may know it, newest first.
 
-    The Advisor's briefings (to whom it counsels), the Gazette's
-    broadsheets (public), the news the role has heard (its own digests) and,
+    The Advisor's briefings (to whom it counsels), the Gazette's front pages
+    and broadsheets (to whom reads them), the news the role has heard (its
+    own digests) and,
     once the world is revealed, the Chronicler's chapters (written from the
     true world).
 
@@ -1354,10 +1355,24 @@ class GameSession:
             'text': message.payload,
         })
     seen_sheets = set()
+    # Only what the role reads (a subscription, or what it hears); all of it
+    # for a spectator or once revealed.
+    readers = bus.topology()
+
+    hears = self._role(entity).get('hears', ())
+
+    def reads(topic: str) -> bool:
+      if reveal or entity is None:
+        return True
+      return entity in readers.get(topic, {}).get('subscribers', ()) or any(
+          topic.startswith(prefix) for prefix in hears
+      )
+
     # The printers' front pages about the Steward's omens, in full.
-    gazette = self.context.planet.gazette
-    stances = gazette.stances if gazette is not None else {}
-    for message in bus.history('media.omens'):
+    stances = {
+        k: str(v).lower() for k, v in data.load('media.yaml')['stances'].items()
+    }
+    for message in bus.history('media.omens') if reads('media.omens') else ():
       body = media_lib.without_stance(message.payload, stances)
       seen_sheets.add(media_lib.headline(body))
       items.append({
@@ -1366,7 +1381,9 @@ class GameSession:
           'who': 'The Gazette on the omen',
           'text': body,
       })
-    for message in bus.history('media.gazette'):
+    for message in (
+        bus.history('media.gazette') if reads('media.gazette') else ()
+    ):
       try:
         sheets = json.loads(message.payload).get('broadsheets') or []
       except (TypeError, ValueError, AttributeError):
