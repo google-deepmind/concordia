@@ -2,6 +2,15 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 18 Oct, later still
+    world: great_acceleration
+    text: >-
+      Playing a people on the Great Acceleration you can raise arms, as
+      labour like any trade: levies with spears from your tools, riders once
+      you know the iron plough (its horses), riflemen once you make steel.
+      They gather in your capital and eat grain every turn (unfed, some
+      desert); your garrison's strength shows by the town on the map, and a
+      tap on a town lists its arms. Marching them comes next.
   - when: 18 Oct, late
     world: great_acceleration
     text: >-

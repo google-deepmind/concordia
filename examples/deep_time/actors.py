@@ -563,7 +563,8 @@ class PolityActor(Actor):
     civ = self._civ()
     people = civ.polities[self.polity]
     short = set(people.shortages.values())
-    recipes = civ.recipes_for(self.polity)
+    arms = set(self._arms().values())  # Offered apart (`_arms`).
+    recipes = [r for r in civ.recipes_for(self.polity) if r.key not in arms]
     wanted = recipes
     if len(recipes) > MAX_FOCUS:
       fresh = [r for r in recipes if r.key not in people.allocation]
@@ -604,6 +605,22 @@ class PolityActor(Actor):
         f'put more labor into: {r.label}': r.key for r in wanted[:MAX_FOCUS]
     }
 
+  def _arms(self) -> dict[str, str]:
+    """Option text -> recipe key, for raising arms (where conquest is played).
+
+    Offered apart from the trades (`_focus`), so they never crowd the
+    workshops off the menu.
+    """
+    towns = self._planet.settlements
+    kinds = set(towns.arms) if towns is not None else set()
+    if not kinds:
+      return {}
+    return {
+        f'put more labor into: {r.label}': r.key
+        for r in self._civ().recipes_for(self.polity)
+        if set(r.outputs) <= kinds
+    }
+
   def pushes(self, options: Sequence[str]) -> dict[str, str]:
     """What this people's labor and learning moves do.
 
@@ -617,7 +634,7 @@ class PolityActor(Actor):
       Option -> push, for the options that have one.
     """
     civ = self._civ()
-    focus, learn = self._focus(), self._learnable()
+    focus, learn = {**self._focus(), **self._arms()}, self._learnable()
     shifts = civ.labor_shifts(
         self.polity,
         sorted({
@@ -831,9 +848,12 @@ class PolityActor(Actor):
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     # Where conquest is played, founding a town is a move, with its cost.
     town = [] if self._planet.can_found(self.polity) else [self._town_move()]
+    arms = list(self._arms())  # Raising arms, apart from the trades.
     orders = [*self._trades(), *self._reflexes()]
-    room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - len(town) - 1)
-    return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
+    room = max(
+        0, MAX_OPTIONS - len(fixed) - len(extras) - len(arms) - len(town) - 1
+    )
+    return [*fixed, *orders[:room], *extras, *arms, *town, KEEP_LABOR]
 
   def is_active(self) -> bool:
     return self.polity not in self._civ().collapsed(0.05)
@@ -966,7 +986,7 @@ class PolityActor(Actor):
       if ' found a town ' in news:  # Every people hears of it.
         self.outbox.append((planet_lib.CIV_EVENTS, news))
       return news
-    recipe = self._focus().get(text)
+    recipe = self._focus().get(text) or self._arms().get(text)
     if recipe is None:
       self._tally('keep' if text == KEEP_LABOR else 'unmatched')
       return f'{self.name} keep their labor as it is.'

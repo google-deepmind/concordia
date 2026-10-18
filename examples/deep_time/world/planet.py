@@ -393,6 +393,7 @@ class Planet:
           data.load('settlements.yaml'),
           trade=self.trade is not None,
           conquest=bool(scenario['civilization'].get('conquest')),
+          arms=(civ_config or {}).get('arms'),
       )
       self.settlements.update(
           {k: p.population for k, p in self.civ.polities.items()}
@@ -692,6 +693,8 @@ class Planet:
           )
           self.civ.polities[key].local = factors
       for text in self._step_civ():
+        events.append(WorldEvent(CIV_EVENTS, text))
+      for text in self._muster():  # Arms join their garrisons and eat.
         events.append(WorldEvent(CIV_EVENTS, text))
       if self.settlements is not None and self.pollution is not None:
         for text in self.settlements.update(
@@ -1078,6 +1081,42 @@ class Planet:
         )
     self.pending_adaptations = still_pending
     return events
+
+  def _muster(self) -> list[str]:
+    """New arms join their people's capital; every unit eats grain.
+
+    Where conquest is played (`data/arms.yaml`). A people that cannot feed
+    its arms sees half of the unfed share desert, and every people hears it.
+
+    Returns:
+      The news.
+    """
+    towns, civ = self.settlements, self.civ
+    if towns is None or civ is None or not towns.arms:
+      return []
+    news = []
+    for key, people in civ.polities.items():
+      for kind in towns.arms:
+        made = civ.stock(key, kind)
+        if made > 1e-9:
+          civ.ledger.withdraw(key, kind, made, 'mustered')
+          towns.muster(key, kind, made)
+      need = towns.upkeep(key)
+      if need <= 1e-9:
+        continue
+      eaten = min(need, civ.stock(key, 'grain'))
+      if eaten > 1e-9:
+        civ.ledger.withdraw(key, 'grain', eaten, 'arms')
+      if eaten < need - 1e-9:
+        lost = towns.desert(key, 0.5 * (1.0 - eaten / need))
+        gone = ', '.join(
+            f'{n:.1f} {towns.arms[k]["label"]}'
+            for k, n in sorted(lost.items())
+            if n >= 0.05
+        )
+        if gone:
+          news.append(f'{people.name} cannot feed their arms: {gone} desert.')
+    return news
 
   def _step_civ(self) -> list[str]:
     """Runs the polities' work, food and population for one tick."""

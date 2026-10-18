@@ -1,0 +1,33 @@
+# Arms (stage 6, C3), where conquest is played. Each kind is raised by a
+# recipe like any good, with labour that farms and forges compete for, and
+# each needs know-how with a civilian face (dual use): the iron tools that
+# clear fields also make spears; the horses that pull the iron plough also
+# carry riders; the steel that lays rails also makes rifles.
+#
+# A unit takes two hands' work a turn to raise (three for a rider and its
+# horse). Raised arms join the garrison of the people's capital. Every unit
+# eats grain each turn (`upkeep`); a people that cannot feed its arms sees
+# some of them desert. `strength` is what a unit counts for in a fight, `speed`
+# how many legs of a road it marches a turn (C4).
+kinds:
+  levies: {label: levies, strength: 1.0, speed: 1, upkeep: 0.25, from: iron tools}
+  riders: {label: riders, strength: 1.5, speed: 2, upkeep: 0.5, from: the plough's horses}
+  guns: {label: riflemen, strength: 3.0, speed: 1, upkeep: 0.35, from: steel}
+recipes:
+  - key: arm_levies
+    label: arm levies with spears
+    labor: 2.0
+    inputs: {tools: 0.5, grain: 0.5}
+    outputs: {levies: 1.0}
+  - key: arm_riders
+    label: breed horses and train riders
+    labor: 3.0
+    inputs: {grain: 2.0}
+    outputs: {riders: 1.0}
+    requires: iron_plough
+  - key: arm_guns
+    label: forge rifles and drill riflemen
+    labor: 2.0
+    inputs: {steel: 1.0, tools: 0.5}
+    outputs: {guns: 1.0}
+    requires: steelmaking

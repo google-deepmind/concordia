@@ -618,6 +618,22 @@ def new_game(
                   if scenario['civilization'].get('media')
                   else None
               ),
+              # Where conquest is played: the kinds of arms, and the recipes
+              # that raise them among the civilization's (stage 6, C3).
+              **(
+                  {
+                      'arms': data.load('arms.yaml')['kinds'],
+                      'recipes': [
+                          *_merged(
+                              data.load('civ.yaml'),
+                              scenario.get('civ_overrides', {}),
+                          )['recipes'],
+                          *data.load('arms.yaml')['recipes'],
+                      ],
+                  }
+                  if scenario['civilization'].get('conquest')
+                  else {}
+              ),
           }
           if scenario.get('civilization')
           else None

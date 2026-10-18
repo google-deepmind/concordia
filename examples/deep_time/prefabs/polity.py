@@ -93,6 +93,10 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
             f' We are bound by {spec.plural} with the {", ".join(bound)}: at'
             f' most {spec.cap:g} {spec.unit} a generation.'
         )
+  towns = context.planet.settlements
+  arms = towns.describe_arms(polity) if towns is not None else ''
+  if arms:  # Where conquest is played, once it has raised some.
+    text += ' ' + arms
   gazette = context.planet.gazette
   if gazette is not None:
     text += (

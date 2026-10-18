@@ -57,10 +57,10 @@ class Settlement:
   col: int
   capital: bool = False
   # Where conquest is played: how firmly the town holds to its people (0-1),
-  # its walls, and the arms stationed there.
+  # its walls, and the arms stationed there (units by kind, `data/arms.yaml`).
   loyalty: float = 1.0
   walls: int = 0
-  garrison: float = 0.0
+  garrison: dict[str, float] = dataclasses.field(default_factory=dict)
 
 
 class Settlements:
@@ -76,6 +76,7 @@ class Settlements:
       config: Mapping[str, Any],
       trade: bool = False,
       conquest: bool = False,
+      arms: Mapping[str, Mapping[str, Any]] | None = None,
   ):
     """Lays out the capitals.
 
@@ -88,12 +89,14 @@ class Settlements:
       config: `data/settlements.yaml`.
       trade: Whether the peoples trade (trade routes join their capitals).
       conquest: Whether towns can change hands.
+      arms: The kinds of arms (`data/arms.yaml`), where conquest is played.
     """
     self.tiles = tile_map
     self.biomes = biomes
     self.config = config
     self.trade = trade
     self.conquest = conquest
+    self.arms = {k: dict(v) for k, v in (arms or {}).items()}
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -321,7 +324,7 @@ class Settlements:
     self.places[holder].remove(place)
     self.places[taker].append(place)
     place.loyalty = float(loyalty)
-    place.garrison = 0.0
+    place.garrison = {}
     if place.capital:  # A people that lost its capital rules from its oldest.
       place.capital = False
       if self.places[holder]:
@@ -523,7 +526,88 @@ class Settlements:
             [kind, [[north - r, c] for r, c in path]]
             for kind, path in self.routes
         ],
+        # Each garrisoned town's strength and its arms by kind.
+        **(
+            {
+                'garrisons': {
+                    str(s.id): [
+                        round(self.strength(s), 1),
+                        {
+                            self.arms.get(k, {}).get('label', k): round(n, 1)
+                            for k, n in sorted(s.garrison.items())
+                        },
+                    ]
+                    for v in self.places.values()
+                    for s in v
+                    if s.garrison
+                }
+            }
+            if self.conquest
+            else {}
+        ),
     }
+
+  def strength(self, place: Settlement) -> float:
+    """What a town's garrison counts for in a fight."""
+    return sum(
+        n * float(self.arms.get(k, {}).get('strength', 1.0))
+        for k, n in place.garrison.items()
+    )
+
+  def arms_of(self, polity: str) -> dict[str, float]:
+    """A people's arms, by kind, across the towns it holds."""
+    found: dict[str, float] = {}
+    for place in self.places.get(polity, ()):
+      for kind, n in place.garrison.items():
+        found[kind] = found.get(kind, 0.0) + n
+    return found
+
+  def describe_arms(self, polity: str) -> str:
+    """A people's arms in words, for its own sheet."""
+    held = {k: n for k, n in self.arms_of(polity).items() if n >= 0.05}
+    if not held:  # (The moves that raise them say so.)
+      return ''
+    kinds = ' and '.join(
+        f'{n:.1f} {self.arms.get(k, {}).get("label", k)}'
+        for k, n in sorted(held.items())
+    )
+    strength = sum(self.strength(t) for t in self.places.get(polity, ()))
+    garrisons = ', '.join(
+        f'{self.strength(t):.1f} {self.where(t)}'
+        for t in self.places.get(polity, ())
+        if t.garrison
+    )
+    return (
+        f'Our arms: {kinds} (strength {strength:.1f}; garrisons: {garrisons});'
+        f' they eat {self.upkeep(polity):.1f} grain a turn.'
+    )
+
+  def muster(self, polity: str, kind: str, count: float) -> None:
+    """New arms join the garrison of the people's capital."""
+    towns = self.places.get(polity)
+    if not towns or count <= 0:
+      return
+    capital = next((t for t in towns if t.capital), towns[0])
+    capital.garrison[kind] = capital.garrison.get(kind, 0.0) + float(count)
+
+  def upkeep(self, polity: str) -> float:
+    """The grain a people's arms eat in a turn."""
+    return sum(
+        n * float(self.arms.get(k, {}).get('upkeep', 0.0))
+        for k, n in self.arms_of(polity).items()
+    )
+
+  def desert(self, polity: str, share: float) -> dict[str, float]:
+    """A share of a people's arms leaves every town; what was lost, by kind."""
+    lost: dict[str, float] = {}
+    for place in self.places.get(polity, ()):
+      for kind, n in list(place.garrison.items()):
+        gone = n * share
+        lost[kind] = lost.get(kind, 0.0) + gone
+        place.garrison[kind] = n - gone
+        if place.garrison[kind] < 1e-6:
+          del place.garrison[kind]
+    return lost
 
   def _port(self, place: Settlement) -> bool:
     return any(
@@ -544,7 +628,7 @@ class Settlements:
         **(
             {
                 'towns': {
-                    str(s.id): [s.polity, s.loyalty, s.walls, s.garrison]
+                    str(s.id): [s.polity, s.loyalty, s.walls, dict(s.garrison)]
                     for v in self.places.values()
                     for s in v
                 }
@@ -574,5 +658,9 @@ class Settlements:
       if found is not None:
         place = found[0]
         place.polity, place.loyalty = str(founder), float(loyalty)
-        place.walls, place.garrison = int(walls), float(garrison)
+        place.walls = int(walls)
+        if isinstance(garrison, Mapping):
+          place.garrison = {str(k): float(v) for k, v in garrison.items()}
+        else:  # Older saves: one number, before arms had kinds.
+          place.garrison = {'levies': float(garrison)} if garrison else {}
     self._route()

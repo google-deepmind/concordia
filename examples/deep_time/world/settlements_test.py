@@ -209,6 +209,75 @@ class SettlementsTest(absltest.TestCase):
     towns.update({'amber': 30.0}, found=False)
     self.assertLen(towns.places['amber'], held)
 
+  def test_arms_are_raised_as_labour_and_join_the_capital(self):
+    planet = _planet('great_acceleration')
+    towns, civ = planet.settlements, planet.civ
+    # Three kinds, each from know-how with a civilian face.
+    self.assertEqual(set(towns.arms), {'levies', 'riders', 'guns'})
+    known = [
+        r.key for r in civ.recipes_for('amber') if r.key.startswith('arm_')
+    ]
+    self.assertIn('arm_levies', known)  # Tools make spears from the start.
+    self.assertNotIn('arm_guns', known)  # Rifles wait for steel.
+    self.assertIn('arm_guns', [r.requires and r.key for r in civ.recipes])
+    # Made arms join the capital's garrison and eat grain.
+    civ.ledger.deposit('amber', 'levies', 3.0, 'test')
+    grain = civ.stock('amber', 'grain')
+    self.assertEqual(planet._muster(), [])  # pylint: disable=protected-access
+    capital = next(t for t in towns.places['amber'] if t.capital)
+    self.assertEqual(capital.garrison, {'levies': 3.0})
+    self.assertEqual(civ.stock('amber', 'levies'), 0.0)
+    self.assertAlmostEqual(civ.stock('amber', 'grain'), grain - 0.75)
+    self.assertIn(
+        'Our arms: 3.0 levies (strength 3.0', towns.describe_arms('amber')
+    )
+    self.assertEqual(towns.describe_arms('basalt'), '')  # None raised.
+    # Drawn on the map: the town's strength and its arms by label.
+    self.assertEqual(
+        towns.payload({})['garrisons'][str(capital.id)], [3.0, {'levies': 3.0}]
+    )
+    # Unfed arms desert, and every people hears it.
+    civ.ledger.withdraw('amber', 'grain', civ.stock('amber', 'grain'), 'test')
+    (news,) = planet._muster()  # pylint: disable=protected-access
+    self.assertIn('Amber folk cannot feed their arms: 1.5 levies desert', news)
+    self.assertEqual(capital.garrison, {'levies': 1.5})
+
+  def test_raising_arms_is_offered_apart_from_the_trades(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet = _planet('great_acceleration')
+    people = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
+    options = people.options()
+    raise_levies = 'put more labor into: arm levies with spears'
+    self.assertIn(raise_levies, options)
+    # Never among the trades it may crowd off a short menu.
+    self.assertNotIn(raise_levies, people._focus())  # pylint: disable=protected-access
+    self.assertIn('smelt iron', ' '.join(people._focus()))  # pylint: disable=protected-access
+    # Chosen, it puts hands to arms, told like any trade.
+    self.assertIn('arm levies with spears', people.resolve(raise_levies))
+    self.assertGreater(
+        planet.civ.polities['basalt'].allocation.get('arm_levies', 0.0), 0.0
+    )
+
+  def test_garrisons_are_kept_by_kind_and_older_saves_still_load(self):
+    towns = _planet('great_acceleration').settlements
+    towns.muster('amber', 'riders', 2.0)
+    state = towns.get_state()
+    again = _planet('great_acceleration').settlements
+    again.set_state(state)
+    self.assertEqual(again.arms_of('amber'), {'riders': 2.0})
+    for v in state['towns'].values():  # A save from before arms had kinds.
+      v[3] = 1.5
+    again.set_state(state)
+    self.assertEqual(
+        again.arms_of('amber')['levies'], 1.5 * len(again.places['amber'])
+    )
+
+  def test_arms_belong_to_conquest_worlds_only(self):
+    planet = _planet('fire_and_iron')
+    self.assertEqual(planet.settlements.arms, {})
+    self.assertFalse(any(r.key.startswith('arm_') for r in planet.civ.recipes))
+
 
 if __name__ == '__main__':
   absltest.main()

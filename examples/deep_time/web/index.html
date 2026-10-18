@@ -1507,8 +1507,15 @@ function renderPeople(people, tick) {
   const shared = sharedHtml(people.shared);
   // The road to the goal's good, as the people's sheet says it.
   const road = (people.aims || []).map((a) => `<p class="small road">🧭 ${escapeHtml(a.replace(/^Aim: /, 'Road to the goal: '))}</p>`).join('');
+  // Its arms (where conquest is played): kinds, strength, their grain.
+  const arms = people.arms;
+  const armed = arms ? Object.entries(arms.kinds) : [];
+  const armsLine = !arms ? '' : armed.length
+    ? `<p class="small">⚔ Arms: ${armed.map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`
+      + ` · strength <b>${arms.strength}</b> · they eat ${arms.upkeep} grain a turn.</p>`
+    : '<p class="small muted">⚔ No arms raised.</p>';
   $('stores').innerHTML = Object.entries(people.stocks).map(([k, v]) =>
-    `<span>${escapeHtml(k)} <b>${v}</b></span>`).join('') + granary + shared + road;
+    `<span>${escapeHtml(k)} <b>${v}</b></span>`).join('') + granary + armsLine + shared + road;
 }
 
 // The temperatures behind the briefing: the habitable band
@@ -2976,7 +2983,7 @@ function drawSettlements(ctx, v, unit, X, Y) {
   const halo = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
   ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
   ctx.textBaseline = 'middle';
-  for (const [i, , r, c, capital, port, founder] of peoples.settlements) {
+  for (const [i, id, r, c, capital, port, founder] of peoples.settlements) {
     const sp = peoples.polities[i];
     const x = X(c + 0.5), y = Y(r + 0.5), h = (capital ? 3.6 : 2.4) * unit;
     if (x < -40 || x > v.width + 40 || y < -20 || y > v.height + 20) continue;
@@ -3006,6 +3013,16 @@ function drawSettlements(ctx, v, unit, X, Y) {
     if (port) {
       ctx.beginPath(); ctx.arc(x + h, y + h, 1.2 * unit, 0, 2 * Math.PI);
       ctx.fillStyle = v.theme === 'dark' ? '#8cc8f0' : '#2a6aa8'; ctx.fill();
+    }
+    const held = (peoples.garrisons || {})[id];
+    if (held && held[0] >= 0.5) {  // Its garrison's strength, below it.
+      const label = `⚔${Math.round(held[0])}`;
+      ctx.font = `700 ${Math.max(10, 5.6 * unit)}px system-ui, sans-serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = halo;
+      ctx.strokeText(label, x - h, y + h + 5 * unit);
+      ctx.fillStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+      ctx.fillText(label, x - h, y + h + 5 * unit);
+      ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
     }
     if (capital) {  // The name beside it (left near the right edge), or above.
       const label = sp.name + (hunger ? ` · ${hunger}` : ''), wide = ctx.measureText(label).width;
@@ -3664,6 +3681,11 @@ function showInspect() {
       const who = m.peoples.polities[town[0]].name;
       const won = town[6] === undefined ? '' : `, won from the ${m.peoples.polities[town[6]].name}`;
       add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
+      const held = (m.peoples.garrisons || {})[town[1]];
+      if (held) {  // Its garrison: the arms stationed there, by kind.
+        add('Garrison', `${Object.entries(held[1]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}`
+          + ` · strength ${held[0]}`);
+      }
     }
   }
   box.innerHTML = `<div class="ihead"><b>${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}</b>`
