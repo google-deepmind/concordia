@@ -34,6 +34,7 @@ from examples.deep_time.prefabs import polity
 from examples.deep_time.prefabs import species as species_prefab
 from examples.deep_time.prefabs import steward
 from examples.deep_time.prefabs import world_gm
+from concordia.language_model import language_model
 from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs.simulation import generic as simulation_lib
 from concordia.typing import human_input
@@ -90,6 +91,7 @@ def build_simulation(
     seed: int = 0,
     humans: Mapping[str, human_input.HumanInput] | None = None,
     overrides: Mapping[str, Any] | None = None,
+    bots: Mapping[str, language_model.LanguageModel] | None = None,
 ) -> tuple[simulation_lib.Simulation, game_lib.GameContext]:
   """Creates the shared game state and the simulation for a scenario.
 
@@ -104,6 +106,8 @@ def build_simulation(
       Steward ('Gaia') and Mission Control take a person.
     overrides: Scenario flags merged into the scenario's data
       (`game.new_game`).
+    bots: Entities a bot plays (by name), and the model each acts with: the
+      role's own entity, its act component on that model.
 
   Returns:
     The simulation and the shared game context.
@@ -112,6 +116,7 @@ def build_simulation(
       scenario_name, time_mode=time_mode, seed=seed, overrides=overrides
   )
   context.humans.update(humans or {})
+  context.bots.update(bots or {})
   context.coached = models.mock is not None
   # The roles' slow minds think with it (and so do species founded later).
   context.slow_model = models.slow

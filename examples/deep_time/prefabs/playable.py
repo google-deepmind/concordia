@@ -134,6 +134,8 @@ class Role(PlayableEntity):
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     if self.context is None:
       raise ValueError(f'{type(self).__name__} needs the game context.')
+    # A role a bot plays acts with the bot's model, inside its own entity.
+    model = self.context.bots.get(str(self.params.get('name', '')), model)
     # The simulation builds each entity from its own copy of the prefab.
     self.params = self.assemble(self.context, self.params)
     return super().build(
@@ -167,6 +169,8 @@ class RolePolity(PlayablePolity):
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     if self.context is None:
       raise ValueError(f'{type(self).__name__} needs the game context.')
+    # A role a bot plays acts with the bot's model, inside its own entity.
+    model = self.context.bots.get(str(self.params.get('name', '')), model)
     # The simulation builds each entity from its own copy of the prefab.
     self.params = self.assemble(self.context, self.params)
     return super().build(

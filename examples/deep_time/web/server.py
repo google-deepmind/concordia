@@ -470,6 +470,7 @@ class Games:
       seed: int,
       players: list[str] | None = None,
       minds: str = 'mock',
+      bots: list[str] | None = None,
   ) -> str | None:
     """Starts a game: None, or why it was refused."""
     if minds not in self.minds()['options']:
@@ -485,6 +486,7 @@ class Games:
         telemetry_dir=self.telemetry_dir,
         minds=minds,
         on_end=self._ended,
+        bots=bots or (),
     )
     with self._lock:
       old, self.current = self.current, game
@@ -750,13 +752,25 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         except (TypeError, ValueError):
           self._json({'error': 'seed must be an integer'}, 400)
           return
-        refused = games.start(
-            scenario,
-            mode,
-            seed,
-            [str(p) for p in players] if players else None,
-            minds=str(body.get('minds', 'mock')),
-        )
+        # Roles a bot (the mock's skilled policies) plays in its own entity.
+        bots = body.get('bots') or []
+        if not isinstance(bots, list) or any(
+            str(b) not in dict(session_lib.roles(scenario)) for b in bots
+        ):
+          self._json({'error': 'unknown bot role'}, 400)
+          return
+        try:
+          refused = games.start(
+              scenario,
+              mode,
+              seed,
+              [str(p) for p in players] if players else None,
+              minds=str(body.get('minds', 'mock')),
+              bots=[str(b) for b in bots],
+          )
+        except ValueError as error:
+          self._json({'error': str(error)}, 400)
+          return
         if refused:
           self._json({'error': refused}, 400)
           return

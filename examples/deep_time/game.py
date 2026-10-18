@@ -130,6 +130,11 @@ class GameContext:
   humans: dict[str, human_input.HumanInput] = dataclasses.field(
       default_factory=dict
   )
+  # Entities a bot plays, by name, and the model their act component uses
+  # (e.g. the mock's skilled policies while live minds play the others).
+  bots: dict[str, language_model.LanguageModel] = dataclasses.field(
+      default_factory=dict
+  )
 
   def slow(self) -> language_model.LanguageModel:
     """The slow minds' model (set before the simulation builds the roles)."""

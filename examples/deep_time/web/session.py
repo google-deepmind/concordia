@@ -538,6 +538,7 @@ class GameSession:
       on_end: Callable[['GameSession'], None] | None = None,
       resume: Mapping[str, Any] | None = None,
       replay: Mapping[str, Any] | None = None,
+      bots: Sequence[str] = (),
   ):
     """Builds the game (start it with `start`).
 
@@ -565,6 +566,9 @@ class GameSession:
           `kept` (earlier turns' saves, compressed, for further rewinds).
       replay: A replay record (`replay_record`): the game is watched while its
         players' seats make the moves they made.
+      bots: Roles the mock's skilled policies play, inside their own entities,
+        whoever plays the rest (e.g. a watched game of live minds with a
+        skilled Steward, to measure the minds).
 
     Raises:
       KeyError: For an unknown scenario or role.
@@ -588,9 +592,11 @@ class GameSession:
     names = list(players or [role or next(iter(labels))])
     if len(set(names)) != len(names):
       raise ValueError(f'a role is taken twice: {names}')
-    for name in names:
+    for name in [*names, *bots]:
       if name not in labels:
         raise KeyError(name)
+    if mode == 'play' and set(bots) & set(names):
+      raise ValueError(f'a role is played by a person and a bot: {bots}')
     self.seats = {
         name: Seat(name, labels[name], turn_seconds) for name in names
     }
@@ -626,11 +632,17 @@ class GameSession:
         seat = ReplaySeat(moves, clock=lambda: self.context.planet.tick)
         seat.moves = lambda name=name: self._free_moves(name)
         humans[name] = seat
+    bot = (
+        model_setup.make_models('mock', max_calls=max_calls).fast
+        if bots
+        else None
+    )
     self._sim, self.context = simulation.build_simulation(
         scenario,
         self.models,
         seed=seed,
         humans=humans,
+        bots={name: bot for name in bots} if bot is not None else None,
     )
     self._thread = threading.Thread(target=self._run, daemon=True)
     # Identifies this game to pages caching its static terrain.

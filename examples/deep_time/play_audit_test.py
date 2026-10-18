@@ -64,6 +64,26 @@ class PlayAuditTest(absltest.TestCase):
     gaia = play_audit.menus(log, 'Gaia')[0]
     self.assertTrue(set(gaia['pushes']) <= {*gaia['offered'], *gaia['later']})
 
+  def test_a_bot_plays_its_role_inside_its_entity(self):
+    def gaia_moves(bots):
+      sim, context = simulation.build_simulation(
+          'daisyworld',
+          model_setup.make_models(
+              'mock', mock_variant=play_audit.variant('passive', 'Gaia')
+          ),
+          bots=bots,
+      )
+      with contextlib.redirect_stdout(io.StringIO()):
+        sim.play(premise='', max_steps=8)
+      return [action for _, action, _ in context.actors['Gaia'].log]
+
+    # The minds playing the game would leave the Steward passive...
+    self.assertTrue(all(m == 'wait and save omega' for m in gaia_moves({})))
+    # ...but the bot (the skilled mock) plays it, as its entity's act.
+    skilled = model_setup.make_models('mock').fast
+    moves = gaia_moves({'Gaia': skilled})
+    self.assertTrue(any(m != 'wait and save omega' for m in moves))
+
   def test_mission_control_is_light_delays_main_role(self):
     row = play_audit.play_one('light_delay', 'random', seed=0, ticks=4)
     self.assertEqual(row['role'], 'Mission Control')

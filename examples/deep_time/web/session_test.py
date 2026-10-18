@@ -199,6 +199,16 @@ class GameSessionTest(absltest.TestCase):
     self.assertIsNotNone(game.context.bus.latest('gaia.briefings'))
     self.assertEqual(state['briefing'], '')
 
+  def test_a_watched_game_may_have_a_bot_play_a_role(self):
+    game = session_lib.GameSession(
+        'daisyworld', 'watch', players=['Gaia'], bots=['Gaia']
+    )
+    self.assertIn('Gaia', game.context.bots)
+    with self.assertRaises(ValueError):  # A person's seat is the person's.
+      session_lib.GameSession('daisyworld', 'play', role='Gaia', bots=['Gaia'])
+    with self.assertRaises(KeyError):
+      session_lib.GameSession('daisyworld', 'watch', bots=['Nobody'])
+
   def test_each_role_sees_its_own_goal(self):
     steward = session_lib.GameSession('sandbox', 'play').state()['goal']
     people = session_lib.GameSession(
