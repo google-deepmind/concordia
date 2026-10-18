@@ -375,17 +375,15 @@ class GameContext:
     if self.bus.is_restoring:  # A checkpoint's replay, not a new answer.
       return
     parts = message.topic.split('.')
-    if (
-        len(parts) == 4
-        and parts[3] in ('adaptation', 'pact')
-        and message.payload
-    ):
+    # Replies to pacts and treaties are the answering entity's own action
+    # (on its menu, its mind's counsel in its context), never settled here.
+    if len(parts) == 4 and parts[3] == 'adaptation' and message.payload:
       with self._inbox_lock:
         self._inbox.append((parts[2], f'{parts[3]}:{message.payload}'))
     elif (
         len(parts) == 3
         and parts[0] == 'civ'
-        and parts[2] in ('treaty', 'press', 'retelling', 'takes')
+        and parts[2] in ('press', 'retelling', 'takes')
         and message.payload
     ):
       with self._inbox_lock:
@@ -394,9 +392,9 @@ class GameContext:
   def deliver_adaptations(self) -> list[planet_lib.WorldEvent]:
     """Hands landed slow-mind answers to the planet, in arrival order.
 
-    Adaptation answers become trait changes; pact and treaty answers settle
-    proposals, and the proposer hears the outcome on its diplomacy topic;
-    broadsheets go on the Gazette and the author's propaganda topic.
+    Adaptation answers become trait changes; broadsheets go on the Gazette
+    and the author's propaganda topic. (Replies to pacts and treaties are
+    actions, resolved by the World GM.)
 
     Returns:
       Events to announce.
@@ -434,17 +432,6 @@ class GameContext:
               f'civ.{species}.propaganda', answer.strip(), source='world'
           )
         continue
-      if kind == 'treaty':
-        settled = self.planet.answer_treaty(species, answer)
-        topic = planet_lib.CIV_EVENTS
-      else:
-        settled = self.planet.answer_pact(species, answer)
-        topic = planet_lib.BIO_EVENTS
-      if settled is None:
-        continue
-      proposer, text = settled
-      events.append(planet_lib.WorldEvent(topic, text))
-      self.bus.publish(f'diplomacy.{proposer}.{species}', text, source='world')
     return events
 
   def publish_state(self, events: Sequence[planet_lib.WorldEvent] = ()) -> None:

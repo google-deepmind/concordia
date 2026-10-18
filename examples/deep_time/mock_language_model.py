@@ -32,6 +32,7 @@ import threading
 from typing import Any, override
 
 from concordia.language_model import language_model
+from examples.deep_time.world import symbiosis as symbiosis_lib
 
 _OPTION_RE = re.compile(r'^\s*\(([a-z]+)\)\s(.+)$')
 _TEMP_RE = re.compile(
@@ -1402,7 +1403,27 @@ def random_polity_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   return _random_move(prompt, options, 'keep the current balance of labor')
 
 
+def offer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
+  """Answers an offer awaiting us as our mind counselled, once it has."""
+  answers = {
+      text: text.lower().startswith('accept')
+      for text in options.values()
+      if text.lower().startswith(('accept the ', 'decline the '))
+      and 'offered by' in text.lower()
+  }
+  if not answers:
+    return None
+  at = prompt.rfind('Counsel on the ')
+  counsel = prompt[at : at + 800] if at >= 0 else ''
+  reply = counsel.find('Reply to')
+  said = symbiosis_lib.parse_answer(counsel[reply:]) if reply >= 0 else None
+  if said is None:  # No counsel yet: the offer waits a turn.
+    return None
+  return next(t for t, accept in answers.items() if accept == said)
+
+
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
+    offer_policy,
     steward_policy,
     species_policy,
     grazer_policy,
@@ -1415,6 +1436,7 @@ DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
 VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'default': DEFAULT_POLICIES,
     'passive': (
+        offer_policy,
         passive_steward_policy,
         species_policy,
         grazer_policy,
@@ -1424,6 +1446,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     # A bot that plays the main roles at random: the skilled
     # bot (`default`) must beat it, and the passive one, by a clear margin.
     'random': (
+        offer_policy,
         random_steward_policy,
         species_policy,
         grazer_policy,
@@ -1433,6 +1456,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     ),
     # Acts on its forecast instead of the late reading.
     'forecaster': (
+        offer_policy,
         forecasting_steward_policy,
         species_policy,
         grazer_policy,
@@ -1441,6 +1465,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
         polity_policy,
     ),
     'no_advice': (
+        offer_policy,
         steward_policy_without_advice,
         species_policy,
         grazer_policy,

@@ -191,7 +191,7 @@ class TargetsTest(absltest.TestCase):
 
     planet = _planet('fire_and_iron')
     person = actors_lib.PolityActor(
-        'Amber folk', 'amber', planet, 0.1, answers_offers=True
+        'Amber folk', 'amber', planet, 0.1, person=True
     )
     model = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.1)
     # Cut from the menu (towns rise by themselves); a data flag brings it.

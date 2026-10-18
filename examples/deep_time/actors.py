@@ -292,10 +292,25 @@ class SpeciesActor(Actor):
       partners[f'propose a pact to the {name}'] = other
     return partners
 
+  def _answers(self) -> dict[str, bool]:
+    """Option text -> accepted, for a pact offered to this species."""
+    symbiosis = self._planet.symbiosis
+    offer = symbiosis.pending_for(self.species) if symbiosis else None
+    if offer is None:
+      return {}
+    proposer = self._planet.species_name(offer.proposer)
+    return {
+        f'{verb} the pact offered by the {proposer}': verb == 'accept'
+        for verb in ('accept', 'decline')
+    }
+
   def options(self) -> list[str]:
-    return [b.label for b in self._evolution().behaviours] + list(
-        self._pact_partners()
-    )
+    # An offer awaiting our answer comes first.
+    return [
+        *self._answers(),
+        *[b.label for b in self._evolution().behaviours],
+        *self._pact_partners(),
+    ]
 
   def is_active(self) -> bool:
     return not self._planet.is_extinct(self.species)
@@ -309,6 +324,19 @@ class SpeciesActor(Actor):
 
   def resolve(self, action: str) -> str:
     action = self.take_aim(action, self._planet)
+    answers = {k.lower(): v for k, v in self._answers().items()}
+    if action.strip().lower() in answers:
+      accepted = answers[action.strip().lower()]
+      settled = self._planet.answer_pact(
+          self.species, 'accept' if accepted else 'decline'
+      )
+      if settled is None:
+        return f'{self.name} found no offer left to answer.'
+      proposer, news = settled
+      # The proposer hears it on its diplomacy topic; everyone as news.
+      self.outbox.append((f'diplomacy.{proposer}.{self.species}', news))
+      self.outbox.append((planet_lib.BIO_EVENTS, news))
+      return news
     partner = self._pact_partners().get(action.strip().lower()) or next(
         (
             key
@@ -345,7 +373,7 @@ class PolityActor(Actor):
       planet: planet_lib.Planet,
       share: float,
       automation: automation_lib.Automation | None = None,
-      answers_offers: bool = False,
+      person: bool = False,
       age: str = 'the early iron age',
       coached: bool = True,
   ):
@@ -359,9 +387,10 @@ class PolityActor(Actor):
     self._planet = planet
     self._share = share
     self._automation = automation
-    # Answer treaty offers on the menu (a person plays this people; otherwise
-    # its treaty mind answers in the background).
-    self.answers_offers = answers_offers
+    # Whether a person plays this people (some moves are a person's only).
+    # Every people answers treaty offers on its menu: a person, or a model
+    # with its treaty mind's counsel in its context.
+    self.person = person
     # How often each kind of decision was made: labor, learn, trade,
     # reflex, keep.
     self.decisions: dict[str, int] = {}
@@ -616,7 +645,7 @@ class PolityActor(Actor):
   def _answers(self) -> dict[str, tuple[str, bool]]:
     """Option text -> (reply, accepted) for an offer awaiting our answer."""
     treaties, civ = self._planet.treaties, self._civ()
-    if not self.answers_offers or treaties is None:
+    if treaties is None:
       return {}
     offer = treaties.pending_for(self.polity)
     if offer is None:
@@ -653,7 +682,7 @@ class PolityActor(Actor):
     settlements = self._planet.settlements
     town = (
         [PLAN_TOWN]
-        if self.answers_offers
+        if self.person
         and settlements is not None
         and settlements.config.get('players_plan_towns', True)
         else []

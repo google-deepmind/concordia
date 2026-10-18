@@ -191,7 +191,7 @@ def polity_config(
           context.planet,
           share=float(rules.get('focus_share', 0.15)),
           automation=context.automation,
-          answers_offers=human,
+          person=human,
           age=str(rules.get('age', 'the early iron age')),
           coached=context.coached,
       ),
@@ -256,12 +256,21 @@ def polity_config(
                   function=lambda: storehouse(context, polity),
                   pre_act_label='\nOur storehouse and labor',
               ),
-              # Answers treaty offers the moment they are observed (unless a
-              # person plays the people: then the person answers).
+              # Deliberates over a treaty offer the moment it is observed;
+              # its counsel is in the people's context, and the people
+              # answers on its menu (a person plays without the mind).
               **(
                   {}
                   if human
                   else {
+                      'Counsel on the offer': perception.instrument(
+                          context,
+                          f'civ.{polity}.treaty',
+                          owner=people.name,
+                          label='Counsel on the offer',
+                          initial='No offer awaits our answer.',
+                          render=lambda message: str(message.payload),
+                      ),
                       'Treaty mind': context.make_mind(
                           people.name,
                           'Treaty',
@@ -279,7 +288,7 @@ def polity_config(
                           if context.planet.treaties
                           else 1,
                           trigger_on_observe=True,
-                      )
+                      ),
                   }
               ),
               # Writes the broadsheets the people pays paper for.

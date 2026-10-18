@@ -202,6 +202,16 @@ def species_config(
         label='Pacts',
         initial='No pacts yet.',
     )
+    # Deliberates over a pact offer; its counsel is in the species' context,
+    # and the species answers on its menu.
+    components['Counsel on the pact'] = perception.instrument(
+        context,
+        f'bio.species.{species}.pact',
+        owner=info.name,
+        label='Counsel on the pact',
+        initial='No pact awaits our answer.',
+        render=lambda message: str(message.payload),
+    )
     components['Pact mind'] = context.make_mind(
         info.name,
         'Pact',
