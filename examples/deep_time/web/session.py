@@ -29,7 +29,9 @@ mock plays every role, and each step is paced so a viewer can follow it.
 
 from collections.abc import Callable, Mapping, Sequence
 import colorsys
+import contextlib
 import functools
+import io
 import json
 import math
 import os
@@ -54,6 +56,7 @@ from examples.deep_time import motion as motion_lib
 from examples.deep_time import scenarios
 from examples.deep_time import simulation
 from examples.deep_time import views
+from examples.deep_time.components import rule_act
 from examples.deep_time.components import world_step
 from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
@@ -535,6 +538,67 @@ def latest_save(telemetry_dir: str) -> dict[str, Any] | None:
     if found is not None:
       return {k: v for k, v in found.items() if k != 'checkpoint'}
   return None
+
+
+def scripted_save(
+    scenario: str,
+    players: Sequence[str],
+    tick: int,
+    seed: int = 0,
+) -> dict[str, Any]:
+  """A save of a game played to `tick`, its players' roles keeping still.
+
+  The game's own simulation is played with each player's role played by a
+  rule (`rule_act.RuleAct`: it makes the role's most neutral move) and the
+  rest by the mock; a page then plays on from it (`GameSession(resume=...)`)
+  with people in those seats: for screenshots and tests of a scene deep in
+  a game.
+
+  Args:
+    scenario: Key in `scenarios.SCENARIOS`.
+    players: The roles people will play on from the save.
+    tick: The tick to play to.
+    seed: Seed of the planet's random processes.
+
+  Returns:
+    A save, as `GameSession.saved` makes them.
+  """
+  shared: dict[str, Any] = {}
+
+  def still(name: str) -> rule_act.Rule:
+    def rule(spec: entity_lib.ActionSpec, contexts: Mapping[str, str]) -> str:
+      del contexts
+      options = tuple(spec.options) or tuple(
+          views.menu(shared['context'], name).get('offered', ())
+      )
+      return neutral(options) if options else ''
+
+    return rule
+
+  sim, context = simulation.build_simulation(
+      scenario,
+      model_setup.make_models('mock'),
+      seed=seed,
+      scripted={name: still(name) for name in players},
+      views='play',
+  )
+  shared['context'] = context
+  with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
+    sim.play(max_steps=max(0, int(tick)))
+  return {
+      'version': SAVE_VERSION,
+      'game_id': f'{scenario}-{seed}-from-{context.planet.tick}',
+      'scenario': scenario,
+      'mode': 'play',
+      'seed': seed,
+      'players': list(players),
+      'minds': 'mock',
+      'tick': context.planet.tick,
+      'max_ticks': context.planet.max_ticks,
+      'checkpoint': json.loads(
+          json.dumps(sim.make_checkpoint_data(), default=str)
+      ),
+  }
 
 
 def load_save(path: str) -> dict[str, Any] | None:

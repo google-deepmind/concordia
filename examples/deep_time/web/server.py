@@ -471,12 +471,18 @@ class Games:
       players: list[str] | None = None,
       minds: str = 'mock',
       bots: list[str] | None = None,
+      from_tick: int = 0,
   ) -> str | None:
-    """Starts a game: None, or why it was refused."""
+    """Starts a game: None, or why it was refused.
+
+    With `from_tick`, the game starts that far in: played to it with the
+    players' roles keeping still by a rule (`session.scripted_save`).
+    """
     if minds not in self.minds()['options']:
       return f'minds {minds!r} are not available (or the live budget is spent)'
     # Several people share a turn: give each a few minutes to answer.
     turn = TURN_SECONDS if players and len(players) > 1 else None
+    seats = players or [session_lib.roles(scenario)[0][0]]
     game = session_lib.GameSession(
         scenario,
         mode,
@@ -487,6 +493,11 @@ class Games:
         minds=minds,
         on_end=self._ended,
         bots=bots or (),
+        resume=(
+            session_lib.scripted_save(scenario, seats, from_tick, seed)
+            if from_tick > 0 and mode == 'play'
+            else None
+        ),
     )
     with self._lock:
       old, self.current = self.current, game
@@ -767,6 +778,7 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
               [str(p) for p in players] if players else None,
               minds=str(body.get('minds', 'mock')),
               bots=[str(b) for b in bots],
+              from_tick=int(body.get('from_tick', 0) or 0),
           )
         except ValueError as error:
           self._json({'error': str(error)}, 400)

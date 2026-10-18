@@ -1340,6 +1340,23 @@ class CoopTest(absltest.TestCase):
 
 class ReplayTest(absltest.TestCase):
 
+  def test_a_game_may_start_deep_in_from_a_scripted_save(self):
+    # Played to tick 5 with the Steward keeping still by a rule.
+    save = session_lib.scripted_save('daisyworld', ['Gaia'], 5)
+    self.assertEqual(save['tick'], 5)
+    game = session_lib.GameSession(
+        'daisyworld', 'play', players=['Gaia'], resume=save
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _question(game)  # Now a person's seat, asked in turn.
+    self.assertGreaterEqual(game.state()['tick'], 5)
+    gaia = game.role_entity('Gaia')
+    assert gaia is not None
+    self.assertIsInstance(
+        gaia.get_act_component(), human_act_component.HumanActComponent
+    )
+
   def test_a_decided_game_replays_exactly(self):
     folder = self.create_tempdir().full_path
     game = session_lib.GameSession(

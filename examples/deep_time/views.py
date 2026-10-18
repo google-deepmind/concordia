@@ -326,7 +326,9 @@ def seen(context: game_lib.GameContext, entity: str) -> dict[str, Any] | None:
   if covers is None and taken == planet.tick:
     covers = dict(planet.tile_life.covers)
   if covers is None:
-    return None
+    # A restored game keeps no snapshots: the life map the role last had
+    # stands (the bus keeps it) until a census with one reaches it.
+    return latest(context, entity, SEEN, None)
   risk = planet.risk_seen.get(taken)
   steward = isinstance(context.actors.get(entity), actors_lib.StewardActor)
   return {
