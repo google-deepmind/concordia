@@ -985,6 +985,7 @@ class GameSessionTest(absltest.TestCase):
     reading('climate.global', {'temp_c': 14.0, 'co2': 1.34}, 5, context.beliefs)
     # The peoples' census reaches the Steward at once (as 'Peoples').
     reading('Peoples', {'made': {'energy': 340.4}}, 6, context.received)
+    context.publish_sheets()  # As the World GM does each step.
     co2, energy = game._stats(False, 'Gaia')[-2:]  # pylint: disable=protected-access
     self.assertEqual(
         (co2['label'], co2['value'], co2['warn']),

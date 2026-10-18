@@ -44,6 +44,19 @@ LOGBOOK = 'logbook'
 IN_FLIGHT = 'in_flight'
 TRAITS = 'traits'
 UNWATCHED = 'unwatched'
+ROLE = 'role'
+READINGS = 'readings'
+MOVES = 'moves'
+# Each kind of role, by its actor's rules (the most specific first).
+_KINDS = (
+    (actors_lib.StewardActor, 'steward'),
+    (actors_lib.PolityActor, 'people'),
+    (actors_lib.GrazerActor, 'herds'),
+    (actors_lib.SpeciesActor, 'species'),
+    (actors_lib.ColonyActor, 'colony'),
+    (actors_lib.MissionActor, 'mission'),
+    (actors_lib.ChroniclerActor, 'chronicler'),
+)
 # What a Steward's logbook keeps of each turn: what it read, never the truth.
 READ = ('tick', 'believed_temp_c', 'read_tick', 'read_sigma')
 
@@ -75,6 +88,17 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
     mode: 'play' or 'watch' (watching, the Steward's crises are shown).
   """
   topics = {
+      # What kind of role it is (its page draws it so).
+      perception.sheet_topic(entity, ROLE): lambda: json.dumps(
+          role(context, entity)
+      ),
+      # What reached it through its instruments, and what its moves did.
+      perception.sheet_topic(entity, READINGS): lambda: json.dumps(
+          readings(context, entity)
+      ),
+      perception.sheet_topic(entity, MOVES): lambda: json.dumps(
+          moves(context, entity)
+      ),
       perception.sheet_topic(entity, CRISES): lambda: json.dumps(
           crises(context, entity, mode)
       ),
@@ -103,6 +127,50 @@ def register(context: game_lib.GameContext, entity: str, mode: str) -> None:
     context.add_sheet(topic, function)
   # As the world's own state is published when a game is made: from tick 0.
   context.publish_sheets(list(topics))
+
+
+def role(context: game_lib.GameContext, entity: str) -> dict[str, Any]:
+  """What kind of role an entity is, and its own key and pace."""
+  actor = context.actors.get(entity)
+  kind = next((k for cls, k in _KINDS if isinstance(actor, cls)), '')
+  return {
+      'kind': kind,
+      'polity': getattr(actor, 'polity', None) if kind == 'people' else None,
+      'species': getattr(actor, 'species', None) if kind == 'species' else None,
+      'acts_in': acts_in(context, entity),
+  }
+
+
+def readings(context: game_lib.GameContext, entity: str) -> dict[str, Any]:
+  """What reached a role through its instruments, as data (`Deliveries`).
+
+  `received`: each instrument's last arrival, by label (as the role's
+  subscriber holds it, rendered); `believed`: the last reading each
+  transported instrument carried, by topic (what the role acts on);
+  `tapped`: the instruments whose arrivals are kept (the others read a
+  topic's latest at once).
+  """
+  return {
+      'tapped': sorted(
+          label for owner, label in context.tapped if owner == entity
+      ),
+      'received': {
+          label: message.to_dict()
+          for (owner, label), message in sorted(context.received.items())
+          if owner == entity
+      },
+      'believed': {
+          topic: message.to_dict()
+          for (owner, topic), message in sorted(context.beliefs.items())
+          if owner == entity
+      },
+  }
+
+
+def moves(context: game_lib.GameContext, entity: str) -> list[list[Any]]:
+  """What a role's moves did: [tick, move, outcome], oldest first."""
+  actor = context.actors.get(entity)
+  return [list(entry) for entry in actor.log] if actor is not None else []
 
 
 def logbook(context: game_lib.GameContext, entity: str) -> dict[str, Any]:

@@ -44,6 +44,8 @@ from concordia.components.agent import constant
 from concordia.components.agent import human_act_component
 from concordia.components.agent import pubsub
 from concordia.contrib.prefabs.entity import basic_with_async_deliberation
+from concordia.contrib.pubsub import operators
+from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises as crises_lib
 from examples.deep_time import forecast as forecast_lib
@@ -74,16 +76,27 @@ class Stopped(Exception):  # pylint: disable=g-bad-exception-name
   """The game was cancelled: raised to the waiting entity and the engine."""
 
 
-# How the page describes each kind of role, by the rules that drive it. The
-# first two lead their scenarios and are offered first.
+# How the page describes each kind of role (`views.role`). The first two
+# lead their scenarios and are offered first.
 _KINDS = (
-    (actors_lib.StewardActor, 'the Steward'),
-    (actors_lib.MissionActor, ''),
-    (actors_lib.SpeciesActor, 'a species'),
-    (actors_lib.GrazerActor, 'a grazing herd'),
-    (actors_lib.PolityActor, 'a people'),
-    (actors_lib.ColonyActor, 'the colony'),
+    ('steward', 'the Steward'),
+    ('mission', ''),
+    ('species', 'a species'),
+    ('herds', 'a grazing herd'),
+    ('people', 'a people'),
+    ('colony', 'the colony'),
 )
+
+
+def _field(message: topics.Message | None, path: str) -> float | None:
+  """A numeric field of a reading ('temp_c', 'made.energy'), or None."""
+  if message is None:
+    return None
+  try:
+    value = operators.lookup(json.loads(message.payload), path)
+  except (json.JSONDecodeError, KeyError, TypeError):
+    return None
+  return float(value) if isinstance(value, (int, float)) else None
 
 
 @functools.cache
@@ -99,10 +112,10 @@ def roles(scenario: str) -> tuple[tuple[str, str], ...]:
   )
   found = []
   for entity in sim.get_entities():
-    actor = context.actors.get(entity.name)
-    for rank, (cls, kind) in enumerate(_KINDS):
-      if isinstance(actor, cls):
-        label = f'{entity.name}, {kind}' if kind else entity.name
+    role = views.role(context, entity.name)['kind']
+    for rank, (kind, words) in enumerate(_KINDS):
+      if role == kind:
+        label = f'{entity.name}, {words}' if words else entity.name
         found.append((rank > 1, entity.name, label))
         break
   found.sort(key=lambda role: role[0])  # Stable: leaders first.
@@ -543,15 +556,16 @@ def load_save(path: str) -> dict[str, Any] | None:
   return found
 
 
-# A slow mind's answer on its way: (short label, what it is).
+# A role's slow mind's answer on its way, by the mind's component key:
+# (short label, what it is).
 _MIND_WORDS = {
     'Advisor': ('Advisor', "The Advisor's next briefing"),
-    'Adaptation': ('Evolution', 'Which trait to evolve next'),
-    'Pact': ('Pact', 'An answer on a pact'),
-    'Treaty': ('Treaty', 'An answer to a treaty offer'),
-    'Press': ('Broadsheet', 'The next broadsheet'),
-    'Policy': ('Orders', 'New standing orders'),
-    'Chronicle': ('Chronicle', 'The next chronicle'),
+    'Adaptation mind': ('Evolution', 'Which trait to evolve next'),
+    'Pact mind': ('Pact', 'An answer on a pact'),
+    'Treaty mind': ('Treaty', 'An answer to a treaty offer'),
+    'Press mind': ('Broadsheet', 'The next broadsheet'),
+    'Relay mind': ('Retelling', "Our printers' retelling of the omen"),
+    'Policy compiler': ('Orders', 'New standing orders'),
 }
 
 
@@ -1038,19 +1052,13 @@ class GameSession:
         return f'Nothing is planned for turn {tick}.'
     return None
 
-  def _omen(self, actor: Any, options: Sequence[str]) -> dict[str, Any] | None:
+  def _omen(self, entity: str, options: Sequence[str]) -> dict[str, Any] | None:
     """The omen's signs, words and price for the page's composer, or None."""
-    if not isinstance(actor, actors_lib.StewardActor) or actor.omen is None:
+    omen = views.menu(self.context, entity).get('omen')
+    if not omen:
       return None
-    omen = actor.omen
-    return {
-        'option': omen.option,
-        'signs': list(omen.effect['signs']),
-        'max_words': int(omen.effect['max_words']),
-        'cost': omen.cost,
-        # Off its recharge and paid for: it may be spoken this turn.
-        'ready': omen.option in options,
-    }
+    # Off its recharge and paid for: it may be spoken this turn.
+    return {**omen, 'ready': omen['option'] in options}
 
   def _free_moves(self, entity: str) -> list[str]:
     """The moves of a free question (a Steward that may speak an omen, or a
@@ -1100,11 +1108,10 @@ class GameSession:
     and food where there are peoples: kept for review after the game, never
     shown during it.
     """
-    actor = self.context.actors.get(entity)
     planet = self.context.planet
     # Each people's hands and food, to review live peoples by.
     peoples = _peoples_now(planet)
-    if not isinstance(actor, actors_lib.StewardActor):
+    if self._kind(entity) != 'steward':
       return {'peoples': peoples} if peoples else {}
     found = forecast_lib.of_planet(planet, acts_in=self._acts_in(entity))
     seen = [
@@ -1125,9 +1132,7 @@ class GameSession:
   def _held_run(self, entity: str) -> dict[str, Any] | None:
     """The course a Steward just held, start and now, if it held 2+ turns."""
     place = self.seats[entity]
-    if place.hold > 0 or not isinstance(
-        self.context.actors.get(entity), actors_lib.StewardActor
-    ):
+    if place.hold > 0 or self._kind(entity) != 'steward':
       return None
     played = list(place.played)
     run = []
@@ -1153,7 +1158,7 @@ class GameSession:
       self, entity: str, options: Sequence[str]
   ) -> dict[str, Any] | None:
     """The move the Steward's last briefing recommends, if it is on offer."""
-    message = self.context.received.get((entity, 'Advisor briefing'))
+    message = self._arrived(entity, 'Advisor briefing')
     if message is None or message.time is None:
       return None
     found = re.findall(r'Recommend:\s*([^.\[\n]+)', str(message.payload))
@@ -1430,12 +1435,14 @@ class GameSession:
     if found is None:
       return []
     name, context = found.name, self.context
-    actor = context.actors.get(name)
+    role = self._role(name)
     plain = dict(_PLAIN_TOPICS)  # A people's and the colony's own plans.
-    if isinstance(actor, actors_lib.PolityActor):
-      plain['Current plan'] = f'civ.{actor.polity}.plan'
-    elif isinstance(actor, actors_lib.ColonyActor):
+    if role.get('kind') == 'people':
+      plain['Current plan'] = f'civ.{role["polity"]}.plan'
+    elif role.get('kind') == 'colony':
       plain['Current plan'] = 'colony.plan'
+    reached = self._readings(name)
+    tapped = set(reached.get('tapped', ()))
     ages = {t['label']: t['age'] for t in self.timing(entity)}
     # Swapped out of the Steward's attention, as the GM says (`views`).
     unwatched = set(views.latest(context, name, views.UNWATCHED, []))
@@ -1466,8 +1473,8 @@ class GameSession:
               },
           })
         continue
-      if (name, key) in context.tapped:
-        message = context.received.get((name, key))
+      if key in tapped:
+        message = self._arrived(name, key)
       else:
         message = context.bus.latest(topic)
       payload: Any = None
@@ -1530,18 +1537,12 @@ class GameSession:
   ) -> list[dict[str, Any]]:
     """What a role's own slow minds are working on (their components)."""
     now = self._tick()
-    labels = {
-        id(mind.publisher): mind.label
-        for mind in self.context.minds
-        if mind.owner == found.name
-    }
     out = []
     for key, component in found.get_all_context_components().items():
       if key == basic_with_async_deliberation.DELIBERATION_COMPONENT_KEY:
         label, about = 'Council plan', "Your council's next plan"
-      elif id(component) in labels:
-        mind = labels[id(component)]
-        label, about = _MIND_WORDS.get(mind, (mind, mind))
+      elif key in _MIND_WORDS and isinstance(component, pubsub.Publisher):
+        label, about = _MIND_WORDS[key]
       else:
         continue
       state = cast(dict[str, Any], component.get_state())
@@ -1555,11 +1556,31 @@ class GameSession:
 
   def _acts_in(self, entity: str) -> int:
     """Turns until a role's move acts (Mission Control's cross the void)."""
-    actor = self.context.actors.get(entity)
-    colony = self.context.planet.colony
-    if isinstance(actor, actors_lib.MissionActor) and colony is not None:
-      return colony.light_delay
-    return 1
+    return int(self._role(entity).get('acts_in', 1))
+
+  def _role(self, entity: str | None) -> dict[str, Any]:
+    """What kind of role an entity is, as the World GM says (`views.role`)."""
+    if not entity:
+      return {}
+    return views.latest(self.context, entity, views.ROLE, {})
+
+  def _kind(self, entity: str | None) -> str:
+    """'steward', 'people', 'species', 'herds', 'colony', 'mission' or ''."""
+    return str(self._role(entity).get('kind', ''))
+
+  def _readings(self, entity: str) -> dict[str, Any]:
+    """What reached a role through its instruments (`views.readings`)."""
+    return views.latest(self.context, entity, views.READINGS, {})
+
+  def _arrived(self, entity: str, label: str) -> topics.Message | None:
+    """What last reached a role through the instrument `label`."""
+    found = self._readings(entity).get('received', {}).get(label)
+    return topics.Message.from_dict(found) if found else None
+
+  def _belief(self, entity: str, topic: str) -> topics.Message | None:
+    """The last reading of `topic` a role's transported instrument carried."""
+    found = self._readings(entity).get('believed', {}).get(topic)
+    return topics.Message.from_dict(found) if found else None
 
   def _moves(self, place: Seat, entity: str) -> list[dict[str, Any]]:
     """A player's last moves, newest first, each with what it did.
@@ -1567,8 +1588,12 @@ class GameSession:
     A move is sent on a tick, resolved by the world at the end of that tick
     (its outcome, None until then), and acts from the next.
     """
-    actor = self.context.actors.get(entity)
-    done = {tick: outcome for tick, _, outcome in actor.log} if actor else {}
+    done = {
+        int(tick): outcome
+        for tick, _, outcome in views.latest(
+            self.context, entity, views.MOVES, []
+        )
+    }
     return [
         {**move, 'outcome': done.get(move['tick'])}
         for move in reversed(place.sent[-8:])
@@ -1599,31 +1624,29 @@ class GameSession:
     if self.mode != 'play' or self._spectating(seat):
       return []
     entity = seat if seat in self.seats else self.entity
-    place, actor = self.seats.get(entity), self.context.actors.get(entity)
-    if place is None or actor is None:
+    place, kind = self.seats.get(entity), self._kind(entity)
+    if place is None or not kind:
       return []
     planet = self.context.planet
-    role, where = 'steward', {}
-    if isinstance(actor, actors_lib.PolityActor) and planet.civ is not None:
-      role, where = 'people', {'people': planet.civ.polities[actor.polity].name}
-    elif isinstance(actor, actors_lib.GrazerActor):
-      role, where = 'herds', {}
-    elif isinstance(actor, actors_lib.SpeciesActor):
-      census = self.context.received.get((entity, 'Census'))
+    role, where = kind, {}
+    if kind == 'people':
+      where = {'people': entity}  # A people's capital bears its name.
+    elif kind == 'species':
+      census = self._arrived(entity, 'Census')
       try:
         lat = (
-            crises_lib.lat_of(json.loads(census.payload), actor.species)
+            crises_lib.lat_of(
+                json.loads(census.payload), self._role(entity)['species']
+            )
             if census is not None
             else None
         )
       except (TypeError, ValueError):
         lat = None
-      role, where = 'species', ({'lat': lat} if lat is not None else {})
-    elif isinstance(actor, actors_lib.ColonyActor):
-      role, where = 'colony', {'site': True}
-    elif isinstance(actor, actors_lib.MissionActor):
-      role, where = 'mission', {'site': True}
-    elif not isinstance(actor, actors_lib.StewardActor):
+      where = {'lat': lat} if lat is not None else {}
+    elif kind in ('colony', 'mission'):
+      where = {'site': True}
+    elif kind != 'steward':
       return []
     acts = planet.tick - self._acts_in(entity)
     found = []
@@ -1678,10 +1701,7 @@ class GameSession:
     if settlements is None or not settlements.config.get('couriers', True):
       return []
     entity = seat if seat in self.seats else self.entity
-    actor = self.context.actors.get(entity)
-    if not isinstance(actor, actors_lib.PolityActor):
-      return []
-    if self.context.planet.civ is None:
+    if self._kind(entity) != 'people':
       return []
     return [
         [*f['from'], *f['to'], f['sent'], f['lands'], f['topic']]
@@ -1742,7 +1762,7 @@ class GameSession:
     if self.mode != 'play' or self._spectating(seat):
       return None
     entity = seat if seat in self.seats else self.entity
-    message = self.context.received.get((entity, 'Census'))
+    message = self._arrived(entity, 'Census')
     if message is None or message.time is None:
       return None
     planet, taken = self.context.planet, int(message.time)
@@ -1754,7 +1774,7 @@ class GameSession:
   def _band_temps(self, seat: str | None) -> list[list[float]] | None:
     """Each latitude band's temperature in the seat's last census."""
     entity = seat if seat in self.seats else self.entity
-    message = self.context.received.get((entity, 'Census'))
+    message = self._arrived(entity, 'Census')
     try:
       bands = json.loads(message.payload).get('bands') if message else None
     except (TypeError, ValueError, AttributeError):
@@ -1772,7 +1792,7 @@ class GameSession:
   def _plantings(self, seat: str | None, seen: int) -> list[dict[str, Any]]:
     """A Steward's aimed sowings its census has seen, lately."""
     entity = seat if seat in self.seats else self.entity
-    if not isinstance(self.context.actors.get(entity), actors_lib.StewardActor):
+    if self._kind(entity) != 'steward':
       return []
     planet = self.context.planet
     return [
@@ -1831,13 +1851,13 @@ class GameSession:
 
   def _believed(self, entity: str, topic: str, path: str) -> tuple[str, str]:
     """A role's latest reading of a field, and how old it is."""
-    message = self.context.beliefs.get((entity, topic))
-    value = self.context.believed(entity, topic, path)
+    message = self._belief(entity, topic)
+    value = _field(message, path)
     if message is None or value is None:
       return '?', 'no reading'
     if message.time is None:
       return f'{value:.1f}', 'read'
-    age = max(0, self.context.planet.tick - int(message.time))
+    age = max(0, self._tick() - int(message.time))
     return f'{value:.1f}', 'now' if age == 0 else f'{age} ticks old'
 
   def _stats(self, reveal: bool, entity: str) -> list[dict[str, str]]:
@@ -1849,7 +1869,7 @@ class GameSession:
     """
     planet = self.context.planet
     colony = planet.colony
-    actor = self.context.actors.get(entity)
+    kind = self._kind(entity)
     stats: list[dict[str, Any]] = [
         # 'turn', as the dock says it.
         {'label': 'turn', 'value': f'{planet.tick}/{planet.max_ticks}'}
@@ -1861,7 +1881,7 @@ class GameSession:
     }
     if colony is not None:
       target = f'{colony.target_temp_c:g}'
-      if reveal or isinstance(actor, actors_lib.ColonyActor):
+      if reveal or kind == 'colony':
         sky = f'{colony.temp_c:.1f}', f'sky °C (→{target})'
         people = f'{colony.population:.1f}', 'colonists'
       else:
@@ -1881,12 +1901,13 @@ class GameSession:
       temp = {'label': f'°C read, {age}', 'value': value}
     # The Omega meter is exact, and it reports biodiversity.
     bio = {'label': 'biodiversity', 'value': f'{planet.biodiversity():.2f}'}
-    if reveal or isinstance(actor, actors_lib.StewardActor):
+    if reveal or kind == 'steward':
       return stats + [temp, omega, *(self._goal_stats(reveal, entity) or [bio])]
-    if isinstance(actor, actors_lib.PolityActor) and planet.civ is not None:
+    if kind == 'people' and planet.civ is not None:
       # A people knows its own storehouse exactly (its sheet says so).
-      people = planet.civ.polities[actor.polity]
-      grain = planet.civ.ledger.stock(actor.polity, 'grain')
+      polity = self._role(entity)['polity']
+      people = planet.civ.polities[polity]
+      grain = planet.civ.ledger.stock(polity, 'grain')
       fed = [
           {'label': 'fed', 'value': f'{min(1.0, people.food_ratio):.0%}'},
           {'label': 'grain', 'value': f'{grain:.0f}'},
@@ -1899,17 +1920,18 @@ class GameSession:
           {'label': 'people', 'value': f'{people.population:.1f}'},
           *fed,
       ]
-    if isinstance(actor, actors_lib.SpeciesActor):
+    if kind == 'species':
       # A species senses the census exactly and knows its own seed bank.
+      species = self._role(entity)['species']
       stats.append({
           'label': 'cover',
-          'value': f'{planet.daisies.cover(actor.species):.0%}',
+          'value': f'{planet.daisies.cover(species):.0%}',
       })
       if planet.seed_banks is not None:
-        bank = planet.seed_banks.level.get(actor.species, 0.0)
+        bank = planet.seed_banks.level.get(species, 0.0)
         stats.append({'label': 'seed bank', 'value': f'{bank:.0%}'})
       return stats
-    if (entity, 'climate.global') in self.context.beliefs:
+    if self._belief(entity, 'climate.global') is not None:
       return stats + [temp]
     return stats
 
@@ -1927,7 +1949,7 @@ class GameSession:
       return []
 
     # A people reads the weather and the census as they are published.
-    public = isinstance(self.context.actors.get(entity), actors_lib.PolityActor)
+    public = self._kind(entity) == 'people'
 
     def read(key: tuple[str, str], path: str, truth: float):
       """The truth if revealed, else the reading (or None) and its age."""
@@ -1937,7 +1959,7 @@ class GameSession:
       message = (
           self.context.bus.latest(topic)
           if public
-          else self.context.beliefs.get(key) or self.context.received.get(key)
+          else self._belief(entity, key[1]) or self._arrived(entity, key[1])
       )
       if message is None:
         return None, ''
@@ -2009,9 +2031,7 @@ class GameSession:
     tiles, colony = world.tiles, world.colony
     reveal = self.mode == 'watch' or self.finished
     entity = seat if seat in self.seats else self.entity
-    on_site = isinstance(
-        self.context.actors.get(entity), actors_lib.ColonyActor
-    )
+    on_site = self._kind(entity) == 'colony'
     frame = world.frames[-1] if reveal or on_site else world.frames[0]
     late = world.frames[-1]['generation'] - frame['generation']
     north = tiles.rows - 1
@@ -2281,19 +2301,19 @@ class GameSession:
 
   def _own_people(self, entity: str) -> dict[str, Any] | None:
     """The seat's own people: numbers, food, where its hands go, stores."""
-    actor = self.context.actors.get(entity)
     civ = self.context.planet.civ
-    if not isinstance(actor, actors_lib.PolityActor) or civ is None:
+    key = self._role(entity).get('polity')
+    if self._kind(entity) != 'people' or civ is None or key is None:
       return None
-    polity = civ.polities.get(actor.polity)
+    polity = civ.polities.get(key)
     if polity is None:
       return None
-    stocks = civ.payload()['polities'][actor.polity]['stocks']
+    stocks = civ.payload()['polities'][key]['stocks']
     population = float(polity.population)
     eats = population * float(civ.food_per_pop)
     # The goal the peoples share, as their census already tells them, with
     # the pace it asks and the people's numbers against its floor.
-    shared = crises_lib.shared_goal(self.context.planet, actor.polity)
+    shared = crises_lib.shared_goal(self.context.planet, key)
     if shared and 'good' in shared:
       shared['label'] = (
           f'{shared["good"]} {"forged" if shared["good"] == "iron" else "made"}'
@@ -2308,7 +2328,7 @@ class GameSession:
         'shared': shared,
         # The road to what the goal asks for, as the people's sheet says it.
         'aims': [
-            civ.aim(actor.polity, str(aim))
+            civ.aim(key, str(aim))
             for aim in self.context.scenario['civilization'].get('aims', ())
         ],
         'labor': [
@@ -2370,9 +2390,7 @@ class GameSession:
     if (
         self.mode != 'play'
         or place is None
-        or not isinstance(
-            self.context.actors.get(place.entity), actors_lib.StewardActor
-        )
+        or self._kind(place.entity) != 'steward'
     ):
       return []
     planet = self.context.planet
@@ -2417,10 +2435,7 @@ class GameSession:
                 for r in planet.history
                 if r.get('believed_temp_c') is not None
             ]
-            if place is not None
-            and isinstance(
-                self.context.actors.get(place.entity), actors_lib.StewardActor
-            )
+            if place is not None and self._kind(place.entity) == 'steward'
             else []
         ),
         'moves': (
@@ -2486,10 +2501,10 @@ class GameSession:
     if self._spectating(seat):
       return False
     entity = seat if seat in self.seats else self.entity
-    actor = self.context.actors.get(entity)
-    if isinstance(actor, actors_lib.StewardActor):
+    role = self._kind(entity)
+    if role == 'steward':
       return True
-    return isinstance(actor, actors_lib.PolityActor) and kind == 'civ'
+    return role == 'people' and kind == 'civ'
 
   def _trace(self, reveal: bool, ticks: int = 16) -> dict[str, Any] | None:
     """The last ticks' temperatures: as the Steward read them, and the truth.
@@ -2500,9 +2515,9 @@ class GameSession:
     planet = self.context.planet
     steward = next(
         (
-            name
-            for name, actor in self.context.actors.items()
-            if isinstance(actor, actors_lib.StewardActor)
+            entity.name
+            for entity in self._sim.get_entities()
+            if self._kind(entity.name) == 'steward'
         ),
         None,
     )
@@ -2561,10 +2576,7 @@ class GameSession:
     bus = self.context.bus
     scenario = data.scenario(self.scenario)
     reveal = self.mode == 'watch' or self.finished
-    counselled = not spectator and (
-        reveal
-        or isinstance(self.context.actors.get(entity), actors_lib.StewardActor)
-    )
+    counselled = not spectator and (reveal or self._kind(entity) == 'steward')
 
     def rendered(topic: str) -> str:
       message = bus.latest(topic)
@@ -2582,7 +2594,7 @@ class GameSession:
     question = None
     if request is not None:
       spec = request.action_spec
-      actor = self.context.actors.get(entity)
+      steward = self._kind(entity) == 'steward'
       # A free question's moves (the Steward may also speak an omen).
       options = list(place.offered(request))
       menu = views.menu(self.context, entity)
@@ -2605,16 +2617,12 @@ class GameSession:
           # What the Steward's forecast says each climate move would bring:
           # its own late readings, reckoned with the move.
           'what_if': (
-              self._what_if(entity, [*options, *saving])
-              if isinstance(actor, actors_lib.StewardActor)
-              else {}
+              self._what_if(entity, [*options, *saving]) if steward else {}
           ),
           # The Advisor's pick among these moves, and how old its counsel
           # is: a slow mind, reasoning from older readings.
           'advice': (
-              self._advice(entity, [*options, *saving])
-              if isinstance(actor, actors_lib.StewardActor)
-              else None
+              self._advice(entity, [*options, *saving]) if steward else None
           ),
           # What matters most for a people: the move answering its
           # most urgent crisis, and the one strengthening its weakest link.
@@ -2622,7 +2630,7 @@ class GameSession:
           'error': request.error or '',
           'context': request.context,
           # The omen the Steward may speak in its own words, if any.
-          'omen': self._omen(actor, options),
+          'omen': self._omen(entity, options),
       }
     briefing = bus.latest('gaia.briefings')
     chronicle = bus.latest('chronicle')
@@ -2656,10 +2664,7 @@ class GameSession:
                 {k: o[k] for k in ('key', 'text', 'from', 'until', 'reward')}
                 for o in planet.side_payload()
             ]
-            if not spectator
-            and isinstance(
-                self.context.actors.get(entity), actors_lib.StewardActor
-            )
+            if not spectator and self._kind(entity) == 'steward'
             else []
         ),
         'tick': planet.tick,

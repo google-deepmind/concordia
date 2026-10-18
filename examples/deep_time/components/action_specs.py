@@ -190,6 +190,20 @@ class ActorActionSpecs(
         # The moves a person may aim on the map.
         'aimable': [m for m in [*offered, *later] if actor.aimable(m)],
         'why_not': {m: why for m in later if (why := actor.why_not(m))},
+        # A Steward's omen: its signs, how many words it may carry, its price.
+        **(
+            {
+                'omen': {
+                    'option': actor.omen.option,
+                    'signs': list(actor.omen.effect['signs']),
+                    'max_words': int(actor.omen.effect['max_words']),
+                    'cost': actor.omen.cost,
+                }
+            }
+            if isinstance(actor, actors_lib.StewardActor)
+            and actor.omen is not None
+            else {}
+        ),
         # For a people a person plays: the moves answering its most urgent
         # crisis and strengthening its weakest link.
         **(
