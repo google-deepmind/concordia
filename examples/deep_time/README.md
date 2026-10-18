@@ -461,13 +461,21 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     each transport keeps its deliveries on the road and its random draws.
     `WorldStep` carries the world itself (`GameContext.get_state`: the planet,
     queued observations, attention, wake-ups, standing orders).
-    `simulation.load_checkpoint(sim, context, data)` restores a new simulation
-    of the same scenario and seed, founding again any species born in play
-    first; a restored game plays on exactly as the live one
+    `simulation.load_checkpoint(sim, data)` restores a new simulation of the
+    same scenario and seed, first adding any species born in play from the
+    prefab and plain params its checkpoint keeps; a restored game plays on
+    exactly as the live one
     (`checkpoint_test.py`). Listeners outside components (wake-ups, slow-mind
     answers, standing orders) ignore the bus's replay while it is restored.
-*   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` prefab
-    with topic-bound `pubsub.Subscriber` instruments as `extra_components`.
+*   **Roles** (`prefabs/`): each role is a prefab class (`Steward`, `Species`,
+    `Grazers`, `Polity`, `Colony`, `Mission`, `Chronicler`, and the
+    `WorldGameMaster`) on the upstream `minimal__Entity` or the contrib
+    async-deliberation entity (`playable.Role`, `playable.RolePolity`). Its
+    instances' params are plain (a name, a species' key); the prefab holds the
+    game (`GameContext`, shared like a contrib `TopicBus`) and its `build`
+    adds the role's actor to the World GM's registry and builds its components.
+*   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` with
+    topic-bound `pubsub.Subscriber` instruments.
 *   **Instruments** (`perception.py`): every belief is a topic-bound
     `Subscriber` whose stream runs through contrib `operators.with_age`, so it
     reads e.g. `[tick 7, 2 ticks old]`; news digests merge several topics. The
@@ -643,7 +651,7 @@ examples/deep_time/
 ├── README.md
 ├── run.py                  # CLI; writes the run folder
 ├── simulation.py           # builds Config and Simulation for a scenario; load_checkpoint
-├── game.py                 # GameContext shared through prefab params
+├── game.py                 # GameContext: the game, held by each role's prefab
 ├── actors.py               # per-role rules: action specs and resolution
 ├── perception.py           # instruments: ageing beliefs, transports, news digests
 ├── attention.py            # attention slots: which instruments the Steward watches

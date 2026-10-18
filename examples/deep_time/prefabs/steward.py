@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The Steward: the upstream `minimal__Entity` prefab wired to topics.
+"""The Steward: the upstream `minimal__Entity` wired to topics (`Steward`).
 
-No new prefab class is needed. The Steward perceives the planet only through
-topic-bound `pubsub.Subscriber` components ("instruments"), passed to the
-minimal entity as `extra_components`; each shows the age of its reading.
+The Steward perceives the planet only through topic-bound
+`pubsub.Subscriber` components ("instruments"), which its prefab (a
+`playable.Role`) builds and adds to the minimal entity's; each shows the age
+of its reading.
 
 Its **Advisor** is a slow mind: `pubsub.Publisher(component=
 QuestionOfRecentMemories(...), skip_if_busy=True)` that reads the same
@@ -28,7 +29,8 @@ advice written about a planet that has since moved on.
 # pylint: disable=g-long-ternary
 
 from collections.abc import Mapping
-from typing import Any
+import dataclasses
+from typing import Any, override
 
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import attention as attention_lib
@@ -38,11 +40,10 @@ from examples.deep_time.components import advisor_mind
 from examples.deep_time.prefabs import playable
 from examples.deep_time.world import data
 from examples.deep_time.world import publishing
-from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
-STEWARD_PREFAB = playable.PLAYABLE_PREFAB
+STEWARD_PREFAB = 'deep_time_steward__Entity'
 BRIEFINGS_TOPIC = 'gaia.briefings'
 
 STEWARD_INSTRUCTIONS = (
@@ -88,20 +89,38 @@ def advisor_question(
   return str(config['question']).strip().replace('{options}', options)
 
 
+@dataclasses.dataclass
+class Steward(playable.Role):
+  """The Steward: its instruments, its advisor and its actor."""
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    return steward_params(context, str(params['name']))
+
+
 def steward_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-    name: str = 'Gaia',
+    context: game_lib.GameContext, name: str = 'Gaia'
 ) -> prefab_lib.InstanceConfig:
-  """Registers a Steward actor and returns its entity instance config.
+  """The Steward's instance config (plain params; `Steward` builds it)."""
+  del context  # Every game has a Steward of the same make.
+  return prefab_lib.InstanceConfig(
+      prefab=STEWARD_PREFAB,
+      role=prefab_lib.Role.ENTITY,
+      params={'name': name},
+  )
+
+
+def steward_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+  """Registers a Steward actor and returns its `minimal__Entity` params.
 
   Args:
     context: Shared game state.
-    slow_model: Model for the Advisor.
     name: Entity name.
 
   Returns:
-    The instance config for a `minimal__Entity`.
+    The base prefab's params, its components included.
   """
   instruments = INSTRUMENTS + (
       # Where there are peoples, their plight is seen from afar (like their
@@ -158,7 +177,7 @@ def steward_config(
       almanac=perception.brief(
           context, name, 'almanac', context.planet.almanac
       ),
-      model=slow_model,
+      model=context.slow(),
       pre_act_label='Advisor',
       question=advisor_question(advisor_config, context),
       answer_prefix='',
@@ -182,26 +201,22 @@ def steward_config(
       initial='The advisor has not reported yet.',
   )
   components = context.with_bus(components)  # The bus is restored first.
-  return prefab_lib.InstanceConfig(
-      prefab=STEWARD_PREFAB,
-      role=prefab_lib.Role.ENTITY,
-      params={
-          'name': name,
-          'goal': (
-              context.scenario.get('steward_goal', '')
-              or (
-                  'Keep the global temperature inside the habitable band until'
-                  ' the end of the scenario without letting the daisies die'
-                  ' out.'
-              )
-          ),
-          'custom_instructions': STEWARD_INSTRUCTIONS.format(name=name),
-          'extra_components': components,
-          'extra_components_index': {
-              key: 2 + i for i, key in enumerate(components)
-          },
-          'measurements': context.measurements,
-          'randomize_choices': False,
-          **context.act_params(name),
+  return {
+      'name': name,
+      'goal': (
+          context.scenario.get('steward_goal', '')
+          or (
+              'Keep the global temperature inside the habitable band until'
+              ' the end of the scenario without letting the daisies die'
+              ' out.'
+          )
+      ),
+      'custom_instructions': STEWARD_INSTRUCTIONS.format(name=name),
+      'extra_components': components,
+      'extra_components_index': {
+          key: 2 + i for i, key in enumerate(components)
       },
-  )
+      'measurements': context.measurements,
+      'randomize_choices': False,
+      **context.act_params(name),
+  }

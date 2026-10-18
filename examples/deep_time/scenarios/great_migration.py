@@ -23,7 +23,6 @@ hard (both aimable); the goal counts the animals themselves.
 """
 
 from examples.deep_time import game as game_lib
-from examples.deep_time import model_setup
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import species as species_prefab
 from examples.deep_time.prefabs import steward
@@ -34,14 +33,11 @@ BIOMES = ('grass', 'forests')
 
 
 def build_instances(
-    context: game_lib.GameContext, models: model_setup.Models
+    context: game_lib.GameContext,
 ) -> list[prefab_lib.InstanceConfig]:
   """Returns the entity instances of the scenario."""
   return (
-      [steward.steward_config(context, models.slow, name='Gaia')]
-      + [
-          species_prefab.species_config(context, key, models.slow)
-          for key in BIOMES
-      ]
-      + [chronicler.chronicler_config(context, models.slow)]
+      [steward.steward_config(context, name='Gaia')]
+      + [species_prefab.species_config(context, key) for key in BIOMES]
+      + [chronicler.chronicler_config(context)]
   )

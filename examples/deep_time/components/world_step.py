@@ -138,9 +138,7 @@ class WorldStep(
       name = f'{name} of {split.where}'
     evolution.rename(split.child, name, lore)
     if ctx.spawner is not None and ctx.slow_model is not None:
-      ctx.spawner(
-          species_prefab.species_config(ctx, split.child, ctx.slow_model)
-      )
+      ctx.spawner(species_prefab.species_config(ctx, split.child))
       ctx.spawned.append(name)
     return planet_lib.WorldEvent(
         planet_lib.BIO_EVENTS, f'{name} have evolved from the {parent}: {lore}'

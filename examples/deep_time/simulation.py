@@ -22,15 +22,17 @@ shared `GameContext`.
 from collections.abc import Mapping
 from typing import Any
 
-from concordia.components.game_master import next_acting
 from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios
 from examples.deep_time.prefabs import chronicler
-from examples.deep_time.prefabs import playable
+from examples.deep_time.prefabs import colony
+from examples.deep_time.prefabs import grazers
+from examples.deep_time.prefabs import mission
 from examples.deep_time.prefabs import polity
 from examples.deep_time.prefabs import species as species_prefab
+from examples.deep_time.prefabs import steward
 from examples.deep_time.prefabs import world_gm
 from concordia.prefabs import entity as entity_prefabs
 from concordia.prefabs.simulation import generic as simulation_lib
@@ -44,16 +46,15 @@ WORLD_GM_NAME = 'Deep Time'
 
 def build_config(
     context: game_lib.GameContext,
-    models: model_setup.Models,
     max_ticks: int | None = None,
 ) -> prefab_lib.Config:
   """Returns the Concordia config for the context's scenario."""
-  instances = scenarios.builder(context.scenario_name)(context, models)
+  instances = scenarios.builder(context.scenario_name)(context)
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=WORLD_GM_PREFAB,
           role=prefab_lib.Role.GAME_MASTER,
-          params={'name': WORLD_GM_NAME, 'context': context},
+          params={'name': WORLD_GM_NAME},
       )
   )
   premise = str(context.scenario.get('premise', ''))
@@ -63,12 +64,19 @@ def build_config(
   return prefab_lib.Config(
       default_premise=premise,
       default_max_steps=max_ticks or context.planet.max_ticks,
+      # Each role's prefab holds the game; its instances' params are plain.
       prefabs={
           **helper_functions.get_package_classes(entity_prefabs),
-          WORLD_GM_PREFAB: world_gm.WorldGameMaster(),
-          chronicler.CHRONICLER_PREFAB: chronicler.Chronicler(),
-          polity.POLITY_PREFAB: polity.PREFAB(),
-          playable.PLAYABLE_PREFAB: playable.PlayableEntity(),
+          WORLD_GM_PREFAB: world_gm.WorldGameMaster(context=context),
+          chronicler.CHRONICLER_PREFAB: chronicler.Chronicler(context=context),
+          steward.STEWARD_PREFAB: steward.Steward(context=context),
+          species_prefab.SPECIES_PREFAB: species_prefab.Species(
+              context=context
+          ),
+          grazers.GRAZER_PREFAB: grazers.Grazers(context=context),
+          polity.POLITY_PREFAB: polity.Polity(context=context),
+          mission.MISSION_PREFAB: mission.Mission(context=context),
+          colony.COLONY_PREFAB: colony.Colony(context=context),
       },
       instances=instances,
   )
@@ -100,7 +108,9 @@ def build_simulation(
   context = game_lib.new_game(scenario_name, time_mode=time_mode, seed=seed)
   context.humans.update(humans or {})
   context.coached = models.mock is not None
-  config = build_config(context, models, max_ticks)
+  # The roles' slow minds think with it (and so do species founded later).
+  context.slow_model = models.slow
+  config = build_config(context, max_ticks)
   sim = simulation_lib.Simulation(
       config=config,
       model=models.fast,
@@ -108,14 +118,12 @@ def build_simulation(
       engine=simultaneous.Simultaneous(),
   )
   # Speciation adds entities while the simulation runs.
-  context.slow_model = models.slow
   context.spawner = sim.add_entity
   return sim, context
 
 
 def load_checkpoint(
     sim: simulation_lib.Simulation,
-    context: game_lib.GameContext,
     checkpoint: Mapping[str, Any],
 ) -> None:
   """Restores a game from `Simulation.make_checkpoint_data()`.
@@ -124,28 +132,27 @@ def load_checkpoint(
   and game master's components, the topic bus and the sim-time scheduler
   with them (each entity's `TopicBusComponent`, the World GM's
   `TopicObservations` and `NumericClock`, every `SimTimePublisher` and
-  transport), and the world through the World GM's `WorldStep`. Species
-  founded during play come first: their prefab params hold live components,
-  which a checkpoint cannot rebuild, so they are founded again from the
-  world the checkpoint carries, then restored like the rest.
+  transport), and the world through the World GM's `WorldStep`.
+
+  Entities founded during play (new species) are added first, with the stock
+  `Simulation.add_entity`, from the prefab and the plain params their
+  checkpoint keeps (`species.Species` holds the game). Left to the load,
+  they would be built after the shared topic bus is restored, and their own
+  `TopicBusComponent` would restore it again, replaying retained messages
+  into every other entity's subscribers.
 
   Args:
     sim: A new simulation of the same scenario and seed (`build_simulation`).
-    context: Its game context.
     checkpoint: The saved checkpoint (JSON-safe).
   """
-  world = checkpoint['game_masters'][WORLD_GM_NAME]['components'][
-      'context_components'
-  ][next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY]['world']
   present = {entity.name for entity in sim.entities}
-  missing = [name for name in world.get('spawned', []) if name not in present]
-  if missing:
-    context.set_state(world)  # The planet knows the new species.
-    evolution = context.planet.evolution
-    assert evolution is not None and context.slow_model is not None
-    for name in missing:
-      key = next(s.key for s in evolution.species if s.name == name)
+  for name, saved in checkpoint.get('entities', {}).items():
+    if name not in present:
       sim.add_entity(
-          species_prefab.species_config(context, key, context.slow_model)
+          prefab_lib.InstanceConfig(
+              prefab=saved['prefab_type'],
+              role=prefab_lib.Role.ENTITY,
+              params=dict(saved['entity_params']),
+          )
       )
   sim.load_from_checkpoint(dict(checkpoint))

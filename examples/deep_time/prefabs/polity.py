@@ -31,7 +31,8 @@ A polity is the contrib `basic_with_async_deliberation__Entity` (through
 # pylint: disable=g-long-ternary
 
 from collections.abc import Mapping
-from typing import Any
+import dataclasses
+from typing import Any, override
 
 from concordia.components.agent import constant
 from concordia.contrib.pubsub import operators
@@ -48,11 +49,9 @@ from examples.deep_time.components import take_mind
 from examples.deep_time.prefabs import playable
 from examples.deep_time.world import data
 from examples.deep_time.world import publishing
-from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
 
-POLITY_PREFAB = playable.PLAYABLE_POLITY_PREFAB
-PREFAB = playable.PlayablePolity
+POLITY_PREFAB = 'deep_time_polity__Entity'
 
 SUBSCRIPTIONS = {
     'Census of the peoples': 'civ.census',
@@ -221,24 +220,53 @@ def declare_takes(context: game_lib.GameContext, polity: str) -> None:
 TAKES_KEPT = 10
 
 
+@dataclasses.dataclass
+class Polity(playable.RolePolity):
+  """A people: its beliefs, its slow minds and its actor."""
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    return polity_params(context, str(params['polity']))
+
+
 def polity_config(
-    context: game_lib.GameContext,
-    polity: str,
-    slow_model: language_model.LanguageModel,
+    context: game_lib.GameContext, polity: str
 ) -> prefab_lib.InstanceConfig:
-  """Registers a polity actor and returns its entity instance config.
+  """A people's instance config (plain params; `Polity` builds it).
 
   Args:
     context: Shared game state (its planet must have a civilization).
     polity: The polity's key in the scenario.
-    slow_model: Model for the grand strategy.
 
   Returns:
-    The instance config for the contrib async-deliberation prefab.
+    The instance config.
   """
   civ = context.planet.civ
   if civ is None:
     raise ValueError('Polities need a civilization in the scenario.')
+  return prefab_lib.InstanceConfig(
+      prefab=POLITY_PREFAB,
+      role=prefab_lib.Role.ENTITY,
+      params={'name': civ.polities[polity].name, 'polity': polity},
+  )
+
+
+def polity_params(context: game_lib.GameContext, polity: str) -> dict[str, Any]:
+  """Registers a polity actor and returns its async-deliberation params.
+
+  Args:
+    context: Shared game state (its planet must have a civilization).
+    polity: The polity's key in the scenario.
+
+  Returns:
+    The base prefab's params, its components included.
+  """
+  civ = context.planet.civ
+  if civ is None:
+    raise ValueError('Polities need a civilization in the scenario.')
+  slow_model = context.slow()
   people = civ.polities[polity]
   rules = context.scenario['civilization']
   subscriptions = dict(SUBSCRIPTIONS)
@@ -302,209 +330,199 @@ def polity_config(
   )
   if context.wakeups is not None and rules.get('wakeups'):
     context.wakeups.add(people.name, polity, data.load('civ.yaml')['wakeups'])
-  return prefab_lib.InstanceConfig(
-      prefab=POLITY_PREFAB,
-      role=prefab_lib.Role.ENTITY,
-      params={
-          'name': people.name,
-          'goal': rules.get('polity_goal', DEFAULT_GOAL),
-          'bus': context.bus,
-          'subscriptions': subscriptions,
-          'renderers': {
-              topic: publishing.renderer_for(topic)
-              for topic in subscriptions.values()
-          },
-          'clock_topic': 'world.tick',
-          'plan_topic': f'civ.{polity}.plan',
-          # The market news is a transported belief, not a plain subscription;
-          # a people plans as who it is.
-          'plan_components': ['Market', *characters],
-          'sim_scheduler': context.sim,
-          'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 3)),
-          'deliberation_model': slow_model,
-          'randomize_choices': False,
-          'measurements': context.measurements,
-          **context.act_params(people.name),
-          'extra_components': {
-              **characters,
-              # News of nearby lands, later the farther away.
-              'Local news': perception.local_news(
-                  context, owner=people.name, polity=polity
-              ),
-              # Prices arrive by courier until the telegraph: news as old as
-              # the people's comms (a contrib transport with that latency).
-              'Market': perception.instrument(
-                  context,
-                  'econ.prices',
-                  owner=people.name,
-                  label='Market',
-                  initial='No market news has reached us yet.',
-                  transported=True,
-                  channel=lambda: operators.Transport(
-                      latency=float(
-                          context.planet.trade.news_lag(polity)
-                          if context.planet.trade
-                          else 0
-                      )
-                  ),
-              ),
-              'Storehouse': perception.sheet(
-                  context,
-                  people.name,
-                  'storehouse',
-                  lambda: storehouse(context, polity),
-                  label='\nOur storehouse and labor',
-              ),
-              # Deliberates over a treaty offer the moment it is observed;
-              # its counsel is in the people's context, and the people
-              # answers on its menu (a person plays without the mind).
-              **(
-                  {}
-                  if human
-                  else {
-                      'Counsel on the offer': perception.instrument(
-                          context,
-                          f'civ.{polity}.treaty',
-                          owner=people.name,
-                          label='Counsel on the offer',
-                          initial='No offer awaits our answer.',
-                          render=lambda message: str(message.payload),
-                      ),
-                      'Treaty mind': context.make_mind(
-                          people.name,
-                          'Treaty',
-                          f'civ.{polity}.treaty',
-                          pact_mind.PactMind(
-                              slow_model,
-                              perception.brief(
-                                  context,
-                                  people.name,
-                                  'offer',
-                                  lambda: treaty_offer(context, polity),
-                              ),
-                              components=[
-                                  'Storehouse',
-                                  'Census of the peoples',
-                              ],
-                          ),
-                          context.planet.treaties.answer_latency
-                          if context.planet.treaties
-                          else 1,
-                          trigger_on_observe=True,
-                      ),
-                  }
-              ),
-              # Writes the broadsheets the people pays paper for.
-              'Press mind': context.make_mind(
-                  people.name,
-                  'Press',
-                  f'civ.{polity}.press',
-                  press_mind.PressMind(
-                      slow_model,
-                      perception.brief(
-                          context,
-                          people.name,
-                          'commission',
-                          lambda: commission(context, polity),
-                      ),
-                      components=['Storehouse', 'Census of the peoples'],
-                  ),
-                  context.planet.gazette.latency
-                  if context.planet.gazette
-                  else 1,
-              ),
-              # The presses' owners retell the Steward's omens, a turn later.
-              **(
-                  {
-                      'Relay mind': context.make_mind(
-                          people.name,
-                          'Relay',
-                          f'civ.{polity}.retelling',
-                          relay_mind.RelayMind(
-                              slow_model,
-                              perception.brief(
-                                  context,
-                                  people.name,
-                                  'omen',
-                                  lambda: newest_omen(context),
-                              ),
-                              components=[
-                                  *characters,
-                                  'Census of the peoples',
-                              ],
-                          ),
-                          int(
-                              context.planet.gazette.relay.get(
-                                  'latency_ticks', 1
-                              )
-                          ),
-                      )
-                  }
-                  if owner == polity and context.planet.gazette is not None
-                  else {}
-              ),
-              # One sentence, in its own voice, on each omen it reads (kept
-              # on its topic for the page: words, which change nothing).
-              **(
-                  {
-                      'Take mind': context.make_mind(
-                          people.name,
-                          'Take',
-                          f'civ.{polity}.takes',
-                          take_mind.TakeMind(
-                              slow_model,
-                              perception.brief(
-                                  context,
-                                  people.name,
-                                  'retellings',
-                                  lambda: retellings(context),
-                              ),
-                              civ.polities[owner].name,
-                              components=[
-                                  *characters,
-                                  'The Gazette on the omens',
-                                  'Storehouse',
-                              ],
-                          ),
-                          1,
-                      )
-                  }
-                  if owner and character
-                  else {}
-              ),
-              # The scribes' draft, as counsel: the people adopts it (or not)
-              # by an action on its menu.
-              **(
-                  {
-                      "Our scribes' draft": perception.sheet(
-                          context,
-                          people.name,
-                          'draft',
-                          lambda: scribes_draft(context, polity),
-                          label="Our scribes' draft",
-                      )
-                  }
-                  if context.automation is not None
-                  else {}
-              ),
-              # Writes standing orders (reflex JSON) once they are unlocked.
-              'Policy compiler': context.make_mind(
-                  people.name,
-                  'Policy',
-                  f'civ.{polity}.policy',
-                  policy_compiler.PolicyCompiler(
-                      slow_model,
-                      perception.brief(
-                          context,
-                          people.name,
-                          'scribes',
-                          lambda: scribes(context, polity),
-                      ),
-                      polity,
-                      components=['Storehouse', 'Market'],
-                  ),
-                  int(rules.get('policy_latency_ticks', 4)),
-              ),
-          },
+  return {
+      'name': people.name,
+      'goal': rules.get('polity_goal', DEFAULT_GOAL),
+      'bus': context.bus,
+      'subscriptions': subscriptions,
+      'renderers': {
+          topic: publishing.renderer_for(topic)
+          for topic in subscriptions.values()
       },
-  )
+      'clock_topic': 'world.tick',
+      'plan_topic': f'civ.{polity}.plan',
+      # The market news is a transported belief, not a plain subscription;
+      # a people plans as who it is.
+      'plan_components': ['Market', *characters],
+      'sim_scheduler': context.sim,
+      'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 3)),
+      'deliberation_model': slow_model,
+      'randomize_choices': False,
+      'measurements': context.measurements,
+      **context.act_params(people.name),
+      'extra_components': {
+          **characters,
+          # News of nearby lands, later the farther away.
+          'Local news': perception.local_news(
+              context, owner=people.name, polity=polity
+          ),
+          # Prices arrive by courier until the telegraph: news as old as
+          # the people's comms (a contrib transport with that latency).
+          'Market': perception.instrument(
+              context,
+              'econ.prices',
+              owner=people.name,
+              label='Market',
+              initial='No market news has reached us yet.',
+              transported=True,
+              channel=lambda: operators.Transport(
+                  latency=float(
+                      context.planet.trade.news_lag(polity)
+                      if context.planet.trade
+                      else 0
+                  )
+              ),
+          ),
+          'Storehouse': perception.sheet(
+              context,
+              people.name,
+              'storehouse',
+              lambda: storehouse(context, polity),
+              label='\nOur storehouse and labor',
+          ),
+          # Deliberates over a treaty offer the moment it is observed;
+          # its counsel is in the people's context, and the people
+          # answers on its menu (a person plays without the mind).
+          **(
+              {}
+              if human
+              else {
+                  'Counsel on the offer': perception.instrument(
+                      context,
+                      f'civ.{polity}.treaty',
+                      owner=people.name,
+                      label='Counsel on the offer',
+                      initial='No offer awaits our answer.',
+                      render=lambda message: str(message.payload),
+                  ),
+                  'Treaty mind': context.make_mind(
+                      people.name,
+                      'Treaty',
+                      f'civ.{polity}.treaty',
+                      pact_mind.PactMind(
+                          slow_model,
+                          perception.brief(
+                              context,
+                              people.name,
+                              'offer',
+                              lambda: treaty_offer(context, polity),
+                          ),
+                          components=[
+                              'Storehouse',
+                              'Census of the peoples',
+                          ],
+                      ),
+                      context.planet.treaties.answer_latency
+                      if context.planet.treaties
+                      else 1,
+                      trigger_on_observe=True,
+                  ),
+              }
+          ),
+          # Writes the broadsheets the people pays paper for.
+          'Press mind': context.make_mind(
+              people.name,
+              'Press',
+              f'civ.{polity}.press',
+              press_mind.PressMind(
+                  slow_model,
+                  perception.brief(
+                      context,
+                      people.name,
+                      'commission',
+                      lambda: commission(context, polity),
+                  ),
+                  components=['Storehouse', 'Census of the peoples'],
+              ),
+              context.planet.gazette.latency if context.planet.gazette else 1,
+          ),
+          # The presses' owners retell the Steward's omens, a turn later.
+          **(
+              {
+                  'Relay mind': context.make_mind(
+                      people.name,
+                      'Relay',
+                      f'civ.{polity}.retelling',
+                      relay_mind.RelayMind(
+                          slow_model,
+                          perception.brief(
+                              context,
+                              people.name,
+                              'omen',
+                              lambda: newest_omen(context),
+                          ),
+                          components=[
+                              *characters,
+                              'Census of the peoples',
+                          ],
+                      ),
+                      int(context.planet.gazette.relay.get('latency_ticks', 1)),
+                  )
+              }
+              if owner == polity and context.planet.gazette is not None
+              else {}
+          ),
+          # One sentence, in its own voice, on each omen it reads (kept
+          # on its topic for the page: words, which change nothing).
+          **(
+              {
+                  'Take mind': context.make_mind(
+                      people.name,
+                      'Take',
+                      f'civ.{polity}.takes',
+                      take_mind.TakeMind(
+                          slow_model,
+                          perception.brief(
+                              context,
+                              people.name,
+                              'retellings',
+                              lambda: retellings(context),
+                          ),
+                          civ.polities[owner].name,
+                          components=[
+                              *characters,
+                              'The Gazette on the omens',
+                              'Storehouse',
+                          ],
+                      ),
+                      1,
+                  )
+              }
+              if owner and character
+              else {}
+          ),
+          # The scribes' draft, as counsel: the people adopts it (or not)
+          # by an action on its menu.
+          **(
+              {
+                  "Our scribes' draft": perception.sheet(
+                      context,
+                      people.name,
+                      'draft',
+                      lambda: scribes_draft(context, polity),
+                      label="Our scribes' draft",
+                  )
+              }
+              if context.automation is not None
+              else {}
+          ),
+          # Writes standing orders (reflex JSON) once they are unlocked.
+          'Policy compiler': context.make_mind(
+              people.name,
+              'Policy',
+              f'civ.{polity}.policy',
+              policy_compiler.PolicyCompiler(
+                  slow_model,
+                  perception.brief(
+                      context,
+                      people.name,
+                      'scribes',
+                      lambda: scribes(context, polity),
+                  ),
+                  polity,
+                  components=['Storehouse', 'Market'],
+              ),
+              int(rules.get('policy_latency_ticks', 4)),
+          ),
+      },
+  }

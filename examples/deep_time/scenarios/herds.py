@@ -22,7 +22,6 @@ darken the world, so the Steward may need to thin them.
 """
 
 from examples.deep_time import game as game_lib
-from examples.deep_time import model_setup
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import grazers
 from examples.deep_time.prefabs import species as species_prefab
@@ -33,13 +32,13 @@ NAME = 'herds'
 
 
 def build_instances(
-    context: game_lib.GameContext, models: model_setup.Models
+    context: game_lib.GameContext,
 ) -> list[prefab_lib.InstanceConfig]:
   """Returns the entity instances of the scenario."""
   return [
-      steward.steward_config(context, models.slow, name='Gaia'),
-      species_prefab.species_config(context, 'white', models.slow),
-      species_prefab.species_config(context, 'black', models.slow),
-      grazers.grazers_config(context, models.slow),
-      chronicler.chronicler_config(context, models.slow),
+      steward.steward_config(context, name='Gaia'),
+      species_prefab.species_config(context, 'white'),
+      species_prefab.species_config(context, 'black'),
+      grazers.grazers_config(context),
+      chronicler.chronicler_config(context),
   ]

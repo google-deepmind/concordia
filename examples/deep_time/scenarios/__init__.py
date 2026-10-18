@@ -18,7 +18,6 @@ from collections.abc import Callable
 import types
 
 from examples.deep_time import game as game_lib
-from examples.deep_time import model_setup
 from examples.deep_time.scenarios import archipelago
 from examples.deep_time.scenarios import daisyworld
 from examples.deep_time.scenarios import fire_and_iron
@@ -32,8 +31,10 @@ from examples.deep_time.scenarios import savanna_fire
 from examples.deep_time.scenarios import snowball
 from concordia.typing import prefab as prefab_lib
 
+# A scenario's entities, as instance configs with plain params (each role's
+# prefab holds the game and builds the entity).
 BuildInstances = Callable[
-    [game_lib.GameContext, model_setup.Models],
+    [game_lib.GameContext],
     list[prefab_lib.InstanceConfig],
 ]
 

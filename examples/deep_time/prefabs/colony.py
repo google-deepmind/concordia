@@ -19,13 +19,17 @@ and their own sheet, deliberate in the background on the slow model, and
 act each generation on the fast model.
 """
 
+from collections.abc import Mapping
+import dataclasses
+from typing import Any, override
+
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
 from examples.deep_time.prefabs import mission as mission_prefab
+from examples.deep_time.prefabs import playable
 from examples.deep_time.prefabs import polity as polity_prefab
 from examples.deep_time.world import publishing
-from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
 
 SUBSCRIPTIONS = {'Colony status': 'colony.status'}
@@ -35,11 +39,35 @@ DEFAULT_GOAL = (
 )
 
 
-def colony_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-) -> prefab_lib.InstanceConfig:
-  """Registers the colonists' actor and returns their entity config."""
+COLONY_PREFAB = 'deep_time_colony__Entity'
+
+
+@dataclasses.dataclass
+class Colony(playable.RolePolity):
+  """The colonists: a people of the async-deliberation make, far away."""
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    del params  # One colony a game.
+    return colony_params(context)
+
+
+def colony_config(context: game_lib.GameContext) -> prefab_lib.InstanceConfig:
+  """The colonists' instance config (plain params; `Colony` builds it)."""
+  colony = context.planet.colony
+  if colony is None:
+    raise ValueError('Colonists need a colony in the scenario.')
+  return prefab_lib.InstanceConfig(
+      prefab=COLONY_PREFAB,
+      role=prefab_lib.Role.ENTITY,
+      params={'name': f'Colonists of {colony.name}'},
+  )
+
+
+def colony_params(context: game_lib.GameContext) -> dict[str, Any]:
+  """Registers the colonists' actor and returns their entity params."""
   colony = context.planet.colony
   if colony is None:
     raise ValueError('Colonists need a colony in the scenario.')
@@ -56,40 +84,36 @@ def colony_config(
       # (that is their 'Colony status' reading, rendered).
       hears=('world.tick', 'colony.events', 'colony.decrees'),
   )
-  return prefab_lib.InstanceConfig(
-      prefab=polity_prefab.POLITY_PREFAB,
-      role=prefab_lib.Role.ENTITY,
-      params={
-          'name': name,
-          'goal': rules.get('goal', DEFAULT_GOAL),
-          'bus': context.bus,
-          'subscriptions': dict(SUBSCRIPTIONS),
-          'renderers': {
-              topic: publishing.renderer_for(topic)
-              for topic in SUBSCRIPTIONS.values()
-          },
-          'clock_topic': 'world.tick',
-          'plan_topic': 'colony.plan',
-          'sim_scheduler': context.sim,
-          'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 2)),
-          'deliberation_model': slow_model,
-          'randomize_choices': False,
-          'measurements': context.measurements,
-          **context.act_params(name),
-          'extra_components': {
-              'Our colony': perception.sheet(
-                  context, name, 'colony', colony.sheet, label='\nOur colony'
-              ),
-              # Home's transmissions, heard years after they were sent.
-              'Messages from home': perception.instrument(
-                  context,
-                  'mission.uplink',
-                  owner=name,
-                  label='Messages from home',
-                  initial='No message from home has reached us yet.',
-                  transported=True,
-                  channel=lambda: mission_prefab.light_delay(context),
-              ),
-          },
+  return {
+      'name': name,
+      'goal': rules.get('goal', DEFAULT_GOAL),
+      'bus': context.bus,
+      'subscriptions': dict(SUBSCRIPTIONS),
+      'renderers': {
+          topic: publishing.renderer_for(topic)
+          for topic in SUBSCRIPTIONS.values()
       },
-  )
+      'clock_topic': 'world.tick',
+      'plan_topic': 'colony.plan',
+      'sim_scheduler': context.sim,
+      'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 2)),
+      'deliberation_model': context.slow(),
+      'randomize_choices': False,
+      'measurements': context.measurements,
+      **context.act_params(name),
+      'extra_components': {
+          'Our colony': perception.sheet(
+              context, name, 'colony', colony.sheet, label='\nOur colony'
+          ),
+          # Home's transmissions, heard years after they were sent.
+          'Messages from home': perception.instrument(
+              context,
+              'mission.uplink',
+              owner=name,
+              label='Messages from home',
+              initial='No message from home has reached us yet.',
+              transported=True,
+              channel=lambda: mission_prefab.light_delay(context),
+          ),
+      },
+  }

@@ -71,8 +71,10 @@ class WorldGameMaster(prefab_lib.Prefab):
       ' topics, resolves structured actions. Makes no language model calls.'
   )
   params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {'name': 'Deep Time', 'context': None}
+      default_factory=lambda: {'name': 'Deep Time'}
   )
+  # The game (a shared service: copying the prefab keeps it).
+  context: game_lib.GameContext | None = None
 
   def build(
       self,
@@ -91,7 +93,9 @@ class WorldGameMaster(prefab_lib.Prefab):
     """
     del memory_bank
     name = self.params.get('name', 'Deep Time')
-    context: game_lib.GameContext = self.params['context']
+    context = self.context
+    if context is None:
+      raise ValueError('The World GM needs the game context.')
     player_names = [entity.name for entity in self.entities or ()]
 
     components = {

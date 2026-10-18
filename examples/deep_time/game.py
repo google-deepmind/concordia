@@ -128,6 +128,24 @@ class GameContext:
       default_factory=dict
   )
 
+  def slow(self) -> language_model.LanguageModel:
+    """The slow minds' model (set before the simulation builds the roles)."""
+    if self.slow_model is None:
+      raise ValueError('The game has no slow model yet.')
+    return self.slow_model
+
+  def __deepcopy__(self, memo: dict[int, Any] | None = None) -> 'GameContext':
+    """The one game: a shared service, never copied (as a contrib `TopicBus`).
+
+    The simulation builds each entity from a copy of its prefab; every role's
+    copy holds this same game.
+
+    Args:
+      memo: Unused.
+    """
+    del memo
+    return self
+
   def with_bus(self, components: Mapping[str, Any]) -> dict[str, Any]:
     """An entity's components behind a contrib `TopicBusComponent`.
 
@@ -416,8 +434,8 @@ class GameContext:
             [owner, label, message.to_dict()]
             for (owner, label), message in sorted(self.received.items())
         ],
-        # Species founded during play (their entities are founded again
-        # before a checkpoint is loaded, see `simulation.load_checkpoint`).
+        # Species founded during play (their entities are rebuilt from the
+        # checkpoint's own params, see `simulation.load_checkpoint`).
         'spawned': list(self.spawned),
         # Each role's actor (its log of what its moves did, ...) is kept by
         # the World GM's actor registry component, checkpointed with it.

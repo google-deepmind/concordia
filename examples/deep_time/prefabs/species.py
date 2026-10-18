@@ -33,7 +33,8 @@ species reads it through a stock `Subscriber`.
 """
 
 from collections.abc import Callable, Mapping
-from typing import Any
+import dataclasses
+from typing import Any, override
 
 from concordia.components.agent import pubsub
 from concordia.components.agent import question_of_recent_memories
@@ -47,7 +48,7 @@ from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
-SPECIES_PREFAB = playable.PLAYABLE_PREFAB
+SPECIES_PREFAB = 'deep_time_species__Entity'
 
 SPECIES_INSTRUCTIONS = (
     'You are {name}, a species on a young planet. {lore} You cannot'
@@ -164,28 +165,70 @@ def entity_params(
   }
 
 
+@dataclasses.dataclass
+class Species(playable.Role):
+  """A species: its senses, its slow minds and its actor.
+
+  Its params say all it needs (`name`, `species`, `lore`), so a species
+  founded during play is rebuilt from a checkpoint before the world is.
+  """
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    return species_params(
+        context,
+        str(params['species']),
+        str(params['name']),
+        str(params['lore']),
+    )
+
+
 def species_config(
-    context: game_lib.GameContext,
-    species: str,
-    slow_model: language_model.LanguageModel,
+    context: game_lib.GameContext, species: str
 ) -> prefab_lib.InstanceConfig:
-  """Registers a species actor and returns its entity instance config.
+  """A species' instance config (plain params; `Species` builds it).
 
   Args:
     context: Shared game state.
-    species: Species key in `data/species.yaml`.
-    slow_model: Model for the adaptation mind.
+    species: Species key (in `data/species.yaml`, or founded during play).
 
   Returns:
-    The instance config for a `minimal__Entity`.
+    The instance config.
   """
   evolution = context.evolution
   if evolution is None:
     raise ValueError('Species need evolution rules in the game context.')
   info = evolution.info(species)
+  return prefab_lib.InstanceConfig(
+      prefab=SPECIES_PREFAB,
+      role=prefab_lib.Role.ENTITY,
+      params={'name': info.name, 'species': species, 'lore': info.lore},
+  )
+
+
+def species_params(
+    context: game_lib.GameContext, species: str, name: str, lore: str
+) -> dict[str, Any]:
+  """Registers a species actor and returns its `minimal__Entity` params.
+
+  Args:
+    context: Shared game state.
+    species: Species key.
+    name: The species' name.
+    lore: What it is, for its instructions.
+
+  Returns:
+    The base prefab's params, its components included.
+  """
+  evolution = context.evolution
+  if evolution is None:
+    raise ValueError('Species need evolution rules in the game context.')
+  slow_model = context.slow()
   context.add_actor(
       actors_lib.SpeciesActor(
-          info.name,
+          name,
           species,
           context.planet,
           # Its adaptation mind's decision, enacted only by its own action.
@@ -200,16 +243,14 @@ def species_config(
       ),
   )
   if context.wakeups is not None and context.scenario.get('wakeups'):
-    context.wakeups.add(
-        info.name, species, data.load('species.yaml')['wakeups']
-    )
+    context.wakeups.add(name, species, data.load('species.yaml')['wakeups'])
 
   components = senses(
-      context, info.name, lambda: context.planet.genome_text(species)
+      context, name, lambda: context.planet.genome_text(species)
   )
   components['Adaptation mind'] = adaptation_mind(
       context,
-      info.name,
+      name,
       adaptation_topic(species),
       slow_model,
       evolution.question,
@@ -219,7 +260,7 @@ def species_config(
     components['Pacts'] = perception.instrument(
         context,
         'bio.pacts',
-        owner=info.name,
+        owner=name,
         label='Pacts',
         initial='No pacts yet.',
     )
@@ -228,20 +269,20 @@ def species_config(
     components['Counsel on the pact'] = perception.instrument(
         context,
         f'bio.species.{species}.pact',
-        owner=info.name,
+        owner=name,
         label='Counsel on the pact',
         initial='No pact awaits our answer.',
         render=lambda message: str(message.payload),
     )
     components['Pact mind'] = context.make_mind(
-        info.name,
+        name,
         'Pact',
         f'bio.species.{species}.pact',
         pact_mind.PactMind(
             slow_model,
             perception.brief(
                 context,
-                info.name,
+                name,
                 'offer',
                 lambda: pact_offer(context, species),
             ),
@@ -251,17 +292,13 @@ def species_config(
         trigger_on_observe=True,
     )
   components['Evolving toward'] = evolving_toward(
-      context, info.name, adaptation_topic(species)
+      context, name, adaptation_topic(species)
   )
-  return prefab_lib.InstanceConfig(
-      prefab=SPECIES_PREFAB,
-      role=prefab_lib.Role.ENTITY,
-      params=entity_params(
-          context,
-          info.name,
-          'Survive and spread across the bare ground without letting your'
-          ' species die out.',
-          SPECIES_INSTRUCTIONS.format(name=info.name, lore=info.lore),
-          components,
-      ),
+  return entity_params(
+      context,
+      name,
+      'Survive and spread across the bare ground without letting your'
+      ' species die out.',
+      SPECIES_INSTRUCTIONS.format(name=name, lore=lore),
+      components,
   )

@@ -27,6 +27,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
+from examples.deep_time import scenarios
 from examples.deep_time import simulation
 
 
@@ -57,7 +58,7 @@ class CheckpointTest(parameterized.TestCase):
   @parameterized.parameters(
       # Wake-ups and alarms; transported, noisy, late instruments.
       ('daisyworld', 4, 6),
-      # A species founded before the checkpoint (it is founded again).
+      # A species founded before the checkpoint (rebuilt from its saved params).
       ('great_oxidation', 16, 4),
       # Peoples (the contrib async-deliberation entity), the market,
       # standing orders (reflexes) and news by courier.
@@ -75,12 +76,27 @@ class CheckpointTest(parameterized.TestCase):
     live.play(premise='', max_steps=more)
 
     restored, other = _build(scenario)
-    simulation.load_checkpoint(restored, other, checkpoint)
+    simulation.load_checkpoint(restored, checkpoint)
     self.assertEqual(other.planet.tick, tick)
     restored.play(premise='', max_steps=more)
     self.assertEqual(_after(other, tick), _after(context, tick))
     if scenario == 'great_oxidation':
-      self.assertNotEmpty(other.spawned)  # Founded again before the load.
+      self.assertNotEmpty(other.spawned)  # Rebuilt before the load.
+
+
+class PlainParamsTest(parameterized.TestCase):
+
+  @parameterized.parameters(*sorted(scenarios.SCENARIOS))
+  def test_every_role_is_built_from_plain_params(self, scenario):
+    # Each role's prefab holds the game and builds the entity; what a
+    # checkpoint keeps of an instance is all there is to it.
+    context = game_lib.new_game(scenario)
+    context.slow_model = model_setup.make_models('mock').slow
+    config = simulation.build_config(context)
+    for instance in config.instances:
+      self.assertEqual(
+          json.loads(json.dumps(instance.params)), dict(instance.params)
+      )
 
 
 if __name__ == '__main__':

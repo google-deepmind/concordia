@@ -21,16 +21,19 @@ What it transmits goes out on `mission.uplink`; the colonists hear it over
 the same delay, and the colony applies designs and directives on arrival.
 """
 
+from collections.abc import Mapping
+import dataclasses
+from typing import Any, override
+
 from concordia.contrib.pubsub import operators
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
 from examples.deep_time.prefabs import playable
-from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
-MISSION_PREFAB = playable.PLAYABLE_PREFAB
+MISSION_PREFAB = 'deep_time_mission__Entity'
 MISSION_INSTRUCTIONS = (
     'You are {name}, the agency at home that founded a colony four'
     ' light-years away. Light is the fastest thing there is: what you hear'
@@ -80,13 +83,32 @@ def in_flight(context: game_lib.GameContext) -> str:
   return text
 
 
+@dataclasses.dataclass
+class Mission(playable.Role):
+  """Mission Control: its light-delayed instruments and its actor."""
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    return mission_params(context, str(params['name']))
+
+
 def mission_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-    name: str = 'Mission Control',
+    context: game_lib.GameContext, name: str = 'Mission Control'
 ) -> prefab_lib.InstanceConfig:
-  """Registers Mission Control's actor and returns its entity config."""
-  del slow_model  # Mission Control thinks in its act; no slow mind yet.
+  """Mission Control's instance config (plain params; `Mission` builds it)."""
+  del context  # One Mission Control a game.
+  return prefab_lib.InstanceConfig(
+      prefab=MISSION_PREFAB,
+      role=prefab_lib.Role.ENTITY,
+      params={'name': name},
+  )
+
+
+def mission_params(context: game_lib.GameContext, name: str) -> dict[str, Any]:
+  """Registers Mission Control's actor and returns its entity params."""
+  # Mission Control thinks in its act; no slow mind yet.
   context.add_actor(actors_lib.MissionActor(name, context.planet))
   components: dict[str, entity_component.ContextComponent] = {
       'Colony relay': perception.instrument(
@@ -116,19 +138,15 @@ def mission_config(
       ),
   }
   components = context.with_bus(components)  # The bus is restored first.
-  return prefab_lib.InstanceConfig(
-      prefab=MISSION_PREFAB,
-      role=prefab_lib.Role.ENTITY,
-      params={
-          'name': name,
-          'goal': context.scenario.get('steward_goal', ''),
-          'custom_instructions': MISSION_INSTRUCTIONS.format(name=name),
-          'extra_components': components,
-          'extra_components_index': {
-              key: 2 + i for i, key in enumerate(components)
-          },
-          'measurements': context.measurements,
-          'randomize_choices': False,
-          **context.act_params(name),
+  return {
+      'name': name,
+      'goal': context.scenario.get('steward_goal', ''),
+      'custom_instructions': MISSION_INSTRUCTIONS.format(name=name),
+      'extra_components': components,
+      'extra_components_index': {
+          key: 2 + i for i, key in enumerate(components)
       },
-  )
+      'measurements': context.measurements,
+      'randomize_choices': False,
+      **context.act_params(name),
+  }

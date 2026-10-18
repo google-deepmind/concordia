@@ -66,12 +66,10 @@ class Chronicler(prefab_lib.Prefab):
       ' the chronicle topic through a background pubsub.Publisher.'
   )
   params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {
-          'name': 'Chronicler',
-          'context': None,
-          'slow_model': None,
-      }
+      default_factory=lambda: {'name': 'Chronicler'}
   )
+  # The game (a shared service: copying the prefab keeps it).
+  context: game_lib.GameContext | None = None
 
   def build(
       self,
@@ -81,16 +79,28 @@ class Chronicler(prefab_lib.Prefab):
     """Builds the Chronicler.
 
     Args:
-      model: Fallback model for the puppet act (never used: the response is
-        fixed) and for chapters when no `slow_model` param is given.
+      model: Model for the puppet act (never used: the response is fixed).
       memory_bank: The Chronicler's memory bank.
 
     Returns:
       The Chronicler entity.
     """
     name = self.params.get('name', 'Chronicler')
-    context: game_lib.GameContext = self.params['context']
-    slow_model = self.params.get('slow_model') or model
+    context = self.context
+    if context is None:
+      raise ValueError('The Chronicler needs the game context.')
+    slow_model = context.slow()
+    context.add_actor(
+        actors_lib.ChroniclerActor(name),
+        hears=(
+            'world.tick',
+            'geo.events',
+            'bio.events',
+            'ocean.alerts',
+            'gaia.omens',
+            'world.resolutions',
+        ),
+    )
     config = data.load('chronicler.yaml')
 
     components: dict[str, entity_component.ContextComponent] = {
@@ -158,24 +168,12 @@ class Chronicler(prefab_lib.Prefab):
 
 
 def chronicler_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-    name: str = 'Chronicler',
+    context: game_lib.GameContext, name: str = 'Chronicler'
 ) -> prefab_lib.InstanceConfig:
-  """Registers the Chronicler actor and returns its instance config."""
-  context.add_actor(
-      actors_lib.ChroniclerActor(name),
-      hears=(
-          'world.tick',
-          'geo.events',
-          'bio.events',
-          'ocean.alerts',
-          'gaia.omens',
-          'world.resolutions',
-      ),
-  )
+  """The Chronicler's instance config (plain params; `Chronicler` builds it)."""
+  del context  # One Chronicler a game.
   return prefab_lib.InstanceConfig(
       prefab=CHRONICLER_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={'name': name, 'context': context, 'slow_model': slow_model},
+      params={'name': name},
   )

@@ -40,6 +40,7 @@ from typing import Any
 import zlib
 
 from concordia.agents import entity_agent
+from concordia.components.agent import constant
 from concordia.components.agent import human_act_component
 from concordia.components.agent import pubsub
 from examples.deep_time import actors as actors_lib
@@ -52,6 +53,7 @@ from examples.deep_time import simulation
 from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
+from concordia.prefabs.entity import minimal
 from concordia.typing import human_input
 import numpy as np
 
@@ -477,7 +479,8 @@ def load_replay(path: str) -> dict[str, Any] | None:
 # Saves of played games: a folder beside the telemetry, one file a
 # game, removed when the game is decided or given up.
 SAVES = 'saves'
-SAVE_VERSION = 1
+# 2: roles' params are plain (a species founded in play saves whole).
+SAVE_VERSION = 2
 # A limited rewind: a game may go back this many turns in all, to
 # saves kept in memory for the last few turns.
 REWINDS = 3
@@ -648,7 +651,7 @@ class GameSession:
     # and telemetry to the game that replaces it.
     self.superseded = False
     if resume is not None:
-      simulation.load_checkpoint(self._sim, self.context, resume['checkpoint'])
+      simulation.load_checkpoint(self._sim, resume['checkpoint'])
       for name, kept in (resume.get('seats') or {}).items():
         if name in self.seats:
           self.seats[name].restore(kept)
@@ -1884,9 +1887,15 @@ class GameSession:
     ]
 
   def goal(self, entity: str | None = None) -> str:
-    """A role's own goal (the Steward's, a people's, ...)."""
-    config = self._sim.get_entity_prefab_config(entity or self.entity)
-    goal = str(config.params.get('goal', '')) if config else ''
+    """A role's own goal (the Steward's, a people's, ...): its entity's."""
+    found = self.role_entity(entity)
+    goal = ''
+    if found is not None:
+      component = found.get_all_context_components().get(
+          minimal.DEFAULT_GOAL_COMPONENT_KEY
+      )
+      if isinstance(component, constant.Constant):
+        goal = str(component.get_state().get('state', ''))
     if not goal:
       scenario = data.scenario(self.scenario)
       goal = str(scenario.get('steward_goal') or scenario.get('premise', ''))
