@@ -21,17 +21,19 @@ What it transmits goes out on `mission.uplink`; the colonists hear it over
 the same delay, and the colony applies designs and directives on arrival.
 """
 
-from concordia.components.agent import report_function
+from collections.abc import Mapping
+import dataclasses
+from typing import Any, override
+
 from concordia.contrib.pubsub import operators
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
 from examples.deep_time.prefabs import playable
-from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
-MISSION_PREFAB = playable.PLAYABLE_PREFAB
+MISSION_PREFAB = 'deep_time_mission__Entity'
 MISSION_INSTRUCTIONS = (
     'You are {name}, the agency at home that founded a colony four'
     ' light-years away. Light is the fastest thing there is: what you hear'
@@ -81,52 +83,98 @@ def in_flight(context: game_lib.GameContext) -> str:
   return text
 
 
+@dataclasses.dataclass
+class Mission(playable.Role):
+  """Mission Control: its light-delayed instruments and its actor."""
+
+  @override
+  def assemble(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> Mapping[str, Any]:
+    return mission_params(context, params)
+
+  @override
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    mission_rules(context, str(params['name']))
+
+
 def mission_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-    name: str = 'Mission Control',
+    context: game_lib.GameContext, name: str = 'Mission Control'
 ) -> prefab_lib.InstanceConfig:
-  """Registers Mission Control's actor and returns its entity config."""
-  del slow_model  # Mission Control thinks in its act; no slow mind yet.
-  context.add_actor(actors_lib.MissionActor(name, context.planet))
-  components: dict[str, entity_component.ContextComponent] = {
-      'Colony relay': perception.instrument(
-          context,
-          'colony.status',
-          owner=name,
-          label='Colony relay',
-          initial='No word from the colony has reached home yet.',
-          transported=True,
-          channel=lambda: light_delay(context),
-      ),
-      'Colony news': perception.instrument(
-          context,
-          'colony.events',
-          owner=name,
-          label='Colony news',
-          initial='No news from the colony has reached home yet.',
-          transported=True,
-          channel=lambda: light_delay(context),
-      ),
-      'Transmissions in flight': report_function.ReportFunction(
-          function=lambda: in_flight(context),
-          pre_act_label='\nTransmissions in flight',
-      ),
-  }
-  components = context.with_bus(components)  # The bus is restored first.
+  """Mission Control's instance config (plain params; `Mission` builds it)."""
   return prefab_lib.InstanceConfig(
       prefab=MISSION_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={
-          'name': name,
-          'goal': context.scenario.get('steward_goal', ''),
-          'custom_instructions': MISSION_INSTRUCTIONS.format(name=name),
-          'extra_components': components,
-          'extra_components_index': {
-              key: 2 + i for i, key in enumerate(components)
-          },
-          'measurements': context.measurements,
-          'randomize_choices': False,
-          **context.act_params(name),
-      },
+      params={'name': name, 'goal': context.scenario.get('steward_goal', '')},
   )
+
+
+# What Mission Control reads of the colony: (key, topic, initial belief).
+READINGS = (
+    (
+        'Colony relay',
+        'colony.status',
+        'No word from the colony has reached home yet.',
+    ),
+    (
+        'Colony news',
+        'colony.events',
+        'No news from the colony has reached home yet.',
+    ),
+)
+
+
+def _instruments(
+    context: game_lib.GameContext, name: str
+) -> dict[str, perception.Instrument]:
+  """Mission Control's instruments: the colony, four light-years late."""
+  return {
+      key: perception.instrument(
+          context,
+          topic,
+          owner=name,
+          label=key,
+          transported=True,
+          channel=lambda: light_delay(context),
+      )
+      for key, topic, _ in READINGS
+  }
+
+
+def mission_rules(context: game_lib.GameContext, name: str) -> None:
+  """The World GM installs Mission Control's rules: actor, sheet, relay."""
+  # Mission Control thinks in its act; no slow mind yet.
+  context.add_actor(actors_lib.MissionActor(name, context.planet))
+  for spec in _instruments(context, name).values():
+    perception.deliver(context, spec)
+  perception.publish(context, name, 'in_flight', lambda: in_flight(context))
+
+
+def mission_params(
+    context: game_lib.GameContext, params: Mapping[str, Any]
+) -> dict[str, Any]:
+  """Mission Control's entity params, its components included."""
+  name = str(params['name'])
+  components: dict[str, entity_component.ContextComponent] = {
+      key: perception.subscribe(
+          context, perception.reading(name, key, initial, topic=topic)
+      )
+      for key, topic, initial in READINGS
+  }
+  components['Transmissions in flight'] = perception.read(
+      context, name, 'in_flight', label='\nTransmissions in flight'
+  )
+  components = context.with_bus(components)  # The bus is restored first.
+  return {
+      'name': name,
+      'goal': str(params['goal']),
+      'custom_instructions': MISSION_INSTRUCTIONS.format(name=name),
+      'extra_components': components,
+      'extra_components_index': {
+          key: 2 + i for i, key in enumerate(components)
+      },
+      'randomize_choices': False,
+      **context.act_params(name),
+  }

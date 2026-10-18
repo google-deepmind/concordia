@@ -22,7 +22,6 @@ diverse) before the climate or the biosphere breaks.
 """
 
 from examples.deep_time import game as game_lib
-from examples.deep_time import model_setup
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import polity
 from examples.deep_time.prefabs import species as species_prefab
@@ -34,20 +33,14 @@ BIOMES = ('grass', 'forests')
 
 
 def build_instances(
-    context: game_lib.GameContext, models: model_setup.Models
+    context: game_lib.GameContext,
 ) -> list[prefab_lib.InstanceConfig]:
   """Returns the entity instances of the scenario."""
   civ = context.planet.civ
   assert civ is not None
   return (
-      [steward.steward_config(context, models.slow, name='Gaia')]
-      + [
-          species_prefab.species_config(context, key, models.slow)
-          for key in BIOMES
-      ]
-      + [
-          polity.polity_config(context, key, models.slow)
-          for key in sorted(civ.polities)
-      ]
-      + [chronicler.chronicler_config(context, models.slow)]
+      [steward.steward_config(context, name='Gaia')]
+      + [species_prefab.species_config(context, key) for key in BIOMES]
+      + [polity.polity_config(context, key) for key in sorted(civ.polities)]
+      + [chronicler.chronicler_config(context)]
   )

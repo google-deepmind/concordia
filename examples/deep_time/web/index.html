@@ -37,7 +37,10 @@
   button { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
            background: var(--card); color: var(--ink); cursor: pointer; }
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 6px; text-align: center; }
+  .stats div.warn { border-color: var(--bad); } .stats div.warn b { color: var(--bad); }
+  .stats.five b { font-size: .95rem; } .stats.five div { padding: 8px 2px; }
+  .stats.five .agebadge { font-size: .7rem; padding-left: 4px; padding-right: 4px; }
   .stats div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 4px; }
   .stats b { display: block; font-size: 1.15rem; }
   .stats span { font-size: .78rem; color: var(--muted); }
@@ -151,6 +154,15 @@
   p.rewind { font-size: .85rem; margin: 0 0 8px; }
   .planok { color: var(--good); font-size: .9rem; margin: 0 0 6px; }
   .movelabel { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 4px 0 6px; }
+  .omen { border: 1px solid var(--accent); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+  .omen .signs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .omen .sign { width: auto; flex: 0 0 auto; min-height: 44px; padding: 6px 14px; border-radius: 999px; }
+  .omen .row button { width: auto; flex: 0 0 auto; }
+  .omen .sign.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .omen .row { justify-content: space-between; align-items: center; margin-top: 6px; }
+  .whatsnew { border-color: var(--accent); } .whatsnew button { margin: 4px 0 8px; }
+  .stale { margin: 8px 0; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--warn); font-size: .9rem; }
+  .stale button { width: auto; margin-left: 6px; }
   .trace svg { display: block; width: 100%; height: 96px; }
   .trace .key { display: flex; gap: 14px; font-size: .78rem; color: var(--muted); margin: 2px 0 6px; }
   .trace .key i { display: inline-block; width: 14px; height: 0; vertical-align: middle; margin-right: 5px; border-top: 2px solid var(--accent); }
@@ -243,7 +255,6 @@
   .cards { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 10px; margin: 0 -2px 8px; -webkit-overflow-scrolling: touch; }
   .scard { flex: 0 0 78%; scroll-snap-align: center; display: grid; gap: 4px; text-align: left; padding: 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); min-height: 44px; }
   .scard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .scard.locked { opacity: .6; }
   .scard .sthumb { width: 100%; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--line); image-rendering: auto; }
   .scard .stitle b { display: block; font-size: 1.05rem; } .scard .stitle small { color: var(--muted); font-size: .78rem; }
   .scard .spremise { font-size: .85rem; color: var(--ink); line-height: 1.35; }
@@ -386,11 +397,13 @@
       <div class="row"><button id="tourskip">Skip</button><button class="primary" id="tournext">Next</button></div>
     </div>
   </div>
-  <p class="sub">A planet on Concordia's pub/sub. Play a role through Concordia's human acting path, or watch the mock play.</p>
+  <p class="sub">Tend a living planet through deep time: everything you read arrives late, and the peoples and species decide for themselves. Play a role, or watch the computer play.</p>
 
   <div class="hero" id="hero"><canvas id="globe" width="120" height="120" role="img" aria-label="The world you picked, turning"></canvas></div>
   <div id="resumeslot"></div>
+  <p class="stale" id="stale" role="status" hidden></p>
   <section class="card replays" id="replays" hidden></section>
+  <section class="card whatsnew" id="whatsnew" hidden></section>
   <section class="card" id="campaigncard" hidden>
     <h2>The campaign <span class="muted" id="campaigntotal"></span></h2>
     <p class="small muted">Deep time, oldest world first: a star in a chapter opens the next.</p>
@@ -502,6 +515,9 @@
 </main>
 <script>
 /*@modules*/  // web/js/*.js, inlined by the server.
+// The build the server put in this page ({commit, when}), to tell a page
+// left open from before a redeploy.
+const BUILD = /*@build*/null;
 // The page may be served under a path (e.g. /deep-time/ behind `tailscale
 // serve`): every request is relative to the page's own directory.
 if (!location.pathname.endsWith('/') && !location.pathname.endsWith('.html')) {
@@ -549,6 +565,8 @@ function renderCards() {
       $('scenario').value = b.dataset.scenario;
       chosenSeed = 0;
       showPremise();
+      // The world picked, what comes next in view: its roles and Play.
+      $('play').scrollIntoView({block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth'});
     });
   }
   for (const c of $('cards').querySelectorAll('canvas[data-thumb]')) paintThumb(c);
@@ -670,6 +688,18 @@ async function loadCampaign() {
   $('replays').hidden = !(c.replays && c.replays.length) || !$('game').hidden;
   for (const b of $('replays').querySelectorAll('button[data-game]')) {
     b.addEventListener('click', () => watchReplay(b.dataset.game));
+  }
+  $('whatsnew').innerHTML = whatsNewHtml(c.changes, c.build, titles);
+  $('whatsnew').hidden = !$('whatsnew').innerHTML || !$('game').hidden;
+  for (const b of $('whatsnew').querySelectorAll('button[data-world]')) {
+    b.addEventListener('click', () => {  // The world that changed, ready to play.
+      $('scenario').value = b.dataset.world;
+      chosenSeed = 0;
+      showPremise();
+      $('play').scrollIntoView({behavior: 'smooth', block: 'center'});
+      const card = $('cards').querySelector(`button[data-scenario="${b.dataset.world}"]`);
+      if (card) card.scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'});
+    });
   }
   const total = campaignTotal(c);
   $('campaigntotal').textContent = `· ${total.stars} of ${total.of} ★`;
@@ -805,7 +835,7 @@ function renderWhen(hasOptions) {
   $('when').innerHTML = hasOptions ? whenHtml(planIn) : '';
   $('choices').classList.toggle('planning', planIn > 0);
   for (const b of $('when').querySelectorAll('button')) {
-    b.addEventListener('click', () => { planIn = Number(b.dataset.when); renderWhen(true); });
+    b.addEventListener('click', () => { planIn = Number(b.dataset.when); renderWhen(true); looked('plan'); });
   }
 }
 async function planMove(option) {
@@ -907,7 +937,8 @@ function renderQuestion(q) {
   shownRequest = q.request_id;
   $('planok').hidden = true;
   planIn = 0;
-  $('cta').textContent = askWords(q.call_to_action);  // The tags carry the rest.
+  // The tags carry the rest; a Steward that may speak is asked plainly.
+  $('cta').textContent = q.omen ? OMEN_ASK : askWords(q.call_to_action);
   $('moveerr').textContent = q.error || '';
   $('moveerr').hidden = !q.error;
   endAim();
@@ -959,6 +990,27 @@ function renderQuestion(q) {
       : q.options.map((o, i) => [o, i]).filter(([o]) => !SWAP.test(o))
         .map(([o, i]) => button(o, i)).join('') + swapHtml;
     $('choices').insertAdjacentHTML('beforeend', savingHtml);
+    if (q.omen) {  // The omen first: a sign, and the words it will carry.
+      const plain = $('choices').querySelector(`button[data-i="${q.options.indexOf(q.omen.option)}"]`);
+      if (plain) plain.remove();
+      $('choices').insertAdjacentHTML('afterbegin', omenHtml(q.omen, lastOmega));
+      let sign = q.omen.signs[0];
+      for (const b of $('choices').querySelectorAll('button[data-sign]')) {
+        b.addEventListener('click', () => {
+          sign = b.dataset.sign;
+          for (const x of $('choices').querySelectorAll('button[data-sign]')) {
+            x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b));
+          }
+        });
+      }
+      const box = $('omenwords');
+      box.addEventListener('input', () => {
+        const n = omenWords(box.value, q.omen.max_words).split(' ').filter(Boolean).length;
+        $('omencount').textContent = `${n} of ${q.omen.max_words} words`;
+        looked('typing');
+      });
+      $('omensend').addEventListener('click', () => answer(q.request_id, omenResponse(sign, omenWords(box.value, q.omen.max_words))));
+    }
     for (const b of $('choices').querySelectorAll('button[data-save]')) {
       const option = saving[Number(b.dataset.save)];
       b.addEventListener('click', () => {
@@ -975,6 +1027,7 @@ function renderQuestion(q) {
         // A move the forecast says takes the world out of its band within
         // two turns asks twice: the first tap says so.
         if (asksTwice(whatIfs[option]) && b.dataset.armed !== '1') {
+          looked('armed');
           b.dataset.armed = '1';
           b.classList.add('armed');
           b.insertAdjacentHTML('beforeend', '<span class="armnote">Your forecast says this breaks the band. Tap again to send it.</span>');
@@ -1249,8 +1302,33 @@ function markPressing(q) {
 // while the world turns, a course being held, or the game decided. The turn
 // turning flashes the dock, and the last move's outcome comes back on it.
 let sheetOpen = false, sentNow = null, dockTick = null, firstAsk = true;
+// What the player looks at while a turn is asked (the move sheet, a card
+// read for a moment, a fold opened), kept with the turn's telemetry.
+const lookedNow = new Set();
+let lookedFor = '';
+function looked(what) {
+  const q = lastQuestion;
+  if (!q) return;
+  if (lookedFor !== q.request_id) { lookedFor = q.request_id; lookedNow.clear(); }
+  if (lookedNow.has(what)) return;
+  lookedNow.add(what);
+  const seat = new URLSearchParams(location.search).get('seat');
+  api('api/look', {seat, what}).catch(() => {});
+}
+const reading = new Map();
+const cardWatch = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    clearTimeout(reading.get(e.target.id));
+    const read = e.intersectionRatio >= 0.6 || e.intersectionRect.height >= innerHeight * 0.4;
+    if (read) reading.set(e.target.id, setTimeout(() => looked('card:' + e.target.id), 1200));
+  }
+}, {threshold: [0, 0.3, 0.6]});
+for (const c of document.querySelectorAll('#game .card[id]')) cardWatch.observe(c);
+$('ctxcard').addEventListener('toggle', () => { if ($('ctxcard').open) looked('open:ctxcard'); });
+
 function setSheet(open) {
   sheetOpen = open;
+  if (open) looked('sheet');
   if ($('dockgo')) {
     $('dockgo').textContent = open ? 'Hide' : 'Choose';
     const ds = $('dockbtns').dataset;
@@ -1655,6 +1733,15 @@ function render(state) {
   if ($('hero').hidden !== !onStart) { $('hero').hidden = !onStart; if (onStart) spinGlobe(); }
   if (!onStart) $('replays').hidden = true;
   $('campaigncard').hidden = !onStart || !campaignReady;
+  $('whatsnew').hidden = !onStart || !$('whatsnew').innerHTML;
+  // A page left open across a redeploy says so (the game runs the new code).
+  const stale = !!(BUILD && BUILD.commit && state.build && state.build !== BUILD.commit);
+  $('stale').hidden = !stale;
+  if (stale && !$('stale').innerHTML) {
+    $('stale').innerHTML = `This page is from build ${escapeHtml(BUILD.commit)}; the game now runs`
+      + ` ${escapeHtml(state.build)}. <button id="reload">Reload</button>`;
+    $('reload').addEventListener('click', () => location.reload());
+  }
   if (onStart && onStartBefore === false) loadCampaign();
   onStartBefore = onStart;
   document.body.classList.toggle('ingame', !$('game').hidden);
@@ -1679,8 +1766,10 @@ function render(state) {
     const aged = /^(.*?),? (\d+) ticks? old$/.exec(s.label);
     const label = aged ? escapeHtml(aged[1])
       + `<br><span class="agebadge ${ageClass(+aged[2])}">${ageWords(+aged[2])}</span>` : escapeHtml(s.label);
-    return `<div><b>${escapeHtml(s.value)}</b><span>${label}</span></div>`;
+    return `<div${s.warn ? ' class="warn"' : ''}><b>${escapeHtml(s.value)}</b><span>${label}</span></div>`;
   }).join('');
+  $('stats').style.setProperty('--n', Math.max(4, state.stats.length));
+  $('stats').classList.toggle('five', state.stats.length >= 5);
   const out = $('outcome');
   out.className = 'outcome ' + (state.outcome || '');
   out.textContent = state.outcome ? `${state.outcome.toUpperCase()}: ${state.outcome_reason}`
@@ -2348,7 +2437,10 @@ function drawMapNow(m) {
     const towns = m.peoples.polities.map((_, i) => m.peoples.settlements.filter((s) => s[0] === i).length);
     html += '<div class="chips">' + m.peoples.polities.map((sp, i) =>
       `<span><i style="background:${rgb(sp[theme])}"></i>${escapeHtml(sp.name)} · ${towns[i]} ${towns[i] === 1 ? (sp.unit || 'town') : (sp.units || 'towns')}`
-      + (hungerOf(sp) ? ` · <b class="hungry">${hungerOf(sp)}, fed ${Math.round(sp.fed * 100)}%</b>` : '') + '</span>').join('') + '</div>';
+      + (hungerOf(sp) ? ` · <b class="hungry">${hungerOf(sp)}, fed ${Math.round(sp.fed * 100)}%</b>` : '') + '</span>').join('') + '</div>'
+      // What the lines between towns are for.
+      + '<p class="small muted">Dashed lines are a people\'s roads: its goods and news travel them'
+      + ' faster than over open land. Dotted lines are trade routes between peoples.</p>';
   }
   $('legend').innerHTML = html;
 }
@@ -2881,14 +2973,6 @@ function drawSettlements(ctx, v, unit, X, Y) {
   }
   const peoples = v.peoples;
   if (!peoples) return;
-  for (const [i, r, c] of peoples.planned || []) {  // A planned town: dashed.
-    const x = X(c + 0.5), y = Y(r + 0.5), h = 2.8 * unit;
-    ctx.setLineDash([2, 2]);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = rgb(peoples.polities[i][v.theme]);
-    ctx.strokeRect(x - h, y - h, 2 * h, 2 * h);
-    ctx.setLineDash([]);
-  }
   const halo = v.theme === 'dark' ? 'rgba(0,0,0,.75)' : 'rgba(255,255,255,.9)';
   ctx.font = `600 ${Math.max(9, 5.2 * unit)}px system-ui, sans-serif`;
   ctx.textBaseline = 'middle';

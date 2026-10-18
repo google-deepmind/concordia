@@ -21,7 +21,6 @@ years later.
 """
 
 from examples.deep_time import game as game_lib
-from examples.deep_time import model_setup
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import colony as colony_prefab
 from examples.deep_time.prefabs import mission
@@ -31,11 +30,11 @@ NAME = 'light_delay'
 
 
 def build_instances(
-    context: game_lib.GameContext, models: model_setup.Models
+    context: game_lib.GameContext,
 ) -> list[prefab_lib.InstanceConfig]:
   """Returns the entity instances of the scenario."""
   return [
-      mission.mission_config(context, models.slow),
-      colony_prefab.colony_config(context, models.slow),
-      chronicler.chronicler_config(context, models.slow),
+      mission.mission_config(context),
+      colony_prefab.colony_config(context),
+      chronicler.chronicler_config(context),
   ]

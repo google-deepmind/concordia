@@ -19,11 +19,11 @@
 import {escapeHtml} from './util.js';
 
 export const PANELS = [
-  {key: 'now', label: 'Now', cards: ['goalcard', 'holdcard', 'waiting', 'briefcard', 'peoplecard']},
+  {key: 'now', label: 'Now', cards: ['goalcard', 'civcard', 'holdcard', 'waiting', 'briefcard', 'peoplecard']},
   {key: 'readings', label: 'Readings', cards: ['instcard', 'lagcard', 'readcard', 'ctxcard']},
   {key: 'moves', label: 'Moves', cards: ['movescard']},
   {key: 'story', label: 'Story', cards: ['storycard', 'newscard', 'chroncard']},
-  {key: 'world', label: 'World', cards: ['climcard', 'civcard', 'colonycard', 'invite']},
+  {key: 'world', label: 'World', cards: ['climcard', 'colonycard', 'invite']},
 ];
 
 /**

@@ -57,22 +57,27 @@ class DeepTimeE2ETest(parameterized.TestCase):
     self.assertIn(summary['outcome'], ('victory', 'defeat'))
     ticks = summary['ticks']
     self.assertGreaterEqual(ticks, 25)
-    # The World GM is deterministic: every choice call is an entity's act
-    # (the Steward, each species including any founded mid-run; the
-    # Chronicler's act is a puppet and costs no call).
+    # The World GM is deterministic: every call is an entity's, its act (the
+    # Steward, each species including any founded mid-run; the Chronicler's
+    # act is a puppet and costs no call) or a slow mind's. Every act is a
+    # free answer here, since each role has a move that may be aimed.
     acts = summary['acts']
     self.assertEqual(acts['Gaia'], ticks)
-    self.assertEqual(
-        summary['mock_calls']['choice_calls'],
-        sum(n for name, n in acts.items() if name != 'Chronicler'),
-    )
+    entity_acts = sum(n for name, n in acts.items() if name != 'Chronicler')
+    calls = summary['mock_calls']
+    self.assertGreaterEqual(calls['text_calls'], entity_acts)
     # Species are event-driven here: they act only when woken.
     woken = summary['wakeups']['White daisies']
     self.assertEqual(acts['White daisies'], woken['timer'] + woken['event'])
     self.assertLess(acts['White daisies'], ticks)
-    # Free-text calls: the species' adaptation and pact minds, naming, the
-    # Advisor and the Chronicler; slow minds are busy most ticks.
-    self.assertBetween(summary['mock_calls']['text_calls'], 10, 25 * len(acts))
+    # Besides the acts, free-text calls: the species' adaptation and pact
+    # minds, naming, the Advisor and the Chronicler; slow minds are busy most
+    # ticks.
+    self.assertBetween(
+        calls['text_calls'] + calls['choice_calls'] - entity_acts,
+        10,
+        25 * len(acts),
+    )
     self.assertEqual(summary['topics']['climate.global'], ticks + 1)
     self.assertEqual(summary['topics']['gaia.omens'], ticks)
     self.assertEqual(
@@ -130,14 +135,15 @@ class DeepTimeE2ETest(parameterized.TestCase):
     out_dir = self.create_tempdir().full_path
     run.run('daisyworld', 'mock', ticks=8, out_dir=out_dir)
     rows = _rows(out_dir)
-    # Triggered by the first act (tick 1), latency 3 -> lands at tick 4,
-    # phased in over ticks 4-5; the busy mind skips ticks 2-3.
+    # Triggered by the first act (tick 1), latency 3 -> lands at tick 4 and
+    # wakes the species, which enacts it by its action that tick; phased in
+    # over ticks 5-6. The busy mind skips ticks 2-3.
     changed = [
         int(r['tick'])
         for prev, r in zip(rows, rows[1:])
         if r['optimum_black'] != prev['optimum_black']
     ]
-    self.assertEqual(changed[:2], [4, 5])
+    self.assertEqual(changed[:2], [5, 6])
 
   def test_async_time_mode_runs(self):
     summary = run.run(

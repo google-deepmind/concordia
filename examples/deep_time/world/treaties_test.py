@@ -32,6 +32,20 @@ from concordia.typing import entity as entity_lib
 NAMES = {'amber': 'Amber folk', 'basalt': 'Basalt clans', 'cedar': 'Cedar'}
 
 
+class _Said:
+  """What an answer did, shaped like a world event (its text)."""
+
+  def __init__(self, text: str):
+    self.text = text
+
+
+def _answer(planet, key: str, name: str, verb: str = 'accept') -> list[_Said]:
+  """The partner answers the offer awaiting it on its own menu."""
+  actor = actors_lib.PolityActor(name, key, planet, 0.15)
+  option = next(o for o in actor.options() if o.startswith(f'{verb} the '))
+  return [_Said(actor.resolve(option))]
+
+
 def _treaties() -> treaties_lib.Treaties:
   return treaties_lib.Treaties(data.load('civ.yaml')['treaties'])
 
@@ -154,18 +168,16 @@ class TreatyFlowTest(absltest.TestCase):
     self.assertEqual(amber.drain_outbox(), [('diplomacy.basalt.amber', text)])
     self.assertNotIn(option, amber.options())
     # The Basalt clans' treaty mind answers (here the mock's rule).
-    mind = pact_mind.TreatyMind(
-        mock_language_model.DeepTimeMockModel(), context, 'basalt'
-    )
+    # The World GM's sheet for its treaty mind: the offer awaiting it.
     self.assertEqual(
-        mind._pending(),  # pylint: disable=protected-access
-        (text, 'Amber folk (coal treaty)', treaties.question),
+        polity_prefab.treaty_offer(context, 'basalt'),
+        pact_mind.offer_sheet(
+            text, 'Amber folk (coal treaty)', treaties.question
+        ),
     )
-    context.bus.publish('civ.basalt.treaty', 'Reply to Amber folk: accept.')
-    events = context.deliver_adaptations()
+    self.assertEqual(polity_prefab.treaty_offer(context, 'amber'), '')
+    events = _answer(planet, 'basalt', 'Basalt clans')
     self.assertIn('The Basalt clans sign the coal treaty', events[0].text)
-    reply = context.bus.latest('diplomacy.amber.basalt')
-    assert reply is not None
     self.assertEqual(treaties.bound('basalt'), ['amber'])
     # The Basalt clans burn far more coal than the cap: the treaty breaks.
     civ.polities['basalt'].emissions['coal'] = 50.0
@@ -226,8 +238,7 @@ class FishingQuotaTest(absltest.TestCase):
     option = 'propose a fishing quota to the Basalt clans'
     self.assertIn(option, amber.options())
     self.assertIn('fishing quota', amber.resolve(option))
-    context.bus.publish('civ.basalt.treaty', 'Reply to Amber folk: accept.')
-    events = context.deliver_adaptations()
+    events = _answer(planet, 'basalt', 'Basalt clans')
     self.assertIn('sign the fishing quota', events[0].text)
     self.assertIn(
         'bound by fishing quotas', polity_prefab.storehouse(context, 'basalt')
@@ -291,10 +302,7 @@ class RunoffPactTest(absltest.TestCase):
     self.assertIn(option, amber.options())
     self.assertIn('runoff pact', amber.resolve(option))
     # The reply names its kind, and settles only the runoff offer.
-    context.bus.publish(
-        'civ.basalt.treaty', 'Reply to Amber folk (runoff pact): accept.'
-    )
-    events = context.deliver_adaptations()
+    events = _answer(planet, 'basalt', 'Basalt clans')
     self.assertIn('sign the runoff pact', events[0].text)
     self.assertIn('washes at most', events[0].text)
     self.assertIn(
@@ -323,9 +331,7 @@ class HumanDiplomacyTest(absltest.TestCase):
     assert civ is not None and planet.treaties is not None
     for key in ('amber', 'basalt'):
       civ.polities[key].techs += ['diplomacy']
-    basalt = actors_lib.PolityActor(
-        'Basalt clans', 'basalt', planet, 0.15, answers_offers=True
-    )
+    basalt = actors_lib.PolityActor('Basalt clans', 'basalt', planet, 0.15)
     self.assertFalse(any(o.startswith('accept') for o in basalt.options()))
     planet.propose_treaty('amber', 'basalt', 'coal')
     options = basalt.options()
@@ -340,12 +346,13 @@ class HumanDiplomacyTest(absltest.TestCase):
     topics = [topic for topic, _ in basalt.drain_outbox()]
     self.assertEqual(topics, ['diplomacy.amber.basalt', 'civ.events'])
     self.assertFalse(any(o.startswith('accept') for o in basalt.options()))
-    # A people its treaty mind plays never sees the offer on its menu.
+    # A people a model plays answers on its menu too (its treaty mind's
+    # counsel is in its context): every answer is an action.
     planet.propose_treaty('basalt', 'amber', 'fish')
     amber = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.15)
-    self.assertFalse(any(o.startswith('accept') for o in amber.options()))
+    self.assertTrue(any(o.startswith('accept') for o in amber.options()))
 
-  def test_a_human_people_has_no_treaty_mind_and_sees_the_terms(self):
+  def test_every_people_has_its_treaty_mind_and_sees_the_terms(self):
     sim, context = simulation.build_simulation(
         'great_acceleration',
         model_setup.make_models('mock'),
@@ -356,7 +363,8 @@ class HumanDiplomacyTest(absltest.TestCase):
         for e in sim.get_entities()
         if isinstance(e, entity_agent.EntityAgent)
     }
-    self.assertNotIn('Treaty mind', components['Basalt clans'])
+    # Whoever plays it: a person or a model.
+    self.assertIn('Treaty mind', components['Basalt clans'])
     self.assertIn('Treaty mind', components['Amber folk'])
     civ = context.planet.civ
     assert civ is not None

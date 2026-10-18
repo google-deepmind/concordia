@@ -40,6 +40,7 @@ import http.server
 import json
 import os
 import re
+import subprocess
 import threading
 import time
 from typing import Any
@@ -78,6 +79,7 @@ MODULES = (
     'life.js',
     'minds.js',
     'story.js',
+    'omens.js',
     'campaign.js',
     'forecast.js',
     'plans.js',
@@ -102,6 +104,28 @@ PER_GAME_USD = 0.5
 TURN_SECONDS = 180.0  # A player's time to answer, when several share a game.
 
 
+def build() -> dict[str, str]:
+  """The code this server runs: its commit and when it was made, if known."""
+  try:
+    out = subprocess.run(
+        ['git', 'log', '-1', '--format=%h|%cd', '--date=format:%d %b %H:%M'],
+        cwd=_WEB_DIR,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    ).stdout.strip()
+    commit, when = out.split('|', 1)
+  except (OSError, subprocess.SubprocessError, ValueError):
+    return {'commit': '', 'when': ''}
+  return {'commit': commit, 'when': when}
+
+
+# Read once: a deploy restarts the server.
+BUILD = build()
+BUILD_MARK = '/*@build*/null'
+
+
 def page() -> bytes:
   """The page, with its script modules inlined (one self-contained file).
 
@@ -117,7 +141,11 @@ def page() -> bytes:
   for name in MODULES:
     with open(os.path.join(SCRIPTS, name), encoding='utf-8') as f:
       code.append(_EXPORT.sub('', _IMPORT.sub('', f.read())))
-  return page_html.replace(MODULES_MARK, '\n'.join(code), 1).encode('utf-8')
+  return (
+      page_html.replace(MODULES_MARK, '\n'.join(code), 1)
+      .replace(BUILD_MARK, json.dumps(BUILD), 1)
+      .encode('utf-8')
+  )
 
 
 class Games:
@@ -153,6 +181,9 @@ class Games:
     for the start screen to offer to play on.
     """
     found = self.progress.campaign(datetime.date.today())
+    # Which code this is, and what changed for players lately.
+    found['build'] = BUILD
+    found['changes'] = data.load('changes.yaml')['changes'][:2]
     found['saved'] = self.saved()
     found['replays'] = (
         session_lib.list_replays(self.telemetry_dir)
@@ -439,12 +470,19 @@ class Games:
       seed: int,
       players: list[str] | None = None,
       minds: str = 'mock',
+      bots: list[str] | None = None,
+      from_tick: int = 0,
   ) -> str | None:
-    """Starts a game: None, or why it was refused."""
+    """Starts a game: None, or why it was refused.
+
+    With `from_tick`, the game starts that far in: played to it with the
+    players' roles keeping still by a rule (`session.scripted_save`).
+    """
     if minds not in self.minds()['options']:
       return f'minds {minds!r} are not available (or the live budget is spent)'
     # Several people share a turn: give each a few minutes to answer.
     turn = TURN_SECONDS if players and len(players) > 1 else None
+    seats = players or [session_lib.roles(scenario)[0][0]]
     game = session_lib.GameSession(
         scenario,
         mode,
@@ -454,6 +492,12 @@ class Games:
         telemetry_dir=self.telemetry_dir,
         minds=minds,
         on_end=self._ended,
+        bots=bots or (),
+        resume=(
+            session_lib.scripted_save(scenario, seats, from_tick, seed)
+            if from_tick > 0 and mode == 'play'
+            else None
+        ),
     )
     with self._lock:
       old, self.current = self.current, game
@@ -494,6 +538,14 @@ class Games:
     if game is None:
       return 'No game is running.'
     return game.hold_course(seat, turns)
+
+  def look(self, seat: str | None, what: str) -> str | None:
+    """A player looked at something on the page: None, or why not kept."""
+    with self._lock:
+      game = self.current
+    if game is None:
+      return 'No game is running.'
+    return game.look(seat, what)
 
   def plan(
       self, seat: str | None, move: str, turns: int, cancel: int | None
@@ -608,7 +660,11 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         self._send(200, page(), 'text/html; charset=utf-8')
       elif path == '/api/state':
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        self._json(games.state((query.get('seat') or [None])[0]))
+        # With the build, so a page left open knows when it is out of date.
+        self._json({
+            **games.state((query.get('seat') or [None])[0]),
+            'build': BUILD['commit'],
+        })
       elif path == '/api/map':
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         self._json(
@@ -707,13 +763,26 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         except (TypeError, ValueError):
           self._json({'error': 'seed must be an integer'}, 400)
           return
-        refused = games.start(
-            scenario,
-            mode,
-            seed,
-            [str(p) for p in players] if players else None,
-            minds=str(body.get('minds', 'mock')),
-        )
+        # Roles a bot (the mock's skilled policies) plays in its own entity.
+        bots = body.get('bots') or []
+        if not isinstance(bots, list) or any(
+            str(b) not in dict(session_lib.roles(scenario)) for b in bots
+        ):
+          self._json({'error': 'unknown bot role'}, 400)
+          return
+        try:
+          refused = games.start(
+              scenario,
+              mode,
+              seed,
+              [str(p) for p in players] if players else None,
+              minds=str(body.get('minds', 'mock')),
+              bots=[str(b) for b in bots],
+              from_tick=int(body.get('from_tick', 0) or 0),
+          )
+        except ValueError as error:
+          self._json({'error': str(error)}, 400)
+          return
         if refused:
           self._json({'error': refused}, 400)
           return
@@ -746,6 +815,13 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
           turns = 0
         seat = body.get('seat')
         error = games.hold_course(str(seat) if seat else None, turns)
+        self._json({'ok': error is None, 'error': error or ''})
+      elif path == '/api/look':
+        # What the player looked at this turn, for play telemetry.
+        seat = body.get('seat')
+        error = games.look(
+            str(seat) if seat else None, str(body.get('what', ''))
+        )
         self._json({'ok': error is None, 'error': error or ''})
       elif path == '/api/plan':
         try:

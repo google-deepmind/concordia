@@ -16,6 +16,8 @@
 
 import json
 
+import time
+
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
 import numpy as np
@@ -72,6 +74,7 @@ class ColonyWorldTest(absltest.TestCase):
     self.assertEqual(planet.aim_mine('Nobody'), '')  # Nothing aimed.
 
   def test_home_sees_the_colony_years_late_the_colonists_now(self):
+    from examples.deep_time import views  # pylint: disable=g-import-not-at-top
     from examples.deep_time.web import session as session_lib  # pylint: disable=g-import-not-at-top
 
     game = session_lib.GameSession(
@@ -82,18 +85,27 @@ class ColonyWorldTest(absltest.TestCase):
     world.colony.temp_c = 5.0
     world.colony.generation += 1
     world.update()  # A thaw the light has not yet carried home.
-    home = game.map('Mission Control', world='ararat')
-    self.assertTrue(all(set(row) == {'1'} for row in home['ice']))
-    self.assertIn('years ago', home['title'])
-    colonists = session_lib.GameSession(
-        'light_delay', 'play', role='Colonists of New Ararat'
-    )
-    there = colonists.context.planet.colony_world
+    # What the World GM publishes for each role (`views.ararat`).
+    home = views.ararat(game.context, 'Mission Control')
+    assert home is not None
+    self.assertTrue(all(set(row) == {'1'} for row in home['frame']['ice']))
+    self.assertGreater(home['late'], 0)
+    there = views.ararat(game.context, 'Colonists of New Ararat')
     assert there is not None
-    there.colony.temp_c = 5.0
-    there.update()
-    seen = colonists.map('Colonists of New Ararat', world='ararat')
-    self.assertFalse(all(set(row) == {'1'} for row in seen['ice']))
+    self.assertFalse(all(set(row) == {'1'} for row in there['frame']['ice']))
+    self.assertEqual(there['late'], 0)
+    # Home's page draws it as published: years late.
+    played = session_lib.GameSession(
+        'light_delay', 'play', role='Mission Control'
+    ).start()
+    self.addCleanup(played.join, 30)
+    self.addCleanup(played.cancel)
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline and not played.state()['question']:
+      time.sleep(0.05)
+    self.assertIn(
+        'years ago', played.map('Mission Control', world='ararat')['title']
+    )
 
   def test_a_survey_sets_the_mine_in_the_year_it_arrives(self):
     planet = _planet()

@@ -38,3 +38,23 @@ pamphlets:
     headline and two sentences. Every people will judge it against what it can
     see (the air, restless lands, who is fed); pamphlets found false cost you
     credibility.
+# The relay: the presses' owners retell each omen on the Gazette's front
+# page, a turn later, as they see it (a scenario names the owner with
+# `civilization.press_owner`). Its stance sways consent as a broadsheet does.
+relay:
+  latency_ticks: 1
+  sway_factor: 1.0
+  printers: >-
+    the league's printers, who print the only broadsheet every people reads;
+    they see in every sign what they already believe about smoke and the
+    clans, and they want readers
+  question: >-
+    You are {agent_name}'s printers, who print the Gazette, the one
+    broadsheet every people reads. Who you are: {printers}. Signs in the sky
+    are seen by every people at once; no one knows who sends them, and
+    priests, printers and grandmothers each say what a sign means. A sign was
+    seen: {sign}. People say it was taken to say: "{words}". Write the
+    Gazette's front page about it, as you would tell it. Begin with "clean
+    air:" if you tell it as a warning against coal and smoke, or "coal and
+    progress:" if you tell it as a blessing on coal and work; then a headline
+    and two sentences.

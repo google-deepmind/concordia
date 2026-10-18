@@ -225,7 +225,13 @@ def run(
       mock_variant=mock_variant,
   )
   sim, context = simulation.build_simulation(
-      scenario, models, ticks, time_mode=time_mode, seed=seed
+      scenario,
+      models,
+      ticks,
+      time_mode=time_mode,
+      seed=seed,
+      # Live characters play without the playbook lines (a scenario flag).
+      overrides=None if models.mock is not None else {'coached': False},
   )
   start = time.perf_counter()
   log = sim.play(max_steps=ticks)

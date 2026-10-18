@@ -52,7 +52,7 @@ test('crises show where their role can place them on the map', () => {
   const crises = [
     {kind: 'band', title: 'Too hot: about 43 ± 14 °C', turns: 2, where: {world: 'hot'}},
     {kind: 'species', title: 'Aerobes dwindling', turns: null, where: {lat: -15}},
-    {kind: 'unrest', title: 'Unrest among the Cedar league', turns: null, where: {people: 'Cedar league'}},
+    {kind: 'unrest', title: 'Smoke sickens the land of the Cedar league', turns: null, where: {people: 'Cedar league'}},
     {kind: 'herds', title: 'Our herds shrink', turns: null, where: {herd: 'flock'}},
     {kind: 'famine', title: 'Stores run low', turns: 3, where: {site: true}},
     {kind: 'deadline', title: '3 turns left', turns: 3, where: null},
@@ -102,7 +102,7 @@ test('the moves that matter most are tagged', () => {
   assert.equal(pressingTag({kind: 'link', move: 'put more labor into: cut wood'}), '🔗 weakest link');
   assert.equal(pressingTag({kind: 'learn', move: 'learn shaft mining (8 research)'}), '📜 worth learning');
   assert.equal(pressingTag({kind: 'famine', move: 'put more labor into: farm the land'}), '🌾 feeds us');
-  assert.equal(pressingTag({kind: 'unrest', move: 'x'}), '✊ answers it');
+  assert.equal(pressingTag({kind: 'unrest', move: 'x'}), '🦗 answers it');
   assert.equal(pressingTag({kind: 'mystery', move: 'x'}), '⚠ answers it');
   assert.equal(pressingTag(null), '');
 });
@@ -111,6 +111,8 @@ test('the sheet heads with the question alone', () => {
   const base = 'You are Basalt clans, a people of the early iron age. Choose where to put more of your labor this generation.';
   assert.equal(askWords(base + ' Most pressing now: The granary is nearly empty; farm answers it. Our weakest link: wood.'), base);
   assert.equal(askWords(base + ' Our weakest link: wood.'), base);
+  // A free question that may be aimed lists its moves; the header does not.
+  assert.equal(askWords(base + '\n(a) seed white daisies\n(b) wait\nTo aim a move ...'), base);
   assert.equal(askWords(base), base);
   assert.equal(askWords(undefined), '');
 });

@@ -32,6 +32,15 @@ registry |
 | `__clock__` | contrib `NumericClock` shared with the topic bus |
 | `__topic_observations__` | contrib `TopicObservations`: topic messages become
 observations per access list |
+| `__actors__` | `ActorRegistry`: each acting entity's rules (its action spec,
+how its actions resolve), checkpointed with the GM |
+| `__deliveries__` | `Deliveries`: runs every entity's instruments (their
+transports, ageing and rendering) and publishes what reaches each on its
+own topic |
+| `entity_scheduler` | upstream `interrupt_scheduling.EntityScheduler`: the
+event-driven entities' interrupt masks and timers (where there are any) |
+| `__wakeups__` | `wakeups.WakeUps`: the events and alarms that wake them |
+| `__standing_orders__` | `StandingOrders`: the peoples' adopted reflexes |
 
 `__next_game_master__` is omitted: with a single game master the engine never
 asks for it.
@@ -43,6 +52,7 @@ from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
+from concordia.components.game_master import interrupt_scheduling
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
 from concordia.components.game_master import switch_act
@@ -51,8 +61,13 @@ from concordia.contrib.components.game_master import numeric_time
 from concordia.contrib.components.game_master import topic_observations
 from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
+from examples.deep_time import views
+from examples.deep_time import wakeups as wakeups_lib
 from examples.deep_time.components import action_specs
+from examples.deep_time.components import actor_registry
+from examples.deep_time.components import deliveries
 from examples.deep_time.components import resolution
+from examples.deep_time.components import standing_orders
 from examples.deep_time.components import world_step
 from examples.deep_time.world import publishing
 from concordia.language_model import language_model
@@ -68,8 +83,13 @@ class WorldGameMaster(prefab_lib.Prefab):
       ' topics, resolves structured actions. Makes no language model calls.'
   )
   params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {'name': 'Deep Time', 'context': None}
+      default_factory=lambda: {'name': 'Deep Time', 'roles': []}
   )
+  # The game (a shared service: copying the prefab keeps it).
+  context: game_lib.GameContext | None = None
+  # Each role's prefab, by its prefab key: the World GM installs each role's
+  # rules from the role's plain params (`params['roles']`) as it builds.
+  roles: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
   def build(
       self,
@@ -88,7 +108,22 @@ class WorldGameMaster(prefab_lib.Prefab):
     """
     del memory_bank
     name = self.params.get('name', 'Deep Time')
-    context: game_lib.GameContext = self.params['context']
+    context = self.context
+    if context is None:
+      raise ValueError('The World GM needs the game context.')
+    # Every role's rules (its actor, wake-ups and attention, the sheets the
+    # GM publishes for it and the instruments it runs), from its params, in
+    # the order the roles were listed.
+    premise = str(context.scenario.get('premise', ''))
+    for role in self.params.get('roles', ()):
+      self.roles[role['prefab']].rules(context, role['params'])
+      if premise:  # Every role hears the premise first.
+        context.observe(str(role['params']['name']), premise)
+    # For a game a person's page shows: each role's view (crises, needs).
+    if self.params.get('views'):
+      views.register_world(context)
+      for actor in sorted(context.actors):
+        views.register(context, actor, str(self.params['views']))
     player_names = [entity.name for entity in self.entities or ()]
 
     components = {
@@ -123,11 +158,36 @@ class WorldGameMaster(prefab_lib.Prefab):
         switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY: resolution.ActorResolution(
             context=context
         ),
+        # The rules of every acting entity, checkpointed with the GM.
+        actor_registry.DEFAULT_ACTOR_REGISTRY_KEY: context.registry,
+        # Every entity's instruments: what reaches whom, when, how.
+        deliveries.DEFAULT_DELIVERIES_KEY: context.deliveries,
+        # Who is awake in event-driven eras: the upstream scheduler of masks
+        # and timers, and what wakes whom (stepped by `WorldStep`).
+        **(
+            {
+                interrupt_scheduling.DEFAULT_SCHEDULER_COMPONENT_KEY: (
+                    context.wakeups.scheduler
+                ),
+                wakeups_lib.DEFAULT_WAKEUPS_COMPONENT_KEY: context.wakeups,
+            }
+            if context.wakeups is not None
+            else {}
+        ),
+        # The peoples' adopted standing orders (reflexes on the bus).
+        **(
+            {
+                standing_orders.DEFAULT_STANDING_ORDERS_KEY: (
+                    standing_orders.StandingOrders(context.automation)
+                )
+            }
+            if context.automation is not None
+            else {}
+        ),
     }
     act_component = switch_act.SwitchAct(model=model, entity_names=player_names)
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=name,
         act_component=act_component,
         context_components=components,
-        measurements=context.measurements,
     )

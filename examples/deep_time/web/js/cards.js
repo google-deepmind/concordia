@@ -53,22 +53,22 @@ export function firstSentence(text) {
 
 /**
  * One card: the map (a canvas the page paints), the title and age, the
- * premise's first sentence, and the stars won (or the lock).
+ * premise's first sentence, and the stars won. Any world may be played from
+ * here, so a chapter the campaign has not opened yet shows no lock.
  * @param {!Object} s
  * @param {?Object} chapter
  * @param {boolean=} selected
  * @return {string}
  */
 export function scenarioCardHtml(s, chapter, selected = false) {
-  const locked = chapter && !chapter.open;
-  const stars = chapter ? '★'.repeat(chapter.stars) + '☆'.repeat(3 - chapter.stars) : '';
-  return `<button class="scard${selected ? ' on' : ''}${locked ? ' locked' : ''}" data-scenario="${escapeHtml(s.key)}"`
-    + ` aria-pressed="${selected}" aria-label="${escapeHtml(s.title)}${locked ? ', not yet opened' : ''}">`
+  const stars = chapter && chapter.open ? '★'.repeat(chapter.stars) + '☆'.repeat(3 - chapter.stars) : '';
+  return `<button class="scard${selected ? ' on' : ''}" data-scenario="${escapeHtml(s.key)}"`
+    + ` aria-pressed="${selected}" aria-label="${escapeHtml(s.title)}">`
     + `<canvas class="sthumb" data-thumb="${escapeHtml(s.key)}" width="40" height="30" aria-hidden="true"></canvas>`
     + `<span class="stitle"><b>${escapeHtml(s.title)}</b>${chapter ? `<small>${escapeHtml(chapter.when)}</small>` : ''}</span>`
     + `<span class="spremise">${escapeHtml(firstSentence(s.premise))}</span>`
     + `<span class="sfoot"><span>${(s.roles || []).length} roles${s.coop ? ' · 👥 co-op' : ''}</span>`
-    + `<span class="cstars">${locked ? '🔒' : stars}</span></span></button>`;
+    + `<span class="cstars">${stars}</span></span></button>`;
 }
 
 /**

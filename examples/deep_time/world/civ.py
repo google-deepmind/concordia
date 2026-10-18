@@ -1272,7 +1272,10 @@ class Civilization:
             }
             for key, p in sorted(self.polities.items())
         },
-        'made': {r: round(self.made(r), 2) for r in ('grain', 'iron', 'tools')},
+        'made': {
+            r: round(self.made(r), 2)
+            for r in ('grain', 'iron', 'tools', 'energy')
+        },
     }
 
   def get_state(self) -> dict[str, Any]:

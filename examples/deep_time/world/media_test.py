@@ -19,6 +19,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
 from examples.deep_time.components import press_mind
+from examples.deep_time.prefabs import polity as polity_prefab
 from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
@@ -220,17 +221,27 @@ class GazetteFlowTest(absltest.TestCase):
     self.assertAlmostEqual(civ.stock('cedar', 'paper'), 1.0)
     self.assertNotIn(actors_lib.PRINT_BROADSHEET, cedar.options())  # Writing.
     mind = press_mind.PressMind(
-        mock_language_model.DeepTimeMockModel(), context, 'basalt'
+        mock_language_model.DeepTimeMockModel(),
+        lambda: polity_prefab.commission(context, 'basalt'),
     )
     self.assertEqual(mind._make_pre_act_value(), '')  # pylint: disable=protected-access
     context.bus.publish(
         'civ.cedar.press', 'clean air: Smoke Kills. Burn less coal.'
     )
-    events = context.deliver_adaptations()
-    self.assertIn('The Cedar league print a broadsheet', events[0].text)
-    propaganda = context.bus.latest('civ.cedar.propaganda')
-    assert propaganda is not None
-    self.assertIn('Smoke Kills', propaganda.payload)
+    # The printers' sheet reaches the Gazette only when the people publishes
+    # it: an action carrying its words (paid for, so offered).
+    self.assertIsNone(context.bus.latest('civ.cedar.propaganda'))
+    self.assertIn(actors_lib.PUBLISH_BROADSHEET, cedar.options())
+    news = cedar.resolve(
+        f'{actors_lib.PUBLISH_BROADSHEET}: clean air: Smoke Kills.'
+        ' Burn less coal.'
+    )
+    self.assertIn('The Cedar league print a broadsheet', news)
+    self.assertIn(
+        ('civ.cedar.propaganda', 'clean air: Smoke Kills. Burn less coal.'),
+        cedar.drain_outbox(),
+    )
+    self.assertNotIn(actors_lib.PUBLISH_BROADSHEET, cedar.options())
     context.publish_state()
     message = context.bus.latest('media.gazette')
     assert message is not None

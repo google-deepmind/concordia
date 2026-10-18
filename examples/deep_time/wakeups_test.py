@@ -17,8 +17,11 @@
 import json
 
 from absl.testing import absltest
+from concordia.components.game_master import interrupt_scheduling
 from concordia.contrib.pubsub import topics
 from examples.deep_time import game as game_lib
+from examples.deep_time import model_setup
+from examples.deep_time import simulation
 from examples.deep_time import wakeups as wakeups_lib
 
 CONFIG = {
@@ -98,11 +101,31 @@ class WakeUpsTest(absltest.TestCase):
   def test_state_round_trip(self):
     self.step()
     state = self.wakeups.get_state()
+    timers = self.wakeups.scheduler.get_state()
     other = wakeups_lib.WakeUps(self.bus)
     other.add('White', 'white', CONFIG)
     other.add('Black', 'black', CONFIG)
     other.set_state(state)
+    other.scheduler.set_state(timers)
     self.assertEqual(other.get_state(), state)
+    self.assertEqual(other.scheduler.get_state(), timers)
+
+  def test_the_world_gm_keeps_the_wake_ups(self):
+    sim, context = simulation.build_simulation(
+        'daisyworld', model_setup.make_models('mock')
+    )
+    assert context.wakeups is not None
+    world = sim.game_masters[0]
+    self.assertIs(
+        world.get_component(
+            interrupt_scheduling.DEFAULT_SCHEDULER_COMPONENT_KEY
+        ),
+        context.wakeups.scheduler,
+    )
+    self.assertIs(
+        world.get_component(wakeups_lib.DEFAULT_WAKEUPS_COMPONENT_KEY),
+        context.wakeups,
+    )
 
   def test_context_skips_sleeping_species(self):
     context = game_lib.new_game('daisyworld')

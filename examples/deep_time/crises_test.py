@@ -22,6 +22,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import crises
 from examples.deep_time import forecast
 from examples.deep_time import game as game_lib
+from examples.deep_time.prefabs import polity as polity_prefab
 
 CLOUDS = 'seed bright clouds (cools the planet) [4 omega]'
 HAZE = 'release a dark haze (warms the planet) [4 omega]'
@@ -267,6 +268,17 @@ class PressingTest(absltest.TestCase):
     self.assertIn(
         'Worth learning now: shaft mining (mine ore +40%).',
         actor.action_spec().call_to_action,
+    )
+    # A live mind plays the people as a character: no playbook lines.
+    character = actors_lib.PolityActor(
+        'Basalt clans', 'basalt', planet, 0.15, coached=False
+    )
+    self.assertNotIn('Most pressing', character.action_spec().call_to_action)
+    self.assertNotIn('Worth learning', character.action_spec().call_to_action)
+    self.assertIn('What the age asks', polity_prefab.storehouse(context, key))
+    context.coached = False
+    self.assertNotIn(
+        'What the age asks', polity_prefab.storehouse(context, key)
     )
     civ.ledger.withdraw(key, 'research', 8.0, 'test')
     people.food_ratio = 1.0

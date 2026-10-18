@@ -258,9 +258,9 @@ def steward_crises(
       out.append(
           _crisis(
               'unrest',
-              f'Unrest among the {name}',
-              f'Their lands are {float(pressure):.0%} of the way to striking'
-              ' back.',
+              f'Smoke sickens the land of the {name}',
+              f'{float(pressure):.0%} of the way to locusts or plague, where'
+              ' the smoke lingers; forests and rain clear it.',
               None,
               urgency=1.0 + float(pressure),
               where={'people': name},
@@ -398,8 +398,9 @@ def polity_crises(
       out.append(
           _crisis(
               'unrest',
-              'Our lands are restless',
-              f'{float(pressure):.0%} of the way to striking back at us.',
+              'Smoke sickens our land',
+              f'{float(pressure):.0%} of the way to locusts or plague, where'
+              ' the smoke lingers; forests clear it.',
               None,
               urgency=1.0 + float(pressure),
               where={'people': people.name},

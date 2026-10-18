@@ -116,7 +116,7 @@ cells:
   - {from: economy, to: information, by: clearing prices and goods in transit on econ.prices}
   - {from: information, to: economy, by: "reflexes on the census place market orders with no language model call (standing orders)"}
   - {from: technology, to: information, by: granaries unlock the threshold operator for reflexes}
-  - {from: civilization, to: information, by: "scribes (a slow mind) publish standing orders as reflex JSON on civ.<key>.policy, sandboxed before install"}
+  - {from: civilization, to: information, by: "scribes (a slow mind) draft standing orders as reflex JSON on civ.<key>.policy; the people adopts them by an action, checked before install"}
   - {from: logistics, to: economy, by: "goods on the road are invisible to buyers without tallies, so they reorder (blind reorders)"}
   - {from: technology, to: economy, by: "writing gives tallies, so buyers count goods on the road and order less"}
   - {from: civilization, to: energy, by: coal mines and steam engines turn labor and coal into energy}
