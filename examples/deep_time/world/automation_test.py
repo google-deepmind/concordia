@@ -134,6 +134,30 @@ class AutomationTest(absltest.TestCase):
         ['cedar:policy:sell_charcoal', 'cedar:policy:buy_ore'],
     )
 
+  def test_a_draft_is_counsel_until_the_people_adopts_it(self):
+    context, automation, civ, _ = _context()
+    civ.polities['cedar'].techs = ['granaries']
+    draft = mock_language_model.policy_answer(
+        'You are the scribes of Cedar league. Our land is rich in forest,'
+        ' poor in ore. ... "topic": "civ.cedar.orders" ...'
+    )
+    context.bus.publish('civ.cedar.policy', draft, source='Cedar league')
+    # Published by the scribes' mind: nothing installed, an option offered.
+    self.assertEqual(automation.engine.names('cedar'), [])
+    self.assertEqual(automation.draft('cedar'), draft)
+    self.assertIn('sell charcoal', automation.summary('cedar', draft))
+    cedar = actors_lib.PolityActor(
+        'Cedar league', 'cedar', context.planet, 0.15, automation=automation
+    )
+    self.assertIn(actors_lib.ADOPT_ORDERS, cedar.options())
+    news = cedar.resolve(actors_lib.ADOPT_ORDERS)
+    self.assertIn("adopt their scribes' 2 standing orders", news)
+    self.assertLen(automation.engine.names('cedar'), 2)
+    # Adopted: no longer offered, and kept in the state.
+    self.assertIsNone(automation.draft('cedar'))
+    self.assertNotIn(actors_lib.ADOPT_ORDERS, cedar.options())
+    self.assertIn('cedar', automation.get_state()['adopted'])
+
   def test_state_round_trip(self):
     context, automation, civ, _ = _context()
     civ.polities['cedar'].techs = ['granaries']

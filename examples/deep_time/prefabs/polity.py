@@ -354,6 +354,32 @@ def polity_config(
                   if owner and character
                   else {}
               ),
+              # The scribes' draft, as counsel: the people adopts it (or not)
+              # by an action on its menu.
+              **(
+                  {
+                      "Our scribes' draft": perception.instrument(
+                          context,
+                          f'civ.{polity}.policy',
+                          owner=people.name,
+                          label="Our scribes' draft",
+                          initial=(
+                              'Our scribes have drafted no standing orders.'
+                          ),
+                          render=lambda message: (
+                              'Standing orders our scribes drafted (adopt them'
+                              ' to put them to work): '
+                              + context.automation.summary(
+                                  polity, str(message.payload)
+                              )
+                          )
+                          if context.automation is not None
+                          else str(message.payload),
+                      )
+                  }
+                  if context.automation is not None
+                  else {}
+              ),
               # Writes standing orders (reflex JSON) once they are unlocked.
               'Policy compiler': context.make_mind(
                   people.name,

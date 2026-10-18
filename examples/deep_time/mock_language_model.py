@@ -1422,8 +1422,15 @@ def offer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   return next(t for t, accept in answers.items() if accept == said)
 
 
+def adopt_policy(prompt: str, options: Mapping[str, str]) -> str | None:
+  """Puts the scribes' standing orders to work as soon as they are drafted."""
+  del prompt
+  return _find(options, 'adopt the standing orders our scribes wrote')
+
+
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
     offer_policy,
+    adopt_policy,
     steward_policy,
     species_policy,
     grazer_policy,
@@ -1437,6 +1444,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'default': DEFAULT_POLICIES,
     'passive': (
         offer_policy,
+        adopt_policy,
         passive_steward_policy,
         species_policy,
         grazer_policy,
@@ -1447,6 +1455,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     # bot (`default`) must beat it, and the passive one, by a clear margin.
     'random': (
         offer_policy,
+        adopt_policy,
         random_steward_policy,
         species_policy,
         grazer_policy,
@@ -1457,6 +1466,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     # Acts on its forecast instead of the late reading.
     'forecaster': (
         offer_policy,
+        adopt_policy,
         forecasting_steward_policy,
         species_policy,
         grazer_policy,
@@ -1466,6 +1476,7 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     ),
     'no_advice': (
         offer_policy,
+        adopt_policy,
         steward_policy_without_advice,
         species_policy,
         grazer_policy,

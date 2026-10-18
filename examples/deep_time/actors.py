@@ -47,6 +47,9 @@ KEEP_LABOR = 'keep the current balance of labor'
 # Offered to a people a person plays, when it has towns: the next town rises
 # where the person taps the map.
 PLAN_TOWN = 'plan where our next town will stand'
+# A people adopts the standing orders its scribes drafted (a draft is only
+# counsel until then).
+ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
 MISSION_CALL_TO_ACTION = (
     'You are {name}, at home, four light-years from the colony. Everything'
     ' you hear from it is four years old, and anything you send arrives four'
@@ -668,7 +671,14 @@ class PolityActor(Actor):
     first, more = [], []
     for text, (_, kind) in self._treaty_partners().items():
       (more if any(k == kind for _, k in first) else first).append((text, kind))
+    drafted = (
+        [ADOPT_ORDERS]
+        if self._automation is not None
+        and self._automation.draft(self.polity) is not None
+        else []
+    )
     extras = [
+        *drafted,
         *(text for text, _ in first),
         *([PRINT_BROADSHEET] if self._can_print() else []),
         *([PAY_PAMPHLETS] if self._can_pamphlet() else []),
@@ -760,6 +770,11 @@ class PolityActor(Actor):
       self._tally('press')
       news = self._planet.commission_broadsheet(self.polity)
       return news or f'{self.name} could not print a broadsheet.'
+    if text == ADOPT_ORDERS and self._automation is not None:
+      self._tally('reflex')
+      news = self._automation.adopt_draft(self.polity)
+      self.outbox.append((planet_lib.CIV_EVENTS, news))
+      return news
     reflex = self._reflexes().get(text)
     if reflex is not None and self._automation is not None:
       self._tally('reflex')

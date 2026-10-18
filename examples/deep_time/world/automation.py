@@ -39,7 +39,6 @@ from examples.deep_time.world import trade as trade_lib
 BASE_OPS = frozenset({'json_field'})
 PUBLIC_INPUTS = frozenset({'civ.census', 'econ.prices'})
 _ORDER_TOPIC_RE = re.compile(r'^civ\.([^.]+)\.orders$')
-_POLICY_TOPIC_RE = re.compile(r'^civ\.([^.]+)\.policy$')
 
 
 class Automation:
@@ -74,6 +73,9 @@ class Automation:
     self._lock = threading.Lock()
     self.reflex_orders = 0
     self.turn_orders = 0
+    # The last draft of standing orders each people adopted (bus seq): a
+    # draft is only a draft until the people adopts it by an action.
+    self.adopted: dict[str, int] = {}
     bus.matching('civ.').subscribe(self._on_order)
 
   def allowed_ops(self, polity: str) -> set[str]:
@@ -186,7 +188,47 @@ class Automation:
     self.engine.remove(name)
     return f'{self._civ.polities[polity].name} cancel a standing order.'
 
-  def compile(self, polity: str, text: str) -> list[str]:
+  def draft(self, polity: str) -> str | None:
+    """The scribes' latest draft of standing orders not yet adopted, if it
+    would add any (read from `civ.<key>.policy`, where the mind wrote it)."""
+    latest = self._bus.latest(f'civ.{polity}.policy')
+    if latest is None or latest.seq <= self.adopted.get(polity, -1):
+      return None
+    if not self.compile(polity, str(latest.payload), dry_run=True):
+      return None
+    return str(latest.payload)
+
+  def summary(self, polity: str, text: str) -> str:
+    """A draft in words: the orders it would place (sell/buy a good)."""
+    names = self.compile(polity, text, dry_run=True, describe=True)
+    return '; '.join(names) if names else 'nothing that can be kept'
+
+  def adopt_draft(self, polity: str) -> str:
+    """Installs the scribes' latest draft (a people's action); what it did."""
+    latest = self._bus.latest(f'civ.{polity}.policy')
+    people = self._civ.polities[polity].name
+    if latest is None or latest.seq <= self.adopted.get(polity, -1):
+      return f'The scribes of the {people} have no new standing orders.'
+    self.adopted[polity] = latest.seq
+    installed = self.compile(polity, str(latest.payload))
+    if not installed:
+      return (
+          f'The scribes of the {people} wrote no standing order that can be'
+          ' kept.'
+      )
+    return (
+        f"The {people} adopt their scribes' {len(installed)} standing"
+        f' order{"s" if len(installed) > 1 else ""}:'
+        f' {self.summary(polity, str(latest.payload))}.'
+    )
+
+  def compile(
+      self,
+      polity: str,
+      text: str,
+      dry_run: bool = False,
+      describe: bool = False,
+  ) -> list[str]:
     """Installs the standing orders a people's scribes wrote as JSON.
 
     Each reflex is validated by the contrib `reflexes.parse_specs` against
@@ -197,9 +239,11 @@ class Automation:
     Args:
       polity: The people's key.
       text: The scribes' answer.
+      dry_run: Only say what would be installed.
+      describe: Name each order in words ("sell ore") instead of its reflex.
 
     Returns:
-      Names of the reflexes installed.
+      Names of the reflexes installed (or that would be).
     """
     specs, _ = reflexes_lib.parse_specs(text, self.allowed_ops(polity))
     installed = []
@@ -215,8 +259,17 @@ class Automation:
       ):
         continue
       held.add((side, good))
-      if len(self.engine.names(polity)) >= self.max_reflexes:
+      if len(self.engine.names(polity)) + len(installed) * dry_run >= (
+          self.max_reflexes
+      ):
         break
+      if dry_run:
+        installed.append(
+            f'{"sell" if side == "ask" else "buy"} {good}'
+            if describe
+            else spec.name
+        )
+        continue
       spec = dataclasses.replace(spec, name=f'{polity}:policy:{spec.name}'[:60])
       self.engine.install(spec, owner=polity)
       installed.append(spec.name)
@@ -225,18 +278,8 @@ class Automation:
   def _on_order(self, message: topics.Message) -> None:
     if self._bus.is_restoring:  # A checkpoint's replay: no new orders.
       return
-    policy = _POLICY_TOPIC_RE.match(message.topic)
-    if policy is not None:
-      installed = self.compile(policy.group(1), message.payload)
-      if installed:
-        people = self._civ.polities[policy.group(1)].name
-        self._bus.publish(
-            'civ.events',
-            f'The scribes of the {people} write {len(installed)} standing'
-            f' order{"s" if len(installed) > 1 else ""}.',
-            source='world',
-        )
-      return
+    # A draft of standing orders (`civ.<key>.policy`) is installed only when
+    # its people adopts it by an action (`adopt_draft`), never here.
     match = _ORDER_TOPIC_RE.match(message.topic)
     if match is None:
       return
@@ -274,6 +317,7 @@ class Automation:
           'engine': self.engine.get_state(),
           'reflex_orders': self.reflex_orders,
           'turn_orders': self.turn_orders,
+          'adopted': dict(self.adopted),
       }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -281,3 +325,4 @@ class Automation:
     with self._lock:
       self.reflex_orders = int(state['reflex_orders'])
       self.turn_orders = int(state['turn_orders'])
+      self.adopted = {k: int(v) for k, v in state.get('adopted', {}).items()}
