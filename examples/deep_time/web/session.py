@@ -643,6 +643,9 @@ class GameSession:
         seed=seed,
         humans=humans,
         bots={name: bot for name in bots} if bot is not None else None,
+        # The mock's peoples are coached (their rules read the playbook
+        # lines); live characters play without them.
+        coached=self.models.mock is not None,
     )
     self._thread = threading.Thread(target=self._run, daemon=True)
     # Identifies this game to pages caching its static terrain.

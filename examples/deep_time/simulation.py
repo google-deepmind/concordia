@@ -92,6 +92,7 @@ def build_simulation(
     humans: Mapping[str, human_input.HumanInput] | None = None,
     overrides: Mapping[str, Any] | None = None,
     bots: Mapping[str, language_model.LanguageModel] | None = None,
+    coached: bool = True,
 ) -> tuple[simulation_lib.Simulation, game_lib.GameContext]:
   """Creates the shared game state and the simulation for a scenario.
 
@@ -108,6 +109,9 @@ def build_simulation(
       (`game.new_game`).
     bots: Entities a bot plays (by name), and the model each acts with: the
       role's own entity, its act component on that model.
+    coached: Whether the peoples' sheets and calls to action carry the
+      playbook lines (what the age asks of them in numbers), as the mock's
+      rules read them; live characters play without (the harness says).
 
   Returns:
     The simulation and the shared game context.
@@ -117,7 +121,7 @@ def build_simulation(
   )
   context.humans.update(humans or {})
   context.bots.update(bots or {})
-  context.coached = models.mock is not None
+  context.coached = coached
   # The roles' slow minds think with it (and so do species founded later).
   context.slow_model = models.slow
   config = build_config(context, max_ticks)

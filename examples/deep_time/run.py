@@ -225,7 +225,13 @@ def run(
       mock_variant=mock_variant,
   )
   sim, context = simulation.build_simulation(
-      scenario, models, ticks, time_mode=time_mode, seed=seed
+      scenario,
+      models,
+      ticks,
+      time_mode=time_mode,
+      seed=seed,
+      # The mock's peoples are coached; live characters play without.
+      coached=models.mock is not None,
   )
   start = time.perf_counter()
   log = sim.play(max_steps=ticks)
