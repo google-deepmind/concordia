@@ -103,17 +103,18 @@ class ActorResolution(
       action = actor.understood(actions[name])
       actor.acts += 1
       outcome = actor.resolve(action)
-      if not outcome:
-        continue
-      # Kept for the player's page: what their move did, and on which tick.
-      actor.log.append((self._context.planet.tick, action, outcome))
-      del actor.log[:-40]
-      self._context.observe(name, outcome)
-      if actor.outcome_topic:
-        self._context.bus.publish(actor.outcome_topic, outcome, source=name)
+      if outcome:
+        # Kept for the player's page: what their move did, and on which tick.
+        actor.log.append((self._context.planet.tick, action, outcome))
+        del actor.log[:-40]
+        self._context.observe(name, outcome)
+        if actor.outcome_topic:
+          self._context.bus.publish(actor.outcome_topic, outcome, source=name)
+      # What its act made public (a broadsheet, a chapter), news or not.
       for topic, text in actor.drain_outbox():
         self._context.bus.publish(topic, text, source=name)
-      outcomes.append(outcome)
+      if outcome:
+        outcomes.append(outcome)
     self._putative_event = ''
     result = ' '.join(outcomes)
     self._logging_channel({

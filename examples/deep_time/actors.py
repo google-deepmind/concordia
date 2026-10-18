@@ -94,6 +94,8 @@ GRAZER_CALL_TO_ACTION = (
 
 CHRONICLER_CALL_TO_ACTION = '{name} keeps watch over the planet.'
 CHRONICLER_RESPONSE = 'keeps watch.'
+# The Chronicler hands in a chapter its slow mind wrote: "<move>: <chapter>".
+HAND_IN_CHAPTER = 'hands in a chapter'
 
 STEWARD_CALL_TO_ACTION = (
     'You are {name}, Steward of this planet. Read your instruments, then'
@@ -1156,12 +1158,21 @@ class MissionActor(Actor):
 class ChroniclerActor(Actor):
   """The Chronicler: acts every tick (no language model) so its slow mind runs.
 
-  Its act is a fixed puppet response; the chapters come from a background
-  `pubsub.Publisher` that the act triggers. Acting has no effect on the world.
+  Its act is a rule (`components.chronicler_act`): it keeps watch, or hands
+  in the newest chapter its slow mind wrote, the chapter's words in its
+  action, which the World GM publishes on the chronicle. Acting has no other
+  effect on the world.
   """
 
-  def __init__(self, name: str):
+  def __init__(self, name: str, topic: str):
+    """Initializes the actor.
+
+    Args:
+      name: The Chronicler's name.
+      topic: The chronicle, where its chapters are published.
+    """
     super().__init__(name)
+    self._topic = topic
 
   def action_spec(self) -> entity_lib.ActionSpec:
     return entity_lib.free_action_spec(
@@ -1169,7 +1180,9 @@ class ChroniclerActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
-    del action
+    chapter = said(action, HAND_IN_CHAPTER)
+    if chapter:
+      self.outbox.append((self._topic, chapter))
     return ''
 
 

@@ -512,8 +512,10 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     the geologists expect, exact because the seeded eruption stream is stepped
     ahead on a copy.
 *   **Chronicler** (`prefabs/chronicler.py`): stock memory and observation
-    components, a chronicle `Publisher` that lands a chapter five ticks after it
-    starts, and a `PuppetActComponent` so acting costs no language model call.
+    components, a slow `Publisher` that drafts a chapter five ticks after it
+    starts, and a rule for its act (`components/chronicler_act.py`), so acting
+    costs no language model call: it hands in each finished chapter in its
+    action, and the World GM publishes it on the chronicle.
 *   **The map** (`world/tiles.py`, `world/biomes.py`, `world/tilelife.py`,
     `world/fire.py`): 1,200 tiles refine the 48 regions; climate layers set 13
     biomes; plants grow and spread tile by tile; lightning fires run through

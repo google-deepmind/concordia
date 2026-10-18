@@ -173,6 +173,31 @@ class ActorComponentsTest(absltest.TestCase):
   def test_active_entities(self):
     self.assertEqual(self.context.active_entities(), ['Rose'])
 
+  def test_a_chapter_travels_in_the_chroniclers_action(self):
+    self.context.add_actor(
+        actors_lib.ChroniclerActor('Chronicler', 'chronicle')
+    )
+    component = resolution.ActorResolution(self.context)
+    resolve = entity_lib.ActionSpec(
+        call_to_action='?', output_type=entity_lib.OutputType.RESOLVE
+    )
+    watch = actors_lib.CHRONICLER_RESPONSE
+    component.pre_observe(
+        f'{resolution.PUTATIVE_EVENT_TAG} Chronicler: {watch}'
+    )
+    component.pre_act(resolve)
+    self.assertEqual(self.context.bus.history('chronicle'), [])
+    component.pre_observe(
+        f'{resolution.PUTATIVE_EVENT_TAG} Chronicler:'
+        f' {actors_lib.HAND_IN_CHAPTER}: The Quiet Years.'
+    )
+    # Published on the chronicle, though it is no news of the world.
+    self.assertEqual(component.pre_act(resolve), '')
+    (chapter,) = self.context.bus.history('chronicle')
+    self.assertEqual(
+        (chapter.payload, chapter.source), ('The Quiet Years.', 'Chronicler')
+    )
+
   def test_an_adaptation_is_enacted_by_the_species_own_action(self):
     white = actors_lib.SpeciesActor(
         'White daisies', 'white', self.context.planet

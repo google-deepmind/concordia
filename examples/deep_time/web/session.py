@@ -90,7 +90,7 @@ _KINDS = (
 def roles(scenario: str) -> tuple[tuple[str, str], ...]:
   """The roles a person can play in a scenario: (entity name, label).
 
-  Every entity a model plays at the start (the Chronicler is a puppet, and
+  Every entity a model plays at the start (the Chronicler acts by a rule, and
   species that arise later cannot be chosen); the Steward, or Mission
   Control, comes first.
   """

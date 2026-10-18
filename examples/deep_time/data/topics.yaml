@@ -111,3 +111,6 @@ topics:
     retention: replay
     replay_size: 50
     description: Chapters written by the Chronicler.
+  - name: chronicler.draft
+    retention: latest
+    description: The Chronicler's newest chapter, before it hands it in.
