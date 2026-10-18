@@ -15,7 +15,7 @@
 """Grazers: a herbivore clade on `minimal__Entity`.
 
 The same three tiers as the daisies: ageing instruments (climate, census,
-biological news), a genome sheet (`ReportFunction`) and a slow adaptation mind
+biological news), a genome sheet (`perception.sheet`) and a slow adaptation mind
 (`pubsub.Publisher(QuestionOfRecentMemories)`, four-tick latency) whose
 answers go to `bio.species.grazers.adaptation`. The grazers' choice of diet
 decides whether they crop white or black petals, which warms or cools the

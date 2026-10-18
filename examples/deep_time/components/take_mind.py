@@ -23,12 +23,12 @@ keeps it with the Gazette for the page, and the people hears its own take.
 A take decides nothing by itself; the people still acts through its moves.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+import json
 from typing import override
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
-from examples.deep_time import game as game_lib
 from concordia.language_model import language_model
 from concordia.typing import entity_component
 
@@ -40,6 +40,16 @@ QUESTION = (
 )
 # A take is one short sentence: what is said beyond this is cut.
 TAKE_WORDS = 30
+
+
+def retellings_sheet(printed: int, retelling: str) -> str:
+  """The sheet a take mind weighs (the World GM publishes it).
+
+  Args:
+    printed: How many retellings of omens the Gazette has printed.
+    retelling: The newest, as every people heard it on `media.omens`.
+  """
+  return json.dumps({'printed': printed, 'retelling': retelling})
 
 
 def short_take(answer: str) -> str:
@@ -56,7 +66,7 @@ class TakeMind(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      context: game_lib.GameContext,
+      retellings: Callable[[], str],
       owner: str,
       components: Sequence[str] = (),
       pre_act_label: str = 'Take mind',
@@ -65,7 +75,8 @@ class TakeMind(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The slow model.
-      context: Shared game state (the Gazette is the planet's).
+      retellings: The latest retellings sheet the World GM published for
+        this people (`retellings_sheet`), or '' before any.
       owner: Name of the people that prints the Gazette.
       components: Sibling components shown to the model (who the people
         are, how the world works, its storehouse).
@@ -73,7 +84,7 @@ class TakeMind(action_spec_ignored.ActionSpecIgnored):
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._context = context
+    self._retellings = retellings
     self._owner = owner
     self._components = tuple(components)
     # How many retellings this people has weighed (or passed over).
@@ -81,21 +92,20 @@ class TakeMind(action_spec_ignored.ActionSpecIgnored):
 
   @override
   def _make_pre_act_value(self) -> str:
-    gazette = self._context.planet.gazette
-    told = self._context.bus.latest('media.omens')
-    if gazette is None or told is None:
+    sheet = self._retellings()
+    if not sheet:
       return ''
-    printed = sum(1 for sheet in gazette.printed if sheet.kind == 'omen')
-    if printed <= self._taken:
+    told = json.loads(sheet)
+    if int(told['printed']) <= self._taken:
       return ''
-    self._taken = printed
+    self._taken = int(told['printed'])
     prompt = interactive_document.InteractiveDocument(self._model)
     for key in self._components:
       prompt.statement(f'{key}: {self.get_named_component_pre_act_value(key)}')
     answer = prompt.open_question(
         QUESTION.format(
             owner=self._owner,
-            retelling=told.payload.strip(),
+            retelling=told['retelling'],
             name=self.get_entity().name,
             words=TAKE_WORDS,
         ),

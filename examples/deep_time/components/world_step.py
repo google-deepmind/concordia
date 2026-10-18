@@ -70,6 +70,9 @@ class WorldStep(
     # their messages are stamped with the new tick (the scheduler and the
     # clock count ticks in lockstep).
     if ctx.sim is not None:
+      # The slow minds due now weigh the world as the last resolution left
+      # it, through the sheets the GM publishes (never the world itself).
+      ctx.publish_sheets()
       ctx.sim.advance()
     ctx.advance_wire()
     # Minds' decisions reach the world only through their entities' actions
@@ -81,6 +84,9 @@ class WorldStep(
     # Observations follow from publishing: the World GM's TopicObservations
     # queues each message for the entities whose access lists match it.
     ctx.publish_state(events)
+    # What each entity knows of its own state: computed here, by the GM, and
+    # read by the entity's `Subscriber` (never from the world directly).
+    ctx.publish_sheets()
     ctx.record_beliefs()
     if ctx.wakeups is not None:
       ctx.wakeups.step(ctx.planet.tick)

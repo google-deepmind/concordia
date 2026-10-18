@@ -22,7 +22,8 @@ A polity is the contrib `basic_with_async_deliberation__Entity` (through
 * a grand strategy: the stock `Plan` in a background `Publisher` on the slow
   model, landing a few ticks after it starts and published on
   `civ.<key>.plan`, where rivals could one day subscribe to it;
-* a storehouse sheet (a stock `ReportFunction` over the ledger and market);
+* a storehouse sheet, which the World GM computes from the ledger and market
+  and publishes each step, read through a stock `Subscriber`;
 * a fast act that each tick puts more labor into one recipe, learns a tech,
   or places a standing order on the market (`actors.PolityActor`).
 """
@@ -33,7 +34,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from concordia.components.agent import constant
-from concordia.components.agent import report_function
 from concordia.contrib.pubsub import operators
 from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
@@ -119,6 +119,83 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
       )
   )
   return text
+
+
+def treaty_offer(context: game_lib.GameContext, polity: str) -> str:
+  """The offer awaiting the polity's answer, as its treaty mind weighs it."""
+  treaties, civ = context.planet.treaties, context.planet.civ
+  proposal = treaties.pending_for(polity) if treaties else None
+  if proposal is None or treaties is None or civ is None:
+    return ''
+  # The reply names the offer's kind, so it settles only that offer.
+  what = treaties.kinds[proposal.kind].name
+  return pact_mind.offer_sheet(
+      proposal.text,
+      f'{civ.polities[proposal.proposer].name} ({what})',
+      treaties.question,
+  )
+
+
+def commission(context: game_lib.GameContext, polity: str) -> str:
+  """The question the polity's printers answer, if it paid for a sheet."""
+  gazette = context.planet.gazette
+  if gazette is None or polity not in gazette.pending:
+    return ''
+  return gazette.question_for(polity)
+
+
+def newest_omen(context: game_lib.GameContext) -> str:
+  """The Steward's newest omen, as the printers' relay mind weighs it."""
+  planet = context.planet
+  gazette = planet.gazette
+  if gazette is None or not planet.omens:
+    return ''
+  _, sign, words = planet.omens[-1]
+  return relay_mind.omen_sheet(
+      len(planet.omens),
+      str(gazette.relay['question']),
+      printers=' '.join(
+          str(
+              context.scenario['civilization'].get('printers')
+              or gazette.relay['printers']
+          ).split()
+      ),
+      sign=sign,
+      words=words or '(nothing anyone could make out)',
+  )
+
+
+def retellings(context: game_lib.GameContext) -> str:
+  """The Gazette's newest retelling of an omen, as a take mind weighs it."""
+  gazette = context.planet.gazette
+  told = context.bus.latest('media.omens')
+  if gazette is None or told is None:
+    return ''
+  return take_mind.retellings_sheet(
+      sum(1 for sheet in gazette.printed if sheet.kind == 'omen'),
+      str(told.payload).strip(),
+  )
+
+
+def scribes(context: game_lib.GameContext, polity: str) -> str:
+  """What the polity's scribes may write standing orders with."""
+  automation = context.automation
+  if automation is None:
+    return ''
+  return policy_compiler.scribes_sheet(
+      sorted(automation.allowed_ops(polity)), sorted(automation.levels)
+  )
+
+
+def scribes_draft(context: game_lib.GameContext, polity: str) -> str:
+  """The scribes' latest draft, in the orders it would place."""
+  latest = context.bus.latest(f'civ.{polity}.policy')
+  if latest is None or context.automation is None:
+    return 'Our scribes have drafted no standing orders.'
+  return (
+      'Standing orders our scribes drafted (adopt them to put them to work): '
+      + context.automation.summary(polity, str(latest.payload))
+  )
 
 
 def character_words(character: Mapping[str, Any]) -> str:
@@ -271,9 +348,12 @@ def polity_config(
                       )
                   ),
               ),
-              'Storehouse': report_function.ReportFunction(
-                  function=lambda: storehouse(context, polity),
-                  pre_act_label='\nOur storehouse and labor',
+              'Storehouse': perception.sheet(
+                  context,
+                  people.name,
+                  'storehouse',
+                  lambda: storehouse(context, polity),
+                  label='\nOur storehouse and labor',
               ),
               # Deliberates over a treaty offer the moment it is observed;
               # its counsel is in the people's context, and the people
@@ -294,10 +374,14 @@ def polity_config(
                           people.name,
                           'Treaty',
                           f'civ.{polity}.treaty',
-                          pact_mind.TreatyMind(
+                          pact_mind.PactMind(
                               slow_model,
-                              context,
-                              polity,
+                              perception.brief(
+                                  context,
+                                  people.name,
+                                  'offer',
+                                  lambda: treaty_offer(context, polity),
+                              ),
                               components=[
                                   'Storehouse',
                                   'Census of the peoples',
@@ -317,8 +401,12 @@ def polity_config(
                   f'civ.{polity}.press',
                   press_mind.PressMind(
                       slow_model,
-                      context,
-                      polity,
+                      perception.brief(
+                          context,
+                          people.name,
+                          'commission',
+                          lambda: commission(context, polity),
+                      ),
                       components=['Storehouse', 'Census of the peoples'],
                   ),
                   context.planet.gazette.latency
@@ -334,7 +422,12 @@ def polity_config(
                           f'civ.{polity}.retelling',
                           relay_mind.RelayMind(
                               slow_model,
-                              context,
+                              perception.brief(
+                                  context,
+                                  people.name,
+                                  'omen',
+                                  lambda: newest_omen(context),
+                              ),
                               components=[
                                   *characters,
                                   'Census of the peoples',
@@ -360,7 +453,12 @@ def polity_config(
                           f'civ.{polity}.takes',
                           take_mind.TakeMind(
                               slow_model,
-                              context,
+                              perception.brief(
+                                  context,
+                                  people.name,
+                                  'retellings',
+                                  lambda: retellings(context),
+                              ),
                               civ.polities[owner].name,
                               components=[
                                   *characters,
@@ -378,23 +476,12 @@ def polity_config(
               # by an action on its menu.
               **(
                   {
-                      "Our scribes' draft": perception.instrument(
+                      "Our scribes' draft": perception.sheet(
                           context,
-                          f'civ.{polity}.policy',
-                          owner=people.name,
+                          people.name,
+                          'draft',
+                          lambda: scribes_draft(context, polity),
                           label="Our scribes' draft",
-                          initial=(
-                              'Our scribes have drafted no standing orders.'
-                          ),
-                          render=lambda message: (
-                              'Standing orders our scribes drafted (adopt them'
-                              ' to put them to work): '
-                              + context.automation.summary(
-                                  polity, str(message.payload)
-                              )
-                          )
-                          if context.automation is not None
-                          else str(message.payload),
                       )
                   }
                   if context.automation is not None
@@ -407,7 +494,12 @@ def polity_config(
                   f'civ.{polity}.policy',
                   policy_compiler.PolicyCompiler(
                       slow_model,
-                      context,
+                      perception.brief(
+                          context,
+                          people.name,
+                          'scribes',
+                          lambda: scribes(context, polity),
+                      ),
                       polity,
                       components=['Storehouse', 'Market'],
                   ),

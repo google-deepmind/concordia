@@ -91,6 +91,79 @@ def with_earlier_readings(
   return out
 
 
+def sheet(
+    context: game_lib.GameContext,
+    owner: str,
+    kind: str,
+    function: Callable[[], str],
+    *,
+    label: str,
+) -> pubsub.Subscriber:
+  """What an entity knows of its own state: a sheet the World GM publishes.
+
+  The World GM computes `function` each step (`GameContext.publish_sheets`,
+  from its `WorldStep`) and publishes it on the entity's own topic
+  (`sheets.<owner>.<kind>`, which no entity hears as observations); the
+  entity reads the latest with a stock `Subscriber`, as it read a
+  `ReportFunction` before, but never from the world itself.
+
+  Args:
+    context: Shared game state.
+    owner: The entity.
+    kind: The sheet ('storehouse', 'genome', ...).
+    function: The sheet's text, computed by the GM.
+    label: Component label.
+
+  Returns:
+    The subscriber.
+  """
+  topic = sheet_topic(owner, kind)
+  context.add_sheet(topic, function)
+  return pubsub.Subscriber(
+      initial_value='',
+      pre_act_label=label,
+      subject=context.bus.values(topic),
+  )
+
+
+def brief(
+    context: game_lib.GameContext,
+    owner: str,
+    kind: str,
+    function: Callable[[], str],
+) -> Callable[[], str]:
+  """What an entity's slow mind is asked to weigh: a sheet the GM publishes.
+
+  Like `sheet`, but read by a mind (a component computed in the background)
+  rather than shown in the entity's context: the mind reads the latest
+  sheet the World GM published, never the world itself.
+
+  Args:
+    context: Shared game state.
+    owner: The entity.
+    kind: The sheet ('offer', 'almanac', ...).
+    function: The sheet's text ('' when there is nothing to weigh), computed
+      by the GM.
+
+  Returns:
+    Reads the latest published sheet ('' before the first).
+  """
+  topic = sheet_topic(owner, kind)
+  context.add_sheet(topic, function)
+
+  def latest() -> str:
+    message = context.bus.latest(topic)
+    return '' if message is None else str(message.payload)
+
+  return latest
+
+
+def sheet_topic(owner: str, kind: str) -> str:
+  """The topic of an entity's own sheet."""
+  slug = ''.join(c if c.isalnum() else '_' for c in owner.lower()).strip('_')
+  return f'sheets.{slug}.{kind}'
+
+
 def instrument(
     context: game_lib.GameContext,
     topic: str,

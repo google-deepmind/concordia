@@ -22,11 +22,14 @@ Each species is three cognition tiers on stock components:
   skip_if_busy=True)` asks which heritable shift would help. In sim-time mode
   its scheduler is a `LatencyScheduler`, so the answer lands a fixed number of
   ticks later ("evolution takes as long as it takes"); a busy mind ignores
-  new triggers. Answers go to `bio.species.<key>.adaptation`, where the World
-  GM turns them into bounded trait changes.
+  new triggers. Answers go to `bio.species.<key>.adaptation`; the species
+  enacts one by its own action, which the World GM resolves into bounded
+  trait changes.
 * **Fast act**: the minimal entity's `ConcatActComponent` picks a behaviour.
 
-The genome sheet is a stock `ReportFunction` over the planet's traits.
+The genome sheet is computed by the World GM from the planet's traits and
+published each step on the species' own topic (`perception.sheet`); the
+species reads it through a stock `Subscriber`.
 """
 
 from collections.abc import Callable, Mapping
@@ -34,7 +37,6 @@ from typing import Any
 
 from concordia.components.agent import pubsub
 from concordia.components.agent import question_of_recent_memories
-from concordia.components.agent import report_function
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
@@ -72,8 +74,8 @@ def senses(
 ) -> dict[str, entity_component.ContextComponent]:
   """Genome sheet, climate and census instruments, and biological news."""
   components: dict[str, entity_component.ContextComponent] = {
-      'Genome': report_function.ReportFunction(
-          function=genome, pre_act_label='Genome'
+      'Genome': perception.sheet(
+          context, owner, 'genome', genome, label='Genome'
       )
   }
   for key, topic, initial in INSTRUMENTS:
@@ -89,6 +91,19 @@ def senses(
       size=3,
   )
   return components
+
+
+def pact_offer(context: game_lib.GameContext, species: str) -> str:
+  """The pact awaiting the species' answer, as its pact mind weighs it."""
+  symbiosis = context.planet.symbiosis
+  proposal = symbiosis.pending_for(species) if symbiosis else None
+  if proposal is None or symbiosis is None:
+    return ''
+  return pact_mind.offer_sheet(
+      proposal.text,
+      context.planet.species_name(proposal.proposer),
+      symbiosis.question,
+  )
 
 
 def adaptation_mind(
@@ -223,7 +238,14 @@ def species_config(
         'Pact',
         f'bio.species.{species}.pact',
         pact_mind.PactMind(
-            slow_model, context, species, components=['Genome', 'Census']
+            slow_model,
+            perception.brief(
+                context,
+                info.name,
+                'offer',
+                lambda: pact_offer(context, species),
+            ),
+            components=['Genome', 'Census'],
         ),
         context.planet.symbiosis.answer_latency,
         trigger_on_observe=True,

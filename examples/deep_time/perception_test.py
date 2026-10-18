@@ -54,6 +54,37 @@ class PerceptionTest(absltest.TestCase):
         'Gaia', context.bus.topology()['gaia.briefings']['subscribers']
     )
 
+  def test_an_entity_knows_its_own_state_only_as_the_gm_publishes_it(self):
+    context = game_lib.new_game('daisyworld')
+    state = {'stores': 'grain 3'}
+    sheet = perception.sheet(
+        context,
+        'Amber folk',
+        'storehouse',
+        lambda: state['stores'],
+        label='Storehouse',
+    )
+    brief = perception.brief(
+        context, 'Amber folk', 'offer', lambda: state['stores'] + ' offered'
+    )
+    # Nothing is known until the World GM publishes.
+    self.assertEqual(sheet.get_current_value(), '')
+    self.assertEqual(brief(), '')
+    context.publish_sheets()
+    self.assertEqual(sheet.get_current_value(), 'grain 3')
+    self.assertEqual(brief(), 'grain 3 offered')
+    # The world changes; the entity learns it at the GM's next publication.
+    state['stores'] = 'grain 1'
+    self.assertEqual(sheet.get_current_value(), 'grain 3')
+    context.publish_sheets()
+    self.assertEqual(sheet.get_current_value(), 'grain 1')
+    self.assertEqual(
+        perception.sheet_topic('Amber folk', 'storehouse'),
+        'sheets.amber_folk.storehouse',
+    )
+    # Sheets are no one's observations.
+    self.assertEqual(context.observation_queue.get_all(), {})
+
   def test_climate_instrument_renders_readings(self):
     context = game_lib.new_game('daisyworld')
     belief = perception.instrument(

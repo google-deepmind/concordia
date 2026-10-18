@@ -25,14 +25,26 @@ reading of the sign, not the sign: the peoples never hear the Steward's
 words but through them.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+import json
 from typing import override
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
-from examples.deep_time import game as game_lib
 from concordia.language_model import language_model
 from concordia.typing import entity_component
+
+
+def omen_sheet(count: int, question: str, **fields: str) -> str:
+  """The sheet a relay mind weighs: the newest omen (the GM publishes it).
+
+  Args:
+    count: How many omens have been spoken.
+    question: The printers' question, with `{agent_name}`, `{printers}`,
+      `{sign}` and `{words}` to fill.
+    **fields: `printers`, `sign` and `words`.
+  """
+  return json.dumps({'count': count, 'question': question, **fields})
 
 
 class RelayMind(action_spec_ignored.ActionSpecIgnored):
@@ -41,7 +53,7 @@ class RelayMind(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      context: game_lib.GameContext,
+      omen: Callable[[], str],
       components: Sequence[str] = (),
       pre_act_label: str = 'Relay mind',
   ):
@@ -49,40 +61,37 @@ class RelayMind(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The slow model.
-      context: Shared game state (the omens and the Gazette are the planet's).
+      omen: The latest omen sheet the World GM published for the printers
+        (`omen_sheet`), or '' before any omen.
       components: Sibling components shown to the model.
       pre_act_label: Component label.
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._context = context
+    self._omen = omen
     self._components = tuple(components)
-    # How many of the planet's omens have been retold (or passed over).
+    # How many of the Steward's omens have been retold (or passed over).
     self._retold = 0
 
   @override
   def _make_pre_act_value(self) -> str:
-    planet = self._context.planet
-    gazette = planet.gazette
-    if gazette is None or len(planet.omens) <= self._retold:
+    sheet = self._omen()
+    if not sheet:
+      return ''
+    omen = json.loads(sheet)
+    if int(omen['count']) <= self._retold:
       return ''
     # The newest omen; any spoken while the printers were busy go untold.
-    _, sign, words = planet.omens[-1]
-    self._retold = len(planet.omens)
+    self._retold = int(omen['count'])
     prompt = interactive_document.InteractiveDocument(self._model)
     for key in self._components:
       prompt.statement(f'{key}: {self.get_named_component_pre_act_value(key)}')
     return prompt.open_question(
-        str(gazette.relay['question']).format(
+        str(omen['question']).format(
             agent_name=self.get_entity().name,
-            printers=' '.join(
-                str(
-                    self._context.scenario['civilization'].get('printers')
-                    or gazette.relay['printers']
-                ).split()
-            ),
-            sign=sign,
-            words=words or '(nothing anyone could make out)',
+            printers=omen['printers'],
+            sign=omen['sign'],
+            words=omen['words'],
         ),
         max_tokens=400,
         terminators=(),

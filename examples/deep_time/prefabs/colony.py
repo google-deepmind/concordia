@@ -19,7 +19,6 @@ and their own sheet, deliberate in the background on the slow model, and
 act each generation on the fast model.
 """
 
-from concordia.components.agent import report_function
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
@@ -78,9 +77,8 @@ def colony_config(
           'measurements': context.measurements,
           **context.act_params(name),
           'extra_components': {
-              'Our colony': report_function.ReportFunction(
-                  function=colony.sheet,
-                  pre_act_label='\nOur colony',
+              'Our colony': perception.sheet(
+                  context, name, 'colony', colony.sheet, label='\nOur colony'
               ),
               # Home's transmissions, heard years after they were sent.
               'Messages from home': perception.instrument(

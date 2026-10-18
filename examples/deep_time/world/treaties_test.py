@@ -168,13 +168,14 @@ class TreatyFlowTest(absltest.TestCase):
     self.assertEqual(amber.drain_outbox(), [('diplomacy.basalt.amber', text)])
     self.assertNotIn(option, amber.options())
     # The Basalt clans' treaty mind answers (here the mock's rule).
-    mind = pact_mind.TreatyMind(
-        mock_language_model.DeepTimeMockModel(), context, 'basalt'
-    )
+    # The World GM's sheet for its treaty mind: the offer awaiting it.
     self.assertEqual(
-        mind._pending(),  # pylint: disable=protected-access
-        (text, 'Amber folk (coal treaty)', treaties.question),
+        polity_prefab.treaty_offer(context, 'basalt'),
+        pact_mind.offer_sheet(
+            text, 'Amber folk (coal treaty)', treaties.question
+        ),
     )
+    self.assertEqual(polity_prefab.treaty_offer(context, 'amber'), '')
     events = _answer(planet, 'basalt', 'Basalt clans')
     self.assertIn('The Basalt clans sign the coal treaty', events[0].text)
     self.assertEqual(treaties.bound('basalt'), ['amber'])

@@ -155,7 +155,9 @@ def steward_config(
         initial='Nothing has happened among the peoples.',
     )
   advisor = advisor_mind.AdvisorMind(
-      almanac=context.planet.almanac,
+      almanac=perception.brief(
+          context, name, 'almanac', context.planet.almanac
+      ),
       model=slow_model,
       pre_act_label='Advisor',
       question=advisor_question(advisor_config, context),

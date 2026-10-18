@@ -23,12 +23,12 @@ before that it returns at once and costs nothing. Its answer is published on
 only places this people's own orders, and installs it.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+import json
 from typing import override
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
-from examples.deep_time import game as game_lib
 from concordia.language_model import language_model
 
 QUESTION = """\
@@ -45,13 +45,23 @@ to three orders:
 use: {ops}. Answer with the JSON list only."""
 
 
+def scribes_sheet(ops: Sequence[str], goods: Sequence[str]) -> str:
+  """The sheet a policy compiler weighs (the World GM publishes it).
+
+  Args:
+    ops: The reflex operators this people may use.
+    goods: The goods its orders may trade.
+  """
+  return json.dumps({'ops': sorted(ops), 'goods': sorted(goods)})
+
+
 class PolicyCompiler(action_spec_ignored.ActionSpecIgnored):
   """Asks the slow model for standing orders once reflexes are unlocked."""
 
   def __init__(
       self,
       model: language_model.LanguageModel,
-      context: game_lib.GameContext,
+      scribes: Callable[[], str],
       polity: str,
       components: Sequence[str] = (),
       pre_act_label: str = 'Policy compiler',
@@ -60,24 +70,25 @@ class PolicyCompiler(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The slow model.
-      context: Shared game state (automation decides what is unlocked).
+      scribes: The latest scribes' sheet the World GM published for this
+        people (`scribes_sheet`), or '' without standing orders in the game.
       polity: The people's key.
       components: Sibling components shown to the model.
       pre_act_label: Component label.
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._context = context
+    self._scribes = scribes
     self._polity = polity
     self._components = tuple(components)
 
   @override
   def _make_pre_act_value(self) -> str:
-    automation = self._context.automation
-    if automation is None:
+    sheet = self._scribes()
+    if not sheet:
       return ''
-    ops = automation.allowed_ops(self._polity)
-    if 'threshold' not in ops:
+    scribes = json.loads(sheet)
+    if 'threshold' not in scribes['ops']:
       return ''
     prompt = interactive_document.InteractiveDocument(self._model)
     for key in self._components:
@@ -85,7 +96,7 @@ class PolicyCompiler(action_spec_ignored.ActionSpecIgnored):
     question = QUESTION.format(
         name=self.get_entity().name,
         key=self._polity,
-        goods=', '.join(sorted(automation.levels)),
-        ops=', '.join(sorted(ops)),
+        goods=', '.join(scribes['goods']),
+        ops=', '.join(scribes['ops']),
     )
     return prompt.open_question(question, max_tokens=600, terminators=())

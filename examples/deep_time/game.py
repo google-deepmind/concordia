@@ -81,6 +81,9 @@ class GameContext:
   # Topic-name prefixes each entity hears as observations (contrib
   # TopicObservations on the World GM routes them).
   access: dict[str, tuple[str, ...]] = dataclasses.field(default_factory=dict)
+  # What each entity knows of its own state (its storehouse, its genome, ...):
+  # topic -> the sheet the World GM computes and publishes each step.
+  sheets: dict[str, Callable[[], str]] = dataclasses.field(default_factory=dict)
   # Set by `simulation.build_simulation`: the model for new species' minds
   # and the function that adds an entity to the running simulation.
   slow_model: language_model.LanguageModel | None = None
@@ -369,6 +372,15 @@ class GameContext:
   def publisher_scheduler(self, latency_ticks: int, key: str):
     """Scheduler for a slow mind: sim-time latency, or threads if async."""
     return sim_time.publisher_scheduler(self.sim, latency_ticks, key)
+
+  def add_sheet(self, topic: str, function: Callable[[], str]) -> None:
+    """Has the World GM publish a sheet on a topic each step."""
+    self.sheets[topic] = function
+
+  def publish_sheets(self) -> None:
+    """Publishes every entity's sheet (the World GM's step does)."""
+    for topic, function in self.sheets.items():
+      self.bus.publish(topic, function(), source='world')
 
   def publish_state(self, events: Sequence[planet_lib.WorldEvent] = ()) -> None:
     publishing.publish_state(

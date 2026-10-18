@@ -19,6 +19,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
 from examples.deep_time.components import press_mind
+from examples.deep_time.prefabs import polity as polity_prefab
 from examples.deep_time.world import data
 from examples.deep_time.world import media as media_lib
 from examples.deep_time.world import publishing
@@ -223,7 +224,8 @@ class GazetteFlowTest(absltest.TestCase):
     self.assertAlmostEqual(civ.stock('cedar', 'paper'), 1.0)
     self.assertNotIn(actors_lib.PRINT_BROADSHEET, cedar.options())  # Writing.
     mind = press_mind.PressMind(
-        mock_language_model.DeepTimeMockModel(), context, 'basalt'
+        mock_language_model.DeepTimeMockModel(),
+        lambda: polity_prefab.commission(context, 'basalt'),
     )
     self.assertEqual(mind._make_pre_act_value(), '')  # pylint: disable=protected-access
     context.bus.publish(

@@ -526,12 +526,14 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     a Holling type II response per region, migration, behaviours and its own
     adaptation mind; its evolved diet decides which petals it crops.
 *   **Species** (`prefabs/species.py`): also `minimal__Entity`, plus a
-    `ReportFunction` genome sheet and a slow adaptation mind:
+    genome sheet (the World GM publishes it each step on the species' own
+    topic; a stock `Subscriber` reads it) and a slow adaptation mind:
     `pubsub.Publisher(component=QuestionOfRecentMemories(...),
     skip_if_busy=True)` scheduled on a contrib `LatencyScheduler`, so its answer
     lands exactly three ticks after it was triggered. Answers go to
-    `bio.species.<key>.adaptation`; the World GM turns them into bounded trait
-    changes (`world/evolution.py`).
+    `bio.species.<key>.adaptation`; the species enacts one by its own action,
+    which the World GM resolves into bounded trait changes
+    (`world/evolution.py`).
 *   **Carbon cycle** (`world/carbon.py`): six reservoirs on the contrib
     `StockFlowLedger`; outgassing, silicate weathering, ocean exchange,
     photosynthesis, decay, burial and subduction are audited transfers, and

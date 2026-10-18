@@ -21,6 +21,7 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
 from examples.deep_time.components import policy_compiler
+from examples.deep_time.prefabs import polity as polity_prefab
 
 
 def _context():
@@ -121,7 +122,9 @@ class AutomationTest(absltest.TestCase):
   def test_policy_compiler_costs_nothing_until_reflexes_unlock(self):
     context, automation, civ, _ = _context()
     model = mock_language_model.DeepTimeMockModel()
-    compiler = policy_compiler.PolicyCompiler(model, context, 'cedar')
+    compiler = policy_compiler.PolicyCompiler(
+        model, lambda: polity_prefab.scribes(context, 'cedar'), 'cedar'
+    )
     self.assertEqual(compiler._make_pre_act_value(), '')  # pylint: disable=protected-access
     self.assertEqual(model.stats()['text_calls'], 0)
     civ.polities['cedar'].techs = ['granaries']

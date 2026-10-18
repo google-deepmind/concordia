@@ -21,7 +21,6 @@ What it transmits goes out on `mission.uplink`; the colonists hear it over
 the same delay, and the colony applies designs and directives on arrival.
 """
 
-from concordia.components.agent import report_function
 from concordia.contrib.pubsub import operators
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
@@ -108,9 +107,12 @@ def mission_config(
           transported=True,
           channel=lambda: light_delay(context),
       ),
-      'Transmissions in flight': report_function.ReportFunction(
-          function=lambda: in_flight(context),
-          pre_act_label='\nTransmissions in flight',
+      'Transmissions in flight': perception.sheet(
+          context,
+          name,
+          'in_flight',
+          lambda: in_flight(context),
+          label='\nTransmissions in flight',
       ),
   }
   components = context.with_bus(components)  # The bus is restored first.
