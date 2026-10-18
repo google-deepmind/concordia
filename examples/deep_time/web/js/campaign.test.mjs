@@ -93,7 +93,8 @@ test('the start screen says what is new, with a way to play it, and the build', 
   assert.match(html, /What's new<\/h2><p class="small"><b>18 Oct\.<\/b> The Steward speaks\.<\/p>/);
   assert.match(html, /<button class="primary" data-world="great_acceleration">Play Great Acceleration<\/button>/);
   assert.match(html, /Build abc1234 · 18 Oct 03:23/);
-  assert.doesNotMatch(html, /clearer start/);  // The newest only.
+  assert.match(html, /A clearer start/);  // The two newest.
+  assert.doesNotMatch(whatsNewHtml([...changes, {when: '16 Oct', text: 'Older.'}], null), /Older/);
   assert.equal(whatsNewHtml([], null), '');
   assert.match(whatsNewHtml(null, {commit: 'abc1234', when: 'now'}), /^<p class="small muted">Build abc1234/);
 });

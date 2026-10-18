@@ -2440,7 +2440,10 @@ function drawMapNow(m) {
     const towns = m.peoples.polities.map((_, i) => m.peoples.settlements.filter((s) => s[0] === i).length);
     html += '<div class="chips">' + m.peoples.polities.map((sp, i) =>
       `<span><i style="background:${rgb(sp[theme])}"></i>${escapeHtml(sp.name)} · ${towns[i]} ${towns[i] === 1 ? (sp.unit || 'town') : (sp.units || 'towns')}`
-      + (hungerOf(sp) ? ` · <b class="hungry">${hungerOf(sp)}, fed ${Math.round(sp.fed * 100)}%</b>` : '') + '</span>').join('') + '</div>';
+      + (hungerOf(sp) ? ` · <b class="hungry">${hungerOf(sp)}, fed ${Math.round(sp.fed * 100)}%</b>` : '') + '</span>').join('') + '</div>'
+      // What the lines between towns are for.
+      + '<p class="small muted">Dashed lines are a people\'s roads: its goods and news travel them'
+      + ' faster than over open land. Dotted lines are trade routes between peoples.</p>';
   }
   $('legend').innerHTML = html;
 }

@@ -621,8 +621,13 @@ class PolityActor(Actor):
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     orders = [*self._trades(), *self._reflexes()]
     room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - 1)
+    settlements = self._planet.settlements
     town = (
-        [PLAN_TOWN] if self.answers_offers and self._planet.settlements else []
+        [PLAN_TOWN]
+        if self.answers_offers
+        and settlements is not None
+        and settlements.config.get('players_plan_towns', True)
+        else []
     )
     return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
 

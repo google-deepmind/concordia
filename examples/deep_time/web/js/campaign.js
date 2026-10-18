@@ -123,12 +123,13 @@ export function nextChapterHtml(chapter) {
  * @return {string}
  */
 export function whatsNewHtml(changes, build, titles) {
-  const newest = changes && changes[0];
+  const shown = (changes || []).slice(0, 2);
   const stamp = build && build.commit
     ? `<p class="small muted">Build ${escapeHtml(build.commit)} · ${escapeHtml(build.when)}</p>` : '';
-  if (!newest) return stamp;
-  const world = newest.world && titles && titles[newest.world];
-  return `<h2>What's new</h2><p class="small"><b>${escapeHtml(newest.when)}.</b> ${escapeHtml(newest.text)}</p>`
-    + (world ? `<button class="primary" data-world="${escapeHtml(newest.world)}">Play ${escapeHtml(world)}</button>` : '')
+  if (!shown.length) return stamp;
+  const key = (shown.find((c) => c.world && titles && titles[c.world]) || {}).world;
+  return '<h2>What\'s new</h2>' + shown.map((c) =>
+    `<p class="small"><b>${escapeHtml(c.when)}.</b> ${escapeHtml(c.text)}</p>`).join('')
+    + (key ? `<button class="primary" data-world="${escapeHtml(key)}">Play ${escapeHtml(titles[key])}</button>` : '')
     + stamp;
 }

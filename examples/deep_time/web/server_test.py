@@ -93,9 +93,9 @@ class ServerTest(absltest.TestCase):
     self.assertIn(json.dumps(server_lib.BUILD).encode(), page)
     campaign = json.loads(self._get('/api/campaign')[1])
     self.assertEqual(campaign['build'], server_lib.BUILD)
-    newest = campaign['changes'][0]
-    self.assertEqual(newest['world'], 'great_acceleration')
-    self.assertIn('omen', newest['text'])
+    self.assertLen(campaign['changes'], 2)  # The newest, for the card.
+    self.assertEqual(campaign['changes'][0]['world'], 'great_acceleration')
+    self.assertTrue(any('omen' in c['text'] for c in campaign['changes']))
 
   def test_each_world_has_a_thumbnail_for_its_card(self):
     status, body = self._get('/api/thumb?scenario=archipelago')

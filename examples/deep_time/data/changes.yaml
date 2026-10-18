@@ -2,6 +2,13 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 18 Oct, later
+    world: great_acceleration
+    text: >-
+      From your questions: the land's warning says what comes (locusts or
+      plague where smoke lingers; forests and rain clear it); a people's strip
+      shows the energy all have made and the air against its cap; the legend
+      says what roads are; planning towns and news riding the roads are gone.
   - when: 18 Oct
     world: great_acceleration
     text: >-

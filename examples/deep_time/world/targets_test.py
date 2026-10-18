@@ -194,6 +194,13 @@ class TargetsTest(absltest.TestCase):
         'Amber folk', 'amber', planet, 0.1, answers_offers=True
     )
     model = actors_lib.PolityActor('Amber folk', 'amber', planet, 0.1)
+    # Cut from the menu (towns rise by themselves); a data flag brings it.
+    self.assertNotIn(actors_lib.PLAN_TOWN, person.options())
+    assert planet.settlements is not None
+    planet.settlements.config = {
+        **planet.settlements.config,
+        'players_plan_towns': True,
+    }
     self.assertIn(actors_lib.PLAN_TOWN, person.options())
     self.assertNotIn(actors_lib.PLAN_TOWN, model.options())
     self.assertTrue(person.aimable(actors_lib.PLAN_TOWN))

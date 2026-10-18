@@ -52,7 +52,7 @@ test('crises show where their role can place them on the map', () => {
   const crises = [
     {kind: 'band', title: 'Too hot: about 43 ± 14 °C', turns: 2, where: {world: 'hot'}},
     {kind: 'species', title: 'Aerobes dwindling', turns: null, where: {lat: -15}},
-    {kind: 'unrest', title: 'Unrest among the Cedar league', turns: null, where: {people: 'Cedar league'}},
+    {kind: 'unrest', title: 'Smoke sickens the land of the Cedar league', turns: null, where: {people: 'Cedar league'}},
     {kind: 'herds', title: 'Our herds shrink', turns: null, where: {herd: 'flock'}},
     {kind: 'famine', title: 'Stores run low', turns: 3, where: {site: true}},
     {kind: 'deadline', title: '3 turns left', turns: 3, where: null},
@@ -102,7 +102,7 @@ test('the moves that matter most are tagged', () => {
   assert.equal(pressingTag({kind: 'link', move: 'put more labor into: cut wood'}), '🔗 weakest link');
   assert.equal(pressingTag({kind: 'learn', move: 'learn shaft mining (8 research)'}), '📜 worth learning');
   assert.equal(pressingTag({kind: 'famine', move: 'put more labor into: farm the land'}), '🌾 feeds us');
-  assert.equal(pressingTag({kind: 'unrest', move: 'x'}), '✊ answers it');
+  assert.equal(pressingTag({kind: 'unrest', move: 'x'}), '🦗 answers it');
   assert.equal(pressingTag({kind: 'mystery', move: 'x'}), '⚠ answers it');
   assert.equal(pressingTag(null), '');
 });

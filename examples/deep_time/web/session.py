@@ -1813,6 +1813,9 @@ class GameSession:
     """
     if self.mode != 'play' or self.finished or self._spectating(seat):
       return []
+    settlements = self.context.planet.settlements
+    if settlements is None or not settlements.config.get('couriers', True):
+      return []
     entity = seat if seat in self.seats else self.entity
     actor = self.context.actors.get(entity)
     if not isinstance(actor, actors_lib.PolityActor):
@@ -2016,12 +2019,18 @@ class GameSession:
       # A people knows its own storehouse exactly (its sheet says so).
       people = planet.civ.polities[actor.polity]
       grain = planet.civ.ledger.stock(actor.polity, 'grain')
-      stats += [
-          {'label': 'people', 'value': f'{people.population:.1f}'},
+      fed = [
           {'label': 'fed', 'value': f'{min(1.0, people.food_ratio):.0%}'},
           {'label': 'grain', 'value': f'{grain:.0f}'},
       ]
-      return stats
+      # The goal all the peoples share, in place of the head count.
+      goal = self._goal_stats(reveal, entity)
+      if goal:
+        return stats + fed + goal
+      return stats + [
+          {'label': 'people', 'value': f'{people.population:.1f}'},
+          *fed,
+      ]
     if isinstance(actor, actors_lib.SpeciesActor):
       # A species senses the census exactly and knows its own seed bank.
       stats.append({
@@ -2037,23 +2046,31 @@ class GameSession:
     return stats
 
   def _goal_stats(self, reveal: bool, entity: str) -> list[dict[str, Any]]:
-    """The numbers a peoples' goal is judged on, as the Steward reads them.
+    """The numbers a peoples' goal is judged on, as a role reads them.
 
-    The air comes through the Steward's thermometer (late and noisy), what
-    the peoples made through their census; the truth once revealed. A
-    reading past its limit is marked. Empty where the goal has no such
-    numbers.
+    The Steward reads the air through its thermometer (late and noisy) and
+    what the peoples made through their census; a people reads both as they
+    are published; the truth once revealed. A reading past its limit is
+    marked. Empty where the goal has no such numbers.
     """
     planet = self.context.planet
     goal = planet.goal()
     if planet.civ is None or goal['kind'] not in ('industrialize', 'iron_age'):
       return []
 
+    # A people reads the weather and the census as they are published.
+    public = isinstance(self.context.actors.get(entity), actors_lib.PolityActor)
+
     def read(key: tuple[str, str], path: str, truth: float):
       """The truth if revealed, else the reading (or None) and its age."""
       if reveal:
         return truth, ''
-      message = self.context.beliefs.get(key) or self.context.received.get(key)
+      topic = {'Peoples': 'civ.census'}.get(key[1], key[1])
+      message = (
+          self.context.bus.latest(topic)
+          if public
+          else self.context.beliefs.get(key) or self.context.received.get(key)
+      )
       if message is None:
         return None, ''
       value: Any = json.loads(message.payload)

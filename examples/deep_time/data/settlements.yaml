@@ -1,5 +1,12 @@
 # Peoples on the map: settlements on tiles, the land they work,
 # and the roads and trade routes between them.
+# Cut in stage 5 (the owner's games of 18 Oct): a person playing a people
+# no longer plans where its next town stands (it marked a spot and nothing
+# showed; towns rise by themselves as a people grows), and news riding the
+# roads to a people's capital is no longer drawn (a tap only zoomed the
+# map). Set true to have them back.
+players_plan_towns: false
+couriers: false
 town_population: 3.0       # one settlement per this much population (and a capital)
 max_settlements: 6         # per people
 spacing: 3                 # tiles between settlements (Chebyshev)

@@ -17,7 +17,7 @@
 
 import {escapeHtml, shortMove} from './util.js';
 
-export const CRISIS_ICONS = {band: '🌡', life: '🌿', species: '🌼', herds: '🐾', famine: '🌾', unrest: '✊', deadline: '⏳', side: '◇'};
+export const CRISIS_ICONS = {band: '🌡', life: '🌿', species: '🌼', herds: '🐾', famine: '🌾', unrest: '🦗', deadline: '⏳', side: '◇'};
 
 /**
  * The countdown chip: '3 turns left', 'in 2 turns' (trouble ahead), or ''.

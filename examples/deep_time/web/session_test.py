@@ -184,7 +184,8 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     self.assertEqual(game.role, 'Amber folk, a people')
     labels = [s['label'] for s in game.state()['stats']]
-    self.assertEqual(labels, ['turn', 'people', 'fed', 'grain'])
+    # The goal all the peoples share, in place of the head count.
+    self.assertEqual(labels, ['turn', 'fed', 'grain', 'iron made'])
     for _ in range(5):
       question = _question(game)
       self.assertIn('Our storehouse and labor', question['context'])
@@ -1176,6 +1177,9 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(news['from'], [north - row, col])
     capital = planet.settlements.places['amber'][0]
     self.assertEqual(news['to'], [north - capital.row, capital.col])
+    # Cut from the map (a tap only zoomed it); a data flag brings it back.
+    self.assertEqual(game.map(None)['couriers'], [])
+    planet.settlements.config = {**planet.settlements.config, 'couriers': True}
     self.assertEqual(
         game.map(None)['couriers'],
         [[*news['from'], *news['to'], planet.tick, news['lands'], 'civ']],
