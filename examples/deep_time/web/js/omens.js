@@ -64,3 +64,15 @@ export function omenWords(text, maxWords) {
 export function omenResponse(sign, words) {
   return `${sign}: ${words}`.trim();
 }
+
+/**
+ * Each people's take on the latest omen it read, for the peoples' card.
+ * @param {?Array<!Object>} takes Newest per people: {who, tick, text}.
+ * @return {string}
+ */
+export function takesHtml(takes) {
+  if (!takes || !takes.length) return '';
+  return '<p class="movelabel">What each people made of the omen</p><ul class="takes">'
+    + takes.map((t) => `<li><b>${escapeHtml(t.who)}</b> “${escapeHtml(t.text)}”`
+      + ` <span class="muted">t${Number(t.tick) || 0}</span></li>`).join('') + '</ul>';
+}

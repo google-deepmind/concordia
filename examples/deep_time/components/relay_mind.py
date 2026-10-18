@@ -75,7 +75,12 @@ class RelayMind(action_spec_ignored.ActionSpecIgnored):
     return prompt.open_question(
         str(gazette.relay['question']).format(
             agent_name=self.get_entity().name,
-            printers=str(gazette.relay['printers']).strip(),
+            printers=' '.join(
+                str(
+                    self._context.scenario['civilization'].get('printers')
+                    or gazette.relay['printers']
+                ).split()
+            ),
             sign=sign,
             words=words or '(nothing anyone could make out)',
         ),

@@ -756,6 +756,26 @@ def treaty_answer(prompt: str) -> str | None:
   return None
 
 
+def take_answer(prompt: str) -> str | None:
+  """A people's take on an omen: it heard, and keeps to its work."""
+  match = re.search(
+      r'In one sentence, in your own voice: what do (.+?) make of it', prompt
+  )
+  if match is None:
+    return None
+  # Canned, but each people in its own manner (plumbing, not judgement).
+  if 'miners of the black hills' in prompt:
+    return "Printers' talk. The fire feeds us, and we dig."
+  if 'farmers of the wide amber plains' in prompt:
+    return 'A sign is a sign; we will watch the sky and mind the fields.'
+  if 'merchant printers' in prompt:
+    return 'We printed what the sky said; let the clans read it twice.'
+  return (
+      'We read what the Gazette says the sky said; we will watch the sky and'
+      ' keep to our work.'
+  )
+
+
 def relay_answer(prompt: str) -> str | None:
   """The printers retell an omen: as a warning against coal, always."""
   match = re.search(
@@ -1506,6 +1526,7 @@ class DeepTimeMockModel(language_model.LanguageModel):
         policy_answer(prompt)
         or treaty_answer(prompt)
         or relay_answer(prompt)
+        or take_answer(prompt)
         or press_answer(prompt)
         or pact_answer(prompt)
         or species_name_answer(prompt)

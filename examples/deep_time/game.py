@@ -385,7 +385,7 @@ class GameContext:
     elif (
         len(parts) == 3
         and parts[0] == 'civ'
-        and parts[2] in ('treaty', 'press', 'retelling')
+        and parts[2] in ('treaty', 'press', 'retelling', 'takes')
         and message.payload
     ):
       with self._inbox_lock:
@@ -421,6 +421,10 @@ class GameContext:
         if news is not None:
           events.append(planet_lib.WorldEvent(planet_lib.CIV_EVENTS, news))
           self.bus.publish('media.omens', answer.strip(), source='world')
+        continue
+      if kind == 'takes':  # A people's take on an omen, for the page.
+        if self.planet.gazette is not None:
+          self.planet.gazette.note_take(self.planet.tick, species, answer)
         continue
       if kind == 'press':
         news = self.planet.publish_broadsheet(species, answer)

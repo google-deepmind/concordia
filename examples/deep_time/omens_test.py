@@ -18,6 +18,8 @@ from absl.testing import absltest
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
+from examples.deep_time.prefabs import polity as polity_prefab
+from examples.deep_time.world import data
 from examples.deep_time.world import planet as planet_lib
 from concordia.typing import entity as entity_lib
 
@@ -105,6 +107,21 @@ class StewardSpeaksTest(absltest.TestCase):
         f' sign.\n{options}\nAnswer: Gaia '
     )
     self.assertEqual(model.sample_text(prompt), 'wait and save omega')
+
+
+class CharacterTest(absltest.TestCase):
+
+  def test_a_people_is_written_as_people_not_rules(self):
+    rules = data.scenario('great_acceleration')['civilization']
+    words = polity_prefab.character_words(rules['characters']['basalt'])
+    self.assertTrue(words.startswith('Who they are: miners of the black hills'))
+    self.assertIn('How they speak: blunt, short sentences', words)
+    # No sheet tells a people how to play or what to do when told something.
+    for sheet in rules['characters'].values():
+      text = ' '.join(str(v) for v in sheet.values()).lower()
+      for rule in ('if told', 'should', 'must', 'always obey', 'win'):
+        self.assertNotRegex(text, rf'\b{rule}\b')
+    self.assertIn('only people act', rules['conventions'])
 
 
 if __name__ == '__main__':

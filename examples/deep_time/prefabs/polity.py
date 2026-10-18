@@ -29,6 +29,10 @@ A polity is the contrib `basic_with_async_deliberation__Entity` (through
 
 # pylint: disable=g-long-ternary
 
+from collections.abc import Mapping
+from typing import Any
+
+from concordia.components.agent import constant
 from concordia.components.agent import report_function
 from concordia.contrib.pubsub import operators
 from examples.deep_time import actors as actors_lib
@@ -39,6 +43,7 @@ from examples.deep_time.components import pact_mind
 from examples.deep_time.components import policy_compiler
 from examples.deep_time.components import press_mind
 from examples.deep_time.components import relay_mind
+from examples.deep_time.components import take_mind
 from examples.deep_time.prefabs import playable
 from examples.deep_time.world import data
 from examples.deep_time.world import publishing
@@ -53,6 +58,15 @@ SUBSCRIPTIONS = {
     'Weather': 'climate.global',
     'Chronicle of civilization': 'civ.events',
 }
+# A people's character sheet, as its mind reads it.
+CHARACTER_LINES = (
+    ('who', 'Who they are'),
+    ('wants', 'What they want'),
+    ('fears', 'What they fear'),
+    ('grievances', 'Old grievances'),
+    ('believes', 'What they believe'),
+    ('voice', 'How they speak'),
+)
 DEFAULT_GOAL = (
     'Keep your people fed through every generation and forge iron into tools'
     ' so that your children work less and live better.'
@@ -106,6 +120,15 @@ def storehouse(context: game_lib.GameContext, polity: str) -> str:
   return text
 
 
+def character_words(character: Mapping[str, Any]) -> str:
+  """A character sheet in words: who a people is, wants, fears, believes."""
+  return ' '.join(
+      f'{label}: {" ".join(str(character[key]).split()).rstrip(".")}.'
+      for key, label in CHARACTER_LINES
+      if character.get(key)
+  )
+
+
 def polity_config(
     context: game_lib.GameContext,
     polity: str,
@@ -135,6 +158,30 @@ def polity_config(
   owner = rules.get('press_owner') if context.planet.gazette else None
   if owner:
     subscriptions['The Gazette on the omens'] = 'media.omens'
+  # The people written as people, and the world's conventions, if given.
+  character = (rules.get('characters') or {}).get(polity)
+  conventions = str(rules.get('conventions') or '').strip()
+  characters = {
+      **(
+          {
+              'Who we are': constant.Constant(
+                  state=character_words(character),
+                  pre_act_label=f'\nWho the {people.name} are',
+              )
+          }
+          if character
+          else {}
+      ),
+      **(
+          {
+              'How the world works': constant.Constant(
+                  state=conventions, pre_act_label='\nHow the world works'
+              )
+          }
+          if conventions
+          else {}
+      ),
+  }
   # A people a person plays answers treaty offers itself, on its own turn.
   human = people.name in context.humans
   context.add_actor(
@@ -173,8 +220,9 @@ def polity_config(
           },
           'clock_topic': 'world.tick',
           'plan_topic': f'civ.{polity}.plan',
-          # The market news is a transported belief, not a plain subscription.
-          'plan_components': ['Market'],
+          # The market news is a transported belief, not a plain subscription;
+          # a people plans as who it is.
+          'plan_components': ['Market', *characters],
           'sim_scheduler': context.sim,
           'deliberation_latency_ticks': int(rules.get('plan_latency_ticks', 3)),
           'deliberation_model': slow_model,
@@ -182,6 +230,7 @@ def polity_config(
           'measurements': context.measurements,
           **context.act_params(people.name),
           'extra_components': {
+              **characters,
               # News of nearby lands, later the farther away.
               'Local news': perception.local_news(
                   context, owner=people.name, polity=polity
@@ -258,7 +307,10 @@ def polity_config(
                           relay_mind.RelayMind(
                               slow_model,
                               context,
-                              components=['Census of the peoples'],
+                              components=[
+                                  *characters,
+                                  'Census of the peoples',
+                              ],
                           ),
                           int(
                               context.planet.gazette.relay.get(
@@ -268,6 +320,29 @@ def polity_config(
                       )
                   }
                   if owner == polity and context.planet.gazette is not None
+                  else {}
+              ),
+              # One sentence, in its own voice, on each omen it reads.
+              **(
+                  {
+                      'Take mind': context.make_mind(
+                          people.name,
+                          'Take',
+                          f'civ.{polity}.takes',
+                          take_mind.TakeMind(
+                              slow_model,
+                              context,
+                              civ.polities[owner].name,
+                              components=[
+                                  *characters,
+                                  'The Gazette on the omens',
+                                  'Storehouse',
+                              ],
+                          ),
+                          1,
+                      )
+                  }
+                  if owner and character
                   else {}
               ),
               # Writes standing orders (reflex JSON) once they are unlocked.

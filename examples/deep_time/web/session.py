@@ -980,6 +980,18 @@ class GameSession:
         'ready': omen.option in options,
     }
 
+  def _takes(self) -> list[dict[str, Any]]:
+    """Each people's newest take on an omen: {who, tick, text}."""
+    planet = self.context.planet
+    if planet.gazette is None or planet.civ is None:
+      return []
+    newest = {polity: (t, take) for t, polity, take in planet.gazette.takes}
+    return [
+        {'who': planet.civ.polities[k].name, 'tick': t, 'text': take}
+        for k, (t, take) in sorted(newest.items())
+        if k in planet.civ.polities
+    ]
+
   def _free_moves(self, entity: str) -> list[str]:
     """The moves a Steward that answers in words may still tap."""
     actor = self.context.actors.get(entity)
@@ -1399,6 +1411,18 @@ class GameSession:
           'who': 'The Gazette on the omen',
           'text': body,
       })
+    names = (
+        {k: p.name for k, p in self.context.planet.civ.polities.items()}
+        if self.context.planet.civ is not None
+        else {}
+    )
+    for tick, polity, take in gazette.takes if gazette is not None else ():
+      items.append({
+          'tick': tick,
+          'kind': 'take',
+          'who': names.get(polity, polity),
+          'text': take,
+      })
     for message in bus.history('media.gazette'):
       try:
         sheets = json.loads(message.payload).get('broadsheets') or []
@@ -1438,7 +1462,7 @@ class GameSession:
             'who': 'Chronicler',
             'text': message.payload,
         })
-    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'news': 3}
+    order = {'chronicle': 0, 'advisor': 1, 'press': 2, 'take': 3, 'news': 4}
     items.sort(key=lambda i: (-i['tick'], order[i['kind']]))
     return items[:STORY_ITEMS]
 
@@ -2790,6 +2814,8 @@ class GameSession:
         'indices': rendered('gaia.indices'),
         'civilization': rendered('civ.census'),
         'gazette': rendered('media.gazette'),
+        # What each people made of the last omen it read, in its words.
+        'takes': self._takes(),
         'colony': rendered('colony.status'),
         # The Advisor counsels the Steward alone (and every watcher).
         'briefing': briefing.payload if briefing and counselled else '',

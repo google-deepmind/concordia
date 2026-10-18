@@ -80,6 +80,15 @@ internet.
     Its stance sways every people's consent for coal by the printers'
     credibility, which the other peoples judge against the sky, as they
     judge any broadsheet. The page opens the move sheet on the composer.
+-   **Characters.** The Great Acceleration's peoples are written as people
+    (`civilization.characters`: who they are, what they want and fear, old
+    grievances, beliefs, how they speak) and the world's conventions are
+    stated once (`civilization.conventions`: what a sign is, who prints the
+    Gazette); each is a Concordia `Constant` in the people's prompt and its
+    plan. No sheet says how to play. After each retelling every people gives
+    a one-sentence take in its own voice (`components/take_mind.py`, on
+    `civ.<key>.takes`), shown on the peoples' card and in the story; a take
+    decides nothing, the people still acts through its moves.
 -   **Crises.** Trouble the Steward can see coming (the climate leaving its
     band, strain building, hunger, unrest, dwindling life, a goal's last turns)
     leads the page with a countdown and the moves that answer it. Moves you
@@ -655,8 +664,8 @@ examples/deep_time/
 │                           #   publishing (topic payloads and renderers), colony (Light Delay)
 ├── components/             # World GM components (world step, specs, resolution); slow minds:
 │                           #   pact and treaty minds, policy compiler, press mind, the
-│                           #   printers' relay mind (omens retold), the Advisor's mind
-│                           #   (with its almanac)
+│                           #   printers' relay mind (omens retold), each people's take
+│                           #   mind, the Advisor's mind (with its almanac)
 ├── prefabs/                # World GM, Chronicler, grazers; Steward, species, polity, colonist
 │                           #   and Mission Control configs; the playable entity (a person or
 │                           #   a model)
