@@ -32,6 +32,7 @@ from examples.deep_time import crises as crises_lib
 from examples.deep_time.world import automation as automation_lib
 from examples.deep_time.world import civ as civ_lib
 from examples.deep_time.world import planet as planet_lib
+from examples.deep_time.world import settlements as settlements_lib
 from concordia.typing import entity as entity_lib
 
 SPECIES_CALL_TO_ACTION = (
@@ -54,6 +55,18 @@ WAR_MOVES = (MARCH_TAKE, MARCH_RAZE)
 # Winning a town over (stage 6, C5), and the holder's answer.
 SEND_ENVOYS = 'send grain and envoys to a town'
 HOLD_FEAST = 'hold a feast in a town'
+# Moves a town gives as its own order (stage 6, C6): one per town a turn,
+# each on a line of the people's answer, "town row,col: <move> @ row,col".
+TOWN_MOVES = (MARCH_TAKE, MARCH_RAZE, SEND_ENVOYS, HOLD_FEAST, FOUND_TOWN)
+TOWN_ORDER = re.compile(
+    r'^\s*town\s+(\d+)\s*,\s*(\d+)\s*:\s*(.*?)\s*$',
+    re.IGNORECASE | re.MULTILINE,
+)
+ORDERS_HINT = (
+    'Each of your towns may also give one order this turn (march from it,'
+    ' send grain and envoys, hold a feast in it, found a new town), each on'
+    ' a line of its own: "town row,col: <move> @ row,col".'
+)
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
 ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
@@ -133,6 +146,26 @@ AIM_HINT = (
     'To aim a move that lands on the map, answer with the move as written,'
     ' then " @ row,col".'
 )
+
+
+def town_orders(action: str) -> tuple[str, list[tuple[int, int, str]]]:
+  """An answer's people's order, and its towns' orders.
+
+  Args:
+    action: The answer: the people's order, then perhaps lines
+      `"town row,col: <move> @ row,col"` (rows from the north).
+
+  Returns:
+    The people's order (the answer without its town lines); and each town
+    order as (row from the north, column, the order).
+  """
+  orders = [
+      (int(m.group(1)), int(m.group(2)), m.group(3))
+      for m in TOWN_ORDER.finditer(action)
+  ]
+  if not orders:
+    return action, []
+  return TOWN_ORDER.sub('', action).strip(), orders
 
 
 def aimed(action: str) -> tuple[str, tuple[int, int] | None]:
@@ -867,7 +900,7 @@ class PolityActor(Actor):
     ]
     # Where conquest is played, founding a town is a move, with its cost;
     # and so are courting another people's town and feasting one's own.
-    town = [] if self._planet.can_found(self.polity) else [self._town_move()]
+    town = [] if self._planet.can_found(self.polity) else [self._found_move()]
     town += [
         move
         for move in (self._gift_move(SEND_ENVOYS), self._gift_move(HOLD_FEAST))
@@ -908,7 +941,28 @@ class PolityActor(Actor):
         tag='polity',
     )
 
+  @override
+  def understood(self, action: str) -> str:
+    """The people's order read as the move it names; towns' orders kept."""
+    rest, orders = town_orders(action)
+    if not orders:
+      return super().understood(action)
+    return '\n'.join([
+        *([super().understood(rest)] if rest else []),
+        *(f'town {r},{c}: {order}' for r, c, order in orders),
+    ])
+
   def resolve(self, action: str) -> str:
+    """The people's order, then each of its towns' orders, in turn."""
+    rest, orders = town_orders(action)
+    outcomes = [self._resolve_people(rest)] if rest or not orders else []
+    given: set[int] = set()
+    for row, col, order in orders:
+      outcomes.append(self._town_order(row, col, order, given))
+    return '\n'.join(o for o in outcomes if o)
+
+  def _resolve_people(self, action: str) -> str:
+    """The people's own order: what happened, or why not."""
     action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     answers = {k.lower(): v for k, v in self._answers().items()}
@@ -1013,37 +1067,8 @@ class PolityActor(Actor):
         self._automation.note_turn_order()
       verb = 'offer' if order[1] == 'ask' else 'ask to buy'
       return f'{self.name} {verb} {order[0]} at market.'
-    if text.startswith(WAR_MOVES):
-      self._tally('march')
-      news, holder = self._planet.march(
-          self.polity,
-          self.name,
-          'raze' if text.startswith(MARCH_RAZE) else 'take',
-      )
-      if holder:  # Every people sees an army march; its target at once.
-        self.outbox.append((planet_lib.CIV_EVENTS, news))
-        self.outbox.append((self._planet.war_topic(holder), news))
-      return news
-    if text.startswith(SEND_ENVOYS):
-      self._tally('envoys')
-      news, told, joined = self._planet.send_envoys(self.polity, self.name)
-      for key, words in told.items():  # Each side hears at once.
-        self.outbox.append((self._planet.war_topic(key), words))
-      if joined:  # Every people hears of a town won over.
-        self.outbox.append((planet_lib.CIV_EVENTS, joined))
-      return news
-    if text.startswith(HOLD_FEAST):
-      self._tally('feast')
-      news, told = self._planet.feast(self.polity, self.name)
-      for key, words in told.items():
-        self.outbox.append((self._planet.war_topic(key), words))
-      return news
-    if text.startswith(FOUND_TOWN):
-      self._tally('found')
-      news = self._planet.found_town(self.polity, self.name)
-      if ' found a town ' in news:  # Every people hears of it.
-        self.outbox.append((planet_lib.CIV_EVENTS, news))
-      return news
+    if text.startswith(TOWN_MOVES):  # From the capital, or where aimed.
+      return self._town_move(text, None)
     recipe = self._focus().get(text) or self._arms().get(text)
     if recipe is None:
       self._tally('keep' if text == KEEP_LABOR else 'unmatched')
@@ -1057,6 +1082,136 @@ class PolityActor(Actor):
         f'{self.name} put more of their labor into {text.split(": ")[1]}'
         f'{where}.'
     )
+
+  def _town_move(self, text: str, town: int | None) -> str:
+    """A march, cart, feast or founding; from `town` (its own order).
+
+    Args:
+      text: The move, lower case, its aim already taken.
+      town: The town that gives it, or None (the capital marches; a feast
+        goes to the least settled town).
+
+    Returns:
+      What happened, or why not.
+    """
+    planet = self._planet
+    if text.startswith(WAR_MOVES):
+      self._tally('march')
+      news, holder = planet.march(
+          self.polity,
+          self.name,
+          'raze' if text.startswith(MARCH_RAZE) else 'take',
+          origin=town,
+      )
+      if holder:  # Every people sees an army march; its target at once.
+        self.outbox.append((planet_lib.CIV_EVENTS, news))
+        self.outbox.append((planet.war_topic(holder), news))
+      return news
+    if text.startswith(SEND_ENVOYS):
+      self._tally('envoys')
+      news, told, joined = planet.send_envoys(self.polity, self.name)
+      for key, words in told.items():  # Each side hears at once.
+        self.outbox.append((planet.war_topic(key), words))
+      if joined:  # Every people hears of a town won over.
+        self.outbox.append((planet_lib.CIV_EVENTS, joined))
+      return news
+    if text.startswith(HOLD_FEAST):
+      self._tally('feast')
+      news, told = planet.feast(self.polity, self.name, town)
+      for key, words in told.items():
+        self.outbox.append((planet.war_topic(key), words))
+      return news
+    self._tally('found')
+    news = planet.found_town(self.polity, self.name)
+    if ' found a town ' in news:  # Every people hears of it.
+      self.outbox.append((planet_lib.CIV_EVENTS, news))
+    return news
+
+  def _own_town(self, row: int, col: int) -> settlements_lib.Settlement | None:
+    """This people's town at a tile (row from the north), if it holds one."""
+    towns, tiles = self._planet.settlements, self._planet.tiles
+    if towns is None:
+      return None
+    at = (tiles.rows - 1 - row, col % tiles.cols)
+    return next(
+        (t for t in towns.places.get(self.polity, ()) if (t.row, t.col) == at),
+        None,
+    )
+
+  def _town_order(self, row: int, col: int, order: str, given: set[int]) -> str:
+    """One town's order this turn: what happened, or why not.
+
+    Args:
+      row: The town's row (from the north).
+      col: Its column.
+      order: The order, perhaps aimed (`"<move> @ row,col"`).
+      given: The towns that gave their order this turn (one each).
+
+    Returns:
+      What happened, or why not.
+    """
+    towns = self._planet.settlements
+    town = self._own_town(row, col)
+    move, aim = aimed(order)
+    move = move.strip()
+    if towns is None or not towns.war:
+      return f'{self.name} give no orders from their towns here.'
+    if town is None:
+      return f'{self.name} hold no town at {row},{col} to {move}.'
+    where = towns.where(town)
+    if town.id in given:
+      return f'Their town {where} gave its order this turn already.'
+    given.add(town.id)
+    text = move.lower()
+    if not text.startswith(TOWN_MOVES):
+      return (
+          f'Their town {where} cannot "{move}": a town marches, sends grain'
+          ' and envoys, holds a feast or founds a new town.'
+      )
+    if aim is not None:
+      self._planet.set_target(
+          self.name, self._planet.tiles.rows - 1 - aim[0], aim[1]
+      )
+    elif text.startswith(WAR_MOVES):  # On the town nearest it.
+      self._planet.set_target(self.name, town.row, town.col)
+    return self._town_move(text, town.id)
+
+  def town_menu(self) -> dict[str, dict[str, Any]]:
+    """The orders each of this people's towns may give now, for the page.
+
+    Returns:
+      Town id -> `{'at': [row from the north, col], 'orders': [...]}`, for
+      the towns with an order to give.
+    """
+    towns = self._planet.settlements
+    if towns is None or not towns.war:
+      return {}
+    north = self._planet.tiles.rows - 1
+    envoys = self._gift_move(SEND_ENVOYS)
+    feast = self._gift_move(HOLD_FEAST)
+    grain = self._civ().stock(self.polity, 'grain') >= float(
+        towns.war.get('gift_grain', 3.0)
+    )
+    others = towns.nearest_town(self.polity, None) is not None
+    found = '' if self._planet.can_found(self.polity) else self._found_move()
+    menu = {}
+    for town in towns.places.get(self.polity, ()):
+      orders = [
+          *(WAR_MOVES if town.garrison and others else ()),
+          *([envoys] if not self._why_not_gift(envoys) else []),
+          *(
+              [feast]
+              if grain and (town.taken or town.regard or town.loyalty < 1.0)
+              else []
+          ),
+          *([found] if found else []),
+      ]
+      if orders:
+        menu[str(town.id)] = {
+            'at': [north - town.row, town.col],
+            'orders': orders,
+        }
+    return menu
 
   def _may_adopt(self) -> bool:
     """Whether its scribes may write standing orders (its techs allow)."""
@@ -1113,7 +1268,7 @@ class PolityActor(Actor):
       return f'a cart takes {cost:g} grain, which they lack'
     return ''
 
-  def _town_move(self) -> str:
+  def _found_move(self) -> str:
     """Founding a town, with its cost."""
     cost = ', '.join(
         f'{v:g} {k}' for k, v in self._planet.founding_cost().items()
@@ -1129,7 +1284,7 @@ class PolityActor(Actor):
     towns = self._planet.settlements
     if towns is None or not towns.conquest:
       return []
-    later = [self._town_move()] if self._planet.can_found(self.polity) else []
+    later = [self._found_move()] if self._planet.can_found(self.polity) else []
     if (
         towns.war
         and self._why_not_march() == 'there are no arms in their capital'

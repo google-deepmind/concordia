@@ -1089,8 +1089,10 @@ class Planet:
     """Where a people hears of its own wars at once (`civ.<key>.war`)."""
     return f'civ.{polity}.war'
 
-  def march(self, polity: str, actor: str, intent: str) -> tuple[str, str]:
-    """A people marches its capital's garrison on another people's town.
+  def march(
+      self, polity: str, actor: str, intent: str, origin: int | None = None
+  ) -> tuple[str, str]:
+    """A people marches a town's garrison on another people's town.
 
     The town nearest where the move was aimed (by a person on the map), or
     nearest the people's capital (a model's move).
@@ -1099,6 +1101,7 @@ class Planet:
       polity: The people.
       actor: Its entity's name (whose aim, if any, says where).
       intent: 'take' or 'raze'.
+      origin: The town of its own that marches (its capital if None).
 
     Returns:
       Where the army goes and when it arrives, or why not; and the people
@@ -1112,7 +1115,7 @@ class Planet:
     if found is None:
       return f'{name} march nowhere: there is no town of another people.', ''
     town, holder = found
-    army, why = towns.march(polity, town.id, intent, self.tick)
+    army, why = towns.march(polity, town.id, intent, self.tick, origin)
     if army is None:
       return f'{name} march nowhere: {why}.', ''
     kinds = ' and '.join(
@@ -1240,16 +1243,19 @@ class Planet:
         joined.text,
     )
 
-  def feast(self, polity: str, actor: str) -> tuple[str, dict[str, str]]:
+  def feast(
+      self, polity: str, actor: str, town: int | None = None
+  ) -> tuple[str, dict[str, str]]:
     """A people feasts one of its own towns with a cart of grain.
 
-    The town nearest where the move was aimed, or the people's least
-    settled town (`Settlements.unsettled`). Its loyalty rises, and every
-    other people's regard there falls by as much.
+    The town given (its own order), else the town nearest where the move was
+    aimed, or the people's least settled town (`Settlements.unsettled`). Its
+    loyalty rises, and every other people's regard there falls by as much.
 
     Args:
       polity: The people.
       actor: Its entity's name (whose aim, if any, says where).
+      town: The town that feasts, by its own order.
 
     Returns:
       What happened, or why not; and the words each people that courted the
@@ -1265,26 +1271,30 @@ class Planet:
           f'{name} hold no feast: it takes {cost:g} grain, which they lack.',
           {},
       )
-    town = towns.unsettled(polity, target)
-    if town is None:
+    found = towns.find(town) if town is not None else None
+    if found is not None and found[1] == polity:
+      place = found[0]
+    else:
+      place = towns.unsettled(polity, target)
+    if place is None:
       return f'{name} hold no feast: no town of theirs needs one.', {}
     civ.ledger.withdraw(polity, 'grain', cost, 'a feast')
-    courted = dict(town.regard)
-    towns.feast(town.id, float(towns.war.get('feast_loyalty', 0.15)))
-    where = towns.where(town)
+    courted = dict(place.regard)
+    towns.feast(place.id, float(towns.war.get('feast_loyalty', 0.15)))
+    where = towns.where(place)
     told = {
         other: (
             f'The {name} feasted their town {where}: its regard for us falls'
-            f' to {town.regard.get(other, 0.0):.2f}.'
+            f' to {place.regard.get(other, 0.0):.2f}.'
         )
         for other in courted
     }
     return (
         news_lib.located(
             f'{name} feast their town {where} with {cost:g} grain: it holds'
-            f' to them at {town.loyalty:.2f}'
+            f' to them at {place.loyalty:.2f}'
             + (", and others' regard there falls." if courted else '.'),
-            (town.row, town.col),
+            (place.row, place.col),
         ),
         told,
     )

@@ -336,7 +336,7 @@
                      background: var(--line); color: var(--ink); height: fit-content; }
   .moves .moverow.new .turnchip { background: var(--accent); color: var(--accent-ink); }
   .moves b { font-size: .92rem; }
-  .moves .what { font-size: .8rem; color: var(--muted); margin: 2px 0 0; }
+  .moves .what { font-size: .8rem; color: var(--muted); margin: 2px 0 0; white-space: pre-line; }
   .moves .steps { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
   .moves .steps span { font-size: .78rem; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); }
   .moves .steps span.done { background: rgba(60, 160, 110, .16); border-color: transparent; color: var(--good); }
@@ -349,6 +349,8 @@
   .inspect { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font-size: .84rem; }
   .inspect .ihead { display: flex; justify-content: space-between; align-items: center; }
   .inspect button { border: 0; background: none; color: var(--muted); font-size: 1.3rem; padding: 0 4px; }
+  #townorders button { display: inline; width: auto; min-height: 0; border: 0; background: none; color: var(--muted); padding: 0 6px; margin: 0; }
+  .inspect button.tord { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: .84rem; padding: 4px 10px; margin: 2px 4px 2px 0; }
   .inspect dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 0; }
   .inspect dt { color: var(--muted); }
   .inspect dd { margin: 0; }
@@ -486,6 +488,7 @@
       <p class="moveclock" id="moveclock" hidden></p>
       <p class="err" id="moveerr" hidden></p>
       <p class="planok" id="planok" hidden></p>
+      <p class="planok" id="townorders" hidden></p>
       <div class="plans" id="sheetplans"></div>
       <div class="when" id="when"></div>
       <div id="choices"></div>
@@ -775,7 +778,9 @@ function setText(id, text, cardId) {
 
 async function answer(requestId, response, target) {
   for (const x of $('choices').querySelectorAll('button, textarea')) x.disabled = true;
-  const body = {request_id: requestId, response: response};
+  // Its towns' orders go with the move, a line each.
+  const lines = townOrders.map((o) => `\ntown ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`);
+  const body = {request_id: requestId, response: response + lines.join('')};
   if (target) body.target = [target.r, target.c];
   $('dockmain').textContent = `Sending: ${shortMove(response)}…`;
   const result = await api('api/choose', body);
@@ -789,7 +794,8 @@ async function answer(requestId, response, target) {
   sentNow = {move: response, how: 'chose', tick: dockTick};
   setSheet(false);
   $('dock').className = 'dock turning sent';
-  $('dockmain').textContent = `✓ Sent: ${shortMove(response)}`;
+  $('dockmain').textContent = `✓ Sent: ${shortMove(response)}${lines.length ? ` + ${lines.length} town order${lines.length === 1 ? '' : 's'}` : ''}`;
+  townOrders = []; showTownOrders();
   $('docksub').textContent = 'The world turns';
   $('dockbtns').innerHTML = ''; $('dockbtns').dataset.html = '';
   refresh();
@@ -826,6 +832,37 @@ function aimAt(r, c) {
   $('aimtext').textContent = `${words[0].toUpperCase()}${words.slice(1)} around ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}?`;
   $('aimgo').disabled = false;
   redrawMap();
+}
+
+// Orders from towns: a tap on one of your towns lists what it may do this
+// turn; a second tap aims it. They go with your move, a line each.
+let townOrders = [];  // {at: [r, c], move, target}
+function townOrder(id, i) {
+  const q = lastQuestion, t = q && q.towns && q.towns[id];
+  if (!t) return;
+  const move = t.orders[i];
+  if (move.startsWith('hold a feast')) { queueTownOrder(t.at, move, null); return; }
+  startAim(q.request_id, move);
+  aim.town = t.at;
+  $('aimtext').textContent = `Tap the map where this town should ${moveWords(move)}.`;
+}
+function queueTownOrder(at, move, target) {
+  townOrders = townOrders.filter((o) => o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
+  townOrders.push({at, move, target});
+  showTownOrders(); showInspect(); redrawMap();
+}
+function showTownOrders() {
+  const p = $('townorders');
+  p.hidden = !townOrders.length;
+  p.innerHTML = townOrders.map((o, i) => {
+    const lat = 90 - (o.at[0] + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
+    return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ' (aimed)' : ''}`
+      + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
+  }).join('<br>')
+    + (townOrders.length ? '<br>These go with your move.' : '');
+  for (const b of p.querySelectorAll('button[data-drop]')) {
+    b.addEventListener('click', () => { townOrders.splice(Number(b.dataset.drop), 1); showTownOrders(); redrawMap(); });
+  }
 }
 
 // Planning a move for a later turn: the When row above the
@@ -932,9 +969,10 @@ function openAt(move) {
 function renderQuestion(q) {
   lastQuestion = q || null;
   if (!q) { shownRequest = ''; if (aim) endAim(); return; }
-  lastContext = q.context;
+  lastContext = q.context + (q.call_to_action ? `\n\n${q.call_to_action}` : '');  // The whole prompt.
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
+  townOrders = []; showTownOrders();
   $('planok').hidden = true;
   planIn = 0;
   // The tags carry the rest; a Steward that may speak is asked plainly.
@@ -1408,7 +1446,7 @@ function renderMoves(moves, now, actsIn, lag) {
   const rows = [];
   for (const m of moves) {  // Turns held, or the same quiet move, in a row fold into one.
     const prev = rows[rows.length - 1];
-    const same = prev && prev.from === m.tick + 1 && ((m.how === 'held' && prev.how === 'held')
+    const same = prev && prev.from === m.tick + 1 && !m.orders && !prev.orders && ((m.how === 'held' && prev.how === 'held')
       || (m.move === prev.move && NEUTRAL_MOVES.test(m.move)));
     if (same) {
       prev.from = m.tick; prev.count += 1; continue;
@@ -1420,7 +1458,8 @@ function renderMoves(moves, now, actsIn, lag) {
     const neutral = NEUTRAL_MOVES.test(m.move);
     const when = m.count > 1 ? `t${m.from}–${m.tick}` : `t${m.tick}`;
     const label = m.count > 1 ? (m.how === 'held' ? `Held course for ${m.count} turns` : `${shortMove(m.move)} ×${m.count}`) : shortMove(m.move)
-      + (m.how === 'held' ? ' (held course)' : m.how === 'timed out' ? ' (out of time)' : m.how === 'planned' ? ' (as planned)' : '');
+      + (m.how === 'held' ? ' (held course)' : m.how === 'timed out' ? ' (out of time)' : m.how === 'planned' ? ' (as planned)' : '')
+      + (m.orders ? ` + ${m.orders.length} town order${m.orders.length === 1 ? '' : 's'}` : '');
     const step = (done, text, cur) => `<span class="${done ? 'done' : cur ? 'now' : ''}">${done ? '✓ ' : ''}${text}</span>`;
     const steps = neutral ? '' : '<div class="steps">'
       + step(true, 'sent')
@@ -2971,6 +3010,15 @@ function drawHeadline(ctx, v) {
 // a dashed line to the town they march on, their strength and the turn
 // they arrive (a fire for a town they mean to raze).
 function drawArmies(ctx, v, unit, X, Y) {
+  for (const o of townOrders) {  // This turn's aimed town orders: dotted, to where they land.
+    if (!o.target) continue;
+    let tc = o.target.c;
+    if (Math.abs(tc - o.at[1]) > v.cols / 2) tc += tc > o.at[1] ? -v.cols : v.cols;
+    ctx.save(); ctx.setLineDash([2 * unit * 0.5, 2 * unit * 0.5]); ctx.lineWidth = 1.2 * unit * 0.6;
+    ctx.strokeStyle = v.theme === 'dark' ? '#f2efe6' : '#2a2620';
+    ctx.beginPath(); ctx.moveTo(X(o.at[1] + 0.5), Y(o.at[0] + 0.5)); ctx.lineTo(X(tc + 0.5), Y(o.target.r + 0.5)); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(tc + 0.5), Y(o.target.r + 0.5), 2 * unit, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
+  }
   const armies = (v.peoples && v.peoples.armies) || [];
   for (const [pi, r, c, strength, , tr, tc, arrives, intent] of armies) {
     const sp = v.peoples.polities[pi];
@@ -3726,6 +3774,12 @@ function showInspect() {
       const who = m.peoples.polities[town[0]].name;
       const won = town[6] === undefined ? '' : `, won from the ${m.peoples.polities[town[6]].name}`;
       add('People', `${escapeHtml(who)} ${town[4] ? 'capital' : 'town'}${escapeHtml(won)}${town[5] ? ' · a port' : ''}`);
+      const mine = lastQuestion && lastQuestion.towns && lastQuestion.towns[town[1]];
+      if (mine) {  // Your town: the orders it may give this turn.
+        const given = townOrders.find((o) => o.at[0] === r && o.at[1] === c);
+        add('Orders', (given ? `<b>Ordered: ${escapeHtml(moveWords(given.move))}</b><br>` : '')
+          + mine.orders.map((o, i) => `<button class="tord" data-t="${town[1]}" data-o="${i}">${escapeHtml(moveWords(o))}</button>`).join(' '));
+      }
       for (const a of (m.peoples.armies || []).filter((a) => a[5] === r && a[6] === c)) {
         add('Marching on it', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
           + `${Object.entries(a[4]).map(([k, n]) => `${n} ${escapeHtml(k)}`).join(', ')}, to ${a[8]} it, in turn ${a[7]}`);
@@ -3746,6 +3800,7 @@ function showInspect() {
   }
   box.innerHTML = `<div class="ihead"><b>${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}</b>`
     + `<button id="iclose" aria-label="Close">×</button></div><dl>${rows.join('')}</dl>`;
+  for (const b of box.querySelectorAll('button.tord')) b.addEventListener('click', () => townOrder(b.dataset.t, Number(b.dataset.o)));
   box.hidden = false;
   $('iclose').addEventListener('click', () => { mapInspect = null; showInspect(); redrawMap(); });
 }
@@ -3791,8 +3846,12 @@ for (const b of document.querySelectorAll('#speed button')) {
     refresh();
   });
 }
-$('aimgo').addEventListener('click', () => { const a = aim; endAim(); if (a && a.target) answer(a.requestId, a.option, a.target); });
-$('aimany').addEventListener('click', () => { const a = aim; endAim(); if (a) answer(a.requestId, a.option); });
+$('aimgo').addEventListener('click', () => {
+  const a = aim; endAim();
+  if (a && a.town) { if (a.target) queueTownOrder(a.town, a.option, a.target); return; }
+  if (a && a.target) answer(a.requestId, a.option, a.target);
+});
+$('aimany').addEventListener('click', () => { const a = aim; endAim(); if (a && a.town) queueTownOrder(a.town, a.option, null); else if (a) answer(a.requestId, a.option); });
 $('aimno').addEventListener('click', () => { endAim(); setSheet(true); });
 $('sheetclose').addEventListener('click', () => setSheet(false));
 $('dockbtns').addEventListener('click', (e) => {

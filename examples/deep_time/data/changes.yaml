@@ -2,6 +2,16 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, evening
+    world: great_acceleration
+    text: >-
+      Several orders a turn, given on the map. Tap one of your towns: its
+      sheet lists the orders it may give this turn (march from it with its
+      own arms, send grain and envoys, hold a feast in it, found a new town);
+      tap one, then tap where it should go. Each town gives one order a turn,
+      and they all go with your people's move, each with its own outcome
+      under Your moves. "What you read" now shows the whole prompt, the
+      question included.
   - when: 19 Oct, later
     world: great_acceleration
     text: >-

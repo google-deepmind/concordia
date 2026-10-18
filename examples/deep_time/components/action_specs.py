@@ -66,6 +66,8 @@ def aimable_spec(
     hints = [actors_lib.AIM_HINT]
     if any(o.startswith(actors_lib.ENACTS) for o in spec.options):
       hints.insert(0, actors_lib.DRAFT_HINT)
+    if getattr(actor, 'town_menu', dict)():  # Its towns' own orders.
+      hints.append(actors_lib.ORDERS_HINT)
     return entity_lib.free_action_spec(
         call_to_action='\n'.join([spec.call_to_action, moves, *hints]),
         tag=spec.tag,
@@ -200,7 +202,8 @@ class ActorActionSpecs(
           'cost': actor.omen.cost,
       }
     # For a people a person plays: the moves answering its most urgent
-    # crisis and strengthening its weakest link.
+    # crisis and strengthening its weakest link; and the orders each of
+    # its towns may give (tapped on the map).
     if isinstance(actor, actors_lib.PolityActor):
       menu['pressing'] = crises_lib.pressing(
           self._context.planet,
@@ -208,6 +211,7 @@ class ActorActionSpecs(
           offered,
           self._context.pushes(offered, name),
       )
+      menu['towns'] = actor.town_menu()
     return menu
 
   @override

@@ -740,26 +740,38 @@ class Settlements:
     return town, holder
 
   def march(
-      self, polity: str, town: int, intent: str, tick: int
+      self,
+      polity: str,
+      town: int,
+      intent: str,
+      tick: int,
+      origin: int | None = None,
   ) -> tuple[Army | None, str]:
-    """A people sends its capital's garrison to take or raze a town.
+    """A people sends a town's garrison to take or raze another's town.
 
     Args:
       polity: The people that marches.
       town: The town marched on (another people's).
       intent: 'take' or 'raze'.
       tick: Now.
+      origin: The town of its own whose garrison marches (its capital if
+        None).
 
     Returns:
       The army, or None and why not.
     """
     home = self.capital(polity)
+    if origin is not None:
+      start = self.find(origin)
+      home = start[0] if start is not None and start[1] == polity else None
     found = self.find(town)
     if home is None:
       return None, 'they hold no town to march from'
     if found is None or found[1] == polity:
       return None, 'there is no town of another people there'
     if not home.garrison:
+      if origin is not None and not home.capital:
+        return None, f'there are no arms in their town {self.where(home)}'
       return None, 'there are no arms in their capital'
     target = found[0]
     path = self._path((home.row, home.col), (target.row, target.col), True)

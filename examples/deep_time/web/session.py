@@ -442,7 +442,14 @@ class ReplayRule:
       moves: Sequence[Sequence[Any]],
       clock: Callable[[], int],
   ):
-    self._moves = {int(m[0]): (str(m[1]), m[2]) for m in moves}
+    self._moves = {
+        int(m[0]): (
+            str(m[1]),
+            m[2],
+            [str(o) for o in m[3]] if len(m) > 3 else [],
+        )
+        for m in moves
+    }
     self._clock = clock
     # The moves of a free question (as `Seat.moves`).
     self.moves: Callable[[], Sequence[str]] = lambda: ()
@@ -451,12 +458,14 @@ class ReplayRule:
       self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
   ) -> str:
     options = tuple(spec.options) or tuple(self.moves())
-    move, target = self._moves.get(self._clock(), (None, None))
+    move, target, orders = self._moves.get(self._clock(), (None, None, []))
     if move is None or (options and move not in options):
       return neutral(options) if options else ''
     if target:  # Aimed where it was aimed, in the action itself.
-      return f'{move} @ {int(target[0])},{int(target[1])}'
-    return with_draft(contexts, move)  # A draft's words, as the role reads.
+      move = f'{move} @ {int(target[0])},{int(target[1])}'
+    else:
+      move = with_draft(contexts, move)  # A draft's words, as the role reads.
+    return '\n'.join([move, *orders])  # With its towns' orders.
 
 
 # Moves that enact a slow mind's draft, and the role's context component that
@@ -937,8 +946,19 @@ class GameSession:
     moves = {}
     for name, place in self.seats.items():
       aimed = {int(s['tick']): s.get('target') for s in place.sent}
+      ordered = {int(s['tick']): s.get('orders') for s in place.sent}
       moves[name] = [
-          [int(t['tick']), t['move'], aimed.get(int(t['tick']))]
+          [
+              int(t['tick']),
+              t['move'],
+              aimed.get(int(t['tick'])),
+              # Its towns' orders that turn, if any.
+              *(
+                  [ordered[int(t['tick'])]]
+                  if ordered.get(int(t['tick']))
+                  else []
+              ),
+          ]
           for t in place.played
       ]
     return {
@@ -1144,7 +1164,7 @@ class GameSession:
     if menu.get('words'):
       return ''  # The Steward may speak an omen in its own words.
     moves = list(menu.get('offered', ()))
-    move, _ = actors_lib.aimed(response)
+    move, _ = actors_lib.aimed(actors_lib.town_orders(response)[0])
     move = move.strip()
     if moves and not any(
         move == m or (move.startswith(m) and move[len(m) :].lstrip()[:1] == ':')
@@ -1404,6 +1424,9 @@ class GameSession:
     for name, seat in self.seats.items():
       request = seat.pending()
       if request is not None and request.request_id == request_id:
+        # The people's move, then its towns' orders (a line each).
+        response, orders = actors_lib.town_orders(response)
+        lines = [f'town {r},{c}: {order}' for r, c, order in orders]
         aim = target is not None and self._targetable(name, response)
         # A move enacting a draft carries its words, as the role reads them
         # (the move itself is what is kept, for the page and replays).
@@ -1412,13 +1435,19 @@ class GameSession:
             request_id,
             # The aim travels in the action; the actor sets it as the World
             # GM resolves the move.
-            f'{action} @ {int(target[0])},{int(target[1])}'
-            if aim and target is not None
-            else action,
+            '\n'.join([
+                f'{action} @ {int(target[0])},{int(target[1])}'
+                if aim and target is not None
+                else action,
+                *lines,
+            ]),
             move=response,
         )
         if error is None and aim and target is not None:
           seat.sent[-1]['target'] = [int(target[0]), int(target[1])]
+        if error is None and lines:  # For the page, replays and telemetry.
+          seat.sent[-1]['orders'] = lines
+          seat.played[-1]['orders'] = lines
         return error
     return 'That question has already been answered.'
 
@@ -2473,6 +2502,8 @@ class GameSession:
           'options': options,
           # Options that may land where the player taps the map.
           'targets': [o for o in options if self._targetable(entity, o)],
+          # The orders each of a people's towns may give (tapped on the map).
+          'towns': menu.get('towns', {}),
           # Which way each move pushes the world, and about how far.
           'pushes': {
               o: p for o, p in menu.get('pushes', {}).items() if o in options

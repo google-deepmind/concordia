@@ -494,6 +494,88 @@ class SettlementsTest(absltest.TestCase):
       self.assertTrue(any(o.startswith(move) for o in menu), move)
     del planet, town
 
+  def test_several_orders_a_turn_one_from_each_town(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet, towns, civ, amber_town, basalt = self._courted()
+    north = planet.tiles.rows - 1
+    # A second Basalt town, armed, and the capital armed too.
+    second, why = towns.found_at('basalt', None)
+    self.assertEqual(why, '')
+    second.garrison = {'levies': 6.0}
+    capital = towns.capital('basalt')
+    towns.muster('basalt', 'levies', 4.0)
+
+    def at(town):
+      return f'{north - town.row},{town.col}'
+
+    # The page's menu: each town's orders (a march only where arms stand).
+    menu = basalt.town_menu()
+    self.assertIn(actors_lib.MARCH_TAKE, menu[str(second.id)]['orders'])
+    self.assertEqual(
+        menu[str(second.id)]['at'], [north - second.row, second.col]
+    )
+    self.assertTrue(
+        any(
+            o.startswith(actors_lib.SEND_ENVOYS)
+            for o in menu[str(capital.id)]['orders']
+        )
+    )
+    # The question says towns may give orders.
+    from examples.deep_time.components import action_specs  # pylint: disable=g-import-not-at-top
+
+    spec = action_specs.aimable_spec(basalt, basalt.action_spec())
+    self.assertIn(actors_lib.ORDERS_HINT, spec.call_to_action)
+    # One answer: the people's order, then one line per town.
+    target = f'{north - amber_town.row},{amber_town.col}'
+    answer = '\n'.join([
+        actors_lib.KEEP_LABOR,
+        f'town {at(second)}: {actors_lib.MARCH_RAZE} @ {target}',
+        f'town {at(capital)}: {actors_lib.SEND_ENVOYS} [3 grain] @ {target}',
+        f'town {at(capital)}: {actors_lib.HOLD_FEAST}',  # A second: refused.
+        f'town 0,0: {actors_lib.FOUND_TOWN}',  # Not a town of theirs.
+    ])
+    self.assertEqual(basalt.understood(answer), answer)
+    outcome = basalt.resolve(answer).split('\n')
+    self.assertLen(outcome, 5)  # An outcome for every order.
+    self.assertIn('keep their labor', outcome[0])
+    self.assertIn('to raze it; they arrive in turn', outcome[1])
+    self.assertIn('its regard for them is 0.15', outcome[2])
+    self.assertIn('gave its order this turn already', outcome[3])
+    self.assertIn('hold no town at 0,0', outcome[4])
+    # The town marched with its own arms; the capital kept its own.
+    (army,) = towns.armies
+    self.assertEqual(army.units, {'levies': 6.0})
+    self.assertEqual(second.garrison, {})
+    self.assertEqual(capital.garrison, {'levies': 4.0})
+    # A town gives only a town's orders.
+    self.assertIn(
+        'cannot "put more labor into: farm the land"',
+        basalt.resolve(
+            f'town {at(capital)}: put more labor into: farm the land'
+        ),
+    )
+
+  def test_a_turns_town_orders_are_kept_for_replays(self):
+    from examples.deep_time.web import session as session_lib  # pylint: disable=g-import-not-at-top
+    from concordia.typing import entity as entity_lib  # pylint: disable=g-import-not-at-top
+
+    rule = session_lib.ReplayRule(
+        [[
+            3,
+            'march to take a town',
+            [4, 5],
+            ['town 1,2: hold a feast in a town'],
+        ]],
+        clock=lambda: 3,
+    )
+    spec = entity_lib.free_action_spec(call_to_action='?')
+    rule.moves = lambda: ['march to take a town']
+    self.assertEqual(
+        rule(spec, {}),
+        'march to take a town @ 4,5\ntown 1,2: hold a feast in a town',
+    )
+
   def test_regard_fades_and_is_saved(self):
     planet, towns, _, town, _ = self._courted()
     towns.court(town.id, 'basalt', 0.3)
