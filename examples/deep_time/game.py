@@ -480,7 +480,10 @@ def _merged(base: Mapping[str, Any], overrides: Mapping[str, Any]):
 
 
 def new_game(
-    scenario_name: str, time_mode: str = 'sim', seed: int = 0
+    scenario_name: str,
+    time_mode: str = 'sim',
+    seed: int = 0,
+    overrides: Mapping[str, Any] | None = None,
 ) -> GameContext:
   """Creates the shared state for a scenario at tick 0 and publishes it.
 
@@ -490,13 +493,16 @@ def new_game(
       latencies in ticks; 'async' runs them on threads, so wall-clock model
       latency becomes in-game latency.
     seed: Seed of the planet's random processes (eruptions).
+    overrides: Scenario flags merged into the scenario's data (recursively),
+      for a variant of the world (e.g. the push audit's Steward rich in
+      omega).
 
   Returns:
     The shared game state.
   """
   if time_mode not in ('sim', 'async'):
     raise ValueError(f'Unknown time mode {time_mode!r}')
-  scenario = data.scenario(scenario_name)
+  scenario = _merged(data.scenario(scenario_name), overrides or {})
   evolution = evolution_lib.Evolution(data.load('species.yaml'))
   physics = data.load('daisyworld.yaml')
   metabolisms = {}

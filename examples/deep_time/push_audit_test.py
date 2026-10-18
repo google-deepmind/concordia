@@ -86,6 +86,24 @@ class PushAuditTest(absltest.TestCase):
     self.assertEqual(basalt.effect['amount'], 60.0)
     self.assertEqual(basalt.effect['kind'], 'carbon_drawdown')
 
+  def test_a_scripted_steward_moves_in_the_game(self):
+    ash = 'bury the sky in ash (a volcanic winter, for years)'
+    script = push_audit.Script(push_audit.WAIT, ash)
+    _, context = push_audit._play(  # pylint: disable=protected-access
+        'daisyworld',
+        0,
+        8,
+        {push_audit.STEWARD: script},
+        overrides=push_audit.RICH,
+    )
+    log = context.actors[push_audit.STEWARD].log
+    # The move is made once, as an action the World GM resolved; then waits.
+    self.assertEqual([action for _, action, _ in log].count(ash), 1)
+    self.assertEqual(log[-1][1], push_audit.WAIT)
+    # The winter kills the daisies; with `play_on` the world goes on.
+    self.assertEqual(context.planet.outcome, 'defeat')
+    self.assertEqual(context.planet.tick, 8)
+
   def test_the_measured_pushes_are_up_to_date(self):
     # Rerun `push_audit --write` when the physics changes.
     found = push_audit.runs('snowball')

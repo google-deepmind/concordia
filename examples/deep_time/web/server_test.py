@@ -26,6 +26,7 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.deep_time.web import server as server_lib
+from examples.deep_time.world import data
 
 
 class ServerTest(absltest.TestCase):
@@ -95,7 +96,8 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(campaign['build'], server_lib.BUILD)
     self.assertLen(campaign['changes'], 2)  # The newest, for the card.
     self.assertEqual(campaign['changes'][0]['world'], 'great_acceleration')
-    self.assertTrue(any('omen' in c['text'] for c in campaign['changes']))
+    newest = data.load('changes.yaml')['changes'][0]
+    self.assertEqual(campaign['changes'][0]['when'], newest['when'])
 
   def test_each_world_has_a_thumbnail_for_its_card(self):
     status, body = self._get('/api/thumb?scenario=archipelago')

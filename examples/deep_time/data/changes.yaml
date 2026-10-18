@@ -2,6 +2,13 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 18 Oct, evening
+    world: great_acceleration
+    text: >-
+      What each of the Steward's moves does is now measured in played games,
+      with every people and species answering it as they do when you play.
+      On the Great Acceleration bright clouds cool about 6 °C, fading over a
+      few turns (they read "6 to 16 °C, lasting" before).
   - when: 18 Oct, later
     world: great_acceleration
     text: >-

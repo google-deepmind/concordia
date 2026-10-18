@@ -91,7 +91,9 @@ class WorldStep(
     if ctx.wakeups is not None:
       ctx.wakeups.step(ctx.planet.tick)
     headline = ctx.tick_headline()
-    if ctx.planet.outcome is not None:
+    # A scenario flag (`play_on`) keeps the world going after its outcome,
+    # for measurements (the push audit's): nobody plays such a game.
+    if ctx.planet.outcome is not None and not ctx.scenario.get('play_on'):
       verdict = (
           f'The scenario ends in {ctx.planet.outcome}:'
           f' {ctx.planet.outcome_reason}.'

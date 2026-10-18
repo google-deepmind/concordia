@@ -89,6 +89,7 @@ def build_simulation(
     time_mode: str = 'sim',
     seed: int = 0,
     humans: Mapping[str, human_input.HumanInput] | None = None,
+    overrides: Mapping[str, Any] | None = None,
 ) -> tuple[simulation_lib.Simulation, game_lib.GameContext]:
   """Creates the shared game state and the simulation for a scenario.
 
@@ -101,11 +102,15 @@ def build_simulation(
     humans: Entities a person plays (by name), and the blocking reader that
       waits for that person (Concordia's `HumanInput` protocol). Today the
       Steward ('Gaia') and Mission Control take a person.
+    overrides: Scenario flags merged into the scenario's data
+      (`game.new_game`).
 
   Returns:
     The simulation and the shared game context.
   """
-  context = game_lib.new_game(scenario_name, time_mode=time_mode, seed=seed)
+  context = game_lib.new_game(
+      scenario_name, time_mode=time_mode, seed=seed, overrides=overrides
+  )
   context.humans.update(humans or {})
   context.coached = models.mock is not None
   # The roles' slow minds think with it (and so do species founded later).
