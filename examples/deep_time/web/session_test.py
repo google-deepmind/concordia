@@ -876,9 +876,9 @@ class GameSessionTest(absltest.TestCase):
     # A people's recap: its towns, not the Steward's forecasts or goals.
     self.assertEqual(recap['side'], [])
     self.assertIsNone(recap['forecast'])
-    self.assertEqual(
-        recap['towns']['held'], len(planet.settlements.places['amber'])
-    )
+    towns = planet.settlements
+    assert towns is not None
+    self.assertEqual(recap['towns']['held'], len(towns.places['amber']))
     self.assertGreaterEqual(recap['towns']['of'], recap['towns']['held'])
     self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')

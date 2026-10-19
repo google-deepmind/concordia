@@ -353,6 +353,7 @@
   .wordsrow select { flex: none; width: 36%; margin: 0; }
   .wordsrow input { flex: 1; min-width: 0; width: auto; margin: 0; }
   .options .wordsrow button { width: auto; min-height: 0; margin: 0; }
+  #townhint .townbtn { display: inline-block; width: auto; min-height: 36px; padding: 4px 10px; margin: 4px 4px 0 0; font-size: .85rem; }
   #townorders button { display: inline; width: auto; min-height: 0; border: 0; background: none; color: var(--muted); padding: 0 6px; margin: 0; }
   .inspect button.tord { border: 1px solid var(--line); border-radius: 999px; color: var(--ink); font-size: .84rem; padding: 4px 10px; margin: 2px 4px 2px 0; }
   .inspect dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 6px 0 0; }
@@ -864,6 +865,38 @@ function queueTownOrder(at, move, target) {
   townOrders.push({at, move, target});
   showTownOrders(); showInspect(); redrawMap();
 }
+// The towns that may give an order: a hint, and each town as a button (a
+// town found without the map: a small screen, a screen reader). Drawn again
+// once the map has come, which says where each lies.
+let townHintMapped = false;
+function renderTownHint(q) {
+  const orderable = Object.keys(q.towns || {}).length;  // The owner missed them (c181).
+  townHintMapped = !!lastMap;
+  $('townhint').hidden = !orderable;
+  $('townhint').innerHTML = orderable
+    ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one, on the map or here, to march from it, send grain and envoys, feast it or found a town.`
+      + `<br>${townButtons(q.towns)}` : '';
+  for (const b of $('townhint').querySelectorAll('button[data-at]')) {
+    b.addEventListener('click', () => showTown(...b.dataset.at.split(',').map(Number)));
+  }
+}
+function townButtons(towns) {
+  const sites = (lastMap && lastMap.peoples && lastMap.peoples.settlements) || [];
+  return Object.values(towns).map(({at: [r, c]}) => {
+    const lat = 90 - (r + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
+    const site = sites.find((s) => s[2] === r && s[3] === c);
+    const where = `${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}`;
+    return `<button class="townbtn" data-at="${r},${c}"><span style="color:#d98a2b">●</span> ${site && site[4] ? `capital (${where})` : where}</button>`;
+  }).join(' ');
+}
+// A town's card on the map, with the orders it may give (as a tap on it).
+function showTown(r, c) {
+  setSheet(false);  // The map, as a tap on it shows the town.
+  mapInspect = {r, c};
+  showInspect();
+  redrawMap();
+  $('inspect').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
 function showTownOrders() {
   const p = $('townorders');
   p.hidden = !townOrders.length;
@@ -987,10 +1020,7 @@ function renderQuestion(q) {
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
   townOrders = []; showTownOrders();
-  const orderable = Object.keys(q.towns || {}).length;  // The owner missed them (c181).
-  $('townhint').hidden = !orderable;
-  $('townhint').innerHTML = orderable
-    ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one to march from it, send grain and envoys, feast it or found a town.` : '';
+  renderTownHint(q);
   const peoples = q.speak || [];  // Words to other peoples (where conquest is).
   $('wordsrow').hidden = !peoples.length;
   $('wordsto').innerHTML = peoples.map((p) => `<option>${escapeHtml(p)}</option>`).join('');
@@ -2461,6 +2491,7 @@ function drawMapNow(m) {
   const firstMap = !lastMap || lastMap.game_id !== m.game_id;
   lastMap = m;
   showInspect();
+  if (lastQuestion && !townHintMapped) renderTownHint(lastQuestion);
   if (firstMap) setTimeout(reportPerf, 0);
   let html;
   if (mapLayer === 'life' && m.life_tiles) {

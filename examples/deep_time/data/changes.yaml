@@ -2,6 +2,13 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, afternoon (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Your towns that can give an order are listed under the hint in your
+      move, each a button: tap one to see the town and its orders, as a tap
+      on it on the map does.
   - when: 19 Oct, afternoon (2)
     world: great_acceleration
     role: Basalt clans
