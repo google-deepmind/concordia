@@ -1489,6 +1489,56 @@ class ReplayTest(absltest.TestCase):
         gaia.get_act_component(), human_act_component.HumanActComponent
     )
 
+  def test_a_course_kept_with_envoys_replays_exactly(self):
+    folder = self.create_tempdir().full_path
+    game = session_lib.GameSession(
+        'great_acceleration',
+        'play',
+        role='Basalt clans',
+        telemetry_dir=folder,
+        overrides={'max_ticks': 6},
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.0
+    question = _question(game)
+    row, col = list(question['towns'].values())[0]['at']
+    envoys = f'town {row},{col}: {actors_lib.SEND_ENVOYS}'
+    self.assertIsNone(game.hold_course(None, 10, keep=[envoys]))
+    _wait_for(lambda: game.finished, timeout=120)
+    record = session_lib.load_replay(
+        os.path.join(folder, session_lib.REPLAYS, f'{game.game_id}.json')
+    )
+    assert record is not None
+    again = session_lib.GameSession(
+        'great_acceleration',
+        'watch',
+        pace_seconds=0.0,
+        players=record['players'],
+        replay=record,
+        overrides={'max_ticks': 6},
+    ).start()
+    self.addCleanup(again.join, 30)
+    self.addCleanup(again.cancel)
+    _wait_for(lambda: again.finished, timeout=120)
+
+    def towns(g):  # The courted towns' regard, as the envoys left it.
+      settled = g.context.planet.settlements
+      return json.dumps(settled.get_state() if settled else {}, default=str)
+
+    self.assertIn('envoys', json.dumps(record['moves'][game.entity]))
+    settlements = game.context.planet.settlements
+    assert settlements is not None
+    places = settlements.places
+    self.assertTrue(
+        any('basalt' in t.regard for v in places.values() for t in v)
+    )
+    self.assertEqual(towns(again), towns(game))
+    self.assertEqual(
+        json.dumps(again.context.planet.history, default=str),
+        json.dumps(game.context.planet.history, default=str),
+    )
+
   def test_a_decided_game_replays_exactly(self):
     folder = self.create_tempdir().full_path
     game = session_lib.GameSession(
