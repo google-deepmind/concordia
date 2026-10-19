@@ -1293,8 +1293,9 @@ class PolityActor(Actor):
     """The orders each of this people's towns may give now, for the page.
 
     Returns:
-      Town id -> `{'at': [row from the north, col], 'orders': [...]}`, for
-      the towns with an order to give.
+      Town id -> `{'at': [row from the north, col], 'orders': [...],
+      'waits': {move: why}}`, for the towns with an order to give; `waits`
+      says why a march cannot go from it yet.
     """
     towns = self._planet.settlements
     if towns is None or not towns.war:
@@ -1323,6 +1324,21 @@ class PolityActor(Actor):
         menu[str(town.id)] = {
             'at': [north - town.row, town.col],
             'orders': orders,
+            'waits': (
+                {
+                    MARCH_TAKE: (
+                        'it holds no arms yet; raise arms in your move (they'
+                        ' gather in your capital)'
+                        if town.capital
+                        else (
+                            'no arms are stationed in it; marches start from'
+                            ' your capital, where arms gather'
+                        )
+                    )
+                }
+                if others and not town.garrison
+                else {}
+            ),
         }
     return menu
 

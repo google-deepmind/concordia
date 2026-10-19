@@ -513,6 +513,9 @@ class SettlementsTest(absltest.TestCase):
     self.assertEqual(why, '')
     second.garrison = {'levies': 6.0}
     capital = towns.capital('basalt')
+    # Unarmed, the capital's card says why it cannot march yet.
+    unarmed = basalt.town_menu()[str(capital.id)]
+    self.assertIn('holds no arms yet', unarmed['waits'][actors_lib.MARCH_TAKE])
     towns.muster('basalt', 'levies', 4.0)
 
     def at(town):
@@ -521,6 +524,7 @@ class SettlementsTest(absltest.TestCase):
     # The page's menu: each town's orders (a march only where arms stand).
     menu = basalt.town_menu()
     self.assertIn(actors_lib.MARCH_TAKE, menu[str(second.id)]['orders'])
+    self.assertEqual(menu[str(second.id)]['waits'], {})  # Armed: it may.
     self.assertEqual(
         menu[str(second.id)]['at'], [north - second.row, second.col]
     )

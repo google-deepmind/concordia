@@ -3850,7 +3850,8 @@ function showInspect() {
       if (mine) {  // Your town: the orders it may give this turn.
         const given = townOrders.find((o) => o.at && o.at[0] === r && o.at[1] === c);
         add('Orders', (given ? `<b>Ordered: ${escapeHtml(moveWords(given.move))}</b><br>` : '')
-          + mine.orders.map((o, i) => `<button class="tord" data-t="${town[1]}" data-o="${i}">${escapeHtml(moveWords(o))}</button>`).join(' '));
+          + mine.orders.map((o, i) => `<button class="tord" data-t="${town[1]}" data-o="${i}">${escapeHtml(moveWords(o))}</button>`).join(' ')
+          + Object.entries(mine.waits || {}).map(([o, why]) => `<br><span class="muted">To ${escapeHtml(moveWords(o))}: ${escapeHtml(why)}.</span>`).join(''));
       }
       for (const a of (m.peoples.armies || []).filter((a) => a[5] === r && a[6] === c)) {
         add('Marching on it', `${escapeHtml(m.peoples.polities[a[0]].name)}: `
