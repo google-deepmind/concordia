@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, afternoon (2)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      When the game ends, a people's recap tells its own result and its
+      towns: how many it held of all, and how it gained them (founded,
+      taken, won over, risen to it). The Steward's forecasts and forest goal
+      are left to the Steward's recap.
   - when: 19 Oct, afternoon
     world: fire_and_iron
     role: Basalt clans

@@ -2322,9 +2322,15 @@ class GameSession:
     )
 
   def _recap(self, place: Seat | None) -> dict[str, Any]:
-    """A decided game: the temperature all through, and a player's moves."""
+    """A decided game: the temperature all through, and a player's moves.
+
+    A Steward's (or a watched game's) recap tells the Steward's forecasts
+    and side objectives; a people's tells its own result and its towns.
+    """
     planet = self.context.planet
     low, high = planet.band()
+    kind = self._kind(place.entity) if place is not None else ''
+    stewards = kind in ('', 'steward')  # A watched game shows the Steward's.
     moves: dict[str, int] = {}
     held = timed_out = 0
     for choice in place.choices if place is not None else []:
@@ -2335,7 +2341,11 @@ class GameSession:
       else:
         moves[choice] = moves.get(choice, 0) + 1
     return {
-        'outcome': planet.outcome,
+        'outcome': (
+            self._own_outcome(place.entity, False)
+            if place is not None
+            else planet.outcome
+        ),
         'reason': planet.outcome_reason,
         'ticks': planet.tick,
         'temps': [round(float(r['temp_c']), 1) for r in planet.history],
@@ -2378,8 +2388,10 @@ class GameSession:
         'minds': self.spend(),
         # The stars earned, and each star's rule.
         'stars': planet.stars(),
-        # The side objectives and their verdicts on the true world.
-        'side': planet.side_payload(),
+        # The Steward's side objectives and their verdicts on the true world.
+        'side': planet.side_payload() if stewards else [],
+        # A people's towns at the end, and by which road each was gained.
+        'towns': self._towns_recap(place),
         # Whether it can be watched again exactly, and as which game.
         'replayable': bool(
             self.mode == 'play' and self.minds == 'mock' and self._decided()
@@ -2389,9 +2401,27 @@ class GameSession:
         'chapter': self.chapter if self.mode == 'play' else None,
         # How far off the Steward's forecasts were, against its raw
         # readings; None where no one read the temperature.
-        'forecast': forecast_lib.track_record(
-            planet.history, planet.made, planet.move_profiles
+        'forecast': (
+            forecast_lib.track_record(
+                planet.history, planet.made, planet.move_profiles
+            )
+            if stewards
+            else None
         ),
+    }
+
+  def _towns_recap(self, place: Seat | None) -> dict[str, Any] | None:
+    """A people's towns at the end, of all towns, and how it gained them."""
+    towns = self.context.planet.settlements
+    if place is None or towns is None or self._kind(place.entity) != 'people':
+      return None
+    key = self._role(place.entity).get('polity')
+    if not key:
+      return None
+    return {
+        'held': len(towns.places.get(key, [])),
+        'of': sum(len(v) for v in towns.places.values()),
+        'gains': dict(towns.gains.get(key, {})),
     }
 
   def _how_played(self, place: 'Seat | None') -> dict[str, Any] | None:

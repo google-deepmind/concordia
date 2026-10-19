@@ -873,6 +873,13 @@ class GameSessionTest(absltest.TestCase):
     self.assertLen(recap['temps'], len(planet.history))
     self.assertGreaterEqual(recap['held'], 1)  # It held its course.
     self.assertEqual(recap['band'], list(planet.band()))
+    # A people's recap: its towns, not the Steward's forecasts or goals.
+    self.assertEqual(recap['side'], [])
+    self.assertIsNone(recap['forecast'])
+    self.assertEqual(
+        recap['towns']['held'], len(planet.settlements.places['amber'])
+    )
+    self.assertGreaterEqual(recap['towns']['of'], recap['towns']['held'])
     self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
     self.assertTrue(all(s['met'] is not None for s in state['stars']))
@@ -900,6 +907,8 @@ class GameSessionTest(absltest.TestCase):
     self.assertIn([sent + 1, 'seed bright clouds', 'cool'], recap['marks'])
     self.assertIsInstance(recap['seen'], list)  # The Steward's readings.
     self.assertIsInstance(recap['turning'], list)  # (`forecast` tests them.)
+    self.assertIsNone(recap['towns'])  # A Steward holds no towns.
+    self.assertIsNotNone(recap['forecast'])
     watched = session_lib.GameSession(
         'daisyworld', 'watch', pace_seconds=0, overrides={'max_ticks': 3}
     ).start()

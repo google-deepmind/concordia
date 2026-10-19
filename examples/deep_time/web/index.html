@@ -1136,6 +1136,12 @@ function renderHud(state) {
 
 // The game told once it is decided: the verdict and why, the
 // temperature all through against its band, and a player's moves.
+// A people's towns at the end, e.g. "7 of 18 · founded 2 · took 3".
+const GAIN_WORDS = [['found', 'founded'], ['take', 'took'], ['win', 'won over'], ['rise', 'rose to you']];
+function townsWords(towns) {
+  const gains = GAIN_WORDS.filter(([k]) => towns.gains[k]).map(([k, w]) => `${w} ${towns.gains[k]}`);
+  return [`${towns.held} of ${towns.of}`, ...gains].join(' · ');
+}
 function renderRecap(recap) {
   const card = $('recapcard');
   card.hidden = !recap;
@@ -1164,8 +1170,11 @@ function renderRecap(recap) {
   card.innerHTML = `<h2>The game is decided · ${recap.ticks} turns</h2>`
     + `<p class="verdict ${recap.outcome}">${escapeHtml(recap.outcome.toUpperCase())}</p>`
     + `<p class="small">${escapeHtml(recap.reason)}.</p>${svg}`
-    + `<p class="small muted">The temperature all through${recap.band ? `, against the band ${recap.band[0]}–${recap.band[1]} °C` : ''}.`
+    + `<p class="small muted">${recap.towns
+      ? `The planet's temperature all through${recap.band ? `; the Steward keeps it within ${recap.band[0]}–${recap.band[1]} °C` : ''}.`
+      : `The temperature all through${recap.band ? `, against the band ${recap.band[0]}–${recap.band[1]} °C` : ''}.`}`
     + `${key ? `<br>${escapeHtml(key)}` : ''}</p>`
+    + (recap.towns ? `<p class="small"><b>Your towns at the end:</b> ${townsWords(recap.towns)}</p>` : '')
     + (moves || extra ? `<p class="small"><b>Your moves:</b> ${[moves, extra].filter(Boolean).join(' · ')}</p>` : '')
     + (recap.play ? `<p class="small muted">You acted on ${recap.play.acted} of ${recap.play.turns} turns`
       + `${recap.play.seconds != null ? `, taking about ${Math.round(recap.play.seconds)} s to choose` : ''}.</p>` : '')
