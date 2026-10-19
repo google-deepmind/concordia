@@ -447,6 +447,19 @@ class SettlementsTest(absltest.TestCase):
     self.assertFalse(any('restless' in t for t in told), told)
     self.assertAlmostEqual(town.loyalty, 0.65)
 
+  def test_a_town_keeps_its_name_as_its_tile_changes(self):
+    planet, towns, _, town, _ = self._courted()
+    first = towns.where(town)
+    biomes = towns.biomes
+    old = int(biomes.biome[town.row, town.col])
+    biomes.biome[town.row, town.col] = (old + 1) % len(biomes.specs)
+    self.assertEqual(towns.where(town), first)  # The same town, the same name.
+    saved = towns.get_state()
+    towns.town_names.clear()
+    towns.set_state(saved)
+    self.assertEqual(towns.where(town), first)  # Kept across a save.
+    del planet
+
   def test_envoys_after_skipped_turns_say_the_town_cooled(self):
     from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
 

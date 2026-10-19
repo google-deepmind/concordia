@@ -131,6 +131,9 @@ class Settlements:
     self.leader = ''
     # Towns each people gained, by road: 'take', 'win', 'rise', 'found' (C8).
     self.gains: dict[str, dict[str, int]] = {}
+    # Where conquest is played: each town's name as first told, kept (its
+    # tile's biome shifts as the climate does; the town stays itself).
+    self.town_names: dict[int, str] = {}
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -217,13 +220,19 @@ class Settlements:
     ]
 
   def where(self, place: Settlement) -> str:
-    """A few words for where a settlement stands."""
+    """A few words for where a settlement stands (kept, where conquest is)."""
+    if place.id in self.town_names:
+      return self.town_names[place.id]
     biome = self.biomes.specs[int(self.biomes.biome[place.row, place.col])]
     lat = float(self.biomes.lat[place.row])
     side = 'north' if lat > 20 else 'south' if lat < -20 else 'tropics'
     if self.tiles.terrain[place.row, place.col] == tiles_lib.COAST:
-      return f'on the coast in the {side}'
-    return f'in the {biome["name"]} of the {side}'
+      name = f'on the coast in the {side}'
+    else:
+      name = f'in the {biome["name"]} of the {side}'
+    if self.conquest:
+      self.town_names[place.id] = name
+    return name
 
   def update(
       self, populations: Mapping[str, float], found: bool = True
@@ -1173,6 +1182,15 @@ class Settlements:
                 'next_army': self.next_army,
                 **({'leader': self.leader} if self.leader else {}),
                 **({'gains': self.gains} if self.gains else {}),
+                **(
+                    {
+                        'town_names': {
+                            str(k): v for k, v in self.town_names.items()
+                        }
+                    }
+                    if self.town_names
+                    else {}
+                ),
             }
             if self.conquest
             else {}
@@ -1231,5 +1249,8 @@ class Settlements:
     self.gains = {
         str(k): {str(r): int(n) for r, n in v.items()}
         for k, v in state.get('gains', {}).items()
+    }
+    self.town_names = {
+        int(k): str(v) for k, v in state.get('town_names', {}).items()
     }
     self._route()

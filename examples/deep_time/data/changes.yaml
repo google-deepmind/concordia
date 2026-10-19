@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, evening (2)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A town keeps the name it was first told by ("in the taiga of the
+      north"), though the land around it changes: a town you court is
+      the same town turn after turn. Aiming envoys, the towns you are
+      courting come first in the list.
   - when: 19 Oct, evening
     world: great_acceleration
     role: Basalt clans
