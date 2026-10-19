@@ -9,6 +9,9 @@ changes:
       Keeping your course keeps your courtship: a town's envoys or feast
       given with "Keep 5 turns" go again each held turn, so a town warms
       turn after turn while you wait (a march or a founding is given once).
+      Aiming, each town in the list shows what the choice turns on: the
+      arms seen in it for a march, how far it is from joining you for
+      envoys.
   - when: 19 Oct, afternoon (4)
     world: great_acceleration
     role: Basalt clans
