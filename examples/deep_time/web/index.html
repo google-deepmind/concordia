@@ -907,8 +907,13 @@ function showAimTowns() {
     return `<button data-at="${s[2]},${s[3]}">${escapeHtml(m.peoples.polities[s[0]].name)}${s[4] ? ' capital' : ''}`
       + ` · ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${s[3] + 1}${note}</button>`;
   }).join('');
+  // A town picked from the list is chosen outright for a town's order
+  // (queued, not yet sent); a move of the people's still asks "Here?".
   for (const b of box.querySelectorAll('button')) {
-    b.addEventListener('click', () => aimAt(...b.dataset.at.split(',').map(Number)));
+    b.addEventListener('click', () => {
+      aimAt(...b.dataset.at.split(',').map(Number));
+      if (aim && aim.town) $('aimgo').click();
+    });
   }
   if (box.innerHTML) $('aimtext').textContent += ' Or pick a town nearby:';
 }
