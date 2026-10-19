@@ -1040,10 +1040,18 @@ function showTownOrders() {
       + (STANDING.test(o.move) ? ' · each turn until you cancel it' : '')
       + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
   }).join('<br>')
-    + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '');
+    + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '')
+    // Sent at once, the people's labor kept as it is (a turn of town orders
+    // alone needs no labor move).
+    + (townOrders.length && keepMove() ? '<br><button class="townbtn" id="sendorders">Send them now (labor as it is)</button>' : '');
   for (const b of p.querySelectorAll('button[data-drop]')) {
     b.addEventListener('click', () => { townOrders.splice(Number(b.dataset.drop), 1); showTownOrders(); redrawMap(); });
   }
+  if ($('sendorders')) $('sendorders').addEventListener('click', () => answer(lastQuestion.request_id, keepMove()));
+}
+// The move that changes nothing this turn, if the question offers one.
+function keepMove() {
+  return lastQuestion && (lastQuestion.options || []).find((o) => NEUTRAL_MOVES.test(o));
 }
 
 // Planning a move for a later turn: the When row above the
