@@ -884,12 +884,18 @@ function showAimTowns() {
     return Math.max(Math.abs(s[2] - from[2]), Math.min(dc, cols - dc));
   };
   const courting = aim.option.startsWith('send grain');  // Capitals are not courted.
+  // Envoys: the towns already courted first, nearest to joining first.
+  const leaning = m.peoples.leaning || {};
+  const toGo = (s) => {
+    const lean = leaning[s[1]];
+    return courting && lean && lean[0] === mine[0] ? 1 - lean[1] / lean[2] : 2;
+  };
   box.innerHTML = sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]))
-    .sort((a, b) => steps(a) - steps(b)).slice(0, 6).map((s) => {
+    .sort((a, b) => toGo(a) - toGo(b) || steps(a) - steps(b)).slice(0, 6).map((s) => {
     const lat = 90 - (s[2] + 0.5) * 180 / m.tile_rows;
     // What the choice turns on: the arms seen in it (a march), or how far
     // it is from joining you (envoys).
-    const held = (m.peoples.garrisons || {})[s[1]], lean = (m.peoples.leaning || {})[s[1]];
+    const held = (m.peoples.garrisons || {})[s[1]], lean = leaning[s[1]];
     const note = courting
       ? (lean && lean[0] === mine[0] ? ` · ${Math.round(100 * Math.max(0, 1 - lean[1] / lean[2]))}% to go` : '')
       : ` · ${held ? `arms ${held[0]}` : 'no arms seen'}`;
