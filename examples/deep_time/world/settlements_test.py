@@ -465,6 +465,11 @@ class SettlementsTest(absltest.TestCase):
     self.assertEqual(towns.where(town), first)  # Kept across a save.
     del planet
 
+  def test_two_towns_told_alike_are_told_apart(self):
+    _, towns, _, _, _ = self._courted()
+    names = [towns.where(t) for v in towns.places.values() for t in v]
+    self.assertLen(set(names), len(names))  # No two towns named alike.
+
   def test_envoys_after_skipped_turns_say_the_town_cooled(self):
     from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
 

@@ -231,6 +231,11 @@ class Settlements:
     else:
       name = f'in the {biome["name"]} of the {side}'
     if self.conquest:
+      if name in self.town_names.values():  # Two towns, told apart.
+        name += (
+            f' at {abs(lat):.0f}°{"N" if lat >= 0 else "S"}, tile'
+            f' {place.col + 1}'
+        )
       self.town_names[place.id] = name
     return name
 
