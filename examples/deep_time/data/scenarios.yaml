@@ -237,9 +237,10 @@ fire_and_iron:
     # and coal treaties once a people knows diplomacy.
     treaties: true
     # Towns can change hands (stage 6, C8: the second kept world), with the
-    # arms of the iron age: spears, coppiced bows, the plough's horses.
+    # arms of the iron age: spears, coppiced bows, axes (the plough's horses
+    # lie beyond a game's know-how there).
     conquest: true
-    arms: [levies, bows, riders]
+    arms: [levies, bows, axes]
     # A town costs a poorer age less to found (data/settlements.yaml), and
     # its small towns defend and settle with fewer hands (data/arms.yaml).
     settlements: {founding: {grain: 2.0, tools: 1.0}}

@@ -57,7 +57,13 @@ _CAPITAL_GUARD = 3.0
 # A town on a sheet: row, column, capital, the arms seen in it.
 Town = tuple[int, int, bool, float]
 # Arms, the strongest first (each needs its dual-use know-how).
-_ARMS = ('forge rifles', 'breed horses', 'train archers', 'arm levies')
+_ARMS = (
+    'forge rifles',
+    'breed horses',
+    'train archers',
+    'muster axemen',
+    'arm levies',
+)
 
 
 def _moves(spec: entity_lib.ActionSpec) -> list[str]:
