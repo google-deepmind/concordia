@@ -638,6 +638,13 @@ class Settlements:
                     for s in v
                     if (lean := self.courted_by(s)) is not None
                 },
+                # What each town fights with: its arms and people, behind
+                # its walls (what a march on it meets).
+                'defence': {
+                    str(s.id): round(self.defence(s), 1)
+                    for v in self.places.values()
+                    for s in v
+                },
                 # Each taken town not yet settled: its loyalty to its holder.
                 'restless': {
                     str(s.id): round(s.loyalty, 2)

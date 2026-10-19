@@ -407,6 +407,11 @@ class SettlementsTest(absltest.TestCase):
     self.assertEqual(
         towns.payload({})['leaning'], {str(town.id): [pi, 0.15, 1.0]}
     )
+    # What a march on it would meet, on the map for the aim list.
+    self.assertEqual(
+        towns.payload({})['defence'][str(town.id)],
+        round(towns.defence(town), 1),
+    )
     # A hungry town warms twice as fast; a model's cart goes to the town
     # nearest to joining; and the town joins at its need, garrison and all
     # people kept (the garrison walks home).
@@ -496,6 +501,10 @@ class SettlementsTest(absltest.TestCase):
     self.assertAlmostEqual(town.regard['basalt'], 0.25)
     (heard,) = amber.drain_outbox()
     self.assertEqual(heard[0], planet.war_topic('basalt'))
+    # The courting people hears what a feast undoes and what it costs.
+    self.assertIn(
+        "undoes 0.15, a cart's worth, and costs them 5 grain", heard[1]
+    )
     # A town taken by arms is restless; a feast settles it some.
     planet.change_hands(town.id, 'basalt', stay=0.8, loyalty=0.35, how='take')
     self.assertTrue(town.taken)

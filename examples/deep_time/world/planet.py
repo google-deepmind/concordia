@@ -1334,12 +1334,15 @@ class Planet:
       return f'{name} hold no feast: no town of theirs needs one.', {}
     civ.ledger.withdraw(polity, 'grain', cost, 'a feast')
     courted = dict(place.regard)
-    towns.feast(place.id, float(towns.war.get('feast_loyalty', 0.15)))
+    lift = float(towns.war.get('feast_loyalty', 0.15))
+    towns.feast(place.id, lift)
     where = towns.where(place)
+    # What the feast undid, and what it cost them: grain each time.
     told = {
         other: (
             f'The {name} feasted their town {where}: its regard for us falls'
-            f' to {place.regard.get(other, 0.0):.2f}.'
+            f' to {place.regard.get(other, 0.0):.2f} (a feast undoes'
+            f" {lift:.2f}, a cart's worth, and costs them {cost:g} grain)."
         )
         for other in courted
     }

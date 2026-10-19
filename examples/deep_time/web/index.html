@@ -896,9 +896,14 @@ function showAimTowns() {
     // What the choice turns on: the arms seen in it (a march), or how far
     // it is from joining you (envoys).
     const held = (m.peoples.garrisons || {})[s[1]], lean = leaning[s[1]];
+    // A march: the town's defence (arms and people, behind walls), and the
+    // odds against it of the arms in the town it goes from (as the fight
+    // reckons them: attack² against attack² + defence²).
+    const defence = (m.peoples.defence || {})[s[1]], ours = ((m.peoples.garrisons || {})[from[1]] || [0])[0];
+    const odds = defence != null && ours > 0 ? ` · odds ${Math.min(99, Math.round(100 * ours * ours / (ours * ours + defence * defence)))}%` : '';
     const note = courting
       ? (lean && lean[0] === mine[0] ? ` · ${Math.round(100 * Math.max(0, 1 - lean[1] / lean[2]))}% to go` : '')
-      : ` · ${held ? `arms ${held[0]}` : 'no arms seen'}`;
+      : (defence != null ? ` · defence ${defence}${odds}` : ` · ${held ? `arms ${held[0]}` : 'no arms seen'}`);
     return `<button data-at="${s[2]},${s[3]}">${escapeHtml(m.peoples.polities[s[0]].name)}${s[4] ? ' capital' : ''}`
       + ` · ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${s[3] + 1}${note}</button>`;
   }).join('');

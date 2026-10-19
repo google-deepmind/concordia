@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, evening (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Aiming a march, each town in the list shows its defence (its arms
+      and people, behind its walls) and your odds against it from the town
+      you march from. When a town you court is feasted, you hear that a
+      feast undoes a cart's worth of regard and costs its holder grain.
   - when: 19 Oct, evening (2)
     world: great_acceleration
     role: Basalt clans
