@@ -478,7 +478,8 @@ class SettlementsTest(absltest.TestCase):
     planet.set_target('Basalt clans', town.row, town.col)
     told = basalt.resolve(move)
     self.assertIn('It had cooled since their envoys 5 turns ago', told)
-    self.assertIn('regard fades by 0.04 each turn', told)
+    self.assertIn('each cart raises its regard by 0.15', told)
+    self.assertIn('it fades by 0.04 each turn none comes', told)
 
   def test_a_feast_answers_envoys_and_settles_a_taken_town(self):
     from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top

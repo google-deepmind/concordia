@@ -1234,9 +1234,10 @@ class Planet:
     # Turns skipped since their last envoys: the town cooled meanwhile.
     gap = self.tick - last if last is not None else 0
     cooled = (
-        f' It had cooled since their envoys {gap} turns ago: regard fades'
-        f' by {float(towns.war.get("regard_fade", 0.02)):g} each turn no'
-        ' cart comes.'
+        f' It had cooled since their envoys {gap} turns ago: each cart'
+        f' raises its regard by {gain:g}, and it fades by'
+        f' {float(towns.war.get("regard_fade", 0.02)):g} each turn none'
+        ' comes.'
         if gap > 1
         else ''
     )
