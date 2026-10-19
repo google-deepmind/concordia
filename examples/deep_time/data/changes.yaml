@@ -2,6 +2,13 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A town's order, once given, shows at once: your move opens on the
+      orders queued (naming the town each goes to), says each town gives
+      one order a turn and how many more of your towns can give one.
   - when: 19 Oct, evening (3)
     world: great_acceleration
     role: Basalt clans

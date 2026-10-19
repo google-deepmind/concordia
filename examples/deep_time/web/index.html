@@ -147,7 +147,7 @@
   .crisis.urgent .due { background: var(--bad); color: #fff; }
   .crisis .answers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .crisis .answers button { min-height: 40px; padding: 0 12px; border-radius: 20px; font-size: .85rem; }
-  .options button.flash { outline: 3px solid #d98a2b; outline-offset: 2px; }
+  .options button.flash, #townorders.flash { outline: 3px solid #d98a2b; outline-offset: 2px; }
   button.rewind { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 44px; margin: 0 0 10px; padding: 0 12px; border-radius: 12px; }
   button.rewind.armed { border-color: var(--bad); color: var(--bad); }
   button.rewind small { color: var(--muted); }
@@ -916,6 +916,12 @@ function queueTownOrder(at, move, target) {
   townOrders = townOrders.filter((o) => !o.at || o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
   townOrders.push({at, move, target});
   showTownOrders(); showInspect(); redrawMap();
+  // Seen at once: the move opens on the orders queued, with the people's
+  // move (which sends them) below.
+  setSheet(true);
+  $('townorders').scrollIntoView({behavior: 'smooth', block: 'center'});
+  $('townorders').classList.add('flash');
+  setTimeout(() => $('townorders').classList.remove('flash'), 2500);
 }
 // The towns that may give an order: a hint, and each town as a button (a
 // town found without the map: a small screen, a screen reader). Drawn again
@@ -949,6 +955,13 @@ function showTown(r, c) {
   redrawMap();
   $('inspect').scrollIntoView({behavior: 'smooth', block: 'center'});
 }
+// Where an order was aimed: the town there, else its latitude.
+function targetWords({r, c}) {
+  const m = lastMap, site = m && m.peoples && m.peoples.settlements.find((s) => s[2] === r && s[3] === c);
+  const lat = 90 - (r + 0.5) * 180 / ((m && m.tile_rows) || 1);
+  const at = `${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${c + 1}`;
+  return site ? `the ${m.peoples.polities[site[0]].name} town at ${at}` : `aimed at ${at}`;
+}
 // Each town gives one order a turn: how many more could give one now.
 function townsLeftWords() {
   const towns = Object.values((lastQuestion && lastQuestion.towns) || {});
@@ -962,7 +975,7 @@ function showTownOrders() {
   p.innerHTML = townOrders.map((o, i) => {
     if (o.to) return `To the ${escapeHtml(o.to)}: “${escapeHtml(o.text)}” <button data-drop="${i}" aria-label="Drop these words">✕</button>`;
     const lat = 90 - (o.at[0] + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
-    return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ' (aimed)' : ''}`
+    return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ` (${escapeHtml(targetWords(o.target))})` : ''}`
       + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
   }).join('<br>')
     + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '');
