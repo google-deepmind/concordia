@@ -171,7 +171,9 @@ def build_simulation(
       if not {*context.humans, *context.scripted, *context.bots} & {
           people.name
       }:
-        context.scripted[people.name] = war_rules.Rival()
+        context.scripted[people.name] = war_rules.make(
+            'rival', context.scenario, rival=True
+        )
   # The roles' slow minds think with it (and so do species founded later).
   context.slow_model = models.slow
   config = build_config(context, max_ticks, views=views)

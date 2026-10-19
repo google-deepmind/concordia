@@ -155,7 +155,7 @@ class SettlementsTest(absltest.TestCase):
     self.assertTrue(towns.places['cedar'][0].capital)
 
   def test_without_conquest_towns_keep_their_old_state(self):
-    towns = _planet('fire_and_iron').settlements
+    towns = _planet('sandbox').settlements
     self.assertFalse(towns.conquest)
     self.assertNotIn('towns', towns.get_state())
 
@@ -278,7 +278,7 @@ class SettlementsTest(absltest.TestCase):
     )
 
   def test_arms_belong_to_conquest_worlds_only(self):
-    planet = _planet('fire_and_iron')
+    planet = _planet('sandbox')
     self.assertEqual(planet.settlements.arms, {})
     self.assertFalse(any(r.key.startswith('arm_') for r in planet.civ.recipes))
 

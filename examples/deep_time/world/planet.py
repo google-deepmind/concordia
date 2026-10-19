@@ -390,7 +390,11 @@ class Planet:
           {k: p.regions for k, p in self.civ.polities.items()},
           {k: p.home for k, p in self.civ.polities.items()},
           {k: p.name for k, p in self.civ.polities.items()},
-          data.load('settlements.yaml'),
+          # A world may set its own (e.g. a poorer age's founding cost).
+          {
+              **data.load('settlements.yaml'),
+              **scenario['civilization'].get('settlements', {}),
+          },
           trade=self.trade is not None,
           conquest=bool(scenario['civilization'].get('conquest')),
           arms=(civ_config or {}).get('arms'),
@@ -943,9 +947,9 @@ class Planet:
           f'they have founded {towns.founded(polity)} towns, the most they can'
       )
     people = civ.polities[polity].population
-    need = float(towns.config['town_population']) * (
-        len(towns.places[polity]) + 1
-    )
+    # As growth founds them: a town for each `town_population` people, and
+    # a capital (one more town's settlers were asked before c182).
+    need = float(towns.config['town_population']) * len(towns.places[polity])
     if people < need:
       return (
           f'they are {people:.1f} people in {len(towns.places[polity])} towns;'

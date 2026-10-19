@@ -30,6 +30,7 @@ economy.
 
 from collections.abc import Mapping, Sequence
 import re
+from typing import Any
 
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import mock_language_model as mock_lib
@@ -49,7 +50,7 @@ _OTHERS = re.compile(r'towns of others: (.*?)\.(?:\s|$)')
 _OURS = re.compile(r'Our towns stand at (.*?) \(row,col\)')
 _TILE = re.compile(r'(\d+),(\d+)( \(capital\))?')
 # Arms, the strongest first (each needs its dual-use know-how).
-_ARMS = ('forge rifles', 'breed horses', 'arm levies')
+_ARMS = ('forge rifles', 'breed horses', 'train archers', 'arm levies')
 
 
 def _moves(spec: entity_lib.ActionSpec) -> list[str]:
@@ -102,6 +103,8 @@ def _economy(
   prompt = '\n'.join([*contexts.values(), spec.call_to_action])
   options = {chr(ord('a') + i): m for i, m in enumerate(moves[:26])}
   for policy in mock_lib.DEFAULT_POLICIES:
+    if policy is mock_lib.found_policy:  # Its towns found (`_found`).
+      continue
     choice = policy(prompt, options)
     if choice is not None and choice in moves:
       return mock_lib.with_words(prompt, choice)
@@ -124,8 +127,19 @@ class _PeopleRule:
     moves = _moves(spec)
     sheet = '\n'.join(contexts.values())
     people = self.war(sheet, moves) or _economy(spec, contexts, moves)
-    # Its towns' own orders ride with it, a line each (stage 6, C6).
-    return '\n'.join([people, *self.orders(sheet, moves)])
+    # Its towns' own orders ride with it, a line each (stage 6, C6): a new
+    # town settled from its capital whenever it can, then the rule's own.
+    return '\n'.join(
+        [people, *self._found(sheet, moves), *self.orders(sheet, moves)]
+    )
+
+  def _found(self, sheet: str, moves: Sequence[str]) -> list[str]:
+    """A new town, settled from its capital, whenever it can found one."""
+    found = _find(moves, actors_lib.FOUND_TOWN)
+    capital = next((t for t in _own_towns(sheet) if t[2]), None)
+    if found is None or capital is None:
+      return []
+    return [f'town {capital[0]},{capital[1]}: {found}']
 
   def war(self, sheet: str, moves: Sequence[str]) -> str | None:
     """Its move of war this turn, or None."""
@@ -147,6 +161,7 @@ class _PeopleRule:
     """
     envoys = _find(moves, actors_lib.SEND_ENVOYS)
     grain = _number(_GRAIN, sheet) or 0.0
+    reserve = min(reserve, grain / 2)  # A poorer people keeps half.
     if envoys is None or grain < reserve + 5.0:
       return []
     others = _OTHERS.findall(sheet)
@@ -225,17 +240,16 @@ class Bread(_PeopleRule):
 
 
 class Conqueror(_PeopleRule):
-  """A skilled mix: towns founded, the sword, and bread from a rich granary.
+  """A skilled mix: the sword, and bread from a rich granary.
 
-  Its people's order founds a town when it can, feasts what is about to
-  rise, marches when strong, arms when not; meanwhile its towns court one
-  town with the grain it can spare.
+  Its people's order feasts what is about to rise, marches when strong,
+  arms when not; meanwhile its towns court other towns with the grain it
+  can spare (and, like every rule, found a town whenever it can).
   """
 
   def war(self, sheet: str, moves: Sequence[str]) -> str | None:
     return (
-        _find(moves, actors_lib.FOUND_TOWN)
-        or self._feast(sheet, moves)
+        self._feast(sheet, moves)
         or self._march(sheet, moves)
         or self._arm(sheet, moves)
     )
@@ -252,8 +266,8 @@ class Rival(_PeopleRule):
   Otherwise its economy.
   """
 
-  def __init__(self):
-    super().__init__(strike=8.0, rest=4)
+  def __init__(self, strike: float = 8.0):
+    super().__init__(strike=strike, rest=4)
 
   def war(self, sheet: str, moves: Sequence[str]) -> str | None:
     courted = [int(n) for n in _COURTED_US.findall(sheet)]
@@ -296,6 +310,38 @@ class Passive(_PeopleRule):
   ) -> str:
     del contexts
     return _find(_moves(spec), actors_lib.KEEP_LABOR) or ''
+
+
+def settings(
+    scenario: Mapping[str, Any], rival: bool = False
+) -> dict[str, float]:
+  """The rules' settings in a world (`conquest_bots: {strike: ...}`).
+
+  The strength a rule marches with suits the world's peoples (a poorer
+  age raises fewer arms), and the others' answer may wait for more
+  (`rival_strike`); `conquest_bots: true` keeps the defaults.
+
+  Args:
+    scenario: The world's data.
+    rival: For the others' answer (`Rival`), else a people's own rule.
+
+  Returns:
+    Keyword arguments for the rule.
+  """
+  found = scenario.get('conquest_bots')
+  if not isinstance(found, Mapping):
+    return {}
+  key = 'rival_strike' if rival and 'rival_strike' in found else 'strike'
+  return {'strike': float(found[key])} if key in found else {}
+
+
+def make(
+    name: str, scenario: Mapping[str, Any], rival: bool = False
+) -> '_PeopleRule':
+  """A rule (`RULES[name]`, or the others' `Rival`) set for a world."""
+  found = settings(scenario, rival=rival)
+  rule = Rival if rival else RULES[name]
+  return rule(strike=found['strike']) if 'strike' in found else rule()
 
 
 # The bots of the people audit, by name.

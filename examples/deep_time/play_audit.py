@@ -51,6 +51,7 @@ from examples.deep_time import scenarios as scenarios_lib
 from examples.deep_time import simulation
 from examples.deep_time import war_rules
 from examples.deep_time.web import session as session_lib
+from examples.deep_time.world import data
 from concordia.utils import structured_logging
 
 BOTS = ('default', 'random', 'passive')
@@ -253,7 +254,7 @@ def play_people(
       max_ticks=ticks,
       seed=seed,
       overrides={'conquest_bots': True} if rivals else None,
-      scripted={people: war_rules.RULES[bot]()},
+      scripted={people: war_rules.make(bot, data.scenario(scenario))},
   )
   planet = context.planet
   assert planet.civ is not None and planet.settlements is not None

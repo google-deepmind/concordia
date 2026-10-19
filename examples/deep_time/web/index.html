@@ -492,6 +492,7 @@
       <p class="moveclock" id="moveclock" hidden></p>
       <p class="err" id="moveerr" hidden></p>
       <p class="planok" id="planok" hidden></p>
+      <p class="planok" id="townhint" hidden></p>
       <p class="planok" id="townorders" hidden></p>
       <div class="wordsrow" id="wordsrow" hidden><select id="wordsto" aria-label="To which people"></select><input id="wordstext" maxlength="240" placeholder="Your words to them"><button id="wordsadd">Add</button></div>
       <div class="plans" id="sheetplans"></div>
@@ -982,6 +983,10 @@ function renderQuestion(q) {
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
   townOrders = []; showTownOrders();
+  const orderable = Object.keys(q.towns || {}).length;  // The owner missed them (c181).
+  $('townhint').hidden = !orderable;
+  $('townhint').innerHTML = orderable
+    ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one to march from it, send grain and envoys, feast it or found a town.` : '';
   const peoples = q.speak || [];  // Words to other peoples (where conquest is).
   $('wordsrow').hidden = !peoples.length;
   $('wordsto').innerHTML = peoples.map((p) => `<option>${escapeHtml(p)}</option>`).join('');
@@ -3075,6 +3080,10 @@ function drawSettlements(ctx, v, unit, X, Y) {
     if (port) {
       ctx.beginPath(); ctx.arc(x + h, y + h, 1.2 * unit, 0, 2 * Math.PI);
       ctx.fillStyle = v.theme === 'dark' ? '#8cc8f0' : '#2a6aa8'; ctx.fill();
+    }
+    if (lastQuestion && (lastQuestion.towns || {})[id] && !townOrders.some((o) => o.at && o.at[0] === r && o.at[1] === c)) {
+      ctx.beginPath(); ctx.arc(x + h * 1.1, y - h * 1.1, Math.max(3, 1.5 * unit), 0, 2 * Math.PI);  // ● It may give an order.
+      ctx.fillStyle = '#d98a2b'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = halo; ctx.stroke();
     }
     const held = (peoples.garrisons || {})[id];
     if (held && held[0] >= 0.5) {  // Its garrison's strength, below it.

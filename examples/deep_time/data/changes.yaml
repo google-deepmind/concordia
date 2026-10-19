@@ -2,6 +2,17 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, sunrise
+    world: fire_and_iron
+    text: >-
+      War comes to Fire and Iron too: play one of its peoples to found towns,
+      raise levies, archers (bows from coppiced woods) and riders, march to
+      take or raze, win towns with grain, make peace, or hold three of every
+      four towns and win alone. Its towns are small and its granaries thin,
+      so war there is short-handed and costly. On every world your towns that
+      can give their own order this turn are marked ● on the map, and the
+      move sheet says so; a town can be founded once you have three people
+      for each town besides your capital.
   - when: 19 Oct, dawn
     world: great_acceleration
     text: >-

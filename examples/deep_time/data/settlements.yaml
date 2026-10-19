@@ -7,7 +7,7 @@ town_population: 3.0       # one settlement per this much population (and a capi
 max_settlements: 6         # per people (the towns it founds)
 # Where conquest is played, towns are founded only by a people's move, at
 # this cost (settlers come from its towns: it needs town_population people
-# for every town it holds, the new one included).
+# for every town it holds besides its capital, the new one included).
 founding: {grain: 4.0, tools: 2.0}
 spacing: 3                 # tiles between settlements (Chebyshev)
 catchment: 2               # tiles around a settlement that it works

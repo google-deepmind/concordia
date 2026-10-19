@@ -494,6 +494,20 @@ class GameContext:
         ]
 
 
+def _arms_of(scenario: Mapping[str, Any]) -> dict[str, Any]:
+  """The arms a world's age knows (`civilization.arms`; all if unlisted)."""
+  arms = data.load('arms.yaml')
+  known = scenario['civilization'].get('arms')
+  if not known:
+    return {'kinds': arms['kinds'], 'recipes': arms['recipes']}
+  return {
+      'kinds': {k: v for k, v in arms['kinds'].items() if k in known},
+      'recipes': [
+          r for r in arms['recipes'] if set(r['outputs']) <= set(known)
+      ],
+  }
+
+
 def _with_peace(treaties: Mapping[str, Any]) -> dict[str, Any]:
   """The treaties' config with peace pacts among its kinds (`arms.yaml`)."""
   return {
@@ -636,8 +650,12 @@ def new_game(
               # that raise them among the civilization's (stage 6, C3).
               **(
                   {
-                      'arms': data.load('arms.yaml')['kinds'],
-                      'war': data.load('arms.yaml')['war'],
+                      'arms': _arms_of(scenario)['kinds'],
+                      # A world may scale its war to its peoples.
+                      'war': {
+                          **data.load('arms.yaml')['war'],
+                          **scenario['civilization'].get('war', {}),
+                      },
                       # Peace pacts join the treaties (C7).
                       'treaties': _with_peace(
                           _merged(
@@ -650,7 +668,7 @@ def new_game(
                               data.load('civ.yaml'),
                               scenario.get('civ_overrides', {}),
                           )['recipes'],
-                          *data.load('arms.yaml')['recipes'],
+                          *_arms_of(scenario)['recipes'],
                       ],
                   }
                   if scenario['civilization'].get('conquest')
