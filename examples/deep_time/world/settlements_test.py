@@ -301,6 +301,7 @@ class SettlementsTest(absltest.TestCase):
     town, holder = towns.nearest_town('basalt', None)
     news = basalt.resolve(move)
     self.assertIn(f'to {intent} it; they arrive in turn', news)
+    self.assertIn('strong with its people and walls (odds about', news)
     outbox = basalt.drain_outbox()
     self.assertIn((planet_lib.CIV_EVENTS, news), outbox)  # Every people.
     self.assertIn((planet.war_topic(holder), news), outbox)  # Its target.

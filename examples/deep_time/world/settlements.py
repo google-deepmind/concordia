@@ -690,10 +690,12 @@ class Settlements:
           for k, n in sorted(army.units.items())
       )
       if army.polity == polity:
+        defend, odds = self.odds(army)
         words.append(
             f'Our army of {kinds} marches to {army.intent} a town of the'
             f' {self._name(holder)} {self.where(town)}, arriving in turn'
-            f' {army.arrives}.'
+            f' {army.arrives}; the town stands {defend:.1f} strong (odds'
+            f' about {odds:.0%}).'
         )
       elif holder == polity:
         words.append(
@@ -845,6 +847,18 @@ class Settlements:
     home.garrison = {}
     self.armies.append(army)
     return army, ''
+
+  def odds(self, army: Army) -> tuple[float, float]:
+    """A town's defence against an army now, and the army's odds of winning.
+
+    The fight's own odds (`fight`): attack squared against attack squared
+    plus defence squared.
+    """
+    found = self.find(army.target)
+    if found is None:
+      return 0.0, 1.0
+    attack, defend = self.army_strength(army), self.defence(found[0])
+    return defend, attack**2 / max(1e-9, attack**2 + defend**2)
 
   def army_strength(self, army: Army) -> float:
     return sum(

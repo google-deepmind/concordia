@@ -707,6 +707,10 @@ async function loadCampaign() {
       $('scenario').value = b.dataset.world;
       chosenSeed = 0;
       showPremise();
+      if ([...$('rolepick').options].some((o) => o.value === b.dataset.role)) {
+        $('rolepick').value = b.dataset.role;  // The role the change is about.
+        showFriends();
+      }
       $('play').scrollIntoView({behavior: 'smooth', block: 'center'});
       const card = $('cards').querySelector(`button[data-scenario="${b.dataset.world}"]`);
       if (card) card.scrollIntoView({behavior: 'smooth', inline: 'center', block: 'nearest'});

@@ -1,9 +1,19 @@
 # What changed for players, newest first. The start screen shows the newest
-# with a button to its world, so a person knows what to look for. Add an
-# entry in the cycle that changes play.
+# with a button to its world (as `role`, if the change is about one), so a
+# person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, morning (2)
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Know your odds before you march: a march now says how strong the town
+      stands with its people and walls and your odds of taking it; your
+      people's sheet says it while the army marches, and a repulse says how
+      strong each side was. The What's new button now plays the role the
+      change is about.
   - when: 19 Oct, sunrise
     world: fire_and_iron
+    role: Basalt clans
     text: >-
       War comes to Fire and Iron too: play one of its peoples to found towns,
       raise levies, archers (bows from coppiced woods) and riders, march to
@@ -15,6 +25,7 @@ changes:
       for each town besides your capital.
   - when: 19 Oct, dawn
     world: great_acceleration
+    role: Basalt clans
     text: >-
       The other peoples fight back. Played by the computer, a people now
       arms when an army marches on it, strikes back at whoever wronged it,

@@ -1155,11 +1155,13 @@ class Planet:
           f' So they break their peace pact with the {held_by}: trade between'
           f' them stops for {self.treaties.embargo_ticks} generations.'
       )
+    defend, odds = towns.odds(army)
     return (
         news_lib.located(
             f'{name} march {kinds} on a town of the {held_by}'
             f' {towns.where(town)}, to {intent} it; they arrive in turn'
-            f' {army.arrives}.{broke}',
+            f' {army.arrives}. The town stands {defend:.1f} strong with its'
+            f' people and walls (odds about {odds:.0%}).{broke}',
             (town.row, town.col),
         ),
         holder,
@@ -1366,6 +1368,8 @@ class Planet:
       draw = float(
           np.random.default_rng([self.tiles.seed, army.id, self.tick]).random()
       )
+      met = towns.odds(army)[0]  # The defence it meets, before the fight.
+      attack = towns.army_strength(army)
       result = towns.fight(army, draw)
       name = civ.polities[army.polity].name
       kept = (
@@ -1400,8 +1404,9 @@ class Planet:
             ),
             **{
                 army.polity: (
-                    f'Our army was thrown back from a town of the {held_by}'
-                    f' {where}; {kept} came home.'
+                    f'Our army ({attack:.1f} strong) was thrown back from a'
+                    f' town of the {held_by} {where} ({met:.1f} strong);'
+                    f' {kept} came home.'
                 ),
                 holder: f'Our town {where} threw back the army of the {name}.',
             },
