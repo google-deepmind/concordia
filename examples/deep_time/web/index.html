@@ -1205,7 +1205,8 @@ function renderHud(state) {
 const GAIN_WORDS = [['found', 'founded'], ['take', 'took'], ['win', 'won over'], ['rise', 'rose to you']];
 function townsWords(towns) {
   const gains = GAIN_WORDS.filter(([k]) => towns.gains[k]).map(([k, w]) => `${w} ${towns.gains[k]}`);
-  return [`${towns.held} of ${towns.of}`, ...gains].join(' · ');
+  const alone = towns.alone && !towns.conquered ? [`${towns.alone} would have won the age alone`] : [];
+  return [`${towns.held} of ${towns.of}`, ...gains, ...alone].join(' · ');
 }
 function renderRecap(recap) {
   const card = $('recapcard');
@@ -1234,7 +1235,9 @@ function renderRecap(recap) {
                  recap.timed_out ? `${recap.timed_out} out of time` : ''].filter(Boolean).join(' · ');
   card.innerHTML = `<h2>The game is decided · ${recap.ticks} turns</h2>`
     + `<p class="verdict ${recap.outcome}">${escapeHtml(recap.outcome.toUpperCase())}</p>`
-    + `<p class="small">${escapeHtml(recap.reason)}.</p>${svg}`
+    // A people's verdict says which road decided it: the age's shared goal,
+    // or one people holding the map.
+    + `<p class="small">${recap.towns && !recap.towns.conquered ? "The age's shared goal: " : ''}${escapeHtml(recap.reason)}.</p>${svg}`
     + `<p class="small muted">${recap.towns
       ? `The planet's temperature all through${recap.band ? `; the Steward keeps it within ${recap.band[0]}–${recap.band[1]} °C` : ''}.`
       : `The temperature all through${recap.band ? `, against the band ${recap.band[0]}–${recap.band[1]} °C` : ''}.`}`

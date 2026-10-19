@@ -15,6 +15,7 @@
 """Tests for the phone game session (a person plays through HumanActComponent)."""
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -880,9 +881,33 @@ class GameSessionTest(absltest.TestCase):
     assert towns is not None
     self.assertEqual(recap['towns']['held'], len(towns.places['amber']))
     self.assertGreaterEqual(recap['towns']['of'], recap['towns']['held'])
+    # Three of every four towns win the age alone; no people did here.
+    self.assertEqual(
+        recap['towns']['alone'], math.ceil(0.75 * recap['towns']['of'])
+    )
+    self.assertFalse(recap['towns']['conquered'])
     self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
     self.assertTrue(all(s['met'] is not None for s in state['stars']))
+
+  def test_a_turn_of_town_orders_counts_as_acting(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Basalt clans'
+    )
+    keep = 'keep the current balance of labor'
+    place = game.seats[game.entity]
+    place.played.extend([
+        {
+            'move': keep,
+            'how': 'chose',
+            'seconds': 4.0,
+            'orders': ['town 5,14: send grain and envoys to a town'],
+        },
+        {'move': keep, 'how': 'held', 'seconds': None},
+    ])
+    played = game._how_played(place)
+    assert played is not None
+    self.assertEqual(played['acted'], 1)
 
   def test_the_recap_marks_where_each_move_acted(self):
     game = session_lib.GameSession(

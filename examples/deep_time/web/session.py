@@ -31,6 +31,7 @@ from collections.abc import Callable, Mapping, Sequence
 import colorsys
 import functools
 import json
+import math
 import os
 import re
 import threading
@@ -2418,10 +2419,15 @@ class GameSession:
     key = self._role(place.entity).get('polity')
     if not key:
       return None
+    total = sum(len(v) for v in towns.places.values())
+    share = float(towns.war.get('conquest_share', 0.75)) if towns.war else 0
     return {
         'held': len(towns.places.get(key, [])),
-        'of': sum(len(v) for v in towns.places.values()),
+        'of': total,
         'gains': dict(towns.gains.get(key, {})),
+        # The towns that win the age alone, and whether a people did.
+        'alone': math.ceil(share * total - 1e-9) if share else None,
+        'conquered': bool(self.context.planet.winner),
     }
 
   def _how_played(self, place: 'Seat | None') -> dict[str, Any] | None:
@@ -2432,7 +2438,12 @@ class GameSession:
     seconds = sorted(t['seconds'] for t in turns if t['seconds'] is not None)
     return {
         'turns': len(turns),
-        'acted': sum(1 for t in turns if t['move'] not in NEUTRAL_OPTIONS),
+        # A move other than the neutral one, or orders from its towns.
+        'acted': sum(
+            1
+            for t in turns
+            if t['move'] not in NEUTRAL_OPTIONS or t.get('orders')
+        ),
         'seconds': seconds[len(seconds) // 2] if seconds else None,
     }
 

@@ -9,7 +9,9 @@ changes:
       Courting a town takes carts turn after turn: when your envoys come
       after skipped turns, the outcome says how far the town cooled
       meanwhile. A town's card says what a march from it needs when it
-      holds no arms.
+      holds no arms. At the end, a people's recap says which road decided
+      the age (the shared goal, or a people holding the map) and how many
+      towns would have won it alone.
   - when: 19 Oct, afternoon (3)
     world: great_acceleration
     role: Basalt clans
