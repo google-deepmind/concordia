@@ -939,10 +939,14 @@ let townHintMapped = false;
 function renderTownHint(q) {
   const orderable = Object.keys(q.towns || {}).length;  // The owner missed them (c181).
   townHintMapped = !!lastMap;
-  $('townhint').hidden = !orderable;
+  // Where conquest is played (the peoples speak), say so even before any
+  // town can give an order, and what it takes.
+  const war = (q.speak || []).length > 0;
+  $('townhint').hidden = !orderable && !war;
   $('townhint').innerHTML = orderable
     ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one, on the map or here, to march from it, send grain and envoys, feast it or found a town.`
-      + `<br>${townButtons(q.towns)}` : '';
+      + `<br>${townButtons(q.towns)}`
+    : war ? 'Your towns can each give an order once you have the means: arms raised to march, grain to spare for envoys or a feast, or settlers and goods to found a town.' : '';
   for (const b of $('townhint').querySelectorAll('button[data-at]')) {
     b.addEventListener('click', () => showTown(...b.dataset.at.split(',').map(Number)));
   }

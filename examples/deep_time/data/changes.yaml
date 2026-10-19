@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night (2)
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Where the peoples can go to war, your move says from the first turn
+      that your towns can give orders once you have the means (arms, grain
+      to spare, settlers). A town picked from the aim list gives its order
+      at once, and a town another of yours courts this turn is left out.
   - when: 19 Oct, night
     world: great_acceleration
     role: Basalt clans
