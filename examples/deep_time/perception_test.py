@@ -20,20 +20,45 @@ from absl.testing import absltest
 from concordia.contrib.pubsub import topics
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
+from examples.deep_time.components import world_step
 from examples.deep_time.prefabs import steward
 from examples.deep_time.world import planet as planet_lib
 from examples.deep_time.world import publishing
+from concordia.typing import entity as entity_lib
+
+
+def _world_gm_step(context):
+  """One step of the World GM's `WorldStep` (it steps the world, publishes)."""
+  world_step.WorldStep(context, player_names=['Amber folk']).pre_act(
+      entity_lib.ActionSpec(  # As the engine asks it each step.
+          call_to_action='Which entities act next?',
+          output_type=entity_lib.OutputType.NEXT_ACTING,
+          options=('Amber folk',),
+      )
+  )
+
+
+def _held(context, spec, initial=''):
+  """An instrument the World GM runs, as its entity holds it."""
+  perception.deliver(context, spec)
+  return perception.subscribe(
+      context,
+      perception.reading(spec.owner, spec.label, initial, topic=spec.topics[0]),
+  )
 
 
 class PerceptionTest(absltest.TestCase):
 
   def test_instrument_shows_tick_and_age(self):
     context = game_lib.new_game('daisyworld')
-    belief = perception.instrument(
+    belief = _held(
         context,
-        'gaia.briefings',
-        owner='Gaia',
-        label='Advisor briefing',
+        perception.instrument(
+            context,
+            'gaia.briefings',
+            owner='Gaia',
+            label='Advisor briefing',
+        ),
         initial='nothing yet',
     )
     self.assertEqual(belief.get_current_value(), 'nothing yet')
@@ -54,10 +79,49 @@ class PerceptionTest(absltest.TestCase):
         'Gaia', context.bus.topology()['gaia.briefings']['subscribers']
     )
 
+  def test_an_entity_knows_its_own_state_only_as_the_gm_publishes_it(self):
+    context = game_lib.new_game('daisyworld')
+    state = {'stores': 'grain 3'}
+    # The World GM publishes them (a role's rules); the entity reads them.
+    perception.publish(
+        context, 'Amber folk', 'storehouse', lambda: state['stores']
+    )
+    perception.publish(
+        context, 'Amber folk', 'offer', lambda: state['stores'] + ' offered'
+    )
+    sheet = perception.read(
+        context, 'Amber folk', 'storehouse', label='Storehouse'
+    )
+    brief = perception.reader(context, 'Amber folk', 'offer')
+    # Nothing is known until the World GM publishes.
+    self.assertEqual(sheet.get_current_value(), '')
+    self.assertEqual(brief(), '')
+    _world_gm_step(context)
+    self.assertEqual(sheet.get_current_value(), 'grain 3')
+    self.assertEqual(brief(), 'grain 3 offered')
+    # The world changes; the entity learns it at the GM's next publication.
+    state['stores'] = 'grain 1'
+    self.assertEqual(sheet.get_current_value(), 'grain 3')
+    _world_gm_step(context)
+    self.assertEqual(sheet.get_current_value(), 'grain 1')
+    self.assertEqual(
+        perception.sheet_topic('Amber folk', 'storehouse'),
+        'sheets.amber_folk.storehouse',
+    )
+    # Sheets are no one's observations.
+    self.assertEqual(context.observation_queue.get_all(), {})
+
   def test_climate_instrument_renders_readings(self):
     context = game_lib.new_game('daisyworld')
-    belief = perception.instrument(
-        context, 'climate.global', owner='Gaia', label='Thermometer', initial=''
+    belief = _held(
+        context,
+        perception.instrument(
+            context,
+            'climate.global',
+            owner='Gaia',
+            label='Thermometer',
+        ),
+        initial='',
     )
     self.assertStartsWith(belief.get_current_value(), 'Global mean temperature')
     self.assertEndsWith(belief.get_current_value(), '[tick 0, fresh]')
@@ -68,23 +132,26 @@ class PerceptionTest(absltest.TestCase):
     tier = planet.instrument()
     assert tier is not None
     self.assertEqual(tier['key'], 'stones')
-    belief = perception.instrument(
+    belief = _held(
         context,
-        'climate.global',
-        owner='Gaia',
-        label='Thermometer',
+        perception.instrument(
+            context,
+            'climate.global',
+            owner='Gaia',
+            label='Thermometer',
+            transported=True,
+        ),
         initial='none',
-        transported=True,
     )
-    # The tick-0 reading is still on its way (stones are two ticks late).
+    # The tick-0 reading is still on its way (stones are two ticks late):
+    # the World GM carries it (its deliveries' state), not the Steward.
     self.assertEqual(belief.get_current_value(), 'none')
+    in_flight = context.deliveries.get_state()['Gaia/Thermometer']
+    self.assertIn('climate.global', json.dumps(in_flight))
+    self.assertNotIn('operator_state', belief.get_state())
 
     def step():
-      context.clock.advance()
-      context.wire.advance()
-      planet.advance()
-      context.publish_state()
-      context.record_beliefs()
+      _world_gm_step(context)  # The World GM's own order of operations.
 
     for _ in range(12):
       step()
@@ -134,7 +201,10 @@ class PerceptionTest(absltest.TestCase):
     planet = context.planet
     assert planet.civ is not None
     home = planet.civ.polities['amber'].home
-    news = perception.local_news(context, owner='Amber folk', polity='amber')
+    news = _held(
+        context,
+        perception.local_news(context, owner='Amber folk', polity='amber'),
+    )
     grid = planet.grid
     by_steps = {}
     for r in range(grid.size):
@@ -213,9 +283,13 @@ class PerceptionTest(absltest.TestCase):
     self.assertTrue(text.startswith('The peoples: Amber folk'))
     self.assertIn('people, fed 100%', text)
     for name, need in (('sandbox', True), ('daisyworld', False)):
-      context = game_lib.new_game(name)
+      # A static setting of the Steward's, from its params.
+      peoples = steward.steward_config(game_lib.new_game(name)).params[
+          'peoples'
+      ]
+      self.assertEqual(peoples, need)
       self.assertEqual(
-          'civ.events' in steward._news_topics(context), need  # pylint: disable=protected-access
+          'civ.events' in steward._news_topics(peoples), need  # pylint: disable=protected-access
       )
 
 

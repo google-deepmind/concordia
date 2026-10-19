@@ -26,6 +26,7 @@ its parent,
 """
 
 from collections.abc import Mapping
+import json
 from typing import Any, cast, override
 
 from concordia.components.game_master import next_acting
@@ -38,6 +39,10 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 DEFAULT_TERMINATE_KEY = terminate.DEFAULT_TERMINATE_COMPONENT_KEY
+
+
+# Where the World GM announces that the game is decided.
+OUTCOME_TOPIC = 'world.outcome'
 
 
 class WorldStep(
@@ -70,26 +75,46 @@ class WorldStep(
     # their messages are stamped with the new tick (the scheduler and the
     # clock count ticks in lockstep).
     if ctx.sim is not None:
+      # The slow minds due now weigh the world as the last resolution left
+      # it, through the sheets the GM publishes (never the world itself).
+      ctx.publish_sheets()
       ctx.sim.advance()
     ctx.advance_wire()
-    events = ctx.deliver_adaptations()
+    # Minds' decisions reach the world only through their entities' actions
+    # (resolved by `ActorResolution`), never here.
     report = ctx.planet.advance()
-    events.extend(report.events)
+    events = list(report.events)
     for split in ctx.planet.take_new_species():
       events.append(self._found_species(split))
     # Observations follow from publishing: the World GM's TopicObservations
     # queues each message for the entities whose access lists match it.
     ctx.publish_state(events)
+    # What each entity knows of its own state: computed here, by the GM, and
+    # read by the entity's `Subscriber` (never from the world directly).
+    ctx.publish_sheets()
     ctx.record_beliefs()
     if ctx.wakeups is not None:
       ctx.wakeups.step(ctx.planet.tick)
     headline = ctx.tick_headline()
-    if ctx.planet.outcome is not None:
+    # A scenario flag (`play_on`) keeps the world going after its outcome,
+    # for measurements (the push audit's): nobody plays such a game.
+    if ctx.planet.outcome is not None and not ctx.scenario.get('play_on'):
       verdict = (
           f'The scenario ends in {ctx.planet.outcome}:'
           f' {ctx.planet.outcome_reason}.'
       )
       ctx.bus.publish('chronicle', verdict, source='world')
+      # Decided: for every seat and page (nothing more to ask anyone), with
+      # the verdict and the stars earned, judged on the world.
+      ctx.bus.publish(
+          OUTCOME_TOPIC,
+          json.dumps({
+              'outcome': ctx.planet.outcome,
+              'reason': ctx.planet.outcome_reason or '',
+              'stars': ctx.planet.stars(),
+          }),
+          source='world',
+      )
       self.get_entity().get_component(
           self._terminate_component_key, type_=terminate.Terminate
       ).terminate()
@@ -131,9 +156,9 @@ class WorldStep(
       name = f'{name} of {split.where}'
     evolution.rename(split.child, name, lore)
     if ctx.spawner is not None and ctx.slow_model is not None:
-      ctx.spawner(
-          species_prefab.species_config(ctx, split.child, ctx.slow_model)
-      )
+      # Its rules are the World GM's to install; its entity, the simulation's.
+      species_prefab.species_rules(ctx, split.child, name)
+      ctx.spawner(species_prefab.species_config(ctx, split.child))
       ctx.spawned.append(name)
     return planet_lib.WorldEvent(
         planet_lib.BIO_EVENTS, f'{name} have evolved from the {parent}: {lore}'
@@ -167,3 +192,17 @@ class WorldStep(
     world = state.get('world')
     if isinstance(world, Mapping):
       self._context.set_state(cast(Mapping[str, Any], world))
+      # Species founded in play: their rules, as when they were founded
+      # (their entities are the simulation's, `simulation.load_checkpoint`).
+      evolution = self._context.planet.evolution
+      wakeups = self._context.wakeups
+      if wakeups is not None:
+        wakeups.quiet = True  # The bus replays: no alarm, no wake-up.
+      try:
+        for name in self._context.spawned:
+          if name not in self._context.actors and evolution is not None:
+            info = next(s for s in evolution.species if s.name == name)
+            species_prefab.species_rules(self._context, info.key, name)
+      finally:
+        if wakeups is not None:
+          wakeups.quiet = False

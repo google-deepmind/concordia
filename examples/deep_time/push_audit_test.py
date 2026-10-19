@@ -15,6 +15,7 @@
 from absl.testing import absltest
 from examples.deep_time import game as game_lib
 from examples.deep_time import push_audit
+from examples.deep_time.components import rule_act
 from examples.deep_time.world import data
 
 
@@ -36,7 +37,7 @@ class PushAuditTest(absltest.TestCase):
     )
     self.assertEqual(
         say([0.1, 0.3, 0.6, 0.9], -0.09),
-        'warms about 1 °C over 4 turns; −×0.09 carbon in the air',
+        'warms about 1 °C over 4 turns; lowers CO₂ by 0.09',
     )
     self.assertEqual(say([0.2, -0.1, 0.0, 0.1]), 'hardly changes the warmth')
 
@@ -49,8 +50,7 @@ class PushAuditTest(absltest.TestCase):
     )
     self.assertEqual(
         push_audit.describe([early, late]),
-        'cools about 6 to 16 °C next turn, lasting; up to +×0.02 carbon in the'
-        ' air',
+        'cools about 6 to 16 °C next turn, lasting; raises CO₂ by up to 0.02',
     )
     self.assertEqual(push_audit.starts('great_acceleration'), (6, 20))
 
@@ -86,6 +86,27 @@ class PushAuditTest(absltest.TestCase):
     (basalt,) = [i for i in planet.interventions() if i.key == 'basalt_dust']
     self.assertEqual(basalt.effect['amount'], 60.0)
     self.assertEqual(basalt.effect['kind'], 'carbon_drawdown')
+
+  def test_a_scripted_steward_moves_in_the_game(self):
+    ash = 'bury the sky in ash (a volcanic winter, for years)'
+    script = push_audit.Script(push_audit.WAIT, ash)
+    sim, context = push_audit._play(  # pylint: disable=protected-access
+        'daisyworld',
+        0,
+        8,
+        {push_audit.STEWARD: script},
+        overrides=push_audit.RICH,
+    )
+    # The Steward's own entity, played by the rule (not as a person).
+    (steward,) = [e for e in sim.entities if e.name == push_audit.STEWARD]
+    self.assertIsInstance(steward.get_act_component(), rule_act.RuleAct)
+    log = context.actors[push_audit.STEWARD].log
+    # The move is made once, as an action the World GM resolved; then waits.
+    self.assertEqual([action for _, action, _ in log].count(ash), 1)
+    self.assertEqual(log[-1][1], push_audit.WAIT)
+    # The winter kills the daisies; with `play_on` the world goes on.
+    self.assertEqual(context.planet.outcome, 'defeat')
+    self.assertEqual(context.planet.tick, 8)
 
   def test_the_measured_pushes_are_up_to_date(self):
     # Rerun `push_audit --write` when the physics changes.

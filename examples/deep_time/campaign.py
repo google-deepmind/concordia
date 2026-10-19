@@ -38,6 +38,11 @@ def chapters() -> list[dict[str, str]]:
   return [dict(c) for c in data.load('campaign.yaml')['chapters']]
 
 
+def offered() -> bool:
+  """Whether the start screen offers the daily challenge."""
+  return bool(data.load('campaign.yaml')['daily'].get('offered', True))
+
+
 def daily(day: datetime.date) -> dict[str, Any]:
   """The day's challenge: a chapter's scenario and a world seed."""
   digest = hashlib.sha256(f'deep time {day.isoformat()}'.encode()).digest()
@@ -141,11 +146,14 @@ class Progress:
                 'scenario': later['scenario'],
                 'title': later['title'],
                 'when': later['when'],
-                'open': best > 0,
-                'opened': before == 0 and stars > 0,
+                'open': best > 0 or bool(later.get('open')),
+                'opened': before == 0 and stars > 0 and not later.get('open'),
             }
         ),
-        'daily': (scenario, seed) == (challenge['scenario'], challenge['seed']),
+        'daily': (
+            offered()
+            and (scenario, seed) == (challenge['scenario'], challenge['seed'])
+        ),
         'total': sum(c['stars'] for c in self.campaign(day)['chapters']),
     }
 
@@ -158,13 +166,23 @@ class Progress:
     found, opened = [], True
     for chapter in chapters():
       stars = int(best['scenarios'].get(chapter['scenario'], 0))
-      found.append({**chapter, 'stars': stars, 'open': opened})
+      found.append({
+          **chapter,
+          # The world's own name, as its card on the start screen has it.
+          'world': str(data.scenario(chapter['scenario'])['title']),
+          'stars': stars,
+          'open': opened or bool(chapter.get('open')),
+      })
       opened = stars > 0
     challenge = daily(day)
     return {
         'chapters': found,
-        'daily': {
-            **challenge,
-            'stars': int(best['daily'].get(challenge['date'], 0)),
-        },
+        'daily': (
+            {
+                **challenge,
+                'stars': int(best['daily'].get(challenge['date'], 0)),
+            }
+            if offered()
+            else None
+        ),
     }

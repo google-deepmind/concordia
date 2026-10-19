@@ -19,14 +19,13 @@ Built from stock components only:
 * memory, `ObservationToMemory` and `LastNObservations`: it remembers every
   tick headline and world event it observes;
 * a `pubsub.Publisher(component=QuestionOfRecentMemories(...),
-  skip_if_busy=True)` that writes the next chapter to the `chronicle` topic,
-  landing a few ticks after it starts ("history is written in hindsight");
-* the previous chapter as a topic `Subscriber`, for continuity;
-* `puppet_act.PuppetActComponent` with a fixed response, so acting each tick
-  (which is what triggers the slow mind) costs no language model call.
-
-The upstream `puppet__Entity` prefab cannot take extra components, hence this
-small game prefab.
+  skip_if_busy=True)` that drafts the next chapter, landing a few ticks after
+  it starts ("history is written in hindsight");
+* its previous chapter, a `pubsub.Subscriber` to that mind, for continuity;
+* a rule for its act (`components.chronicler_act`), so acting each tick
+  (which is what triggers the slow mind) costs no language model call: it
+  hands in each chapter the mind finishes, in its action, and the World GM
+  publishes it on the `chronicle` topic.
 """
 
 from collections.abc import Mapping
@@ -36,18 +35,23 @@ from typing import Any
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components import agent as agent_components
-from concordia.components.agent import puppet_act
+from concordia.components.agent import pubsub
 from concordia.components.agent import question_of_recent_memories
 from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import perception
+from examples.deep_time.components import chronicler_act
 from examples.deep_time.world import data
 from concordia.language_model import language_model
 from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 
 CHRONICLE_TOPIC = 'chronicle'
+# Where the Chronicler's slow mind drafts its chapters (it hands them in).
+DRAFT_TOPIC = 'chronicler.draft'
+# Its previous chapter before it has written one.
+FIRST_CHAPTER = 'This is the first chapter.'
 CHRONICLER_PREFAB = 'deep_time_chronicler__Entity'
 
 INSTRUCTIONS = (
@@ -55,6 +59,10 @@ INSTRUCTIONS = (
     ' in short chapters for the people who will one day live there. You'
     ' record what happened, not what should have happened.'
 )
+
+
+# What the Chronicler reads of the world: (key, topic, initial belief).
+READINGS = (('Thermometer', 'climate.global', 'No reading yet.'),)
 
 
 @dataclasses.dataclass
@@ -66,12 +74,32 @@ class Chronicler(prefab_lib.Prefab):
       ' the chronicle topic through a background pubsub.Publisher.'
   )
   params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {
-          'name': 'Chronicler',
-          'context': None,
-          'slow_model': None,
-      }
+      default_factory=lambda: {'name': 'Chronicler'}
   )
+  # The game (a shared service: copying the prefab keeps it).
+  context: game_lib.GameContext | None = None
+
+  def rules(
+      self, context: game_lib.GameContext, params: Mapping[str, Any]
+  ) -> None:
+    """The World GM installs the Chronicler's rules: its actor, its readings."""
+    name = str(params.get('name', 'Chronicler'))
+    context.add_actor(
+        actors_lib.ChroniclerActor(name, CHRONICLE_TOPIC),
+        hears=(
+            'world.tick',
+            'geo.events',
+            'bio.events',
+            'ocean.alerts',
+            'gaia.omens',
+            'world.resolutions',
+        ),
+    )
+    for key, topic, _ in READINGS:
+      perception.deliver(
+          context,
+          perception.instrument(context, topic, owner=name, label=key),
+      )
 
   def build(
       self,
@@ -81,16 +109,19 @@ class Chronicler(prefab_lib.Prefab):
     """Builds the Chronicler.
 
     Args:
-      model: Fallback model for the puppet act (never used: the response is
-        fixed) and for chapters when no `slow_model` param is given.
+      model: Unused: its act is a rule, and its mind writes with the game's
+        slow model.
       memory_bank: The Chronicler's memory bank.
 
     Returns:
       The Chronicler entity.
     """
+    del model
     name = self.params.get('name', 'Chronicler')
-    context: game_lib.GameContext = self.params['context']
-    slow_model = self.params.get('slow_model') or model
+    context = self.context
+    if context is None:
+      raise ValueError('The Chronicler needs the game context.')
+    slow_model = context.slow()
     config = data.load('chronicler.yaml')
 
     components: dict[str, entity_component.ContextComponent] = {
@@ -111,20 +142,12 @@ class Chronicler(prefab_lib.Prefab):
         agent_components.observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (
             agent_components.observation.LastNObservations(history_length=20)
         ),
-        'Thermometer': perception.instrument(
-            context,
-            'climate.global',
-            owner=name,
-            label='Thermometer',
-            initial='No reading yet.',
-        ),
-        'Previous chapter': perception.instrument(
-            context,
-            CHRONICLE_TOPIC,
-            owner=name,
-            label='Previous chapter',
-            initial='This is the first chapter.',
-        ),
+        **{
+            key: perception.subscribe(
+                context, perception.reading(name, key, initial, topic=topic)
+            )
+            for key, topic, initial in READINGS
+        },
     }
     chapter_writer = question_of_recent_memories.QuestionOfRecentMemories(
         model=slow_model,
@@ -139,43 +162,33 @@ class Chronicler(prefab_lib.Prefab):
     components['Chronicle mind'] = context.make_mind(
         name,
         'Chronicle',
-        CHRONICLE_TOPIC,
+        DRAFT_TOPIC,
         chapter_writer,
         int(config['latency_ticks']),
     )
-    act_component = puppet_act.PuppetActComponent(
-        model=model,
-        fixed_responses={
-            actors_lib.CHRONICLER_CALL_TO_ACTION: actors_lib.CHRONICLER_RESPONSE
-        },
+    # What it last wrote: its continuity, and the chapter its act hands in.
+    components['Previous chapter'] = pubsub.Subscriber(
+        'Chronicle mind',
+        initial_value=FIRST_CHAPTER,
+        pre_act_label='Previous chapter',
+    )
+    act_component = chronicler_act.ChroniclerAct(
+        'Previous chapter', blank=FIRST_CHAPTER
     )
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=name,
         act_component=act_component,
         context_components=components,
-        measurements=context.measurements,
     )
 
 
 def chronicler_config(
-    context: game_lib.GameContext,
-    slow_model: language_model.LanguageModel,
-    name: str = 'Chronicler',
+    context: game_lib.GameContext, name: str = 'Chronicler'
 ) -> prefab_lib.InstanceConfig:
-  """Registers the Chronicler actor and returns its instance config."""
-  context.add_actor(
-      actors_lib.ChroniclerActor(name),
-      hears=(
-          'world.tick',
-          'geo.events',
-          'bio.events',
-          'ocean.alerts',
-          'gaia.omens',
-          'world.resolutions',
-      ),
-  )
+  """The Chronicler's instance config (plain params; `Chronicler` builds it)."""
+  del context  # One Chronicler a game.
   return prefab_lib.InstanceConfig(
       prefab=CHRONICLER_PREFAB,
       role=prefab_lib.Role.ENTITY,
-      params={'name': name, 'context': context, 'slow_model': slow_model},
+      params={'name': name},
   )

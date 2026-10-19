@@ -31,6 +31,7 @@ import re
 import threading
 from typing import Any, override
 
+from examples.deep_time.world import symbiosis as symbiosis_lib
 from concordia.language_model import language_model
 
 _OPTION_RE = re.compile(r'^\s*\(([a-z]+)\)\s(.+)$')
@@ -93,15 +94,24 @@ def stable_index(text: str, n: int) -> int:
   return int.from_bytes(digest[:8], 'big') % max(1, n)
 
 
-def last_question_options(prompt: str) -> dict[str, str]:
-  """Parses `(a) option` lines that follow the last `Question:` in a prompt."""
-  start = prompt.rfind('Question:')
+def last_question_options(
+    prompt: str, label: str = 'Question:'
+) -> dict[str, str]:
+  """Parses `(a) option` lines that follow the last `label` in a prompt."""
+  start = prompt.rfind(label)
   options = {}
   for line in prompt[start if start >= 0 else 0 :].splitlines():
     match = _OPTION_RE.match(line)
     if match:
       options[match.group(1)] = match.group(2).strip()
   return options
+
+
+# The Steward's free question where it may speak an omen (actors.py).
+_SPEAKS = 'or speak an omen by answering'
+# A free question listing a role's moves, some of which may be aimed
+# (`actors.AIM_HINT`): answered with the move its choice policy would pick.
+_AIMS = 'To aim a move that lands on the map'
 
 
 def _find(options: Mapping[str, str], *needles: str) -> str | None:
@@ -555,9 +565,14 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is cooling on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = (
+        'is drifting toward overheating'
+        if trend >= 0
+        else 'is near the top of its band'
+    )
     return (
-        f'At {temp:.0f} C{heading}, the planet is drifting toward'
-        ' overheating. Recommend: seed bright clouds.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
+        ' Recommend: seed bright clouds.'
     )
   if temp < low + early:
     if trend > swing:
@@ -565,8 +580,9 @@ def advisor_answer(prompt: str) -> str | None:
           f'At {temp:.0f} C{heading}, the planet is warming on its own.'
           ' Recommend: wait and save omega.'
       )
+    risk = 'risks freezing' if trend <= 0 else 'is near the bottom of its band'
     return (
-        f'At {temp:.0f} C{heading}, the planet risks freezing.'
+        f'At {temp:.0f} C{heading}, the planet {risk}.'
         ' Recommend: release a dark haze.'
     )
   if rising > 3.0 and temp > (low + high) / 2 and not ash_soon and not herds:
@@ -622,13 +638,15 @@ def grazer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   """Grazes heavily in lush meadows, browses lightly when food is short."""
   if _find(options, 'graze heavily') is None:
     return None
-  covers = dict(_COVER_RE.findall(prompt)[-2:])
+  # The meadows as the herds read them (their context, not the question).
+  asked = max(prompt.rfind('Question:'), prompt.rfind('Exercise:'))
+  covers = dict(_COVER_RE.findall(prompt[:asked] if asked > 0 else prompt)[-2:])
   food = sum(int(v) for v in covers.values())
   if food >= 50:
     return _find(options, 'graze heavily')
   if food <= 25:
     return _find(options, 'wander')
-  return _find(options, 'browse lightly')
+  return _calm(options, 'browse lightly', prompt)
 
 
 def grazer_adaptation_answer(prompt: str) -> str | None:
@@ -744,6 +762,24 @@ def treaty_answer(prompt: str) -> str | None:
   return None
 
 
+def relay_answer(prompt: str) -> str | None:
+  """The printers retell an omen: as a warning against coal, always."""
+  match = re.search(
+      r'A sign was seen: (.+?)\. People say it was taken to say: "(.*?)"\.'
+      r' Write',
+      prompt,
+      re.S,
+  )
+  if match is None:
+    return None
+  sign, words = match.groups()
+  return (
+      f'clean air: The Sky Warns the Coal-Burners. {sign.capitalize()} hung'
+      f' over every town, and it was taken to say: "{words}". The furnaces'
+      ' must cool before the harvests fail. -- the Gazette'
+  )
+
+
 def press_answer(prompt: str) -> str | None:
   """Writes a broadsheet: coal and progress only if the land is rich in it."""
   match = re.search(r'You are the press of ([A-Z][a-z]+(?: [a-z]+)?)', prompt)
@@ -782,7 +818,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   genome = _genome(prompt)
   reading = _census(prompt, genome[0]) if genome else None
   if genome is None or reading is None:
-    return _find(options, 'hold steady')
+    return _calm(options, 'hold steady', prompt)
   optimum = genome[1]
   local, growth = reading
   offer = _find(options, 'propose a pact')
@@ -796,7 +832,7 @@ def species_policy(prompt: str, options: Mapping[str, str]) -> str | None:
     return _find(options, 'spread')
   if growth <= 0.15 and abs(local - optimum) > 8:
     return _find(options, 'dormant')
-  return _find(options, 'hold steady')
+  return _calm(options, 'hold steady', prompt)
 
 
 def adaptation_answer(prompt: str) -> str | None:
@@ -1352,7 +1388,104 @@ def random_polity_policy(prompt: str, options: Mapping[str, str]) -> str | None:
   return _random_move(prompt, options, 'keep the current balance of labor')
 
 
+def offer_policy(prompt: str, options: Mapping[str, str]) -> str | None:
+  """Answers an offer awaiting us as our mind counselled, once it has."""
+  answers = {
+      text: text.lower().startswith('accept')
+      for text in options.values()
+      if text.lower().startswith(('accept the ', 'decline the '))
+      and 'offered by' in text.lower()
+  }
+  if not answers:
+    return None
+  at = prompt.rfind('Counsel on the ')
+  counsel = prompt[at : at + 800] if at >= 0 else ''
+  reply = counsel.find('Reply to')
+  said = symbiosis_lib.parse_answer(counsel[reply:]) if reply >= 0 else None
+  if said is None:  # No counsel yet: the offer waits a turn.
+    return None
+  return next(t for t, accept in answers.items() if accept == said)
+
+
+# Moves that enact a slow mind's draft, the draft's context line, and when
+# the role last made that act (as its own sheets say). The action carries
+# the draft's words ("<move>: <words>").
+_ENACTS = {
+    'adopt the standing orders our scribes wrote': (
+        "Our scribes' draft",
+        "adopted its scribes' standing orders",
+    ),
+    'publish the broadsheet our printers wrote': (
+        "Our printers' sheet",
+        'published a broadsheet',
+    ),
+    "print our printers' retelling of the omen": (
+        "Our printers' retelling",
+        "printed its printers' retelling of an omen",
+    ),
+    'evolve as our slow mind decided': (
+        'Evolving toward (slow mind)',
+        'Our last shift was made',
+    ),
+}
+
+
+def _words(prompt: str, move: str) -> str | None:
+  """A draft's words for an enacting move, if new since the act was made."""
+  label, done = _ENACTS[move]
+  found = re.findall(
+      re.escape(label) + r' \([^)]*\):\n(.*?) \[tick (\d+), [^\]]*\]',
+      prompt,
+      re.S,
+  )
+  if not found:
+    return None
+  text, tick = found[-1][0].strip(), int(found[-1][1])
+  made = re.findall(re.escape(done) + r' at tick (\d+)', prompt)
+  if not text or (made and int(made[-1]) >= tick):
+    return None
+  if move.startswith('adopt'):  # The orders as the scribes wrote them.
+    if 'nothing that can be kept' in text or 'As written: ' not in text:
+      return None
+    text = text.split('As written: ', 1)[1]
+  if move.startswith('evolve') and text.lower().startswith(
+      ('no change', 'instinct only')
+  ):
+    return None
+  return text
+
+
+def with_words(prompt: str, choice: str) -> str:
+  """An enacting move with its draft's words (other moves as they are)."""
+  for move in _ENACTS:
+    if choice.lower().startswith(move):
+      words = _words(prompt, move)
+      return f'{choice}: {words}' if words else choice
+  return choice
+
+
+def adopt_policy(prompt: str, options: Mapping[str, str]) -> str | None:
+  """Puts the scribes' and printers' drafts to work as soon as they are new."""
+  for move in list(_ENACTS)[:3]:
+    found = _find(options, move)
+    if found is not None and _words(prompt, move):
+      return found
+  return None
+
+
+def _calm(
+    options: Mapping[str, str], neutral: str, prompt: str = ''
+) -> str | None:
+  """On a calm turn (no behaviour to change), enact the slow mind's shift."""
+  evolve = _find(options, 'evolve as our slow mind decided')
+  if evolve is not None and _words(prompt, 'evolve as our slow mind decided'):
+    return evolve
+  return _find(options, neutral)
+
+
 DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
+    offer_policy,
+    adopt_policy,
     steward_policy,
     species_policy,
     grazer_policy,
@@ -1365,6 +1498,8 @@ DEFAULT_POLICIES: tuple[ChoicePolicy, ...] = (
 VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     'default': DEFAULT_POLICIES,
     'passive': (
+        offer_policy,
+        adopt_policy,
         passive_steward_policy,
         species_policy,
         grazer_policy,
@@ -1374,6 +1509,8 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     # A bot that plays the main roles at random: the skilled
     # bot (`default`) must beat it, and the passive one, by a clear margin.
     'random': (
+        offer_policy,
+        adopt_policy,
         random_steward_policy,
         species_policy,
         grazer_policy,
@@ -1383,6 +1520,8 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
     ),
     # Acts on its forecast instead of the late reading.
     'forecaster': (
+        offer_policy,
+        adopt_policy,
         forecasting_steward_policy,
         species_policy,
         grazer_policy,
@@ -1391,6 +1530,8 @@ VARIANTS: dict[str, tuple[ChoicePolicy, ...]] = {
         polity_policy,
     ),
     'no_advice': (
+        offer_policy,
+        adopt_policy,
         steward_policy_without_advice,
         species_policy,
         grazer_policy,
@@ -1463,9 +1604,21 @@ class DeepTimeMockModel(language_model.LanguageModel):
     del max_tokens, terminators, temperature, top_p, top_k, timeout, seed
     with self._lock:
       self._text_calls += 1
+    exercise = prompt[prompt.rfind('Exercise:') :]
+    if _SPEAKS in exercise or _AIMS in exercise:
+      # A free question of moves (the Steward may also answer in words): the
+      # move its choice policy would pick.
+      options = last_question_options(prompt, 'Exercise:')
+      for policy in self._policies:
+        choice = policy(prompt, options)
+        if choice is not None and choice in options.values():
+          return with_words(prompt, choice)
+      texts = sorted(options.values())
+      return texts[stable_index(prompt, len(texts))] if texts else ''
     answer = (
         policy_answer(prompt)
         or treaty_answer(prompt)
+        or relay_answer(prompt)
         or press_answer(prompt)
         or pact_answer(prompt)
         or species_name_answer(prompt)

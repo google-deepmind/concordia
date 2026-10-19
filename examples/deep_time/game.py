@@ -24,7 +24,6 @@ World GM and the entities share the planet, the topic bus and the clock.
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import json
-import threading
 from typing import Any
 
 from concordia.components.agent import action_spec_ignored
@@ -38,6 +37,9 @@ from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
 from examples.deep_time import attention as attention_lib
 from examples.deep_time import wakeups as wakeups_lib
+from examples.deep_time.components import actor_registry
+from examples.deep_time.components import deliveries as deliveries_lib
+from examples.deep_time.components import rule_act
 from examples.deep_time.world import automation as automation_lib
 from examples.deep_time.world import data
 from examples.deep_time.world import evolution as evolution_lib
@@ -72,6 +74,8 @@ class GameContext:
   clock: numeric_time.NumericClock
   bus: topics.TopicBus
   observation_queue: make_observation.ObservationQueue
+  # The topic bus's channels (`topic/<name>`), which the report reads;
+  # each entity and the World GM log to their own.
   measurements: measurements_lib.Measurements
   evolution: evolution_lib.Evolution | None = None
   # Deterministic sim-time scheduler for slow minds; None in real-async mode.
@@ -81,6 +85,9 @@ class GameContext:
   # Topic-name prefixes each entity hears as observations (contrib
   # TopicObservations on the World GM routes them).
   access: dict[str, tuple[str, ...]] = dataclasses.field(default_factory=dict)
+  # What each entity knows of its own state (its storehouse, its genome, ...):
+  # topic -> the sheet the World GM computes and publishes each step.
+  sheets: dict[str, Callable[[], str]] = dataclasses.field(default_factory=dict)
   # Set by `simulation.build_simulation`: the model for new species' minds
   # and the function that adds an entity to the running simulation.
   slow_model: language_model.LanguageModel | None = None
@@ -116,11 +123,43 @@ class GameContext:
   wakeups: wakeups_lib.WakeUps | None = None
   # Peoples' standing orders as reflexes, in scenarios with a market.
   automation: automation_lib.Automation | None = None
+  # Whether the peoples' minds read stage 4's playbook lines (what the age
+  # asks, what matters most, the tech worth learning): a scenario flag
+  # (`coached`, on unless a harness turns it off for live characters).
+  coached: bool = True
   # Entities a person plays, by name, and the reader that waits for them.
   humans: dict[str, human_input.HumanInput] = dataclasses.field(
       default_factory=dict
   )
-  _inbox: list[tuple[str, str]] = dataclasses.field(default_factory=list)
+  # Entities a bot plays, by name, and the model their act component uses
+  # (e.g. the mock's skilled policies while live minds play the others).
+  bots: dict[str, language_model.LanguageModel] = dataclasses.field(
+      default_factory=dict
+  )
+  # Entities a rule plays (a harness's script), by name: their act component
+  # (`rule_act.RuleAct`) answers each question by the rule.
+  scripted: dict[str, rule_act.Rule] = dataclasses.field(default_factory=dict)
+
+  def slow(self) -> language_model.LanguageModel:
+    """The slow minds' model (set before the simulation builds the roles)."""
+    if self.slow_model is None:
+      raise ValueError('The game has no slow model yet.')
+    return self.slow_model
+
+  def __deepcopy__(self, memo: dict[int, Any] | None = None) -> 'GameContext':
+    """The one game: a shared service, never copied (as a contrib `TopicBus`).
+
+    The simulation builds each entity from a copy of its prefab; every role's
+    copy holds this same game.
+
+    Args:
+      memo: Unused.
+
+    Returns:
+      This `GameContext` instance.
+    """
+    del memo
+    return self
 
   def with_bus(self, components: Mapping[str, Any]) -> dict[str, Any]:
     """An entity's components behind a contrib `TopicBusComponent`.
@@ -193,7 +232,7 @@ class GameContext:
     return found
 
   def act_params(self, name: str) -> dict[str, Any]:
-    """Prefab params that hand `name`'s actions to its person, if any.
+    """Prefab params that hand `name`'s actions to its person or rule, if any.
 
     The upstream `HumanActComponent` replaces the model's act component; it
     is given the same component order, so the person reads exactly the
@@ -203,8 +242,12 @@ class GameContext:
       name: The entity's name.
 
     Returns:
-      `{'act_component_factory': ...}` for a human-played entity, else `{}`.
+      `{'act_component_factory': ...}` for an entity a person or a rule
+      plays, else `{}`.
     """
+    rule = self.scripted.get(name)
+    if rule is not None:
+      return {'act_component_factory': lambda order: rule_act.RuleAct(rule)}
     reader = self.humans.get(name)
     if reader is None:
       return {}
@@ -282,16 +325,24 @@ class GameContext:
     if self.wire is not self.sim:
       self.wire.advance()
 
-  _inbox_lock: threading.Lock = dataclasses.field(
-      default_factory=threading.Lock
-  )
+  def __post_init__(self) -> None:
+    # The World GM's actor registry component: it shares the actors and the
+    # access lists, and its checkpoint keeps every actor's state.
+    self.registry = actor_registry.ActorRegistry(self.actors, self.access)
+    # The World GM's deliveries component: it runs every entity's
+    # instruments and hands each only what reaches it.
+    self.deliveries = deliveries_lib.Deliveries(self.bus)
 
   def add_actor(
       self, actor: actors_lib.Actor, hears: tuple[str, ...] = ()
   ) -> None:
-    """Registers an actor and the topics it hears as observations."""
-    self.actors[actor.name] = actor
-    self.access[actor.name] = tuple(hears)
+    """Registers an actor and the topics it hears as observations.
+
+    Args:
+      actor: The actor to register with the World GM's registry.
+      hears: Topic prefixes the actor hears as observations.
+    """
+    self.registry.add(actor, hears)
 
   def make_mind(
       self,
@@ -366,70 +417,15 @@ class GameContext:
     """Scheduler for a slow mind: sim-time latency, or threads if async."""
     return sim_time.publisher_scheduler(self.sim, latency_ticks, key)
 
-  def on_species_message(self, message: topics.Message) -> None:
-    """Collects slow-mind outputs; may be called from any thread."""
-    if self.bus.is_restoring:  # A checkpoint's replay, not a new answer.
-      return
-    parts = message.topic.split('.')
-    if (
-        len(parts) == 4
-        and parts[3] in ('adaptation', 'pact')
-        and message.payload
-    ):
-      with self._inbox_lock:
-        self._inbox.append((parts[2], f'{parts[3]}:{message.payload}'))
-    elif (
-        len(parts) == 3
-        and parts[0] == 'civ'
-        and parts[2] in ('treaty', 'press')
-        and message.payload
-    ):
-      with self._inbox_lock:
-        self._inbox.append((parts[1], f'{parts[2]}:{message.payload}'))
+  def add_sheet(self, topic: str, function: Callable[[], str]) -> None:
+    """Has the World GM publish a sheet on a topic each step."""
+    self.sheets[topic] = function
 
-  def deliver_adaptations(self) -> list[planet_lib.WorldEvent]:
-    """Hands landed slow-mind answers to the planet, in arrival order.
-
-    Adaptation answers become trait changes; pact and treaty answers settle
-    proposals, and the proposer hears the outcome on its diplomacy topic;
-    broadsheets go on the Gazette and the author's propaganda topic.
-
-    Returns:
-      Events to announce.
-    """
-    with self._inbox_lock:
-      inbox, self._inbox = self._inbox, []
-    events = []
-    for species, message in inbox:
-      kind, answer = message.split(':', 1)
-      if kind == 'adaptation':
-        events.append(
-            planet_lib.WorldEvent(
-                planet_lib.BIO_EVENTS,
-                self.planet.queue_adaptation(species, answer),
-            )
-        )
-        continue
-      if kind == 'press':
-        news = self.planet.publish_broadsheet(species, answer)
-        if news is not None:
-          events.append(planet_lib.WorldEvent(planet_lib.CIV_EVENTS, news))
-          self.bus.publish(
-              f'civ.{species}.propaganda', answer.strip(), source='world'
-          )
-        continue
-      if kind == 'treaty':
-        settled = self.planet.answer_treaty(species, answer)
-        topic = planet_lib.CIV_EVENTS
-      else:
-        settled = self.planet.answer_pact(species, answer)
-        topic = planet_lib.BIO_EVENTS
-      if settled is None:
-        continue
-      proposer, text = settled
-      events.append(planet_lib.WorldEvent(topic, text))
-      self.bus.publish(f'diplomacy.{proposer}.{species}', text, source='world')
-    return events
+  def publish_sheets(self, sheet_topics: Sequence[str] | None = None) -> None:
+    """Publishes entities' sheets: all (the World GM's step), or a subset."""
+    for topic, function in list(self.sheets.items()):
+      if sheet_topics is None or topic in sheet_topics:
+        self.bus.publish(topic, function(), source='world')
 
   def publish_state(self, events: Sequence[planet_lib.WorldEvent] = ()) -> None:
     publishing.publish_state(
@@ -439,10 +435,12 @@ class GameContext:
   def get_state(self) -> dict[str, Any]:
     """The world's own state, checkpointed by the World GM's `WorldStep`.
 
-    The topic bus, the sim-time scheduler and the clock are components'
-    state, checkpointed the standard Concordia way (`TopicBusComponent` and
-    `TopicObservations`, `SimTimePublisher` and the transports' operator
-    state, `NumericClock`), not here.
+    The topic bus, the sim-time scheduler, the clock, the actor registry,
+    the instruments in flight, the wake-ups and the standing orders are
+    components' state, checkpointed the standard Concordia way
+    (`TopicBusComponent` and `TopicObservations`, `SimTimePublisher`,
+    `NumericClock`, the World GM's `ActorRegistry`, `Deliveries`,
+    `EntityScheduler`, `WakeUps` and `StandingOrders`), not here.
 
     Returns:
       JSON-safe state.
@@ -453,8 +451,6 @@ class GameContext:
         'planet': self.planet.get_state(),
         'observation_queue': self.observation_queue.get_all(),
         'attention': {k: a.get_state() for k, a in self.attention.items()},
-        'wakeups': self.wakeups.get_state() if self.wakeups else None,
-        'automation': self.automation.get_state() if self.automation else None,
         # What each instrument last delivered (the epistemic gap and the
         # page read these between deliveries).
         'beliefs': [
@@ -465,17 +461,11 @@ class GameContext:
             [owner, label, message.to_dict()]
             for (owner, label), message in sorted(self.received.items())
         ],
-        # Slow minds' answers that landed but are not yet handed over.
-        'inbox': [list(item) for item in self._inbox],
-        # Species founded during play (their entities are founded again
-        # before a checkpoint is loaded, see `simulation.load_checkpoint`).
+        # Species founded during play (their entities are rebuilt from the
+        # checkpoint's own params, see `simulation.load_checkpoint`).
         'spawned': list(self.spawned),
-        # What each role's last moves did, as the world resolved them (the
-        # page shows each move's outcome).
-        'logs': {
-            name: [list(entry) for entry in actor.log]
-            for name, actor in sorted(self.actors.items())
-        },
+        # Each role's actor (its log of what its moves did, ...) is kept by
+        # the World GM's actor registry component, checkpointed with it.
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -489,17 +479,11 @@ class GameContext:
         (owner, label): topics.Message.from_dict(message)
         for owner, label, message in state.get('received', [])
     }
-    with self._inbox_lock:
-      self._inbox = [(str(k), str(v)) for k, v in state.get('inbox', [])]
     self.spawned = [str(name) for name in state.get('spawned', [])]
-    if self.wakeups is not None and state.get('wakeups'):
-      self.wakeups.set_state(state['wakeups'])
-    if self.automation is not None and state.get('automation'):
-      self.automation.set_state(state['automation'])
     for owner, watched in state.get('attention', {}).items():
       if owner in self.attention:
         self.attention[owner].set_state(watched)
-    for name, entries in state.get('logs', {}).items():
+    for name, entries in state.get('logs', {}).items():  # Older saves.
       if name in self.actors:
         self.actors[name].log = [
             (int(tick), str(action), str(outcome))
@@ -519,7 +503,10 @@ def _merged(base: Mapping[str, Any], overrides: Mapping[str, Any]):
 
 
 def new_game(
-    scenario_name: str, time_mode: str = 'sim', seed: int = 0
+    scenario_name: str,
+    time_mode: str = 'sim',
+    seed: int = 0,
+    overrides: Mapping[str, Any] | None = None,
 ) -> GameContext:
   """Creates the shared state for a scenario at tick 0 and publishes it.
 
@@ -529,13 +516,16 @@ def new_game(
       latencies in ticks; 'async' runs them on threads, so wall-clock model
       latency becomes in-game latency.
     seed: Seed of the planet's random processes (eruptions).
+    overrides: Scenario flags merged into the scenario's data (recursively),
+      for a variant of the world (e.g. the push audit's Steward rich in
+      omega).
 
   Returns:
     The shared game state.
   """
   if time_mode not in ('sim', 'async'):
     raise ValueError(f'Unknown time mode {time_mode!r}')
-  scenario = data.scenario(scenario_name)
+  scenario = _merged(data.scenario(scenario_name), overrides or {})
   evolution = evolution_lib.Evolution(data.load('species.yaml'))
   physics = data.load('daisyworld.yaml')
   metabolisms = {}
@@ -672,12 +662,11 @@ def new_game(
           or (scenario.get('civilization') or {}).get('wakeups')
           else None
       ),
+      coached=bool(scenario.get('coached', True)),
   )
   if planet.civ is not None and planet.trade is not None:
     context.automation = automation_lib.Automation(
         bus, planet.civ, planet.trade, data.load('trade.yaml')['automation']
     )
-  bus.matching('bio.species.').subscribe(context.on_species_message)
-  bus.matching('civ.').subscribe(context.on_species_message)
   context.publish_state()
   return context

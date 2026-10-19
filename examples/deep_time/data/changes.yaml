@@ -1,0 +1,39 @@
+# What changed for players, newest first. The start screen shows the newest
+# with a button to its world, so a person knows what to look for. Add an
+# entry in the cycle that changes play.
+changes:
+  - when: 18 Oct, night
+    world: great_acceleration
+    text: >-
+      The peoples no longer give a one-line take on each omen: their
+      characters speak through what they do, the broadsheets and retellings
+      they print, and their answers to pacts and treaties. What is on its way
+      to you lists your own council, printers and scribes as soon as they
+      start.
+  - when: 18 Oct, evening
+    world: great_acceleration
+    text: >-
+      What each of the Steward's moves does is now measured in played games,
+      with every people and species answering it as they do when you play.
+      On the Great Acceleration bright clouds cool about 6 °C, fading over a
+      few turns (they read "6 to 16 °C, lasting" before).
+  - when: 18 Oct, later
+    world: great_acceleration
+    text: >-
+      From your questions: the land's warning says what comes (locusts or
+      plague where smoke lingers; forests and rain clear it); a people's strip
+      shows the energy all have made and the air against its cap; the legend
+      says what roads are; planning towns and news riding the roads are gone.
+  - when: 18 Oct
+    world: great_acceleration
+    text: >-
+      The Great Acceleration speaks. As the Steward you may send the peoples
+      an omen: a sign every people sees and up to 25 words it is taken to
+      say. The Cedar league's printers retell it in the Gazette as they see
+      it, and each people says, in its own voice, what it makes of it. Your
+      strip shows the air and the energy against the goal.
+  - when: 17 Oct
+    text: >-
+      A clearer start: no daily challenge, no locks on worlds you can play,
+      Play in view once a world is picked; the Advisor's counsel shows how
+      old its readings are.

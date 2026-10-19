@@ -45,12 +45,42 @@ from typing import Any
 
 from absl import app
 from absl import flags
+from concordia.components.game_master import next_acting
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios as scenarios_lib
 from examples.deep_time import simulation
 from examples.deep_time.web import session as session_lib
+from concordia.utils import structured_logging
 
 BOTS = ('default', 'random', 'passive')
+
+
+def menus(
+    log: structured_logging.SimulationLog, role: str
+) -> list[dict[str, Any]]:
+  """What a role was offered each step, as the World GM logged it.
+
+  The GM's `ActorActionSpecs` logs every menu of the step (its moves, those
+  saved for, and what each does) in its `Action spec` entry.
+
+  Args:
+    log: The simulation's log (`Simulation.play` returns it).
+    role: The role's entity name.
+
+  Returns:
+    One menu a step the role was asked to act.
+  """
+  found = []
+  interface = structured_logging.AIAgentLogInterface(log)
+  for value in interface.get_component_values(
+      component_key='next_action_spec',
+      value_key=next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY,
+      entity_name=simulation.WORLD_GM_NAME,
+  ):
+    menu = value['value'].get('Menus', {}).get(role)
+    if menu is not None:
+      found.append(menu)
+  return found
 
 
 @functools.cache
@@ -102,22 +132,19 @@ def play_one(
       seed=seed,
   )
   actor = context.actors[role]
+  with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
+    log = sim.play(premise='', max_steps=ticks or context.planet.max_ticks)
   pushes: list[int] = []
   plannable: list[int] = []
-  spec_of = actor.action_spec
-
-  def recording():
-    spec = spec_of()
-    pushes.append(len(context.pushes(spec.options, role)))
+  for menu in menus(log, role):
+    pushes.append(sum(1 for o in menu['offered'] if o in menu['pushes']))
     # With the moves being saved for, which may be planned.
-    later = list(getattr(actor, 'out_of_reach', lambda: [])())
-    plannable.append(len(context.pushes([*spec.options, *later], role)))
-    return spec
-
-  actor.action_spec = recording  # This game only: what was on the menu.
-  with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
-    sim.play(premise='', max_steps=ticks or context.planet.max_ticks)
-  moves = [action.strip().lower() for _, action, _ in actor.log]
+    plannable.append(len(menu['pushes']))
+  # A model's free answer starts with its name.
+  moves = [
+      action.strip().lower().removeprefix(f'{role.lower()} ')
+      for _, action, _ in actor.log
+  ]
   neutral = {o.lower() for o in session_lib.NEUTRAL_OPTIONS}
   return {
       'scenario': scenario,

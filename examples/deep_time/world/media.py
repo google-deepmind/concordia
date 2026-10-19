@@ -52,7 +52,9 @@ class Broadsheet:
   title: str
   post_id: int
   votes: int
-  kind: str = 'broadsheet'  # Or 'pamphlet' (paid for by the coal guilds).
+  # Or 'pamphlet' (paid for by the coal guilds), or 'omen' (the printers'
+  # retelling of the Steward's omen).
+  kind: str = 'broadsheet'
 
 
 def parse_stance(text: str, stances: Mapping[str, str]) -> str | None:
@@ -64,6 +66,16 @@ def parse_stance(text: str, stances: Mapping[str, str]) -> str | None:
       if word in lowered
   ]
   return min(found)[1] if found else None
+
+
+def without_stance(text: str, stances: Mapping[str, str]) -> str:
+  """A broadsheet's body: the text after its first stance keyword."""
+  body = text.strip()
+  stance = parse_stance(body, stances)
+  if stance is None:
+    return body
+  start = body.lower().find(stances[stance]) + len(stances[stance])
+  return body[start:].lstrip(' :.-—').strip()
 
 
 def headline(body: str, limit: int = 80) -> str:
@@ -96,6 +108,8 @@ class Gazette:
     self.pamphlet_stance = str(pamphlets['stance'])
     self.pamphlet_sway = float(pamphlets.get('sway_factor', 1.0))
     self.pamphlet_question = str(pamphlets['question']).strip()
+    # The presses' owners retell the Steward's omens (relay_mind.py).
+    self.relay = dict(config.get('relay') or {})
     self._names = dict(names)
     self.forum = forum.ForumState(
         player_names=sorted(self._names.values()),
@@ -159,6 +173,7 @@ class Gazette:
       timestamp: str,
       evidence: Evidence,
       civ: civ_lib.Civilization,
+      kind: str | None = None,
   ) -> Broadsheet | None:
     """Posts a broadsheet, has the other peoples judge it, and sways them.
 
@@ -168,11 +183,14 @@ class Gazette:
       timestamp: Forum timestamp (the in-game date).
       evidence: What the public instruments show now.
       civ: The peoples, whose consent the broadsheet sways.
+      kind: 'omen' for the printers' retelling of an omen (nothing is
+        commissioned); otherwise what the author's press was writing.
 
     Returns:
       The broadsheet, or None if nothing was commissioned or no stance taken.
     """
-    kind = self.pending.pop(polity, None)
+    if kind is None:
+      kind = self.pending.pop(polity, None)
     if kind is None:
       return None
     stance = parse_stance(text, self.stances)
@@ -180,9 +198,7 @@ class Gazette:
       stance = self.pamphlet_stance  # The guilds pay for coal's side.
     if stance is None:
       return None
-    body = text.strip()
-    start = body.lower().find(self.stances[stance]) + len(self.stances[stance])
-    body = body[start:].lstrip(' :.-—').strip()
+    body = without_stance(text, self.stances)
     title = headline(body) or self.stances[stance]
     author = self._names[polity]
     post_id = self.forum.create_post(author, title, body, timestamp)
@@ -193,6 +209,8 @@ class Gazette:
     weight = self.sway * self.credibility(polity)
     if kind == 'pamphlet':
       weight *= self.pamphlet_sway
+    elif kind == 'omen':
+      weight *= float(self.relay.get('sway_factor', 1.0))
     direction = -1.0 if stance == 'clean' else 1.0
     for people in civ.polities.values():
       people.consent = min(

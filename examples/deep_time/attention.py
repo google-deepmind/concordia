@@ -71,6 +71,12 @@ class Attention:
       self._sync()
       return key in self._watched
 
+  def unwatched(self) -> list[str]:
+    """The instruments not watched now (their readings freeze)."""
+    with self._lock:
+      self._sync()
+      return [k for k in self._instruments if k not in self._watched]
+
   def watched(self) -> list[str]:
     with self._lock:
       self._sync()

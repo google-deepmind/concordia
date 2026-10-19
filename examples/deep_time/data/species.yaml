@@ -88,7 +88,10 @@ speciation:
 # timer expires. bio.alerts.<key> is a deadband alarm on its meadows' local
 # temperature, published by a reflex without any language model call.
 wakeups:
-  prefixes: [geo.events, 'diplomacy.{key}.', 'bio.alerts.{key}']
+  # Its slow minds' decisions (an adaptation, counsel on a pact offer) wake
+  # it too: it enacts them only by acting.
+  prefixes: [geo.events, 'diplomacy.{key}.', 'bio.alerts.{key}',
+             'bio.species.{key}.adaptation', 'bio.species.{key}.pact']
   timer_ticks: 4
   alert_topic: 'bio.alerts.{key}'
   alarms:

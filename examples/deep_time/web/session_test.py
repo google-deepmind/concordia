@@ -21,11 +21,16 @@ import subprocess
 import sys
 import time
 from typing import Any, Callable
+from unittest import mock
 
 from absl.testing import absltest
 from concordia.components.agent import human_act_component
+from concordia.contrib.pubsub import topics
 from examples.deep_time import actors as actors_lib
+from examples.deep_time import game as game_lib
 from examples.deep_time import scenarios
+from examples.deep_time import views
+from examples.deep_time.components import rule_act
 from examples.deep_time.web import session as session_lib
 from examples.deep_time.world import treaties as treaties_lib
 from concordia.typing import entity as entity_lib
@@ -48,6 +53,38 @@ def _wait_for(predicate: Callable[[], Any], timeout: float = 60.0) -> Any:
 
 def _question(game: session_lib.GameSession) -> dict[str, Any]:
   return _wait_for(lambda: game.state()['question'])
+
+
+def _hold_until(
+    game: session_lib.GameSession,
+    predicate: Callable[[], Any],
+    timeout: float = 90.0,
+) -> Any:
+  """Plays a started game, its seats holding course, until `predicate`.
+
+  The World GM steps the world and publishes as it does in any game; the
+  test only asks each seat to hold course (as a person may).
+
+  Args:
+    game: The started game session.
+    predicate: Callable returning a truthy value once the condition is met.
+    timeout: Maximum seconds to wait.
+
+  Returns:
+    The truthy value returned by `predicate`.
+  """
+  for place in game.seats.values():
+    place.hold_pace = 0.05
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    value = predicate()
+    if value:
+      return value
+    for name, place in game.seats.items():
+      if game.mode == 'play' and place.pending() is not None:
+        game.hold_course(name, 10)
+    time.sleep(0.05)
+  raise AssertionError('timed out')
 
 
 class GameSessionTest(absltest.TestCase):
@@ -161,7 +198,7 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     self.assertEqual(game.role, 'White daisies, a species')
     labels = [s['label'] for s in game.state()['stats']]
-    self.assertEqual(labels, ['tick', 'cover', 'seed bank'])
+    self.assertEqual(labels, ['turn', 'cover', 'seed bank'])
     species = game.role_entity()
     assert species is not None
     self.assertIsInstance(
@@ -183,7 +220,8 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     self.assertEqual(game.role, 'Amber folk, a people')
     labels = [s['label'] for s in game.state()['stats']]
-    self.assertEqual(labels, ['tick', 'people', 'fed', 'grain'])
+    # The goal all the peoples share, in place of the head count.
+    self.assertEqual(labels, ['turn', 'fed', 'grain', 'iron made'])
     for _ in range(5):
       question = _question(game)
       self.assertIn('Our storehouse and labor', question['context'])
@@ -196,6 +234,59 @@ class GameSessionTest(absltest.TestCase):
     # Gaia's Advisor is private to Gaia until the game ends.
     self.assertIsNotNone(game.context.bus.latest('gaia.briefings'))
     self.assertEqual(state['briefing'], '')
+
+  def test_a_seat_enacts_a_draft_with_its_words(self):
+    request = human_input.HumanInputRequest(
+        request_id='1',
+        entity_name='Cedar league',
+        action_spec=entity_lib.free_action_spec(call_to_action='Act'),
+        contexts={
+            "Our printers' sheet": 'clean air: Smoke Kills. [tick 4, fresh]',
+            "Our scribes' draft": (
+                'Standing orders ...: sell charcoal. As'
+                ' written: [{"name": "x"}] [tick 3, 1 tick old]'
+            ),
+        },
+    )
+    move = actors_lib.PUBLISH_BROADSHEET
+    self.assertEqual(
+        session_lib.with_draft(request.contexts, move),
+        f'{move}: clean air: Smoke Kills.',
+    )
+    self.assertEqual(
+        session_lib.with_draft(request.contexts, actors_lib.ADOPT_ORDERS),
+        f'{actors_lib.ADOPT_ORDERS}: [{{"name": "x"}}]',
+    )
+    self.assertEqual(session_lib.with_draft(request.contexts, 'wait'), 'wait')
+
+  def test_a_seat_takes_a_move_with_its_words_from_the_gms_menu(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Cedar league'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _question(game)
+    menu = views.menu(game.context, 'Cedar league')
+    move = menu['offered'][0]
+    check = game._check  # pylint: disable=protected-access
+    self.assertEqual(check('Cedar league', move), '')
+    self.assertEqual(check('Cedar league', f'{move}: our words'), '')
+    self.assertIn('is not one of the moves', check('Cedar league', 'dance'))
+    # Whether a move may be aimed, and what may be planned: the GM's menu.
+    self.assertEqual(
+        [o for o in menu['offered'] if game._targetable('Cedar league', o)],  # pylint: disable=protected-access
+        [o for o in menu['offered'] if o in menu['aimable']],
+    )
+
+  def test_a_watched_game_may_have_a_bot_play_a_role(self):
+    game = session_lib.GameSession(
+        'daisyworld', 'watch', players=['Gaia'], bots=['Gaia']
+    )
+    self.assertIn('Gaia', game.context.bots)
+    with self.assertRaises(ValueError):  # A person's seat is the person's.
+      session_lib.GameSession('daisyworld', 'play', role='Gaia', bots=['Gaia'])
+    with self.assertRaises(KeyError):
+      session_lib.GameSession('daisyworld', 'watch', bots=['Nobody'])
 
   def test_each_role_sees_its_own_goal(self):
     steward = session_lib.GameSession('sandbox', 'play').state()['goal']
@@ -421,13 +512,15 @@ class GameSessionTest(absltest.TestCase):
 
   def test_clouds_are_public_per_region_and_absent_from_a_clear_sky(self):
     played = session_lib.GameSession('great_acceleration', 'play')
-    planet = played.context.planet
     self.assertIsNone(played.map()['clouds'])  # A clear sky.
+    # The surface the World GM publishes for every player (`views.surface`).
+    context = game_lib.new_game('great_acceleration')
+    planet = context.planet
     weights = np.zeros(planet.grid.size)
     weights[planet.grid.size - 1] = 1.0  # The far north-east region.
     planet.daisies.add_albedo_pulse(0.06, weights)
     planet.daisies.add_albedo_pulse(-0.02)
-    clouds = played.map()['clouds']  # Seen by a player too: the sky.
+    clouds = views.surface(context)['clouds']  # Seen by a player too.
     self.assertLen(clouds, planet.grid.bands)
     self.assertGreater(clouds[0][-1], 0.0)  # North first: the top row.
     self.assertAlmostEqual(clouds[-1][0], -0.02)  # Haze over the rest.
@@ -448,9 +541,12 @@ class GameSessionTest(absltest.TestCase):
     self.assertNotIn('seasons', played['layers'])  # Truth waits.
 
   def test_the_trace_shows_readings_and_the_truth_only_once_revealed(self):
-    watched = session_lib.GameSession('daisyworld', 'watch')
-    for _ in range(4):
-      watched.context.planet.advance()
+    watched = session_lib.GameSession(
+        'daisyworld', 'watch', pace_seconds=0
+    ).start()
+    self.addCleanup(watched.join, 30)
+    self.addCleanup(watched.cancel)
+    _wait_for(lambda: watched.state()['tick'] >= 4)
     trace = watched.state()['trace']
     self.assertEqual(trace['band'], list(watched.context.planet.band()))
     self.assertLen(trace['true'], len(trace['ticks']))
@@ -522,31 +618,56 @@ class GameSessionTest(absltest.TestCase):
     self.assertIn('Amber folk', roles['fire_and_iron'])
     self.assertIn('Grazers', roles['herds'])
 
+  def test_a_players_map_is_what_the_world_gm_published(self):
+    game = session_lib.GameSession('great_acceleration', 'play').start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _hold_until(game, lambda: game.state()['tick'] >= 3)
+    _question(game)  # The World GM has stepped and published; it waits.
+    message = game.context.bus.latest(views.SURFACE_TOPIC)
+    assert message is not None
+    published = json.loads(message.payload)
+    # While a person plays, the page draws the surface as published, and
+    # never works it out from the world itself.
+    with mock.patch.object(views, 'surface', side_effect=AssertionError):
+      shown = game.map()
+    for key in ('biomes', 'herds', 'peoples', 'clouds', 'burns', 'reserves'):
+      self.assertEqual(shown[key], published[key], key)
+    # A watcher sees the world as it is.
+    watched = session_lib.GameSession('great_acceleration', 'watch')
+    with mock.patch.object(views, 'surface', wraps=views.surface) as surface:
+      watched.map()
+    surface.assert_called()
+
   def test_hunger_is_seen_on_the_map(self):
     game = session_lib.GameSession('sandbox', 'play')
     peoples = game.map()['peoples']
     self.assertTrue(all(p['fed'] == 1.0 for p in peoples['polities']))
     self.assertTrue(all(not p['famine'] for p in peoples['polities']))
-    civ = game.context.planet.civ
+    # The surface the World GM publishes (`views.surface`).
+    context = game_lib.new_game('sandbox')
+    civ = context.planet.civ
     assert civ is not None
-    polity = civ.polities['cedar']
-    polity.food_ratio = 0.6
+    civ.polities['cedar'].food_ratio = 0.6
     cedar = next(
-        p for p in game.map()['peoples']['polities'] if p['key'] == 'cedar'
+        p
+        for p in views.surface(context)['peoples']['polities']
+        if p['key'] == 'cedar'
     )
     self.assertEqual(cedar['fed'], 0.6)  # Public, like the towns.
 
   def test_ripples_say_what_happened_to_those_who_may_read_it(self):
-    def ripples(game):
-      planet = game.context.planet
-      for _ in range(12):
-        if planet.ripples:
-          break
-        planet.advance()
-      self.assertNotEmpty(planet.ripples)
-      return game.map()['ripples']
+    def ripples(game, seat=None):
+      game.start()
+      self.addCleanup(game.join, 30)
+      self.addCleanup(game.cancel)
+      found = _hold_until(game, lambda: game.map(seat)['ripples'])
+      game.cancel()
+      return found
 
-    watched = ripples(session_lib.GameSession('great_acceleration', 'watch'))
+    watched = ripples(
+        session_lib.GameSession('great_acceleration', 'watch', pace_seconds=0)
+    )
     self.assertTrue(all(isinstance(r[4], str) and r[4] for r in watched))
     for r in watched:  # A tally of shifting biomes ripples as a 'shift'.
       self.assertEqual(r[3] == 'shift', bool(TALLY.search(r[4])))
@@ -560,15 +681,18 @@ class GameSessionTest(absltest.TestCase):
     pair = session_lib.GameSession(
         'great_acceleration', 'play', players=['Gaia', 'Amber folk']
     )
-    planet = pair.context.planet
-    while not planet.ripples:
-      planet.advance()
-    self.assertTrue(all(r[4] is None for r in pair.map('stranger')['ripples']))
+    stranger = ripples(pair, 'stranger')
+    self.assertTrue(all(r[4] is None for r in stranger))
 
   def test_a_peoples_player_sees_its_own_people(self):
-    game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
-    for _ in range(2):  # The first harvests fill the storehouse.
-      game.context.planet.advance()
+    game = session_lib.GameSession(
+        'fire_and_iron', 'play', role='Amber folk'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    # The first harvests fill the storehouse.
+    _hold_until(game, lambda: game.state()['tick'] >= 2)
+    _question(game)
     people = game.state()['people']
     self.assertEqual(people['name'], 'Amber folk')
     self.assertAlmostEqual(sum(l['share'] for l in people['labor']), 1.0, 2)
@@ -653,8 +777,8 @@ class GameSessionTest(absltest.TestCase):
     clouds = next(o for o in question['options'] if 'bright clouds' in o)
     now = game.state()['tick']
     self.assertIsNone(game.plan(None, clouds, 1))
-    game.context.planet.omega = 0.0  # Spent before the plan's turn.
-    game.choose(question['request_id'], 'wait and save omega')
+    # The same move made now: the planned one cannot be made next turn.
+    game.choose(question['request_id'], clouds)
     _wait_for(
         lambda: game.state()['question']
         and game.state()['tick'] == now + 1
@@ -662,7 +786,7 @@ class GameSessionTest(absltest.TestCase):
     )
     self.assertStartsWith(
         game.state()['hold']['stopped'],
-        'your plan to seed bright clouds failed: it needs',
+        'your plan to seed bright clouds failed: it ',
     )
     self.assertEqual(game.state()['plans'], [])
     self.assertEqual(
@@ -672,13 +796,19 @@ class GameSessionTest(absltest.TestCase):
   def test_a_held_steward_stops_on_its_own_thermometer_not_the_truth(self):
     game = session_lib.GameSession('daisyworld', 'play')
     low, high = game.context.planet.band()
-    reading = {'temp_c': None}
-    game.context.believed = lambda owner, topic, path: reading['temp_c']
-    needs = game._needs_you  # pylint: disable=protected-access
+
+    def read(temp_c):  # What the Steward's thermometer delivered (GM state).
+      game.context.beliefs[('Gaia', 'climate.global')] = topics.Message(
+          'climate.global', json.dumps({'temp_c': temp_c}), seq=0, time=0
+      )
+
+    # What the World GM works out for the seat (`views`): its own readings.
+    needs = lambda entity: views.needs_you(game.context, entity)
+    game.context.beliefs.pop(('Gaia', 'climate.global'), None)
     self.assertEqual(needs('Gaia'), '')  # No reading yet: no reason.
-    reading['temp_c'] = (low + high) / 2
+    read((low + high) / 2)
     self.assertEqual(needs('Gaia'), '')
-    reading['temp_c'] = high + 5
+    read(high + 5)
     self.assertEqual(needs('Gaia'), 'your thermometer reads outside the band')
 
   def test_a_held_people_stops_for_a_treaty_offer(self):
@@ -687,7 +817,7 @@ class GameSessionTest(absltest.TestCase):
     )
     treaties = game.context.planet.treaties
     self.assertIsNotNone(treaties)
-    needs = game._needs_you  # pylint: disable=protected-access
+    needs = lambda entity: views.needs_you(game.context, entity)
     self.assertEqual(needs('Amber folk'), '')
     actor = game.context.actors['Amber folk']
     assert isinstance(actor, actors_lib.PolityActor)
@@ -698,57 +828,60 @@ class GameSessionTest(absltest.TestCase):
     self.assertEqual(needs('Amber folk'), 'an offer awaits your answer')
 
   def test_a_decided_game_is_recapped(self):
-    game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
+    # A short game (a scenario flag), played to the World GM's verdict.
+    game = session_lib.GameSession(
+        'fire_and_iron', 'play', role='Amber folk', overrides={'max_ticks': 4}
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
     self.assertIsNone(game.state()['recap'])
+    _question(game)
+    game.hold_course(None, 10)
+    _wait_for(lambda: game.state()['outcome'])
+    state = game.state()
+    recap = state['recap']
+    self.assertIn(state['outcome'], ('victory', 'defeat'))
+    self.assertEqual(recap['outcome'], state['outcome'])
+    self.assertTrue(state['outcome_reason'])  # As the World GM said it.
     planet = game.context.planet
-    for _ in range(3):
-      planet.advance()
-    seat = game.seats['Amber folk']
-    seat.choices += [
-        'put more labor into: farm the land',
-        'put more labor into: farm the land',
-        '(holding course) keep the current balance of labor',
-        'plan where our next town will stand',
-    ]
-    planet.outcome, planet.outcome_reason = 'defeat', 'only 90 iron was forged'
-    recap = game.state()['recap']
-    self.assertEqual(recap['outcome'], 'defeat')
     self.assertLen(recap['temps'], len(planet.history))
-    self.assertEqual(
-        recap['moves'][0], ['put more labor into: farm the land', 2]
-    )
-    self.assertEqual(recap['held'], 1)
+    self.assertGreaterEqual(recap['held'], 1)  # It held its course.
     self.assertEqual(recap['band'], list(planet.band()))
-    self.assertIsNone(recap['play'])  # No turn was played through the page.
-    self.assertIsNone(game.state()['hold'])  # Nothing left to hold.
+    self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
+    self.assertTrue(all(s['met'] is not None for s in state['stars']))
 
   def test_the_recap_marks_where_each_move_acted(self):
-    game = session_lib.GameSession('daisyworld', 'play')
-    planet = game.context.planet
-    for _ in range(4):
-      planet.advance()
+    game = session_lib.GameSession(
+        'daisyworld', 'play', overrides={'max_ticks': 4}
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
     clouds = next(
-        i.option for i in planet.interventions() if i.key == 'bright_clouds'
+        i.option
+        for i in game.context.planet.interventions()
+        if i.key == 'bright_clouds'
     )
-    turn = {'offered': [], 'pushes': 0, 'seconds': None}
-    game.seats['Gaia'].played += [
-        {**turn, 'tick': 1, 'move': clouds, 'how': 'chose'},
-        {**turn, 'tick': 2, 'move': 'wait and save omega', 'how': 'chose'},
-        {**turn, 'tick': 3, 'move': 'wait and save omega', 'how': 'held'},
-    ]
-    planet.outcome, planet.outcome_reason = 'victory', 'the planet stayed alive'
+    question = _question(game)
+    sent = game.state()['tick']
+    self.assertIsNone(game.choose(question['request_id'], clouds))
+    _wait_for(lambda: game.state()['tick'] > sent)
+    game.hold_course(None, 10)
+    _wait_for(lambda: game.state()['outcome'])
     recap = game.state()['recap']
     # Acted the turn after it was chosen; cooled, as measured on this world.
-    self.assertEqual(recap['marks'], [[2, 'seed bright clouds', 'cool']])
+    self.assertIn([sent + 1, 'seed bright clouds', 'cool'], recap['marks'])
     self.assertIsInstance(recap['seen'], list)  # The Steward's readings.
-    # A cold snap after the clouds acted: a turning point, told with them.
-    for row, temp in zip(planet.history[1:4], (20.0, 9.0, 2.0)):
-      row['temp_c'] = temp
-    turning = game.state()['recap']['turning']
-    (point,) = [p for p in turning if p['to_c'] < p['from_c']]
-    self.assertEqual((point['move'], point['move_tick']), (clouds, 1))
-    self.assertLess(point['to_c'] - point['from_c'], -8)
+    self.assertIsInstance(recap['turning'], list)  # (`forecast` tests them.)
+    watched = session_lib.GameSession(
+        'daisyworld', 'watch', pace_seconds=0, overrides={'max_ticks': 3}
+    ).start()
+    self.addCleanup(watched.join, 30)
+    self.addCleanup(watched.cancel)
+    _wait_for(lambda: watched.state()['outcome'])
+    self.assertEqual(watched.state()['recap']['turning'], [])  # No player.
 
   def test_each_role_sees_how_old_what_it_knows_is(self):
     game = session_lib.GameSession('daisyworld', 'play').start()
@@ -777,21 +910,25 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.join, 30)
     self.addCleanup(game.cancel)
     game.seats[game.entity].hold_pace = 0.05
-    _wait_for(lambda: game.state()['question'])
-    game.hold_course(None, 3)
-    _wait_for(lambda: game.state()['tick'] >= 3)
-    _wait_for(lambda: game.state()['question'])
-    state = game.state()
-    flight = state['in_flight']
-    labels = {f['label'] for f in flight}
+    _question(game)
+    labels = set()
+    # The World GM lists what it knows is on its way: a council that began
+    # deliberating when the people was asked, from its next publication.
+    for _ in range(4):
+      tick = game.state()['tick']
+      game.hold_course(None, 1)
+      _wait_for(lambda t=tick: game.state()['tick'] > t and _question(game))
+      state = game.state()
+      flight = state['in_flight']
+      labels |= {f['label'] for f in flight}
+      for f in flight:  # Everything listed is still to come.
+        self.assertGreater(f['lands'], state['tick'])
+      self.assertEqual(
+          [f['lands'] for f in flight], sorted(f['lands'] for f in flight)
+      )
+      self.assertEqual(state['acts_in'], 1)
     self.assertIn('Council plan', labels)  # Its council deliberating.
     self.assertIn('Broadsheet', labels)  # Its press writing.
-    for f in flight:  # Everything listed is still to come.
-      self.assertGreater(f['lands'], state['tick'])
-    self.assertEqual(
-        [f['lands'] for f in flight], sorted(f['lands'] for f in flight)
-    )
-    self.assertEqual(state['acts_in'], 1)
 
   def test_each_reading_comes_as_data_as_it_reached_the_role(self):
     game = session_lib.GameSession('daisyworld', 'play').start()
@@ -821,9 +958,11 @@ class GameSessionTest(absltest.TestCase):
     people = session_lib.GameSession(
         'great_acceleration', 'play', role='Amber folk'
     )
-    topics = {i['label']: i['topic'] for i in people.instruments('Amber folk')}
-    self.assertEqual(topics['Census of the peoples'], 'civ.census')
-    self.assertEqual(topics['Current plan'], 'civ.amber.plan')
+    found_topics = {
+        i['label']: i['topic'] for i in people.instruments('Amber folk')
+    }
+    self.assertEqual(found_topics['Census of the peoples'], 'civ.census')
+    self.assertEqual(found_topics['Current plan'], 'civ.amber.plan')
     # A species knows its own genome.
     grazers = session_lib.GameSession('herds', 'play', role='Grazers')
     (genome,) = [
@@ -868,6 +1007,9 @@ class GameSessionTest(absltest.TestCase):
     seat = game.seats[game.entity]
     question = _question(game)
     seed = next(o for o in question['options'] if o.startswith('seed white'))
+    # What the player looked at before choosing: kept once each, in order.
+    for what in ('sheet', 'card:storycard', 'sheet', '  card:goalcard '):
+      self.assertIsNone(game.look(None, what))
     seat.choose(question['request_id'], seed)
     _wait_for(lambda: game.state()['tick'] >= 2 and game.state()['question'])
     seat.hold_pace = 0.05
@@ -889,11 +1031,89 @@ class GameSessionTest(absltest.TestCase):
     self.assertGreater(first['pushes'], 3)  # The Steward's measured moves.
     self.assertTrue(held['neutral'])
     self.assertIsNone(held['seconds'])
+    self.assertEqual(
+        first['looked'], ['sheet', 'card:storycard', 'card:goalcard']
+    )
+    self.assertEqual(held['looked'], [])  # A new turn starts with nothing.
     # What the Steward read and what was true, to review a turn by.
     self.assertGreaterEqual(first['omega'], 0)
     self.assertIsInstance(first['true_c'], float)
     self.assertIn('read_c', first)
     self.assertIn('forecast_c', first)
+
+  def test_the_steward_reads_the_peoples_goal_on_its_strip(self):
+    game = session_lib.GameSession('great_acceleration', 'play')
+    context = game.context
+
+    def reading(topic, payload, tick, kept):
+      kept[('Gaia', topic)] = topics.Message(
+          topic, json.dumps(payload), seq=0, time=tick
+      )
+
+    stats = game._stats(False, 'Gaia')  # pylint: disable=protected-access
+    self.assertEqual(
+        [s['label'] for s in stats][-2:], ['CO₂ / cap', 'energy made']
+    )
+    self.assertEqual([s['value'] for s in stats][-2:], ['?/1.3', '0/600'])
+    context.planet.tick = 6
+    # What the instruments last read, with its age; past the cap is marked.
+    reading('climate.global', {'temp_c': 14.0, 'co2': 1.34}, 5, context.beliefs)
+    # The peoples' census reaches the Steward at once (as 'Peoples').
+    reading('Peoples', {'made': {'energy': 340.4}}, 6, context.received)
+    co2, energy = views.strip(context, 'Gaia')[-2:]  # What it publishes.
+    self.assertEqual(
+        (co2['label'], co2['value'], co2['warn']),
+        ('CO₂ / cap, 1 tick old', '1.34/1.3', True),
+    )
+    self.assertEqual(
+        (energy['label'], energy['value']), ('energy made', '340/600')
+    )
+    # Holding course stops for it.
+    self.assertIn('past ×1.3 carbon', views.needs_you(game.context, 'Gaia'))
+    # Worlds whose goal has no such numbers keep biodiversity.
+    daisies = session_lib.GameSession('daisyworld', 'play')
+    self.assertEqual(
+        daisies._stats(False, 'Gaia')[-1]['label'], 'biodiversity'  # pylint: disable=protected-access
+    )
+
+  def test_the_steward_speaks_and_the_printers_retell_it(self):
+    game = session_lib.GameSession('great_acceleration', 'play').start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    question = _question(game)
+    omen = question['omen']
+    self.assertEqual(
+        omen['signs'], ['a red dawn', 'a comet', 'ash on the snow']
+    )
+    self.assertTrue(omen['ready'])
+    self.assertIn(omen['option'], question['options'])  # Moves stay offered.
+    self.assertIn('wait and save omega', question['options'])
+    words = 'a comet: spend the black stone slowly, or the fields go dry'
+    self.assertIsNone(game.choose(question['request_id'], words))
+    _wait_for(lambda: game.state()['tick'] >= 2 and game.state()['question'])
+    self.assertEqual(game.context.planet.omens[0][1], 'a comet')
+    self.assertFalse(game.state()['question']['omen']['ready'])  # Recharging.
+    # Holding course works on a free question: the neutral move is offered.
+    game.seats[game.entity].hold_pace = 0.05
+    game.hold_course(None, 2)
+    _wait_for(lambda: game.state()['tick'] >= 4 and game.state()['question'])
+    told = [
+        i
+        for i in game.state()['story']
+        if i['who'] == 'The Gazette on the omen'
+    ]
+    self.assertLen(told, 1)  # The printers' front page, in full, once.
+    self.assertIn('spend the black stone slowly', told[0]['text'])
+    # A species reads no Gazette: none of it is in its story.
+    story = game._story('Grasslands', False, False)  # pylint: disable=protected-access
+    self.assertNotIn('press', {i['kind'] for i in story})
+    gazette = game.context.planet.gazette
+    assert gazette is not None
+    self.assertEqual(gazette.printed[-1].kind, 'omen')
+    held = [
+        t['move'] for t in game.seats[game.entity].played if t['how'] == 'held'
+    ]
+    self.assertEqual(held, ['wait and save omega'] * 2)
 
   def test_a_turn_keeps_each_peoples_hands_for_review(self):
     game = session_lib.GameSession('fire_and_iron', 'play', role='Amber folk')
@@ -1009,6 +1229,9 @@ class GameSessionTest(absltest.TestCase):
     assert advice is not None
     self.assertIn(advice['move'], [*question['options'], *question['saving']])
     self.assertGreaterEqual(advice['age'], 2)  # The Advisor's own delay.
+    # The briefing's age on the page is the same: from the readings it used.
+    (briefing,) = [t for t in game.timing() if t['label'] == 'Advisor briefing']
+    self.assertGreaterEqual(briefing['age'], 2)
 
   def test_a_peoples_question_names_what_matters_most(self):
     game = session_lib.GameSession(
@@ -1075,17 +1298,19 @@ class GameSessionTest(absltest.TestCase):
         'text': 'A town is founded.',
         'local': True,
     })
-    (news,) = [f for f in game.in_flight() if f['kind'] == 'news']
+    (news,) = [  # What the World GM publishes for the people.
+        f
+        for f in views.in_flight(game.context, 'Amber folk')
+        if f['kind'] == 'news'
+    ]
     per = float(planet.news_config['ticks_per_region'])
     self.assertEqual(news['lands'], planet.tick + round(2 * per))
     north = planet.tiles.rows - 1
     self.assertEqual(news['from'], [north - row, col])
     capital = planet.settlements.places['amber'][0]
     self.assertEqual(news['to'], [north - capital.row, capital.col])
-    self.assertEqual(
-        game.map(None)['couriers'],
-        [[*news['from'], *news['to'], planet.tick, news['lands'], 'civ']],
-    )
+    # Cut from the map (a tap only zoomed it); a data flag brings it back.
+    self.assertEqual(game.map(None)['couriers'], [])
     # Only a people's player has couriers: the ripples show everyone else.
     watched = session_lib.GameSession('fire_and_iron', 'watch')
     self.assertEqual(watched.map(None)['couriers'], [])
@@ -1147,20 +1372,38 @@ class CoopTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     colonists = 'Colonists of New Ararat'
 
-    def troubled():  # Both seats hold course until the colonists see one.
+    def troubled():  # Both seats hold course until the colonists see famine.
       for seat in game.seats:
         question = game.state(seat)['question']
         if question:
           game.choose(
               question['request_id'], session_lib.neutral(question['options'])
           )
-      return game.state(colonists)['crises']
+      found = game.state(colonists)['crises']
+      return found if 'famine' in {c['kind'] for c in found} else None
 
     found = _wait_for(troubled)
     self.assertIn('famine', {c['kind'] for c in found})  # Stores run out.
 
 
 class ReplayTest(absltest.TestCase):
+
+  def test_a_game_may_start_deep_in_from_a_scripted_save(self):
+    # Played to tick 5 with the Steward keeping still by a rule.
+    save = session_lib.scripted_save('daisyworld', ['Gaia'], 5)
+    self.assertEqual(save['tick'], 5)
+    game = session_lib.GameSession(
+        'daisyworld', 'play', players=['Gaia'], resume=save
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    _question(game)  # Now a person's seat, asked in turn.
+    self.assertGreaterEqual(game.state()['tick'], 5)
+    gaia = game.role_entity('Gaia')
+    assert gaia is not None
+    self.assertIsInstance(
+        gaia.get_act_component(), human_act_component.HumanActComponent
+    )
 
   def test_a_decided_game_replays_exactly(self):
     folder = self.create_tempdir().full_path
@@ -1208,6 +1451,10 @@ class ReplayTest(absltest.TestCase):
 
     self.assertEqual(history(again), history(game))
     self.assertEqual(again.context.planet.outcome, game.context.planet.outcome)
+    # The player's role was played back by a rule, not as a person.
+    replayed = again.role_entity(game.entity)
+    assert replayed is not None
+    self.assertIsInstance(replayed.get_act_component(), rule_act.RuleAct)
 
 
 class SaveTest(absltest.TestCase):
@@ -1280,7 +1527,7 @@ class StoryTest(absltest.TestCase):
         if request is not None:
           seat.choose(
               request.request_id,
-              session_lib.neutral(request.action_spec.options),
+              session_lib.neutral(seat.offered(request)),
           )
       return game.context.planet.tick >= tick
 

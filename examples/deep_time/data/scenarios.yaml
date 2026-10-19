@@ -316,6 +316,73 @@ great_acceleration:
     backlash: true
     treaties: true
     media: true
+    # The presses are the Cedar league's: its printers retell the omens.
+    press_owner: cedar
+    printers: >-
+      the Cedar league's printers, who print the only broadsheet every people
+      reads; they see in every sign the smoke they have always warned of and
+      the clans they have always blamed, and they want readers
+    # The world's conventions, stated once for every character.
+    conventions: >-
+      Signs in the sky (a red dawn, a comet, ash on the snow) are seen by every
+      people at once. No one knows who or what sends them; priests, printers
+      and grandmothers each say what a sign means, and they rarely agree. A
+      sign has no power of its own: it is light and words, and only people
+      act. The only printing presses belong to the Cedar league; its Gazette
+      is read by every people, and every people knows who prints it. What the
+      Gazette says a sign meant is the printers' telling, not the sign's.
+    # The peoples written as people. No sheet says how to play, or what to do
+    # when told something: the mind playing a people decides as they would.
+    characters:
+      amber:
+        who: >-
+          farmers of the wide amber plains, who count their wealth in
+          granaries and read the weather in the sky every morning; the oldest
+          people on the continent, slow to change and quick to pray
+        wants: >-
+          full granaries, good harvests and children who stay on the land; a
+          little of the new engines' strength for the mills, if it does not
+          cost the fields
+        fears: >-
+          a failed harvest, a dry year, smoke settling on the wheat; being
+          caught between the clans' furnaces and the league's prices
+        grievances: >-
+          the clans' smoke drifts over their fields with the west wind; the
+          league sells them paper and news dear
+        believes: >-
+          that the sky speaks to those who work the land, and that a sign
+          ignored is a harvest lost
+        voice: patient and plain, with sayings about seasons and fields
+      basalt:
+        who: >-
+          miners of the black hills, proud of their furnaces and their
+          grandfathers' seams; they trust iron and their own eyes, not printers
+        wants: >-
+          work for every son, coal in every hearth, respect from the league
+          that sneers at their smoke
+        fears: being made poor again; the league's printers telling their story
+        grievances: the Cedar league broke the coal treaty of their fathers
+        believes: >-
+          that the sky has always been grey over the mines, and the harvests
+          came anyway
+        voice: blunt, short sentences, proverbs about fire
+      cedar:
+        who: >-
+          a league of forest towns and merchant printers, rich in timber and
+          poor in coal; they own the only presses and think of themselves as
+          the continent's conscience and its clerks
+        wants: >-
+          to be heard and believed; trade that runs through their towns; the
+          clans' coal wealth kept in check and their own forests standing
+        fears: >-
+          being outgrown by the clans' engines; losing the readers who pay for
+          the Gazette
+        grievances: >-
+          the clans call them liars and burn their broadsheets in the pits
+        believes: >-
+          that smoke is a sickness of the air, and that the printed word can
+          move a people further than any engine
+        voice: eloquent and a little superior, fond of headlines and morals
     wakeups: false
     polities:
       - {key: amber, name: Amber folk, home: auto, population: 14.0,
@@ -333,7 +400,7 @@ great_acceleration:
   goal: {kind: industrialize, min_energy: 600, max_co2: 1.3, collapse_fraction: 0.4}
   omega: {start: 8.0, per_tick: 0.8, biodiversity_bonus: 1.0}
   stability_window: 5
-  interventions: [wait, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
+  interventions: [wait, omen, plant_forests, cleansing_rains, restore_marshes, bright_clouds, dark_haze, basalt_dust, ash_winter, runaway_greenhouse, upgrade_instruments]
   # Five-year ticks: a dusting of basalt draws down a fifth of the default
   # (60 Gt C, about −×0.09 and −3 °C), a tool to trim the air, not a reset
   # (300 Gt took −×0.46 and froze the world 14 °C; measured c110).

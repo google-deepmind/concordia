@@ -17,17 +17,18 @@
 Wrapped in a `pubsub.Publisher`, it runs in the background. It is gated like
 the pact mind: unless the people has just commissioned a broadsheet (paid
 paper for it), it returns at once and costs nothing. Its answer (a stance,
-a headline and the body) is published on `civ.<key>.press`, where the game
-posts it on the Gazette (a contrib `forum.ForumState`) for every people to
-read and judge.
+a headline and the body) is published on `civ.<key>.press`: a draft, which
+reaches the people through its "Our printers' sheet" reading. The people
+publishes it by an action carrying the words ("publish the broadsheet our
+printers wrote: ..."), which the World GM resolves onto the Gazette (a
+contrib `forum.ForumState`) for every people to read and judge.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import override
 
 from concordia.components.agent import action_spec_ignored
 from concordia.document import interactive_document
-from examples.deep_time import game as game_lib
 from concordia.language_model import language_model
 
 
@@ -37,8 +38,7 @@ class PressMind(action_spec_ignored.ActionSpecIgnored):
   def __init__(
       self,
       model: language_model.LanguageModel,
-      context: game_lib.GameContext,
-      polity: str,
+      commission: Callable[[], str],
       components: Sequence[str] = (),
       pre_act_label: str = 'Press mind',
   ):
@@ -46,29 +46,27 @@ class PressMind(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       model: The slow model.
-      context: Shared game state (the Gazette lives on the planet).
-      polity: The people's key.
+      commission: The latest commission sheet the World GM published for
+        this people: the question its printers answer, or '' when nothing is
+        commissioned.
       components: Sibling components shown to the model.
       pre_act_label: Component label.
     """
     super().__init__(pre_act_label)
     self._model = model
-    self._context = context
-    self._polity = polity
+    self._commission = commission
     self._components = tuple(components)
 
   @override
   def _make_pre_act_value(self) -> str:
-    gazette = self._context.planet.gazette
-    if gazette is None or self._polity not in gazette.pending:
+    question = self._commission()
+    if not question:
       return ''
     prompt = interactive_document.InteractiveDocument(self._model)
     for key in self._components:
       prompt.statement(f'{key}: {self.get_named_component_pre_act_value(key)}')
     return prompt.open_question(
-        gazette.question_for(self._polity).format(
-            agent_name=self.get_entity().name
-        ),
+        question.format(agent_name=self.get_entity().name),
         max_tokens=400,
         terminators=(),
     ).strip()

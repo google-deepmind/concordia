@@ -32,7 +32,7 @@ const line = (n) => '★'.repeat(n) + '☆'.repeat(Math.max(0, 3 - n));
 export function campaignHtml(campaign) {
   return (campaign && campaign.chapters || []).map((c, i) => {
     const head = `<span class="cnum">${i + 1}</span><span class="ctext"><b>${escapeHtml(c.title)}</b>`
-      + `<small>${escapeHtml(c.when)}</small></span>`;
+      + `<small>${escapeHtml(c.when)}${c.world ? ' · ' + escapeHtml(c.world) : ''}</small></span>`;
     if (!c.open) return `<button class="chapter locked" disabled aria-label="${escapeHtml(c.title)}, locked">${head}<span class="cstars">🔒</span></button>`;
     return `<button class="chapter" data-scenario="${escapeHtml(c.scenario)}">${head}`
       + `<span class="cstars">${line(c.stars)}</span></button>`;
@@ -112,4 +112,24 @@ export function nextChapterHtml(chapter) {
   if (!next.open) return `<p class="small muted">🔒 A star opens chapter ${n}: ${escapeHtml(next.title)}.</p>`;
   return `<button class="nextchapter${next.opened ? ' primary' : ''}" id="recapnext" data-scenario="${escapeHtml(next.scenario)}">`
     + `${next.opened ? '🔓 Opened: ' : 'Next: '}chapter ${n}, ${escapeHtml(next.title)} ▶</button>`;
+}
+
+/**
+ * What changed for players lately, with a button to the world it changed,
+ * and which build this is (`changes` and `build` from api/campaign).
+ * @param {?Array<!Object>} changes Newest first: {when, text, world?}.
+ * @param {?Object} build {commit, when}.
+ * @param {?Object<string, string>=} titles Scenario key -> title.
+ * @return {string}
+ */
+export function whatsNewHtml(changes, build, titles) {
+  const shown = (changes || []).slice(0, 2);
+  const stamp = build && build.commit
+    ? `<p class="small muted">Build ${escapeHtml(build.commit)} · ${escapeHtml(build.when)}</p>` : '';
+  if (!shown.length) return stamp;
+  const key = (shown.find((c) => c.world && titles && titles[c.world]) || {}).world;
+  return '<h2>What\'s new</h2>' + shown.map((c) =>
+    `<p class="small"><b>${escapeHtml(c.when)}.</b> ${escapeHtml(c.text)}</p>`).join('')
+    + (key ? `<button class="primary" data-world="${escapeHtml(key)}">Play ${escapeHtml(titles[key])}</button>` : '')
+    + stamp;
 }

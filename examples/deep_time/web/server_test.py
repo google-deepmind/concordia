@@ -26,6 +26,7 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.deep_time.web import server as server_lib
+from examples.deep_time.world import data
 
 
 class ServerTest(absltest.TestCase):
@@ -81,8 +82,22 @@ class ServerTest(absltest.TestCase):
     status, body = self._get('/api/scenarios')
     self.assertEqual(status, 200)
     self.assertIn('daisyworld', [s['key'] for s in json.loads(body)])
-    self.assertEqual(json.loads(self._get('/api/state')[1]), {'idle': True})
+    self.assertEqual(
+        json.loads(self._get('/api/state')[1]),
+        {'idle': True, 'build': server_lib.BUILD['commit']},
+    )
     self.assertEqual(self._get('/nowhere')[0], 404)
+
+  def test_the_page_says_which_build_it_is_and_what_is_new(self):
+    _, page = self._get('/')
+    self.assertNotIn(server_lib.BUILD_MARK.encode(), page)
+    self.assertIn(json.dumps(server_lib.BUILD).encode(), page)
+    campaign = json.loads(self._get('/api/campaign')[1])
+    self.assertEqual(campaign['build'], server_lib.BUILD)
+    self.assertLen(campaign['changes'], 2)  # The newest, for the card.
+    self.assertEqual(campaign['changes'][0]['world'], 'great_acceleration')
+    newest = data.load('changes.yaml')['changes'][0]
+    self.assertEqual(campaign['changes'][0]['when'], newest['when'])
 
   def test_each_world_has_a_thumbnail_for_its_card(self):
     status, body = self._get('/api/thumb?scenario=archipelago')
@@ -145,9 +160,15 @@ class ServerTest(absltest.TestCase):
     request_id = state['question']['request_id']
     response = state['question']['options'][0]
     answer = {'request_id': request_id, 'response': response}
+    # What the player looks at before choosing is kept with the turn.
+    self.assertEqual(
+        self._post('/api/look', {'what': 'sheet'}),
+        (200, {'ok': True, 'error': ''}),
+    )
     self.assertEqual(
         self._post('/api/choose', answer), (200, {'ok': True, 'error': ''})
     )
+    self.assertEqual(game.seats[game.entity].played[0]['looked'], ['sheet'])
     status, body = self._post('/api/choose', answer)  # Already answered.
     self.assertEqual(status, 200)
     self.assertFalse(body['ok'])
@@ -157,6 +178,7 @@ class ServerTest(absltest.TestCase):
     game.join(30)
     self.assertTrue(game.finished)
     self.assertIsNot(self.games.current, game)
+    self.assertFalse(self._post('/api/look', {'what': 'sheet'})[1]['ok'])
 
   def test_serves_demo_reports_but_nothing_outside_them(self):
     status, index = self._get('/demo/')

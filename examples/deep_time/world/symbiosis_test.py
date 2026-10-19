@@ -95,14 +95,19 @@ class PactFlowTest(absltest.TestCase):
     self.assertIn('mixed-meadows pact', text)
     self.assertEqual(white.drain_outbox(), [('diplomacy.black.white', text)])
     self.assertNotIn(option, white.options())
+    # The partner answers on its own menu (its mind's counsel is context).
+    black = actors_lib.SpeciesActor('Black daisies', 'black', planet)
+    accept = 'accept the pact offered by the White daisies'
+    self.assertEqual(black.options()[:1], [accept])
+    # The mind's reply alone settles nothing: answers are actions.
     context.bus.publish(
         'bio.species.black.pact', 'Reply to White daisies: accept, gladly.'
     )
-    events = context.deliver_adaptations()
-    self.assertIn('accept the pact', events[0].text)
-    reply = context.bus.latest('diplomacy.white.black')
-    assert reply is not None
-    self.assertIn('accept', reply.payload)
+    assert planet.symbiosis is not None
+    self.assertFalse(planet.symbiosis.has_pact('white', 'black'))
+    news = black.resolve(accept)
+    self.assertIn('accept the pact', news)
+    self.assertIn(('diplomacy.white.black', news), black.drain_outbox())
     assert planet.symbiosis is not None
     self.assertTrue(planet.symbiosis.has_pact('white', 'black'))
     planet.advance()

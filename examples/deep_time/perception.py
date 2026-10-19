@@ -14,21 +14,29 @@
 
 """Instruments: how entities perceive topics.
 
-Every instrument is a stock `pubsub.Subscriber` built by the contrib
-`TopicBus`. Readings are re-rendered every tick with their age by the contrib
-`operators.with_age` (a `combine_latest` with the `world.tick` stream), so an
-entity can tell a fresh reading from a stale one: staleness is visible.
+Every instrument is run by the World GM (its `Deliveries` component), which
+publishes only what arrives on the entity's own topic (`reading_topic`); the
+entity's stock `TopicSubscriber` reads that topic, and its build needs only
+the reading's static description (`Reading`: label, initial belief). Readings
+are re-rendered every tick with their age by the contrib `operators.with_age` (a
+`combine_latest` with the `world.tick` stream), so an entity can tell a
+fresh reading from a stale one: staleness is visible.
 
 The Steward's instruments also run through a contrib `operators.transport`
 whose properties come from its current instrument tier (`data/
 instruments.yaml`): readings arrive late, some are lost, and temperatures
-carry noise. What each instrument delivered is kept on the `GameContext`, so
-the report can compare belief with truth (the epistemic gap).
+carry noise; news crosses the light delay and the couriers' roads the same
+way. What each instrument delivered is kept on the `GameContext`, so the
+report can compare belief with truth (the epistemic gap). An entity's own
+state (its storehouse, its genome, what its minds weigh) reaches it as
+sheets the World GM publishes (`publish`; the entity's `read`, a mind's
+`reader`).
 """
 
 # pylint: disable=g-doc-args,g-doc-return-or-yield
 
 from collections.abc import Callable, Sequence
+import dataclasses
 import json
 import zlib
 
@@ -91,26 +99,174 @@ def with_earlier_readings(
   return out
 
 
+def publish(
+    context: game_lib.GameContext,
+    owner: str,
+    kind: str,
+    function: Callable[[], str],
+) -> None:
+  """The World GM publishes an entity's sheet each step (a role's rules).
+
+  What an entity knows of its own state (its storehouse, its genome) and what
+  its slow minds weigh (the offer awaiting it, the almanac): the World GM
+  computes `function` each step and publishes it on the entity's own topic
+  (`sheets.<owner>.<kind>`, which no entity hears as observations).
+
+  Args:
+    context: Shared game state.
+    owner: The entity.
+    kind: The sheet ('storehouse', 'genome', 'offer', ...).
+    function: The sheet's text, computed by the GM ('' for nothing).
+  """
+  context.add_sheet(sheet_topic(owner, kind), function)
+
+
+def read(
+    context: game_lib.GameContext, owner: str, kind: str, *, label: str
+) -> pubsub.Subscriber:
+  """An entity's stock `Subscriber` to its own sheet (never the world)."""
+  return pubsub.Subscriber(
+      initial_value='',
+      pre_act_label=label,
+      subject=context.bus.values(sheet_topic(owner, kind)),
+  )
+
+
+def reader(
+    context: game_lib.GameContext, owner: str, kind: str
+) -> Callable[[], str]:
+  """Reads the latest sheet the World GM published for a mind ('' before)."""
+  topic = sheet_topic(owner, kind)
+
+  def latest() -> str:
+    message = context.bus.latest(topic)
+    return '' if message is None else str(message.payload)
+
+  return latest
+
+
+def sheet_topic(owner: str, kind: str) -> str:
+  """The topic of an entity's own sheet."""
+  slug = ''.join(c if c.isalnum() else '_' for c in owner.lower()).strip('_')
+  return f'sheets.{slug}.{kind}'
+
+
+def reading_topic(owner: str, label: str) -> str:
+  """The topic on which the World GM delivers an entity's instrument."""
+  slug = ''.join(c if c.isalnum() else '_' for c in label.lower()).strip('_')
+  return sheet_topic(owner, f'reading.{slug}')
+
+
+@dataclasses.dataclass(frozen=True)
+class Reading:
+  """What an entity reads through one of its instruments: static data.
+
+  The entity's build needs only this (from its params): its stock
+  `TopicSubscriber` reads the topic on which the World GM delivers what
+  arrives (`reading_topic`), and nothing else.
+
+  Attributes:
+    owner: The entity.
+    label: The instrument's label (unique for the entity).
+    initial: Belief before the first reading arrives.
+    pre_act_label: The component's label.
+  """
+
+  owner: str
+  label: str
+  initial: str
+  pre_act_label: str
+
+  @property
+  def topic(self) -> str:
+    """The topic on which the World GM delivers this reading."""
+    return reading_topic(self.owner, self.label)
+
+
+def reading(
+    owner: str, label: str, initial: str, *, topic: str | None = None
+) -> Reading:
+  """An entity's reading; its label names the topic read, if one."""
+  return Reading(
+      owner=owner,
+      label=label,
+      initial=initial,
+      pre_act_label=f'{label} ({topic})' if topic else label,
+  )
+
+
+@dataclasses.dataclass(frozen=True)
+class Instrument:
+  """An entity's instrument as the World GM runs it.
+
+  A spec the role's rules install (`deliver`): its transport, ageing and
+  rendering, which may read the world. What arrives is published on the
+  owner's own topic (`reading_topic`), which its `Reading` subscribes to.
+
+  Attributes:
+    owner: The entity.
+    label: The instrument's label (unique for the entity).
+    topics: The topics it reads.
+    build: Builds the instrument's stream from the bus (for the GM).
+    tapped: Whether what reaches the owner is kept for the page.
+  """
+
+  owner: str
+  label: str
+  topics: tuple[str, ...]
+  build: Callable[[], reactivex.Observable]
+  tapped: bool = True
+
+  @property
+  def key(self) -> str:
+    """Unique key for this instrument."""
+    return f'{self.owner}/{self.label}'
+
+  @property
+  def topic(self) -> str:
+    """The topic on which the World GM delivers this reading."""
+    return reading_topic(self.owner, self.label)
+
+
+def deliver(context: game_lib.GameContext, spec: Instrument) -> None:
+  """The World GM runs an instrument (a role's rules install it)."""
+  if spec.tapped:
+    context.tapped.add((spec.owner, spec.label))
+  for name in spec.topics:
+    context.bus.register_subscriber(name, spec.owner)
+  context.deliveries.deliver(spec.key, spec.topic, spec.build)
+
+
+def subscribe(
+    context: game_lib.GameContext, of: Reading
+) -> topics.TopicSubscriber:
+  """An entity's stock `TopicSubscriber` to its own reading's topic."""
+  return topics.TopicSubscriber(
+      publisher_component_key=None,
+      initial_value=of.initial,
+      pre_act_label=of.pre_act_label,
+      subject=context.bus.values(of.topic),
+  )
+
+
 def instrument(
     context: game_lib.GameContext,
     topic: str,
     *,
     owner: str,
     label: str,
-    initial: str,
     render: Callable[[topics.Message], str] | None = None,
     transported: bool = False,
     attention: attention_lib.Attention | None = None,
     channel: Callable[[], operators.Transport] | None = None,
-) -> pubsub.Subscriber:
-  """A belief about one topic that shows the age of its latest reading.
+) -> Instrument:
+  """An instrument on one topic whose readings show their age.
 
   Args:
     context: Shared game state.
     topic: Topic to read.
     owner: Entity that holds the belief.
     label: Component label.
-    initial: Belief before the first reading arrives.
     render: Message to text (defaults to the topic's renderer).
     transported: Carry readings over the Steward's current instrument tier
       (late, lossy, noisy) instead of delivering them exactly.
@@ -121,49 +277,52 @@ def instrument(
       worlds is a channel with latency.
 
   Returns:
-    A `pubsub.Subscriber` bound to the topic.
+    Its spec (`deliver` runs it; the owner's `Reading` holds what arrives).
   """
   to_text = render or publishing.renderer_for(topic)
 
-  def shown(message: topics.Message) -> str:
-    if attention is None or attention.watching(label):
-      return to_text(message)
-    return 'Not watched; this reading is out of date'
+  def build() -> reactivex.Observable:
+    """The instrument, run by the World GM (`components.deliveries`)."""
 
-  aged = operators.with_age(
-      tick_stream(context.bus), render=shown, template=AGE_TEMPLATE
-  )
-  # What reached the owner, as data, for the page: only
-  # while it is watched, as the prompt shows it (a reading still on its way
-  # when the owner looked away is not read).
-  context.tapped.add((owner, label))
+    def shown(message: topics.Message) -> str:
+      if attention is None or attention.watching(label):
+        return to_text(message)
+      return 'Not watched; this reading is out of date'
 
-  def note(message: topics.Message) -> None:
-    if attention is None or attention.watching(label):
-      context.received[(owner, label)] = message
-
-  aged = reactivex.compose(ops.do_action(note), aged)
-  if transported:
-    seed = zlib.crc32(f'{context.seed}:{owner}:{topic}'.encode())
-    aged = reactivex.compose(
-        operators.transport(
-            channel or (lambda: context.transport_for(topic)),
-            seed=seed,
-            scheduler=context.wire,
-        ),
-        ops.do_action(lambda m: context.note_belief(owner, m)),
-        aged,
+    aged = operators.with_age(
+        tick_stream(context.bus), render=shown, template=AGE_TEMPLATE
     )
-  if attention is not None:
-    aged = reactivex.compose(
-        ops.filter(lambda _: attention.watching(label)), aged
-    )
-  return context.bus.make_subscriber(
-      topic,
-      subscriber_name=owner,
-      initial_value=initial,
-      pre_act_label=f'{label} ({topic})',
-      transform=aged,
+
+    # What reached the owner, as data, for the page: only while it is
+    # watched, as the prompt shows it (a reading still on its way when the
+    # owner looked away is not read).
+    def note(message: topics.Message) -> None:
+      if attention is None or attention.watching(label):
+        context.received[(owner, label)] = message
+
+    aged = reactivex.compose(ops.do_action(note), aged)
+    if transported:
+      seed = zlib.crc32(f'{context.seed}:{owner}:{topic}'.encode())
+      aged = reactivex.compose(
+          operators.transport(
+              channel or (lambda: context.transport_for(topic)),
+              seed=seed,
+              scheduler=context.wire,
+          ),
+          ops.do_action(lambda m: context.note_belief(owner, m)),
+          aged,
+      )
+    if attention is not None:
+      aged = reactivex.compose(
+          ops.filter(lambda _: attention.watching(label)), aged
+      )
+    return context.bus.observable(topic).pipe(aged)
+
+  return Instrument(
+      owner=owner,
+      label=label,
+      topics=(topic,),
+      build=build,
   )
 
 
@@ -174,7 +333,7 @@ def local_news(
     polity: str,
     label: str = 'Local news',
     size: int = 4,
-) -> pubsub.Subscriber:
+) -> Instrument:
   """News of places near a people's home, later the farther away.
 
   The people subscribes to the local topics of the regions within reach of
@@ -190,7 +349,7 @@ def local_news(
     size: How many items the digest keeps.
 
   Returns:
-    The subscriber component.
+    Its spec: the couriers, run by the World GM.
   """
   planet = context.planet
   assert planet.civ is not None
@@ -228,20 +387,26 @@ def local_news(
     where = 'here' if steps == 0 else f'{steps} region{"s" * (steps > 1)} away'
     return f'tick {message.time:g}: {text} ({where})'
 
-  return context.bus.make_subscriber(
-      [f'local.r{r}' for r in near],
-      subscriber_name=owner,
-      initial_value='No news of nearby lands yet.',
-      pre_act_label=label,
-      transform=reactivex.compose(
-          operators.transport(
-              by_distance,
-              per_message=True,
-              seed=zlib.crc32(f'{context.seed}:{owner}:local'.encode()),
-              scheduler=context.wire,
-          ),
-          operators.rolling_digest(size, render=render),
-      ),
+  names = [f'local.r{r}' for r in near]
+
+  def build() -> reactivex.Observable:
+    """The couriers, run by the World GM (`components.deliveries`)."""
+    return reactivex.merge(*(context.bus.observable(n) for n in names)).pipe(
+        operators.transport(
+            by_distance,
+            per_message=True,
+            seed=zlib.crc32(f'{context.seed}:{owner}:local'.encode()),
+            scheduler=context.wire,
+        ),
+        operators.rolling_digest(size, render=render),
+    )
+
+  return Instrument(
+      owner=owner,
+      label=label,
+      topics=tuple(names),
+      build=build,
+      tapped=False,
   )
 
 

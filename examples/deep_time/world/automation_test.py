@@ -21,6 +21,8 @@ from examples.deep_time import actors as actors_lib
 from examples.deep_time import game as game_lib
 from examples.deep_time import mock_language_model
 from examples.deep_time.components import policy_compiler
+from examples.deep_time.components import standing_orders
+from examples.deep_time.prefabs import polity as polity_prefab
 
 
 def _context():
@@ -121,7 +123,9 @@ class AutomationTest(absltest.TestCase):
   def test_policy_compiler_costs_nothing_until_reflexes_unlock(self):
     context, automation, civ, _ = _context()
     model = mock_language_model.DeepTimeMockModel()
-    compiler = policy_compiler.PolicyCompiler(model, context, 'cedar')
+    compiler = policy_compiler.PolicyCompiler(
+        model, lambda: polity_prefab.scribes(context, 'cedar'), 'cedar'
+    )
     self.assertEqual(compiler._make_pre_act_value(), '')  # pylint: disable=protected-access
     self.assertEqual(model.stats()['text_calls'], 0)
     civ.polities['cedar'].techs = ['granaries']
@@ -134,15 +138,43 @@ class AutomationTest(absltest.TestCase):
         ['cedar:policy:sell_charcoal', 'cedar:policy:buy_ore'],
     )
 
+  def test_a_draft_is_counsel_until_the_people_adopts_it(self):
+    context, automation, civ, _ = _context()
+    civ.polities['cedar'].techs = ['granaries']
+    draft = mock_language_model.policy_answer(
+        'You are the scribes of Cedar league. Our land is rich in forest,'
+        ' poor in ore. ... "topic": "civ.cedar.orders" ...'
+    )
+    context.bus.publish('civ.cedar.policy', draft, source='Cedar league')
+    # Published by the scribes' mind: counsel, nothing installed.
+    self.assertEqual(automation.engine.names('cedar'), [])
+    self.assertIn('sell charcoal', automation.summary('cedar', draft))
+    cedar = actors_lib.PolityActor(
+        'Cedar league', 'cedar', context.planet, 0.15, automation=automation
+    )
+    # Offered once its techs let its scribes write orders; the action
+    # carries the orders as written.
+    self.assertIn(actors_lib.ADOPT_ORDERS, cedar.options())
+    self.assertIn('named none', cedar.resolve(actors_lib.ADOPT_ORDERS))
+    news = cedar.resolve(f'{actors_lib.ADOPT_ORDERS}: {draft}')
+    self.assertIn("adopt their scribes' 2 standing orders", news)
+    self.assertLen(automation.engine.names('cedar'), 2)
+    self.assertEqual(
+        actors_lib.made_at(context.planet, 'Cedar league:orders'),
+        context.planet.tick,
+    )
+
   def test_state_round_trip(self):
     context, automation, civ, _ = _context()
     civ.polities['cedar'].techs = ['granaries']
     automation.adopt('cedar', 'ask', 'charcoal')
-    state = context.get_state()
-    other, other_automation, other_civ, _ = _context()
+    # The World GM's component checkpoints the standing orders.
+    state = standing_orders.StandingOrders(automation).get_state()
+    _, other_automation, other_civ, _ = _context()
     other_civ.polities['cedar'].techs = ['granaries']
-    other.set_state(state)
+    standing_orders.StandingOrders(other_automation).set_state(state)
     self.assertEqual(other_automation.engine.names(), ['cedar:ask:charcoal'])
+    self.assertNotIn('automation', context.get_state())
 
 
 if __name__ == '__main__':

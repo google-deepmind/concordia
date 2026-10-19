@@ -70,6 +70,22 @@ internet.
     strengthens its weakest link and the tech that most helps its goal are
     tagged on the move sheet (and close the question a model playing it reads);
     while research is short of that tech, the sheet says how far off it is.
+-   **Omens.** In the Great Acceleration the Steward may speak: its act is
+    Concordia's free action, a move as written or an omen, a sign every
+    people sees ("a comet") and up to 25 words it is taken to say, for 2 Ω
+    every other turn (the `omen` intervention). The peoples never hear the
+    words but through a relay: the Cedar league's printers, who own the
+    presses, retell each omen a turn later on the Gazette's front page as
+    they see it (`components/relay_mind.py`, published on `media.omens`).
+    Its stance sways every people's consent for coal by the printers'
+    credibility, which the other peoples judge against the sky, as they
+    judge any broadsheet. The page opens the move sheet on the composer.
+-   **Characters.** The Great Acceleration's peoples are written as people
+    (`civilization.characters`: who they are, what they want and fear, old
+    grievances, beliefs, how they speak) and the world's conventions are
+    stated once (`civilization.conventions`: what a sign is, who prints the
+    Gazette); each is a Concordia `Constant` in the people's prompt and its
+    plan. No sheet says how to play.
 -   **Crises.** Trouble the Steward can see coming (the climate leaving its
     band, strain building, hunger, unrest, dwindling life, a goal's last turns)
     leads the page with a countdown and the moves that answer it. Moves you
@@ -210,7 +226,10 @@ rather than holds, how many moves with a measured push each turn offers (now and
 counting the moves it is saving for), the skilled bot's stars and each bot's
 share of side objectives met. The phone server writes every played game to
 `<demo_dir>-telemetry/` (outside the published demo folder; or
-`--telemetry_dir`, `''` for none) for the same questions about people.
+`--telemetry_dir`, `''` for none) for the same questions about people: each
+turn's move, how it was made, the seconds taken, and what the player looked at
+before choosing (the move sheet, each card read for a moment, folds opened,
+plans and armed previews; the page reports them to `/api/look`).
 
 ```bash
 python -m examples.deep_time.push_audit --write
@@ -436,20 +455,39 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     `TopicBusComponent` first (as the contrib async-deliberation entity does),
     the World GM's `TopicObservations` and `NumericClock` hold the bus and the
     clock, each slow mind is a `SimTimePublisher` with its work in flight, and
-    each transport keeps its deliveries on the road and its random draws.
+    the World GM's `Deliveries` keeps every instrument's readings on the road
+    and its random draws.
     `WorldStep` carries the world itself (`GameContext.get_state`: the planet,
     queued observations, attention, wake-ups, standing orders).
-    `simulation.load_checkpoint(sim, context, data)` restores a new simulation
-    of the same scenario and seed, founding again any species born in play
-    first; a restored game plays on exactly as the live one
+    `simulation.load_checkpoint(sim, data)` restores a new simulation of the
+    same scenario and seed, first adding any species born in play from the
+    prefab and plain params its checkpoint keeps; a restored game plays on
+    exactly as the live one
     (`checkpoint_test.py`). Listeners outside components (wake-ups, slow-mind
     answers, standing orders) ignore the bus's replay while it is restored.
-*   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` prefab
-    with topic-bound `pubsub.Subscriber` instruments as `extra_components`.
-*   **Instruments** (`perception.py`): every belief is a topic-bound
-    `Subscriber` whose stream runs through contrib `operators.with_age`, so it
-    reads e.g. `[tick 7, 2 ticks old]`; news digests merge several topics. The
-    Steward's instruments also run through contrib `operators.transport`: its
+*   **Roles** (`prefabs/`): each role is a prefab class (`Steward`, `Species`,
+    `Grazers`, `Polity`, `Colony`, `Mission`, `Chronicler`, and the
+    `WorldGameMaster`) on the upstream `minimal__Entity` or the contrib
+    async-deliberation entity (`playable.Role`, `playable.RolePolity`). Its
+    instances' params are plain (a name, a species' key); the prefab holds the
+    game (`GameContext`, shared like a contrib `TopicBus`). Its `build` makes
+    the entity's components (subscribers to its sheets and to what its
+    instruments deliver, its slow minds); its `rules` (the actor in the World
+    GM's registry, wake-ups and attention, the sheets the GM publishes and the
+    instruments it runs) are installed by the World GM's prefab as it builds,
+    from the roles' params it is given (`params['roles']`), or by its world
+    step for a species founded in play.
+*   **Steward** (`prefabs/steward.py`): the upstream `minimal__Entity` with
+    topic-bound `pubsub.Subscriber` instruments.
+*   **Instruments** (`perception.py`, `components/deliveries.py`): the World
+    GM runs every instrument and publishes only what arrives on the entity's
+    own topic, which its stock `TopicSubscriber` reads; an entity's build
+    needs only its readings' static description (`perception.Reading`, from
+    its params), never the world. Each stream runs through contrib
+    `operators.with_age`,
+    so it reads e.g. `[tick 7, 2 ticks old]`; news digests merge several
+    topics. The Steward's instruments also run through contrib
+    `operators.transport` (as do the light delay and a people's couriers): its
     instrument tier (`data/instruments.yaml`: standing stones, naturalists,
     orbital radiometers) sets how late readings arrive, how many are lost and
     how noisy temperatures are, and it can spend Ω to upgrade. The report plots
@@ -474,8 +512,10 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     the geologists expect, exact because the seeded eruption stream is stepped
     ahead on a copy.
 *   **Chronicler** (`prefabs/chronicler.py`): stock memory and observation
-    components, a chronicle `Publisher` that lands a chapter five ticks after it
-    starts, and a `PuppetActComponent` so acting costs no language model call.
+    components, a slow `Publisher` that drafts a chapter five ticks after it
+    starts, and a rule for its act (`components/chronicler_act.py`), so acting
+    costs no language model call: it hands in each finished chapter in its
+    action, and the World GM publishes it on the chronicle.
 *   **The map** (`world/tiles.py`, `world/biomes.py`, `world/tilelife.py`,
     `world/fire.py`): 1,200 tiles refine the 48 regions; climate layers set 13
     biomes; plants grow and spread tile by tile; lightning fires run through
@@ -504,12 +544,14 @@ stock `Simultaneous` engine. Deep Time adds no engine.
     a Holling type II response per region, migration, behaviours and its own
     adaptation mind; its evolved diet decides which petals it crops.
 *   **Species** (`prefabs/species.py`): also `minimal__Entity`, plus a
-    `ReportFunction` genome sheet and a slow adaptation mind:
+    genome sheet (the World GM publishes it each step on the species' own
+    topic; a stock `Subscriber` reads it) and a slow adaptation mind:
     `pubsub.Publisher(component=QuestionOfRecentMemories(...),
     skip_if_busy=True)` scheduled on a contrib `LatencyScheduler`, so its answer
     lands exactly three ticks after it was triggered. Answers go to
-    `bio.species.<key>.adaptation`; the World GM turns them into bounded trait
-    changes (`world/evolution.py`).
+    `bio.species.<key>.adaptation`; the species enacts one by its own action,
+    which the World GM resolves into bounded trait changes
+    (`world/evolution.py`).
 *   **Carbon cycle** (`world/carbon.py`): six reservoirs on the contrib
     `StockFlowLedger`; outgassing, silicate weathering, ocean exchange,
     photosynthesis, decay, burial and subduction are audited transfers, and
@@ -619,7 +661,7 @@ examples/deep_time/
 ├── README.md
 ├── run.py                  # CLI; writes the run folder
 ├── simulation.py           # builds Config and Simulation for a scenario; load_checkpoint
-├── game.py                 # GameContext shared through prefab params
+├── game.py                 # GameContext: the game, held by each role's prefab
 ├── actors.py               # per-role rules: action specs and resolution
 ├── perception.py           # instruments: ageing beliefs, transports, news digests
 ├── attention.py            # attention slots: which instruments the Steward watches
@@ -642,7 +684,8 @@ examples/deep_time/
 │                           #   publishing (topic payloads and renderers), colony (Light Delay)
 ├── components/             # World GM components (world step, specs, resolution); slow minds:
 │                           #   pact and treaty minds, policy compiler, press mind, the
-│                           #   Advisor's mind (with its almanac)
+│                           #   printers' relay mind (omens retold), each people's take
+│                           #   mind, the Advisor's mind (with its almanac)
 ├── prefabs/                # World GM, Chronicler, grazers; Steward, species, polity, colonist
 │                           #   and Mission Control configs; the playable entity (a person or
 │                           #   a model)

@@ -20,17 +20,65 @@ picks a behaviour), so this component asks each entity's `Actor` instead.
 Entities without an active actor get `SKIP_THIS_STEP`.
 """
 
-from typing import override
+import dataclasses
+import json
+from typing import Any, override
 
 from concordia.components.game_master import next_acting
 from concordia.environment import engine as engine_lib
+from examples.deep_time import actors as actors_lib
+from examples.deep_time import crises as crises_lib
 from examples.deep_time import game as game_lib
+from examples.deep_time import perception
+from examples.deep_time.components import actor_registry
 from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 SKIP_SPEC = entity_lib.ActionSpec(
     call_to_action='', output_type=entity_lib.OutputType.SKIP_THIS_STEP
 )
+
+
+def aimable_spec(
+    actor: actors_lib.Actor, spec: entity_lib.ActionSpec
+) -> entity_lib.ActionSpec:
+  """A person's spec, free when a move may be aimed (the aim is in the answer).
+
+  A choice must be answered with an option exactly, so a move a person aims
+  on the map comes as a free answer, `"<move> @ row,col"`, listing the moves
+  as a choice lists them; the actor's `resolve` reads the aim. Models keep
+  the choice (they do not aim).
+
+  Args:
+    actor: The person's actor.
+    spec: Its spec this tick.
+
+  Returns:
+    The spec to ask with.
+  """
+  if spec.output_type == entity_lib.OutputType.CHOICE:
+    if not any(actor.aimable(o) for o in spec.options):
+      return spec
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    moves = '\n'.join(
+        f'({letters[i % 26]}) {o}' for i, o in enumerate(spec.options)
+    )
+    hints = [actors_lib.AIM_HINT]
+    if any(o.startswith(actors_lib.ENACTS) for o in spec.options):
+      hints.insert(0, actors_lib.DRAFT_HINT)
+    return entity_lib.free_action_spec(
+        call_to_action='\n'.join([spec.call_to_action, moves, *hints]),
+        tag=spec.tag,
+    )
+  if spec.output_type == entity_lib.OutputType.FREE and (
+      actors_lib.AIM_HINT not in spec.call_to_action
+  ):
+    moves = getattr(actor, 'options', lambda: [])()
+    if any(actor.aimable(o) for o in moves):
+      return dataclasses.replace(
+          spec, call_to_action=f'{spec.call_to_action}\n{actors_lib.AIM_HINT}'
+      )
+  return spec
 
 
 class ActorActionSpecs(
@@ -55,6 +103,9 @@ class ActorActionSpecs(
     super().__init__()
     self._context = context
     self._prefix, self._suffix = call_to_next_action_spec.split('{name}')
+    # This step's menus, by entity (the engine logs only the last call).
+    self._menus: dict[str, dict[str, Any]] = {}
+    self._menus_tick: int | None = None
 
   def _entity_name(self, call_to_action: str) -> str:
     if not (
@@ -65,19 +116,99 @@ class ActorActionSpecs(
     end = len(call_to_action) - len(self._suffix)
     return call_to_action[len(self._prefix) : end]
 
+  def _actors(self) -> dict[str, actors_lib.Actor]:
+    """The acting entities' actors: the World GM's registry component."""
+    try:
+      return (
+          self.get_entity()
+          .get_component(
+              actor_registry.DEFAULT_ACTOR_REGISTRY_KEY,
+              type_=actor_registry.ActorRegistry,
+          )
+          .actors
+      )
+    except (AttributeError, KeyError, ValueError, RuntimeError):
+      return self._context.actors  # Not yet on a game master (tests).
+
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if action_spec.output_type != entity_lib.OutputType.NEXT_ACTION_SPEC:
       return ''
     name = self._entity_name(action_spec.call_to_action)
-    actor = self._context.actors.get(name)
+    actor = self._actors().get(name)
     spec = actor.action_spec() if actor and actor.is_active() else SKIP_SPEC
+    # Its moves, before a free question lists them in words.
+    choices = list(spec.options)
+    if actor is not None:
+      # The same question whoever plays: free where a move may be aimed.
+      spec = aimable_spec(actor, spec)
+    if self._menus_tick != self._context.planet.tick:
+      self._menus, self._menus_tick = {}, self._context.planet.tick
+    if actor is not None and spec is not SKIP_SPEC:
+      self._menus[name] = self._menu(actor, name, choices)
+      # The role's menu, for the person who plays it (their seat and page).
+      self._context.bus.publish(
+          perception.sheet_topic(name, 'menu'),
+          json.dumps(self._menus[name]),
+          source='world',
+      )
     self._logging_channel({
         'Key': 'Action spec',
         'Summary': f'{name}: {spec.output_type.name}',
         'Value': spec.to_dict(),
+        # Every menu offered so far this step, with what each move does.
+        'Menus': dict(self._menus),
     })
     return engine_lib.action_spec_to_string(spec)
+
+  def _menu(
+      self, actor: actors_lib.Actor, name: str, choices: list[str]
+  ) -> dict[str, Any]:
+    """What an entity was offered: its moves, those saved for, their pushes.
+
+    Args:
+      actor: The entity's actor.
+      name: The entity's name.
+      choices: The moves its question offers (none for a Steward that may
+        speak: then its moves).
+
+    Returns:
+      `offered` (a Steward that may speak still has its moves), `later`
+      (moves it is saving for, plannable for a later turn) and `pushes`
+      (move -> what it does to the world, measured, for those that say).
+    """
+    offered = choices or list(getattr(actor, 'options', list)())
+    actor.offered = offered  # How its answer is read (`Actor.understood`).
+    later = list(getattr(actor, 'out_of_reach', list)())
+    menu: dict[str, Any] = {
+        'offered': offered,
+        'later': later,
+        'pushes': self._context.pushes([*offered, *later], name),
+        # Whether it may answer in its own words, and why the moves it is
+        # saving for cannot be made yet.
+        'words': actor.speaks(),
+        # The moves a person may aim on the map.
+        'aimable': [m for m in [*offered, *later] if actor.aimable(m)],
+        'why_not': {m: why for m in later if (why := actor.why_not(m))},
+    }
+    # A Steward's omen: its signs, how many words it may carry, its price.
+    if isinstance(actor, actors_lib.StewardActor) and actor.omen is not None:
+      menu['omen'] = {
+          'option': actor.omen.option,
+          'signs': list(actor.omen.effect['signs']),
+          'max_words': int(actor.omen.effect['max_words']),
+          'cost': actor.omen.cost,
+      }
+    # For a people a person plays: the moves answering its most urgent
+    # crisis and strengthening its weakest link.
+    if isinstance(actor, actors_lib.PolityActor):
+      menu['pressing'] = crises_lib.pressing(
+          self._context.planet,
+          actor.polity,
+          offered,
+          self._context.pushes(offered, name),
+      )
+    return menu
 
   @override
   def get_state(self) -> entity_component.ComponentState:

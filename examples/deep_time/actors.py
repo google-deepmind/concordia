@@ -23,7 +23,9 @@ game-side rule book for one of them.
 # pylint: disable=g-complex-comprehension,g-doc-return-or-yield,missing-function-docstring
 
 import abc
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+import re
+from typing import Any, override
 
 from examples.deep_time import attention as attention_lib
 from examples.deep_time import crises as crises_lib
@@ -43,9 +45,11 @@ POLITY_CALL_TO_ACTION = (
     ' more of your labor this generation.'
 )
 KEEP_LABOR = 'keep the current balance of labor'
-# Offered to a people a person plays, when it has towns: the next town rises
-# where the person taps the map.
-PLAN_TOWN = 'plan where our next town will stand'
+# A people adopts the standing orders its scribes drafted (a draft is only
+# counsel until then).
+ADOPT_ORDERS = 'adopt the standing orders our scribes wrote'
+# A species makes the heritable shift its slow mind decided (only by acting).
+EVOLVE = 'evolve as our slow mind decided'
 MISSION_CALL_TO_ACTION = (
     'You are {name}, at home, four light-years from the colony. Everything'
     ' you hear from it is four years old, and anything you send arrives four'
@@ -70,6 +74,11 @@ MAX_TRADES = 5
 MAX_REFLEXES = 4
 PRINT_BROADSHEET = 'print a broadsheet in the Gazette'
 PAY_PAMPHLETS = 'pay the coal guilds for pamphlets'
+# What a people's printers wrote reaches the Gazette only by its action.
+PUBLISH_BROADSHEET = 'publish the broadsheet our printers wrote'
+PRINT_RETELLING = "print our printers' retelling of the omen"
+# The moves that enact a draft (their action carries the draft's words).
+ENACTS = (EVOLVE, ADOPT_ORDERS, PUBLISH_BROADSHEET, PRINT_RETELLING)
 MAX_PLANS = 3
 MIN_ORDERS = 3  # Trade and reflex options always kept on a crowded menu.
 # A target with less of the labor than this may be planned (again).
@@ -84,11 +93,58 @@ GRAZER_CALL_TO_ACTION = (
 
 CHRONICLER_CALL_TO_ACTION = '{name} keeps watch over the planet.'
 CHRONICLER_RESPONSE = 'keeps watch.'
+# The Chronicler hands in a chapter its slow mind wrote: "<move>: <chapter>".
+HAND_IN_CHAPTER = 'hands in a chapter'
 
 STEWARD_CALL_TO_ACTION = (
     'You are {name}, Steward of this planet. Read your instruments, then'
     ' choose one intervention for this tick.'
 )
+# Where the Steward may speak an omen, it answers in its own words: one of
+# the interventions as written, or a sign and what it is taken to say.
+STEWARD_SPEAKS = (
+    'You are {name}, Steward of this planet. Read your instruments, then'
+    ' make one intervention for this tick: answer with one of the'
+    ' interventions below exactly as written, or speak an omen by answering'
+    ' with a sign every people will see ({signs}), a colon, and up to'
+    ' {words} words the sign will be taken to say.'
+)
+
+
+# An aimed move: the move as offered, then ` @ row,col` (row from the north,
+# as the page draws the map). The target travels in the action and is set
+# while the World GM resolves it (never beside the action).
+AIMED = re.compile(r'\s*@\s*(\d+)\s*,\s*(\d+)\s*$')
+# Moves that enact a slow mind's draft: the action carries its words.
+DRAFT_HINT = (
+    'To enact a draft (evolve, adopt, publish, print), answer with the move'
+    " as written, a colon, then the draft's words as your context gives them."
+)
+AIM_HINT = (
+    'To aim a move that lands on the map, answer with the move as written,'
+    ' then " @ row,col".'
+)
+
+
+def aimed(action: str) -> tuple[str, tuple[int, int] | None]:
+  """An action without its aim, and the aim (row from the north, col)."""
+  found = AIMED.search(action)
+  if found is None:
+    return action, None
+  return action[: found.start()], (int(found.group(1)), int(found.group(2)))
+
+
+def said(action: str, move: str) -> str:
+  """The words an action carries after its move ("<move>: <words>")."""
+  text = action.strip()
+  if not text.lower().startswith(move.lower()):
+    return ''
+  return text[len(move) :].lstrip(' :').strip()
+
+
+def made_at(planet: planet_lib.Planet, key: str) -> int | None:
+  """The tick an actor last made the act `key` ('Amber folk:press'), if ever."""
+  return planet.enacted.get(key)
 
 
 class Actor(metaclass=abc.ABCMeta):
@@ -108,10 +164,77 @@ class Actor(metaclass=abc.ABCMeta):
     self.log: list[tuple[int, str, str]] = []
     # Extra (topic, text) messages to publish after resolution.
     self.outbox: list[tuple[str, str]] = []
+    # The moves offered with its last question (set by `ActorActionSpecs`).
+    self.offered: list[str] = []
+
+  def understood(self, action: str) -> str:
+    """A free answer read as the offered move it names, its aim kept.
+
+    Where a role's moves may be aimed, every player answers a free question
+    listing them (a person's page aims; a model may word its answer loosely,
+    "(c) put more labor into: mine ice, since ..."). The answer is read as
+    the offered move it is, or starts with (after any "(c)" letter), or,
+    for a role that does not answer in its own words, the move it names
+    first; otherwise it is left as it is. Words a move carries after a colon
+    ("publish the broadsheet our printers wrote: <the sheet>") are kept.
+
+    Args:
+      action: The answer, perhaps aimed (" @ row,col").
+
+    Returns:
+      The move it names (with its words), aimed as it was; or the answer
+      unchanged.
+    """
+    move, aim = aimed(action)
+    original = move.strip()
+    if original.lower().startswith(f'{self.name.lower()} '):  # Signed.
+      original = original[len(self.name) + 1 :]
+    original = re.sub(r'^\(?[a-zA-Z]\)\s+', '', original)
+    text = original.lower()
+    offered = sorted(self.offered, key=len, reverse=True)
+    found = next((o for o in offered if text == o.lower()), None) or next(
+        (o for o in offered if text.startswith(o.lower())), None
+    )
+    if found is None and not self.speaks():
+      named = [
+          (m.start(), o)
+          for o in offered
+          if (m := re.search(rf'(?<!\w){re.escape(o.lower())}(?!\w)', text))
+      ]
+      found = min(named)[1] if named else None
+    if found is None:
+      return action
+    rest = original[len(found) :] if text.startswith(found.lower()) else ''
+    if rest.lstrip().startswith(':'):  # The words the move carries.
+      found += rest.rstrip()
+    return found if aim is None else f'{found} @ {aim[0]},{aim[1]}'
 
   def drain_outbox(self) -> list[tuple[str, str]]:
     messages, self.outbox = self.outbox, []
     return messages
+
+  def get_state(self) -> dict[str, Any]:
+    """What a checkpoint keeps (the World GM's actor registry saves it)."""
+    return {
+        'acts': self.acts,
+        'log': [list(entry) for entry in self.log],
+        'outbox': [list(m) for m in self.outbox],
+        'decisions': dict(getattr(self, 'decisions', {})),
+    }
+
+  def set_state(self, state: Mapping[str, Any]) -> None:
+    self.acts = int(state.get('acts', 0))
+    self.log = [
+        (int(t), str(action), str(outcome))
+        for t, action, outcome in state.get('log', ())
+    ]
+    self.outbox = [
+        (str(topic), str(text)) for topic, text in state.get('outbox', ())
+    ]
+    if hasattr(self, 'decisions'):
+      self.decisions = {
+          str(k): int(v) for k, v in state.get('decisions', {}).items()
+      }
 
   def is_active(self) -> bool:
     """Whether the entity acts this tick."""
@@ -130,6 +253,23 @@ class Actor(metaclass=abc.ABCMeta):
     del option
     return False
 
+  def speaks(self) -> bool:
+    """Whether the role may answer in its own words this turn."""
+    return False
+
+  def why_not(self, option: str) -> str:
+    """Why a move it is saving for cannot be made now ('' if it can)."""
+    del option
+    return ''
+
+  def take_aim(self, action: str, planet: planet_lib.Planet) -> str:
+    """Sets an aimed action's target on the planet; returns the move."""
+    move, target = aimed(action)
+    if target is None or not self.aimable(move.strip()):
+      return action
+    planet.set_target(self.name, planet.tiles.rows - 1 - target[0], target[1])
+    return move
+
 
 class StewardActor(Actor):
   """The planet's Steward, choosing one Ω intervention per tick.
@@ -147,6 +287,11 @@ class StewardActor(Actor):
     super().__init__(name, outcome_topic='gaia.omens')
     self._planet = planet
     self._attention = attention
+    # The world's omen, if the Steward may speak one here.
+    self.omen = next(
+        (i for i in planet.interventions() if i.effect['kind'] == 'omen'),
+        None,
+    )
 
   def options(self) -> list[str]:
     # Interventions still recharging, or costing more omega than there is,
@@ -160,6 +305,20 @@ class StewardActor(Actor):
       options.extend(self._attention.options())
     return options
 
+  @override
+  def speaks(self) -> bool:
+    return self.omen is not None
+
+  @override
+  def why_not(self, option: str) -> str:
+    found = self._planet.intervention_for_option(option)
+    if found is not None and found.cost > self._planet.omega:
+      return (
+          f'it needs {found.cost:g} omega and there is only'
+          f' {self._planet.omega:.1f}'
+      )
+    return ''
+
   def out_of_reach(self) -> list[str]:
     """Moves off their cooldown that cost more omega than there is yet.
 
@@ -172,24 +331,46 @@ class StewardActor(Actor):
     ]
 
   def action_spec(self) -> entity_lib.ActionSpec:
-    return entity_lib.choice_action_spec(
-        call_to_action=STEWARD_CALL_TO_ACTION,
-        options=self.options(),
+    if self.omen is None:
+      return entity_lib.choice_action_spec(
+          call_to_action=STEWARD_CALL_TO_ACTION,
+          options=self.options(),
+          tag='steward',
+      )
+    # Concordia's free action: the moves are listed as a choice lists them.
+    letters = 'abcdefghijklmnopqrstuvwxyz'
+    moves = '\n'.join(
+        f'({letters[i]}) {option}' for i, option in enumerate(self.options())
+    )
+    effect = self.omen.effect
+    return entity_lib.free_action_spec(
+        call_to_action=STEWARD_SPEAKS.replace(
+            '{signs}', ', '.join(effect['signs'])
+        ).replace('{words}', str(effect['max_words']))
+        + '\n'
+        + moves,
         tag='steward',
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
+    text = action.strip()
+    if text.startswith(f'{self.name} '):  # A model's free answer.
+      text = text[len(self.name) + 1 :].strip()
     if self._attention is not None:
-      swap = self._attention.options().get(action.strip().lower())
+      swap = self._attention.options().get(text.lower())
       if swap is not None:
         self._attention.swap(*swap)
         return (
             f'{self.name} now watches the {swap[0].lower()} instead of the'
             f' {swap[1].lower()}.'
         )
-    intervention = self._planet.intervention_for_option(action)
+    intervention = self._planet.intervention_for_option(text)
+    if intervention is None and self.omen is not None:
+      # Words that are no move are an omen's.
+      return self._planet.apply_intervention(self.name, self.omen, text)
     if intervention is None:
-      return f'{self.name} hesitated; "{action.strip()}" is not an option.'
+      return f'{self.name} hesitated; "{text}" is not an option.'
     return self._planet.apply_intervention(self.name, intervention)
 
   def aimable(self, option: str) -> bool:
@@ -200,10 +381,24 @@ class StewardActor(Actor):
 class SpeciesActor(Actor):
   """A species (daisies, mats, ...) choosing a behaviour each tick."""
 
-  def __init__(self, name: str, species: str, planet: planet_lib.Planet):
+  def __init__(
+      self,
+      name: str,
+      species: str,
+      planet: planet_lib.Planet,
+  ):
     super().__init__(name, outcome_topic=f'bio.species.{species}.behaviour')
     self.species = species
     self._planet = planet
+
+  def _evolving(self) -> list[str]:
+    """Evolving: the species names the shift in its action.
+
+    "evolve as our slow mind decided: <the shift>", from its slow mind's
+    counsel in its context (paced by that mind: a shift is decided only as
+    fast as it thinks); a shift already under way is not begun again.
+    """
+    return [EVOLVE]
 
   def _evolution(self):
     evolution = self._planet.evolution
@@ -229,10 +424,26 @@ class SpeciesActor(Actor):
       partners[f'propose a pact to the {name}'] = other
     return partners
 
+  def _answers(self) -> dict[str, bool]:
+    """Option text -> accepted, for a pact offered to this species."""
+    symbiosis = self._planet.symbiosis
+    offer = symbiosis.pending_for(self.species) if symbiosis else None
+    if offer is None:
+      return {}
+    proposer = self._planet.species_name(offer.proposer)
+    return {
+        f'{verb} the pact offered by the {proposer}': verb == 'accept'
+        for verb in ('accept', 'decline')
+    }
+
   def options(self) -> list[str]:
-    return [b.label for b in self._evolution().behaviours] + list(
-        self._pact_partners()
-    )
+    # An offer awaiting our answer comes first.
+    return [
+        *self._answers(),
+        *self._evolving(),
+        *[b.label for b in self._evolution().behaviours],
+        *self._pact_partners(),
+    ]
 
   def is_active(self) -> bool:
     return not self._planet.is_extinct(self.species)
@@ -245,6 +456,34 @@ class SpeciesActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
+    if action.strip().lower().startswith(EVOLVE):
+      words = said(action, EVOLVE)
+      option = self._evolution().parse_adaptation(words) if words else None
+      if option is None or option.key == 'none':
+        return f'{self.name} make no shift: they named none.'
+      if any(
+          p.species == self.species and p.option == option.key
+          for p in self._planet.pending_adaptations
+      ):
+        return f'{self.name} are already evolving a {option.label}.'
+      self._planet.enacted[f'{self.name}:adaptation'] = self._planet.tick
+      news = self._planet.queue_adaptation(self.species, words)
+      self.outbox.append((planet_lib.BIO_EVENTS, news))
+      return news
+    answers = {k.lower(): v for k, v in self._answers().items()}
+    if action.strip().lower() in answers:
+      accepted = answers[action.strip().lower()]
+      settled = self._planet.answer_pact(
+          self.species, 'accept' if accepted else 'decline'
+      )
+      if settled is None:
+        return f'{self.name} found no offer left to answer.'
+      proposer, news = settled
+      # The proposer hears it on its diplomacy topic; everyone as news.
+      self.outbox.append((f'diplomacy.{proposer}.{self.species}', news))
+      self.outbox.append((planet_lib.BIO_EVENTS, news))
+      return news
     partner = self._pact_partners().get(action.strip().lower()) or next(
         (
             key
@@ -281,18 +520,19 @@ class PolityActor(Actor):
       planet: planet_lib.Planet,
       share: float,
       automation: automation_lib.Automation | None = None,
-      answers_offers: bool = False,
       age: str = 'the early iron age',
+      coached: bool = True,
   ):
     super().__init__(name, outcome_topic=f'civ.{polity}.decrees')
     self.age = age  # Named in the call to action ("a people of …").
+    # Whether its question ends with what matters most and its menu always
+    # keeps the tech worth learning: a playbook, off when a live mind plays
+    # the people as a character (it decides from who the people are).
+    self.coached = coached
     self.polity = polity
     self._planet = planet
     self._share = share
     self._automation = automation
-    # Answer treaty offers on the menu (a person plays this people; otherwise
-    # its treaty mind answers in the background).
-    self.answers_offers = answers_offers
     # How often each kind of decision was made: labor, learn, trade,
     # reflex, keep.
     self.decisions: dict[str, int] = {}
@@ -414,7 +654,7 @@ class PolityActor(Actor):
       # The tech that most helps the goal's chain, the cheapest
       # half, and the most advanced of the rest (the frontier would
       # otherwise hide behind cheap old techs).
-      good = crises_lib.goal_good(self._planet)
+      good = crises_lib.goal_good(self._planet) if self.coached else None
       best = civ.best_tech(self.polity, good) if good else None
       keep = [t for t in affordable if best is not None and t.key == best.key]
       others = [t for t in affordable if t not in keep]
@@ -547,7 +787,7 @@ class PolityActor(Actor):
   def _answers(self) -> dict[str, tuple[str, bool]]:
     """Option text -> (reply, accepted) for an offer awaiting our answer."""
     treaties, civ = self._planet.treaties, self._civ()
-    if not self.answers_offers or treaties is None:
+    if treaties is None:
       return {}
     offer = treaties.pending_for(self.polity)
     if offer is None:
@@ -570,7 +810,15 @@ class PolityActor(Actor):
     first, more = [], []
     for text, (_, kind) in self._treaty_partners().items():
       (more if any(k == kind for _, k in first) else first).append((text, kind))
+    # What its scribes and printers drafted, enacted by its action, which
+    # carries their words ("<move>: <words>"): offered when the world allows.
+    drafted = [
+        *([ADOPT_ORDERS] if self._may_adopt() else []),
+        *([PUBLISH_BROADSHEET] if self._may_publish() else []),
+        *([PRINT_RETELLING] if self._may_retell() else []),
+    ]
     extras = [
+        *drafted,
         *(text for text, _ in first),
         *([PRINT_BROADSHEET] if self._can_print() else []),
         *([PAY_PAMPHLETS] if self._can_pamphlet() else []),
@@ -581,10 +829,7 @@ class PolityActor(Actor):
     extras = extras[: max(0, MAX_OPTIONS - len(fixed) - 1 - MIN_ORDERS)]
     orders = [*self._trades(), *self._reflexes()]
     room = max(0, MAX_OPTIONS - len(fixed) - len(extras) - 1)
-    town = (
-        [PLAN_TOWN] if self.answers_offers and self._planet.settlements else []
-    )
-    return [*fixed, *orders[:room], *extras, *town, KEEP_LABOR]
+    return [*fixed, *orders[:room], *extras, KEEP_LABOR]
 
   def is_active(self) -> bool:
     return self.polity not in self._civ().collapsed(0.05)
@@ -593,7 +838,11 @@ class PolityActor(Actor):
     options = self.options()
     # What matters most this turn ends the question, where a mind reads
     # last: the crisis a move answers, and the weakest link.
-    found = crises_lib.pressing(self._planet, self.polity, options, {})
+    found = (
+        crises_lib.pressing(self._planet, self.polity, options, {})
+        if self.coached
+        else []
+    )
     return entity_lib.choice_action_spec(
         # Concordia fills in {name}; the age is the scenario's.
         call_to_action=POLITY_CALL_TO_ACTION.replace('{age}', self.age)
@@ -603,6 +852,7 @@ class PolityActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     answers = {k.lower(): v for k, v in self._answers().items()}
     if text in answers:
@@ -647,11 +897,51 @@ class PolityActor(Actor):
     if text == PAY_PAMPHLETS and self._can_pamphlet():
       self._tally('press')
       news = self._planet.commission_pamphlet(self.polity)
+      if news:
+        self._planet.enacted[f'{self.name}:commission'] = self._planet.tick
       return news or f'{self.name} could not pay for pamphlets.'
     if text == PRINT_BROADSHEET.lower() and self._can_print():
       self._tally('press')
       news = self._planet.commission_broadsheet(self.polity)
+      if news:  # When its printers were paid (their sheet comes later).
+        self._planet.enacted[f'{self.name}:commission'] = self._planet.tick
       return news or f'{self.name} could not print a broadsheet.'
+    if text.startswith(PUBLISH_BROADSHEET) and self._may_publish():
+      words = said(action, PUBLISH_BROADSHEET)
+      news = (
+          self._planet.publish_broadsheet(self.polity, words) if words else None
+      )
+      if news is None:
+        return f'The Gazette would not print a broadsheet of the {self.name}.'
+      self._tally('press')
+      self._planet.enacted[f'{self.name}:press'] = self._planet.tick
+      self.outbox.append((f'civ.{self.polity}.propaganda', words))
+      self.outbox.append((planet_lib.CIV_EVENTS, news))
+      return news
+    if text.startswith(PRINT_RETELLING.lower()) and self._may_retell():
+      words = said(action, PRINT_RETELLING)
+      news = (
+          self._planet.publish_retelling(self.polity, words) if words else None
+      )
+      if news is None:
+        return f'The printers of the {self.name} have no retelling to print.'
+      self._tally('press')
+      # The omens told so far (one retelling for the newest).
+      self._planet.enacted[f'{self.name}:omens'] = len(self._planet.omens)
+      self._planet.enacted[f'{self.name}:retelling'] = self._planet.tick
+      # Every people reads the omen as the printers told it.
+      self.outbox.append(('media.omens', words))
+      self.outbox.append((planet_lib.CIV_EVENTS, news))
+      return news
+    if text.startswith(ADOPT_ORDERS) and self._may_adopt():
+      assert self._automation is not None
+      self._tally('reflex')
+      news = self._automation.adopt_text(
+          self.polity, said(action, ADOPT_ORDERS)
+      )
+      self._planet.enacted[f'{self.name}:orders'] = self._planet.tick
+      self.outbox.append((planet_lib.CIV_EVENTS, news))
+      return news
     reflex = self._reflexes().get(text)
     if reflex is not None and self._automation is not None:
       self._tally('reflex')
@@ -666,9 +956,6 @@ class PolityActor(Actor):
         self._automation.note_turn_order()
       verb = 'offer' if order[1] == 'ask' else 'ask to buy'
       return f'{self.name} {verb} {order[0]} at market.'
-    if text == PLAN_TOWN and self._planet.settlements is not None:
-      self._tally('town')
-      return self._planet.plan_town(self.polity, self.name)
     recipe = self._focus().get(text)
     if recipe is None:
       self._tally('keep' if text == KEEP_LABOR else 'unmatched')
@@ -683,9 +970,32 @@ class PolityActor(Actor):
         f'{where}.'
     )
 
+  def _may_adopt(self) -> bool:
+    """Whether its scribes may write standing orders (its techs allow)."""
+    automation = self._automation
+    return automation is not None and 'threshold' in automation.allowed_ops(
+        self.polity
+    )
+
+  def _may_publish(self) -> bool:
+    """Whether it paid its printers for a sheet not yet published."""
+    gazette = self._planet.gazette
+    return gazette is not None and self.polity in gazette.pending
+
+  def _may_retell(self) -> bool:
+    """Whether it owns the presses and an omen awaits their retelling."""
+    gazette = self._planet.gazette
+    owner = self._planet.scenario.get('civilization', {}).get('press_owner')
+    told = made_at(self._planet, f'{self.name}:omens') or 0
+    return (
+        gazette is not None
+        and owner == self.polity
+        and len(self._planet.omens) > told
+    )
+
   def aimable(self, option: str) -> bool:
     text = option.strip().lower()
-    return text == PLAN_TOWN or self._focus().get(text) == 'woodcut'
+    return self._focus().get(text) == 'woodcut'
 
 
 class ColonyActor(Actor):
@@ -737,6 +1047,7 @@ class ColonyActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     colony = self._colony()
     target = self._plans().get(text)
@@ -808,6 +1119,7 @@ class MissionActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     text = action.strip().lower()
     colony = self._colony()
     design = self._designs().get(text)
@@ -845,12 +1157,21 @@ class MissionActor(Actor):
 class ChroniclerActor(Actor):
   """The Chronicler: acts every tick (no language model) so its slow mind runs.
 
-  Its act is a fixed puppet response; the chapters come from a background
-  `pubsub.Publisher` that the act triggers. Acting has no effect on the world.
+  Its act is a rule (`components.chronicler_act`): it keeps watch, or hands
+  in the newest chapter its slow mind wrote, the chapter's words in its
+  action, which the World GM publishes on the chronicle. Acting has no other
+  effect on the world.
   """
 
-  def __init__(self, name: str):
+  def __init__(self, name: str, topic: str):
+    """Initializes the actor.
+
+    Args:
+      name: The Chronicler's name.
+      topic: The chronicle, where its chapters are published.
+    """
     super().__init__(name)
+    self._topic = topic
 
   def action_spec(self) -> entity_lib.ActionSpec:
     return entity_lib.free_action_spec(
@@ -858,16 +1179,26 @@ class ChroniclerActor(Actor):
     )
 
   def resolve(self, action: str) -> str:
-    del action
+    chapter = said(action, HAND_IN_CHAPTER)
+    if chapter:
+      self.outbox.append((self._topic, chapter))
     return ''
 
 
 class GrazerActor(Actor):
   """The grazer clade choosing how its herds behave each tick."""
 
-  def __init__(self, name: str, planet: planet_lib.Planet):
+  def __init__(
+      self,
+      name: str,
+      planet: planet_lib.Planet,
+  ):
     super().__init__(name, outcome_topic='bio.species.grazers.behaviour')
     self._planet = planet
+
+  def _evolving(self) -> list[str]:
+    """Evolving: the grazers name the shift in their action."""
+    return [EVOLVE]
 
   def _grazers(self):
     grazers = self._planet.grazers
@@ -881,12 +1212,30 @@ class GrazerActor(Actor):
   def action_spec(self) -> entity_lib.ActionSpec:
     return entity_lib.choice_action_spec(
         call_to_action=GRAZER_CALL_TO_ACTION,
-        options=[b.label for b in self._grazers().behaviours],
+        options=[
+            *self._evolving(),
+            *[b.label for b in self._grazers().behaviours],
+        ],
         tag='grazers',
     )
 
   def resolve(self, action: str) -> str:
+    action = self.take_aim(action, self._planet)
     grazers = self._grazers()
+    if action.strip().lower().startswith(EVOLVE):
+      words = said(action, EVOLVE)
+      option = grazers.parse_adaptation(words) if words else None
+      if option is None or option.key == 'none':
+        return f'{self.name} make no shift: they named none.'
+      if any(
+          p.species == grazers.key and p.option == option.key
+          for p in self._planet.pending_adaptations
+      ):
+        return f'{self.name} are already evolving a {option.label}.'
+      self._planet.enacted[f'{self.name}:adaptation'] = self._planet.tick
+      news = self._planet.queue_adaptation(grazers.key, words)
+      self.outbox.append((planet_lib.BIO_EVENTS, news))
+      return news
     behaviour = grazers.behaviour_for_option(action)
     if behaviour is None:
       return f'{self.name} hesitated; "{action.strip()}" is not a behaviour.'
