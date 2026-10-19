@@ -48,7 +48,14 @@ _GRIEVANCE = re.compile(r'We hold grievances against the ([\w ]+?) \(')
 _GRAIN = re.compile(r'\bgrain (\d+(?:\.\d+)?)')
 _OTHERS = re.compile(r'towns of others: (.*?)\.(?:\s|$)')
 _OURS = re.compile(r'Our towns stand at (.*?) \(row,col\)')
-_TILE = re.compile(r'(\d+),(\d+)( \(capital\))?')
+_TILE = re.compile(r'(\d+),(\d+)(?: \(([^)]*)\))?')
+_SEEN_ARMS = re.compile(r'arms (\d+(?:\.\d+)?)')
+# What a town's people count for with no arms, as a rule guesses it (the
+# Great Acceleration's militia; a poorer world's is less, so it is wary).
+_TOWN_GUARD = 1.5
+_CAPITAL_GUARD = 3.0
+# A town on a sheet: row, column, capital, the arms seen in it.
+Town = tuple[int, int, bool, float]
 # Arms, the strongest first (each needs its dual-use know-how).
 _ARMS = ('forge rifles', 'breed horses', 'train archers', 'arm levies')
 
@@ -73,25 +80,40 @@ def _number(pattern: re.Pattern[str], text: str) -> float | None:
   return float(found[-1]) if found else None
 
 
-def _towns_of(sheet: str, people: str) -> list[tuple[int, int, bool]]:
-  """Another people's towns, from the sheet: (row, col, capital)."""
+def _tiles(text: str) -> list[Town]:
+  """The towns a sheet lists: each tile, and what its note says."""
+  towns = []
+  for r, c, note in _TILE.findall(text):
+    arms = _SEEN_ARMS.search(note)
+    towns.append((
+        int(r),
+        int(c),
+        'capital' in note,
+        float(arms.group(1)) if arms else 0.0,
+    ))
+  return towns
+
+
+def _others(sheet: str) -> dict[str, list[Town]]:
+  """The other peoples' towns, from the sheet, by people."""
   found = _OTHERS.findall(sheet)
+  peoples = {}
   for part in (found[-1] if found else '').split('; '):
-    if part.startswith(f'the {people} at '):
-      return [
-          (int(r), int(c), bool(cap))
-          for r, c, cap in _TILE.findall(part[len(f'the {people} at ') :])
-      ]
-  return []
+    named = re.match(r'the (.+?) at (.*)$', part)
+    if named:
+      peoples[named.group(1)] = _tiles(named.group(2))
+  return peoples
 
 
-def _own_towns(sheet: str) -> list[tuple[int, int, bool]]:
-  """Its own towns, from the sheet: (row, col, capital)."""
+def _towns_of(sheet: str, people: str) -> list[Town]:
+  """Another people's towns, from the sheet."""
+  return _others(sheet).get(people, [])
+
+
+def _own_towns(sheet: str) -> list[Town]:
+  """Its own towns, from the sheet."""
   found = _OURS.findall(sheet)
-  return [
-      (int(r), int(c), bool(cap))
-      for r, c, cap in _TILE.findall(found[-1] if found else '')
-  ]
+  return _tiles(found[-1] if found else '')
 
 
 def _economy(
@@ -164,12 +186,11 @@ class _PeopleRule:
     reserve = min(reserve, grain / 2)  # A poorer people keeps half.
     if envoys is None or grain < reserve + 5.0:
       return []
-    others = _OTHERS.findall(sheet)
     courtable = []
-    for part in (others[-1] if others else '').split('; '):
-      tiles = [(int(r), int(c)) for r, c, cap in _TILE.findall(part) if not cap]
+    for towns in _others(sheet).values():
+      tiles = [(r, c) for r, c, cap, _ in towns if not cap]
       if tiles:
-        courtable.append((len(_TILE.findall(part)), tiles))
+        courtable.append((len(towns), tiles))
     if not courtable:
       return []
     # A town hears a people's envoys once a turn: a cart to each of the
@@ -178,7 +199,7 @@ class _PeopleRule:
     carts = int((grain - reserve) // 5.0)
     return [
         f'town {tr},{tc}: {envoys} @ {r},{c}'
-        for (tr, tc, _), (r, c) in zip(_own_towns(sheet)[:carts], targets)
+        for (tr, tc, *_), (r, c) in zip(_own_towns(sheet)[:carts], targets)
     ]
 
   # Moves of war, shared by the rules.
@@ -189,10 +210,36 @@ class _PeopleRule:
       return _find(moves, actors_lib.HOLD_FEAST)
     return None
 
-  def _arm(self, sheet: str, moves: Sequence[str]) -> str | None:
-    """More hands into arms, while weaker than it strikes with."""
+  def _target(
+      self, sheet: str, on: str | None = None
+  ) -> tuple[tuple[int, int], float] | None:
+    """The weakest town (of `on`, else of anyone) and the arms to take it.
+
+    About twice the defence its map shows (its arms, and its people), and
+    never less than the strength the rule strikes with.
+    """
+    peoples = _others(sheet)
+    towns = (
+        peoples.get(on, []) if on else [t for v in peoples.values() for t in v]
+    )
+    if not towns:
+      return None
+
+    def need(town: Town) -> float:
+      guard = _CAPITAL_GUARD if town[2] else _TOWN_GUARD
+      return max(self._strike, 2.0 * (town[3] + guard))
+
+    r, c, _, _ = town = min(towns, key=lambda t: (need(t), t[2], t[0], t[1]))
+    return (r, c), need(town)
+
+  def _arm(
+      self, sheet: str, moves: Sequence[str], on: str | None = None
+  ) -> str | None:
+    """More hands into arms, while weaker than its target needs."""
     strength = _number(_STRENGTH, sheet) or 0.0
-    if strength >= self._strike or self._turn - self._armed_at < self._rest:
+    target = self._target(sheet, on)
+    need = target[1] if target else self._strike
+    if strength >= need or self._turn - self._armed_at < self._rest:
       return None
     for kind in _ARMS:
       move = next((m for m in moves if kind in m), None)
@@ -204,15 +251,17 @@ class _PeopleRule:
   def _march(
       self, sheet: str, moves: Sequence[str], on: str | None = None
   ) -> str | None:
-    """A march to take a town, once strong: on a people's, else nearest."""
+    """A march on the weakest town (of `on`, else of anyone), when strong.
+
+    Strong enough is about twice the defence its map shows (`_target`).
+    """
     strength = _number(_STRENGTH, sheet) or 0.0
     march = _find(moves, actors_lib.MARCH_TAKE)
-    if march is None or strength < self._strike:
+    target = self._target(sheet, on)
+    if march is None or target is None or strength < target[1]:
       return None
-    towns = sorted(_towns_of(sheet, on), key=lambda t: t[2]) if on else []
-    if towns:  # Its towns first, its capital last.
-      return f'{march} @ {towns[0][0]},{towns[0][1]}'
-    return march
+    (r, c), _ = target
+    return f'{march} @ {r},{c}'
 
 
 class Sword(_PeopleRule):
@@ -287,7 +336,7 @@ class Rival(_PeopleRule):
     return (
         self._feast(sheet, moves)
         or self._march(sheet, moves, foes[0])
-        or self._arm(sheet, moves)
+        or self._arm(sheet, moves, foes[0])
     )
 
 

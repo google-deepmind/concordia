@@ -750,10 +750,17 @@ class Settlements:
       return ''
     north = self.tiles.rows - 1
 
+    def note(town: Settlement) -> str:
+      # What its map shows of it: a capital, and the arms it holds (⚔).
+      said = [
+          *(['capital'] if town.capital else []),
+          *([f'arms {self.strength(town):.1f}'] if town.garrison else []),
+      ]
+      return f' ({", ".join(said)})' if said else ''
+
     def tiles(key: str) -> str:
       return ', '.join(
-          f'{north - t.row},{t.col}' + (' (capital)' if t.capital else '')
-          for t in self.places.get(key, ())
+          f'{north - t.row},{t.col}{note(t)}' for t in self.places.get(key, ())
       )
 
     others = '; '.join(

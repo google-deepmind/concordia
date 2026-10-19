@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, noon
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      The other peoples read the map as you do: each people's sheet now names
+      the arms seen in every town, and the computer's peoples strike the
+      weakest town of whoever wronged them, with about twice the strength it
+      shows, rather than throwing levies at walls. Watch your garrisons.
   - when: 19 Oct, morning (3)
     world: great_acceleration
     role: Basalt clans
