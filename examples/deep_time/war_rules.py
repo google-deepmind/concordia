@@ -1,0 +1,309 @@
+# Copyright 2026 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Rules that play a people where conquest is played (stage 6, C8).
+
+Each is a `rule_act.Rule`: a people's acting component (`RuleAct`) answers
+its question by it, reading only the question and what the people's own
+components say this turn (its sheet: its arms, its restless or courted
+towns, the people named as holding much of the map, where every town
+stands). The World GM resolves the answer like anyone's. They are bots for
+measuring the game (a road to conquest each, a skilled mix, the others'
+answer to a leader) and the computer's peoples in a mock game that asks for
+war (`conquest_bots`); characters played by live minds never use them.
+
+Between moves of war each falls back on the mock's skilled policies for a
+people (feed it, then its industry), so a road is measured against the same
+economy.
+"""
+
+from collections.abc import Mapping, Sequence
+import re
+
+from examples.deep_time import actors as actors_lib
+from examples.deep_time import mock_language_model as mock_lib
+from concordia.typing import entity as entity_lib
+
+_OPTION = re.compile(r'^\s*\(([a-z]+)\)\s(.+)$')
+_STRENGTH = re.compile(r'Our arms: [^(]*\(strength (\d+(?:\.\d+)?)')
+_RESTLESS = re.compile(r'holds to us at (\d+(?:\.\d+)?) \(settled at')
+_COURTED_US = re.compile(r'court our town[^:]*: [^(]*\((\d+)% to go\)')
+_TO_GO = re.compile(r'Our envoys court a town[^:]*: [^(]*\((\d+)% to go\)')
+_LEADER = re.compile(r'The ([A-Z][\w ]*?) hold (\d+) of the (\d+) towns\.')
+_US_LEADING = re.compile(r'We hold \d+ of the \d+ towns')
+_THREAT = re.compile(r'An army of the ([\w ]+?) \([^)]*\) marches to')
+_GRIEVANCE = re.compile(r'We hold grievances against the ([\w ]+?) \(')
+_GRAIN = re.compile(r'\bgrain (\d+(?:\.\d+)?)')
+_OTHERS = re.compile(r'towns of others: (.*?)\.(?:\s|$)')
+_OURS = re.compile(r'Our towns stand at (.*?) \(row,col\)')
+_TILE = re.compile(r'(\d+),(\d+)( \(capital\))?')
+# Arms, the strongest first (each needs its dual-use know-how).
+_ARMS = ('forge rifles', 'breed horses', 'arm levies')
+
+
+def _moves(spec: entity_lib.ActionSpec) -> list[str]:
+  """The moves a question offers: its options, or a free one's list."""
+  if spec.options:
+    return list(spec.options)
+  return [
+      m.group(2).strip()
+      for m in map(_OPTION.match, spec.call_to_action.splitlines())
+      if m
+  ]
+
+
+def _find(moves: Sequence[str], start: str) -> str | None:
+  return next((m for m in moves if m.startswith(start)), None)
+
+
+def _number(pattern: re.Pattern[str], text: str) -> float | None:
+  found = pattern.findall(text)
+  return float(found[-1]) if found else None
+
+
+def _towns_of(sheet: str, people: str) -> list[tuple[int, int, bool]]:
+  """Another people's towns, from the sheet: (row, col, capital)."""
+  found = _OTHERS.findall(sheet)
+  for part in (found[-1] if found else '').split('; '):
+    if part.startswith(f'the {people} at '):
+      return [
+          (int(r), int(c), bool(cap))
+          for r, c, cap in _TILE.findall(part[len(f'the {people} at ') :])
+      ]
+  return []
+
+
+def _own_towns(sheet: str) -> list[tuple[int, int, bool]]:
+  """Its own towns, from the sheet: (row, col, capital)."""
+  found = _OURS.findall(sheet)
+  return [
+      (int(r), int(c), bool(cap))
+      for r, c, cap in _TILE.findall(found[-1] if found else '')
+  ]
+
+
+def _economy(
+    spec: entity_lib.ActionSpec,
+    contexts: Mapping[str, str],
+    moves: Sequence[str],
+) -> str:
+  """The mock's skilled choice for a people (feed it, then its industry)."""
+  prompt = '\n'.join([*contexts.values(), spec.call_to_action])
+  options = {chr(ord('a') + i): m for i, m in enumerate(moves[:26])}
+  for policy in mock_lib.DEFAULT_POLICIES:
+    choice = policy(prompt, options)
+    if choice is not None and choice in moves:
+      return mock_lib.with_words(prompt, choice)
+  return _find(moves, actors_lib.KEEP_LABOR) or (moves[-1] if moves else '')
+
+
+class _PeopleRule:
+  """A people's rule: a move of war when it has one, else its economy."""
+
+  def __init__(self, strike: float = 8.0, rest: int = 3):
+    self._turn = 0
+    self._armed_at = -rest
+    self._strike = strike  # The strength it marches with.
+    self._rest = rest  # Turns between shifts of labor into arms.
+
+  def __call__(
+      self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    self._turn += 1
+    moves = _moves(spec)
+    sheet = '\n'.join(contexts.values())
+    people = self.war(sheet, moves) or _economy(spec, contexts, moves)
+    # Its towns' own orders ride with it, a line each (stage 6, C6).
+    return '\n'.join([people, *self.orders(sheet, moves)])
+
+  def war(self, sheet: str, moves: Sequence[str]) -> str | None:
+    """Its move of war this turn, or None."""
+    del sheet, moves
+    return None
+
+  def orders(self, sheet: str, moves: Sequence[str]) -> list[str]:
+    """Its towns' orders this turn (`"town row,col: <move> @ row,col"`)."""
+    del sheet, moves
+    return []
+
+  def _court(
+      self, sheet: str, moves: Sequence[str], reserve: float
+  ) -> list[str]:
+    """A cart from each of its towns to one town, while grain lasts.
+
+    The town courted is the first not a capital of the people it courts
+    (kept until it joins), the people with the fewest towns first.
+    """
+    envoys = _find(moves, actors_lib.SEND_ENVOYS)
+    grain = _number(_GRAIN, sheet) or 0.0
+    if envoys is None or grain < reserve + 5.0:
+      return []
+    others = _OTHERS.findall(sheet)
+    courtable = []
+    for part in (others[-1] if others else '').split('; '):
+      tiles = [(int(r), int(c)) for r, c, cap in _TILE.findall(part) if not cap]
+      if tiles:
+        courtable.append((len(_TILE.findall(part)), tiles))
+    if not courtable:
+      return []
+    # A town hears a people's envoys once a turn: a cart to each of the
+    # weakest people's towns, then the next people's.
+    targets = [t for _, tiles in sorted(courtable) for t in tiles]
+    carts = int((grain - reserve) // 5.0)
+    return [
+        f'town {tr},{tc}: {envoys} @ {r},{c}'
+        for (tr, tc, _), (r, c) in zip(_own_towns(sheet)[:carts], targets)
+    ]
+
+  # Moves of war, shared by the rules.
+  def _feast(self, sheet: str, moves: Sequence[str]) -> str | None:
+    """A feast in a taken town about to rise."""
+    loyalty = _number(_RESTLESS, sheet)
+    if loyalty is not None and loyalty < 0.3:
+      return _find(moves, actors_lib.HOLD_FEAST)
+    return None
+
+  def _arm(self, sheet: str, moves: Sequence[str]) -> str | None:
+    """More hands into arms, while weaker than it strikes with."""
+    strength = _number(_STRENGTH, sheet) or 0.0
+    if strength >= self._strike or self._turn - self._armed_at < self._rest:
+      return None
+    for kind in _ARMS:
+      move = next((m for m in moves if kind in m), None)
+      if move is not None:
+        self._armed_at = self._turn
+        return move
+    return None
+
+  def _march(
+      self, sheet: str, moves: Sequence[str], on: str | None = None
+  ) -> str | None:
+    """A march to take a town, once strong: on a people's, else nearest."""
+    strength = _number(_STRENGTH, sheet) or 0.0
+    march = _find(moves, actors_lib.MARCH_TAKE)
+    if march is None or strength < self._strike:
+      return None
+    towns = sorted(_towns_of(sheet, on), key=lambda t: t[2]) if on else []
+    if towns:  # Its towns first, its capital last.
+      return f'{march} @ {towns[0][0]},{towns[0][1]}'
+    return march
+
+
+class Sword(_PeopleRule):
+  """The sword: arms, marches when strong, feasts what is about to rise."""
+
+  def war(self, sheet: str, moves: Sequence[str]) -> str | None:
+    return (
+        self._feast(sheet, moves)
+        or self._march(sheet, moves)
+        or self._arm(sheet, moves)
+    )
+
+
+class Bread(_PeopleRule):
+  """Bread: a cart from every town to one town while the granary allows.
+
+  Its people's own order is its economy (or a feast at home).
+  """
+
+  def war(self, sheet: str, moves: Sequence[str]) -> str | None:
+    return self._feast(sheet, moves)
+
+  def orders(self, sheet: str, moves: Sequence[str]) -> list[str]:
+    return self._court(sheet, moves, reserve=30.0)
+
+
+class Conqueror(_PeopleRule):
+  """A skilled mix: towns founded, the sword, and bread from a rich granary.
+
+  Its people's order founds a town when it can, feasts what is about to
+  rise, marches when strong, arms when not; meanwhile its towns court one
+  town with the grain it can spare.
+  """
+
+  def war(self, sheet: str, moves: Sequence[str]) -> str | None:
+    return (
+        _find(moves, actors_lib.FOUND_TOWN)
+        or self._feast(sheet, moves)
+        or self._march(sheet, moves)
+        or self._arm(sheet, moves)
+    )
+
+  def orders(self, sheet: str, moves: Sequence[str]) -> list[str]:
+    return self._court(sheet, moves, reserve=60.0)
+
+
+class Rival(_PeopleRule):
+  """The others' answer: arm against a leader, an army coming, a wrong.
+
+  When one people holds half the map, or marches on its towns, or wronged
+  it (its sheet says so), it arms and marches on that people's towns.
+  Otherwise its economy.
+  """
+
+  def __init__(self):
+    super().__init__(strike=8.0, rest=4)
+
+  def war(self, sheet: str, moves: Sequence[str]) -> str | None:
+    courted = [int(n) for n in _COURTED_US.findall(sheet)]
+    if courted and min(courted) <= 50:  # A town of ours about to be won.
+      feast = _find(moves, actors_lib.HOLD_FEAST)
+      if feast is not None:
+        return feast
+    if _US_LEADING.search(sheet):
+      return self._feast(sheet, moves)
+    foes = [
+        *(name for name, _, _ in _LEADER.findall(sheet)),
+        *_THREAT.findall(sheet),
+        *_GRIEVANCE.findall(sheet),
+    ]
+    if not foes:
+      return self._feast(sheet, moves)
+    return (
+        self._feast(sheet, moves)
+        or self._march(sheet, moves, foes[0])
+        or self._arm(sheet, moves)
+    )
+
+
+class Random(_PeopleRule):
+  """Any move it has, by a fixed hash of what it reads (a baseline)."""
+
+  def __call__(
+      self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    moves = _moves(spec)
+    text = '\n'.join([*contexts.values(), spec.call_to_action])
+    return moves[mock_lib.stable_index('random bot\n' + text, len(moves))]
+
+
+class Passive(_PeopleRule):
+  """Never changes how its people work (a baseline)."""
+
+  def __call__(
+      self, spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    del contexts
+    return _find(_moves(spec), actors_lib.KEEP_LABOR) or ''
+
+
+# The bots of the people audit, by name.
+RULES = {
+    'conqueror': Conqueror,
+    'sword': Sword,
+    'bread': Bread,
+    'economy': _PeopleRule,
+    'random': Random,
+    'passive': Passive,
+}

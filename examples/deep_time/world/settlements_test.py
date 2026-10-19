@@ -231,7 +231,7 @@ class SettlementsTest(absltest.TestCase):
     capital = next(t for t in towns.places['amber'] if t.capital)
     self.assertEqual(capital.garrison, {'levies': 3.0})
     self.assertEqual(civ.stock('amber', 'levies'), 0.0)
-    self.assertAlmostEqual(civ.stock('amber', 'grain'), grain - 0.75)
+    self.assertAlmostEqual(civ.stock('amber', 'grain'), grain - 0.9)
     self.assertIn(
         'Our arms: 3.0 levies (strength 3.0', towns.describe_arms('amber')
     )
@@ -360,7 +360,7 @@ class SettlementsTest(absltest.TestCase):
     again = _planet('great_acceleration').settlements
     again.set_state(towns.get_state())
     self.assertEqual(again.armies, towns.armies)
-    self.assertEqual(again.upkeep('basalt'), 2.5)  # They eat on the march.
+    self.assertEqual(again.upkeep('basalt'), 3.0)  # They eat on the march.
 
   def _courted(self):
     """A Great Acceleration with a town of the Amber folk to court."""
@@ -381,7 +381,7 @@ class SettlementsTest(absltest.TestCase):
     (move,) = [
         o for o in basalt.options() if o.startswith(actors_lib.SEND_ENVOYS)
     ]
-    self.assertIn('3 grain', move)  # Its cost, told.
+    self.assertIn('5 grain', move)  # Its cost, told.
     self.assertTrue(basalt.aimable(move))
     # A capital holds to its own people (and the cart is not spent).
     capital = towns.capital('amber')
@@ -394,7 +394,7 @@ class SettlementsTest(absltest.TestCase):
     news = basalt.resolve(move)
     self.assertIn('its regard for them is 0.15 of the 1.00 it needs', news)
     self.assertIn('85% to go', news)
-    self.assertAlmostEqual(civ.stock('basalt', 'grain'), grain - 3.0)
+    self.assertAlmostEqual(civ.stock('basalt', 'grain'), grain - 5.0)
     (heard,) = basalt.drain_outbox()
     self.assertEqual(heard[0], planet.war_topic('amber'))
     self.assertIn('to leave us (85% to go)', heard[1])
@@ -414,10 +414,17 @@ class SettlementsTest(absltest.TestCase):
     people = (
         civ.polities['amber'].population + civ.polities['basalt'].population
     )
+    # A town hears a people's envoys once a turn: a second cart is refused,
+    # and costs nothing.
+    grain = civ.stock('basalt', 'grain')
+    self.assertIn('heard theirs this turn already', basalt.resolve(move))
+    self.assertEqual(civ.stock('basalt', 'grain'), grain)
+    basalt.drain_outbox()
     told = []
     for _ in range(4):
       if towns.find(town.id)[1] == 'basalt':
         break
+      town.heard.clear()  # A new turn.
       told.append(basalt.resolve(move))
     self.assertIn('twice as warm', told[0])
     self.assertIn('0.45 of the 1.00', told[0])
@@ -746,7 +753,7 @@ class SettlementsTest(absltest.TestCase):
     planet, towns, _, town, _ = self._courted()
     towns.court(town.id, 'basalt', 0.3)
     towns.fade_regard()
-    self.assertAlmostEqual(town.regard['basalt'], 0.28)
+    self.assertAlmostEqual(town.regard['basalt'], 0.26)
     state = towns.get_state()
     again = _planet('great_acceleration').settlements
     again.set_state(state)

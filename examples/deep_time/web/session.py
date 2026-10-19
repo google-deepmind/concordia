@@ -1030,11 +1030,23 @@ class GameSession:
             'looked': list(turn.get('looked', ())),
             **{
                 k: turn[k]
-                for k in ('omega', 'read_c', 'forecast_c', 'true_c', 'life')
+                for k in (
+                    'omega',
+                    'read_c',
+                    'forecast_c',
+                    'true_c',
+                    'life',
+                    'orders',  # Its towns' orders and words that turn.
+                )
                 if k in turn
             },
         })
-      seats[name] = {'role': place.role, 'turns': turns}
+      seats[name] = {
+          'role': place.role,
+          'turns': turns,
+          # Its own result (a conquest is its conqueror's victory alone).
+          'result': self._own_outcome(name, False),
+      }
     return {
         'version': 1,
         'game_id': self.game_id,

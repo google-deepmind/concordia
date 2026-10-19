@@ -1209,6 +1209,16 @@ class Planet:
           {},
           '',
       )
+    if town.heard.get(polity) == self.tick:  # Once a turn, whatever it sends.
+      return (
+          (
+              f'{name} send no more envoys to the town {where}: it heard theirs'
+              ' this turn already.'
+          ),
+          {},
+          '',
+      )
+    town.heard[polity] = self.tick
     civ.ledger.withdraw(polity, 'grain', cost, 'envoys')
     hungry = civ.polities[holder].food_ratio < 1.0 - 1e-9
     gain = float(towns.war.get('gift_regard', 0.15)) * (2.0 if hungry else 1.0)

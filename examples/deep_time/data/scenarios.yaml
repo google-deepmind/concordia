@@ -304,6 +304,11 @@ great_acceleration:
   instruments: naturalists
   attention: true
   wakeups: true
+  # In a game played with the mock's minds, the computer's peoples answer
+  # war by a rule (`war_rules.Rival`: arm when marched on, strike back at a
+  # wrong, feast a courted town, march on a leader); live minds play their
+  # characters (stage 6, C8).
+  conquest_bots: true
   civilization:
     age: the age of coal and steam
     polity_goal: >-

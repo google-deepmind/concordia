@@ -26,6 +26,7 @@ from concordia.environment.engines import simultaneous
 from examples.deep_time import game as game_lib
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios
+from examples.deep_time import war_rules
 from examples.deep_time.components import rule_act
 from examples.deep_time.prefabs import chronicler
 from examples.deep_time.prefabs import colony
@@ -162,6 +163,15 @@ def build_simulation(
   context.humans.update(humans or {})
   context.bots.update(bots or {})
   context.scripted.update(scripted or {})
+  # A mock game that asks for war (`conquest_bots`, where conquest is
+  # played): each people no one else plays answers a leader by a rule.
+  civ = context.planet.civ
+  if context.scenario.get('conquest_bots') and models.mock and civ is not None:
+    for people in civ.polities.values():
+      if not {*context.humans, *context.scripted, *context.bots} & {
+          people.name
+      }:
+        context.scripted[people.name] = war_rules.Rival()
   # The roles' slow minds think with it (and so do species founded later).
   context.slow_model = models.slow
   config = build_config(context, max_ticks, views=views)

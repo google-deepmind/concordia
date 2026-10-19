@@ -49,6 +49,7 @@ from concordia.components.game_master import next_acting
 from examples.deep_time import model_setup
 from examples.deep_time import scenarios as scenarios_lib
 from examples.deep_time import simulation
+from examples.deep_time import war_rules
 from examples.deep_time.web import session as session_lib
 from concordia.utils import structured_logging
 
@@ -210,6 +211,142 @@ def summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
   }
 
 
+def peoples(scenario: str) -> list[str]:
+  """The roles of a scenario that are peoples (their entity names)."""
+  return [
+      name
+      for name, label in session_lib.roles(scenario)
+      if label.endswith('a people')
+  ]
+
+
+def play_people(
+    scenario: str,
+    bot: str,
+    seed: int,
+    ticks: int | None = None,
+    rivals: bool = True,
+) -> dict[str, Any]:
+  """One mock game with a people played by a war rule (`war_rules`).
+
+  The people is the seed's (taking each in turn), its entity's act
+  component the rule; the Steward plays by the skilled mock, and the other
+  peoples answer a leader by `war_rules.Rival` (`conquest_bots`), or play
+  the mock's peaceful skilled policies.
+
+  Args:
+    scenario: Scenario key (one where conquest is played).
+    bot: A key of `war_rules.RULES`.
+    seed: Seed of the planet.
+    ticks: Overrides the scenario's length.
+    rivals: Whether the other peoples answer a leader.
+
+  Returns:
+    Its own result (the conqueror wins alone; else the world's verdict),
+    who conquered, its towns at the end, and the leaders named.
+  """
+  names = peoples(scenario)
+  people = names[seed % len(names)]
+  sim, context = simulation.build_simulation(
+      scenario,
+      model_setup.make_models('mock'),
+      max_ticks=ticks,
+      seed=seed,
+      overrides={'conquest_bots': True} if rivals else None,
+      scripted={people: war_rules.RULES[bot]()},
+  )
+  planet = context.planet
+  assert planet.civ is not None and planet.settlements is not None
+  named = []  # The peoples named as holding half the map, as they were.
+  for _ in range(ticks or planet.max_ticks):
+    with contextlib.redirect_stdout(io.StringIO()):  # The engine's log.
+      sim.play(premise='', max_steps=1)
+    leader = planet.settlements.leader
+    if leader and planet.civ.polities[leader].name not in named:
+      named.append(planet.civ.polities[leader].name)
+    if planet.outcome is not None:
+      break
+  key = next(k for k, p in planet.civ.polities.items() if p.name == people)
+  winner = planet.winner
+  won = winner == key or (not winner and planet.outcome == 'victory')
+  return {
+      'scenario': scenario,
+      'bot': bot,
+      'seed': seed,
+      'people': people,
+      'outcome': 'victory' if won else 'defeat',
+      'conquered': winner == key,
+      'conquered_by_others': bool(winner) and winner != key,
+      'towns': len(planet.settlements.places[key]),
+      # Towns it gained, by road (taken, won over, risen to it, founded).
+      'gains': dict(planet.settlements.gains.get(key, {})),
+      'leaders': named,
+      'winner': planet.civ.polities[winner].name if winner else '',
+      'reason': planet.outcome_reason,
+      'ticks': planet.tick,
+  }
+
+
+def summarize_people(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+  """Per bot: wins, conquests, towns held; leaders named and caught."""
+  by_bot = {}
+  for bot in dict.fromkeys(r['bot'] for r in rows):
+    runs = [r for r in rows if r['bot'] == bot]
+    led = [r for r in runs if r['leaders']]
+    by_bot[bot] = {
+        'wins': round(
+            sum(r['outcome'] == 'victory' for r in runs) / len(runs), 3
+        ),
+        'conquests': round(sum(r['conquered'] for r in runs) / len(runs), 3),
+        'conquered_by_others': round(
+            sum(r['conquered_by_others'] for r in runs) / len(runs), 3
+        ),
+        'towns_median': statistics.median(r['towns'] for r in runs),
+        # Towns gained a game, on average, by each road.
+        'gained': {
+            road: round(
+                sum(r['gains'].get(road, 0) for r in runs) / len(runs), 2
+            )
+            for road in ('take', 'win', 'rise', 'found')
+        },
+        # Games where a people was named as holding half the map, and the
+        # share of those in which it did not go on to conquer it.
+        'leaders_named': len(led),
+        'leaders_caught': (
+            round(
+                sum(r['winner'] not in r['leaders'] for r in led) / len(led), 3
+            )
+            if led
+            else None
+        ),
+    }
+  conquests = {b: v['conquests'] for b, v in by_bot.items()}
+  return {
+      'scenario': rows[0]['scenario'],
+      'seeds': sum(1 for r in rows if r['bot'] == rows[0]['bot']),
+      'bots': by_bot,
+      'gap_random': round(
+          conquests.get('conqueror', 0) - conquests.get('random', 0), 3
+      ),
+  }
+
+
+def audit_people(
+    scenario: str,
+    seeds: int,
+    bots: Sequence[str] = tuple(war_rules.RULES),
+    ticks: int | None = None,
+    rivals: bool = True,
+) -> dict[str, Any]:
+  """Plays a scenario's peoples with each war rule over seeds 0..seeds-1."""
+  rows = [
+      play_people(scenario, bot, seed, ticks, rivals)
+      for bot in bots
+      for seed in range(seeds)
+  ]
+  return summarize_people(rows)
+
+
 def audit(
     scenario: str,
     seeds: int,
@@ -229,6 +366,19 @@ def main(argv: Sequence[str]) -> None:
   del argv
   values = flags.FLAGS
   for scenario in values.scenarios or list(scenarios_lib.SCENARIOS):
+    if values.people:  # A people's role, by war rules (stage 6, C8).
+      print(
+          json.dumps(
+              audit_people(
+                  scenario,
+                  values.seeds,
+                  values.people_bots,
+                  values.ticks,
+                  values.rivals,
+              )
+          )
+      )
+      continue
     print(json.dumps(audit(scenario, values.seeds, values.bots, values.ticks)))
 
 
@@ -237,4 +387,11 @@ if __name__ == '__main__':
   flags.DEFINE_integer('seeds', 16, 'Seeds per bot.')
   flags.DEFINE_list('bots', list(BOTS), 'Mock policy sets to compare.')
   flags.DEFINE_integer('ticks', None, "Overrides the scenarios' length.")
+  flags.DEFINE_bool('people', False, "Audit a people's role by war rules.")
+  flags.DEFINE_list(
+      'people_bots', list(war_rules.RULES), 'War rules to compare.'
+  )
+  flags.DEFINE_bool(
+      'rivals', True, 'Whether the other peoples answer a leader.'
+  )
   app.run(main)

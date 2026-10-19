@@ -67,6 +67,9 @@ class Settlement:
   taken: bool = False
   # Its regard for other peoples that court it with grain and envoys (C5).
   regard: dict[str, float] = dataclasses.field(default_factory=dict)
+  # The tick each people's envoys last reached it (it hears them once a
+  # turn; within a turn only, so not saved).
+  heard: dict[str, int] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -126,6 +129,8 @@ class Settlements:
     self.next_army = 1
     # The people named as holding much of the map (C7), '' if none.
     self.leader = ''
+    # Towns each people gained, by road: 'take', 'win', 'rise', 'found' (C8).
+    self.gains: dict[str, dict[str, int]] = {}
     # A whisper of seeded noise breaks ties between equally good tiles
     # (otherwise the first column of the map wins them all).
     self._jitter = 0.05 * np.random.default_rng([tile_map.seed, 8081]).random(
@@ -311,6 +316,8 @@ class Settlements:
     if place is None:
       return None, 'there is no free site left in their lands'
     self._route()
+    road = self.gains.setdefault(key, {})
+    road['found'] = road.get('found', 0) + 1
     return place, ''
 
   def find(self, town: int) -> tuple[Settlement, str] | None:
@@ -360,6 +367,8 @@ class Settlements:
     place.warned = False
     place.taken = how == 'take'
     place.regard = {}
+    road = self.gains.setdefault(taker, {})
+    road[how] = road.get(how, 0) + 1
     if place.capital:  # A people that lost its capital rules from its oldest.
       place.capital = False
       if self.places[holder]:
@@ -623,9 +632,9 @@ class Settlements:
                 # Each taken town not yet settled: its loyalty to its holder.
                 'restless': {
                     str(s.id): round(s.loyalty, 2)
-                    for v in self.places.values()
+                    for k, v in self.places.items()
                     for s in v
-                    if s.taken
+                    if s.taken or (k == self.leader and s.polity != k)
                 },
             }
             if self.conquest
@@ -719,9 +728,10 @@ class Settlements:
               f' its regard for them is {regard:.2f} of the {need:.2f} it'
               f' needs to leave us ({self.to_go(town, other):.0%} to go).'
           )
-        if town.taken:
+        if town.taken or (holder == self.leader and town.polity != holder):
+          how = 'taken from' if town.taken else 'won from'
           words.append(
-              f'Our town {self.where(town)}, taken from the'
+              f'Our town {self.where(town)}, {how} the'
               f' {self._name(town.polity)}, holds to us at'
               f' {town.loyalty:.2f} (settled at 1.00).'
           )
@@ -916,7 +926,10 @@ class Settlements:
     """Taken towns settle when held by arms, or grow restless and rise.
 
     A taken town held until its loyalty is whole is settled; a town won
-    over grows content a step a turn.
+    over grows content a step a turn. While a people is named as holding
+    half the map (`leader`), the others stir every town it holds of another
+    founder, won or taken: each must be held by arms, or it grows restless
+    and rises (the others answer a leader).
 
     Returns:
       (town, holder, 'warn' or 'rise') for each town that warns or rises.
@@ -929,13 +942,15 @@ class Settlements:
       for town in towns:
         if town.polity == holder:
           continue
-        held = not town.taken or self.strength(town) >= need
+        stirred = holder == self.leader  # The others stir the leader's towns.
+        held = (not town.taken and not stirred) or self.strength(town) >= need
+        loss = 2 * step if stirred else step  # The others stir it harder.
         town.loyalty = min(
-            1.0, max(0.0, town.loyalty + (step if held else -step))
+            1.0, max(0.0, town.loyalty + (step if held else -loss))
         )
-        if town.loyalty >= 1.0:
+        if town.loyalty >= 1.0 and not stirred:
           town.taken = False
-        if not town.taken:
+        if not (town.taken or stirred):
           continue
         if town.loyalty >= rise_at:
           town.warned = False
@@ -1134,6 +1149,7 @@ class Settlements:
                 'armies': [dataclasses.asdict(a) for a in self.armies],
                 'next_army': self.next_army,
                 **({'leader': self.leader} if self.leader else {}),
+                **({'gains': self.gains} if self.gains else {}),
             }
             if self.conquest
             else {}
@@ -1189,4 +1205,8 @@ class Settlements:
     ]
     self.next_army = int(state.get('next_army', 1))
     self.leader = str(state.get('leader', ''))
+    self.gains = {
+        str(k): {str(r): int(n) for r, n in v.items()}
+        for k, v in state.get('gains', {}).items()
+    }
     self._route()

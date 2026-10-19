@@ -2,6 +2,17 @@
 # with a button to its world, so a person knows what to look for. Add an
 # entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, dawn
+    world: great_acceleration
+    text: >-
+      The other peoples fight back. Played by the computer, a people now
+      arms when an army marches on it, strikes back at whoever wronged it,
+      feasts a town you are close to winning over, and marches on a people
+      that holds half the map; and while you hold half the map, every town
+      you won or took grows restless unless your arms hold it. Towns defend
+      a little harder, arms eat more, a cart of grain and envoys costs 5
+      grain, and a town hears one people's envoys once a turn (send carts
+      from several towns to several towns).
   - when: 19 Oct, morning
     world: great_acceleration
     text: >-
