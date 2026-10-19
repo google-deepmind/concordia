@@ -345,6 +345,9 @@
             border: 1px solid var(--accent); border-radius: 12px; padding: 10px 12px; box-shadow: 0 4px 18px #0004; }
   .aimbar .row { display: flex; gap: 8px; margin-top: 8px; }
   .aimbar button { flex: 1; }
+  .aimbar .aimtowns { display: flex; gap: 6px; margin-top: 6px; overflow-x: auto; scrollbar-width: none; }
+  .aimbar .aimtowns:empty { display: none; }
+  .aimbar .aimtowns button { flex: 0 0 auto; min-height: 34px; padding: 4px 10px; font-size: .82rem; white-space: nowrap; }
   .pin { font-size: .9em; }
   .inspect { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; font-size: .84rem; }
   .inspect .ihead { display: flex; justify-content: space-between; align-items: center; }
@@ -462,6 +465,7 @@
     </div>
     <div class="aimbar" id="aimbar" hidden>
       <span id="aimtext"></span>
+      <div class="aimtowns" id="aimtowns"></div>
       <div class="row"><button class="primary" id="aimgo">Here</button><button id="aimany">Anywhere</button><button id="aimno">Cancel</button></div>
     </div>
     <div class="stats" id="stats"></div>
@@ -828,6 +832,7 @@ function startAim(requestId, option) {
   $('aimtext').textContent = `Tap the map where to ${moveWords(option)}.`;
   $('aimgo').disabled = true;
   $('aimbar').hidden = false;
+  showAimTowns();
   setSheet(false);
   $('dock').hidden = true;
   $('mapcard').scrollIntoView({behavior: 'smooth', block: 'center'});
@@ -859,6 +864,36 @@ function townOrder(id, i) {
   startAim(q.request_id, move);
   aim.town = t.at;
   $('aimtext').textContent = `Tap the map where this town should ${moveWords(move)}.`;
+  showAimTowns();
+}
+// Aiming at a town: the other peoples' towns nearest where the move goes
+// from (the ordering town, else the capital), as buttons; a tap aims there,
+// as a tap on the map does (a small town is hard to hit with a thumb).
+function showAimTowns() {
+  const box = $('aimtowns'), m = lastMap, q = lastQuestion;
+  box.innerHTML = '';
+  if (!aim || !m || !m.peoples || !/^(march to (take|raze)|send grain and envoys)/.test(aim.option)) return;
+  const sites = m.peoples.settlements, cols = m.tile_cols;
+  const any = q && q.towns && Object.values(q.towns)[0];
+  const at = aim.town || (any && any.at);
+  const mine = at && sites.find((s) => s[2] === at[0] && s[3] === at[1]);
+  if (!mine) return;
+  const from = aim.town ? mine : (sites.find((s) => s[0] === mine[0] && s[4]) || mine);
+  const steps = (s) => {
+    const dc = Math.abs(s[3] - from[3]);
+    return Math.max(Math.abs(s[2] - from[2]), Math.min(dc, cols - dc));
+  };
+  const courting = aim.option.startsWith('send grain');  // Capitals are not courted.
+  box.innerHTML = sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]))
+    .sort((a, b) => steps(a) - steps(b)).slice(0, 6).map((s) => {
+    const lat = 90 - (s[2] + 0.5) * 180 / m.tile_rows;
+    return `<button data-at="${s[2]},${s[3]}">${escapeHtml(m.peoples.polities[s[0]].name)}${s[4] ? ' capital' : ''}`
+      + ` · ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}, tile ${s[3] + 1}</button>`;
+  }).join('');
+  for (const b of box.querySelectorAll('button')) {
+    b.addEventListener('click', () => aimAt(...b.dataset.at.split(',').map(Number)));
+  }
+  if (box.innerHTML) $('aimtext').textContent += ' Or pick a town nearby:';
 }
 function queueTownOrder(at, move, target) {
   townOrders = townOrders.filter((o) => !o.at || o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
