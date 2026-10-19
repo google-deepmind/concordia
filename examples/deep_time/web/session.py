@@ -2392,6 +2392,7 @@ class GameSession:
         ),
         'reason': planet.outcome_reason,
         'ticks': planet.tick,
+        'max_ticks': planet.max_ticks,
         'temps': [round(float(r['temp_c']), 1) for r in planet.history],
         'band': [low, high] if high - low <= 60 else None,
         # The player's moves on that line, where each acted, and which way

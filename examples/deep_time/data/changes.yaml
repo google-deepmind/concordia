@@ -11,7 +11,9 @@ changes:
       turn after turn while you wait (a march or a founding is given once).
       Aiming, each town in the list shows what the choice turns on: the
       arms seen in it for a march, how far it is from joining you for
-      envoys.
+      envoys. A people's end recap is about its towns: "8 of the 17 towns
+      (founded 1, won over 3); holding 13 would have won the age alone",
+      without the Steward's temperature chart.
   - when: 19 Oct, afternoon (4)
     world: great_acceleration
     role: Basalt clans
