@@ -949,6 +949,13 @@ function showTown(r, c) {
   redrawMap();
   $('inspect').scrollIntoView({behavior: 'smooth', block: 'center'});
 }
+// Each town gives one order a turn: how many more could give one now.
+function townsLeftWords() {
+  const towns = Object.values((lastQuestion && lastQuestion.towns) || {});
+  const given = townOrders.filter((o) => o.at).length;
+  const left = towns.filter((t) => !townOrders.some((o) => o.at && o.at[0] === t.at[0] && o.at[1] === t.at[1])).length;
+  return given && left ? ` Each town gives one order a turn; ${left} more of your towns can give one (tap them above).` : '';
+}
 function showTownOrders() {
   const p = $('townorders');
   p.hidden = !townOrders.length;
@@ -958,7 +965,7 @@ function showTownOrders() {
     return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ' (aimed)' : ''}`
       + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
   }).join('<br>')
-    + (townOrders.length ? '<br>These go with your move.' : '');
+    + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '');
   for (const b of p.querySelectorAll('button[data-drop]')) {
     b.addEventListener('click', () => { townOrders.splice(Number(b.dataset.drop), 1); showTownOrders(); redrawMap(); });
   }
