@@ -2,6 +2,13 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, morning (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      The button that keeps your course now says so: "Keep 5 turns". The
+      characters' town orders are read by their words, so a people that
+      writes "hold a feast in it" holds the feast.
   - when: 19 Oct, morning (2)
     world: fire_and_iron
     role: Basalt clans

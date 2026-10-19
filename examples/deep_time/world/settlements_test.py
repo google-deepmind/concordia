@@ -557,6 +557,12 @@ class SettlementsTest(absltest.TestCase):
     self.assertEqual(army.units, {'levies': 6.0})
     self.assertEqual(second.garrison, {})
     self.assertEqual(capital.garrison, {'levies': 4.0})
+    # An order written loosely is read by its words (a live mind's, c184).
+    planet.advance()
+    self.assertIn(
+        'feast their town',
+        basalt.resolve(f'town {at(capital)}: hold a feast in it'),
+    )
     # A town gives only a town's orders.
     self.assertIn(
         'cannot "put more labor into: farm the land"',

@@ -1428,7 +1428,8 @@ function renderDock(state) {
     sub = lastWord ? `Last turn: ${lastWord}`
       : state.hold && state.hold.stopped ? `Stopped holding: ${state.hold.stopped}.`
       : 'Choose what to do this turn.';
-    buttons = (state.hold ? '<button id="dockhold">Hold 5</button>' : '')
+    // "Hold 5" puzzled a newcomer (c183): it says what it does.
+    buttons = (state.hold ? '<button id="dockhold" aria-label="Keep your course for 5 turns">Keep 5 turns</button>' : '')
       + `<button class="primary" id="dockgo">${sheetOpen ? 'Hide' : 'Choose'}</button>`;
   } else {
     const sent = (sentNow && sentNow.tick === now ? sentNow : null) || (last && last.tick === now ? last : null);

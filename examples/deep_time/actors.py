@@ -73,9 +73,22 @@ WORDS_HINT = (
     ' own: "words to the <people>: <words>".'
 )
 ORDERS_HINT = (
-    'Each of your towns may also give one order this turn (march from it,'
-    ' send grain and envoys, hold a feast in it, found a new town), each on'
-    ' a line of its own: "town row,col: <move> @ row,col".'
+    'Each of your towns may also give one order this turn, each on a line of'
+    ' its own: "town row,col: <move> @ row,col", the move one of: march to'
+    ' take a town, march to raze a town, send grain and envoys to a town,'
+    ' hold a feast in a town, found a new town.'
+)
+# A town's order read by its words, when not written as the move is (a live
+# mind wrote "hold a feast in it", c184): the first key word found.
+TOWN_WORDS = (
+    ('raze', MARCH_RAZE),
+    ('march', MARCH_TAKE),
+    ('take', MARCH_TAKE),
+    ('envoy', SEND_ENVOYS),
+    ('grain', SEND_ENVOYS),
+    ('feast', HOLD_FEAST),
+    ('found', FOUND_TOWN),
+    ('settle', FOUND_TOWN),
 )
 # A people adopts the standing orders its scribes drafted (a draft is only
 # counsel until then).
@@ -1253,6 +1266,8 @@ class PolityActor(Actor):
       return f'Their town {where} gave its order this turn already.'
     given.add(town.id)
     text = move.lower()
+    if not text.startswith(TOWN_MOVES):  # Read by its words.
+      text = next((m for w, m in TOWN_WORDS if w in text), text)
     if not text.startswith(TOWN_MOVES):
       return (
           f'Their town {where} cannot "{move}": a town marches, sends grain'
