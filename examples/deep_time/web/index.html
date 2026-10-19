@@ -869,33 +869,58 @@ function townOrder(id, i) {
 // Aiming at a town: the other peoples' towns nearest where the move goes
 // from (the ordering town, else the capital), as buttons; a tap aims there,
 // as a tap on the map does (a small town is hard to hit with a thumb).
-function showAimTowns() {
-  const box = $('aimtowns'), m = lastMap, q = lastQuestion;
-  box.innerHTML = '';
-  if (!aim || !m || !m.peoples || !/^(march to (take|raze)|send grain and envoys)/.test(aim.option)) return;
+// The other peoples' towns a march or envoys may go to from a town (or,
+// for the people's own move, from its capital): nearest first; for envoys
+// the towns already courted first, nearest to joining first, without
+// capitals or a town another of your towns courts this turn.
+function aimSites(option, town) {
+  const m = lastMap, q = lastQuestion;
+  if (!m || !m.peoples || !/^(march to (take|raze)|send grain and envoys)/.test(option)) return null;
   const sites = m.peoples.settlements, cols = m.tile_cols;
   const any = q && q.towns && Object.values(q.towns)[0];
-  const at = aim.town || (any && any.at);
+  const at = town || (any && any.at);
   const mine = at && sites.find((s) => s[2] === at[0] && s[3] === at[1]);
-  if (!mine) return;
-  const from = aim.town ? mine : (sites.find((s) => s[0] === mine[0] && s[4]) || mine);
+  if (!mine) return null;
+  const from = town ? mine : (sites.find((s) => s[0] === mine[0] && s[4]) || mine);
   const steps = (s) => {
     const dc = Math.abs(s[3] - from[3]);
     return Math.max(Math.abs(s[2] - from[2]), Math.min(dc, cols - dc));
   };
-  const courting = aim.option.startsWith('send grain');  // Capitals are not courted.
-  // Envoys: the towns already courted first, nearest to joining first.
+  const courting = option.startsWith('send grain');
   const leaning = m.peoples.leaning || {};
   const toGo = (s) => {
     const lean = leaning[s[1]];
     return courting && lean && lean[0] === mine[0] ? 1 - lean[1] / lean[2] : 2;
   };
-  // A town hears a people's envoys once a turn: one another of your towns
-  // sends to this turn is left out.
+  // A town hears a people's envoys once a turn.
   const sent = (s) => courting && townOrders.some((o) => o.target && o.target.r === s[2] && o.target.c === s[3]
-    && o.move.startsWith('send grain') && !(aim.town && o.at[0] === aim.town[0] && o.at[1] === aim.town[1]));
-  box.innerHTML = sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]) && !sent(s))
-    .sort((a, b) => toGo(a) - toGo(b) || steps(a) - steps(b)).slice(0, 6).map((s) => {
+    && o.move.startsWith('send grain') && !(town && o.at[0] === town[0] && o.at[1] === town[1]));
+  return {
+    m, mine, from, courting, leaning,
+    sites: sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]) && !sent(s))
+      .sort((a, b) => toGo(a) - toGo(b) || steps(a) - steps(b)),
+  };
+}
+// Envoys from every town that can send them, each to a different town (as
+// many town orders, queued as one by one).
+function envoysEverywhere() {
+  const q = lastQuestion;
+  for (const t of Object.values((q && q.towns) || {})) {
+    const move = t.orders.find((o) => o.startsWith('send grain'));
+    if (!move || townOrders.some((o) => o.at && o.at[0] === t.at[0] && o.at[1] === t.at[1])) continue;
+    const found = aimSites(move, t.at);
+    const site = found && found.sites[0];
+    if (site) townOrders.push({at: t.at, move, target: {r: site[2], c: site[3]}});
+  }
+  showQueued();
+}
+function showAimTowns() {
+  const box = $('aimtowns');
+  box.innerHTML = '';
+  const found = aim && aimSites(aim.option, aim.town);
+  if (!found) return;
+  const {m, mine, from, courting, leaning} = found;
+  box.innerHTML = found.sites.slice(0, 6).map((s) => {
     const lat = 90 - (s[2] + 0.5) * 180 / m.tile_rows;
     // What the choice turns on: the arms seen in it (a march), or how far
     // it is from joining you (envoys).
@@ -924,6 +949,9 @@ function showAimTowns() {
 function queueTownOrder(at, move, target) {
   townOrders = townOrders.filter((o) => !o.at || o.at[0] !== at[0] || o.at[1] !== at[1]);  // One a town.
   townOrders.push({at, move, target});
+  showQueued();
+}
+function showQueued() {
   showTownOrders(); showInspect(); redrawMap();
   // Seen at once: the move opens on the orders queued, with the people's
   // move (which sends them) below.
@@ -946,10 +974,14 @@ function renderTownHint(q) {
   $('townhint').innerHTML = orderable
     ? `Your towns can each give an order too (${orderable} can this turn, marked <span style="color:#d98a2b">●</span> on the map): tap one, on the map or here, to march from it, send grain and envoys, feast it or found a town.`
       + `<br>${townButtons(q.towns)}`
+      // Courting from several towns at once (a feast answers one a turn).
+      + (Object.values(q.towns).filter((t) => t.orders.some((o) => o.startsWith('send grain'))).length > 1
+        ? '<br><button class="townbtn" id="envoysall">✉ Envoys from every town, each to a different town</button>' : '')
     : war ? 'Your towns can each give an order once you have the means: arms raised to march, grain to spare for envoys or a feast, or settlers and goods to found a town.' : '';
   for (const b of $('townhint').querySelectorAll('button[data-at]')) {
     b.addEventListener('click', () => showTown(...b.dataset.at.split(',').map(Number)));
   }
+  if ($('envoysall')) $('envoysall').addEventListener('click', envoysEverywhere);
 }
 function townButtons(towns) {
   const sites = (lastMap && lastMap.peoples && lastMap.peoples.settlements) || [];

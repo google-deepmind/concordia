@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night (3)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      "Envoys from every town": one tap under the hint has each of your
+      towns that can send grain and envoys court a different town (the ones
+      you court already first). A feast answers one town a turn; several
+      courtships at once are how grain wins towns from a watchful people.
   - when: 19 Oct, night (2)
     world: fire_and_iron
     role: Basalt clans
