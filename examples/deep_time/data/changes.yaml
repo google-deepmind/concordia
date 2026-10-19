@@ -2,6 +2,13 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, night (4)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      A courtship stands: a town's envoys (or feast) stay given from turn
+      to turn, marked "each turn until you cancel it", until you tap ✕ or
+      the courted town joins you. Marches and foundings are given once.
   - when: 19 Oct, night (3)
     world: great_acceleration
     role: Basalt clans

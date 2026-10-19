@@ -813,7 +813,7 @@ async function answer(requestId, response, target) {
   setSheet(false);
   $('dock').className = 'dock turning sent';
   $('dockmain').textContent = `✓ Sent: ${shortMove(response)}${lines.length ? ` + ${lines.length} town order${lines.length === 1 ? '' : 's'}` : ''}`;
-  townOrders = []; showTownOrders();
+  townOrders = townOrders.filter((o) => o.at && STANDING.test(o.move)); showTownOrders();
   $('docksub').textContent = 'The world turns';
   $('dockbtns').innerHTML = ''; $('dockbtns').dataset.html = '';
   refresh();
@@ -856,6 +856,22 @@ function aimAt(r, c) {
 // Orders from towns: a tap on one of your towns lists what it may do this
 // turn; a second tap aims it. They go with your move, a line each.
 let townOrders = [];  // {at: [r, c], move, target}
+// A town's envoys and feasts stand from turn to turn (a courtship takes
+// carts turn after turn) until cancelled, the town can no longer give them,
+// or the courted town has joined; a march or a founding is given once.
+const STANDING = /^(send grain and envoys|hold a feast)/;
+function standingOrders(q) {
+  const sites = (lastMap && lastMap.peoples && lastMap.peoples.settlements) || [];
+  const at = (r, c) => sites.find((s) => s[2] === r && s[3] === c);
+  return townOrders.flatMap((o) => {
+    if (!o.at || !STANDING.test(o.move)) return [];
+    const town = Object.values((q && q.towns) || {}).find((t) => t.at[0] === o.at[0] && t.at[1] === o.at[1]);
+    const move = town && town.orders.find((m) => m.split(' ').slice(0, 3).join(' ') === o.move.split(' ').slice(0, 3).join(' '));
+    const ours = at(...o.at), there = o.target && at(o.target.r, o.target.c);
+    if (!move || (ours && there && there[0] === ours[0])) return [];  // Joined us.
+    return [{...o, move}];
+  });
+}
 function townOrder(id, i) {
   const q = lastQuestion, t = q && q.towns && q.towns[id];
   if (!t) return;
@@ -1021,6 +1037,7 @@ function showTownOrders() {
     if (o.to) return `To the ${escapeHtml(o.to)}: “${escapeHtml(o.text)}” <button data-drop="${i}" aria-label="Drop these words">✕</button>`;
     const lat = 90 - (o.at[0] + 0.5) * 180 / ((lastMap && lastMap.tile_rows) || 1);
     return `Your town at ${Math.abs(lat).toFixed(0)}°${lat >= 0 ? 'N' : 'S'}: ${escapeHtml(moveWords(o.move))}${o.target ? ` (${escapeHtml(targetWords(o.target))})` : ''}`
+      + (STANDING.test(o.move) ? ' · each turn until you cancel it' : '')
       + ` <button data-drop="${i}" aria-label="Drop this order">✕</button>`;
   }).join('<br>')
     + (townOrders.length ? `<br>These go with your move.${townsLeftWords()}` : '');
@@ -1136,7 +1153,7 @@ function renderQuestion(q) {
   lastContext = q.context + (q.call_to_action ? `\n\n${q.call_to_action}` : '');  // The whole prompt.
   if (q.request_id === shownRequest) return;
   shownRequest = q.request_id;
-  townOrders = []; showTownOrders();
+  townOrders = standingOrders(q); showTownOrders();
   renderTownHint(q);
   const peoples = q.speak || [];  // Words to other peoples (where conquest is).
   $('wordsrow').hidden = !peoples.length;
