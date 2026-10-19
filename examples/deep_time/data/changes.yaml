@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, afternoon (4)
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Courting a town takes carts turn after turn: when your envoys come
+      after skipped turns, the outcome says how far the town cooled
+      meanwhile. A town's card says what a march from it needs when it
+      holds no arms.
   - when: 19 Oct, afternoon (3)
     world: great_acceleration
     role: Basalt clans

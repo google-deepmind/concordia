@@ -1224,20 +1224,29 @@ class Planet:
           {},
           '',
       )
-    town.heard[polity] = self.tick
+    last, town.heard[polity] = town.heard.get(polity), self.tick
     civ.ledger.withdraw(polity, 'grain', cost, 'envoys')
     hungry = civ.polities[holder].food_ratio < 1.0 - 1e-9
     gain = float(towns.war.get('gift_regard', 0.15)) * (2.0 if hungry else 1.0)
     regard = towns.court(town.id, polity, gain)
     need = towns.need(town)
     why = f' (twice as warm: the {held_by} go hungry)' if hungry else ''
+    # Turns skipped since their last envoys: the town cooled meanwhile.
+    gap = self.tick - last if last is not None else 0
+    cooled = (
+        f' It had cooled since their envoys {gap} turns ago: regard fades'
+        f' by {float(towns.war.get("regard_fade", 0.02)):g} each turn no'
+        ' cart comes.'
+        if gap > 1
+        else ''
+    )
     if regard < need - 1e-9:
       to_go = towns.to_go(town, polity)
       return (
           news_lib.located(
               f'{name} send {cost:g} grain and envoys to a town of the'
               f' {held_by} {where}: its regard for them is {regard:.2f} of'
-              f' the {need:.2f} it needs ({to_go:.0%} to go){why}.',
+              f' the {need:.2f} it needs ({to_go:.0%} to go){why}.{cooled}',
               (town.row, town.col),
           ),
           {

@@ -447,6 +447,21 @@ class SettlementsTest(absltest.TestCase):
     self.assertFalse(any('restless' in t for t in told), told)
     self.assertAlmostEqual(town.loyalty, 0.65)
 
+  def test_envoys_after_skipped_turns_say_the_town_cooled(self):
+    from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
+
+    planet, _, _, town, basalt = self._courted()
+    (move,) = [
+        o for o in basalt.options() if o.startswith(actors_lib.SEND_ENVOYS)
+    ]
+    planet.set_target('Basalt clans', town.row, town.col)
+    self.assertNotIn('cooled', basalt.resolve(move))  # The first cart.
+    town.heard['basalt'] = planet.tick - 5  # Their last, five turns ago.
+    planet.set_target('Basalt clans', town.row, town.col)
+    told = basalt.resolve(move)
+    self.assertIn('It had cooled since their envoys 5 turns ago', told)
+    self.assertIn('regard fades by 0.04 each turn', told)
+
   def test_a_feast_answers_envoys_and_settles_a_taken_town(self):
     from examples.deep_time import actors as actors_lib  # pylint: disable=g-import-not-at-top
 
