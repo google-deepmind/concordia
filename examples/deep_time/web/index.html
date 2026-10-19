@@ -890,7 +890,11 @@ function showAimTowns() {
     const lean = leaning[s[1]];
     return courting && lean && lean[0] === mine[0] ? 1 - lean[1] / lean[2] : 2;
   };
-  box.innerHTML = sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]))
+  // A town hears a people's envoys once a turn: one another of your towns
+  // sends to this turn is left out.
+  const sent = (s) => courting && townOrders.some((o) => o.target && o.target.r === s[2] && o.target.c === s[3]
+    && o.move.startsWith('send grain') && !(aim.town && o.at[0] === aim.town[0] && o.at[1] === aim.town[1]));
+  box.innerHTML = sites.filter((s) => s[0] !== mine[0] && !(courting && s[4]) && !sent(s))
     .sort((a, b) => toGo(a) - toGo(b) || steps(a) - steps(b)).slice(0, 6).map((s) => {
     const lat = 90 - (s[2] + 0.5) * 180 / m.tile_rows;
     // What the choice turns on: the arms seen in it (a march), or how far
