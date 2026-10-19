@@ -1119,7 +1119,9 @@ class Settlements:
       if army.polity == polity:
         for kind, n in army.units.items():
           held[kind] = held.get(kind, 0.0) + n
-    return sum(
+    # A poorer age feeds its arms on less (a world's `upkeep_scale`).
+    scale = float(self.war.get('upkeep_scale', 1.0))
+    return scale * sum(
         n * float(self.arms.get(k, {}).get('upkeep', 0.0))
         for k, n in held.items()
     )

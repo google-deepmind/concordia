@@ -2,6 +2,14 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, afternoon
+    world: fire_and_iron
+    role: Basalt clans
+    text: >-
+      Fire and Iron's peoples can make peace now (peace pacts, as on the
+      Great Acceleration), and an iron-age army eats less: a people of six
+      can keep a few levies without starving. Before, arming a few turns
+      emptied the granary and the levies deserted.
   - when: 19 Oct, noon
     world: fire_and_iron
     role: Basalt clans
