@@ -8,7 +8,8 @@ changes:
     text: >-
       Your towns that can give an order are listed under the hint in your
       move, each a button: tap one to see the town and its orders, as a tap
-      on it on the map does.
+      on it on the map does. "Keep 5 turns" now sends the town orders you
+      gave this turn with it (it dropped them before).
   - when: 19 Oct, afternoon (2)
     world: great_acceleration
     role: Basalt clans
