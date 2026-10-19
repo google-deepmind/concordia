@@ -743,7 +743,9 @@ class GameSessionTest(absltest.TestCase):
     self.addCleanup(game.cancel)
     _wait_for(lambda: game.state()['question'])
     game.seats[game.entity].hold_pace = 0.05  # Quick turns for the test.
-    self.assertEqual(game.state()['hold'], {'turns': 0, 'stopped': ''})
+    self.assertEqual(
+        game.state()['hold'], {'turns': 0, 'stopped': '', 'keeping': 0}
+    )
     self.assertIsNone(game.hold_course(None, 3))  # Answers the pending turn.
     _wait_for(lambda: game.state()['hold']['turns'] == 0)
     held = [c for c in game.choices if c.startswith('(holding course)')]
@@ -757,7 +759,7 @@ class GameSessionTest(absltest.TestCase):
     _wait_for(lambda: game.state()['hold']['stopped'])
     self.assertEqual(
         game.state()['hold'],
-        {'turns': 0, 'stopped': 'the climate has left its band'},
+        {'turns': 0, 'stopped': 'the climate has left its band', 'keeping': 0},
     )
     watched = session_lib.GameSession('daisyworld', 'watch')
     self.assertIsNotNone(watched.hold_course(None, 3))  # Players only.
@@ -889,6 +891,32 @@ class GameSessionTest(absltest.TestCase):
     self.assertIsNone(state['hold'])  # Nothing left to hold.
     self.assertEqual(game.hold_course(None, 5), 'The game is decided.')
     self.assertTrue(all(s['met'] is not None for s in state['stars']))
+
+  def test_holding_course_repeats_a_towns_envoys(self):
+    game = session_lib.GameSession(
+        'great_acceleration', 'play', role='Basalt clans'
+    ).start()
+    self.addCleanup(game.join, 30)
+    self.addCleanup(game.cancel)
+    game.seats[game.entity].hold_pace = 0.05
+    question = _question(game)
+    (town,) = list(question['towns'].values())[:1]
+    row, col = town['at']
+    envoys = f'town {row},{col}: {actors_lib.SEND_ENVOYS}'
+    march = f'town {row},{col}: {actors_lib.MARCH_TAKE}'
+    start = game.state()['tick']
+    # A march is given once: only the envoys are kept.
+    self.assertIsNone(game.hold_course(None, 2, keep=[envoys, march]))
+    self.assertEqual(game.seats[game.entity].keeping, [envoys])
+    _wait_for(lambda: game.state()['tick'] >= start + 2)
+    held = [t for t in game.seats[game.entity].played if t['how'] == 'held']
+    self.assertLen(held, 2)
+    self.assertTrue(all(t['orders'] == [envoys] for t in held))
+    self.assertEqual(game.seats[game.entity].keeping, [])  # The hold ended.
+    told = [m['outcome'] for m in game.state()['moves'] if m['how'] == 'held']
+    self.assertTrue(
+        any('send 5 grain and envoys' in o for o in told if o), told
+    )
 
   def test_a_turn_of_town_orders_counts_as_acting(self):
     game = session_lib.GameSession(

@@ -125,6 +125,14 @@ NEUTRAL_OPTIONS = (
 )
 
 
+def _kept_order(line: str) -> bool:
+  """Whether a town's order may repeat while holding course (envoys, feasts)."""
+  found = actors_lib.TOWN_ORDER.match(str(line).strip())
+  return bool(found) and found.group(3).strip().lower().startswith(
+      (actors_lib.SEND_ENVOYS, actors_lib.HOLD_FEAST)
+  )
+
+
 # Moves planned ahead: at most this many at once, each at
 # most this many turns ahead (the forecast's course is six turns long).
 MAX_PLANS = 3
@@ -175,6 +183,9 @@ class Seat(human_input.HumanInput):
     # unless `guard` finds a reason to stop (then kept in `stopped`).
     self.hold = 0
     self.stopped = ''
+    # Town orders kept while holding course: each held turn repeats them (a
+    # courtship or a feast goes on).
+    self.keeping: list[str] = []
     self.guard: Callable[[], str] | None = None
     # True once the game is decided: the engine's last question then needs
     # no one, and is answered with the neutral move at once.
@@ -218,6 +229,7 @@ class Seat(human_input.HumanInput):
           'plans': {str(t): m for t, m in self.plans.items()},
           'hold': self.hold,
           'stopped': self.stopped,
+          'keeping': list(self.keeping),
       }
 
   def restore(self, saved: Mapping[str, Any]) -> None:
@@ -229,6 +241,7 @@ class Seat(human_input.HumanInput):
       self.plans = {int(t): str(m) for t, m in saved.get('plans', {}).items()}
       self.hold = int(saved.get('hold', 0))
       self.stopped = str(saved.get('stopped', ''))
+      self.keeping = [str(line) for line in saved.get('keeping', ())]
 
   def _planned(self, request: human_input.HumanInputRequest) -> str | None:
     """The move planned for this turn, if it can be made (under the lock)."""
@@ -258,18 +271,30 @@ class Seat(human_input.HumanInput):
     options = self.offered(request)
     calm = [o for o in options if o in NEUTRAL_OPTIONS]
     if self.hold <= 0:
+      self.keeping = []
       return None
     if not calm:  # No move that changes nothing: the person must choose.
-      self.hold, self.stopped = 0, 'this question needs your answer'
+      self.hold, self.stopped, self.keeping = (
+          0,
+          'this question needs your answer',
+          [],
+      )
       return None
     reason = self.guard() if self.guard is not None else ''
     if reason:  # Something needs the person: stop holding and ask.
-      self.hold, self.stopped = 0, reason
+      self.hold, self.stopped, self.keeping = 0, reason, []
       return None
     self.hold -= 1
     self.choices.append(f'(holding course) {calm[0]}')
     self._note(calm[0], 'held', list(options))
-    return calm[0]
+    keeping = self.keeping
+    if not self.hold:
+      self.keeping = []  # The last held turn: nothing kept after it.
+    if not keeping:
+      return calm[0]
+    self.sent[-1]['orders'] = list(keeping)  # For replays and the page.
+    self.played[-1]['orders'] = list(keeping)
+    return '\n'.join([calm[0], *keeping])
 
   def _note(
       self,
@@ -310,10 +335,16 @@ class Seat(human_input.HumanInput):
       if what and what not in self.looked and len(self.looked) < LOOKS:
         self.looked.append(what)
 
-  def hold_course(self, turns: int) -> None:
-    """Makes the neutral move for `turns` turns (0 stops); answers now if asked."""
+  def hold_course(self, turns: int, keep: Sequence[str] = ()) -> None:
+    """Makes the neutral move for `turns` turns (0 stops); answers now if asked.
+
+    Args:
+      turns: How many turns to hold.
+      keep: Town orders each held turn repeats.
+    """
     with self._lock:
       self.hold, self.stopped = max(0, min(10, int(turns))), ''
+      self.keeping = list(keep) if self.hold else []
       request = self._request
       held = self._held(request) if request is not None and self.hold else None
       if held is not None:
@@ -1097,8 +1128,20 @@ class GameSession:
         return
       time.sleep(0.05)
 
-  def hold_course(self, seat: str | None, turns: int) -> str | None:
-    """A player holds course for some turns (0 stops); None, or why not."""
+  def hold_course(
+      self, seat: str | None, turns: int, keep: Sequence[str] = ()
+  ) -> str | None:
+    """A player holds course for some turns (0 stops); None, or why not.
+
+    Args:
+      seat: The player's seat (None: the first).
+      turns: How many turns to hold.
+      keep: Its towns' orders to repeat each held turn: envoys and feasts
+        only (a march or a founding is given once).
+
+    Returns:
+      None, or why it was refused.
+    """
     if self.mode != 'play' or self._spectating(seat):
       return 'Only a player can hold course.'
     if self.finished or self._decided():
@@ -1107,7 +1150,7 @@ class GameSession:
     place = self.seats[entity]
     if place.guard is None:
       place.guard = lambda: self._needs_you(entity)
-    place.hold_course(turns)
+    place.hold_course(turns, [line for line in keep if _kept_order(line)])
     return None
 
   def look(self, seat: str | None, what: str) -> str | None:
@@ -2697,7 +2740,11 @@ class GameSession:
             or self.mode != 'play'
             or self.finished
             or self._decided()
-            else {'turns': place.hold, 'stopped': place.stopped}
+            else {
+                'turns': place.hold,
+                'stopped': place.stopped,
+                'keeping': len(place.keeping),
+            }
         ),
         # What came of the course just held, in the player's own readings:
         # shown until they move again.

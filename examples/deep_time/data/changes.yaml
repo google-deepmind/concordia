@@ -2,6 +2,13 @@
 # with a button to its world (as `role`, if the change is about one), so a
 # person knows what to look for. Add an entry in the cycle that changes play.
 changes:
+  - when: 19 Oct, evening
+    world: great_acceleration
+    role: Basalt clans
+    text: >-
+      Keeping your course keeps your courtship: a town's envoys or feast
+      given with "Keep 5 turns" go again each held turn, so a town warms
+      turn after turn while you wait (a march or a founding is given once).
   - when: 19 Oct, afternoon (4)
     world: great_acceleration
     role: Basalt clans

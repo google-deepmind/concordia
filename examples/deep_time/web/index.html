@@ -1495,7 +1495,8 @@ function renderDock(state) {
   } else if (state.hold && state.hold.turns > 0) {
     mode = 'turning';
     main = `Holding course · ${state.hold.turns} turn${state.hold.turns === 1 ? '' : 's'} left`;
-    sub = lastWord || 'It stops by itself if something needs you.';
+    sub = state.hold.keeping ? 'Your envoys and feasts go on each turn; it stops by itself if something needs you.'
+      : lastWord || 'It stops by itself if something needs you.';
     buttons = '<button id="dockstop">Stop</button>';
   } else if (q) {
     sentNow = null;
@@ -1577,11 +1578,15 @@ async function holdCourse(turns) {
   const seat = new URLSearchParams(location.search).get('seat');
   // Town orders or words given this turn go with its kept course, never
   // dropped: this turn is answered with them, the rest held.
+  // A town's envoys or feast go on each held turn (a courtship takes carts
+  // turn after turn); a march or a founding is given once.
   const q = lastQuestion, keep = q && turns > 0 && townOrders.length
     && (q.options || []).find((o) => NEUTRAL_MOVES.test(o));
   if (keep) {
+    const again = townOrders.filter((o) => o.at && /^(send grain and envoys|hold a feast)/.test(o.move))
+      .map((o) => `town ${o.at[0]},${o.at[1]}: ${o.move}${o.target ? ` @ ${o.target.r},${o.target.c}` : ''}`);
     await answer(q.request_id, keep);
-    if (turns > 1) await api('api/hold', {turns: turns - 1, seat});
+    if (turns > 1) await api('api/hold', {turns: turns - 1, seat, keep: again});
   } else {
     await api('api/hold', {turns, seat});
   }
@@ -1592,7 +1597,8 @@ function renderHold(hold) {
   card.hidden = !hold;
   if (!hold) return;
   if (hold.turns > 0) {
-    $('holdtext').innerHTML = `Holding course · <b>${hold.turns}</b> turn${hold.turns === 1 ? '' : 's'} left`;
+    $('holdtext').innerHTML = `Holding course · <b>${hold.turns}</b> turn${hold.turns === 1 ? '' : 's'} left`
+      + (hold.keeping ? ` · your town${hold.keeping === 1 ? "'s" : "s'"} envoys and feasts go on each turn` : '');
     $('holdrow').innerHTML = '<button id="holdstop">Stop</button>';
     $('holdstop').onclick = () => holdCourse(0);
   } else {

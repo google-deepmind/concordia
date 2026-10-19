@@ -655,13 +655,15 @@ class Games:
       return 'No game is running.'
     return game.choose(request_id, response, target)
 
-  def hold_course(self, seat: str | None, turns: int) -> str | None:
+  def hold_course(
+      self, seat: str | None, turns: int, keep: Sequence[str] = ()
+  ) -> str | None:
     """A player holds course for some turns: None, or why it was refused."""
     with self._lock:
       game = self.current
     if game is None:
       return 'No game is running.'
-    return game.hold_course(seat, turns)
+    return game.hold_course(seat, turns, keep)
 
   def look(self, seat: str | None, what: str) -> str | None:
     """A player looked at something on the page: None, or why not kept."""
@@ -938,7 +940,12 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         except (TypeError, ValueError, OverflowError):
           turns = 0
         seat = body.get('seat')
-        error = games.hold_course(str(seat) if seat else None, turns)
+        keep = body.get('keep')  # Town orders to repeat each held turn.
+        error = games.hold_course(
+            str(seat) if seat else None,
+            turns,
+            [str(k) for k in keep][:20] if isinstance(keep, list) else [],
+        )
         self._json({'ok': error is None, 'error': error or ''})
       elif path == '/api/look':
         # What the player looked at this turn, for play telemetry.
