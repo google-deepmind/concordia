@@ -333,7 +333,7 @@ class NextActingInFixedOrder(entity_component.ContextComponent):
     """Sets the state of the component."""
     with self._lock:
       self._currently_active_player_idx = state['currently_active_player_idx']
-      self._sequence = list(state['sequence'])  # pyrefly: ignore[bad-argument-type]
+      self._sequence = list(state['sequence'])  # pyrefly: ignore[bad-argument-type, bad-assignment]
 
 
 class NextActingInRandomOrder(entity_component.ContextComponent):
