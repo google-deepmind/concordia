@@ -225,10 +225,32 @@ fire_and_iron:
   instruments: naturalists
   attention: true
   wakeups: true
+  # In a game played with the mock's minds, the computer's peoples answer
+  # war by a rule (stage 6, C8; see the Great Acceleration), marching with
+  # the fewer arms a poorer age raises.
+  conquest_bots: {strike: 3.0, rival_strike: 5.0}
   civilization:
     aims: [iron]
     trade: true
     backlash: true
+    # Treaties: peace pacts any two armed peoples may make (stage 6, C7),
+    # and coal treaties once a people knows diplomacy.
+    treaties: true
+    # Towns can change hands (stage 6, C8: the second kept world), with the
+    # arms of the iron age: spears, coppiced bows, axes (the plough's horses
+    # lie beyond a game's know-how there).
+    conquest: true
+    arms: [levies, bows, axes]
+    # A town costs a poorer age less to found (data/settlements.yaml), and
+    # its small towns defend and settle with fewer hands (data/arms.yaml).
+    settlements: {founding: {grain: 2.0, tools: 1.0}}
+    war: {militia: 0.8, capital_militia: 1.5, hold_need: 1.5, upkeep_scale: 0.4}
+    polity_goal: >-
+      Keep your people fed through every generation and forge iron into
+      tools so that your children work less and live better (the peoples
+      together must forge 110 iron, and none may starve). Or win alone: hold
+      three of every four towns, taken by arms, won with grain or risen to
+      you, and the age is yours.
     # Peoples act every tick: with wake-ups (civ.yaml) they acted 22 of 40
     # ticks and the economy collapsed (default 69% -> 0% wins).
     wakeups: false
@@ -304,18 +326,30 @@ great_acceleration:
   instruments: naturalists
   attention: true
   wakeups: true
+  # In a game played with the mock's minds, the computer's peoples answer
+  # war by a rule (`war_rules.Rival`: arm when marched on, strike back at a
+  # wrong, feast a courted town, march on a leader); live minds play their
+  # characters (stage 6, C8).
+  conquest_bots: true
   civilization:
     age: the age of coal and steam
     polity_goal: >-
       Keep your people fed, and power your machines: mine coal, learn steam
       power and burn coal in steam engines to make energy (the peoples
       together must make 600 energy), but keep the air under 1.3 times its
-      old carbon, for your harvests depend on the climate.
+      old carbon, for your harvests depend on the climate. Or win alone:
+      hold three of every four towns, taken by arms, won with grain or
+      risen to you, and the age is yours.
     aims: [energy]
     trade: true
     backlash: true
     treaties: true
     media: true
+    # Towns can change hands (stage 6, C1): each kept by its holder, apart
+    # from its founder, with loyalty, walls and a garrison.
+    conquest: true
+    # The arms of its age (data/arms.yaml): spears, horses, steel.
+    arms: [levies, riders, guns]
     # The presses are the Cedar league's: its printers retell the omens.
     press_owner: cedar
     printers: >-

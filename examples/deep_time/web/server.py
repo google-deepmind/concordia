@@ -126,11 +126,134 @@ BUILD = build()
 BUILD_MARK = '/*@build*/null'
 
 
+# Characters after which a `/` starts a regular expression, not a division.
+_BEFORE_REGEX = frozenset('(,=:[!&|?{};+-*%<>~^')
+_REGEX_WORDS = ('return', 'typeof', 'case', 'in', 'of', 'delete', 'void')
+
+
+def lean(script: str) -> str:
+  """A script without its comment lines, as the phone gets it.
+
+  The sources keep their comments; the page leaves out every line that is a
+  `//` comment and every block comment that starts a line (`/* ... */`,
+  ending a line). A scanner follows strings, template literals (and their
+  `${}`) and regular expressions, so nothing inside them is touched, and no
+  line of code is changed.
+
+  Args:
+    script: JavaScript.
+
+  Returns:
+    The same script without its comment lines.
+  """
+  kept = []
+  # Where the scanner is at the start of a line: a stack of 'code' and 'tpl'
+  # (a template literal), with each code's open braces; or inside a block
+  # comment.
+  stack, braces = ['code'], [0]
+  block = False  # Inside a block comment that started mid-line (kept).
+  dropping = False  # Inside a block comment that started a line (dropped).
+  prev = ''  # The last significant character of code.
+  for line in script.split('\n'):
+    head = line.strip()
+    at_code = not block and stack[-1] == 'code'
+    if dropping:
+      if '*/' not in line:
+        continue
+      dropping = False
+      line = line[line.index('*/') + 2 :]  # Code after the comment stays.
+      if not line.strip():
+        continue
+      head = line.strip()
+    if at_code and head.startswith('//'):
+      continue
+    if at_code and head.startswith('/*'):
+      end = head.find('*/', 2)
+      if end < 0:
+        dropping = True
+        continue
+      if end + 2 == len(head):
+        continue
+    kept.append(line)
+    i, n = 0, len(line)
+    while i < n:
+      ch = line[i]
+      if block:
+        end = line.find('*/', i)
+        if end < 0:
+          break
+        block, i = False, end + 2
+        continue
+      if stack[-1] == 'tpl':
+        if ch == '\\':
+          i += 2
+        elif ch == '`':
+          stack.pop()
+          braces.pop()
+          prev = '`'
+          i += 1
+        elif line.startswith('${', i):
+          stack.append('code')
+          braces.append(0)
+          i += 2
+        else:
+          i += 1
+        continue
+      if ch in ' \t':
+        i += 1
+        continue
+      if line.startswith('//', i):
+        break
+      if line.startswith('/*', i):
+        block, i = True, i + 2
+        continue
+      if ch in '\'"':
+        j = i + 1
+        while j < n and line[j] != ch:
+          j += 2 if line[j] == '\\' else 1
+        prev, i = ch, j + 1
+        continue
+      if ch == '`':
+        stack.append('tpl')
+        braces.append(0)
+        i += 1
+        continue
+      if ch == '/' and (
+          not prev
+          or prev in _BEFORE_REGEX
+          or line[:i].rstrip().endswith(_REGEX_WORDS)
+      ):
+        j, in_class = i + 1, False
+        while j < n and (line[j] != '/' or in_class):
+          if line[j] == '\\':
+            j += 1
+          elif line[j] == '[':
+            in_class = True
+          elif line[j] == ']':
+            in_class = False
+          j += 1
+        prev, i = '/', j + 1
+        continue
+      if ch == '{':
+        braces[-1] += 1
+      elif ch == '}':
+        if braces[-1] == 0 and len(stack) > 1:
+          stack.pop()  # The end of a template literal's `${}`.
+          braces.pop()
+          i += 1
+          continue
+        braces[-1] -= 1
+      prev = ch
+      i += 1
+  return '\n'.join(kept)
+
+
 def page() -> bytes:
   """The page, with its script modules inlined (one self-contained file).
 
   Each module's `import` lines go (the modules share the page's script, in
-  `MODULES` order) and its `export`s become plain declarations.
+  `MODULES` order) and its `export`s become plain declarations; the script
+  goes without its comment lines (`lean`).
 
   Returns:
     The page's HTML.
@@ -141,11 +264,12 @@ def page() -> bytes:
   for name in MODULES:
     with open(os.path.join(SCRIPTS, name), encoding='utf-8') as f:
       code.append(_EXPORT.sub('', _IMPORT.sub('', f.read())))
-  return (
-      page_html.replace(MODULES_MARK, '\n'.join(code), 1)
-      .replace(BUILD_MARK, json.dumps(BUILD), 1)
-      .encode('utf-8')
+  text = page_html.replace(MODULES_MARK, '\n'.join(code), 1).replace(
+      BUILD_MARK, json.dumps(BUILD), 1
   )
+  start = text.index('<script>') + len('<script>')
+  end = text.rindex('</script>')
+  return (text[:start] + lean(text[start:end]) + text[end:]).encode('utf-8')
 
 
 class Games:
@@ -531,13 +655,15 @@ class Games:
       return 'No game is running.'
     return game.choose(request_id, response, target)
 
-  def hold_course(self, seat: str | None, turns: int) -> str | None:
+  def hold_course(
+      self, seat: str | None, turns: int, keep: Sequence[str] = ()
+  ) -> str | None:
     """A player holds course for some turns: None, or why it was refused."""
     with self._lock:
       game = self.current
     if game is None:
       return 'No game is running.'
-    return game.hold_course(seat, turns)
+    return game.hold_course(seat, turns, keep)
 
   def look(self, seat: str | None, what: str) -> str | None:
     """A player looked at something on the page: None, or why not kept."""
@@ -814,7 +940,12 @@ def make_handler(games: Games, demo_dir: str, base_path: str = ''):
         except (TypeError, ValueError, OverflowError):
           turns = 0
         seat = body.get('seat')
-        error = games.hold_course(str(seat) if seat else None, turns)
+        keep = body.get('keep')  # Town orders to repeat each held turn.
+        error = games.hold_course(
+            str(seat) if seat else None,
+            turns,
+            [str(k) for k in keep][:20] if isinstance(keep, list) else [],
+        )
         self._json({'ok': error is None, 'error': error or ''})
       elif path == '/api/look':
         # What the player looked at this turn, for play telemetry.
