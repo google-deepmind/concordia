@@ -1,0 +1,46 @@
+# The page's words for the Night Wire (cycle 119). The server lays these
+# over orders_look.yaml; `theme: wire` dresses the whole page as a telegram
+# office on the night of the flood.
+
+theme: wire
+title: The Night Wire
+tagline: Pinewood, 14 April 1926. The river is rising, and every word you send costs the town a cent.
+company: Pinewood Telegraph & Telephone Co.
+
+intro:
+  - "Pinewood, a mill town, the night of 14 April 1926. The river is rising, and you are at the telegraph desk."
+  - "Each chapter is an hour of the night and one message that must reach someone across town. It goes through people with their own habits: Edith at the telegraph key sends exactly what she is given; Wilf, the messenger boy, turns everything on its head. At the end of the line, the miller, the stationmaster, the doctor and the mayor each take it their own way."
+  - "What they do decides what happens to the town. Phrase each message so it arrives meaning what you need, in as few words as you can."
+
+how_to_play:
+  - Read who your message goes through, who each of them is, and what each person at the end must do. They are people, not machines: say it however you like.
+  - Write one message of up to 12 words. STOP (in capitals) ends a sentence and is free, as on a real wire.
+  - Watch it change at each hop, and see what each person does with what reached them.
+  - You have three wires a chapter. Solve it for a star, and more stars for fewer words; each solved chapter opens the next hour.
+
+levels: The night, hour by hour
+you: Your desk
+at_top: at the end of the line
+send: Send the wire
+rehearse: Rehearse with {who}
+
+# How each relayer passes things on, for their card.
+passes_short:
+  word_for_word: sends exactly what she is given
+  flips: says the opposite of each part
+  adds_hall: passes it on, then adds "Go to the church hall, everyone!"
+
+# How each reads a message meant for them, for their card.
+reads_short:
+  literal: does exactly what the message asks
+  contrary: does what he is told not to, and nothing he is told to
+
+star_rules:
+  win: solve it
+  max_words: at most {n} words
+  max_words_one: in one word
+
+# The earlier games, in the menu's fold.
+earlier:
+  passiton: Pass it on (the puzzle this grew from)
+  orders: Twelve Words (a crew sim)
