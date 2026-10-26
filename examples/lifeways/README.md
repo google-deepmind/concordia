@@ -74,6 +74,15 @@ save (`simulation.load_checkpoint`) and plays on from that year. A save of
 another world, or one an older build can no longer restore, is set aside
 (`FILE.set-aside`), and a new world begins.
 
+**The notebook** (DESIGN §9) is the person's lab record, kept by the
+session and saved with the world. It holds the hypotheses, observations
+and notes the person writes, and each move the person makes. The World's
+own account of each move is there too: the census row's `reports`, what
+the World told the Experimenter. So are changes a scientist would note:
+the number of peoples or tongues, a custom becoming the most widely held
+for the first time, few or none left. `GET notebook.md` gives a copy as
+Markdown.
+
 **Fork a twin.** The person may fork a twin of the running world. At the
 next year's close the session takes the same checkpoint and builds a second
 simulation of the same world from it, with one lever pulled

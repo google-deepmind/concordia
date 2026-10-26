@@ -23,7 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  savedNote, transmissionText, transmissionTree, twinNote, variantNote,
+  entryMeta, entryShown, savedNote, transmissionText, transmissionTree,
+  twinNote, variantNote,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -114,4 +115,18 @@ test('a variant says how it arose and who holds it', () => {
       'c52 · mutation, year 9 · held by nobody, kept in a place');
   assert.equal(variantNote({...variant, living: false}),
       'c52 · mutation, year 9 · forgotten: nobody holds it now');
+});
+
+test('the notebook filters what the person wrote, moves and changes', () => {
+  const entries = ['hypothesis', 'observation', 'note', 'move', 'world',
+    'event'].map((kind) => ({kind}));
+  const kinds = (filter) => entries.filter((e) => entryShown(e, filter))
+      .map((e) => e.kind);
+  assert.deepEqual(kinds('all').length, 6);
+  assert.deepEqual(kinds('mine'), ['hypothesis', 'observation', 'note']);
+  assert.deepEqual(kinds('moves'), ['move', 'world']);
+  assert.deepEqual(kinds('events'), ['event']);
+  assert.equal(entryMeta({year: 40, kind: 'world'}), 'Year 40 · the World');
+  assert.equal(entryMeta({year: 3, kind: 'hypothesis'}),
+      'Year 3 · hypothesis');
 });

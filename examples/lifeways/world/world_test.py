@@ -792,6 +792,13 @@ class ReleaseTest(_PlaceTest):
     )
     self.assertEmpty(self._offers('Far'))
     self.assertEqual(self.world.history[-1]['released'], 1)
+    # The year's record keeps what the Experimenter was told of its move.
+    self.assertEqual(
+        self.world.history[-1]['reports'],
+        [f'{custom.id} is sung at 5,6; 1 hear it.'],
+    )
+    self._year(Ada='rest', Far='rest', Experimenter='watch')
+    self.assertEqual(self.world.history[-1]['reports'], [])
 
   def test_a_text_is_left_on_a_shelf_at_its_place(self):
     self._year(

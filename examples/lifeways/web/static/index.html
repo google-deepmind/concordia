@@ -120,6 +120,38 @@ limitations under the License.
     <p id="queued" class="hint"></p>
   </section>
 
+  <section id="notebook" aria-label="The notebook">
+    <h2>Notebook</h2>
+    <p class="hint">Your hypotheses and observations, your moves and what the
+      World made of them, and what changed in the valley, year by year.
+      <a href="notebook.md" download="lifeways-notebook.md">Keep a copy</a>
+      (Markdown).</p>
+    <form id="note">
+      <label>Kind
+        <select id="note-kind">
+          <option value="hypothesis">hypothesis</option>
+          <option value="observation">observation</option>
+          <option value="note">note</option>
+        </select>
+      </label>
+      <label class="wide">It says
+        <textarea id="note-text" maxlength="1000" rows="2"
+          placeholder="Where shrines stand, sharing spreads faster."></textarea>
+      </label>
+      <button type="submit">Write it down</button>
+    </form>
+    <p id="note-error" class="hint" role="alert"></p>
+    <label class="filter">Show
+      <select id="note-filter">
+        <option value="all">everything</option>
+        <option value="mine">what I wrote</option>
+        <option value="moves">my moves and the World's account</option>
+        <option value="events">changes in the valley</option>
+      </select>
+    </label>
+    <ol id="entries"></ol>
+  </section>
+
   <footer><span id="build"></span> · MOCK minds <span id="saved"></span> · <span id="error"></span></footer>
   <script src="static/app.js"></script>
 </body>

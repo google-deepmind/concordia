@@ -33,9 +33,12 @@ and the next server of the same world plays on from the save.
 | `GET /api/kin?name=<name>` | a person's family, three generations |
 | `GET /api/lineage?id=<custom>` | a custom's variants, who holds them, from whom |
 | `GET /api/build` | the commit served |
+| `GET /api/notebook?since=<id>` | the notebook's entries after an id |
+| `GET /notebook.md` | the notebook, to keep |
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
+| `POST /api/note` `{"kind": ..., "text": ...}` | write in the notebook |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
 | `POST /api/twin` `{"end": true}` | let the twin go |
 """
@@ -148,6 +151,10 @@ def handler(
       if path == '/api/census' and not since.lstrip('-').isdigit():
         self._json(400, {'error': 'since is a year'})
         return
+      after = query.get('since', ['0'])[0]
+      if path == '/api/notebook' and not after.isdigit():
+        self._json(400, {'error': 'since is an entry'})
+        return
       world = query.get('world', [''])[0]
       if path == '/api/census' and world not in ('', 'twin'):
         self._json(400, {'error': 'world is the twin, or none'})
@@ -163,6 +170,7 @@ def handler(
           '/api/state': session.state,
           '/api/census': census,
           '/api/build': lambda: {'commit': commit},
+          '/api/notebook': lambda: session.notebook(int(after)),
       }
       if path in routes:
         self._json(200, routes[path]())
@@ -184,6 +192,12 @@ def handler(
           self._json(404, {'error': 'no such custom is remembered'})
         else:
           self._json(200, lineage)
+      elif path == '/notebook.md':
+        self._send(
+            200,
+            session.notebook_markdown().encode(),
+            'text/markdown; charset=utf-8',
+        )
       elif path in ('/', '/index.html'):
         self._static('index.html')
       elif path.startswith('/static/'):
@@ -222,6 +236,13 @@ def handler(
         self._json(200, session.input.settings())
       elif path == '/api/twin':
         self._twin(body)
+      elif path == '/api/note':
+        try:
+          entry = session.note(str(body.get('kind', '')), body.get('text', ''))
+        except ValueError as error:
+          self._json(400, {'error': str(error)})
+          return
+        self._json(200, entry)
       else:
         self._json(404, {'error': 'not found'})
 

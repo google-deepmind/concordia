@@ -53,7 +53,7 @@ h2 { font-size: 1.1rem; margin: 18px 0 6px; }
 section { margin-top: 12px; }
 #time { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-button, select, input {
+button, select, input, textarea {
   font: inherit;
   min-height: 40px;
   padding: 6px 10px;
@@ -76,6 +76,7 @@ canvas {
 }
 
 .hint { color: var(--muted); font-size: 0.9rem; margin: 6px 0; }
+a { color: var(--accent); }
 
 #person {
   border: 1px solid var(--line);
@@ -105,17 +106,23 @@ button.link {
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.85rem; }
 
-#release, #ask, #fork { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-#release label, #ask label, #fork label {
+#release, #ask, #fork, #note { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release label, #ask label, #fork label, #note label {
   display: flex;
   flex-direction: column;
   font-size: 0.85rem;
 }
-#release label.wide, #ask label.wide { flex: 1 1 100%; }
+#release label.wide, #ask label.wide, #note label.wide { flex: 1 1 100%; }
+#note textarea { width: 100%; resize: vertical; }
+label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
+#entries { list-style: none; padding: 0; }
+#entries li { margin: 6px 0; }
+#entries .meta { color: var(--muted); font-size: 0.8rem; }
+#entries li.mine { border-left: 3px solid var(--accent); padding-left: 6px; }
 #release input#says, #ask input#question { width: 100%; }
 #transcripts { padding-left: 18px; }
 #transcripts li { margin: 6px 0; }
 #transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
-#error, #fork-error { color: var(--danger); }
+#error, #fork-error, #note-error { color: var(--danger); }

@@ -362,6 +362,8 @@ class World:
     self._offers: collections.Counter[str] = collections.Counter()
     self._rediscovered = 0
     self._released = 0
+    # What the World told the Experimenter of its moves this year.
+    self._reports: list[str] = []
 
   # --- Setup -------------------------------------------------------------
 
@@ -550,7 +552,7 @@ class World:
         'answer': answer,
     })
     del self.transcripts[:-TRANSCRIPTS_KEPT]
-    self._tell(EXPERIMENTER, f'{name}, asked "{question}", says: "{answer}"')
+    self._report(f'{name}, asked "{question}", says: "{answer}"')
 
   def year_complete(self) -> bool:
     return all(name in self.actions for name in self.participants())
@@ -875,6 +877,7 @@ class World:
             extinct=len(extinct),
         )
     )
+    self._reports = []
     kept = int(self.settings.get('history_kept', 200))
     del self.history[: max(0, len(self.history) - kept)]
     self.actions = {}
@@ -1076,15 +1079,15 @@ class World:
     match = _ASK.match(' '.join(answer.split()))
     if match is None:
       if _is_move(answer.strip().lower(), 'ask'):
-        self._tell(EXPERIMENTER, 'The question is not understood: ' + answer)
+        self._report('The question is not understood: ' + answer)
       return
     name, question = match.group('name'), match.group('question')
     person = self.people.get(name)
     if person is None or person.age(self.year + 1) < CHILD_ACTS_AGE:
-      self._tell(EXPERIMENTER, f'Nobody of the name {name} can answer.')
+      self._report(f'Nobody of the name {name} can answer.')
       return
     self.interviews[name] = question
-    self._tell(EXPERIMENTER, f'{name} will be asked next year.')
+    self._report(f'{name} will be asked next year.')
 
   def _forage(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Everyone old enough forages a little, whatever else they did.
@@ -1120,22 +1123,22 @@ class World:
     match = _RELEASE.match(' '.join(answer.split()))
     if match is None:
       if _is_move(answer.strip().lower(), RELEASE):
-        self._tell(EXPERIMENTER, 'The release is not understood: ' + answer)
+        self._report('The release is not understood: ' + answer)
       return
     kind, domain = match.group('kind'), match.group('domain')
     tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
     if kind not in culture_lib.KINDS or domain not in culture_lib.DOMAINS:
-      self._tell(EXPERIMENTER, f'No custom is of kind {kind}, domain {domain}.')
+      self._report(f'No custom is of kind {kind}, domain {domain}.')
       return
     if '|params=' in answer or '[custom' in answer:
       # The text would read as the protocol of an offer line.
-      self._tell(EXPERIMENTER, 'The release is not understood: ' + answer)
+      self._report('The release is not understood: ' + answer)
       return
     if (
         match.group('how') == 'song'
         and culture_lib.RELEASE not in self.channels
     ):
-      self._tell(EXPERIMENTER, 'No song carries in this world.')
+      self._report('No song carries in this world.')
       return
     params = {}
     if kind == culture_lib.SKILL:
@@ -1164,8 +1167,7 @@ class World:
           )
       )
       self.places.write(place, custom.id, self.year)
-      self._tell(
-          EXPERIMENTER,
+      self._report(
           f'{custom.id} is written at the library at'
           f' {place.tile[0]},{place.tile[1]}.',
       )
@@ -1178,8 +1180,7 @@ class World:
     ]
     for name in listeners:
       self._offer(name, '', custom.id, culture_lib.RELEASE, 'A song is heard')
-    self._tell(
-        EXPERIMENTER,
+    self._report(
         f'{custom.id} is sung at {tile[0]},{tile[1]}; {len(listeners)}'
         ' hear it.',
     )
@@ -1714,7 +1715,7 @@ class World:
     self.queued.pop(name, None)
     self.asked.pop(name, None)
     if self.interviews.pop(name, None) is not None:
-      self._tell(EXPERIMENTER, f'{name} died before answering.')
+      self._report(f'{name} died before answering.')
 
   def _census(
       self,
@@ -1775,6 +1776,7 @@ class World:
         'tongues': len({p.speech for p in self.people.values() if p.speech}),
         'understanding': self._mean_understanding(),
         'released': self._released,
+        'reports': list(self._reports),
         'variants': len(self.culture),
         'new_variants': created,
         'lost_variants': extinct,
@@ -1801,6 +1803,11 @@ class World:
     ):
       return
     self.queued.setdefault(name, []).append(text)
+
+  def _report(self, text: str) -> None:
+    """Tells the Experimenter how a move of its went (kept for the census)."""
+    self._tell(EXPERIMENTER, text)
+    self._reports.append(text)
 
   def take_observations(self) -> dict[str, list[str]]:
     """The observations queued for delivery, emptied."""

@@ -45,6 +45,9 @@ const page = {
   twinSince: -1,
   /** @type {?string} The twin drawn: its lever, value and year. */
   twin: null,
+  /** @type {!Array<!Object>} The notebook's entries, oldest first. */
+  entries: [],
+  entrySince: 0,
   /** @type {?string} The person shown, if any. */ person: null,
   since: -1,
   tile: 1,
@@ -226,6 +229,50 @@ function leverChoices(world) {
         [lever, `${lever} (${low}–${high}; now ${now})`])
       .concat(world.channels.map((channel) =>
         [`without ${channel}`, `without ${channel}`]));
+}
+
+/** What the person writes in the notebook. */
+const NOTE_KINDS = ['hypothesis', 'observation', 'note'];
+
+/**
+ * Whether the notebook shows an entry under a filter.
+ * @param {!Object} entry An entry.
+ * @param {string} filter 'all', 'mine', 'moves' or 'events'.
+ * @return {boolean}
+ */
+function entryShown(entry, filter) {
+  if (filter === 'mine') return NOTE_KINDS.includes(entry.kind);
+  if (filter === 'moves') return ['move', 'world'].includes(entry.kind);
+  if (filter === 'events') return entry.kind === 'event';
+  return true;
+}
+
+/**
+ * What the notebook says above an entry.
+ * @param {!Object} entry An entry.
+ * @return {string} E.g. 'Year 40 · hypothesis'.
+ */
+function entryMeta(entry) {
+  const kind = {move: 'your move', world: 'the World', event: 'the valley'};
+  return `Year ${entry.year} · ${kind[entry.kind] || entry.kind}`;
+}
+
+/** Lists the notebook, newest first, as the filter allows. */
+function drawNotebook() {
+  const filter = document.getElementById('note-filter').value;
+  const shown = page.entries.filter((e) => entryShown(e, filter))
+      .slice(-100).reverse();
+  document.getElementById('entries').replaceChildren(...shown.map((entry) => {
+    const item = document.createElement('li');
+    if (NOTE_KINDS.includes(entry.kind)) item.className = 'mine';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = entryMeta(entry);
+    const text = document.createElement('div');
+    text.textContent = entry.text;
+    item.append(meta, text);
+    return item;
+  }));
 }
 
 /**
@@ -533,6 +580,12 @@ async function refresh() {
       page.since = rows[rows.length - 1].year;
     }
     if (rows.length || twinRows.length) drawChart(page.rows, page.twinRows);
+    const entries = await api(`api/notebook?since=${page.entrySince}`);
+    if (entries.length) {
+      page.entries = page.entries.concat(entries).slice(-1000);
+      page.entrySince = entries[entries.length - 1].id;
+      drawNotebook();
+    }
   } catch (error) {
     document.getElementById('error').textContent = String(error);
   }
@@ -612,6 +665,24 @@ async function start() {
     }
     refresh();
   });
+  document.getElementById('note').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const said = document.getElementById('note-error');
+    said.textContent = '';
+    const text = document.getElementById('note-text').value.trim();
+    if (!text) return;
+    try {
+      await api('api/note',
+          {kind: document.getElementById('note-kind').value, text});
+    } catch (error) {
+      said.textContent = `Not written: ${error.message}`;
+      return;
+    }
+    document.getElementById('note-text').value = '';
+    refresh();
+  });
+  document.getElementById('note-filter').addEventListener(
+      'change', drawNotebook);
   document.getElementById('unfork').addEventListener('click', async () => {
     document.getElementById('fork-error').textContent = '';
     await api('api/twin', {end: true});
@@ -626,6 +697,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    savedNote, transmissionText, transmissionTree, twinNote, variantNote,
+    entryMeta, entryShown, savedNote, transmissionText, transmissionTree,
+    twinNote, variantNote,
   };
 }

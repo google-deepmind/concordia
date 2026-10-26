@@ -28,6 +28,11 @@ simulation checkpoint (`Simulation.make_checkpoint_data`) with the page's
 census rows; a new session of the same world restores the last save
 (`simulation.load_checkpoint`) and plays on from that year.
 
+The session keeps the person's lab notebook (DESIGN §9): what the person
+writes (hypotheses, observations, notes), the moves the person makes, the
+World's account of each (from the census, `reports`), and what changed in
+the valley that a scientist would want noted. It is saved with the world.
+
 The person may fork a twin: a second session, restored from the same year's
 checkpoint with one lever pulled (`scenarios.with_lever`), plays beside the
 first. The person's pace and releases reach both worlds, so the lever stays
@@ -63,6 +68,17 @@ ENGINE_THREADS = 'entity_loop'
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
 LINEAGE_SHOWN = 80
+# What the person writes in the notebook, and the longest entry.
+NOTE_KINDS = ('hypothesis', 'observation', 'note')
+NOTE_LENGTH = 1000
+# What the session writes there: the person's moves, the World's account of
+# them, and changes in the valley.
+MOVE, WORLD, EVENT = 'move', 'world', 'event'
+# The notebook keeps every entry the person wrote and at most this many of
+# its own.
+NOTEBOOK_KEPT = 1000
+# Fewer living than this is noted.
+FEW_LEFT = 10
 
 
 def _number(custom_id: str) -> int:
@@ -218,6 +234,12 @@ class Session:
     self._forgotten: collections.OrderedDict[str, dict[str, Any]] = (
         collections.OrderedDict()
     )
+    # The lab notebook, oldest first; ids count up from 1.
+    self._notebook: list[dict[str, Any]] = []
+    self._entries = 0
+    self._year = 0
+    # The customs that have been the most widely held (noted once each).
+    self._tops: set[str] = set()
     self._thread: threading.Thread | None = None
     self.error: str = ''
     # When the person last did anything (a move, the pace, a stop).
@@ -291,7 +313,7 @@ class Session:
     self.run.engine.play()
     if self._thread is not None:
       self._thread.join(timeout)
-    twin = self.end_twin()
+    twin = self.end_twin(noted=False)
     if twin is not None:
       twin.close(max(0.0, deadline - time.monotonic()))
 
@@ -303,6 +325,7 @@ class Session:
         'held': self.run.customs_census(),
         'peoples': self.run.peoples(),
     }
+    self._note_year(year, row)
     with self._rows_lock:
       self._rows.append(row)
     with self._saving:
@@ -326,12 +349,16 @@ class Session:
     with self._rows_lock:
       rows = list(self._rows)
       forgotten = list(self._forgotten.values())
+      notebook = [dict(e) for e in self._notebook]
+      tops = sorted(self._tops)
     return {
         'version': SAVE_VERSION,
         'world': self._identity,
         'year': year,
         'rows': rows,
         'forgotten': forgotten,
+        'notebook': notebook,
+        'tops': tops,
         'pace': self.input.settings(),
         'checkpoint': checkpoint,
     }
@@ -402,6 +429,10 @@ class Session:
       self._rows.extend(saved.get('rows', ()))
       for custom in saved.get('forgotten', ()):
         self._forgotten[str(custom['id'])] = dict(custom)
+      self._notebook = [dict(e) for e in saved.get('notebook', ())]
+      self._entries = max((int(e['id']) for e in self._notebook), default=0)
+      self._tops = {str(t) for t in saved.get('tops', ())}
+    self._year = int(saved['year'])
     pace = saved.get('pace', {})
     self.input.pace(pace.get('years_per_second'), pace.get('paused'))
     if pace.get('paused'):
@@ -417,6 +448,115 @@ class Session:
       os.replace(path, path + '.set-aside')
     except OSError:
       pass
+
+  # --- The notebook -----------------------------------------------------
+
+  def _write(
+      self, kind: str, text: str, year: int | None = None
+  ) -> dict[str, Any]:
+    """Adds an entry; the oldest of the session's own go past the bound."""
+    with self._rows_lock:
+      self._entries += 1
+      entry = {
+          'id': self._entries,
+          'year': self._year if year is None else year,
+          'kind': kind,
+          'text': text,
+      }
+      self._notebook.append(entry)
+      own = [e for e in self._notebook if e['kind'] not in NOTE_KINDS]
+      if len(own) > NOTEBOOK_KEPT:
+        gone = own[0]['id']
+        self._notebook = [e for e in self._notebook if e['id'] != gone]
+      return dict(entry)
+
+  def _note_year(self, year: int, row: Mapping[str, Any]) -> None:
+    """Notes the World's reports and what changed (in the World GM's lock)."""
+    self._year = year
+    closed = int(row['year'])
+    for report in row.get('reports', ()):
+      self._write(WORLD, report, closed)
+    with self._rows_lock:
+      last: Mapping[str, Any] = self._rows[-1] if self._rows else {}
+    if 'population' not in row or 'population' not in last:
+      return  # No census to compare: the first year, or none kept.
+    for what, now, was in (
+        ('peoples', row['peoples']['peoples'], last['peoples']['peoples']),
+        ('tongues spoken', row.get('tongues'), last.get('tongues')),
+    ):
+      if now != was:
+        self._write(
+            EVENT, f'The valley has {now} {what} (it had {was}).', closed
+        )
+    living, lived = int(row['population']), int(last['population'])
+    if living == 0 < lived:
+      self._write(EVENT, 'Nobody is left in the valley.', closed)
+    elif living < FEW_LEFT <= lived:
+      self._write(EVENT, f'Only {living} people are left.', closed)
+    top = row['held'].get('top') or []
+    if top and top[0][0] not in self._tops:
+      custom_id, share = top[0]
+      self._tops.add(custom_id)
+      world = self.run.world()
+      text = (
+          world.culture.get(custom_id).text
+          if custom_id in world.culture
+          else ''
+      )
+      self._write(
+          EVENT,
+          f'{custom_id} is the most widely held custom for the first time'
+          f' ({round(100 * share)}% hold it): "{text}"',
+          closed,
+      )
+
+  def note(self, kind: str, text: str) -> dict[str, Any]:
+    """Writes the person's entry in the notebook, dated this year.
+
+    Args:
+      kind: One of `NOTE_KINDS`.
+      text: What the person writes.
+
+    Returns:
+      The entry.
+
+    Raises:
+      ValueError: If the kind is not one, or the text is empty or too long.
+    """
+    text = str(text).strip()
+    if kind not in NOTE_KINDS:
+      raise ValueError(f'An entry is a {", ".join(NOTE_KINDS)}.')
+    if not text or len(text) > NOTE_LENGTH:
+      raise ValueError(f'Write 1 to {NOTE_LENGTH} characters.')
+    self._played = time.time()
+    return self._write(kind, text)
+
+  def notebook(self, since: int = 0) -> list[dict[str, Any]]:
+    """The notebook's entries after an id, oldest first.
+
+    Args:
+      since: An entry's id (0: all).
+
+    Returns:
+      The entries.
+    """
+    with self._rows_lock:
+      return [dict(e) for e in self._notebook if e['id'] > since]
+
+  def notebook_markdown(self) -> str:
+    """The notebook as a Markdown page, to keep."""
+    lines = [
+        f'# Lifeways notebook: {self.scenario}, seed {self._seed}',
+        '',
+        f'Overrides: {json.dumps(self._overrides, default=str)}',
+    ]
+    year = None
+    for entry in self.notebook():
+      if entry['year'] != year:
+        year = entry['year']
+        lines += ['', f'## Year {year}', '']
+      lines.append(f'- **{entry["kind"]}**: {entry["text"]}')
+    return '\n'.join(lines) + '\n'
 
   # --- The twin ---------------------------------------------------------
 
@@ -463,6 +603,10 @@ class Session:
     )
     twin._load(saved)  # pylint: disable=protected-access
     twin.twin_of = {'lever': lever, 'value': value, 'year': saved['year']}
+    pulled = (
+        f'without {value}' if lever == scenarios.WITHOUT else f'{lever} {value}'
+    )
+    self._write(MOVE, f'You fork a twin in year {saved["year"]}: {pulled}.')
     with self._twin_lock:
       earlier, self.twin = self.twin, twin
     if earlier is not None:
@@ -470,14 +614,23 @@ class Session:
     twin.start()
     return twin
 
-  def end_twin(self) -> 'Session | None':
+  def end_twin(self, noted: bool = True) -> 'Session | None':
     """Lets go of the twin; the caller closes it.
+
+    Args:
+      noted: Whether the notebook says so (the person let it go).
 
     Returns:
       The twin, if there was one.
     """
     with self._twin_lock:
       twin, self.twin = self.twin, None
+    if noted and twin is not None and twin.twin_of is not None:
+      self._write(
+          MOVE,
+          f'You let the twin go (forked in year {twin.twin_of["year"]}); it'
+          f' had reached year {twin.run.world_state()["year"]}.',
+      )
     return twin
 
   def _twin_state(self) -> dict[str, Any] | None:
@@ -768,6 +921,7 @@ class Session:
     """The person stops the world: the Experimenter's next move ends it."""
     self._played = time.time()
     self.input.queue(world_lib.STOP)
+    self._write(MOVE, 'You stop the world.')
     self.input.pace(paused=False)
     self.run.engine.play()
 
@@ -783,6 +937,7 @@ class Session:
     if move:
       self._played = time.time()
       self.input.queue(move)
+      self._write(MOVE, f'You queue a move: {move}')
       twin = self.twin
       if twin is not None and move.lower().startswith(world_lib.RELEASE + ' '):
         # A release reaches the twin too: the lever stays the one difference.

@@ -19,6 +19,7 @@ import os
 import threading
 import time
 from typing import Any
+from unittest import mock
 import urllib.error
 import urllib.request
 
@@ -370,6 +371,88 @@ class TreesTest(absltest.TestCase):
     self.assertIsNone(self.session.kin('Nobody'))
 
 
+class NotebookTest(absltest.TestCase):
+
+  def test_the_person_writes_and_the_session_notes_moves_and_reports(self):
+    session = session_lib.Session(years_per_second=40)
+    entry = session.note('hypothesis', ' Songs spread faster than texts. ')
+    self.assertEqual(
+        (entry['kind'], entry['text'], entry['year']),
+        ('hypothesis', 'Songs spread faster than texts.', 0),
+    )
+    for kind, text in (('rant', 'Hm.'), ('note', ' '), ('note', 'x' * 1001)):
+      with self.assertRaises(ValueError):
+        session.note(kind, text)
+
+    session.move('release belief sacred as a song at 8,8: The sun sings.')
+    session.start()
+    try:
+      self.assertTrue(
+          _wait(
+              lambda: any(
+                  e['kind'] == session_lib.WORLD
+                  and 'is sung at 8,8' in e['text']
+                  for e in session.notebook()
+              )
+          )
+      )
+      self.assertTrue(
+          _wait(
+              lambda: any(
+                  e['kind'] == session_lib.EVENT
+                  and 'most widely held' in e['text']
+                  for e in session.notebook()
+              )
+          )
+      )
+    finally:
+      session.close()
+    kinds = [e['kind'] for e in session.notebook()]
+    self.assertEqual(kinds[:2], ['hypothesis', session_lib.MOVE])
+    ids = [e['id'] for e in session.notebook()]
+    self.assertEqual(ids, sorted(set(ids)))
+    self.assertEqual(session.notebook(since=ids[-2]), session.notebook()[-1:])
+    page = session.notebook_markdown()
+    self.assertIn('## Year 0', page)
+    self.assertIn('- **hypothesis**: Songs spread faster than texts.', page)
+
+  def test_the_notebook_keeps_all_the_person_wrote_and_bounds_the_rest(self):
+    session = session_lib.Session()
+    with mock.patch.object(session_lib, 'NOTEBOOK_KEPT', 3):
+      session.note('note', 'First.')
+      for i in range(5):
+        session.move(f'ask Nobody{i}: Why?')
+      session.note('observation', 'Last.')
+
+    entries = session.notebook()
+    self.assertEqual(
+        [e['text'] for e in entries if e['kind'] != session_lib.MOVE],
+        ['First.', 'Last.'],
+    )
+    self.assertLen([e for e in entries if e['kind'] == session_lib.MOVE], 3)
+
+  def test_the_notebook_is_saved_with_the_world(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+    first = session_lib.Session(
+        years_per_second=40, save_path=path, save_seconds=0
+    )
+    first.note('hypothesis', 'Nothing will change.')
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 2))
+    finally:
+      first.close()
+
+    second = session_lib.Session(save_path=path)
+    written = second.note('observation', 'Something changed.')
+
+    texts = [e['text'] for e in second.notebook()]
+    self.assertIn('Nothing will change.', texts)
+    self.assertEqual(texts[-1], 'Something changed.')
+    self.assertGreater(written['id'], second.notebook()[-2]['id'])
+    self.assertEqual(written['year'], second.restored_year)
+
+
 class ServerTest(absltest.TestCase):
 
   def setUp(self):
@@ -490,6 +573,21 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(kin['person']['name'], name)
     self.assertIn('from', person['customs'][0])
     self.assertNotEmpty(lineage['variants'])
+
+  def test_the_page_writes_in_the_notebook_and_keeps_a_copy(self):
+    entry = self._post('/api/note', {'kind': 'observation', 'text': 'Hm.'})
+
+    self.assertEqual(entry['text'], 'Hm.')
+    self.assertIn(entry, self._get('/api/notebook?since=0'))
+    self.assertNotIn(entry, self._get(f'/api/notebook?since={entry["id"]}'))
+    self.assertIn('- **observation**: Hm.', self._get('/notebook.md'))
+    for data in ({'kind': 'rant', 'text': 'Hm.'}, {'kind': 'note'}):
+      with self.assertRaises(urllib.error.HTTPError) as caught:
+        self._post('/api/note', data)
+      self.assertEqual(caught.exception.code, 400)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._get('/api/notebook?since=x')
+    self.assertEqual(caught.exception.code, 400)
 
   def test_unknown_paths_and_people_are_not_found(self):
     for path in (
