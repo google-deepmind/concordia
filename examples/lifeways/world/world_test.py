@@ -149,6 +149,18 @@ class TransmissionTest(absltest.TestCase):
     self.assertNotIn(self.norm, self.world.culture)
     self.assertIn(self.skill, self.world.culture)
 
+  def test_a_skill_dies_with_the_last_who_worked_by_it(self):
+    ada = self._person('Ada', 30, (5, 5), given=[self.skill])
+    ada.food, ada.starving = 0.0, 1
+    self.world.land.food[:] = 0.0  # A famine: gathering finds nothing.
+    self.world.actions = {'Ada': f'gather food {self.skill}'}
+
+    outcome = self.world.close_year()
+
+    self.assertEqual(outcome.deaths, ['Ada'])
+    self.assertIn(self.skill, [c['id'] for c in outcome.extinct])
+    self.assertEqual(self.world.history[-1]['skill_worked'], 2.0)
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))

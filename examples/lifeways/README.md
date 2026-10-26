@@ -98,8 +98,11 @@ reads it for the census (`Run.customs_census`), the GM never does.
 
 **Indefinite runs stay bounded.**
 - The raw log is trimmed (`play(log_retention=...)`).
-- The async engine streams its log in batches.
-- The dead leave the simulation; history windows roll.
+- The async engine streams its log in batches; each component keeps only its
+  most recent logging data.
+- The dead leave the simulation, and the variants nobody holds leave the
+  world's record (both go to disk); history windows roll.
+- `Run.play` sends what the engine prints to the null device.
 
 **Checkpoints** are the standard ones (`Simulation.make_checkpoint_data`):
 - The restore (`simulation.load_checkpoint`) removes founders who died and adds

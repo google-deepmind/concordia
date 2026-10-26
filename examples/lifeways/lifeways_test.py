@@ -14,8 +14,6 @@
 
 """Lifeways end to end on the stock asynchronous engine (MOCK)."""
 
-import contextlib
-import io
 import json
 from typing import Any
 
@@ -27,11 +25,6 @@ from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
-
-
-def _play(run: simulation.Run) -> None:
-  with contextlib.redirect_stdout(io.StringIO()):
-    run.play()
 
 
 def _unordered_sets(data: Any) -> Any:
@@ -69,7 +62,7 @@ class SandboxTest(absltest.TestCase):
     runs = []
     for _ in range(2):
       run = simulation.build_simulation(scenarios.settings(max_years=30))
-      _play(run)
+      run.play()
       runs.append(_snapshot(run))
     self.assertEqual(runs[0], runs[1])
 
@@ -77,7 +70,7 @@ class SandboxTest(absltest.TestCase):
     run = simulation.build_simulation(
         scenarios.settings(max_years=40), archive=simulation.Archive(keep=1000)
     )
-    _play(run)
+    run.play()
     world = run.world()
     names = {e.name for e in run.sim.entities}
 
@@ -89,7 +82,7 @@ class SandboxTest(absltest.TestCase):
 
   def test_children_start_with_what_their_parents_passed_on(self):
     run = simulation.build_simulation(scenarios.settings(max_years=12))
-    _play(run)
+    run.play()
     world = run.world()
     # The youngest child, too young yet to have been offered anything else.
     child = max(
@@ -109,7 +102,7 @@ class SandboxTest(absltest.TestCase):
 
   def test_every_channel_moves_customs(self):
     run = simulation.build_simulation(scenarios.settings(max_years=60))
-    _play(run)
+    run.play()
 
     census = run.customs_census()
 
@@ -128,12 +121,12 @@ class SandboxTest(absltest.TestCase):
         )
 
     live.lifecycle.year_closed = save
-    _play(live)
+    live.play()
 
     restored = simulation.build_simulation(scenarios.settings(max_years=24))
     simulation.load_checkpoint(restored, saved['checkpoint'])
     self.assertEqual(restored.world().year, 12)
-    _play(restored)
+    restored.play()
 
     self.assertEqual(_snapshot(restored), _snapshot(live))
 
@@ -148,6 +141,21 @@ def _spec(
       'text': f'The way of {custom_id}.',
       'params': {} if level is None else {'level': level},
   }
+
+
+class ArchiveTest(absltest.TestCase):
+
+  def test_it_keeps_only_the_most_recent_and_sinks_all(self):
+    sunk = []
+    for keep in (0, 2):
+      archive = simulation.Archive(keep=keep, sink=sunk.append)
+      for i in range(5):
+        archive.add({'name': f'P{i}'})
+      self.assertEqual(
+          [r['name'] for r in archive.records],
+          [f'P{i}' for i in range(5 - keep, 5)],
+      )
+    self.assertLen(sunk, 10)
 
 
 class LearnerTest(absltest.TestCase):

@@ -23,8 +23,6 @@ living holds it: the long record of culture) and `summary.json`; with
 `--soak`, also each fiftieth year's memory use and seconds per year.
 """
 
-import contextlib
-import io
 import json
 import os
 import resource
@@ -71,7 +69,11 @@ def main(argv):
   census = open(os.path.join(out, 'census.jsonl'), 'w')
   customs = open(os.path.join(out, 'customs.jsonl'), 'w')
 
+  buried = 0
+
   def bury(record) -> None:
+    nonlocal buried
+    buried += 1
     dead.write(json.dumps(record) + '\n')
 
   def forget(records) -> None:
@@ -110,8 +112,7 @@ def main(argv):
 
   run.lifecycle.year_closed = year_closed
   run.lifecycle.forgotten = forget
-  with contextlib.redirect_stdout(io.StringIO()):
-    run.play()
+  run.play()
   dead.close()
   census.close()
   customs.close()
@@ -121,7 +122,7 @@ def main(argv):
       'seed': _SEED.value,
       'years': world.year,
       'living': len(world.people),
-      'dead': len(world.dead),
+      'dead': buried,
       'variants': len(world.culture),
       'variants_ever': world.culture.created(),
       'seconds': round(time.monotonic() - start, 1),

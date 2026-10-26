@@ -370,6 +370,7 @@ class World:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._apprentice(did)
     self._transmit(did)
+    worked = [self._level(e, 'food') for m, e in did.values() if m == GATHER]
     deaths = self._eat_and_die()
     self.land.regrow()
     extinct = self.culture.prune(
@@ -380,6 +381,7 @@ class World:
             births=len(births),
             deaths=len(deaths),
             did=did,
+            worked=worked,
             created=self.culture.created() - created,
             extinct=len(extinct),
         )
@@ -733,16 +735,12 @@ class World:
       births: int,
       deaths: int,
       did: Mapping[str, tuple[str, list[str]]],
+      worked: Sequence[int],
       created: int,
       extinct: int,
   ) -> dict[str, Any]:
     """The year in numbers, from what the GM saw (never from minds)."""
     ages = [p.age(self.year) for p in self.people.values()]
-    levels = [
-        self._level(enacted, 'food')
-        for move, enacted in did.values()
-        if move == GATHER
-    ]
     return {
         'year': self.year,
         'population': len(self.people),
@@ -757,7 +755,7 @@ class World:
         'variants': len(self.culture),
         'new_variants': created,
         'lost_variants': extinct,
-        'skill_worked': round(sum(levels) / len(levels), 2) if levels else 0.0,
+        'skill_worked': round(sum(worked) / len(worked), 2) if worked else 0.0,
     }
 
   def _tell(self, name: str, text: str, *, newborn: bool = False) -> None:

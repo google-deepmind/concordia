@@ -23,8 +23,10 @@ simulation and reads its state.
 
 import collections
 from collections.abc import Callable, Mapping
+import contextlib
 import dataclasses
 import json
+import os
 from typing import Any
 import zlib
 
@@ -66,7 +68,7 @@ class Archive:
 
   def add(self, record: dict[str, Any]) -> None:
     self.records.append(record)
-    del self.records[: -self.keep]
+    del self.records[: max(0, len(self.records) - self.keep)]
     if self.sink is not None:
       self.sink(record)
 
@@ -177,14 +179,27 @@ class Run:
         ],
     }
 
-  def play(self, log_retention: int = 200, **kwargs) -> None:
-    """Runs until the World GM ends the run (its `max_years`, or a stop)."""
-    self.sim.play(
-        premise='',
-        max_steps=UNBOUNDED_STEPS,
-        log_retention=log_retention,
-        **kwargs,
-    )
+  def play(
+      self, log_retention: int = 200, quiet: bool = True, **kwargs
+  ) -> None:
+    """Runs until the World GM ends the run (its `max_years`, or a stop).
+
+    Args:
+      log_retention: Raw log entries kept (`Simulation.play`).
+      quiet: Send what the engine prints (every observation and action) to
+        the null device; a run that never ends would print without end.
+      **kwargs: More `Simulation.play` arguments.
+    """
+    with contextlib.ExitStack() as stack:
+      if quiet:
+        sink = stack.enter_context(open(os.devnull, 'w'))
+        stack.enter_context(contextlib.redirect_stdout(sink))
+      self.sim.play(
+          premise='',
+          max_steps=UNBOUNDED_STEPS,
+          log_retention=log_retention,
+          **kwargs,
+      )
 
 
 def build_simulation(
