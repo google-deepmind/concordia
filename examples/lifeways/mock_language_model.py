@@ -74,6 +74,9 @@ class MockModel(language_model.LanguageModel):
     self.calls += 1
     question = _LABEL.split(prompt)[-1]
     customs = _CUSTOM.findall(prompt)
+    if 'The Experimenter asks' in question:
+      said = [text for _, _, text in customs][:3]
+      return 'We live by these: ' + ' '.join(said) if said else 'I do not know.'
     if world_lib.PASS_ON in question and 'Which of' in question:
       return ' '.join([world_lib.PASS_ON, *(cid for _, cid, _ in customs)])
     moves = _MOVES.findall(question)

@@ -52,6 +52,12 @@ limitations under the License.
     <h2 id="person-name"></h2>
     <p id="person-body"></p>
     <ul id="person-customs"></ul>
+    <form id="ask">
+      <label class="wide">Ask them
+        <input id="question" maxlength="160" placeholder="Why do you share your food?">
+      </label>
+      <button type="submit">Ask next year</button>
+    </form>
     <button id="person-close" type="button">Close</button>
   </section>
 
@@ -60,6 +66,13 @@ limitations under the License.
     <canvas id="chart" width="480" height="180"></canvas>
     <p id="legend" class="hint"></p>
     <p id="channels" class="hint"></p>
+  </section>
+
+  <section id="interviews" aria-label="Interviews">
+    <h2>Interviews</h2>
+    <p class="hint">Tap a person and ask them something; they answer next
+      year, in their own words.</p>
+    <ul id="transcripts"></ul>
   </section>
 
   <section id="designer" aria-label="The custom designer">

@@ -21,7 +21,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {peopleColour, releaseMove} = require('./app.js');
+const {askMove, peopleColour, releaseMove} = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
   assert.equal(
@@ -33,4 +33,8 @@ test('a people keeps its colour', () => {
   assert.equal(peopleColour('Hill people'), peopleColour('Hill people'));
   assert.notEqual(peopleColour('Hill people'), peopleColour('River people'));
   assert.match(peopleColour('River people'), /^hsl\(\d+, 65%, 40%\)$/);
+});
+
+test('a question is written in the form the World reads', () => {
+  assert.equal(askMove('Ada', ' Why share? '), 'ask Ada: Why share?');
 });

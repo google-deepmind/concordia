@@ -479,6 +479,37 @@ class TransmissionTest(absltest.TestCase):
     )
     self.assertEqual(world_lib.first_move('I forage.', allowed), '')
 
+  def test_a_person_asked_answers_first_then_moves(self):
+    self._person('Ada', 30, (5, 5))
+    self.assertIn(world_lib.ASK_FORM, self.world.moves(world_lib.EXPERIMENTER))
+    self.world.actions = {
+        'Ada': 'rest',
+        world_lib.EXPERIMENTER: 'ask Ada: Why do you share?',
+    }
+    self.world.close_year()
+    self.assertEqual(self.world.interview('Ada'), 'Why do you share?')
+
+    self.world.record_action(world_lib.EXPERIMENTER, 'watch')
+    self.assertTrue(self.world.may_act('Ada'))
+    self.world.record_action('Ada', 'Because the old taught us.')
+    self.assertTrue(self.world.may_act('Ada'))  # Now its move.
+    self.assertFalse(self.world.year_complete())
+    self.world.record_action('Ada', 'gather food')
+
+    self.assertTrue(self.world.year_complete())
+    self.assertEqual(
+        self.world.transcripts,
+        [{
+            'year': 1,
+            'name': 'Ada',
+            'question': 'Why do you share?',
+            'answer': 'Because the old taught us.',
+        }],
+    )
+    self.assertIn(
+        'Because the old', ' '.join(self.world.queued['Experimenter'])
+    )
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))

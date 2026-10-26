@@ -43,6 +43,9 @@ PASS_ON_QUESTION = (
     ' {name} pass on to the child? Answer "pass on" and the ids of the'
     ' customs, e.g. "pass on c3 c7".'
 )
+INTERVIEW_QUESTION = (
+    'The Experimenter asks {name}: "{question}" What does {name} answer?'
+)
 MOVE_QUESTION = (
     'It is year {year}. What does {name} do this year? Choose one move:\n'
     '{moves}\n'
@@ -224,7 +227,12 @@ class Questions(
     holder = _world_component(self, self._world_key)
     with holder.lock:
       world = holder.world
-      if world.asked_to_pass_on(name):
+      if world.interview(name):
+        question = INTERVIEW_QUESTION.format(
+            name=name, question=world.interview(name)
+        )
+        tag = 'interview'
+      elif world.asked_to_pass_on(name):
         question = PASS_ON_QUESTION.format(name=name)
         tag = 'pass_on'
       else:

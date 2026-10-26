@@ -206,6 +206,11 @@ it. One who moves looks for better land within a few steps (`roam`). The
 land regrows each year, and its richness sets how many it feeds: in the
 Sandbox, about 40 (20-60), with hardly anyone arriving.
 
+**Interviews.** The Experimenter may ask a person a question (`ask <name>:
+<question>`). The next year the GM puts it to the person before its move,
+and the answer, in the person's own words, goes into the world's
+transcripts (and to the Experimenter, and to the page).
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

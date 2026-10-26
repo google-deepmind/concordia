@@ -84,10 +84,17 @@ canvas {
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.85rem; }
 
-#release { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-#release label { display: flex; flex-direction: column; font-size: 0.85rem; }
-#release label.wide { flex: 1 1 100%; }
-#release input#says { width: 100%; }
+#release, #ask { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release label, #ask label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+}
+#release label.wide, #ask label.wide { flex: 1 1 100%; }
+#release input#says, #ask input#question { width: 100%; }
+#transcripts { padding-left: 18px; }
+#transcripts li { margin: 6px 0; }
+#transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
 #error { color: var(--danger); }

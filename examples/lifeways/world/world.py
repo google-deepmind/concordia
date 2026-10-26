@@ -65,6 +65,10 @@ PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
+# The Experimenter's: put a question to a person, who answers it next year.
+ASK_FORM = 'ask <name>: <question>'
+_ASK = re.compile(r'^ask (?P<name>[A-Za-z]+): (?P<question>.+)$')
+TRANSCRIPTS_KEPT = 50
 # The Experimenter's: release a custom it designed into the world.
 RELEASE = 'release'
 RELEASE_FORM = (
@@ -331,6 +335,10 @@ class World:
     # Who kept full stores last year and gave nothing to the needy within
     # sight, and those needy: what people may shame this year.
     self.breaches: dict[str, list[str]] = {}
+    # Questions the Experimenter put, by person, to answer this year; and
+    # the answers given (the latest few).
+    self.interviews: dict[str, str] = {}
+    self.transcripts: list[dict[str, Any]] = []
     # Who is looking for a partner (until paired), and for whom: a name, or
     # '' for anyone.
     self.courting: dict[str, str] = {}
@@ -459,11 +467,31 @@ class World:
     ] + [EXPERIMENTER]
 
   def may_act(self, name: str) -> bool:
-    return name in self.participants() and name not in self.actions
+    return name in self.participants() and (
+        name not in self.actions or name in self.interviews
+    )
 
   def record_action(self, name: str, action: str) -> None:
-    if name in self.participants() and name not in self.actions:
+    """Records a participant's answer: to its interview first, then a move."""
+    if name in self.interviews:
+      self._answered(name, action)
+    elif name in self.participants() and name not in self.actions:
       self.actions[name] = action
+
+  def interview(self, name: str) -> str:
+    """The question put to a person this year, unanswered ('' if none)."""
+    return self.interviews.get(name, '')
+
+  def _answered(self, name: str, answer: str) -> None:
+    question = self.interviews.pop(name)
+    self.transcripts.append({
+        'year': self.year,
+        'name': name,
+        'question': question,
+        'answer': answer,
+    })
+    del self.transcripts[:-TRANSCRIPTS_KEPT]
+    self._tell(EXPERIMENTER, f'{name}, asked "{question}", says: "{answer}"')
 
   def year_complete(self) -> bool:
     return all(name in self.actions for name in self.participants())
@@ -473,7 +501,7 @@ class World:
   def moves(self, name: str) -> list[str]:
     """A person's moves this year (the Experimenter only watches)."""
     if name == EXPERIMENTER:
-      return [WATCH, RELEASE_FORM, STOP]
+      return [WATCH, RELEASE_FORM, ASK_FORM, STOP]
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
@@ -742,6 +770,7 @@ class World:
       if name in self.people:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._release(self.actions.get(EXPERIMENTER, ''))
+    self._ask(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
     self._schools(did)
@@ -965,6 +994,19 @@ class World:
       place = standing[0]
     if enacted:
       self.places.keep(place, person.name, enacted, self.year)
+
+  def _ask(self, answer: str) -> None:
+    """Puts the Experimenter's question to a person, for next year."""
+    match = _ASK.match(' '.join(answer.split()))
+    if match is None:
+      return
+    name, question = match.group('name'), match.group('question')
+    person = self.people.get(name)
+    if person is None or person.age(self.year + 1) < CHILD_ACTS_AGE:
+      self._tell(EXPERIMENTER, f'Nobody of the name {name} can answer.')
+      return
+    self.interviews[name] = question
+    self._tell(EXPERIMENTER, f'{name} will be asked next year.')
 
   def _forage(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Everyone old enough forages a little, whatever else they did.
@@ -1563,6 +1605,7 @@ class World:
       if name in parents:
         parents.remove(name)
     self.queued.pop(name, None)
+    self.interviews.pop(name, None)
 
   def _census(
       self,
@@ -1671,6 +1714,8 @@ class World:
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
         'courting': dict(self.courting),
+        'interviews': dict(self.interviews),
+        'transcripts': [dict(t) for t in self.transcripts],
         'places': self.places.get_state(),
     }
 
@@ -1700,6 +1745,10 @@ class World:
         str(k): str(v) for k, v in state.get('courting', {}).items()
     }
     self.places.set_state(state.get('places', {}))
+    self.interviews = {
+        str(k): str(v) for k, v in state.get('interviews', {}).items()
+    }
+    self.transcripts = [dict(t) for t in state.get('transcripts', ())]
 
 
 def _move_kind(move: str) -> str:

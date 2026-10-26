@@ -239,6 +239,8 @@ class Session:
             round(time.time() - self._played) if self._played else None
         ),
         'release_form': world_lib.RELEASE_FORM,
+        'interviews': dict(world.get('interviews', {})),
+        'transcripts': list(world.get('transcripts', ()))[-10:],
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
     }

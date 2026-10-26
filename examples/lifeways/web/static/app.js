@@ -40,6 +40,7 @@ const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦'};
 const page = {
   /** @type {?Object} */ world: null,
   /** @type {!Array<!Object>} */ rows: [],
+  /** @type {?string} The person shown, if any. */ person: null,
   since: -1,
   tile: 1,
 };
@@ -175,6 +176,40 @@ function releaseMove(kind, domain, how, at, says) {
 }
 
 /**
+ * The Experimenter's question to a person, in the form the World reads.
+ * @param {string} name The person's name.
+ * @param {string} question The question.
+ * @return {string} The move.
+ */
+function askMove(name, question) {
+  return `ask ${name}: ${question.trim()}`;
+}
+
+/**
+ * Lists the latest interviews, the newest first.
+ * @param {!Object} world The server's state.
+ */
+function drawTranscripts(world) {
+  const pending = Object.entries(world.interviews).map(([name, question]) => {
+    const item = document.createElement('li');
+    item.textContent = `${name} is asked: "${question}" (answers this year)`;
+    return item;
+  });
+  const answered = [...world.transcripts].reverse().map((transcript) => {
+    const item = document.createElement('li');
+    item.textContent = `"${transcript.answer}"`;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `${transcript.name}, year ${transcript.year}, asked` +
+        ` "${transcript.question}"`;
+    item.append(meta);
+    return item;
+  });
+  document.getElementById('transcripts').replaceChildren(
+      ...pending, ...answered);
+}
+
+/**
  * Shows a person's customs.
  * @param {string} name The person's name.
  */
@@ -201,6 +236,7 @@ async function showPerson(name) {
     return item;
   }));
   document.getElementById('person').hidden = false;
+  page.person = person.name;
 }
 
 /**
@@ -242,6 +278,7 @@ async function refresh() {
         `Next: ${world.pace.queued.join('; ')}` : '';
     document.getElementById('error').textContent = world.error || '';
     drawMap(world);
+    drawTranscripts(world);
     const rows = await api(`api/census?since=${page.since}`);
     if (rows.length) {
       page.rows = page.rows.concat(rows).slice(-400);
@@ -285,6 +322,14 @@ async function start() {
   document.getElementById('stop').addEventListener('click', async () => {
     if (confirm('Stop the world for good?')) await api('api/stop', {});
   });
+  document.getElementById('ask').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const question = document.getElementById('question').value.trim();
+    if (!question || !page.person) return;
+    await api('api/move', {move: askMove(page.person, question)});
+    document.getElementById('question').value = '';
+    refresh();
+  });
   document.getElementById('release').addEventListener('submit', async (event) => {
     event.preventDefault();
     const says = document.getElementById('says').value.trim();
@@ -305,5 +350,5 @@ async function start() {
 if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
-  module.exports = {peopleColour, releaseMove};
+  module.exports = {askMove, peopleColour, releaseMove};
 }

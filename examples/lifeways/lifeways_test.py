@@ -151,6 +151,21 @@ class SandboxTest(absltest.TestCase):
         [(c['text'], c['origin']) for c in recorded + forgotten],
     )
 
+  def test_the_experimenter_interviews_a_person(self):
+    settings = scenarios.settings(max_years=4)
+    name = scenarios.founders(settings)[0]['params']['name']
+    settings['plan'] = {'1': f'ask {name}: What do you live by?'}
+    run = simulation.build_simulation(settings)
+
+    run.play()
+
+    (transcript,) = run.world().transcripts
+    self.assertEqual(
+        (transcript['year'], transcript['name'], transcript['question']),
+        (2, name, 'What do you live by?'),
+    )
+    self.assertStartsWith(transcript['answer'], 'We live by these:')
+
   def test_peoples_are_those_whose_marriage_rules_allow_each_other(self):
     def tongue(words):
       return {
