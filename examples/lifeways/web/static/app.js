@@ -49,6 +49,8 @@ const page = {
   entries: [],
   entrySince: 0,
   /** @type {?string} The person shown, if any. */ person: null,
+  /** @type {?Array<number>} The place chosen for a release: [row, col]. */
+  at: null,
   since: -1,
   tile: 1,
 };
@@ -119,6 +121,15 @@ function drawMap(world) {
     ctx.fillStyle = '#222';
     ctx.fillText(PLACE_GLYPHS[place.kind] || '?', (c + 0.5) * page.tile,
                  (r + 0.5) * page.tile);
+  }
+  if (page.at) {  // The place chosen for a release: a ring.
+    const [r, c] = page.at;
+    ctx.beginPath();
+    ctx.arc((c + 0.5) * page.tile, (r + 0.5) * page.tile, page.tile * 0.45, 0,
+        2 * Math.PI);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
   const crowd = {};
   for (const person of world.people) {
@@ -229,6 +240,108 @@ function leverChoices(world) {
         [lever, `${lever} (${low}–${high}; now ${now})`])
       .concat(world.channels.map((channel) =>
         [`without ${channel}`, `without ${channel}`]));
+}
+
+/**
+ * What the page says of a release: where and how it went, and its fate.
+ * @param {!Object} release A release the session follows.
+ * @return {string} E.g. 'c30 · song at 6,13, year 4 · 2 heard it · held by 8
+ *     now (most: 8, year 14) · 2 variants'.
+ */
+function releaseStatus(release) {
+  const heard = release.how === 'song' ? ` · ${release.heard} heard it` :
+      ' · on a shelf';
+  const head = `${release.id} · ${release.how} at ${release.tile.join(',')},` +
+      ` year ${release.year}${heard}`;
+  if (release.died !== null) {
+    return `${head} · ` + (release.peak ?
+        `died out in year ${release.died} (at most ${release.peak} held it)` :
+        `nobody took it up; forgotten in year ${release.died}`);
+  }
+  const last = release.holders[release.holders.length - 1];
+  const now = last ? last[1] : 0;
+  if (!release.peak) return `${head} · nobody has taken it up yet`;
+  const variants = release.variants > 1 ?
+      ` · ${release.variants} variants` : '';
+  return `${head} · held by ${now} now (most: ${release.peak}, year ` +
+      `${release.peak_year})${variants}`;
+}
+
+/**
+ * Draws how many held a release, year by year.
+ * @param {!HTMLCanvasElement} canvas A small canvas.
+ * @param {!Array<!Array<number>>} holders [year, holders] pairs.
+ */
+function drawSpark(canvas, holders) {
+  canvas.width = 160;
+  canvas.height = 28;
+  const ctx = canvas.getContext('2d');
+  if (holders.length < 2) return;
+  const most = Math.max(1, ...holders.map(([, n]) => n));
+  ctx.beginPath();
+  holders.forEach(([, n], i) => {
+    const x = 1 + (i / (holders.length - 1)) * 158;
+    const y = 27 - (n / most) * 25;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = getComputedStyle(document.body)
+      .getPropertyValue('--accent') || '#2d6a4f';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+/**
+ * Lists the person's releases, the latest first.
+ * @param {!Object} world The state.
+ */
+function drawReleases(world) {
+  if (!world.releases.length) return;
+  document.getElementById('releases').replaceChildren(
+      ...[...world.releases].reverse().map((release) => {
+        const item = document.createElement('li');
+        const text = document.createElement('div');
+        text.textContent = `"${release.text}"`;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = releaseStatus(release);
+        const spark = document.createElement('canvas');
+        drawSpark(spark, release.holders);
+        item.append(text, meta, spark);
+        return item;
+      }));
+}
+
+/**
+ * How many would hear a song sung at a place: those old enough within the
+ * World's sight, the map wrapping at its edges.
+ * @param {!Object} world The state.
+ * @param {!Array<number>} at [row, col].
+ * @return {number}
+ */
+function withinReach(world, at) {
+  const near = (a, b, n) => Math.min(Math.abs(a - b), n - Math.abs(a - b));
+  return world.people.filter((person) => person.age >= world.child_acts_age &&
+      near(person.tile[0], at[0], world.rows) +
+      near(person.tile[1], at[1], world.cols) <= world.sight).length;
+}
+
+/**
+ * Says where a release would go, and who would hear a song there.
+ * @param {!Object} world The state.
+ */
+function drawAt(world) {
+  const note = document.getElementById('at-note');
+  if (!page.at) {
+    note.textContent = '';
+    return;
+  }
+  const n = withinReach(world, page.at);
+  const odds = world.song_uptake ?
+      ` Each takes a song up about one time in ` +
+      `${Math.round(1 / world.song_uptake)}.` : '';
+  note.textContent = `Release place ${page.at.join(',')} (the ring): ` +
+      (n ? `${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
+        `here.${odds}` : 'nobody would hear a song here.');
 }
 
 /** What the person writes in the notebook. */
@@ -516,6 +629,9 @@ function onMapTap(event) {
   const row = Math.floor(y / page.tile);
   const col = Math.floor(x / page.tile);
   document.getElementById('at').value = `${row},${col}`;
+  page.at = [row, col];
+  drawMap(page.world);
+  drawAt(page.world);
   let nearest = null;
   let best = page.tile * page.tile;
   for (const person of page.world.people) {
@@ -557,7 +673,9 @@ async function refresh() {
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     drawMap(world);
+    drawAt(world);
     drawTranscripts(world);
+    drawReleases(world);
     document.getElementById('twin').textContent = twinNote(world.twin);
     document.getElementById('unfork').hidden = !world.twin;
     const twin = world.twin ?
@@ -612,6 +730,12 @@ async function start() {
   document.getElementById('build').textContent =
       `build ${build.commit || '?'}`;
   document.getElementById('map').addEventListener('click', onMapTap);
+  document.getElementById('at').addEventListener('change', (event) => {
+    const at = event.target.value.split(',').map((n) => parseInt(n, 10));
+    page.at = at.length === 2 && at.every(Number.isFinite) ? at : null;
+    drawMap(page.world);
+    drawAt(page.world);
+  });
   document.getElementById('person-close').addEventListener('click', () => {
     document.getElementById('person').hidden = true;
   });
@@ -697,7 +821,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, savedNote, transmissionText, transmissionTree,
-    twinNote, variantNote,
+    entryMeta, entryShown, releaseStatus, savedNote, transmissionText,
+    transmissionTree, twinNote, variantNote, withinReach,
   };
 }

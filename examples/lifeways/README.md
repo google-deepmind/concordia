@@ -74,6 +74,16 @@ save (`simulation.load_checkpoint`) and plays on from that year. A save of
 another world, or one an older build can no longer restore, is set aside
 (`FILE.set-aside`), and a new world begins.
 
+**Your releases.** A person's releases are recorded in the census rows
+(`releases`: id, how, where, how many heard a song), and the page follows
+each one. Year by year it counts how many living people hold the release
+or a variant descended from it (their Learners; measurement). A release
+lives on while it, or a variant of it, is held or kept in a place. The
+first year neither is true, it has died out, and the notebook says so. A
+ring on the map marks where the next release goes, with how many would
+hear a song there. A newcomer can see a released custom spread or die
+within minutes at the default pace.
+
 **The notebook** (DESIGN §9) is the person's lab record, kept by the
 session and saved with the world. It holds the hypotheses, observations
 and notes the person writes, and each move the person makes. The World's

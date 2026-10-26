@@ -48,6 +48,7 @@ body {
 header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 h1 { font-size: 1.4rem; margin: 0; }
 h2 { font-size: 1.1rem; margin: 18px 0 6px; }
+h3 { font-size: 1rem; margin: 14px 0 4px; }
 #year { color: var(--muted); }
 
 section { margin-top: 12px; }
@@ -126,3 +127,8 @@ label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
 #error, #fork-error, #note-error { color: var(--danger); }
+
+#releases { list-style: none; padding: 0; }
+#releases li { margin: 8px 0; }
+#releases .meta { color: var(--muted); font-size: 0.85rem; }
+#releases canvas { width: 160px; height: 28px; border: none; margin-top: 2px; }

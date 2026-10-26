@@ -26,6 +26,10 @@ limitations under the License.
     <h1>Lifeways</h1>
     <div id="year" aria-live="polite">…</div>
   </header>
+  <p id="intro" class="hint">People in this valley are born, learn their ways
+    from one another, and die. Tap the map where many people are (pause
+    first if you like), then <a href="#designer">release a custom of your
+    own</a> and watch it spread or die out.</p>
 
   <section id="time" aria-label="Time">
     <button id="play" type="button">Pause</button>
@@ -44,6 +48,7 @@ limitations under the License.
 
   <section id="valley" aria-label="The valley">
     <canvas id="map" width="480" height="320"></canvas>
+    <p id="at-note" class="hint" aria-live="polite"></p>
     <p class="hint">Tap a person to see their customs. Colours are peoples by
       descent; squares are places (L library, S school, ✦ shrine).</p>
   </section>
@@ -69,6 +74,31 @@ limitations under the License.
       each, who holds it, and from whom they had it.</p>
     <ul id="lineage-variants"></ul>
     <button id="lineage-close" type="button">Close</button>
+  </section>
+
+  <section id="designer" aria-label="The custom designer">
+    <h2>Release a custom</h2>
+    <p class="hint">You never edit a mind: a custom you release is left as a
+      text on a shelf, or sung to those near a place, and each who hears it
+      may take it up, or not. Tap the map where people are to choose the
+      place.</p>
+    <form id="release">
+      <label>Kind <select id="kind"></select></label>
+      <label>Domain <select id="domain"></select></label>
+      <label>As a
+        <select id="how"><option>song</option><option>text</option></select>
+      </label>
+      <label>At <input id="at" value="8,8" inputmode="numeric" size="6"></label>
+      <label class="wide">It says
+        <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
+      </label>
+      <button type="submit">Release next year</button>
+    </form>
+    <p id="queued" class="hint"></p>
+    <h3>Your releases</h3>
+    <p class="hint">How many hold each custom you released, or a variant of
+      it, year by year: does it spread, or die out?</p>
+    <ul id="releases"><li class="hint">Nothing released yet.</li></ul>
   </section>
 
   <section id="graphs" aria-label="The census">
@@ -98,26 +128,6 @@ limitations under the License.
     <p class="hint">Tap a person and ask them something; they answer next
       year, in their own words.</p>
     <ul id="transcripts"></ul>
-  </section>
-
-  <section id="designer" aria-label="The custom designer">
-    <h2>Release a custom</h2>
-    <p class="hint">You never edit a mind: a custom you release is left as a
-      text on a shelf, or sung to those near a place. Tap the map to choose
-      the place.</p>
-    <form id="release">
-      <label>Kind <select id="kind"></select></label>
-      <label>Domain <select id="domain"></select></label>
-      <label>As a
-        <select id="how"><option>song</option><option>text</option></select>
-      </label>
-      <label>At <input id="at" value="8,8" inputmode="numeric" size="6"></label>
-      <label class="wide">It says
-        <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
-      </label>
-      <button type="submit">Release next year</button>
-    </form>
-    <p id="queued" class="hint"></p>
   </section>
 
   <section id="notebook" aria-label="The notebook">

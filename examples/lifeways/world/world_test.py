@@ -792,7 +792,11 @@ class ReleaseTest(_PlaceTest):
     )
     self.assertEmpty(self._offers('Far'))
     self.assertEqual(self.world.history[-1]['released'], 1)
-    # The year's record keeps what the Experimenter was told of its move.
+    # The year's record keeps the release and what the Experimenter was told.
+    self.assertEqual(
+        self.world.history[-1]['releases'],
+        [{'id': custom.id, 'how': 'song', 'tile': [5, 6], 'heard': 1}],
+    )
     self.assertEqual(
         self.world.history[-1]['reports'],
         [f'{custom.id} is sung at 5,6; 1 hear it.'],

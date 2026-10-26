@@ -23,8 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  entryMeta, entryShown, savedNote, transmissionText, transmissionTree,
-  twinNote, variantNote,
+  entryMeta, entryShown, releaseStatus, savedNote, transmissionText,
+  transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -129,4 +129,35 @@ test('the notebook filters what the person wrote, moves and changes', () => {
   assert.equal(entryMeta({year: 40, kind: 'world'}), 'Year 40 · the World');
   assert.equal(entryMeta({year: 3, kind: 'hypothesis'}),
       'Year 3 · hypothesis');
+});
+
+test('a release says where it went and whether it lives', () => {
+  const release = {id: 'c30', how: 'song', tile: [6, 13], year: 4, heard: 2,
+    holders: [[4, 0], [5, 3], [14, 8], [15, 7]], peak: 8, peak_year: 14,
+    variants: 2, died: null};
+  assert.equal(releaseStatus(release),
+      'c30 · song at 6,13, year 4 · 2 heard it · held by 7 now (most: 8,' +
+      ' year 14) · 2 variants');
+  assert.equal(releaseStatus({...release, how: 'text', variants: 1}),
+      'c30 · text at 6,13, year 4 · on a shelf · held by 7 now (most: 8,' +
+      ' year 14)');
+  assert.equal(releaseStatus({...release, heard: 0, peak: 0, died: 5}),
+      'c30 · song at 6,13, year 4 · 0 heard it · nobody took it up;' +
+      ' forgotten in year 5');
+  assert.equal(releaseStatus({...release, peak: 0}),
+      'c30 · song at 6,13, year 4 · 2 heard it · nobody has taken it up yet');
+  assert.equal(releaseStatus({...release, died: 40}),
+      'c30 · song at 6,13, year 4 · 2 heard it · died out in year 40' +
+      ' (at most 8 held it)');
+});
+
+test('a song reaches those old enough within sight, across the edges', () => {
+  const world = {rows: 16, cols: 24, sight: 2, child_acts_age: 5, people: [
+    {tile: [0, 0], age: 30},
+    {tile: [15, 23], age: 30},  // Two steps away, across both edges.
+    {tile: [1, 1], age: 3},  // Too young.
+    {tile: [0, 3], age: 30},  // Three steps away.
+  ]};
+  assert.equal(withinReach(world, [0, 0]), 2);
+  assert.equal(withinReach(world, [8, 12]), 0);
 });

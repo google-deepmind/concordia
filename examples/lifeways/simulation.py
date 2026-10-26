@@ -266,6 +266,25 @@ class Run:
         ],
     }
 
+  def held_counts(self) -> collections.Counter[str]:
+    """How many of the living hold each custom, read from their Learners.
+
+    Measurement only, as `customs_census`; call it where `world()` may be
+    read.
+
+    Returns:
+      Each custom's id, and how many living people hold it.
+    """
+    living = set(self.world().people)
+    held: collections.Counter[str] = collections.Counter()
+    for entity in list(self.sim.entities):
+      if entity.name in living:
+        learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+            person_lib.LEARNER, type_=culture.Learner
+        )
+        held.update(custom['id'] for custom in learner.get_state()['held'])
+    return held
+
   def peoples(self) -> dict[str, Any]:
     """The peoples: clusters of the grown whose marriage rules allow each other.
 

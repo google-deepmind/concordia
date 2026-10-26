@@ -79,6 +79,10 @@ MOVE, WORLD, EVENT = 'move', 'world', 'event'
 NOTEBOOK_KEPT = 1000
 # Fewer living than this is noted.
 FEW_LEFT = 10
+# The person's latest releases the page follows, and the years of each it
+# sends.
+RELEASES_FOLLOWED = 12
+RELEASE_YEARS_SENT = 120
 
 
 def _number(custom_id: str) -> int:
@@ -240,6 +244,8 @@ class Session:
     self._year = 0
     # The customs that have been the most widely held (noted once each).
     self._tops: set[str] = set()
+    # The person's releases, followed year by year (`_follow_releases`).
+    self._releases: list[dict[str, Any]] = []
     self._thread: threading.Thread | None = None
     self.error: str = ''
     # When the person last did anything (a move, the pace, a stop).
@@ -326,6 +332,7 @@ class Session:
         'peoples': self.run.peoples(),
     }
     self._note_year(year, row)
+    self._follow_releases(row)
     with self._rows_lock:
       self._rows.append(row)
     with self._saving:
@@ -351,6 +358,7 @@ class Session:
       forgotten = list(self._forgotten.values())
       notebook = [dict(e) for e in self._notebook]
       tops = sorted(self._tops)
+      releases = json.loads(json.dumps(self._releases))
     return {
         'version': SAVE_VERSION,
         'world': self._identity,
@@ -359,6 +367,7 @@ class Session:
         'forgotten': forgotten,
         'notebook': notebook,
         'tops': tops,
+        'releases': releases,
         'pace': self.input.settings(),
         'checkpoint': checkpoint,
     }
@@ -432,6 +441,7 @@ class Session:
       self._notebook = [dict(e) for e in saved.get('notebook', ())]
       self._entries = max((int(e['id']) for e in self._notebook), default=0)
       self._tops = {str(t) for t in saved.get('tops', ())}
+      self._releases = [dict(r) for r in saved.get('releases', ())]
     self._year = int(saved['year'])
     pace = saved.get('pace', {})
     self.input.pace(pace.get('years_per_second'), pace.get('paused'))
@@ -448,6 +458,93 @@ class Session:
       os.replace(path, path + '.set-aside')
     except OSError:
       pass
+
+  # --- The person's releases -------------------------------------------
+
+  def _follow_releases(self, row: Mapping[str, Any]) -> None:
+    """Counts who holds each release or a variant of it (in the GM's lock).
+
+    A release lives on while it or a variant descended from it is in the
+    world (held, or kept in a place); it died out the first year none is.
+    """
+    world = self.run.world()
+    closed = int(row['year'])
+    customs = world.culture.get_state()['customs']
+    with self._rows_lock:
+      for release in row.get('releases', ()):
+        custom = next(
+            (c for c in customs if c['id'] == release['id']),
+            self._forgotten.get(release['id'], {}),
+        )
+        self._releases.append({
+            **release,
+            'year': closed,
+            'kind': custom.get('kind', ''),
+            'domain': custom.get('domain', ''),
+            'text': custom.get('text', ''),
+            'holders': [],
+            'peak': 0,
+            'peak_year': closed,
+            'variants': 0,
+            'died': None,
+        })
+      del self._releases[:-RELEASES_FOLLOWED]
+      following = {r['id'] for r in self._releases if r['died'] is None}
+      if not following:
+        return
+      parents = {
+          i: str(c.get('parent') or '') for i, c in self._forgotten.items()
+      }
+    parents.update({c['id']: str(c.get('parent') or '') for c in customs})
+    found: dict[str, str] = {}
+
+    def release_of(custom_id: str) -> str:
+      """The followed release a variant descends from ('' if none)."""
+      path, at = [], custom_id
+      while at and at not in found and at not in following and at not in path:
+        path.append(at)
+        at = parents.get(at, '')
+      root = at if at in following else found.get(at, '')
+      for step in path:
+        found[step] = root
+      return root
+
+    held = self.run.held_counts()
+    holders: collections.Counter[str] = collections.Counter()
+    variants: dict[str, set[str]] = collections.defaultdict(set)
+    for custom_id, n in held.items():
+      root = release_of(custom_id)
+      if root:
+        holders[root] += n
+        variants[root].add(custom_id)
+    alive = {release_of(c['id']) for c in customs} - {''}
+    died = []
+    with self._rows_lock:
+      for release in self._releases:
+        if release['died'] is not None:
+          continue
+        n = holders[release['id']]
+        release['holders'] = (release['holders'] + [[closed, n]])[
+            -RELEASE_YEARS_SENT:
+        ]
+        if n > release['peak']:
+          release['peak'], release['peak_year'] = n, closed
+        release['variants'] = len(variants[release['id']])
+        if release['id'] not in alive:
+          release['died'] = closed
+          died.append(dict(release))
+    for release in died:  # The notebook takes the lock itself.
+      self._write(
+          EVENT,
+          f'Your release {release["id"]} died out: "{release["text"]}"'
+          f' (at most {release["peak"]} held it).',
+          closed,
+      )
+
+  def releases(self) -> list[dict[str, Any]]:
+    """The person's latest releases, as followed year by year."""
+    with self._rows_lock:
+      return json.loads(json.dumps(self._releases))
 
   # --- The notebook -----------------------------------------------------
 
@@ -715,8 +812,13 @@ class Session:
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
         'grown_age': world_lib.ADULT_AGE,
+        'child_acts_age': world_lib.CHILD_ACTS_AGE,
+        # The chance each who hears a released song takes it up.
+        'song_uptake': person_lib.DEFAULT_UPTAKE.get(culture_lib.RELEASE, 0),
+        'sight': int(self._settings.get('sight', 2)),
         'max_level': culture_lib.MAX_LEVEL,
         'rows_kept': ROWS_KEPT,
+        'releases': self.releases(),
         'saved_year': self.saved_year,
         'restored_year': self.restored_year,
         'twin': self._twin_state(),

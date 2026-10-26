@@ -14,6 +14,7 @@
 
 """The page's session and server, on a running MOCK world."""
 
+import collections
 import json
 import os
 import threading
@@ -451,6 +452,62 @@ class NotebookTest(absltest.TestCase):
     self.assertEqual(texts[-1], 'Something changed.')
     self.assertGreater(written['id'], second.notebook()[-2]['id'])
     self.assertEqual(written['year'], second.restored_year)
+
+
+class ReleasesTest(absltest.TestCase):
+
+  def test_the_page_follows_each_release_until_it_dies_out(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+    session = session_lib.Session(
+        years_per_second=20, save_path=path, save_seconds=0
+    )
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      people = session.state()['people']
+      crowd = collections.Counter(tuple(p['tile']) for p in people)
+      (row, col), _ = crowd.most_common(1)[0]
+      taken = {tuple(p['tile']) for p in people}
+      empty = next(
+          (i, j)
+          for i in range(16)
+          for j in range(24)
+          if all(abs(i - a) + abs(j - b) > 6 for a, b in taken)
+      )
+      session.move(f'release belief sacred as a song at {row},{col}: Heard.')
+      session.move(
+          f'release belief sacred as a song at {empty[0]},{empty[1]}: Unheard.'
+      )
+      self.assertTrue(
+          _wait(
+              lambda: len(session.releases()) == 2
+              and len(session.releases()[0]['holders']) >= 10
+          )
+      )
+    finally:
+      session.close()
+
+    heard, unheard = session.releases()
+    self.assertEqual((heard['text'], unheard['text']), ('Heard.', 'Unheard.'))
+    self.assertGreaterEqual(heard['heard'], 1)
+    years = [year for year, _ in heard['holders']]
+    self.assertEqual(
+        years, list(range(heard['year'], heard['year'] + len(years)))
+    )
+    self.assertEqual(heard['peak'], max(n for _, n in heard['holders']))
+    self.assertEqual(
+        (unheard['heard'], unheard['died'], unheard['peak']),
+        (0, unheard['year'], 0),
+    )
+    self.assertIn(
+        f'Your release {unheard["id"]} died out: "Unheard." (at most 0 held'
+        ' it).',
+        [e['text'] for e in session.notebook()],
+    )
+    restored = session_lib.Session(save_path=path)
+    self.assertEqual(
+        [r['id'] for r in restored.releases()], [heard['id'], unheard['id']]
+    )
 
 
 class ServerTest(absltest.TestCase):

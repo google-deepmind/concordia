@@ -362,6 +362,8 @@ class World:
     self._offers: collections.Counter[str] = collections.Counter()
     self._rediscovered = 0
     self._released = 0
+    # This year's releases: id, how, where, and how many heard a song.
+    self._releases: list[dict[str, Any]] = []
     # What the World told the Experimenter of its moves this year.
     self._reports: list[str] = []
 
@@ -835,6 +837,7 @@ class World:
     self._offers.clear()
     self._rediscovered = 0
     self._released = 0
+    self._releases = []
     # The moves each was offered, as the year began.
     allowed = {
         name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
@@ -1167,6 +1170,9 @@ class World:
           )
       )
       self.places.write(place, custom.id, self.year)
+      self._releases.append(
+          {'id': custom.id, 'how': 'text', 'tile': list(place.tile), 'heard': 0}
+      )
       self._report(
           f'{custom.id} is written at the library at'
           f' {place.tile[0]},{place.tile[1]}.',
@@ -1180,6 +1186,12 @@ class World:
     ]
     for name in listeners:
       self._offer(name, '', custom.id, culture_lib.RELEASE, 'A song is heard')
+    self._releases.append({
+        'id': custom.id,
+        'how': 'song',
+        'tile': list(tile),
+        'heard': len(listeners),
+    })
     self._report(
         f'{custom.id} is sung at {tile[0]},{tile[1]}; {len(listeners)}'
         ' hear it.',
@@ -1776,6 +1788,7 @@ class World:
         'tongues': len({p.speech for p in self.people.values() if p.speech}),
         'understanding': self._mean_understanding(),
         'released': self._released,
+        'releases': [dict(r) for r in self._releases],
         'reports': list(self._reports),
         'variants': len(self.culture),
         'new_variants': created,
