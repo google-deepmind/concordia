@@ -51,6 +51,9 @@ SANDBOX: Mapping[str, Any] = {
     'channels': copy.deepcopy(dict(world_lib.DEFAULT_CHANNELS)),
     'child_cost': 2.0,
     'max_years': None,  # The Sandbox runs indefinitely.
+    # Free mode (live play): a year also closes after this many seconds,
+    # whoever has not answered doing nothing. None: tick mode (reproducible).
+    'free': None,
     'history_kept': 200,
     # The Experimenter's moves by year (in the World's `RELEASE_FORM`); none:
     # the Sandbox's Experimenter watches, or is a person.

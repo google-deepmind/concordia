@@ -64,6 +64,28 @@ class PageInputTest(absltest.TestCase):
       page(self._request())
 
 
+class FreeModeTest(absltest.TestCase):
+
+  def test_in_free_mode_years_pass_while_the_experimenter_waits(self):
+    session = session_lib.Session(free=0.3)
+    session.input.pace(paused=True)  # The Experimenter never answers.
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3, 20))
+    finally:
+      session.close()
+
+  def test_in_tick_mode_the_year_waits_for_everyone(self):
+    session = session_lib.Session()
+    session.input.pace(paused=True)
+    session.start()
+    try:
+      time.sleep(1.0)
+      self.assertEqual(session.state()['year'], 0)
+    finally:
+      session.close()
+
+
 class ServerTest(absltest.TestCase):
 
   def setUp(self):

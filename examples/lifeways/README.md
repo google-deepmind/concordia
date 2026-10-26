@@ -111,7 +111,10 @@ entity.
 
 **Closing a year.** Answers are resolved together, in a fixed order, when the
 last one is in. A year's outcome therefore never depends on thread timing:
-two runs with the same seed are identical.
+two runs with the same seed are identical. In free mode (the `free`
+setting, for live play) a year also closes after so many seconds, whoever
+has not answered doing nothing that year: slow minds lag, and runs depend
+on timing.
 
 **Inheritance without mind reading.** Every custom enters the world through
 the GM, which keeps the public record of variants (`world/culture.py`). A

@@ -98,6 +98,7 @@ class WorldGameMaster(prefab_lib.Prefab):
         lifecycle=lifecycle,
         observation_queue=queue,
         max_years=settings.get('max_years'),
+        free=settings.get('free'),
     )
     names = [entity.name for entity in self.entities or ()]
     components = {

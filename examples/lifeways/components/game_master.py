@@ -25,6 +25,7 @@ when the last is in. So a year's outcome never depends on thread timing.
 from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import threading
+import time
 from typing import Any, override
 
 from concordia.components.game_master import event_resolution
@@ -119,6 +120,7 @@ class TurnGate(
       max_years: int | None = None,
       world_key: str = DEFAULT_WORLD_KEY,
       terminate_key: str = terminate.DEFAULT_TERMINATE_COMPONENT_KEY,
+      free: float | None = None,
   ):
     """Initializes the gate.
 
@@ -129,10 +131,16 @@ class TurnGate(
       max_years: The year the game ends at; None for never.
       world_key: The key of the GM's `WorldComponent`.
       terminate_key: The key of the GM's stock `Terminate`.
+      free: Free mode, for live play: a year also closes after this many
+        seconds, whoever has not answered yet doing nothing that year. Runs
+        then depend on how fast minds answer. None: tick mode (a year closes
+        when every participant has answered; runs are reproducible).
     """
     super().__init__()
     self._world_key = world_key
     self._terminate_key = terminate_key
+    self._free = free
+    self._began = time.monotonic()  # When this year began (free mode).
     self._lifecycle = lifecycle
     self._queue = observation_queue
     self._max_years = max_years
@@ -147,8 +155,13 @@ class TurnGate(
     holder = _world_component(self, self._world_key)
     with holder.lock:
       world = holder.world
-      if world.year_complete() and not self._ended:
+      late = (
+          self._free is not None
+          and time.monotonic() - self._began >= self._free
+      )
+      if (world.year_complete() or late) and not self._ended:
         self._close_year(world)
+        self._began = time.monotonic()
       if self._ended:
         return ''
       return ','.join(n for n in action_spec.options if world.may_act(n))
