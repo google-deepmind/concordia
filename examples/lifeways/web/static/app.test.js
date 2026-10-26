@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  entryMeta, entryShown, fateChoices, fateMove, recentDisasters,
+  entryMeta, entryShown, fateChoices, fateMove, reachNote, recentDisasters,
   releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
@@ -193,4 +193,15 @@ test('the map shows the disasters of the last twenty years', () => {
   ];
   assert.deepEqual(recentDisasters(rows, 40),
       [{kind: 'plague', tile: [5, 5], age: 15}]);
+});
+
+test('the ring says the chance that someone takes a song up', () => {
+  const world = {rows: 16, cols: 24, sight: 2, child_acts_age: 5,
+    song_uptake: 0.25, people: [
+      {tile: [0, 0], age: 30}, {tile: [0, 1], age: 30}, {tile: [1, 0], age: 9},
+    ]};
+  assert.equal(reachNote(world, [0, 0]), 'The ring (0,0): 3 people would' +
+      ' hear a song here; the chance at least one takes it up is 58%.');
+  assert.equal(reachNote(world, [8, 12]),
+      'The ring (8,12): nobody would hear a song here.');
 });

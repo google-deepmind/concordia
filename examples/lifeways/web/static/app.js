@@ -365,6 +365,22 @@ function withinReach(world, at) {
 }
 
 /**
+ * What the page says of the ring: who would hear a song there, and the
+ * chance that at least one of them takes it up.
+ * @param {!Object} world The state.
+ * @param {!Array<number>} at [row, col].
+ * @return {string}
+ */
+function reachNote(world, at) {
+  const n = withinReach(world, at);
+  const head = `The ring (${at.join(',')}): `;
+  if (!n) return `${head}nobody would hear a song here.`;
+  const someone = Math.round(100 * (1 - (1 - world.song_uptake) ** n));
+  return `${head}${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
+      `here; the chance at least one takes it up is ${someone}%.`;
+}
+
+/**
  * Says where a release would go, and who would hear a song there.
  * @param {!Object} world The state.
  */
@@ -374,13 +390,7 @@ function drawAt(world) {
     note.textContent = '';
     return;
   }
-  const n = withinReach(world, page.at);
-  const odds = world.song_uptake ?
-      ` Each takes a song up about one time in ` +
-      `${Math.round(1 / world.song_uptake)}.` : '';
-  note.textContent = `The ring (${page.at.join(',')}): ` +
-      (n ? `${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
-        `here.${odds}` : 'nobody would hear a song here.');
+  note.textContent = reachNote(world, page.at);
 }
 
 /** What the person writes in the notebook. */
@@ -919,7 +929,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, fateChoices, fateMove, recentDisasters,
+    entryMeta, entryShown, fateChoices, fateMove, reachNote, recentDisasters,
     releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
