@@ -256,15 +256,29 @@ function releaseStatus(release) {
   if (release.died !== null) {
     return `${head} · ` + (release.peak ?
         `died out in year ${release.died} (at most ${release.peak} held it)` :
-        `nobody took it up; forgotten in year ${release.died}`);
+        `nobody took it up; forgotten in year ${release.died}`) +
+        twinFate(release.twin);
   }
   const last = release.holders[release.holders.length - 1];
   const now = last ? last[1] : 0;
-  if (!release.peak) return `${head} · nobody has taken it up yet`;
+  if (!release.peak) {
+    return `${head} · nobody has taken it up yet${twinFate(release.twin)}`;
+  }
   const variants = release.variants > 1 ?
       ` · ${release.variants} variants` : '';
   return `${head} · held by ${now} now (most: ${release.peak}, year ` +
-      `${release.peak_year})${variants}`;
+      `${release.peak_year})${variants}${twinFate(release.twin)}`;
+}
+
+/**
+ * How a release fares in the twin, if it reached one.
+ * @param {?Object|undefined} twin The release's `twin`, if any.
+ * @return {string} E.g. ' · in the twin: held by 3'.
+ */
+function twinFate(twin) {
+  if (!twin) return '';
+  if (twin.died !== null) return ' · in the twin: died out';
+  return ` · in the twin: held by ${twin.now}`;
 }
 
 /**

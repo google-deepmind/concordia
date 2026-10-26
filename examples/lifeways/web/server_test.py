@@ -277,6 +277,19 @@ class TwinTest(absltest.TestCase):
     )
     self.assertLen(self.session.input.settings()['queued'], 2)
 
+  def test_a_release_since_the_fork_says_how_it_fares_in_the_twin(self):
+    twin = self.session.fork('mutation', 0.3)
+
+    self.session.move('release belief sacred as a song at 8,8: Both hear.')
+
+    self.assertTrue(
+        _wait(lambda: any('twin' in r for r in self.session.releases()))
+    )
+    (release,) = self.session.releases()
+    (theirs,) = twin.releases()
+    self.assertEqual(release['twin']['id'], theirs['id'])
+    self.assertEqual(release['twin']['heard'], theirs['heard'])
+
   def test_a_lever_must_be_one_and_the_world_playing(self):
     for lever, value in (
         ('speed', 1.0),

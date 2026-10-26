@@ -171,3 +171,14 @@ test('disasters and migrants are written in the form the World reads', () => {
     'migrants', 'found library', 'found school', 'found shrine',
     'close library', 'close school', 'close shrine']);
 });
+
+test('a release says how it fares in the twin', () => {
+  const release = {id: 'c30', how: 'song', tile: [6, 13], year: 4, heard: 2,
+    holders: [[4, 0], [5, 3]], peak: 3, peak_year: 5, variants: 1,
+    died: null, twin: {id: 'c41', heard: 2, now: 0, peak: 0, died: 6}};
+  assert.equal(releaseStatus(release),
+      'c30 · song at 6,13, year 4 · 2 heard it · held by 3 now (most: 3,' +
+      ' year 5) · in the twin: died out');
+  assert.equal(releaseStatus({...release, twin: {...release.twin, died: null,
+    now: 5}}).endsWith(' · in the twin: held by 5'), true);
+});

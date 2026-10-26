@@ -542,9 +542,40 @@ class Session:
       )
 
   def releases(self) -> list[dict[str, Any]]:
-    """The person's latest releases, as followed year by year."""
+    """The person's latest releases, as followed year by year.
+
+    With a twin, each release made since the fork also says how it fares
+    there (`twin`): the twin's release of the same custom (its own id).
+
+    Returns:
+      The releases, oldest first.
+    """
     with self._rows_lock:
-      return json.loads(json.dumps(self._releases))
+      releases = json.loads(json.dumps(self._releases))
+    twin = self.twin
+    if twin is None or twin.twin_of is None:
+      return releases
+    forked = int(twin.twin_of['year'])
+    theirs = twin.releases()
+    for release in releases:
+      if release['year'] < forked:
+        continue
+      same = [
+          r
+          for r in theirs
+          if (r['kind'], r['domain'], r['text'])
+          == (release['kind'], release['domain'], release['text'])
+      ]
+      if same:
+        mirror = same[-1]
+        release['twin'] = {
+            'id': mirror['id'],
+            'heard': mirror['heard'],
+            'now': mirror['holders'][-1][1] if mirror['holders'] else 0,
+            'peak': mirror['peak'],
+            'died': mirror['died'],
+        }
+    return releases
 
   # --- The notebook -----------------------------------------------------
 
