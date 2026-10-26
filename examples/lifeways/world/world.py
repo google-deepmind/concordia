@@ -62,6 +62,15 @@ LEAD_RITE = 'lead the rite'
 JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
 PREACH = 'preach'
+# The Experimenter's: release a custom it designed into the world.
+RELEASE = 'release'
+RELEASE_FORM = (
+    'release <kind> <domain> as a <text or song> at <row>,<col>: <what it says>'
+)
+_RELEASE = re.compile(
+    r'^release (?P<kind>[a-z]+) (?P<domain>[a-z]+)(?: level (?P<level>\d+))?'
+    r' as a (?P<how>text|song) at (?P<row>\d+),(?P<col>\d+): (?P<text>.+)$'
+)
 
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
@@ -125,6 +134,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     culture_lib.RITE: {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
     culture_lib.STORY: {'mutation': 0.2},
     culture_lib.PREACHING: {'mutation': 0.05},
+    culture_lib.RELEASE: {'mutation': 0.0},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -315,6 +325,7 @@ class World:
     # brought back a custom nobody living had been given (for the census).
     self._offers: collections.Counter[str] = collections.Counter()
     self._rediscovered = 0
+    self._released = 0
 
   # --- Setup -------------------------------------------------------------
 
@@ -444,7 +455,7 @@ class World:
   def moves(self, name: str) -> list[str]:
     """A person's moves this year (the Experimenter only watches)."""
     if name == EXPERIMENTER:
-      return [WATCH]
+      return [WATCH, RELEASE_FORM]
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
@@ -655,6 +666,7 @@ class World:
     created = self.culture.created()
     self._offers.clear()
     self._rediscovered = 0
+    self._released = 0
     # The moves each was offered, as the year began.
     allowed = {
         name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
@@ -667,6 +679,7 @@ class World:
     for name in (str(n) for n in order):
       if name in self.people:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
+    self._release(self.actions.get(EXPERIMENTER, ''))
     self._apprentice(did)
     self._schools(did)
     self._rites(did)
@@ -893,6 +906,73 @@ class World:
       place = standing[0]
     if enacted:
       self.places.keep(place, person.name, enacted, self.year)
+
+  def _release(self, answer: str) -> None:
+    """Puts a custom the Experimenter designed into the world.
+
+    The Experimenter never edits a mind: a released custom is a new variant
+    in the world's record, either written as a text on a shelf at a place
+    (the nearest library within sight of it, or a new one there) or sung as
+    a song that all within sight of the place hear (the `release` channel).
+
+    Args:
+      answer: The Experimenter's answer this year (`RELEASE_FORM`).
+    """
+    match = _RELEASE.match(' '.join(answer.split()))
+    if match is None:
+      if _is_move(answer.strip().lower(), RELEASE):
+        self._tell(EXPERIMENTER, 'The release is not understood: ' + answer)
+      return
+    kind, domain = match.group('kind'), match.group('domain')
+    tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
+    if kind not in culture_lib.KINDS or domain not in culture_lib.DOMAINS:
+      self._tell(EXPERIMENTER, f'No custom is of kind {kind}, domain {domain}.')
+      return
+    params = {}
+    if kind == culture_lib.SKILL:
+      params['level'] = int(match.group('level') or 1)
+    custom = self.culture.add(
+        kind,
+        domain,
+        match.group('text'),
+        params,
+        origin=culture_lib.RELEASE,
+        year=self.year,
+    )
+    self._released += 1
+    if match.group('how') == 'text':
+      near = [
+          p
+          for p in self.places.near(tile, self.sight)
+          if not self.places.ruined(p, self.year)
+      ]
+      place = (
+          near[0]
+          if near
+          else self.places.found(
+              places_lib.LIBRARY, tile, EXPERIMENTER, self.year
+          )
+      )
+      self.places.write(place, custom.id, self.year)
+      self._tell(
+          EXPERIMENTER,
+          f'{custom.id} is written at the library at'
+          f' {place.tile[0]},{place.tile[1]}.',
+      )
+      return
+    listeners = [
+        name
+        for name in self.living()
+        if self.places.distance(self.people[name].tile, tile) <= self.sight
+        and self.people[name].age(self.year) >= CHILD_ACTS_AGE
+    ]
+    for name in listeners:
+      self._offer(name, '', custom.id, culture_lib.RELEASE, 'A song is heard')
+    self._tell(
+        EXPERIMENTER,
+        f'{custom.id} is sung at {tile[0]},{tile[1]}; {len(listeners)}'
+        ' hear it.',
+    )
 
   def _speak(self, person: Person, move: str, enacted: Sequence[str]) -> None:
     """An elder's story, or a preacher's sermon, to all within sight.
@@ -1422,6 +1502,7 @@ class World:
         ),
         'offers': dict(sorted(self._offers.items())),
         'rediscovered': self._rediscovered,
+        'released': self._released,
         'variants': len(self.culture),
         'new_variants': created,
         'lost_variants': extinct,

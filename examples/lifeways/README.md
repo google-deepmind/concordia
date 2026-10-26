@@ -134,6 +134,19 @@ stories breed variants. Anyone may `preach` one custom to all within sight:
 the `preaching` channel is content-biased, moving beliefs and values more
 readily than other kinds, and skills not at all.
 
+**The custom designer.** The Experimenter never edits a mind. It may
+release a custom it designed into the world:
+
+```
+release <kind> <domain> as a <text or song> at <row>,<col>: <what it says>
+```
+
+A text is left on the shelf of the nearest library within sight of the
+place (or of a new one there); a song is offered to everyone within sight
+of it (the `release` channel). Whether anyone takes it up is theirs to
+decide. A scenario's `plan` gives a rule-played Experimenter its moves by
+year; on the page (M6) a person will play it through `HumanActComponent`.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

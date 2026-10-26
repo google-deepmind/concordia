@@ -42,6 +42,9 @@ SANDBOX: Mapping[str, Any] = {
     'child_cost': 2.0,
     'max_years': None,  # The Sandbox runs indefinitely.
     'history_kept': 200,
+    # The Experimenter's moves by year (in the World's `RELEASE_FORM`); none:
+    # the Sandbox's Experimenter watches, or is a person.
+    'plan': {},
     # Libraries: founding one costs food; they stand apart; a shelf holds a
     # dozen texts; one unused for 30 years is a ruin, whose texts crumble.
     'library': {

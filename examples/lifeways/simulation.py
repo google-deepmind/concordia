@@ -106,7 +106,7 @@ def build_config(
       prefab_lib.InstanceConfig(
           prefab=experimenter_lib.EXPERIMENTER_PREFAB,
           role=prefab_lib.Role.ENTITY,
-          params={},
+          params={'plan': dict(settings.get('plan', {}))},
       )
   )
   instances.append(

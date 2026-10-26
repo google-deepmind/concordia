@@ -605,6 +605,49 @@ class ShrineTest(_PlaceTest):
     self.assertIn('Nobody leads the rite', ' '.join(self.world.queued['Bo']))
 
 
+class ReleaseTest(_PlaceTest):
+
+  def test_a_song_is_offered_to_all_within_sight_of_its_place(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Far', 30, (9, 9))
+    self.assertIn(
+        world_lib.RELEASE_FORM, self.world.moves(world_lib.EXPERIMENTER)
+    )
+
+    self._year(
+        Ada='rest',
+        Far='rest',
+        Experimenter='release belief sacred as a song at 5,6: The sun sings.',
+    )
+
+    (offer,) = self._offers('Ada')
+    custom = self.world.culture.get(offer[0])
+    self.assertEqual((offer[1], offer[2]), ('release', None))
+    self.assertEqual(
+        (custom.kind, custom.text, custom.origin),
+        ('belief', 'The sun sings.', 'release'),
+    )
+    self.assertEmpty(self._offers('Far'))
+    self.assertEqual(self.world.history[-1]['released'], 1)
+
+  def test_a_text_is_left_on_a_shelf_at_its_place(self):
+    self._year(
+        Experimenter='release skill craft level 3 as a text at 2,3: Knapping.'
+    )
+
+    (place,) = self.world.places.all()
+    (custom_id,) = place.shelf
+    self.assertEqual(place.tile, (2, 3))
+    self.assertEqual(self.world.culture.get(custom_id).params, {'level': 3})
+
+  def test_a_release_not_understood_changes_nothing(self):
+    self._year(Experimenter='release wisdom sacred as a song at 1,1: Hm.')
+    self._year(Experimenter='release a song')
+
+    self.assertEqual(self.world.history[-1]['released'], 0)
+    self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
+
+
 class CultureTest(absltest.TestCase):
 
   def test_the_same_content_is_the_same_variant(self):

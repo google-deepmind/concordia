@@ -141,6 +141,20 @@ class SandboxTest(absltest.TestCase):
         offers,
     )
 
+  def test_the_experimenter_releases_what_its_plan_says(self):
+    run = simulation.build_simulation(
+        scenarios.settings(
+            max_years=8,
+            plan={'5': 'release belief sacred as a song at 8,8: Sun.'},
+        )
+    )
+
+    run.play()
+
+    released = [row['released'] for row in run.world().history]
+    self.assertEqual(released, [0, 0, 0, 0, 0, 1, 0, 0])
+    self.assertGreater(run.world().history[5]['offers']['release'], 0)
+
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}
     live = simulation.build_simulation(scenarios.settings(max_years=24))

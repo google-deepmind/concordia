@@ -22,6 +22,7 @@ participant who is not a person of the valley.
 
 from collections.abc import Mapping
 import dataclasses
+import re
 from typing import Any
 
 from concordia.agents import entity_agent_with_logging
@@ -36,6 +37,7 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 
 EXPERIMENTER_PREFAB = 'lifeways_experimenter'
+_YEAR = re.compile(r'\bYear (\d+)\.')
 
 
 def watch(
@@ -54,14 +56,41 @@ def watch(
   return world_lib.WATCH
 
 
+class Plan:
+  """A rule that makes the planned move in its year, and watches otherwise.
+
+  The year is the latest the Experimenter has observed. The plan is fixed,
+  so the rule keeps no state.
+  """
+
+  def __init__(self, plan: Mapping[int | str, str]):
+    """Initializes the plan.
+
+    Args:
+      plan: The Experimenter's answer by year (e.g. a release).
+    """
+    self._plan = {int(year): str(answer) for year, answer in plan.items()}
+
+  def __call__(
+      self, action_spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+  ) -> str:
+    del action_spec
+    years = [int(y) for text in contexts.values() for y in _YEAR.findall(text)]
+    if not years:
+      return world_lib.WATCH
+    return self._plan.get(max(years), world_lib.WATCH)
+
+
 @dataclasses.dataclass
 class Experimenter(prefab_lib.Prefab):
   """The Experimenter's entity.
 
   Params:
+    plan: Optional. The Experimenter's answer by year (e.g. a release in the
+      World's `RELEASE_FORM`): played by the `Plan` rule.
     act_component_factory: Optional. Builds the acting component from the
-      context components' order; a rule that watches by default. Not
-      serializable: checkpoints drop it, so a restore passes it again.
+      context components' order; a rule (the plan, or watching) by default.
+      Not serializable: checkpoints drop it, so a restore passes it again.
   """
 
   description: str = (  # pyrefly: ignore[bad-override]
@@ -95,11 +124,13 @@ class Experimenter(prefab_lib.Prefab):
         ),
     }
     factory = self.params.get('act_component_factory')
-    act = (
-        factory([observation.DEFAULT_OBSERVATION_COMPONENT_KEY])
-        if factory is not None
-        else culture.RuleAct(watch)
-    )
+    plan = self.params.get('plan')
+    if factory is not None:
+      act = factory([observation.DEFAULT_OBSERVATION_COMPONENT_KEY])
+    elif plan:
+      act = culture.RuleAct(Plan(plan))
+    else:
+      act = culture.RuleAct(watch)
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=world_lib.EXPERIMENTER,
         act_component=act,
