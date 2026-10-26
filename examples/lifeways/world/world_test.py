@@ -217,13 +217,37 @@ class TransmissionTest(absltest.TestCase):
     bo.sex = 'm'
     self.world.actions = {'Ada': world_lib.COURT, 'Bo': 'rest'}
     self.world.close_year()
-    self.assertEqual(self.world.seeking, ['Ada'])
+    self.assertEqual(sorted(self.world.courting), ['Ada'])
 
     self.world.actions = {'Ada': 'rest', 'Bo': world_lib.COURT}
     self.world.close_year()
 
     self.assertEqual(self.world.people['Ada'].partner, 'Bo')
-    self.assertEmpty(self.world.seeking)
+    self.assertEmpty(sorted(self.world.courting))
+
+  def test_two_who_court_each_other_by_name_pair(self):
+    self._person('Ada', 20, (5, 5))
+    self._person('Bo', 20, (5, 6)).sex = 'm'
+    self._person('Cy', 20, (5, 7)).sex = 'm'
+    self.assertIn(f'{world_lib.COURT_ONE} Bo', self.world.moves('Ada'))
+    self.assertIn('Unpartnered near you: Bo', self.world.status('Ada'))
+    self.world.actions = {
+        'Ada': f'{world_lib.COURT_ONE} Cy',
+        'Bo': world_lib.COURT,  # Anyone; but Ada wants Cy.
+        'Cy': 'rest',
+    }
+    self.world.close_year()
+    self.assertEqual(self.world.people['Ada'].partner, '')
+
+    self.world.actions = {
+        'Ada': 'rest',
+        'Bo': 'rest',
+        'Cy': f'{world_lib.COURT_ONE} Ada',
+    }
+    self.world.close_year()
+
+    self.assertEqual(self.world.people['Ada'].partner, 'Cy')
+    self.assertEqual(sorted(self.world.courting), ['Bo'])
 
   def test_siblings_never_pair(self):
     self._person('Mum', 40, (5, 5))
@@ -237,7 +261,7 @@ class TransmissionTest(absltest.TestCase):
 
     self.world.close_year()
 
-    self.assertEqual(self.world.seeking, ['Ada', 'Bo'])
+    self.assertEqual(sorted(self.world.courting), ['Ada', 'Bo'])
 
   def test_strangers_come_to_a_nearly_empty_valley(self):
     self.world.settings['arrivals'] = {
@@ -324,7 +348,7 @@ class TransmissionTest(absltest.TestCase):
     self.world.close_year()
 
     self.assertEqual(self.world.people['Kit'].partner, '')
-    self.assertEqual(self.world.seeking, ['Bo'])
+    self.assertEqual(sorted(self.world.courting), ['Bo'])
 
   def test_a_move_towards_one_is_not_towards_another_named_alike(self):
     self._person('Ada', 30, (5, 5))
@@ -748,6 +772,15 @@ class CultureTest(absltest.TestCase):
         drifted.text, f'The tongue: {" ".join(drifted.params["words"])}.'
     )
     self.assertEqual(culture_lib.intelligibility(tongue, drifted), 0.75)
+
+  def test_marriage_rules(self):
+    tongue = {'within': culture_lib.TONGUE}
+    people = {'within': culture_lib.DESCENT}
+    self.assertTrue(culture_lib.accepts(None, 0.0, False))
+    self.assertTrue(culture_lib.accepts(tongue, 0.75, False))
+    self.assertFalse(culture_lib.accepts(tongue, 0.5, True))
+    self.assertTrue(culture_lib.accepts(people, 0.0, True))
+    self.assertFalse(culture_lib.accepts(people, 1.0, False))
 
   def test_forgotten_content_may_arise_again_under_a_new_id(self):
     culture = culture_lib.Culture()

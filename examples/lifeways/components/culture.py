@@ -48,6 +48,7 @@ _LABELS = {
     culture_lib.HABIT: 'A habit of ours',
     culture_lib.BIAS: 'Whom we learn from',
     culture_lib.DIALECT: 'How we speak',
+    culture_lib.MARRIAGE: 'Whom we marry',
 }
 
 

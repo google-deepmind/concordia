@@ -154,6 +154,15 @@ agree, and talk between dialects garbles what passes: the chance of a
 copying error rises with misunderstanding (`garble`). The census counts the
 tongues spoken and the mean understanding between two of the living.
 
+**Marriage rules and peoples.** One looking for a partner may look for
+anyone (`look for a partner`) or court one by name (`court <name>`), among
+the singles near them, whom they see as they are seen: how they speak and
+which people they descend from (their mother's). Two pair when each would
+have the other. A marriage rule is a custom (`marriage`): marry one who
+speaks as we do, or only our own people; it shapes whom a mind courts,
+never what the world allows. `Run.peoples` measures the peoples: clusters
+of the grown whose marriage rules allow each other.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

@@ -38,6 +38,7 @@ from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import experimenter as experimenter_lib
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.prefabs import world_gm
+from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
 from concordia.prefabs.simulation import generic as simulation_lib
@@ -217,6 +218,55 @@ class Run:
                 held.items(), key=lambda x: (-x[1], x[0])
             )[:5]
         ],
+    }
+
+  def peoples(self) -> dict[str, Any]:
+    """The peoples: clusters of the grown whose marriage rules allow each other.
+
+    Measurement only: the harness reads each living person's marriage rule
+    (its customs) and the world's public facts (speech, descent). Call it
+    where `world()` may be read.
+
+    Returns:
+      How many peoples there are, and their sizes, largest first.
+    """
+    world = self.world()
+    grown = [
+        name
+        for name in world.living()
+        if world.people[name].age(world.year) >= world_lib.ADULT_AGE
+    ]
+    rules: dict[str, Mapping[str, Any] | None] = {name: None for name in grown}
+    for entity in list(self.sim.entities):
+      if entity.name in rules:
+        rules[entity.name] = next(
+            (
+                c.spec.get('params', {})
+                for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
+                if isinstance(c, culture.Custom)
+                and c.kind == culture_lib.MARRIAGE
+            ),
+            None,
+        )
+    root = {name: name for name in grown}
+
+    def find(name: str) -> str:
+      while root[name] != name:
+        name = root[name]
+      return name
+
+    for i, a in enumerate(grown):
+      for b in grown[i + 1 :]:
+        heard = world.understanding(a, b)
+        same = world.people[a].descent == world.people[b].descent
+        if culture_lib.accepts(rules[a], heard, same) and culture_lib.accepts(
+            rules[b], heard, same
+        ):
+          root[find(a)] = find(b)
+    sizes = collections.Counter(find(name) for name in grown)
+    return {
+        'peoples': len(sizes),
+        'sizes': sorted(sizes.values(), reverse=True),
     }
 
   def play(

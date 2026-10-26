@@ -34,6 +34,7 @@ SANDBOX: Mapping[str, Any] = {
     'regrowth': 0.5,
     'seed_bank': 0.06,
     'founders': 12,
+    'people': 'River people',  # The founders' people, by descent.
     'mode': 'sexual',
     'mutation': 0.05,  # Copying errors at birth.
     # A child's speech drifts from its mother's by a word with this chance;
@@ -79,6 +80,12 @@ SANDBOX: Mapping[str, Any] = {
                 'kind': 'norm',
                 'domain': 'kinship',
                 'text': 'Children are a blessing; we have them while young.',
+            },
+            {
+                'kind': 'marriage',
+                'domain': 'kinship',
+                'text': 'We marry only our own people.',
+                'params': {'within': 'descent'},
             },
             {
                 'kind': 'norm',

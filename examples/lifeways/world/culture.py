@@ -61,7 +61,14 @@ SKILL = 'skill'
 HABIT = 'habit'
 BIAS = 'bias'
 DIALECT = 'dialect'
-KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT)
+MARRIAGE = 'marriage'
+KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT, MARRIAGE)
+
+# What a marriage rule's `within` param asks of a partner: to speak as one
+# does (understanding at least `SAME_TONGUE`), or to be of one's people.
+TONGUE = 'tongue'
+DESCENT = 'descent'
+SAME_TONGUE = 0.75
 
 # A dialect is a list of words (its `words` param); a copying error changes
 # one of them to one of these sounds.
@@ -510,3 +517,24 @@ def intelligibility(a: Custom, b: Custom) -> float:
     return 1.0
   same = sum(1 for x, y in zip(words_a, words_b) if x == y)
   return same / max(len(words_a), len(words_b))
+
+
+def accepts(
+    rule: Mapping[str, Any] | None, understanding: float, same_descent: bool
+) -> bool:
+  """Whether a marriage rule allows a partner (no rule allows anyone).
+
+  Args:
+    rule: The rule's params (`within`: `TONGUE` or `DESCENT`), or None.
+    understanding: How well the two understand each other's speech.
+    same_descent: Whether the two are of the same people by descent.
+
+  Returns:
+    Whether the rule allows the match.
+  """
+  within = (rule or {}).get('within')
+  if within == TONGUE:
+    return understanding >= SAME_TONGUE
+  if within == DESCENT:
+    return same_descent
+  return True

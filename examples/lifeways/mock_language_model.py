@@ -38,6 +38,11 @@ _LABEL = re.compile(r'(?:Question|Exercise): ')
 _CUSTOM = re.compile(r'\(([a-z]+)\) \[(c\d+)\]: ([^\n]*)')
 _EXPECTED = re.compile(r'others expect of us \(([a-z]+)\) \[(c\d+)\]')
 _SIGHT = re.compile(r'(\d+) other people are within sight')
+_DESCENT = re.compile(r'is of the ([^.]+)\.')
+_SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
+_SUITOR = re.compile(
+    r'(\w+) \((speaks as you do|speaks strangely), of the ([^)]*)\)'
+)
 
 
 def _stable(text: str) -> float:
@@ -172,7 +177,9 @@ def _choose(
   if food < 2.5 or ('lean' in texts and food < 4.0):
     return follow(world_lib.GATHER, culture_lib.FOOD)
   if world_lib.COURT in moves and age >= 18 and draw < 0.9:
-    return follow(world_lib.COURT, culture_lib.KINSHIP)
+    courted = _court(prompt, moves, customs)
+    if courted:
+      return follow(courted, culture_lib.KINSHIP)
   if world_lib.CHILD in moves:
     careful = 'only when' in texts and food < 6.0
     if not careful and draw < 0.8:
@@ -210,3 +217,26 @@ def _choose(
   if world_lib.MOVE in moves and draw > 0.92:
     return world_lib.MOVE
   return follow(world_lib.GATHER, culture_lib.FOOD)
+
+
+def _court(
+    prompt: str, moves: Sequence[str], customs: Sequence[tuple[str, str, str]]
+) -> str:
+  """Whom to court, by the person's marriage rule ('' if nobody fits)."""
+  rules = ' '.join(
+      text.lower()
+      for domain, _, text in customs
+      if domain == culture_lib.KINSHIP and 'marry' in text.lower()
+  )
+  if not rules:
+    return world_lib.COURT  # Anyone will do.
+  own = _DESCENT.findall(prompt)[-1] if _DESCENT.findall(prompt) else ''
+  suitors = _SUITORS.findall(prompt)
+  for name, speaks, people in _SUITOR.findall(suitors[-1] if suitors else ''):
+    if 'speak' in rules and speaks != 'speaks as you do':
+      continue
+    if 'own people' in rules and people != own:
+      continue
+    if f'{world_lib.COURT_ONE} {name}' in moves:
+      return f'{world_lib.COURT_ONE} {name}'
+  return ''

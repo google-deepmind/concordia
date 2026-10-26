@@ -109,7 +109,11 @@ def _run(
   def year_closed(year: int) -> None:
     nonlocal last
     world = run.world()
-    row = {**world.history[-1], 'held': run.customs_census()}
+    row = {
+        **world.history[-1],
+        'held': run.customs_census(),
+        'peoples': run.peoples(),
+    }
     census.write(json.dumps(row) + '\n')
     if _SOAK.value and year % 50 == 0:
       now = time.monotonic()

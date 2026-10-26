@@ -62,6 +62,7 @@ LEAD_RITE = 'lead the rite'
 JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
 PREACH = 'preach'
+COURT_ONE = 'court'  # ... a name: look for that partner only.
 # The Experimenter's: release a custom it designed into the world.
 RELEASE = 'release'
 RELEASE_FORM = (
@@ -75,7 +76,7 @@ _RELEASE = re.compile(
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
 # worshippers, not onlookers; passing on and joining are words, not deeds.
-WITNESSED = (GATHER, REST, MOVE, CHILD, COURT, SHARE, SHAME)
+WITNESSED = (GATHER, REST, MOVE, CHILD, COURT, COURT_ONE, SHARE, SHAME)
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -216,6 +217,8 @@ class Person:
   arrived: int | None = None
   # The dialect the person speaks, as raised (its id): how others hear it.
   speech: str = ''
+  # The people the person is of by descent (its mother's).
+  descent: str = ''
 
   def age(self, year: int) -> int:
     return year - self.born
@@ -240,6 +243,7 @@ class Person:
         given=[str(g) for g in data.get('given', ())],
         arrived=(None if data.get('arrived') is None else int(data['arrived'])),
         speech=str(data.get('speech', '')),
+        descent=str(data.get('descent', '')),
     )
 
 
@@ -322,8 +326,9 @@ class World:
     # Who kept full stores last year and gave nothing to the needy within
     # sight, and those needy: what people may shame this year.
     self.breaches: dict[str, list[str]] = {}
-    # Who is looking for a partner (until paired).
-    self.seeking: list[str] = []
+    # Who is looking for a partner (until paired), and for whom: a name, or
+    # '' for anyone.
+    self.courting: dict[str, str] = {}
     # Offers made while closing the year, by channel, and how many readings
     # brought back a custom nobody living had been given (for the census).
     self._offers: collections.Counter[str] = collections.Counter()
@@ -351,6 +356,7 @@ class World:
           food=float(founder['food']),
           given=[str(spec['id']) for spec in params.get('customs', ())],
           speech=self._dialect(params.get('customs', ())),
+          descent=str(self.settings.get('people', 'River people')),
       )
       self.people[person.name] = person
       self._tell(person.name, self._birth_story(person, founder=True))
@@ -414,6 +420,7 @@ class World:
           given=list(customs),
           arrived=self.year,
           speech=self._dialect([self.culture.get(c).spec() for c in customs]),
+          descent=people,
       )
       self.people[person.name] = person
       self._tell(
@@ -484,6 +491,7 @@ class World:
       found.append(CHILD)
     if self.mode == 'sexual' and not person.partner:
       found.append(COURT)
+      found.extend(f'{COURT_ONE} {other}' for other in self._suitors(person))
     if culture_lib.UPBRINGING in self.channels and self._pupils(person):
       found.append(TEACH)
     if (
@@ -579,6 +587,21 @@ class World:
         if not self.places.ruined(p, self.year)
     ]
 
+  def _suitors(self, person: Person, most: int = 3) -> list[str]:
+    """The nearest grown singles a person may court (not kin)."""
+    return sorted(
+        (
+            other
+            for other in self.living()
+            if other != person.name
+            and not self.people[other].partner
+            and self.people[other].age(self.year) >= ADULT_AGE
+            and self.people[other].sex not in ('', person.sex)
+            and not self._kin(person, self.people[other])
+        ),
+        key=lambda o: (self._distance(person, o), o),
+    )[:most]
+
   def _in_sight(self, person: Person) -> list[str]:
     """The others living within sight of a person, by name."""
     return [
@@ -631,6 +654,8 @@ class World:
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'
+        f' {name} is of the {person.descent or "valley"}.'
+        + self._suitors_line(person)
         + (
             ' The rite falls this year.'
             if JOIN_RITE in self._shrine_moves(person)
@@ -641,6 +666,22 @@ class World:
             for place in self._nearest_places(person)
         )
     )
+
+  def _suitors_line(self, person: Person) -> str:
+    """The singles a person may court, as the person sees them."""
+    if person.partner or person.age(self.year) < ADULT_AGE:
+      return ''
+    seen = []
+    for other in self._suitors(person):
+      speaks = (
+          'speaks as you do'
+          if self.understanding(person.name, other) >= culture_lib.SAME_TONGUE
+          else 'speaks strangely'
+      )
+      seen.append(f'{other} ({speaks}, of the {self.people[other].descent})')
+    if not seen:
+      return ''
+    return f' Unpartnered near you: {", ".join(seen)}.'
 
   def _nearest_places(self, person: Person) -> list[places_lib.Place]:
     """The nearest library, school and shrine within sight, if any."""
@@ -985,7 +1026,7 @@ class World:
         (str(s['id']) for s in specs if s['kind'] == culture_lib.DIALECT), ''
     )
 
-  def _understanding(self, a: str, b: str) -> float:
+  def understanding(self, a: str, b: str) -> float:
     """How well two living people understand each other's speech."""
     speech_a, speech_b = self.people[a].speech, self.people[b].speech
     if speech_a not in self.culture or speech_b not in self.culture:
@@ -1152,7 +1193,7 @@ class World:
     mutation = float(channel.get('mutation', 0.0))
     if source in self.people:
       # Talk between dialects garbles what is passed on.
-      mutation += (1.0 - self._understanding(receiver, source)) * float(
+      mutation += (1.0 - self.understanding(receiver, source)) * float(
           self.settings.get('garble', 0.5)
       )
     if channel.get('form'):
@@ -1309,37 +1350,42 @@ class World:
     """Pairs those looking for a partner, nearest first, in name order.
 
     Whoever looked for a partner this year (when that was a move offered) or
-    before, and has none, is looking until paired. Parents and children, and
-    siblings, never pair.
+    before, and has none, is looking until paired: for anyone (`COURT`), or
+    for one person (`court <name>`). Two pair when each would have the
+    other: both look for anyone, or one courts the other and the other looks
+    for anyone or courts back. Parents and children, and siblings, never
+    pair.
 
     Args:
       allowed: The moves each was offered this year.
     """
-    self.seeking = sorted(
-        name
-        for name in {
-            *self.seeking,
-            *(
-                n
-                for n, answer in self.actions.items()
-                if COURT in allowed.get(n, ())
-                and _is_move(answer.strip().lower(), COURT)
-            ),
-        }
+    for name, answer in sorted(self.actions.items()):
+      offered = allowed.get(name, ())
+      answer = answer.strip().lower()
+      if COURT in offered and _is_move(answer, COURT):
+        self.courting[name] = ''
+      for move in offered:
+        if move.startswith(f'{COURT_ONE} ') and _is_move(answer, move.lower()):
+          self.courting[name] = move.removeprefix(f'{COURT_ONE} ')
+    self.courting = {
+        name: whom
+        for name, whom in sorted(self.courting.items())
         if name in self.people and not self.people[name].partner
-    )
+    }
     taken: set[str] = set()
-    for name in self.seeking:
+    for name in list(self.courting):
       if name in taken:
         continue
       person = self.people[name]
       matches = [
           other
-          for other in self.seeking
+          for other in self.courting
           if other not in taken
           and other != name
           and self.people[other].sex not in ('', person.sex)
           and not self._kin(person, self.people[other])
+          and self.courting[name] in ('', other)
+          and self.courting[other] in ('', name)
       ]
       if not matches:
         continue
@@ -1348,7 +1394,9 @@ class World:
       person.partner, self.people[other].partner = other, name
       self._tell(name, f'{name} and {other} are now partners.')
       self._tell(other, f'{other} and {name} are now partners.')
-    self.seeking = [name for name in self.seeking if name not in taken]
+    self.courting = {
+        name: whom for name, whom in self.courting.items() if name not in taken
+    }
 
   def _kin(self, person: Person, other: Person) -> bool:
     """Whether two people are parent and child, or siblings."""
@@ -1404,6 +1452,7 @@ class World:
           parents=list(parents),
           given=list(dict.fromkeys(ids)),
           speech=speech,
+          descent=mother.descent,
       )
       mother.food -= child.food
       for parent in parents:
@@ -1557,7 +1606,7 @@ class World:
     if not pairs:
       return 1.0
     return round(
-        sum(self._understanding(a, b) for a, b in pairs) / len(pairs), 3
+        sum(self.understanding(a, b) for a, b in pairs) / len(pairs), 3
     )
 
   def _tell(self, name: str, text: str, *, newborn: bool = False) -> None:
@@ -1591,7 +1640,7 @@ class World:
         'queued': {k: list(v) for k, v in self.queued.items()},
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
-        'seeking': list(self.seeking),
+        'courting': dict(self.courting),
         'places': self.places.get_state(),
     }
 
@@ -1617,13 +1666,15 @@ class World:
         str(k): [str(n) for n in v]
         for k, v in state.get('breaches', {}).items()
     }
-    self.seeking = [str(n) for n in state.get('seeking', ())]
+    self.courting = {
+        str(k): str(v) for k, v in state.get('courting', {}).items()
+    }
     self.places.set_state(state.get('places', {}))
 
 
 def _move_kind(move: str) -> str:
   """A move without the one it is made towards (for counting)."""
-  for kind in (SHARE, SHAME):
+  for kind in (SHARE, SHAME, COURT_ONE):
     if move.startswith(f'{kind} '):
       return kind
   return move

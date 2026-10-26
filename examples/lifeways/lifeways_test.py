@@ -142,6 +142,36 @@ class SandboxTest(absltest.TestCase):
     self.assertEqual(released, [0, 0, 0, 0, 0, 1, 0, 0])
     self.assertGreater(run.world().history[5]['offers']['release'], 0)
 
+  def test_peoples_are_those_whose_marriage_rules_allow_each_other(self):
+    def tongue(words):
+      return {
+          'kind': 'dialect',
+          'domain': 'language',
+          'text': f'A tongue: {" ".join(words)}.',
+          'params': {'words': words},
+          'held_by': 0.5,
+      }
+
+    run = simulation.build_simulation(
+        scenarios.settings(
+            max_years=1,
+            arrivals=None,
+            founding_customs=[
+                tongue(['ka', 'ri', 'to', 'ma']),
+                tongue(['bo', 'ha', 'yo', 'lu']),
+                {
+                    'kind': 'marriage',
+                    'domain': 'kinship',
+                    'text': 'We marry one who speaks as we do.',
+                    'params': {'within': 'tongue'},
+                },
+            ],
+        )
+    )
+    run.play()
+
+    self.assertEqual(run.peoples(), {'peoples': 2, 'sizes': [6, 6]})
+
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}
     live = simulation.build_simulation(scenarios.settings(max_years=24))
