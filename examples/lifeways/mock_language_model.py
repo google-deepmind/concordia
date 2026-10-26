@@ -146,6 +146,15 @@ def _choose(
     return 'learn a craft'
   if 'go to school' in moves and draw < 0.7:
     return 'go to school'
+  sacred = [
+      cid
+      for domain, cid, _ in customs
+      if domain in ('sacred', 'identity', 'sharing', 'kinship')
+  ]
+  if 'lead the rite' in moves and sacred and draw < 0.25:
+    return ' '.join(['lead the rite', *sacred])
+  if 'join the rite' in moves and draw < 0.75:
+    return 'join the rite'
   if 'play' in moves and age < 12:
     return 'play' if food >= 0.5 else follow('gather food', 'food')
   if food < 2.5 or ('lean' in texts and food < 4.0):
@@ -166,6 +175,8 @@ def _choose(
     return follow('teach at the school')
   if 'found a school' in moves and food >= 6.0 and draw < 0.15:
     return follow('found a school')
+  if 'build a shrine' in moves and sacred and food >= 6.0 and draw < 0.15:
+    return ' '.join(['build a shrine', *sacred])
   if reading and food >= 3.0:
     if 'found a library' in moves and food >= 6.0 and draw < 0.3:
       return ' '.join(['found a library', *reading, *others])

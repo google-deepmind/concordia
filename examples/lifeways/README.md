@@ -122,6 +122,12 @@ term. Any child within sight who chooses to `go to school` during the term
 is taught the curriculum (the `school` channel), whoever its parents are. A
 school that teaches reading makes readers of a whole generation.
 
+**Shrines and rites.** An adult may `build a shrine`. Its rite falls on a
+calendar (every fourth year in the Sandbox): then the first who leads the
+rite (`lead the rite`) sets the customs it is led by, and all who join it
+(`join the rite`) are offered them as their own (the `rite` channel). A
+rite nobody leads offers nothing.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

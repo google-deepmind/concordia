@@ -57,6 +57,9 @@ READ = 'read at the library'
 FOUND_SCHOOL = 'found a school'
 TEACH_AT_SCHOOL = 'teach at the school'
 GO_TO_SCHOOL = 'go to school'
+BUILD_SHRINE = 'build a shrine'
+LEAD_RITE = 'lead the rite'
+JOIN_RITE = 'join the rite'
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -80,7 +83,9 @@ DEAD_KEPT = 500
 # - practice: keeping a norm one knows makes it one's own;
 # - reading: a literate reader at a library reads `texts` of its shelf, exact;
 # - school: pupils are taught the curriculum of a school within sight, in a
-#   year someone teaches there.
+#   teacher's term;
+# - rite: those who join a shrine's rite, in a year it falls and someone
+#   leads it, are offered the customs it is led by.
 # A channel's `form` is the form a norm comes in by it: what children are
 # raised in, what one practises and what one is shamed for breaking may
 # become one's own (internalized); what one sees others keep is known
@@ -103,6 +108,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     'practice': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
     'reading': {'mutation': 0.0, 'texts': 3},
     'school': {'mutation': 0.01, 'form': culture_lib.INTERNALIZED},
+    'rite': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -227,6 +233,12 @@ class World:
     school = settings.get('school')
     self.school: dict[str, Any] | None = (
         None if school is None else dict(school)
+    )
+    # Shrines, if the setting allows them: what building one costs, how far
+    # apart they stand and every how many years their rite falls.
+    shrine = settings.get('shrine')
+    self.shrine: dict[str, Any] | None = (
+        None if shrine is None else dict(shrine)
     )
     self.places = places_lib.Places(
         int(settings.get('rows', 16)),
@@ -428,7 +440,11 @@ class World:
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
-      places = [*self._library_moves(person), *self._school_moves(person)]
+      places = [
+          *self._library_moves(person),
+          *self._school_moves(person),
+          *self._shrine_moves(person),
+      ]
       if age >= APPRENTICE_AGE and 'apprenticeship' in self.channels:
         return [PLAY, GATHER, APPRENTICE, *places]
       return [PLAY, GATHER, *places]
@@ -438,6 +454,7 @@ class World:
         MOVE,
         *self._library_moves(person),
         *self._school_moves(person),
+        *self._shrine_moves(person),
     ]
     if self._may_have_child(person):
       found.append(CHILD)
@@ -493,6 +510,36 @@ class World:
       return [FOUND_SCHOOL]
     return []
 
+  def _shrine_moves(self, person: Person) -> list[str]:
+    """Joining or leading a rite that falls this year; building a shrine."""
+    if self.shrine is None or 'rite' not in self.channels:
+      return []
+    near = [
+        p
+        for p in self._standing(person, places_lib.SHRINE)
+        if self.rite_falls(p)
+    ]
+    if near:
+      if person.age(self.year) < ADULT_AGE:
+        return [JOIN_RITE]
+      return [JOIN_RITE, LEAD_RITE]
+    if (
+        person.age(self.year) >= ADULT_AGE
+        and not self.places.near(
+            person.tile, int(self.shrine.get('spacing', 5)), places_lib.SHRINE
+        )
+        and person.food >= float(self.shrine.get('cost', 3.0))
+    ):
+      return [BUILD_SHRINE]
+    return []
+
+  def rite_falls(self, shrine: places_lib.Place) -> bool:
+    """Whether a shrine's rite falls this year (on its calendar)."""
+    every = int((self.shrine or {}).get('every', 4))
+    return (self.year - shrine.founded) % every == 0 and (
+        self.year > shrine.founded
+    )
+
   def _standing(self, person: Person, kind: str) -> list[places_lib.Place]:
     """The places of a kind within sight that are not ruins, nearest first."""
     return [
@@ -546,12 +593,21 @@ class World:
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'
+        + (
+            ' The rite falls this year.'
+            if JOIN_RITE in self._shrine_moves(person)
+            else ''
+        )
         + ''.join(
             ' Within sight is'
             f' {places_lib.describe(near[0], self.places.ruined(near[0], self.year))}.'
             for near in (
                 self.places.near(person.tile, self.sight, kind)
-                for kind in (places_lib.LIBRARY, places_lib.SCHOOL)
+                for kind in (
+                    places_lib.LIBRARY,
+                    places_lib.SCHOOL,
+                    places_lib.SHRINE,
+                )
             )
             if near
         )
@@ -588,6 +644,7 @@ class World:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._apprentice(did)
     self._schools(did)
+    self._rites(did)
     self._transmit(did)
     worked = [self._level(e, 'food') for m, e in did.values() if m == GATHER]
     deaths = self._eat_and_die()
@@ -691,6 +748,8 @@ class World:
       self._use_library(person, move, enacted)
     elif move in (FOUND_SCHOOL, TEACH_AT_SCHOOL):
       self._teach_at_school(person, move, enacted)
+    elif move in (BUILD_SHRINE, LEAD_RITE):
+      self._lead_rite(person, move, enacted)
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -798,6 +857,67 @@ class World:
       place = standing[0]
     if enacted:
       self.places.keep(place, person.name, enacted, self.year)
+
+  def _lead_rite(
+      self, person: Person, move: str, enacted: Sequence[str]
+  ) -> None:
+    """Builds a shrine, or leads its rite: the customs named are its rite.
+
+    The first to lead a rite in a year sets what it is led by; anyone else
+    who leads it that year takes part.
+
+    Args:
+      person: Who acts.
+      move: `BUILD_SHRINE` or `LEAD_RITE`.
+      enacted: The customs the answer names.
+    """
+    if move == BUILD_SHRINE:
+      shrine = self.shrine or {}
+      cost = float(shrine.get('cost', 3.0))
+      if person.food < cost or self.places.near(
+          person.tile, int(shrine.get('spacing', 5)), places_lib.SHRINE
+      ):
+        return
+      person.food -= cost
+      place = self.places.found(
+          places_lib.SHRINE, person.tile, person.name, self.year
+      )
+      self.places.keep(place, person.name, enacted, self.year)
+      for name in (person.name, *self._in_sight(person)):
+        self._tell(
+            name,
+            f'{person.name} builds a shrine at'
+            f' {place.tile[0]},{place.tile[1]}.',
+        )
+      return
+    near = [
+        p
+        for p in self._standing(person, places_lib.SHRINE)
+        if self.rite_falls(p)
+    ]
+    if near and enacted and near[0].kept != self.year:
+      self.places.keep(near[0], person.name, enacted, self.year)
+
+  def _rites(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """Those who join a rite led this year are offered what it is led by."""
+    for name in sorted(
+        n for n, (m, _) in did.items() if m in (JOIN_RITE, LEAD_RITE)
+    ):
+      person = self.people[name]
+      led = [
+          p
+          for p in self._standing(person, places_lib.SHRINE)
+          if p.kept == self.year and self.rite_falls(p)
+      ]
+      if not led:
+        self._tell(name, 'Nobody leads the rite this year.')
+        continue
+      shrine = led[0]
+      for custom_id in shrine.shelf:
+        if custom_id in self.culture and shrine.keeper != name:
+          self._offer(
+              name, shrine.keeper, custom_id, 'rite', f'{shrine.keeper} leads'
+          )
 
   def _schools(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Pupils are taught the curriculum of a school in a teacher's term."""
@@ -941,6 +1061,8 @@ class World:
             READ,
             FOUND_SCHOOL,
             TEACH_AT_SCHOOL,
+            BUILD_SHRINE,
+            LEAD_RITE,
             '',
         )
     ]
@@ -1212,6 +1334,12 @@ class World:
             1
             for p in self.places.all()
             if p.kind == places_lib.SCHOOL
+            and not self.places.ruined(p, self.year)
+        ),
+        'shrines': sum(
+            1
+            for p in self.places.all()
+            if p.kind == places_lib.SHRINE
             and not self.places.ruined(p, self.year)
         ),
         'offers': dict(sorted(self._offers.items())),

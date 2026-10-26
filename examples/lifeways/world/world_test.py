@@ -390,7 +390,8 @@ class LibraryTest(absltest.TestCase):
     self.assertGreater(years, 3)
 
 
-class SchoolTest(absltest.TestCase):
+class _PlaceTest(absltest.TestCase):
+  """A world with a school and a shrine setting, and two customs."""
 
   def setUp(self):
     super().setUp()
@@ -399,6 +400,7 @@ class SchoolTest(absltest.TestCase):
         'founders': 0,
         'channels': _FAITHFUL,
         'school': {'cost': 3.0, 'spacing': 5, 'term': 2},
+        'shrine': {'cost': 3.0, 'spacing': 5, 'every': 2},
     })
     self.norm = self.world.culture.add('norm', 'sharing', 'Share.').id
     self.belief = self.world.culture.add('belief', 'sacred', 'Hills.').id
@@ -427,6 +429,9 @@ class SchoolTest(absltest.TestCase):
         for m in culture_lib.OFFER.finditer(text)
     )
 
+
+class SchoolTest(_PlaceTest):
+
   def test_a_school_teaches_any_child_nearby_for_a_term(self):
     self._person('Ada', 30, (5, 5), [self.norm, self.belief])
     self._person('Kit', 8, (5, 7))
@@ -450,6 +455,42 @@ class SchoolTest(absltest.TestCase):
 
     self.assertEmpty(self._offers('Kit'))
     self.assertIn('Nobody teaches', ' '.join(self.world.queued['Kit']))
+
+
+class ShrineTest(_PlaceTest):
+
+  def test_a_rite_falls_on_its_calendar_and_makes_norms_ones_own(self):
+    known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
+    self._person('Ada', 30, (5, 5), [self.norm, self.belief])
+    self._person('Bo', 30, (5, 6), [known])
+    self.assertIn(world_lib.BUILD_SHRINE, self.world.moves('Ada'))
+    self._year(Ada=f'{world_lib.BUILD_SHRINE} {self.belief}', Bo='rest')
+    self.assertNotIn(world_lib.JOIN_RITE, self.world.moves('Bo'))  # Year 1.
+    self._year(Ada='rest', Bo='rest')
+    self.assertIn(world_lib.JOIN_RITE, self.world.moves('Bo'))  # Year 2.
+    self.assertIn('rite falls this year', self.world.status('Bo'))
+
+    self._year(
+        Ada=f'{world_lib.LEAD_RITE} {self.norm} {self.belief}',
+        Bo=world_lib.JOIN_RITE,
+    )
+
+    self.assertEqual(
+        self._offers('Bo'),
+        sorted([(self.norm, 'rite', 'Ada'), (self.belief, 'rite', 'Ada')]),
+    )
+    self.assertEmpty(self._offers('Ada'))
+
+  def test_a_rite_nobody_leads_offers_nothing(self):
+    self._person('Ada', 30, (5, 5), [self.belief])
+    self._person('Bo', 30, (5, 6))
+    self._year(Ada=f'{world_lib.BUILD_SHRINE} {self.belief}', Bo='rest')
+    self._year(Ada='rest', Bo='rest')
+
+    self._year(Ada='rest', Bo=world_lib.JOIN_RITE)
+
+    self.assertEmpty(self._offers('Bo'))
+    self.assertIn('Nobody leads the rite', ' '.join(self.world.queued['Bo']))
 
 
 class CultureTest(absltest.TestCase):

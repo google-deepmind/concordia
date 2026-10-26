@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The places people build: libraries and schools.
+"""The places people build: libraries, schools and shrines.
 
 A library holds texts: exact copies of customs written by literate people,
 which anyone literate who comes may read. Its shelf is a pool of culture in
@@ -24,6 +24,10 @@ one.
 A school holds a curriculum (on its shelf): the customs its teacher teaches
 there. A teacher keeps the school for a term; children nearby who go to
 school during it are taught the curriculum, whoever their parents are.
+
+A shrine holds a rite (on its shelf): the customs its last leader led it
+by. The rite falls on a calendar; those who join it may take them as their
+own.
 """
 
 from collections.abc import Mapping, Sequence
@@ -34,6 +38,7 @@ import numpy as np
 
 LIBRARY = 'library'
 SCHOOL = 'school'
+SHRINE = 'shrine'
 
 Tile = tuple[int, int]
 
@@ -195,6 +200,8 @@ def describe(place: Place, ruined: bool) -> str:
   count = len(place.shelf)
   if place.kind == SCHOOL:
     held = f'{count} custom{"" if count == 1 else "s"} taught'
+  elif place.kind == SHRINE:
+    held = f'a rite of {count} custom{"" if count == 1 else "s"}'
   else:
     held = f'{count} text{"" if count == 1 else "s"}'
   if ruined:
