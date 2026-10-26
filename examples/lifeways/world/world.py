@@ -1359,7 +1359,9 @@ class World:
       via: The channel (a key of `channels`).
       scene: What the receiver sees, e.g. 'Ada teaches'.
     """
-    channel = self.channels[via]
+    channel = self.channels.get(via)
+    if channel is None:
+      return  # A world without the channel (its twin may lack one).
     mutation = float(channel.get('mutation', 0.0))
     if source in self.people:
       # Talk between dialects garbles what is passed on.

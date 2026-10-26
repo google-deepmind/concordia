@@ -27,9 +27,15 @@ so many seconds and once more when the server stops, it saves the stock
 simulation checkpoint (`Simulation.make_checkpoint_data`) with the page's
 census rows; a new session of the same world restores the last save
 (`simulation.load_checkpoint`) and plays on from that year.
+
+The person may fork a twin: a second session, restored from the same year's
+checkpoint with one lever pulled (`scenarios.with_lever`), plays beside the
+first. The person's pace and releases reach both worlds, so the lever stays
+the one difference between them; the page draws their census together.
 """
 
 import collections
+from collections.abc import Mapping
 import json
 import os
 import threading
@@ -53,6 +59,22 @@ ROWS_KEPT = 400
 SAVE_VERSION = 1
 # The name the asynchronous engine gives its entity loops' threads.
 ENGINE_THREADS = 'entity_loop'
+
+
+def await_engines(timeout: float = 10.0) -> None:
+  """Waits for every engine loop in the process to finish its turn.
+
+  A closed session's engine tells everyone's loop to end, but returns without
+  waiting for loops in the middle of a turn. A process about to exit calls
+  this once its sessions are closed, so that no turn is cut off half done.
+
+  Args:
+    timeout: How long to wait in all.
+  """
+  deadline = time.monotonic() + timeout
+  for thread in threading.enumerate():
+    if thread.name.startswith(ENGINE_THREADS):
+      thread.join(max(0.0, deadline - time.monotonic()))
 
 
 class Closed(Exception):
@@ -168,6 +190,8 @@ class Session:
     """
     self.scenario = scenario
     self.input = PageInput(years_per_second)
+    self._seed = seed
+    self._overrides = dict(overrides)
     self._settings = scenarios.settings(scenario, seed=seed, **overrides)
     # What a save must match to be restored.
     self._identity = json.loads(
@@ -193,6 +217,13 @@ class Session:
     self._saves = 0
     self.saved_year: int | None = None
     self.restored_year: int | None = None
+    # The twin playing beside this world, and a snapshot taken for it.
+    self.twin: Session | None = None
+    self._twin_lock = threading.Lock()
+    self._fork_wanted = False
+    self._fork: dict[str, Any] | None = None
+    # If this world is a twin: the lever pulled, its value, the year forked.
+    self.twin_of: dict[str, Any] | None = None
     self.run = self._build()
     if save_path:
       self._restore(save_path)
@@ -228,23 +259,19 @@ class Session:
       self.error = f'{type(error).__name__}: {error}'
 
   def close(self, timeout: float = 10.0) -> None:
-    """Ends the run: the Experimenter's next answer raises.
-
-    The engine then tells everyone's loop to end, but returns without
-    waiting for loops in the middle of a turn; this waits for them too, so
-    that a process exiting next leaves no turn half done.
+    """Ends the run, and its twin's: the Experimenter's next answer raises.
 
     Args:
-      timeout: How long to wait for the run's threads.
+      timeout: How long to wait for the run's thread.
     """
     deadline = time.monotonic() + timeout
     self.input.close()
     self.run.engine.play()
     if self._thread is not None:
       self._thread.join(timeout)
-    for thread in threading.enumerate():
-      if thread.name.startswith(ENGINE_THREADS):
-        thread.join(max(0.0, deadline - time.monotonic()))
+    twin = self.end_twin()
+    if twin is not None:
+      twin.close(max(0.0, deadline - time.monotonic()))
 
   def _year_closed(self, year: int) -> None:
     # In the World GM's lock: the world may be read here, and is whole.
@@ -256,10 +283,13 @@ class Session:
     }
     with self._rows_lock:
       self._rows.append(row)
-    if self._save_path is None:
-      return
     with self._saving:
-      if (
+      if self._fork_wanted:
+        # A copy that shares nothing with the live world.
+        self._fork = json.loads(json.dumps(self._snapshot(year), default=str))
+        self._fork_wanted = False
+        self._saving.notify_all()
+      if self._save_path is not None and (
           self._save_wanted
           or time.monotonic() - self._last_save >= self._save_seconds
       ):
@@ -267,13 +297,13 @@ class Session:
 
   # --- Saves ------------------------------------------------------------
 
-  def _save(self, path: str, year: int) -> None:
-    """Writes the world at a year's close (in the World GM's lock)."""
+  def _snapshot(self, year: int) -> dict[str, Any]:
+    """The world at a year's close (in the World GM's lock), as saved."""
     checkpoint = self.run.sim.make_checkpoint_data()
     checkpoint['raw_log'] = []  # Nobody reads it; a restore needs none.
     with self._rows_lock:
       rows = list(self._rows)
-    saved = {
+    return {
         'version': SAVE_VERSION,
         'world': self._identity,
         'year': year,
@@ -281,9 +311,12 @@ class Session:
         'pace': self.input.settings(),
         'checkpoint': checkpoint,
     }
+
+  def _save(self, path: str, year: int) -> None:
+    """Writes the world at a year's close (in the World GM's lock)."""
     try:
       with open(path + '.tmp', 'w') as f:
-        json.dump(saved, f, default=str)
+        json.dump(self._snapshot(year), f, default=str)
       os.replace(path + '.tmp', path)
     except OSError as error:
       logging.warning('Lifeways: the world was not saved: %s', error)
@@ -330,12 +363,17 @@ class Session:
       self._set_aside(path, f'it is another world ({saved.get("world")})')
       return
     try:
-      simulation.load_checkpoint(self.run, saved['checkpoint'])
+      self._load(saved)
     except Exception as error:  # pylint: disable=broad-exception-caught
       # A save from an older build may no longer fit: begin anew.
       self.run = self._build()
       self._set_aside(path, f'it no longer restores ({error!r})')
       return
+    self.restored_year = self.saved_year = int(saved['year'])
+
+  def _load(self, saved: Mapping[str, Any]) -> None:
+    """Loads a snapshot into this (new) session's world, with its rows."""
+    simulation.load_checkpoint(self.run, saved['checkpoint'])
     with self._rows_lock:
       self._rows.extend(saved.get('rows', ()))
     pace = saved.get('pace', {})
@@ -344,7 +382,6 @@ class Session:
       self.run.engine.pause()
     for move in pace.get('queued', ()):
       self.input.queue(move)
-    self.restored_year = self.saved_year = int(saved['year'])
 
   def _set_aside(self, path: str, why: str) -> None:
     logging.warning(
@@ -354,6 +391,81 @@ class Session:
       os.replace(path, path + '.set-aside')
     except OSError:
       pass
+
+  # --- The twin ---------------------------------------------------------
+
+  def fork(self, lever: str, value: Any, timeout: float = 10.0) -> 'Session':
+    """Forks a twin at the next year's close, with one lever pulled.
+
+    The twin is a new session of the same world restored from that year's
+    checkpoint, with the lever's setting changed (`scenarios.with_lever`);
+    it replaces any earlier twin and plays at once.
+
+    Args:
+      lever: A key of `scenarios.LEVERS`, or `scenarios.WITHOUT`.
+      value: The lever's value, or the channel the twin goes without.
+      timeout: How long to wait for the year to close.
+
+    Returns:
+      The twin.
+
+    Raises:
+      ValueError: If the lever or its value is not one.
+      RuntimeError: If the world is not playing, or no year closed in time.
+    """
+    twin_settings = scenarios.with_lever(self._settings, lever, value)
+    changed = {
+        key: twin_settings[key]
+        for key in twin_settings
+        if twin_settings[key] != self._settings.get(key)
+    }
+    if self._thread is None or not self._thread.is_alive():
+      raise RuntimeError('The world is not playing.')
+    if self.input.settings()['paused']:
+      raise RuntimeError("The world is paused: a twin forks at a year's close.")
+    with self._saving:
+      self._fork, self._fork_wanted = None, True
+      self._saving.wait_for(lambda: self._fork is not None, timeout)
+      saved, self._fork, self._fork_wanted = self._fork, None, False
+    if saved is None:
+      raise RuntimeError('No year closed in time to fork a twin.')
+    twin = Session(
+        self.scenario,
+        seed=self._seed,
+        years_per_second=self.input.settings()['years_per_second'],
+        **{**self._overrides, **changed},
+    )
+    twin._load(saved)  # pylint: disable=protected-access
+    twin.twin_of = {'lever': lever, 'value': value, 'year': saved['year']}
+    with self._twin_lock:
+      earlier, self.twin = self.twin, twin
+    if earlier is not None:
+      earlier.close()
+    twin.start()
+    return twin
+
+  def end_twin(self) -> 'Session | None':
+    """Lets go of the twin; the caller closes it.
+
+    Returns:
+      The twin, if there was one.
+    """
+    with self._twin_lock:
+      twin, self.twin = self.twin, None
+    return twin
+
+  def _twin_state(self) -> dict[str, Any] | None:
+    twin = self.twin
+    if twin is None or twin.twin_of is None:
+      return None
+    world = twin.run.world_state()
+    return {
+        **twin.twin_of,
+        'year_now': world['year'],
+        'people': len(world['people']),
+        'running': twin._thread is not None and twin._thread.is_alive(),  # pylint: disable=protected-access
+        'error': twin.error,
+    }
 
   # --- What the page reads ----------------------------------------------
 
@@ -428,6 +540,14 @@ class Session:
         'rows_kept': ROWS_KEPT,
         'saved_year': self.saved_year,
         'restored_year': self.restored_year,
+        'twin': self._twin_state(),
+        'levers': {
+            lever: [low, high, self._settings.get(lever)]
+            for lever, (low, high) in scenarios.LEVERS.items()
+        },
+        'channels': sorted(
+            self._settings.get('channels', world_lib.DEFAULT_CHANNELS)
+        ),
     }
 
   def person(self, name: str) -> dict[str, Any] | None:
@@ -483,6 +603,8 @@ class Session:
   def move(self, move: str) -> None:
     """Queues the Experimenter's move (as the person typed or built it).
 
+    A release goes to the twin as well; a question or a stop does not.
+
     Args:
       move: The move.
     """
@@ -490,6 +612,10 @@ class Session:
     if move:
       self._played = time.time()
       self.input.queue(move)
+      twin = self.twin
+      if twin is not None and move.lower().startswith(world_lib.RELEASE + ' '):
+        # A release reaches the twin too: the lever stays the one difference.
+        twin.move(move)
 
   def pace(
       self,
@@ -511,4 +637,7 @@ class Session:
       self.run.engine.pause()
     elif paused is False:
       self.run.engine.play()
+    twin = self.twin
+    if twin is not None:
+      twin.pace(years_per_second, paused)
     return self.input.settings()

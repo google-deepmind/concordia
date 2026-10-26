@@ -68,6 +68,21 @@ limitations under the License.
     <p id="channels" class="hint"></p>
   </section>
 
+  <section id="twins" aria-label="Fork a twin">
+    <h2>Fork a twin</h2>
+    <p class="hint">A twin is this world from this year on, with one lever
+      pulled. Both play on side by side; your releases reach both, and the
+      graph draws the twin dashed.</p>
+    <form id="fork">
+      <label>Lever <select id="lever"></select></label>
+      <label>To <input id="lever-value" inputmode="decimal" size="6"></label>
+      <button type="submit">Fork</button>
+      <button id="unfork" type="button" hidden>Let the twin go</button>
+    </form>
+    <p id="twin" class="hint" aria-live="polite"></p>
+    <p id="fork-error" class="hint" role="alert"></p>
+  </section>
+
   <section id="interviews" aria-label="Interviews">
     <h2>Interviews</h2>
     <p class="hint">Tap a person and ask them something; they answer next

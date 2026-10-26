@@ -377,6 +377,60 @@ PRESETS: Mapping[str, Mapping[str, Any]] = {
 }
 
 
+# The levers a twin may pull: world rules the World reads from its settings
+# as it plays (never from its saved state), each with its bounds. A twin of a
+# world is the same world from the same year with one lever changed.
+LEVERS: Mapping[str, tuple[float, float]] = {
+    'richness': (0.05, 1.0),
+    'regrowth': (0.0, 1.0),
+    'seed_bank': (0.0, 0.5),
+    'subsistence': (0.0, 2.0),
+    'mutation': (0.0, 0.5),
+    'dialect_drift': (0.0, 0.5),
+    'garble': (0.0, 2.0),
+    'child_cost': (0.0, 6.0),
+}
+# The lever that takes a channel away; its value names the channel.
+WITHOUT = 'without'
+
+
+def with_lever(
+    settings: Mapping[str, Any], lever: str, value: Any
+) -> dict[str, Any]:
+  """A world's settings with one lever pulled, for its twin.
+
+  Args:
+    settings: The world's settings.
+    lever: A key of `LEVERS`, or `WITHOUT`.
+    value: The lever's new value (within its bounds), or the channel taken
+      away.
+
+  Returns:
+    The twin's settings.
+
+  Raises:
+    ValueError: If the lever is not one, or the value is out of its bounds,
+      or the world has no such channel.
+  """
+  twin = copy.deepcopy(dict(settings))
+  if lever == WITHOUT:
+    channels = dict(twin.get('channels', world_lib.DEFAULT_CHANNELS))
+    if value not in channels:
+      raise ValueError(f'This world has no channel {value!r}.')
+    del channels[value]
+    twin['channels'] = channels
+    return twin
+  if lever not in LEVERS:
+    raise ValueError(f'{lever!r} is not a lever.')
+  low, high = LEVERS[lever]
+  if isinstance(value, bool) or not isinstance(value, (int, float)):
+    raise ValueError(f'{lever} is a number.')
+  if not low <= float(value) <= high:
+    raise ValueError(f'{lever} is from {low} to {high}.')
+  twin[lever] = float(value)
+  return twin
+
+
 def settings(name: str = 'sandbox', **overrides: Any) -> dict[str, Any]:
   """A scenario's settings: the Sandbox's, a preset's changes, overrides.
 

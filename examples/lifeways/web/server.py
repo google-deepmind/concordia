@@ -28,12 +28,14 @@ and the next server of the same world plays on from the save.
 | `/` | the page |
 | `/static/<file>` | its scripts and styles |
 | `GET /api/state` | the world: map, people, places, pace |
-| `GET /api/census?since=<year>` | census rows after a year |
+| `GET /api/census?since=<year>[&world=twin]` | census rows after a year |
 | `GET /api/person?name=<name>` | one person's customs and kin |
 | `GET /api/build` | the commit served |
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
+| `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
+| `POST /api/twin` `{"end": true}` | let the twin go |
 """
 
 from collections.abc import Callable, Mapping, Sequence
@@ -144,9 +146,20 @@ def handler(
       if path == '/api/census' and not since.lstrip('-').isdigit():
         self._json(400, {'error': 'since is a year'})
         return
+      world = query.get('world', [''])[0]
+      if path == '/api/census' and world not in ('', 'twin'):
+        self._json(400, {'error': 'world is the twin, or none'})
+        return
+
+      def census() -> list[dict[str, Any]]:
+        if world != 'twin':
+          return session.census(int(since))
+        twin = session.twin
+        return [] if twin is None else twin.census(int(since))
+
       routes: Mapping[str, Callable[[], Any]] = {
           '/api/state': session.state,
-          '/api/census': lambda: session.census(int(since)),
+          '/api/census': census,
           '/api/build': lambda: {'commit': commit},
       }
       if path in routes:
@@ -193,8 +206,27 @@ def handler(
       elif path == '/api/stop':
         session.stop()
         self._json(200, session.input.settings())
+      elif path == '/api/twin':
+        self._twin(body)
       else:
         self._json(404, {'error': 'not found'})
+
+    def _twin(self, body: Mapping[str, Any]) -> None:
+      if body.get('end') is True:
+        twin = session.end_twin()
+        if twin is not None:
+          twin.close()
+        self._json(200, {'twin': None})
+        return
+      try:
+        twin = session.fork(str(body.get('lever', '')), body.get('value'))
+      except ValueError as error:
+        self._json(400, {'error': str(error)})
+        return
+      except RuntimeError as error:
+        self._json(409, {'error': str(error)})
+        return
+      self._json(200, {'twin': twin.twin_of})
 
     def _static(self, name: str) -> None:
       path = os.path.normpath(os.path.join(STATIC, name))
@@ -262,6 +294,7 @@ def main(argv: Sequence[str]) -> None:
     if session.save_soon(timeout=3.0):
       logging.info('Saved at year %s.', session.saved_year)
     session.close()
+    session_lib.await_engines()
     server.server_close()
 
 

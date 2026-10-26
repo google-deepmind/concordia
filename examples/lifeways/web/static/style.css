@@ -84,8 +84,8 @@ canvas {
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.85rem; }
 
-#release, #ask { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-#release label, #ask label {
+#release, #ask, #fork { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release label, #ask label, #fork label {
   display: flex;
   flex-direction: column;
   font-size: 0.85rem;
@@ -97,4 +97,4 @@ canvas {
 #transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
-#error { color: var(--danger); }
+#error, #fork-error { color: var(--danger); }

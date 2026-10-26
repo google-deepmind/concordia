@@ -40,6 +40,11 @@ const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦'};
 const page = {
   /** @type {?Object} */ world: null,
   /** @type {!Array<!Object>} */ rows: [],
+  /** @type {!Array<!Object>} The twin's census, if there is a twin. */
+  twinRows: [],
+  twinSince: -1,
+  /** @type {?string} The twin drawn: its lever, value and year. */
+  twin: null,
   /** @type {?string} The person shown, if any. */ person: null,
   since: -1,
   tile: 1,
@@ -57,7 +62,15 @@ async function api(path, body = null) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
+  if (!response.ok) {
+    let reason = '';
+    try {
+      reason = (await response.json()).error || '';
+    } catch (error) {
+      // Not JSON: say the status.
+    }
+    throw new Error(reason || `${path}: ${response.status}`);
+  }
   return response.json();
 }
 
@@ -121,39 +134,50 @@ function drawMap(world) {
 }
 
 /**
- * Draws the census: the living and the mean skill, year by year.
+ * Draws the census: the living and the mean skill, year by year; a twin's
+ * census, if any, dashed over its world's, on the same scales.
  * @param {!Array<!Object>} rows The census rows.
+ * @param {!Array<!Object>=} twinRows The twin's rows after its fork.
  */
-function drawChart(rows) {
+function drawChart(rows, twinRows = []) {
   const canvas = /** @type {!HTMLCanvasElement} */ (
       document.getElementById('chart'));
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (rows.length < 2) return;
+  const both = rows.concat(twinRows);
   const series = [
-    {key: 'population', colour: '#2d6a4f', most: Math.max(...rows.map(
+    {key: 'population', colour: '#2d6a4f', most: Math.max(...both.map(
         (row) => row.population), 1)},
     {key: 'skill_worked', colour: '#bc6c25', most: page.world.max_level},
-    {key: 'tongues', colour: '#5a189a', most: Math.max(...rows.map(
+    {key: 'tongues', colour: '#5a189a', most: Math.max(...both.map(
         (row) => row.tongues || 0), 1)},
   ];
-  const x = (i) => 4 + (i / (rows.length - 1)) * (canvas.width - 8);
-  for (const {key, colour, most} of series) {
-    ctx.beginPath();
-    rows.forEach((row, i) => {
-      const y = canvas.height - 4 - ((row[key] || 0) / most) *
-          (canvas.height - 8);
-      if (i === 0) ctx.moveTo(x(i), y); else ctx.lineTo(x(i), y);
-    });
-    ctx.strokeStyle = colour;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+  const first = rows[0].year;
+  const lastYear = Math.max(...both.map((row) => row.year));
+  const x = (year) => 4 + ((year - first) / Math.max(1, lastYear - first)) *
+      (canvas.width - 8);
+  for (const [drawn, dash] of [[rows, []], [twinRows, [5, 4]]]) {
+    for (const {key, colour, most} of series) {
+      ctx.beginPath();
+      drawn.forEach((row, i) => {
+        const y = canvas.height - 4 - ((row[key] || 0) / most) *
+            (canvas.height - 8);
+        if (i === 0) ctx.moveTo(x(row.year), y); else ctx.lineTo(x(row.year), y);
+      });
+      ctx.setLineDash(dash);
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
+  ctx.setLineDash([]);
   const last = rows[rows.length - 1];
   document.getElementById('legend').textContent =
       `Green: the living (${last.population}). Brown: the skill people work` +
       ` by (${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
-      ` Years ${rows[0].year}–${last.year}.`;
+      ` Years ${rows[0].year}–${last.year}.` +
+      (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
       .map(([channel, n]) => `${channel} ${n}`).join(', ');
   document.getElementById('channels').textContent =
@@ -173,6 +197,35 @@ function drawChart(rows) {
 function releaseMove(kind, domain, how, at, says) {
   return `release ${kind} ${domain} as a ${how} at ` +
       `${at.replace(/\s/g, '')}: ${says.trim()}`;
+}
+
+/**
+ * What the page says of a twin.
+ * @param {?Object} twin The state's twin, or null.
+ * @return {string} The line.
+ */
+function twinNote(twin) {
+  if (!twin) return 'No twin.';
+  const pulled = twin.lever === 'without' ?
+      `without ${twin.value}` : `${twin.lever} ${twin.value}`;
+  return `The twin (${pulled}, forked in year ${twin.year}) is in year ` +
+      `${twin.year_now}: ${twin.people} people` +
+      (twin.running ? '.' : ' (stopped).') +
+      (twin.error ? ` ${twin.error}` : '');
+}
+
+/**
+ * The lever's choices for the fork form: each lever, then each channel the
+ * world could go without.
+ * @param {!Object} world The state.
+ * @return {!Array<!Array<string>>} [value, label] pairs.
+ */
+function leverChoices(world) {
+  return Object.entries(world.levers)
+      .map(([lever, [low, high, now]]) =>
+        [lever, `${lever} (${low}–${high}; now ${now})`])
+      .concat(world.channels.map((channel) =>
+        [`without ${channel}`, `without ${channel}`]));
 }
 
 /**
@@ -294,12 +347,28 @@ async function refresh() {
     document.getElementById('saved').textContent = savedNote(world);
     drawMap(world);
     drawTranscripts(world);
+    document.getElementById('twin').textContent = twinNote(world.twin);
+    document.getElementById('unfork').hidden = !world.twin;
+    const twin = world.twin ?
+        `${world.twin.lever} ${world.twin.value} ${world.twin.year}` : null;
+    if (twin !== page.twin) {
+      page.twin = twin;
+      page.twinRows = [];
+      // The twin's own rows begin with the year it was forked in.
+      page.twinSince = world.twin ? world.twin.year - 1 : -1;
+    }
     const rows = await api(`api/census?since=${page.since}`);
+    const twinRows = world.twin ?
+        await api(`api/census?since=${page.twinSince}&world=twin`) : [];
+    if (twinRows.length) {
+      page.twinRows = page.twinRows.concat(twinRows).slice(-world.rows_kept);
+      page.twinSince = twinRows[twinRows.length - 1].year;
+    }
     if (rows.length) {
       page.rows = page.rows.concat(rows).slice(-world.rows_kept);
       page.since = rows[rows.length - 1].year;
-      drawChart(page.rows);
     }
+    if (rows.length || twinRows.length) drawChart(page.rows, page.twinRows);
   } catch (error) {
     document.getElementById('error').textContent = String(error);
   }
@@ -320,6 +389,8 @@ async function start() {
   const world = await api('api/state');
   fill('kind', world.custom_kinds);
   fill('domain', world.domains);
+  document.getElementById('lever').replaceChildren(...leverChoices(world).map(
+      ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
   document.getElementById('build').textContent =
       `build ${build.commit || '?'}`;
@@ -358,6 +429,27 @@ async function start() {
     document.getElementById('says').value = '';
     refresh();
   });
+  document.getElementById('fork').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const lever = document.getElementById('lever').value;
+    const value = document.getElementById('lever-value').value.trim();
+    const [name, channel] = lever.startsWith('without ') ?
+        ['without', lever.slice('without '.length)] : [lever, Number(value)];
+    const said = document.getElementById('fork-error');
+    said.textContent = '';
+    document.getElementById('twin').textContent = 'Forking at the year\'s end…';
+    try {
+      await api('api/twin', {lever: name, value: channel});
+    } catch (error) {
+      said.textContent = `No twin: ${error.message}`;
+    }
+    refresh();
+  });
+  document.getElementById('unfork').addEventListener('click', async () => {
+    document.getElementById('fork-error').textContent = '';
+    await api('api/twin', {end: true});
+    refresh();
+  });
   refresh();
   setInterval(refresh, 1500);
 }
@@ -365,5 +457,7 @@ async function start() {
 if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
-  module.exports = {askMove, peopleColour, releaseMove, savedNote};
+  module.exports = {
+    askMove, leverChoices, peopleColour, releaseMove, savedNote, twinNote,
+  };
 }

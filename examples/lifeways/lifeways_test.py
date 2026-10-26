@@ -271,6 +271,32 @@ class PresetTest(absltest.TestCase):
     )
 
 
+class LeverTest(absltest.TestCase):
+
+  def test_a_twin_pulls_one_lever_and_leaves_its_world_alone(self):
+    world = scenarios.settings()
+
+    richer = scenarios.with_lever(world, 'richness', 0.5)
+    quieter = scenarios.with_lever(world, scenarios.WITHOUT, 'story')
+
+    self.assertEqual(richer['richness'], 0.5)
+    self.assertEqual({k for k in richer if richer[k] != world[k]}, {'richness'})
+    self.assertNotIn('story', quieter['channels'])
+    self.assertIn('story', world['channels'])
+    self.assertEqual(world, scenarios.settings())
+
+  def test_a_lever_has_bounds(self):
+    world = scenarios.settings()
+    for lever, value in (
+        ('seed', 1),
+        ('mutation', -0.1),
+        ('mutation', True),
+        (scenarios.WITHOUT, 'telepathy'),
+    ):
+      with self.assertRaises(ValueError):
+        scenarios.with_lever(world, lever, value)
+
+
 class ArchiveTest(absltest.TestCase):
 
   def test_it_keeps_only_the_most_recent_and_sinks_all(self):

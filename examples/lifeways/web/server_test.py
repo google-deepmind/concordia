@@ -22,6 +22,7 @@ import urllib.error
 import urllib.request
 
 from absl.testing import absltest
+from examples.lifeways import scenarios
 from examples.lifeways.web import server as server_lib
 from examples.lifeways.web import session as session_lib
 from concordia.typing import entity as entity_lib
@@ -35,6 +36,11 @@ def _wait(condition, seconds: float = 30.0) -> bool:
       return True
     time.sleep(0.05)
   return False
+
+
+def _forked_in(twin: session_lib.Session) -> int:
+  assert twin.twin_of is not None, 'not a twin'
+  return int(twin.twin_of['year'])
 
 
 class PageInputTest(absltest.TestCase):
@@ -195,6 +201,102 @@ class SaveTest(absltest.TestCase):
     self.assertTrue(os.path.exists(self.path + '.set-aside'))
 
 
+class TwinTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.session = session_lib.Session(years_per_second=50)
+    self.session.start()
+    self.assertTrue(_wait(lambda: self.session.state()['year'] >= 3))
+
+  def tearDown(self):
+    self.session.close()
+    super().tearDown()
+
+  def _rows(self, session, first: int, last: int):
+    return [r for r in session.census() if first <= r['year'] <= last]
+
+  def test_a_twin_with_nothing_changed_plays_on_as_its_world_does(self):
+    twin = self.session.fork('richness', 0.2)  # The Sandbox's own.
+    year = _forked_in(twin)
+
+    # The rows before the year forked are the world's; the twin plays on.
+    self.assertEqual(
+        self._rows(twin, -1, year - 1), self._rows(self.session, -1, year - 1)
+    )
+    self.assertTrue(
+        _wait(
+            lambda: min(self.session.state()['year'], twin.state()['year'])
+            > year + 10,
+            60,
+        )
+    )
+    self.assertLen(self._rows(twin, year, year + 10), 11)
+    self.assertEqual(
+        self._rows(twin, year, year + 10),
+        self._rows(self.session, year, year + 10),
+    )
+
+  def test_a_richer_twin_feeds_more(self):
+    twin = self.session.fork('richness', 0.5)
+    year = _forked_in(twin)
+
+    self.assertTrue(
+        _wait(
+            lambda: min(self.session.state()['year'], twin.state()['year'])
+            > year + 20,
+            120,
+        )
+    )
+    living = lambda s: sum(
+        r['population'] for r in self._rows(s, year + 11, year + 20)
+    )
+    self.assertGreater(living(twin), living(self.session))
+    self.assertEqual(self.session.state()['twin']['lever'], 'richness')
+
+  def test_releases_reach_the_twin_and_questions_do_not(self):
+    twin = self.session.fork(scenarios.WITHOUT, 'story')
+    self.session.pace(paused=True)
+    self.assertTrue(twin.input.settings()['paused'])
+    name = twin.state()['people'][0]['name']
+
+    self.session.move('release belief sacred as a song at 8,8: Hm.')
+    self.session.move(f'ask {name}: Why?')
+
+    self.assertEqual(
+        twin.input.settings()['queued'],
+        ['release belief sacred as a song at 8,8: Hm.'],
+    )
+    self.assertLen(self.session.input.settings()['queued'], 2)
+
+  def test_a_lever_must_be_one_and_the_world_playing(self):
+    for lever, value in (
+        ('speed', 1.0),
+        ('richness', 5.0),
+        ('richness', 'rich'),
+        (scenarios.WITHOUT, 'telepathy'),
+    ):
+      with self.assertRaises(ValueError):
+        self.session.fork(lever, value)
+    self.session.pace(paused=True)
+    with self.assertRaises(RuntimeError):
+      self.session.fork('richness', 0.3)
+    self.assertIsNone(self.session.state()['twin'])
+
+  def test_a_twin_may_go_without_any_channel(self):
+    engine = self.session.run.engine
+    for channel in self.session.state()['channels']:
+      twin = self.session.fork(scenarios.WITHOUT, channel)
+      engine.pause()  # The world waits while its twin plays (a test's pace).
+      year = _forked_in(twin)
+      self.assertTrue(
+          _wait(lambda: twin.state()['year'] >= year + 4, 60), channel
+      )
+      self.assertEqual(twin.error, '', channel)
+      self.assertNotIn(channel, twin.state()['channels'])
+      engine.play()
+
+
 class ServerTest(absltest.TestCase):
 
   def setUp(self):
@@ -273,11 +375,47 @@ class ServerTest(absltest.TestCase):
     with urllib.request.urlopen(self.base, timeout=10) as response:
       self.assertEqual(response.url, self.base + '/')
 
+  def test_the_page_forks_a_twin_and_reads_its_census(self):
+    self.assertTrue(_wait(lambda: self._get('/api/state')['year'] >= 2))
+    self.assertEqual(self._get('/api/census?world=twin'), [])
+
+    forked = self._post('/api/twin', {'lever': 'mutation', 'value': 0.3})
+
+    year = forked['twin']['year']
+    self.assertTrue(
+        _wait(lambda: self._get('/api/state')['twin']['year_now'] > year + 2)
+    )
+    rows = self._get(f'/api/census?since={year - 1}&world=twin')
+    self.assertNotEmpty(rows)
+    self.assertEqual(rows[0]['year'], year)
+    for data, code in (
+        ({'lever': 'mutation', 'value': 9}, 400),
+        ({'lever': 'nonsense', 'value': 1}, 400),
+    ):
+      with self.assertRaises(urllib.error.HTTPError) as caught:
+        self._post('/api/twin', data)
+      self.assertEqual(caught.exception.code, code)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._get('/api/census?world=other')
+    self.assertEqual(caught.exception.code, 400)
+    self._post('/api/pace', {'paused': True})
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._post('/api/twin', {'lever': 'mutation', 'value': 0.1})
+    self.assertEqual(caught.exception.code, 409)
+
+    self.assertEqual(self._post('/api/twin', {'end': True}), {'twin': None})
+    self.assertIsNone(self._get('/api/state')['twin'])
+
   def test_unknown_paths_and_people_are_not_found(self):
     for path in ('/api/nothing', '/static/../server.py', '/api/person?name=Zz'):
       with self.assertRaises(urllib.error.HTTPError) as caught:
         self._get(path)
       self.assertEqual(caught.exception.code, 404)
+
+
+def tearDownModule():
+  # Let the closed worlds' loops finish their turn before the process exits.
+  session_lib.await_engines()
 
 
 if __name__ == '__main__':

@@ -69,6 +69,18 @@ save (`simulation.load_checkpoint`) and plays on from that year. A save of
 another world, or one an older build can no longer restore, is set aside
 (`FILE.set-aside`), and a new world begins.
 
+**Fork a twin.** The person may fork a twin of the running world. At the
+next year's close the session takes the same checkpoint and builds a second
+simulation of the same world from it, with one lever pulled
+(`scenarios.with_lever`). A lever is a world rule the World reads from its
+settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
+`mutation`, `dialect_drift`, `garble` or `child_cost`, within bounds, or
+`without` a channel. Both worlds play on side by side. The person's pace and
+releases reach both, so the lever stays the one difference; the page draws
+the twin's census dashed over its world's. With no lever changed, a twin's
+census is its world's, year by year (tick mode is exact). A twin is not
+saved.
+
 ## Scenarios
 
 The Sandbox is where everything is, and its presets are settings, not code
