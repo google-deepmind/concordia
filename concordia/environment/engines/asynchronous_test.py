@@ -336,6 +336,50 @@ class AsynchronousTest(absltest.TestCase):
     self.assertGreater(gm_1._act_count, 0)
     self.assertGreater(gm_2._act_count, 0)
 
+  def test_log_entries_stream_in_batches_during_the_run(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0, log_batch_size=2)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+    entities = [MockEntity(name=n) for n in _ENTITY_NAMES]
+    log = []
+    seen_during_run = []
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=5,
+        log=log,
+        step_callback=lambda data: seen_during_run.append(len(log)),
+    )
+
+    self.assertGreater(max(seen_during_run), 0)  # Before the end.
+    self.assertLen(log, 10)  # Every action, once.
+
+  def test_without_a_batch_size_the_log_fills_at_the_end(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0, log_batch_size=None)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+    entities = [MockEntity(name=n) for n in _ENTITY_NAMES]
+    log = []
+    seen_during_run = []
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=3,
+        log=log,
+        step_callback=lambda data: seen_during_run.append(len(log)),
+    )
+
+    self.assertEqual(max(seen_during_run), 0)
+    self.assertLen(log, 6)
+
+  def test_the_log_batch_size_must_be_positive(self):
+    with self.assertRaises(ValueError):
+      asynchronous.Asynchronous(log_batch_size=0)
+
 
 if __name__ == '__main__':
   absltest.main()

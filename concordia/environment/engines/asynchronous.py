@@ -61,6 +61,7 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 _DEFAULT_SLEEP_TIME = 0.1
+_DEFAULT_LOG_BATCH_SIZE = 64
 
 
 def _get_reactive_measurements(
@@ -99,6 +100,9 @@ class Asynchronous(engine_lib.Engine):
   Termination uses both a shared threading.Event (for global signaling) and a
   per-player max iterations cap.
 
+  Log events are finalized into the log in batches as the loop runs
+  (`log_batch_size`), so a long run keeps no unbounded buffer of them.
+
   A global pause event is supported for UI play/pause functionality.
   """
 
@@ -111,7 +115,27 @@ class Asynchronous(engine_lib.Engine):
       call_to_check_termination: str = DEFAULT_CALL_TO_CHECK_TERMINATION,
       call_to_next_game_master: str = DEFAULT_CALL_TO_NEXT_GAME_MASTER,
       sleep_time: float = _DEFAULT_SLEEP_TIME,
+      log_batch_size: int | None = _DEFAULT_LOG_BATCH_SIZE,
   ):
+    """Asynchronous engine constructor.
+
+    Args:
+      call_to_make_observation: The call to action asking for an observation.
+      call_to_next_acting: The call to action asking who acts next.
+      call_to_next_action_spec: The call to action asking for an action spec.
+      call_to_resolve: The call to action asking to resolve an event.
+      call_to_check_termination: The call to action asking whether to stop.
+      call_to_next_game_master: The call to action asking for the next GM.
+      sleep_time: Seconds an entity waits after a step in which it may not act.
+      log_batch_size: How many log events may wait before they are finalized
+        into the log. None waits for a pause or the end of the run.
+
+    Raises:
+      ValueError: If log_batch_size is not positive.
+    """
+    if log_batch_size is not None and log_batch_size < 1:
+      raise ValueError(f'log_batch_size must be positive: {log_batch_size}')
+    self._log_batch_size = log_batch_size
     self._call_to_make_observation = call_to_make_observation
     self._call_to_next_acting = call_to_next_acting
     self._call_to_next_action_spec = call_to_next_action_spec
@@ -467,6 +491,11 @@ class Asynchronous(engine_lib.Engine):
                   action=action,
               )
           )
+          if (
+              self._log_batch_size is not None
+              and self._collector.pending_count() >= self._log_batch_size
+          ):
+            self._collector.materialize(log)
 
         if checkpoint_callback is not None:
           logging.debug(
