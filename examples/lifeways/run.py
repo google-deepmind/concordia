@@ -36,7 +36,10 @@ from absl import flags
 from absl import logging
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
+from concordia.contrib import language_models
 from concordia.language_model import language_model
+from concordia.language_model import profiled_language_model
+from concordia.utils import profiler
 
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
 _YEARS = flags.DEFINE_integer(
@@ -48,23 +51,47 @@ _SOAK = flags.DEFINE_bool('soak', False, 'Report memory and speed as it runs.')
 _MODEL = flags.DEFINE_string(
     'model',
     'mock',
-    'Who people think with: mock, or ollama:<model> (a LIVE run).',
+    'Who people think with: mock, or <api>:<model> for a LIVE run, e.g.'
+    ' ollama:llama3.2:3b or together_ai:meta-llama/Llama-3.3-70B-Instruct-Turbo'
+    ' (the key from TOGETHER_API_KEY or TOGETHER_AI_API_KEY).',
 )
 _FOUNDERS = flags.DEFINE_integer(
     'founders', None, 'How many found the world (the scenario says, if unset).'
 )
+_SETTINGS = flags.DEFINE_string(
+    'settings', '{}', 'More settings, as JSON (e.g. an Experimenter plan).'
+)
 
 
-def _model() -> language_model.LanguageModel | None:
-  """The model people think with (None: the deterministic mock)."""
-  kind, _, name = _MODEL.value.partition(':')
-  if kind == 'mock':
-    return None
-  if kind == 'ollama' and name:
-    from concordia.contrib.language_models.ollama import ollama_model  # pylint: disable=g-import-not-at-top
+def _model() -> (
+    tuple[language_model.LanguageModel | None, profiler.ProfilerContext | None]
+):
+  """The model people think with, and what counts its calls.
 
-    return ollama_model.OllamaLanguageModel(name)
-  raise app.UsageError(f'Unknown model: {_MODEL.value}')
+  Returns:
+    The model (None: the deterministic mock) and its call counter.
+  """
+  if _MODEL.value == 'mock':
+    return None, None
+  api, _, name = _MODEL.value.partition(':')
+  key = None
+  if api == 'together_ai':
+    key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(
+        'TOGETHER_AI_API_KEY'
+    )
+    if not key:
+      raise app.UsageError('No Together key in the environment.')
+  model = language_models.language_model_setup(
+      api_type=api, model_name=name, api_key=key
+  )
+  counts = profiler.ProfilerContext()
+  counts.enable()
+  return (
+      profiled_language_model.ProfiledLanguageModel(
+          model, name, profiler_instance=counts
+      ),
+      counts,
+  )
 
 
 def _max_rss_mb() -> float:
@@ -104,7 +131,10 @@ def main(argv):
     )
     summary = _run(out, dead, census, customs)
   logging.info(
-      'Done: %s', json.dumps({k: v for k, v in summary.items() if k != 'soak'})
+      'Done: %s',
+      json.dumps(
+          {k: v for k, v in summary.items() if k not in ('soak', 'transcripts')}
+      ),
   )
 
 
@@ -128,9 +158,11 @@ def _run(
   )
   if _FOUNDERS.value is not None:
     settings['founders'] = _FOUNDERS.value
+  settings.update(json.loads(_SETTINGS.value))
+  model, counts = _model()
   run = simulation.build_simulation(
       settings,
-      model=_model(),
+      model=model,
       archive=simulation.Archive(keep=0, sink=bury),
   )
   start = last = time.monotonic()
@@ -176,7 +208,15 @@ def _run(
       'variants_ever': world.culture.created(),
       'seconds': round(time.monotonic() - start, 1),
       'soak': soak,
+      'transcripts': list(world.transcripts),
   }
+  if counts is not None:
+    values = counts.get_stats()['values']
+    summary['calls'] = len(values.get('llm_prompt_tokens', ()))
+    summary['prompt_tokens'] = int(sum(values.get('llm_prompt_tokens', ())))
+    summary['completion_tokens'] = int(
+        sum(values.get('llm_completion_tokens', ()))
+    )
   with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as f:
     json.dump(summary, f, indent=2)
   return summary

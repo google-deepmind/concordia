@@ -15,11 +15,21 @@ Offline, with the deterministic mock model:
 python -m examples.lifeways.run --years=200 --soak
 ```
 
-With live minds, from a local Ollama (each person-year is one call):
+With live minds (each person-year is one call), from a local Ollama, or a
+model Concordia's contrib wrappers support (the Together key from
+`TOGETHER_API_KEY`); `--settings` adds settings as JSON, e.g. a plan of
+interviews:
 
 ```bash
 python -m examples.lifeways.run --model=ollama:llama3.2:3b --years=6 --founders=6
 ```
+
+```bash
+python -m examples.lifeways.run --model=together_ai:deepseek-ai/DeepSeek-V4.1-Flash --years=20 --settings='{"plan": {"6": "ask Kaka: What do you live by, and why?"}}'
+```
+
+The summary counts the calls and the tokens (estimated), and keeps the
+interviews' transcripts.
 
 A mind may say more than its move; the world reads the first move offered
 that the answer names, and credits only the customs it once gave the one who
