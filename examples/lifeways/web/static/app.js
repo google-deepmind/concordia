@@ -339,7 +339,7 @@ function drawAt(world) {
   const odds = world.song_uptake ?
       ` Each takes a song up about one time in ` +
       `${Math.round(1 / world.song_uptake)}.` : '';
-  note.textContent = `Release place ${page.at.join(',')} (the ring): ` +
+  note.textContent = `The ring (${page.at.join(',')}): ` +
       (n ? `${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
         `here.${odds}` : 'nobody would hear a song here.');
 }
