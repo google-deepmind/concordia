@@ -152,6 +152,8 @@ class Session:
     self.run.lifecycle.year_closed = self._year_closed
     self._thread: threading.Thread | None = None
     self.error: str = ''
+    # When the person last did anything (a move, the pace, a stop).
+    self._played = 0.0
 
   def start(self) -> None:
     """Plays the world in a thread of its own until it ends or is closed."""
@@ -233,6 +235,9 @@ class Session:
         'pace': self.input.settings(),
         'running': self._thread is not None and self._thread.is_alive(),
         'error': self.error,
+        'idle_seconds': (
+            round(time.time() - self._played) if self._played else None
+        ),
         'release_form': world_lib.RELEASE_FORM,
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
@@ -276,6 +281,7 @@ class Session:
 
   def stop(self) -> None:
     """The person stops the world: the Experimenter's next move ends it."""
+    self._played = time.time()
     self.input.queue(world_lib.STOP)
     self.input.pace(paused=False)
 
@@ -283,6 +289,7 @@ class Session:
     """Queues the Experimenter's move (as the person typed or built it)."""
     move = ' '.join(str(move).split())
     if move:
+      self._played = time.time()
       self.input.queue(move)
 
   def pace(
@@ -290,5 +297,6 @@ class Session:
       years_per_second: float | None = None,
       paused: bool | None = None,
   ) -> dict[str, Any]:
+    self._played = time.time()
     self.input.pace(years_per_second, paused)
     return self.input.settings()

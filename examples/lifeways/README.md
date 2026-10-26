@@ -194,7 +194,7 @@ of the grown whose marriage rules allow each other.
 little on the way (`subsistence`); gathering is the year's work on top of
 it. One who moves looks for better land within a few steps (`roam`). The
 land regrows each year, and its richness sets how many it feeds: in the
-Sandbox, about 40 (25-80), without anyone arriving.
+Sandbox, about 40 (20-60), with hardly anyone arriving.
 
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'

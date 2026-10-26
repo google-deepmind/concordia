@@ -29,8 +29,8 @@ SANDBOX: Mapping[str, Any] = {
     'cols': 24,
     # The land: how much each tile carries, how fast food regrows and what
     # even a bare tile regrows. Together they set how many people the valley
-    # feeds (here 25-80, about 40).
-    'richness': 0.25,
+    # feeds (here 20-60, about 40, over a thousand years).
+    'richness': 0.2,
     'regrowth': 0.5,
     'seed_bank': 0.06,
     # What a person forages in a year whatever else it does (a child half);
@@ -248,7 +248,7 @@ _READING = {
 # rules. Do traditions form without peoples? How fast do customs sweep?
 PLASMID_SOUP: Mapping[str, Any] = {
     'mode': 'asexual',
-    'richness': 0.2,  # Everyone buds: a poorer land feeds as many.
+    'richness': 0.17,  # Everyone buds: a poorer land feeds as many.
     'people': 'valley',
     'arrivals': None,
     'channels': {
