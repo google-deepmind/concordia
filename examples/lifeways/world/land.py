@@ -14,7 +14,7 @@
 
 """The land: a toroidal grid of terrain whose food regrows each year."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -49,6 +49,7 @@ class Land:
       regrowth: float = REGROWTH,
       seed_bank: float = SEED_BANK,
       ridge: Mapping[str, Any] | None = None,
+      ridges: Sequence[Mapping[str, Any]] = (),
   ):
     """Makes the land.
 
@@ -60,7 +61,10 @@ class Land:
       regrowth: The logistic rate food regrows by in a year.
       seed_bank: The share of its capacity even a bare tile regrows.
       ridge: Optional. Hills from edge to edge at column `col` (`width`
-        columns wide) but for a pass at rows `gap` (first and last).
+        columns wide) but for a pass at rows `gap` (first and last; no pass
+        if absent).
+      ridges: More ridges, each as `ridge`. The map wraps east to west, so
+        two ridges are needed to part two valleys altogether.
     """
     self.rows, self.cols = int(rows), int(cols)
     # Scales every tile's food; with the regrowth, how many the land feeds.
@@ -91,10 +95,10 @@ class Land:
         'marsh'
     )
     terrain[:, 0] = TERRAIN.index('coast')
-    if ridge:
+    for one in ([ridge] if ridge else []) + list(ridges):
       # A line of hills from edge to edge, but for a pass: two valleys.
-      col, width = int(ridge['col']), int(ridge.get('width', 2))
-      low, high = (int(r) for r in ridge.get('gap', (0, -1)))
+      col, width = int(one['col']), int(one.get('width', 2))
+      low, high = (int(r) for r in one.get('gap', (0, -1)))
       for row in range(self.rows):
         kind = 'grass' if low <= row <= high else 'hills'
         terrain[row, col : col + width] = TERRAIN.index(kind)

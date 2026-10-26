@@ -44,6 +44,10 @@ EXPERIMENTER_STATUS = re.compile(
 )
 SEXUAL = 'sexual'
 ASEXUAL = 'asexual'
+# Whom a child learns to speak from (the `speech_from` setting): its mother,
+# or one of the grown around her, drawn (children pick up the local tongue).
+MOTHER = 'mother'
+COMMUNITY = 'community'
 
 # The moves of a year.
 GATHER = 'gather food'
@@ -374,6 +378,7 @@ class World:
         regrowth=float(settings.get('regrowth', land_lib.REGROWTH)),
         seed_bank=float(settings.get('seed_bank', land_lib.SEED_BANK)),
         ridge=settings.get('ridge'),
+        ridges=settings.get('ridges', ()),
     )
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
@@ -1914,11 +1919,17 @@ class World:
         ids = list(passed[0]) if passed else []
       ids = [self.culture.copy(i, rng, mutation, self.year).id for i in ids]
       mother = self.people[first]
-      # A child speaks as its mother does, with the drift of each generation.
+      # A child speaks as its mother does, or (`speech_from: community`) as
+      # one of the grown around her does, with the drift of each generation.
+      spoken = (
+          self._spoken_around(mother, rng)
+          if self.settings.get('speech_from', MOTHER) == COMMUNITY
+          else mother.speech
+      )
       speech = ''
-      if mother.speech in self.culture:
+      if spoken in self.culture:
         speech = self.culture.copy(
-            mother.speech,
+            spoken,
             rng,
             float(self.settings.get('dialect_drift', 0.02)),
             self.year,
@@ -1948,6 +1959,31 @@ class World:
       births.append(self._params(child))
     self.expecting = {}
     return births
+
+  def _spoken_around(self, person: Person, rng: np.random.Generator) -> str:
+    """The speech a child picks up around a person: a grown speaker's, drawn.
+
+    Each of the grown within sight of the person (the person included) is
+    as likely to be the one the child learns from, so a variant spreads in
+    proportion to how many speak it (neutral drift, not conformity).
+
+    Args:
+      person: The one the speakers are around (the mother).
+      rng: The birth's draw.
+
+    Returns:
+      The speech drawn (the person's own if nobody is in sight).
+    """
+    near = sorted(
+        p.speech
+        for p in self.people.values()
+        if p.speech
+        and p.age(self.year) >= ADULT_AGE
+        and self.places.distance(p.tile, person.tile) <= self.sight
+    )
+    if not near:
+      return person.speech
+    return near[int(rng.integers(len(near)))]
 
   def _passed_on(self, parent: str) -> list[str]:
     """The ids a parent named when asked what it passes on.

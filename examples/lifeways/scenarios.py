@@ -45,6 +45,10 @@ SANDBOX: Mapping[str, Any] = {
     # talk between dialects adds `garble` times their misunderstanding to the
     # chance of a copying error.
     'dialect_drift': 0.02,
+    # Whom a child learns to speak from: its mother, or one of the grown
+    # around her, drawn (`world_lib.COMMUNITY`): a community's speech drifts
+    # together, and parted communities drift apart.
+    'speech_from': world_lib.MOTHER,
     'garble': 0.5,
     # The channels customs pass by among the living, and their reach and
     # fidelity; leave one out and it does not exist.

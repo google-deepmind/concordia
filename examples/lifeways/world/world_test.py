@@ -462,6 +462,38 @@ class TransmissionTest(absltest.TestCase):
     self.assertEqual(self.world.culture.get(speech).parent, tongue)
     self.assertIn(speech, [c['id'] for c in child['customs']])
 
+  def test_a_child_may_speak_as_the_grown_around_its_mother_do(self):
+    def tongue(text, words):
+      return self.world.culture.add(
+          'dialect', 'language', text, {'words': words}
+      ).id
+
+    ours = tongue('Ours: ka ri to ma.', ['ka', 'ri', 'to', 'ma'])
+    local = tongue('Local: ka ri bo ha.', ['ka', 'ri', 'bo', 'ha'])
+    self._person('Ada', 30, (5, 5), given=[ours]).speech = ours
+    for name, tile in (('Bo', (5, 6)), ('Cy', (6, 5)), ('Di', (4, 5))):
+      self._person(name, 30, tile, given=[local]).speech = local
+    self._person('Far', 30, (12, 12), given=[ours]).speech = ours
+    self.world.settings['dialect_drift'] = 0.0
+
+    def first_words(speech_from):
+      self.world.settings['speech_from'] = speech_from
+      for person in self.world.people.values():
+        person.food = 10.0  # Nobody here forages: none must starve.
+      self.world.expecting = {'Ada': ['Ada']}
+      self.world.actions = {'Ada': world_lib.PASS_ON}
+      (child,) = self.world.close_year().births
+      # The community stays as it is: no child grows up to speak here.
+      self.world.people.pop(child['name'], None)
+      # From the birth's record: a newborn may die in its first year.
+      return next(c['id'] for c in child['customs'] if c['kind'] == 'dialect')
+
+    self.assertEqual(first_words(world_lib.MOTHER), ours)
+    learned = [first_words(world_lib.COMMUNITY) for _ in range(40)]
+    # Drawn from the four grown in sight: three speak the local tongue.
+    self.assertGreater(learned.count(local), learned.count(ours))
+    self.assertEqual(set(learned), {ours, local})
+
   def test_the_move_an_answer_names_first_is_the_move_made(self):
     allowed = [world_lib.GATHER, world_lib.REST, f'{world_lib.SHARE} Kari']
     self.assertEqual(
@@ -1009,6 +1041,27 @@ class ReleaseTest(_PlaceTest):
 
     self.assertEqual(self.world.history[-1]['released'], 0)
     self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
+
+
+class LandTest(absltest.TestCase):
+
+  def test_ridges_part_the_land_and_a_pass_crosses_one(self):
+    land = land_lib.Land(
+        10,
+        20,
+        seed=0,
+        ridge={'col': 4, 'width': 2, 'gap': [3, 4]},
+        ridges=[{'col': 14, 'width': 3}],
+    )
+
+    def hills(col):
+      return [
+          row for row in range(land.rows) if land.kind((row, col)) == 'hills'
+      ]
+
+    self.assertEqual(hills(5), [0, 1, 2, 5, 6, 7, 8, 9])  # A pass at 3-4.
+    for col in (14, 15, 16):  # No pass: hills from edge to edge.
+      self.assertEqual(hills(col), list(range(10)))
 
 
 class CultureTest(absltest.TestCase):
