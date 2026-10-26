@@ -16,10 +16,10 @@
 
 from collections.abc import Callable, Mapping
 import copy
-import functools
 import inspect
 import json
 import os
+import threading
 from typing import Any
 
 from absl import logging
@@ -273,6 +273,7 @@ class Simulation(simulation_lib.Simulation):
       step_callback: (
           Callable[[step_controller_lib.StepData], None] | None
       ) = None,
+      log_retention: int | None = None,
   ) -> structured_logging.SimulationLog:
     """Run the simulation.
 
@@ -289,11 +290,20 @@ class Simulation(simulation_lib.Simulation):
         are saved.
       step_controller: Optional step controller for step-by-step control.
       step_callback: Optional callback called after each step completes.
+      log_retention: Optional. Keep only the most recent this many entries of
+        the raw log, during and after the run, so that a long run's raw log,
+        checkpoints and returned log stay bounded. Keep the full history
+        elsewhere if needed, e.g. through `step_callback`. None keeps all.
 
     Returns:
       SimulationLog object with structured data. Use .to_html() for HTML output
       or .to_json() for JSON serialization.
+
+    Raises:
+      ValueError: If log_retention is negative.
     """
+    if log_retention is not None and log_retention < 0:
+      raise ValueError(f"log_retention must not be negative: {log_retention}")
     if premise is None:
       premise = self._config.default_premise
     if max_steps is None:
@@ -306,11 +316,22 @@ class Simulation(simulation_lib.Simulation):
 
     self._get_state_callback = get_state_callback
 
+    trim_lock = threading.Lock()
+
+    def keep_recent_log_entries() -> None:
+      if log_retention is None:
+        return
+      with trim_lock:
+        excess = len(raw_log) - log_retention
+        if excess > 0:
+          del raw_log[:excess]
+
     if checkpoint_path or get_state_callback:
-      checkpoint_callback = functools.partial(
-          self.save_checkpoint,
-          checkpoint_path=checkpoint_path,  # pyrefly: ignore[bad-argument-type]
-      )
+
+      def checkpoint_callback(step: int) -> None:
+        keep_recent_log_entries()  # A checkpoint keeps only the window.
+        self.save_checkpoint(step, checkpoint_path)  # pyrefly: ignore[bad-argument-type]
+
     else:
       checkpoint_callback = None
 
@@ -328,14 +349,16 @@ class Simulation(simulation_lib.Simulation):
     sorted_game_masters = initializers + other_gms
 
     callback = step_callback
-    if step_controller is not None:
+    if step_controller is not None or log_retention is not None:
 
       def completed_step(data):
         try:
           if step_callback is not None:
             step_callback(data)
         finally:
-          step_controller.complete_step()
+          keep_recent_log_entries()
+          if step_controller is not None:
+            step_controller.complete_step()
 
       callback = completed_step
 
@@ -350,6 +373,7 @@ class Simulation(simulation_lib.Simulation):
         step_controller=step_controller,
         step_callback=callback,
     )
+    keep_recent_log_entries()
 
     # Build and return structured log
     simulation_log = structured_logging.SimulationLog.from_raw_log(raw_log)
