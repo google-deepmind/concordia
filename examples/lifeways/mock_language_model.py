@@ -126,6 +126,12 @@ def _choose(
   ]
   share = [m for m in moves if m.startswith('share food with ')]
   shame = [m for m in moves if m.startswith('shame ')]
+  reading = [
+      cid
+      for domain, cid, text in customs
+      if domain == 'learning' and 'read' in text.lower()
+  ]
+  others = [cid for _, cid, _ in customs if cid not in reading]
 
   def follow(move: str, *domains: str) -> str:
     """The move, naming the customs of its domains (all, for teaching)."""
@@ -154,6 +160,13 @@ def _choose(
     return ' '.join([shame[0], *sharing])
   if 'teach' in moves and food >= 4.0 and draw < 0.35:
     return follow('teach')
+  if reading and food >= 3.0:
+    if 'found a library' in moves and food >= 6.0 and draw < 0.3:
+      return ' '.join(['found a library', *reading, *others])
+    if 'write at the library' in moves and draw < 0.25:
+      return ' '.join(['write at the library', *reading, *others])
+    if 'read at the library' in moves and draw < 0.5:
+      return ' '.join(['read at the library', *reading])
   if 'move to better land' in moves and draw > 0.92:
     return 'move to better land'
   return follow('gather food', 'food')

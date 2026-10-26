@@ -40,6 +40,15 @@ SANDBOX: Mapping[str, Any] = {
     'child_cost': 2.0,
     'max_years': None,  # The Sandbox runs indefinitely.
     'history_kept': 200,
+    # Libraries: founding one costs food; they stand apart; a shelf holds a
+    # dozen texts; one unused for 30 years is a ruin, whose texts crumble.
+    'library': {
+        'cost': 3.0,
+        'spacing': 5,
+        'shelf': 12,
+        'ruin_after': 30,
+        'crumble': 0.1,
+    },
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.
@@ -130,6 +139,13 @@ SANDBOX: Mapping[str, Any] = {
             'domain': 'learning',
             'text': 'Learn from those whose stores are full.',
             'held_by': 0.5,
+        },
+        {
+            'kind': 'skill',
+            'domain': 'learning',
+            'text': 'Reading and writing marks on birch bark.',
+            'params': {'level': 1},
+            'held_by': 0.25,
         },
     ],
 }

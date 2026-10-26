@@ -289,6 +289,107 @@ class TransmissionTest(absltest.TestCase):
     self.assertLen(set(names), len(names))
 
 
+class LibraryTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.world = world_lib.World({
+        'seed': 0,
+        'founders': 0,
+        'channels': _FAITHFUL,
+        'library': {'cost': 3.0, 'spacing': 5, 'shelf': 2, 'ruin_after': 3},
+    })
+    culture = self.world.culture
+    self.reading = culture.add('skill', 'learning', 'Reading.', {'level': 1}).id
+    self.norm = culture.add('norm', 'sharing', 'Share.').id
+    self.belief = culture.add('belief', 'sacred', 'Hills.').id
+
+  def _person(self, name, tile, given, age=30):
+    person = world_lib.Person(
+        name=name,
+        born=self.world.year - age,
+        sex='f',
+        tile=tile,
+        food=8.0,
+        given=list(given),
+    )
+    self.world.people[name] = person
+    return person
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = dict(actions)
+    return self.world.close_year()
+
+  def test_the_literate_found_a_library_and_write_on_its_shelf(self):
+    ada = self._person('Ada', (5, 5), [self.reading, self.norm, self.belief])
+    self._person('Bo', (5, 6), [self.norm])
+    self.assertIn(world_lib.FOUND_LIBRARY, self.world.moves('Ada'))
+
+    self._year(
+        Ada=f'{world_lib.FOUND_LIBRARY} {self.reading} {self.norm}',
+        Bo='rest',
+    )
+
+    (library,) = self.world.places.all()
+    self.assertEqual((library.tile, library.shelf), ((5, 5), [self.norm]))
+    self.assertEqual(ada.food, 8.0 - 3.0 - 1.0)  # Founding, then a year.
+    self.assertIn('founds a library', ' '.join(self.world.queued['Bo']))
+    self.assertEmpty(
+        self.world.culture.prune(  # The shelf keeps its text.
+            {self.reading, self.belief} | self.world.places.texts()
+        )
+    )
+    self.assertNotIn(world_lib.FOUND_LIBRARY, self.world.moves('Bo'))
+
+    self._year(Ada=f'{world_lib.WRITE} {self.reading} {self.belief}', Bo='rest')
+    self.assertEqual(library.shelf, [self.norm, self.belief])
+
+  def test_a_literate_reader_is_offered_the_shelf_and_nobody_watching(self):
+    self._person('Ada', (5, 5), [self.reading, self.belief])
+    self._year(Ada=f'{world_lib.FOUND_LIBRARY} {self.reading} {self.belief}')
+    del self.world.people['Ada']  # The writer dies; the text stays.
+    self._person('Cy', (5, 6), [self.reading])
+    self._person('Bo', (6, 6), [])
+    self.assertIn(world_lib.READ, self.world.moves('Cy'))
+
+    self._year(Cy=f'{world_lib.READ} {self.reading}', Bo='rest')
+
+    text = '\n'.join(self.world.queued['Cy'])
+    offer = culture_lib.OFFER.search(text)
+    assert offer is not None
+    self.assertEqual(
+        (offer.group('id'), offer.group('via')), (self.belief, 'reading')
+    )
+    self.assertEqual(self.world.history[-1]['rediscovered'], 1)
+    self.assertNotIn('[custom', ' '.join(self.world.queued.get('Bo', [])))
+
+  def test_one_who_cannot_read_reads_nothing(self):
+    self._person('Ada', (5, 5), [self.reading, self.belief])
+    self._year(Ada=f'{world_lib.FOUND_LIBRARY} {self.reading} {self.belief}')
+    self._person('Bo', (5, 6), [self.norm])
+
+    self._year(Ada='rest', Bo=f'{world_lib.READ} {self.norm}')
+
+    self.assertIn('cannot make out', ' '.join(self.world.queued['Bo']))
+    self.assertNotIn(self.belief, self.world.people['Bo'].given)
+
+  def test_an_unused_library_falls_to_ruin_and_its_texts_crumble(self):
+    self._person('Ada', (5, 5), [self.reading, self.belief])
+    self._year(Ada=f'{world_lib.FOUND_LIBRARY} {self.reading} {self.belief}')
+    (library,) = self.world.places.all()
+    del self.world.people['Ada']
+
+    years = 0
+    while self.world.places.all() and years < 200:
+      self._year()
+      years += 1
+
+    self.assertTrue(self.world.places.ruined(library, self.world.year))
+    self.assertEmpty(self.world.places.all())
+    self.assertGreater(years, 3)
+
+
 class CultureTest(absltest.TestCase):
 
   def test_the_same_content_is_the_same_variant(self):

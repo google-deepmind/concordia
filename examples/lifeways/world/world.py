@@ -33,6 +33,7 @@ import zlib
 
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
+from examples.lifeways.world import places as places_lib
 import numpy as np
 
 EXPERIMENTER = 'Experimenter'
@@ -50,6 +51,9 @@ TEACH = 'teach'
 APPRENTICE = 'learn a craft'
 SHARE = 'share food with'  # ... a name.
 SHAME = 'shame'  # ... a name.
+FOUND_LIBRARY = 'found a library'
+WRITE = 'write at the library'
+READ = 'read at the library'
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -70,7 +74,8 @@ DEAD_KEPT = 500
 #   `radius`, at most `per_master` each) who worked by a skill, and may come
 #   to know it a level better (`improve`);
 # - sanction: the one shamed is shown the norm the shamer shames by;
-# - practice: keeping a norm one knows makes it one's own.
+# - practice: keeping a norm one knows makes it one's own;
+# - reading: a literate reader at a library reads `texts` of its shelf, exact.
 # A channel's `form` is the form a norm comes in by it: what children are
 # raised in, what one practises and what one is shamed for breaking may
 # become one's own (internalized); what one sees others keep is known
@@ -91,6 +96,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     },
     'sanction': {'mutation': 0.02, 'form': culture_lib.INTERNALIZED},
     'practice': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
+    'reading': {'mutation': 0.0, 'texts': 3},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -203,6 +209,22 @@ class World:
     self.sight = int(settings.get('sight', 2))
     self.hoard = float(settings.get('hoard', 6.0))
     self.share = float(settings.get('share', 1.5))
+    # Libraries, if the setting allows them: what founding one costs, how
+    # far apart they stand, how many texts a shelf holds, the years unused
+    # before one is a ruin, and how fast a ruin's texts crumble.
+    library = settings.get('library')
+    self.library: dict[str, Any] | None = (
+        None if library is None else dict(library)
+    )
+    self.places = places_lib.Places(
+        int(settings.get('rows', 16)),
+        int(settings.get('cols', 24)),
+        **{
+            key: (self.library or {})[key]
+            for key in ('shelf', 'ruin_after', 'crumble')
+            if key in (self.library or {})
+        },
+    )
     self.year = 0
     self.land = land_lib.Land(
         int(settings.get('rows', 16)),
@@ -228,8 +250,10 @@ class World:
     self.breaches: dict[str, list[str]] = {}
     # Who is looking for a partner (until paired).
     self.seeking: list[str] = []
-    # Offers made while closing the year, by channel (for the census).
+    # Offers made while closing the year, by channel, and how many readings
+    # brought back a custom nobody living had been given (for the census).
     self._offers: collections.Counter[str] = collections.Counter()
+    self._rediscovered = 0
 
   # --- Setup -------------------------------------------------------------
 
@@ -393,9 +417,9 @@ class World:
     age = person.age(self.year)
     if age < ADULT_AGE:
       if age >= APPRENTICE_AGE and 'apprenticeship' in self.channels:
-        return [PLAY, GATHER, APPRENTICE]
-      return [PLAY, GATHER]
-    found = [GATHER, REST, MOVE]
+        return [PLAY, GATHER, APPRENTICE, *self._library_moves(person)]
+      return [PLAY, GATHER, *self._library_moves(person)]
+    found = [GATHER, REST, MOVE, *self._library_moves(person)]
     if self._may_have_child(person):
       found.append(CHILD)
     if self.mode == 'sexual' and not person.partner:
@@ -415,6 +439,24 @@ class World:
           for other in self._in_sight(person)
           if other in self.breaches
       )
+    return found
+
+  def _library_moves(self, person: Person) -> list[str]:
+    """Reading where a shelf is within sight; writing and founding (adults)."""
+    if self.library is None:
+      return []
+    near = self.places.near(person.tile, self.sight)
+    found = []
+    if 'reading' in self.channels and any(p.shelf for p in near):
+      found.append(READ)
+    if person.age(self.year) < ADULT_AGE:
+      return found
+    if any(not self.places.ruined(p, self.year) for p in near):
+      found.append(WRITE)
+    if not self.places.near(
+        person.tile, int(self.library.get('spacing', 5))
+    ) and person.food >= float(self.library.get('cost', 3.0)):
+      found.append(FOUND_LIBRARY)
     return found
 
   def _in_sight(self, person: Person) -> list[str]:
@@ -462,6 +504,11 @@ class World:
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
         f' {len(self._in_sight(person))} other people are within sight.'
+        + ''.join(
+            ' Within sight is'
+            f' {places_lib.describe(p, self.places.ruined(p, self.year))}.'
+            for p in self.places.near(person.tile, self.sight)[:1]
+        )
     )
 
   # --- Closing the year --------------------------------------------------
@@ -480,6 +527,7 @@ class World:
     """
     created = self.culture.created()
     self._offers.clear()
+    self._rediscovered = 0
     # The moves each was offered, as the year began.
     allowed = {
         name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
@@ -498,9 +546,11 @@ class World:
     deaths = self._eat_and_die()
     self._see_breaches(did, allowed)
     self.land.regrow()
+    self.places.decay(self._rng('decay'), self.year)
     arrived = self._arrive()
     extinct = self.culture.prune(
         {c for person in self.people.values() for c in person.given}
+        | self.places.texts()
     )
     self.history.append(
         self._census(
@@ -590,6 +640,8 @@ class World:
               'sanction',
               f'{name} shames {other} for giving nothing to {needy}',
           )
+    elif move in (FOUND_LIBRARY, WRITE, READ):
+      self._use_library(person, move, enacted)
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -599,6 +651,74 @@ class World:
         self._tell(name, f'{name} teaches {", ".join(pupils)}.')
     # REST, PLAY, WATCH and anything not understood change nothing.
     return move, enacted
+
+  def _use_library(
+      self, person: Person, move: str, enacted: Sequence[str]
+  ) -> None:
+    """Founds a library, writes at one or reads at one, if literate.
+
+    Reading and writing need the skill of reading, enacted (named in the
+    answer and once given by the GM). A founder or writer puts exact copies
+    of the other customs the answer names on the shelf; a reader is offered
+    some of the shelf's texts (the `reading` channel).
+
+    Args:
+      person: Who acts.
+      move: `FOUND_LIBRARY`, `WRITE` or `READ`.
+      enacted: The customs the answer names.
+    """
+    library = self.library or {}
+    customs = [self.culture.get(c) for c in enacted]
+    if not places_lib.literate([(c.kind, c.domain) for c in customs]):
+      self._tell(person.name, f'{person.name} cannot make out the marks.')
+      return
+    texts = [
+        c.id for c in customs if not places_lib.literate([(c.kind, c.domain)])
+    ]
+    near = self.places.near(person.tile, self.sight)
+    if move == READ:
+      shelves = [p for p in near if p.shelf]
+      if not shelves:
+        return
+      read = self.places.read(
+          shelves[0],
+          self._rng('read', person.name),
+          int(self.channels['reading'].get('texts', 3)),
+          self.year,
+      )
+      for custom_id in read:
+        self._offer(
+            person.name, '', custom_id, 'reading', f'{person.name} reads'
+        )
+      return
+    if move == FOUND_LIBRARY:
+      cost = float(library.get('cost', 3.0))
+      spacing = int(library.get('spacing', 5))
+      if person.food < cost or self.places.near(person.tile, spacing):
+        return
+      person.food -= cost
+      place = self.places.found(
+          places_lib.LIBRARY, person.tile, person.name, self.year
+      )
+      for name in (person.name, *self._in_sight(person)):
+        self._tell(
+            name,
+            f'{person.name} founds a library at'
+            f' {place.tile[0]},{place.tile[1]}.',
+        )
+    else:
+      standing = [p for p in near if not self.places.ruined(p, self.year)]
+      if not standing:
+        return
+      place = standing[0]
+    for custom_id in texts:
+      self.places.write(place, custom_id, self.year)
+    if texts:
+      self._tell(
+          person.name,
+          f'{person.name} writes {len(texts)} text'
+          f'{"" if len(texts) == 1 else "s"} at the library.',
+      )
 
   def _skill(self, enacted: Sequence[str], domain: str) -> float:
     """How much better an enacted skill makes the work (1.0: none).
@@ -655,11 +775,18 @@ class World:
         improve=float(channel.get('improve', 0.0)),
     )
     person = self.people[receiver]
+    if via == 'reading' and not any(
+        custom.id in p.given for p in self.people.values()
+    ):
+      self._rediscovered += 1  # A text nobody living had been given.
     if custom.id not in person.given:
       person.given.append(custom.id)
     self._offers[via] += 1
     line = culture_lib.offer_line(
-        custom.spec(), via, source, self.people[source].food
+        custom.spec(),
+        via,
+        source,
+        self.people[source].food if source in self.people else None,
     )
     self._tell(receiver, f'{scene}: {line}')
 
@@ -702,10 +829,12 @@ class World:
     radius = int(seen.get('radius', 2)) if seen else -1
     witnessed = int(seen.get('witnessed', 3)) if seen else 0
     raised = 'upbringing' in self.channels
+    # Teaching passes on to one's children, reading and writing go through
+    # the shelf: none of them teaches the onlookers.
     actors = [
         name
         for name, (move, enacted) in sorted(did.items())
-        if enacted and move not in (TEACH, '')
+        if enacted and move not in (TEACH, FOUND_LIBRARY, WRITE, READ, '')
     ]
     for name in self.living():
       person = self.people[name]
@@ -957,7 +1086,15 @@ class World:
             )
         ),
         'breaches': len(self.breaches),
+        'libraries': sum(
+            1 for p in self.places.all() if not self.places.ruined(p, self.year)
+        ),
+        'ruins': sum(
+            1 for p in self.places.all() if self.places.ruined(p, self.year)
+        ),
+        'texts': sum(len(p.shelf) for p in self.places.all()),
         'offers': dict(sorted(self._offers.items())),
+        'rediscovered': self._rediscovered,
         'variants': len(self.culture),
         'new_variants': created,
         'lost_variants': extinct,
@@ -996,6 +1133,7 @@ class World:
         'history': list(self.history),
         'breaches': {k: list(v) for k, v in self.breaches.items()},
         'seeking': list(self.seeking),
+        'places': self.places.get_state(),
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -1021,6 +1159,7 @@ class World:
         for k, v in state.get('breaches', {}).items()
     }
     self.seeking = [str(n) for n in state.get('seeking', ())]
+    self.places.set_state(state.get('places', {}))
 
 
 def _move_kind(move: str) -> str:

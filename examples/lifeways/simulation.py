@@ -144,13 +144,14 @@ class Run:
     Returns:
       How many hold customs, the distinct customs held, the mean held per
       person, Simpson's diversity of what is held, the customs held by
-      channel, the norms held by form, and the five most widely held (id,
-      share of people).
+      channel, the norms held by form, the customs held by kind and domain,
+      and the five most widely held (id, share of people).
     """
     living = set(self.world().people)
     held: collections.Counter[str] = collections.Counter()
     channels: collections.Counter[str] = collections.Counter()
     forms: collections.Counter[str] = collections.Counter()
+    loci: collections.Counter[str] = collections.Counter()
     people = 0
     for entity in list(self.sim.entities):
       if entity.name not in living:
@@ -162,6 +163,7 @@ class Run:
       for custom in learner.get_state()['held']:
         held[custom['id']] += 1
         channels[custom['via']] += 1
+        loci[f'{custom["kind"]} {custom["domain"]}'] += 1
         if custom['form']:
           forms[custom['form']] += 1
     total = sum(held.values())
@@ -176,6 +178,7 @@ class Run:
         ),
         'by_channel': dict(sorted(channels.items())),
         'norms_by_form': dict(sorted(forms.items())),
+        'by_kind_and_domain': dict(sorted(loci.items())),
         'top': [
             [custom_id, round(n / people, 2)]
             for custom_id, n in sorted(

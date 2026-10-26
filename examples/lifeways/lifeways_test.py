@@ -114,11 +114,13 @@ class SandboxTest(absltest.TestCase):
     run.play()
 
     self.assertContainsSubset(
-        {'birth', 'upbringing', 'observation', 'apprenticeship', 'practice'},
-        taken_up,
+        {'birth', 'upbringing', 'observation', 'practice'}, taken_up
     )
+    # The rarer channels: offered here, taken up over longer runs.
     offers = {c for row in run.world().history for c in row['offers']}
-    self.assertContainsSubset({'sanction', 'practice'}, offers)
+    self.assertContainsSubset(
+        {'apprenticeship', 'sanction', 'practice', 'reading'}, offers
+    )
 
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}

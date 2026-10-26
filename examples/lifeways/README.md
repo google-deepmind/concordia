@@ -106,6 +106,16 @@ form a norm comes in by it, and which channels exist. A founding custom's
 `held_by` is the share of founders who hold it. What people take up is their own Learners' choice; the harness
 reads it for the census (`Run.customs_census`), the GM never does.
 
+**Libraries.** Customs can wait in the world itself, like plasmids in the
+environment. One who can read (a skill some founders have, passed on by
+teaching) may `found a library`, `write at the library` (exact copies of the
+customs named go on its shelf) and `read at the library` (the `reading`
+channel offers some of the shelf's texts). Watching someone read teaches
+nothing. Shelves outlive their writers, and the world keeps their customs
+on record; the census counts the readings that bring back a custom nobody
+living has (`rediscovered`). A library unused for long is a ruin, whose
+texts can still be read but crumble one by one.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or
