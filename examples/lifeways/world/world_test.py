@@ -512,6 +512,28 @@ class TransmissionTest(absltest.TestCase):
         'Because the old', ' '.join(self.world.queued['Experimenter'])
     )
 
+  def test_an_answer_s_report_survives_a_mid_year_restore(self):
+    self._person('Ada', 30, (5, 5))
+    self.world.actions = {
+        'Ada': 'rest',
+        world_lib.EXPERIMENTER: 'ask Ada: Why do you share?',
+    }
+    self.world.close_year()
+    self.world.record_action('Ada', 'Because the old taught us.')
+    restored = world_lib.World(
+        {'seed': 0, 'founders': 0, 'channels': _FAITHFUL}
+    )
+
+    restored.set_state(self.world.get_state())
+    restored.record_action(world_lib.EXPERIMENTER, 'watch')
+    restored.record_action('Ada', 'gather food')
+    restored.close_year()
+
+    self.assertIn(
+        'Ada, asked "Why do you share?", says: "Because the old taught us."',
+        restored.history[-1]['reports'],
+    )
+
   def test_a_late_answer_does_nothing_and_never_answers_an_interview(self):
     self._person('Ada', 30, (5, 5))
     self.world.mark_asked('Ada', world_lib.MOVES)

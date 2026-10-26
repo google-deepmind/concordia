@@ -23,8 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  entryMeta, entryShown, fateChoices, fateMove, reachNote, recentDisasters,
-  releaseStatus, savedNote,
+  appendNew, entryMeta, entryShown, fateChoices, fateMove, reachNote,
+  recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
@@ -204,4 +204,11 @@ test('the ring says the chance that someone takes a song up', () => {
       ' hear a song here; the chance at least one takes it up is 58%.');
   assert.equal(reachNote(world, [8, 12]),
       'The ring (8,12): nobody would hear a song here.');
+});
+
+test('what the page has already is never appended twice', () => {
+  const kept = [{id: 1}, {id: 2}];
+  assert.deepEqual(appendNew(kept, [{id: 2}, {id: 3}], 'id', 2, 10),
+      [{id: 1}, {id: 2}, {id: 3}]);
+  assert.deepEqual(appendNew(kept, [{id: 3}], 'id', 2, 2), [{id: 2}, {id: 3}]);
 });

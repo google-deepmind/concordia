@@ -39,7 +39,7 @@ SANDBOX: Mapping[str, Any] = {
     'roam': 3,  # How far one moving looks for better land.
     'founders': 12,
     'people': 'River people',  # The founders' people, by descent.
-    'mode': 'sexual',
+    'mode': world_lib.SEXUAL,
     'mutation': 0.05,  # Copying errors at birth.
     # A child's speech drifts from its mother's by a word with this chance;
     # talk between dialects adds `garble` times their misunderstanding to the
@@ -258,7 +258,7 @@ _READING = {
 # from afar, by texts and by sermons; there are no peoples and no marriage
 # rules. Do traditions form without peoples? How fast do customs sweep?
 PLASMID_SOUP: Mapping[str, Any] = {
-    'mode': 'asexual',
+    'mode': world_lib.ASEXUAL,
     'richness': 0.17,  # Everyone buds: a poorer land feeds as many.
     'people': 'valley',
     'arrivals': None,
@@ -423,7 +423,7 @@ def with_lever(
   twin = copy.deepcopy(dict(settings))
   if lever == WITHOUT:
     channels = dict(twin.get('channels', world_lib.DEFAULT_CHANNELS))
-    if value not in channels:
+    if not isinstance(value, str) or value not in channels:
       raise ValueError(f'This world has no channel {value!r}.')
     del channels[value]
     twin['channels'] = channels
@@ -484,7 +484,7 @@ def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:
       'founders': settings.get('founders', 12),
       'founding_customs': settings.get('founding_customs', ()),
   }]
-  asexual = settings.get('mode', 'sexual') == 'asexual'
+  asexual = settings.get('mode', world_lib.SEXUAL) == world_lib.ASEXUAL
   culture = culture_lib.Culture()
   records = []
   for g, group in enumerate(groups):

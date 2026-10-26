@@ -2146,6 +2146,8 @@ class World:
         'courting': dict(self.courting),
         'interviews': dict(self.interviews),
         'asked': {k: list(v) for k, v in self.asked.items()},
+        # What the World has told the Experimenter so far this year.
+        'reports': list(self._reports),
         'transcripts': [dict(t) for t in self.transcripts],
         'places': self.places.get_state(),
     }
@@ -2187,6 +2189,7 @@ class World:
         str(k): [str(v[0]), int(v[1])]
         for k, v in state.get('asked', {}).items()
     }
+    self._reports = [str(r) for r in state.get('reports', ())]
 
 
 def _move_kind(move: str) -> str:

@@ -39,6 +39,7 @@ and the next server of the same world plays on from the save.
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
 | `POST /api/note` `{"kind": ..., "text": ...}` | write in the notebook |
+| `POST /api/new` | begin a new world, once this one has stopped |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
 | `POST /api/twin` `{"end": true}` | let the twin go |
 """
@@ -47,14 +48,17 @@ from collections.abc import Callable, Mapping, Sequence
 import http.server
 import json
 import os
+import re
 import signal
 import subprocess
+import threading
 from typing import Any
 import urllib.parse
 
 from absl import app
 from absl import flags
 from absl import logging
+from examples.lifeways import simulation
 from examples.lifeways.web import session as session_lib
 
 _PORT = flags.DEFINE_integer('port', 8921, 'Port (127.0.0.1).')
@@ -67,6 +71,9 @@ _SAVE = flags.DEFINE_string(
 )
 
 STATIC = os.path.join(os.path.dirname(__file__), 'static')
+# The largest request body the server reads.
+BODY_LIMIT = 64 * 1024
+_YEAR = re.compile(r'-?[0-9]+')
 _TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
@@ -94,13 +101,56 @@ def build() -> str:
     return ''
 
 
+class Served:
+  """The session a server serves; once its world stops, a new one may begin."""
+
+  def __init__(
+      self,
+      session: session_lib.Session,
+      renew: Callable[[], session_lib.Session] | None = None,
+  ):
+    """Initializes the holder.
+
+    Args:
+      session: The session served.
+      renew: Optional. Builds the session of a new world.
+    """
+    self.session = session
+    self._renew = renew
+    self._lock = threading.Lock()
+
+  def begin_anew(self) -> session_lib.Session:
+    """Begins a new world in place of a stopped one.
+
+    The stopped world's save is set aside (`.stopped`); the new world is
+    saved in its place as it plays.
+
+    Returns:
+      The new session, playing.
+
+    Raises:
+      RuntimeError: If the world still plays, or no new world can be built.
+    """
+    with self._lock:
+      old = self.session
+      if old.running:
+        raise RuntimeError('The world still plays: stop it first.')
+      if self._renew is None:
+        raise RuntimeError('This server cannot begin a new world.')
+      old.close()
+      old.set_aside_save('a new world begins', '.stopped')
+      self.session = self._renew()
+      self.session.start()
+      return self.session
+
+
 def handler(
-    session: session_lib.Session, base_path: str, commit: str = ''
+    served: Served, base_path: str, commit: str = ''
 ) -> type[http.server.BaseHTTPRequestHandler]:
-  """A request handler serving one session under a path prefix.
+  """A request handler serving a session under a path prefix.
 
   Args:
-    session: The session served.
+    served: The session served (which a new world may replace).
     base_path: The path prefix (e.g. /lifeways).
     commit: The build the page reports.
 
@@ -147,12 +197,13 @@ def handler(
         self._json(404, {'error': 'not found'})
         return
       path, query = found
+      session = served.session
       since = query.get('since', ['-1'])[0]
-      if path == '/api/census' and not since.lstrip('-').isdigit():
+      if path == '/api/census' and not _YEAR.fullmatch(since):
         self._json(400, {'error': 'since is a year'})
         return
       after = query.get('since', ['0'])[0]
-      if path == '/api/notebook' and not after.isdigit():
+      if path == '/api/notebook' and not re.fullmatch(r'[0-9]+', after):
         self._json(400, {'error': 'since is an entry'})
         return
       world = query.get('world', [''])[0]
@@ -211,16 +262,25 @@ def handler(
         self._json(404, {'error': 'not found'})
         return
       path, _ = found
-      length = int(self.headers.get('Content-Length', '0') or 0)
+      session = served.session
+      length = self.headers.get('Content-Length', '0') or '0'
+      if not re.fullmatch(r'[0-9]+', length) or int(length) > BODY_LIMIT:
+        self.close_connection = True
+        self._json(400, {'error': f'send at most {BODY_LIMIT} bytes'})
+        return
       try:
-        body = json.loads(self.rfile.read(length) or b'{}')
-      except json.JSONDecodeError:
+        body = json.loads(self.rfile.read(int(length)) or b'{}')
+      except (json.JSONDecodeError, UnicodeDecodeError):
         body = None
       if not isinstance(body, dict):
         self._json(400, {'error': 'send a JSON object'})
         return
       if path == '/api/move':
-        session.move(str(body.get('move', '')))
+        try:
+          session.move(str(body.get('move', '')))
+        except ValueError as error:
+          self._json(400, {'error': str(error)})
+          return
         self._json(200, session.input.settings())
       elif path == '/api/pace':
         pace, paused = body.get('years_per_second'), body.get('paused')
@@ -235,7 +295,14 @@ def handler(
         session.stop()
         self._json(200, session.input.settings())
       elif path == '/api/twin':
-        self._twin(body)
+        self._twin(session, body)
+      elif path == '/api/new':
+        try:
+          renewed = served.begin_anew()
+        except RuntimeError as error:
+          self._json(409, {'error': str(error)})
+          return
+        self._json(200, {'year': renewed.state()['year']})
       elif path == '/api/note':
         try:
           entry = session.note(str(body.get('kind', '')), body.get('text', ''))
@@ -246,7 +313,9 @@ def handler(
       else:
         self._json(404, {'error': 'not found'})
 
-    def _twin(self, body: Mapping[str, Any]) -> None:
+    def _twin(
+        self, session: session_lib.Session, body: Mapping[str, Any]
+    ) -> None:
       if body.get('end') is True:
         twin = session.end_twin()
         if twin is not None:
@@ -277,20 +346,21 @@ def handler(
 
 
 def serve(
-    session: session_lib.Session, port: int, base_path: str
+    session: session_lib.Session | Served, port: int, base_path: str
 ) -> http.server.ThreadingHTTPServer:
   """A server for a session (call `serve_forever`).
 
   Args:
-    session: The session served.
+    session: The session served, or a holder that may begin a new world.
     port: The port on 127.0.0.1 (0: a free one).
     base_path: The path prefix.
 
   Returns:
     The server.
   """
+  served = session if isinstance(session, Served) else Served(session)
   return http.server.ThreadingHTTPServer(
-      ('127.0.0.1', port), handler(session, base_path, build())
+      ('127.0.0.1', port), handler(served, base_path, build())
   )
 
 
@@ -303,34 +373,42 @@ def _stopped(signum: int, frame: Any) -> None:
 
 def main(argv: Sequence[str]) -> None:
   del argv
-  session = session_lib.Session(
-      _SCENARIO.value,
-      seed=_SEED.value,
-      years_per_second=_PACE.value,
-      save_path=_SAVE.value or None,
-  )
-  server = serve(session, _PORT.value, _BASE.value)
+
+  def world() -> session_lib.Session:
+    return session_lib.Session(
+        _SCENARIO.value,
+        seed=_SEED.value,
+        years_per_second=_PACE.value,
+        save_path=_SAVE.value or None,
+    )
+
+  served = Served(world(), renew=world)
+  server = serve(served, _PORT.value, _BASE.value)
   logging.info(
       'MOCK: %s, seed %d, at http://127.0.0.1:%d%s/ (%s)',
       _SCENARIO.value,
       _SEED.value,
       server.server_address[1],
       _BASE.value,
-      f'restored at year {session.restored_year}'
-      if session.restored_year is not None
+      f'restored at year {served.session.restored_year}'
+      if served.session.restored_year is not None
       else 'a new world',
   )
   # launchd and the test script stop the server with SIGTERM: save first.
   signal.signal(signal.SIGTERM, _stopped)
-  session.start()
-  try:
-    server.serve_forever()
-  finally:
-    if session.save_soon(timeout=3.0):
-      logging.info('Saved at year %s.', session.saved_year)
-    session.close()
-    session_lib.await_engines()
-    server.server_close()
+  # The server prints nothing: the engine's own prints, from every world and
+  # until their last turns have ended, go to the null device.
+  with simulation.quiet():
+    served.session.start()
+    try:
+      server.serve_forever()
+    finally:
+      session = served.session
+      if session.save_soon(timeout=3.0):
+        logging.info('Saved at year %s.', session.saved_year)
+      session.close()
+      session_lib.await_engines()
+      server.server_close()
 
 
 if __name__ == '__main__':

@@ -178,6 +178,19 @@ class _Quiet:
 _quiet = _Quiet()
 
 
+def quiet() -> contextlib.AbstractContextManager[None]:
+  """Sends stdout to the null device for as long as the context lasts.
+
+  A run is quiet while it plays. A process that must stay quiet until its
+  engines' last turns have ended too (a page server, whose closed worlds'
+  loops finish after `play` returns) holds this for its whole life.
+
+  Returns:
+    The context.
+  """
+  return _quiet()
+
+
 @dataclasses.dataclass
 class Run:
   """A built simulation and what the harness keeps beside it."""
@@ -208,6 +221,14 @@ class Run:
       The world.
     """
     return self._world_component().world
+
+  def world_lock(self) -> threading.RLock:
+    """The World GM's lock: holding it, no year closes and no move lands.
+
+    Returns:
+      The lock (reentrant).
+    """
+    return self._world_component().lock
 
   def _world_component(self) -> gm_components.WorldComponent:
     return self.sim.game_masters[0].get_component(  # pyrefly: ignore[missing-attribute]

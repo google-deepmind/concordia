@@ -164,7 +164,10 @@ class SaveTest(absltest.TestCase):
       self.assertTrue(session.save_soon(timeout=5))
       self.assertGreaterEqual(session.saved_year or 0, 2)
       session.pace(paused=True)
-      self.assertFalse(session.save_soon(timeout=1))
+      time.sleep(0.5)
+      # Paused, no year will close: the world is saved at once, as it is.
+      self.assertTrue(session.save_soon(timeout=5))
+      self.assertEqual(session.saved_year, session.state()['year'])
     finally:
       session.close()
 
@@ -184,6 +187,75 @@ class SaveTest(absltest.TestCase):
     self.assertEqual(other.state()['year'], 0)
     self.assertFalse(os.path.exists(self.path))
     self.assertTrue(os.path.exists(self.path + '.set-aside'))
+
+  def test_a_save_that_restores_only_in_part_is_set_aside(self):
+    first = session_lib.Session(
+        years_per_second=40, save_path=self.path, save_seconds=0
+    )
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 3))
+    finally:
+      first.close()
+
+    # A later build whose land is another size: the World's component fails
+    # to restore, and the stock restore logs it and goes on.
+    with mock.patch.dict(scenarios.SANDBOX, {'rows': 18}):
+      later = session_lib.Session(save_path=self.path)
+
+    self.assertIsNone(later.restored_year)
+    self.assertEqual(later.state()['year'], 0)
+    self.assertTrue(os.path.exists(self.path + '.set-aside'))
+
+  def test_a_paused_world_is_saved_as_it_is_when_the_server_stops(self):
+    session = session_lib.Session(years_per_second=40, save_path=self.path)
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      session.pace(paused=True)
+      time.sleep(0.5)
+      year = session.state()['year']
+      session.note('observation', 'Written while paused.')
+      self.assertTrue(session.save_soon(timeout=5))
+    finally:
+      session.close()
+
+    restored = session_lib.Session(save_path=self.path)
+
+    self.assertEqual(restored.restored_year, year)
+    self.assertTrue(restored.state()['pace']['paused'])
+    self.assertEqual(restored.notebook()[-1]['text'], 'Written while paused.')
+    restored.pace(paused=False)
+    restored.start()
+    try:
+      self.assertTrue(_wait(lambda: restored.state()['year'] > year + 1))
+    finally:
+      restored.close()
+
+  def test_a_stopped_world_stays_stopped(self):
+    session = session_lib.Session(
+        years_per_second=40, save_path=self.path, save_seconds=1e9
+    )
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      session.stop()
+      self.assertTrue(_wait(lambda: not session.running))
+      session.note('note', 'After the end.')
+      self.assertTrue(session.save_soon(timeout=5))
+    finally:
+      session.close()
+
+    restored = session_lib.Session(save_path=self.path)
+    restored.start()
+    try:
+      self.assertTrue(_wait(lambda: not restored.running))
+      self.assertEqual(restored.state()['year'], session.state()['year'])
+      texts = [e['text'] for e in restored.notebook()]
+      self.assertIn('You stop the world.', texts)
+      self.assertEqual(texts[-1], 'After the end.')
+    finally:
+      restored.close()
 
   def test_a_save_that_no_longer_restores_begins_a_new_world(self):
     fresh = session_lib.Session()
@@ -262,20 +334,64 @@ class TwinTest(absltest.TestCase):
     self.assertGreater(living(twin), living(self.session))
     self.assertEqual(self.session.state()['twin']['lever'], 'richness')
 
-  def test_releases_reach_the_twin_and_questions_do_not(self):
+  def test_moves_reach_the_twin_in_the_same_year_and_questions_do_not(self):
     twin = self.session.fork(scenarios.WITHOUT, 'story')
-    self.session.pace(paused=True)
-    self.assertTrue(twin.input.settings()['paused'])
     name = twin.state()['people'][0]['name']
 
     self.session.move('release belief sacred as a song at 8,8: Hm.')
     self.session.move(f'ask {name}: Why?')
+    self.session.move('send a drought at 4,4')
 
-    self.assertEqual(
-        twin.input.settings()['queued'],
-        ['release belief sacred as a song at 8,8: Hm.'],
+    def made(session, key):
+      return {
+          row['year']: row[key]
+          for row in session.census()
+          if row['year'] >= _forked_in(twin) and row[key]
+      }
+
+    self.assertTrue(
+        _wait(
+            lambda: made(twin, 'disasters') and made(self.session, 'disasters'),
+            60,
+        )
     )
-    self.assertLen(self.session.input.settings()['queued'], 2)
+    self.assertEqual(
+        [
+            (y, [r['how'] for r in rs])
+            for y, rs in made(twin, 'releases').items()
+        ],
+        [
+            (y, [r['how'] for r in rs])
+            for y, rs in made(self.session, 'releases').items()
+        ],
+    )
+    self.assertEqual(
+        list(made(twin, 'disasters')), list(made(self.session, 'disasters'))
+    )
+    asked = [r for rs in made(self.session, 'reports').values() for r in rs]
+    self.assertTrue(any(f'{name} will be asked' in r for r in asked))
+    told = [r for rs in made(twin, 'reports').values() for r in rs]
+    self.assertFalse(any(name in r for r in told))
+
+  def test_a_twin_with_nothing_changed_stays_its_world_through_moves(self):
+    twin = self.session.fork('richness', 0.2)  # The Sandbox's own.
+    year = _forked_in(twin)
+    for i in range(4):
+      self.session.move(f'release belief sacred as a song at 8,{8 + i}: S{i}.')
+      time.sleep(0.15)
+    self.session.move('bring migrants at 3,3')
+
+    self.assertTrue(
+        _wait(
+            lambda: min(self.session.state()['year'], twin.state()['year'])
+            > year + 12,
+            90,
+        )
+    )
+    self.assertEqual(
+        self._rows(twin, year, year + 12),
+        self._rows(self.session, year, year + 12),
+    )
 
   def test_a_release_since_the_fork_says_how_it_fares_in_the_twin(self):
     twin = self.session.fork('mutation', 0.3)
@@ -305,17 +421,57 @@ class TwinTest(absltest.TestCase):
     self.assertIsNone(self.session.state()['twin'])
 
   def test_a_twin_may_go_without_any_channel(self):
-    engine = self.session.run.engine
     for channel in self.session.state()['channels']:
       twin = self.session.fork(scenarios.WITHOUT, channel)
-      engine.pause()  # The world waits while its twin plays (a test's pace).
       year = _forked_in(twin)
       self.assertTrue(
-          _wait(lambda: twin.state()['year'] >= year + 4, 60), channel
+          _wait(lambda: twin.state()['year'] >= year + 3, 60), channel
       )
       self.assertEqual(twin.error, '', channel)
       self.assertNotIn(channel, twin.state()['channels'])
-      engine.play()
+
+
+class TwinInputTest(absltest.TestCase):
+
+  def _asked(self, year: int) -> human_input.HumanInputRequest:
+    return human_input.HumanInputRequest(
+        request_id=f'r{year}',
+        entity_name='Experimenter',
+        action_spec=entity_lib.free_action_spec(call_to_action='What now?'),
+        contexts={'status': f'Year {year}. 9 people live in the valley.'},
+    )
+
+  def test_a_twin_makes_the_world_s_shaping_moves_in_their_years(self):
+    world = session_lib.PageInput(years_per_second=50)
+    twin = session_lib.TwinInput(world)
+    world.queue('release belief sacred as a song at 1,1: Hm.')
+    world.queue('ask Ada: Why?')
+
+    self.assertEqual(
+        world(self._asked(5)), 'release belief sacred as a song at 1,1: Hm.'
+    )
+    self.assertEqual(
+        twin(self._asked(5)), 'release belief sacred as a song at 1,1: Hm.'
+    )
+    waiting = threading.Thread(
+        target=lambda: self.assertEqual(twin(self._asked(6)), 'watch')
+    )
+    waiting.start()
+    time.sleep(0.3)
+    self.assertTrue(waiting.is_alive())  # The twin waits for its world.
+    self.assertEqual(world(self._asked(6)), 'ask Ada: Why?')
+    waiting.join(5)
+    self.assertFalse(waiting.is_alive())
+
+  def test_once_the_world_has_ended_the_twin_plays_on_alone(self):
+    world = session_lib.PageInput(years_per_second=50)
+    twin = session_lib.TwinInput(world)
+    world.finish()
+
+    self.assertEqual(twin(self._asked(9)), 'watch')
+    twin.close()
+    with self.assertRaises(session_lib.Closed):
+      twin(self._asked(10))
 
 
 class TreesTest(absltest.TestCase):
@@ -677,6 +833,40 @@ class ServerTest(absltest.TestCase):
       self._get('/api/notebook?since=x')
     self.assertEqual(caught.exception.code, 400)
 
+  def test_requests_the_server_cannot_read_are_refused(self):
+    for path in (
+        '/api/census?since=--5',
+        '/api/census?since=%C2%B2',
+        '/api/notebook?since=%C2%B2',
+    ):
+      with self.assertRaises(urllib.error.HTTPError) as caught:
+        self._get(path)
+      self.assertEqual(caught.exception.code, 400, path)
+    for data in (
+        {'lever': 'without', 'value': []},
+        {'lever': 'without', 'value': {}},
+    ):
+      with self.assertRaises(urllib.error.HTTPError) as caught:
+        self._post('/api/twin', data)
+      self.assertEqual(caught.exception.code, 400)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._post('/api/move', {'move': 'release ' + 'x' * 500})
+    self.assertEqual(caught.exception.code, 400)
+    request = urllib.request.Request(
+        self.base + '/api/move',
+        data=b'{}',
+        headers={'Content-Length': 'abc'},
+        method='POST',
+    )
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      urllib.request.urlopen(request, timeout=10)
+    self.assertEqual(caught.exception.code, 400)
+
+  def test_a_new_world_begins_only_once_this_one_has_stopped(self):
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._post('/api/new', {})
+    self.assertEqual(caught.exception.code, 409)
+
   def test_unknown_paths_and_people_are_not_found(self):
     for path in (
         '/api/nothing',
@@ -688,6 +878,46 @@ class ServerTest(absltest.TestCase):
       with self.assertRaises(urllib.error.HTTPError) as caught:
         self._get(path)
       self.assertEqual(caught.exception.code, 404)
+
+
+class NewWorldTest(absltest.TestCase):
+
+  def test_a_stopped_world_gives_way_to_a_new_one(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+    def world():
+      return session_lib.Session(
+          years_per_second=40, save_path=path, save_seconds=0
+      )
+
+    served = server_lib.Served(world(), renew=world)
+    server = server_lib.serve(served, 0, '/lifeways')
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_address[1]}/lifeways'
+
+    def post(route):
+      request = urllib.request.Request(base + route, data=b'{}', method='POST')
+      with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read())
+
+    first = served.session
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: first.state()['year'] >= 3))
+      post('/api/stop')
+      self.assertTrue(_wait(lambda: not first.running))
+
+      post('/api/new')
+
+      self.assertIsNot(served.session, first)
+      self.assertTrue(served.session.running)
+      self.assertTrue(os.path.exists(path + '.stopped'))
+      self.assertTrue(_wait(lambda: served.session.state()['year'] >= 1))
+    finally:
+      served.session.close()
+      first.close()
+      server.shutdown()
+      server.server_close()
 
 
 def tearDownModule():

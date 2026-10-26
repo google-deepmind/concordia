@@ -17,30 +17,34 @@
 The session is a harness: it builds a simulation, plays it in a thread of
 its own, and reads its state. The person on the page is the Experimenter
 entity, through the stock `HumanActComponent` and a `PageInput` adapter: each
-year the Experimenter answers with the move the person queued, or else the
-person's standing choice (watching, unless the person sets another), at the
-pace the person sets. The adapter never invents a move: when the page closes
-the session it raises, and the run ends.
+year the Experimenter answers with the move the person queued, or else
+watches, at the pace the person sets. The adapter never invents a move: when
+the page closes the session it raises, and the run ends.
 
-A session given a save path outlives its server: at a year's close, every
-so many seconds and once more when the server stops, it saves the stock
-simulation checkpoint (`Simulation.make_checkpoint_data`) with the page's
-census rows; a new session of the same world restores the last save
-(`simulation.load_checkpoint`) and plays on from that year.
+A session given a save path outlives its server. It saves the stock
+simulation checkpoint (`Simulation.make_checkpoint_data`), with the page's
+census rows and notebook: at a year's close about once a minute, at the
+close of the year the person stops the world, and when the server stops (at
+once, if the world is paused or stopped, since no year will close). A new
+session of the same world restores the last save (`simulation.load_checkpoint`)
+and plays on from that year; a save it cannot restore is set aside.
 
-The session keeps the person's lab notebook (DESIGN §9): what the person
-writes (hypotheses, observations, notes), the moves the person makes, the
-World's account of each (from the census, `reports`), and what changed in
-the valley that a scientist would want noted. It is saved with the world.
+The session keeps the person's lab notebook: what the person writes
+(hypotheses, observations, notes), the moves the person makes, the World's
+account of each (from the census, `reports`), and what changed in the valley
+that a scientist would want noted.
 
 The person may fork a twin: a second session, restored from the same year's
 checkpoint with one lever pulled (`scenarios.with_lever`), plays beside the
-first. The person's pace and releases reach both worlds, so the lever stays
-the one difference between them; the page draws their census together.
+first. Its Experimenter (`TwinInput`) makes, year by year, the moves that
+shape the world which the person made in the first world in that same year,
+so the lever stays the one difference between them; questions and stops are
+the first world's alone. The page draws their census together.
 """
 
 import collections
 from collections.abc import Mapping, Sequence
+from concurrent import futures
 import json
 import os
 import threading
@@ -52,6 +56,7 @@ from concordia.components.agent import human_act_component
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.components import culture
+from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
@@ -83,6 +88,18 @@ FEW_LEFT = 10
 # sends.
 RELEASES_FOLLOWED = 12
 RELEASE_YEARS_SENT = 120
+# The years of the Experimenter's answers an input remembers, for a twin.
+ANSWERS_KEPT = 400
+# The moves that shape the world, which a twin's Experimenter also makes.
+SHAPING = (
+    world_lib.RELEASE,
+    world_lib.SEND,
+    world_lib.BRING,
+    world_lib.FOUND_PLACE,
+    world_lib.CLOSE_PLACE,
+)
+# The longest move the page may queue (its forms make far shorter ones).
+MOVE_LENGTH = 400
 
 
 def _number(custom_id: str) -> int:
@@ -110,6 +127,32 @@ class Closed(Exception):
   """The page closed the session: the Experimenter has no answer to give."""
 
 
+def _saved_world(checkpoint: Mapping[str, Any]) -> Mapping[str, Any]:
+  """The World's state in a checkpoint ({} if it is not there)."""
+  for gm in checkpoint.get('game_masters', {}).values():
+    components = gm.get('components', {}).get('context_components', {})
+    if gm_components.DEFAULT_WORLD_KEY in components:
+      return components[gm_components.DEFAULT_WORLD_KEY]
+  return {}
+
+
+def year_of(request: human_input.HumanInputRequest) -> int:
+  """The year the Experimenter is asked about: its latest status line's.
+
+  Args:
+    request: The Experimenter's question, with its contexts.
+
+  Returns:
+    The year, or -1 if no status line is in sight.
+  """
+  years = [
+      int(year)
+      for text in request.contexts.values()
+      for year in world_lib.EXPERIMENTER_STATUS.findall(str(text))
+  ]
+  return max(years, default=-1)
+
+
 class PageInput:
   """The Experimenter's answers from the page, at the page's pace.
 
@@ -134,9 +177,12 @@ class PageInput:
     self._closed = False
     self._due = 0.0
     self._changed = threading.Condition()
+    # The answer given for each year, and whether the world has ended (no
+    # more will come): what a twin follows.
+    self._answers: collections.OrderedDict[int, str] = collections.OrderedDict()
+    self._finished = False
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
-    del request
     with self._changed:
       while True:
         if self._closed:
@@ -146,9 +192,53 @@ class PageInput:
           break
         self._changed.wait(timeout=0.1 if self._paused else min(0.1, wait))
       self._due = time.monotonic() + 1.0 / max(self._years_per_second, 1e-3)
-      if self._queue:
-        return self._queue.popleft()
-      return self._standing
+      answer = self._queue.popleft() if self._queue else self._standing
+      self._answered(year_of(request), answer)
+      return answer
+
+  def _answered(self, year: int, answer: str) -> None:
+    """Remembers the answer given for a year (in the condition's lock)."""
+    self._answers[year] = answer
+    while len(self._answers) > ANSWERS_KEPT:
+      self._answers.popitem(last=False)
+    self._changed.notify_all()
+
+  def answer_for(self, year: int, timeout: float) -> tuple[bool, str | None]:
+    """The answer given for a year, waiting for it a while.
+
+    Args:
+      year: The year.
+      timeout: How long to wait for it.
+
+    Returns:
+      (True, the answer) once given, or watching if a later year has been
+      answered (in free mode a year may close unanswered); (True, None) if
+      the world has ended or the input closed with no answer for that year;
+      (False, None) if it is still to come.
+    """
+
+    def passed() -> bool:
+      return bool(self._answers) and next(reversed(self._answers)) > year
+
+    with self._changed:
+      self._changed.wait_for(
+          lambda: year in self._answers
+          or passed()
+          or self._finished
+          or self._closed,
+          timeout,
+      )
+      if year in self._answers:
+        return True, self._answers[year]
+      if passed():
+        return True, self._standing
+      return (self._finished or self._closed), None
+
+  def finish(self) -> None:
+    """The world has ended: no more answers will come."""
+    with self._changed:
+      self._finished = True
+      self._changed.notify_all()
 
   def queue(self, move: str) -> None:
     """Queues a move the person chose, for the next year.
@@ -193,6 +283,47 @@ class PageInput:
       }
 
 
+class TwinInput(PageInput):
+  """A twin's Experimenter's answers: the person's moves in its world.
+
+  Asked for a year, it waits until the world's Experimenter has answered
+  for that same year, so the twin never runs ahead of its world. It then
+  makes the same move if the move shapes the world (`SHAPING`: a release, a
+  disaster, migrants, an institution), and otherwise watches. The person's
+  questions and stops are the world's alone. Once the world has ended, the
+  twin watches at its own pace.
+  """
+
+  def __init__(self, world: PageInput):
+    """Initializes the input.
+
+    Args:
+      world: The input of the world the twin was forked from.
+    """
+    super().__init__(world.settings()['years_per_second'])
+    self._world = world
+
+  def __call__(self, request: human_input.HumanInputRequest) -> str:
+    year = year_of(request)
+    while True:
+      with self._changed:
+        if self._closed:
+          raise Closed('The page closed the twin.')
+      done, answer = self._world.answer_for(year, timeout=0.1)
+      if done:
+        break
+    if answer is None:  # The world has ended: the twin plays on alone.
+      return super().__call__(request)
+    shapes = any(answer.lower().startswith(move + ' ') for move in SHAPING)
+    with self._changed:
+      self._answered(year, answer if shapes else self._standing)
+    return answer if shapes else self._standing
+
+  def queue(self, move: str) -> None:
+    """A twin takes its moves from its world, never from a queue."""
+    del move
+
+
 class Session:
   """One world, played in a thread, read by a page."""
 
@@ -202,7 +333,8 @@ class Session:
       seed: int = 0,
       years_per_second: float = 1.0,
       save_path: str | None = None,
-      save_seconds: float = 10.0,
+      save_seconds: float = 60.0,
+      follow: PageInput | None = None,
       **overrides: Any,
   ):
     """Builds the world, or restores its last save (it starts with `start`).
@@ -212,13 +344,19 @@ class Session:
       seed: The world seed.
       years_per_second: The pace the years start at.
       save_path: Optional. The file the world is saved to and restored from.
-        A save of another world (scenario, seed, settings) or one that no
-        longer restores is set aside, and a new world begins.
-      save_seconds: At most how often the world is saved, in seconds.
+        A save of another world (scenario, seed and overrides), or one this
+        build cannot restore as it was, is set aside, and a new world
+        begins. The settings are this build's: a redeploy that changes a
+        default changes the restored world's rules.
+      save_seconds: At most how often the world is saved as it plays.
+      follow: Optional. For a twin: the input of the world it was forked
+        from, whose moves its Experimenter follows (`TwinInput`).
       **overrides: More settings.
     """
     self.scenario = scenario
-    self.input = PageInput(years_per_second)
+    self.input: PageInput = (
+        PageInput(years_per_second) if follow is None else TwinInput(follow)
+    )
     self._seed = seed
     self._overrides = dict(overrides)
     self._settings = scenarios.settings(scenario, seed=seed, **overrides)
@@ -256,6 +394,11 @@ class Session:
     self._last_save = time.monotonic()
     self._save_wanted = False
     self._saves = 0
+    # Saves are written by a thread of their own, outside the World's lock.
+    self._writer = futures.ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix='lifeways-save'
+    )
+    self._written: futures.Future[bool] | None = None
     self.saved_year: int | None = None
     self.restored_year: int | None = None
     # The twin playing beside this world, and a snapshot taken for it.
@@ -273,8 +416,8 @@ class Session:
     run = simulation.build_simulation(
         self._settings,
         # People wait for their turn without spinning: the page's years are
-        # slow anyway.
-        sleep_time=0.05,
+        # slow anyway, and the world takes a few tenths of a second a year.
+        sleep_time=0.2,
         archive=simulation.Archive(keep=0),
         experimenter=lambda order: human_act_component.HumanActComponent(
             self.input, order
@@ -292,6 +435,11 @@ class Session:
       while len(self._forgotten) > FORGOTTEN_KEPT:
         self._forgotten.popitem(last=False)
 
+  @property
+  def running(self) -> bool:
+    """Whether the world is playing (started, and not ended or closed)."""
+    return self._thread is not None and self._thread.is_alive()
+
   def start(self) -> None:
     """Plays the world in a thread of its own until it ends or is closed."""
     self._thread = threading.Thread(
@@ -307,6 +455,8 @@ class Session:
       pass
     except Exception as error:  # pylint: disable=broad-exception-caught
       self.error = f'{type(error).__name__}: {error}'
+    finally:
+      self.input.finish()  # A twin following this world plays on alone.
 
   def close(self, timeout: float = 10.0) -> None:
     """Ends the run, and its twin's: the Experimenter's next answer raises.
@@ -322,6 +472,7 @@ class Session:
     twin = self.end_twin(noted=False)
     if twin is not None:
       twin.close(max(0.0, deadline - time.monotonic()))
+    self._writer.shutdown(wait=True)  # A save being written is finished.
 
   def _year_closed(self, year: int) -> None:
     # In the World GM's lock: the world may be read here, and is whole.
@@ -373,38 +524,76 @@ class Session:
     }
 
   def _save(self, path: str, year: int) -> None:
-    """Writes the world at a year's close (in the World GM's lock)."""
+    """Saves the world (in the World GM's lock and `_saving`'s).
+
+    The snapshot is taken here, where the world is whole; the file is
+    written by the writer thread, so the world does not wait for the disk.
+    """
+    text = json.dumps(self._snapshot(year), default=str)
     try:
-      with open(path + '.tmp', 'w') as f:
-        json.dump(self._snapshot(year), f, default=str)
-      os.replace(path + '.tmp', path)
-    except OSError as error:
-      logging.warning('Lifeways: the world was not saved: %s', error)
-    else:
-      self.saved_year = year
+      self._written = self._writer.submit(self._write_file, path, text, year)
+    except RuntimeError:  # The session has closed: its last save is made.
+      return
     self._last_save = time.monotonic()
     self._save_wanted = False
     self._saves += 1
     self._saving.notify_all()
 
+  def _write_file(self, path: str, text: str, year: int) -> bool:
+    try:
+      with open(path + '.tmp', 'w') as f:
+        f.write(text)
+      os.replace(path + '.tmp', path)
+    except OSError as error:
+      logging.warning('Lifeways: the world was not saved: %s', error)
+      return False
+    self.saved_year = year
+    return True
+
+  def _save_now(self) -> None:
+    """Saves the world at once: while it is paused or stopped, no year will
+    close, so the snapshot is taken in the World GM's lock, mid-year."""
+    if self._save_path is None:
+      return
+    with self.run.world_lock(), self._saving:
+      self._save(self._save_path, self.run.world().year)
+
+  def _save_if_paused(self) -> None:
+    """Saves at once if no year will close: the world is paused, or over."""
+    over = self._thread is not None and not self.running
+    if self._save_path is not None and (
+        over or self.input.settings()['paused']
+    ):
+      self._save_now()
+
   def save_soon(self, timeout: float = 5.0) -> bool:
-    """Saves the world at the next year's close, as a server stops.
+    """Saves the world as a server stops, and waits for the file.
+
+    A playing world is saved at its next year's close; a paused or stopped
+    one at once.
 
     Args:
-      timeout: How long to wait for the year to close.
+      timeout: How long to wait for the year to close, and for the file.
 
     Returns:
-      Whether a save was made (not if the world is paused, stopped, or
-      slower than the timeout).
+      Whether the save was written.
     """
-    if self._save_path is None or self.input.settings()['paused']:
+    if self._save_path is None:
       return False
-    if self._thread is None or not self._thread.is_alive():
+    playing = self.running
+    if playing and not self.input.settings()['paused']:
+      with self._saving:
+        before = self._saves
+        self._save_wanted = True
+        if not self._saving.wait_for(lambda: self._saves > before, timeout):
+          return False
+    else:
+      self._save_now()
+    written = self._written
+    try:
+      return written is not None and written.result(timeout)
+    except futures.TimeoutError:
       return False
-    with self._saving:
-      before = self._saves
-      self._save_wanted = True
-      return self._saving.wait_for(lambda: self._saves > before, timeout)
 
   def _restore(self, path: str) -> None:
     """Restores the world's last save, if it is a save of this world."""
@@ -423,7 +612,7 @@ class Session:
       self._set_aside(path, f'it is another world ({saved.get("world")})')
       return
     try:
-      self._load(saved)
+      self.load_snapshot(saved)
     except Exception as error:  # pylint: disable=broad-exception-caught
       # A save from an older build may no longer fit: begin anew.
       self.run = self._build()
@@ -431,9 +620,37 @@ class Session:
       return
     self.restored_year = self.saved_year = int(saved['year'])
 
-  def _load(self, saved: Mapping[str, Any]) -> None:
-    """Loads a snapshot into this (new) session's world, with its rows."""
+  def load_snapshot(self, saved: Mapping[str, Any]) -> None:
+    """Loads a snapshot into this new session's world, with its rows.
+
+    Args:
+      saved: A save's contents (`_snapshot`).
+
+    Raises:
+      ValueError: If the world is not the save's after loading. The stock
+        restore logs a component that fails to restore and goes on, so the
+        world is checked: its year, its people against the simulation's
+        entities, and the World's state against the saved one.
+    """
     simulation.load_checkpoint(self.run, saved['checkpoint'])
+    world = json.loads(json.dumps(self.run.world_state(), default=str))
+    living = {p['name'] for p in world['people']} | {world_lib.EXPERIMENTER}
+    entities = {e.name for e in self.run.sim.entities}
+    kept = dict(_saved_world(saved['checkpoint']))
+    # The land's settings are this run's (a twin's lever may change them);
+    # its terrain and food are what a restore sets.
+    land = kept.pop('land', {})
+    if (
+        int(world['year']) != int(saved['year'])
+        or living != entities
+        or any(world.get(key) != value for key, value in kept.items())
+        or any(world['land'].get(k) != land.get(k) for k in ('terrain', 'food'))
+    ):
+      raise ValueError(
+          f'the world did not restore as saved (year {world["year"]} of'
+          f' {saved["year"]}; {len(living ^ entities)} people and entities'
+          ' apart)'
+      )
     with self._rows_lock:
       self._rows.extend(saved.get('rows', ()))
       for custom in saved.get('forgotten', ()):
@@ -450,14 +667,24 @@ class Session:
     for move in pace.get('queued', ()):
       self.input.queue(move)
 
-  def _set_aside(self, path: str, why: str) -> None:
+  def _set_aside(self, path: str, why: str, suffix: str = '.set-aside') -> None:
     logging.warning(
         'Lifeways: a new world begins; the save is set aside: %s', why
     )
     try:
-      os.replace(path, path + '.set-aside')
+      os.replace(path, path + suffix)
     except OSError:
       pass
+
+  def set_aside_save(self, why: str, suffix: str) -> None:
+    """Sets this world's save aside (a new world will be saved in its place).
+
+    Args:
+      why: Why, for the log.
+      suffix: What the save's file name gets.
+    """
+    if self._save_path is not None:
+      self._set_aside(self._save_path, why, suffix)
 
   # --- The person's releases -------------------------------------------
 
@@ -666,7 +893,9 @@ class Session:
     if not text or len(text) > NOTE_LENGTH:
       raise ValueError(f'Write 1 to {NOTE_LENGTH} characters.')
     self._played = time.time()
-    return self._write(kind, text)
+    entry = self._write(kind, text)
+    self._save_if_paused()
+    return entry
 
   def notebook(self, since: int = 0) -> list[dict[str, Any]]:
     """The notebook's entries after an id, oldest first.
@@ -722,7 +951,7 @@ class Session:
         for key in twin_settings
         if twin_settings[key] != self._settings.get(key)
     }
-    if self._thread is None or not self._thread.is_alive():
+    if not self.running:
       raise RuntimeError('The world is not playing.')
     if self.input.settings()['paused']:
       raise RuntimeError("The world is paused: a twin forks at a year's close.")
@@ -736,9 +965,10 @@ class Session:
         self.scenario,
         seed=self._seed,
         years_per_second=self.input.settings()['years_per_second'],
+        follow=self.input,
         **{**self._overrides, **changed},
     )
-    twin._load(saved)  # pylint: disable=protected-access
+    twin.load_snapshot(saved)
     twin.twin_of = {'lever': lever, 'value': value, 'year': saved['year']}
     pulled = (
         f'without {value}' if lever == scenarios.WITHOUT else f'{lever} {value}'
@@ -779,7 +1009,7 @@ class Session:
         **twin.twin_of,
         'year_now': world['year'],
         'people': len(world['people']),
-        'running': twin._thread is not None and twin._thread.is_alive(),  # pylint: disable=protected-access
+        'running': twin.running,
         'error': twin.error,
     }
 
@@ -841,7 +1071,7 @@ class Session:
         'people': people,
         'places': places,
         'pace': self.input.settings(),
-        'running': self._thread is not None and self._thread.is_alive(),
+        'running': self.running,
         'error': self.error,
         'idle_seconds': (
             round(time.time() - self._played) if self._played else None
@@ -1068,6 +1298,8 @@ class Session:
   def stop(self) -> None:
     """The person stops the world: the Experimenter's next move ends it."""
     self._played = time.time()
+    with self._saving:
+      self._save_wanted = True  # A stopped world stays stopped.
     self.input.queue(world_lib.STOP)
     self._write(MOVE, 'You stop the world.')
     self.input.pace(paused=False)
@@ -1076,20 +1308,23 @@ class Session:
   def move(self, move: str) -> None:
     """Queues the Experimenter's move (as the person typed or built it).
 
-    A release goes to the twin as well; a question or a stop does not.
+    A twin's Experimenter makes the same move in the same year if it shapes
+    the world (`TwinInput`); a question or a stop is this world's alone.
 
     Args:
       move: The move.
+
+    Raises:
+      ValueError: If the move is longer than `MOVE_LENGTH`.
     """
     move = ' '.join(str(move).split())
+    if len(move) > MOVE_LENGTH:
+      raise ValueError(f'A move is at most {MOVE_LENGTH} characters.')
     if move:
       self._played = time.time()
       self.input.queue(move)
       self._write(MOVE, f'You queue a move: {move}')
-      twin = self.twin
-      if twin is not None and move.lower().startswith(world_lib.RELEASE + ' '):
-        # A release reaches the twin too: the lever stays the one difference.
-        twin.move(move)
+      self._save_if_paused()
 
   def pace(
       self,
@@ -1109,6 +1344,12 @@ class Session:
     self.input.pace(years_per_second, paused)
     if paused is True:
       self.run.engine.pause()
+      if self._save_path is not None:
+        # Saved once the turns under way have ended: no year closes while
+        # the world is paused.
+        settled = threading.Timer(0.3, self._save_if_paused)
+        settled.daemon = True
+        settled.start()
     elif paused is False:
       self.run.engine.play()
     twin = self.twin

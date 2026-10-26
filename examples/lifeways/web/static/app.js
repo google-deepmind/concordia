@@ -752,14 +752,56 @@ function savedNote(world) {
   return notes.length ? `· ${notes.join(', ')}` : '';
 }
 
-/** Polls the world and the census, and redraws. */
+/** The refresh under way, if any, and whether another is wanted after it. */
+const refreshing = {/** @type {?Promise<void>} */ now: null, again: false};
+
+/**
+ * Polls the world and redraws, one refresh at a time: a refresh asked for
+ * while one is under way runs once it has ended, so none fetches the same
+ * new rows twice.
+ * @return {!Promise<void>}
+ */
 async function refresh() {
+  if (refreshing.now) {
+    refreshing.again = true;
+    return refreshing.now;
+  }
+  refreshing.now = (async () => {
+    do {
+      refreshing.again = false;
+      await refreshOnce();
+    } while (refreshing.again);
+  })();
+  try {
+    await refreshing.now;
+  } finally {
+    refreshing.now = null;
+  }
+}
+
+/**
+ * Appends what is newer than what the page has.
+ * @param {!Array<!Object>} kept What the page has, oldest first.
+ * @param {!Array<!Object>} fresh What the server sent, oldest first.
+ * @param {string} key The field that orders them ('year' or 'id').
+ * @param {number} since The last the page has.
+ * @param {number} most How many to keep.
+ * @return {!Array<!Object>}
+ */
+function appendNew(kept, fresh, key, since, most) {
+  return kept.concat(fresh.filter((item) => item[key] > since)).slice(-most);
+}
+
+/** Polls the world and the census, and redraws. */
+async function refreshOnce() {
   try {
     const world = await api('api/state');
     page.world = world;
     document.getElementById('year').textContent =
         `${world.scenario}, year ${world.year}: ${world.people.length} people` +
         (world.running ? '' : ' (the world has stopped)');
+    document.getElementById('anew').hidden = world.running;
+    document.getElementById('stop').hidden = !world.running;
     document.getElementById('play').textContent =
         world.pace.paused ? 'Play' : 'Pause';
     document.getElementById('queued').textContent = world.pace.queued.length ?
@@ -784,17 +826,20 @@ async function refresh() {
     const twinRows = world.twin ?
         await api(`api/census?since=${page.twinSince}&world=twin`) : [];
     if (twinRows.length) {
-      page.twinRows = page.twinRows.concat(twinRows).slice(-world.rows_kept);
+      page.twinRows = appendNew(page.twinRows, twinRows, 'year',
+          page.twinSince, world.rows_kept);
       page.twinSince = twinRows[twinRows.length - 1].year;
     }
     if (rows.length) {
-      page.rows = page.rows.concat(rows).slice(-world.rows_kept);
+      page.rows = appendNew(page.rows, rows, 'year', page.since,
+          world.rows_kept);
       page.since = rows[rows.length - 1].year;
     }
     if (rows.length || twinRows.length) drawChart(page.rows, page.twinRows);
     const entries = await api(`api/notebook?since=${page.entrySince}`);
     if (entries.length) {
-      page.entries = page.entries.concat(entries).slice(-1000);
+      page.entries = appendNew(page.entries, entries, 'id', page.entrySince,
+          1000);
       page.entrySince = entries[entries.length - 1].id;
       drawNotebook();
     }
@@ -847,6 +892,13 @@ async function start() {
   document.getElementById('stop').addEventListener('click', async () => {
     if (confirm('Stop the world for good?')) await api('api/stop', {});
   });
+  document.getElementById('anew').addEventListener('click', async () => {
+    if (!confirm('Begin a new world? This one is set aside.')) return;
+    await api('api/new', {});
+    Object.assign(page, {rows: [], since: -1, twinRows: [], twinSince: -1,
+      twin: null, entries: [], entrySince: 0, person: null, at: null});
+    refresh();
+  });
   document.getElementById('ask').addEventListener('submit', async (event) => {
     event.preventDefault();
     const question = document.getElementById('question').value.trim();
@@ -876,6 +928,10 @@ async function start() {
         ['without', lever.slice('without '.length)] : [lever, Number(value)];
     const said = document.getElementById('fork-error');
     said.textContent = '';
+    if (name !== 'without' && (value === '' || !Number.isFinite(channel))) {
+      said.textContent = 'No twin: give the lever a value, a number.';
+      return;
+    }
     document.getElementById('twin').textContent = 'Forking at the year\'s end…';
     try {
       await api('api/twin', {lever: name, value: channel});
@@ -929,8 +985,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, fateChoices, fateMove, reachNote, recentDisasters,
-    releaseStatus, savedNote,
+    appendNew, entryMeta, entryShown, fateChoices, fateMove, reachNote,
+    recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

@@ -65,14 +65,30 @@ standing choice, watching, at the pace the person sets. The server only
 builds, plays and reads the simulation (`web/session.py`); the run ends
 when the Experimenter stops the world.
 
-With `--save=FILE` the world outlives its server. At a year's close, at
-most every ten seconds, the session writes the stock checkpoint
-(`Simulation.make_checkpoint_data`) with the page's census rows and pace.
-When the server is stopped (SIGTERM) it saves once more at the next year's
-close. A new server of the same scenario, seed and settings restores the
-save (`simulation.load_checkpoint`) and plays on from that year. A save of
-another world, or one an older build can no longer restore, is set aside
-(`FILE.set-aside`), and a new world begins.
+With `--save=FILE` the world outlives its server.
+- **When it saves.** The session saves the stock checkpoint
+  (`Simulation.make_checkpoint_data`) with the page's census rows, pace,
+  notebook and followed releases:
+  - at a year's close, about once a minute;
+  - at the close of the year the person stops the world;
+  - when the server is stopped (SIGTERM) at the next year's close, or at
+    once if the world is paused or stopped. No year closes then, so the
+    snapshot is taken in the World GM's lock, mid-year.
+- **How it saves.** The snapshot is taken where the world is whole; a
+  thread of its own writes the file, so the world does not wait for the
+  disk.
+- **Restoring.** A new server of the same scenario, seed and overrides
+  restores the save (`simulation.load_checkpoint`) and plays on from that
+  year. The settings are the new build's. The restore is checked: the
+  stock restore logs a component that fails and goes on, so the session
+  compares the World and the people with the save.
+- **Setting aside.** A save of another world, or one this build cannot
+  restore as it was, is set aside (`FILE.set-aside`), and a new world
+  begins. A stopped world stays stopped; "Begin a new world" sets it aside
+  (`FILE.stopped`) and starts afresh.
+- **Logs.** At every close the engine logs the Experimenter's `Closed` as
+  an error, with a traceback: that is how a page run ends. The server
+  sends the engine's prints to the null device for its whole life.
 
 **Your releases.** A person's releases are recorded in the census rows
 (`releases`: id, how, where, how many heard a song), and the page follows
@@ -99,11 +115,19 @@ simulation of the same world from it, with one lever pulled
 (`scenarios.with_lever`). A lever is a world rule the World reads from its
 settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
 `mutation`, `dialect_drift`, `garble` or `child_cost`, within bounds, or
-`without` a channel. Both worlds play on side by side. The person's pace and
-releases reach both, so the lever stays the one difference; the page draws
-the twin's census dashed over its world's. With no lever changed, a twin's
-census is its world's, year by year (tick mode is exact). A twin is not
-saved.
+`without` a channel. Both worlds play on side by side.
+- **The twin follows its world.** Its Experimenter (`TwinInput`) waits for
+  the world's Experimenter's answer for each year, never running ahead.
+  It makes the same move in the same year if the move shapes the world (a
+  release, a disaster, migrants, an institution), and otherwise watches.
+  So the lever stays the one difference.
+- **What stays the world's.** Questions and stops reach the first world
+  only, and the person's pace reaches both.
+- **The page** draws the twin's census dashed over its world's, and says
+  how each release fares in the twin.
+- **Exactness.** With no lever changed, a twin's census is its world's,
+  year by year, moves and all (tick mode is exact).
+- A twin is not saved.
 
 ## Scenarios
 
@@ -159,7 +183,10 @@ last one is in. A year's outcome therefore never depends on thread timing:
 two runs with the same seed are identical. In free mode (the `free`
 setting, for live play) a year also closes after so many seconds, whoever
 has not answered doing nothing that year: slow minds lag, and runs depend
-on timing.
+on timing. Free mode is for short live play. Each dead person's queue is
+emptied, but keeps an empty entry in the GM's stock `ObservationQueue`;
+removing the entry while other threads take observations would need an
+atomic remove in the stock queue.
 
 **Inheritance without mind reading.** Every custom enters the world through
 the GM, which keeps the public record of variants (`world/culture.py`). A
