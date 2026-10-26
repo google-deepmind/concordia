@@ -60,6 +60,15 @@ standing choice, watching, at the pace the person sets. The server only
 builds, plays and reads the simulation (`web/session.py`); the run ends
 when the Experimenter stops the world.
 
+With `--save=FILE` the world outlives its server. At a year's close, at
+most every ten seconds, the session writes the stock checkpoint
+(`Simulation.make_checkpoint_data`) with the page's census rows and pace.
+When the server is stopped (SIGTERM) it saves once more at the next year's
+close. A new server of the same scenario, seed and settings restores the
+save (`simulation.load_checkpoint`) and plays on from that year. A save of
+another world, or one an older build can no longer restore, is set aside
+(`FILE.set-aside`), and a new world begins.
+
 ## Scenarios
 
 The Sandbox is where everything is, and its presets are settings, not code

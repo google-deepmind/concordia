@@ -15,6 +15,7 @@
 """The page's session and server, on a running MOCK world."""
 
 import json
+import os
 import threading
 import time
 import urllib.error
@@ -102,6 +103,96 @@ class FreeModeTest(absltest.TestCase):
       self.assertEqual(session.state()['year'], 0)
     finally:
       session.close()
+
+
+class SaveTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+  def test_a_saved_world_plays_on_from_its_save(self):
+    first = session_lib.Session(
+        years_per_second=40, save_path=self.path, save_seconds=0
+    )
+    self.assertIsNone(first.restored_year)
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 4))
+    finally:
+      first.close()
+    with open(self.path) as f:
+      saved = json.load(f)
+
+    second = session_lib.Session(save_path=self.path)
+
+    state = second.state()
+    self.assertEqual(state['year'], saved['year'])
+    self.assertEqual(state['restored_year'], saved['year'])
+    self.assertEqual(state['pace']['years_per_second'], 40)
+    self.assertLen(state['people'], len(saved['checkpoint']['entities']) - 1)
+    self.assertEqual(second.census(), saved['rows'])
+    second.start()
+    try:
+      self.assertTrue(_wait(lambda: second.state()['year'] > saved['year'] + 1))
+      self.assertEqual(second.state()['error'], '')
+    finally:
+      second.close()
+
+  def test_a_stopping_server_saves_at_the_next_year(self):
+    session = session_lib.Session(
+        years_per_second=20, save_path=self.path, save_seconds=1e9
+    )
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 2))
+      self.assertIsNone(session.saved_year)
+      self.assertTrue(session.save_soon(timeout=5))
+      self.assertGreaterEqual(session.saved_year or 0, 2)
+      session.pace(paused=True)
+      self.assertFalse(session.save_soon(timeout=1))
+    finally:
+      session.close()
+
+  def test_a_save_of_another_world_is_set_aside(self):
+    first = session_lib.Session(
+        years_per_second=40, save_path=self.path, save_seconds=0
+    )
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: first.saved_year is not None))
+    finally:
+      first.close()
+
+    other = session_lib.Session(seed=1, save_path=self.path)
+
+    self.assertIsNone(other.restored_year)
+    self.assertEqual(other.state()['year'], 0)
+    self.assertFalse(os.path.exists(self.path))
+    self.assertTrue(os.path.exists(self.path + '.set-aside'))
+
+  def test_a_save_that_no_longer_restores_begins_a_new_world(self):
+    fresh = session_lib.Session()
+    with open(self.path, 'w') as f:
+      json.dump(
+          {
+              'version': session_lib.SAVE_VERSION,
+              'world': {'scenario': 'sandbox', 'seed': 0, 'overrides': {}},
+              'year': 7,
+              'checkpoint': {'entities': {'Ada': 'not a state'}},
+          },
+          f,
+      )
+
+    session = session_lib.Session(save_path=self.path)
+
+    self.assertIsNone(session.restored_year)
+    self.assertEqual(session.state()['year'], 0)
+    self.assertEqual(
+        [p['name'] for p in session.state()['people']],
+        [p['name'] for p in fresh.state()['people']],
+    )
+    self.assertTrue(os.path.exists(self.path + '.set-aside'))
 
 
 class ServerTest(absltest.TestCase):

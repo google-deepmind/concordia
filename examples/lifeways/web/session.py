@@ -21,13 +21,22 @@ year the Experimenter answers with the move the person queued, or else the
 person's standing choice (watching, unless the person sets another), at the
 pace the person sets. The adapter never invents a move: when the page closes
 the session it raises, and the run ends.
+
+A session given a save path outlives its server: at a year's close, every
+so many seconds and once more when the server stops, it saves the stock
+simulation checkpoint (`Simulation.make_checkpoint_data`) with the page's
+census rows; a new session of the same world restores the last save
+(`simulation.load_checkpoint`) and plays on from that year.
 """
 
 import collections
+import json
+import os
 import threading
 import time
 from typing import Any
 
+from absl import logging
 from concordia.components.agent import human_act_component
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
@@ -40,6 +49,10 @@ from concordia.typing import human_input
 
 # Census rows a session keeps for the page's graphs.
 ROWS_KEPT = 400
+# The form of a session's save; a save of another form is set aside.
+SAVE_VERSION = 1
+# The name the asynchronous engine gives its entity loops' threads.
+ENGINE_THREADS = 'entity_loop'
 
 
 class Closed(Exception):
@@ -137,24 +150,56 @@ class Session:
       scenario: str = 'sandbox',
       seed: int = 0,
       years_per_second: float = 1.0,
+      save_path: str | None = None,
+      save_seconds: float = 10.0,
       **overrides: Any,
   ):
-    """Builds the world (it starts with `start`).
+    """Builds the world, or restores its last save (it starts with `start`).
 
     Args:
       scenario: The scenario or preset.
       seed: The world seed.
       years_per_second: The pace the years start at.
+      save_path: Optional. The file the world is saved to and restored from.
+        A save of another world (scenario, seed, settings) or one that no
+        longer restores is set aside, and a new world begins.
+      save_seconds: At most how often the world is saved, in seconds.
       **overrides: More settings.
     """
     self.scenario = scenario
     self.input = PageInput(years_per_second)
+    self._settings = scenarios.settings(scenario, seed=seed, **overrides)
+    # What a save must match to be restored.
+    self._identity = json.loads(
+        json.dumps(
+            {'scenario': scenario, 'seed': seed, 'overrides': overrides},
+            sort_keys=True,
+            default=str,
+        )
+    )
     self._rows: collections.deque[dict[str, Any]] = collections.deque(
         maxlen=ROWS_KEPT
     )
     self._rows_lock = threading.Lock()
-    self.run = simulation.build_simulation(
-        scenarios.settings(scenario, seed=seed, **overrides),
+    self._thread: threading.Thread | None = None
+    self.error: str = ''
+    # When the person last did anything (a move, the pace, a stop).
+    self._played = 0.0
+    self._save_path = save_path
+    self._save_seconds = float(save_seconds)
+    self._saving = threading.Condition()
+    self._last_save = time.monotonic()
+    self._save_wanted = False
+    self._saves = 0
+    self.saved_year: int | None = None
+    self.restored_year: int | None = None
+    self.run = self._build()
+    if save_path:
+      self._restore(save_path)
+
+  def _build(self) -> simulation.Run:
+    run = simulation.build_simulation(
+        self._settings,
         # People wait for their turn without spinning: the page's years are
         # slow anyway.
         sleep_time=0.05,
@@ -163,11 +208,8 @@ class Session:
             self.input, order
         ),
     )
-    self.run.lifecycle.year_closed = self._year_closed
-    self._thread: threading.Thread | None = None
-    self.error: str = ''
-    # When the person last did anything (a move, the pace, a stop).
-    self._played = 0.0
+    run.lifecycle.year_closed = self._year_closed
+    return run
 
   def start(self) -> None:
     """Plays the world in a thread of its own until it ends or is closed."""
@@ -178,7 +220,8 @@ class Session:
 
   def _play(self) -> None:
     try:
-      self.run.play()
+      # The page reads the world and its own census rows, never the raw log.
+      self.run.play(log_retention=0)
     except Closed:
       pass
     except Exception as error:  # pylint: disable=broad-exception-caught
@@ -187,16 +230,24 @@ class Session:
   def close(self, timeout: float = 10.0) -> None:
     """Ends the run: the Experimenter's next answer raises.
 
+    The engine then tells everyone's loop to end, but returns without
+    waiting for loops in the middle of a turn; this waits for them too, so
+    that a process exiting next leaves no turn half done.
+
     Args:
-      timeout: How long to wait for the run's thread.
+      timeout: How long to wait for the run's threads.
     """
+    deadline = time.monotonic() + timeout
     self.input.close()
     self.run.engine.play()
     if self._thread is not None:
       self._thread.join(timeout)
+    for thread in threading.enumerate():
+      if thread.name.startswith(ENGINE_THREADS):
+        thread.join(max(0.0, deadline - time.monotonic()))
 
   def _year_closed(self, year: int) -> None:
-    # In the World GM's lock: the world may be read here.
+    # In the World GM's lock: the world may be read here, and is whole.
     world = self.run.world()
     row = {
         **(world.history[-1] if world.history else {'year': year - 1}),
@@ -205,6 +256,104 @@ class Session:
     }
     with self._rows_lock:
       self._rows.append(row)
+    if self._save_path is None:
+      return
+    with self._saving:
+      if (
+          self._save_wanted
+          or time.monotonic() - self._last_save >= self._save_seconds
+      ):
+        self._save(self._save_path, year)
+
+  # --- Saves ------------------------------------------------------------
+
+  def _save(self, path: str, year: int) -> None:
+    """Writes the world at a year's close (in the World GM's lock)."""
+    checkpoint = self.run.sim.make_checkpoint_data()
+    checkpoint['raw_log'] = []  # Nobody reads it; a restore needs none.
+    with self._rows_lock:
+      rows = list(self._rows)
+    saved = {
+        'version': SAVE_VERSION,
+        'world': self._identity,
+        'year': year,
+        'rows': rows,
+        'pace': self.input.settings(),
+        'checkpoint': checkpoint,
+    }
+    try:
+      with open(path + '.tmp', 'w') as f:
+        json.dump(saved, f, default=str)
+      os.replace(path + '.tmp', path)
+    except OSError as error:
+      logging.warning('Lifeways: the world was not saved: %s', error)
+    else:
+      self.saved_year = year
+    self._last_save = time.monotonic()
+    self._save_wanted = False
+    self._saves += 1
+    self._saving.notify_all()
+
+  def save_soon(self, timeout: float = 5.0) -> bool:
+    """Saves the world at the next year's close, as a server stops.
+
+    Args:
+      timeout: How long to wait for the year to close.
+
+    Returns:
+      Whether a save was made (not if the world is paused, stopped, or
+      slower than the timeout).
+    """
+    if self._save_path is None or self.input.settings()['paused']:
+      return False
+    if self._thread is None or not self._thread.is_alive():
+      return False
+    with self._saving:
+      before = self._saves
+      self._save_wanted = True
+      return self._saving.wait_for(lambda: self._saves > before, timeout)
+
+  def _restore(self, path: str) -> None:
+    """Restores the world's last save, if it is a save of this world."""
+    try:
+      with open(path) as f:
+        saved = json.load(f)
+    except FileNotFoundError:
+      return
+    except (OSError, ValueError) as error:
+      self._set_aside(path, f'it does not read ({error})')
+      return
+    if not isinstance(saved, dict) or saved.get('version') != SAVE_VERSION:
+      self._set_aside(path, 'it is of another form')
+      return
+    if saved.get('world') != self._identity:
+      self._set_aside(path, f'it is another world ({saved.get("world")})')
+      return
+    try:
+      simulation.load_checkpoint(self.run, saved['checkpoint'])
+    except Exception as error:  # pylint: disable=broad-exception-caught
+      # A save from an older build may no longer fit: begin anew.
+      self.run = self._build()
+      self._set_aside(path, f'it no longer restores ({error!r})')
+      return
+    with self._rows_lock:
+      self._rows.extend(saved.get('rows', ()))
+    pace = saved.get('pace', {})
+    self.input.pace(pace.get('years_per_second'), pace.get('paused'))
+    if pace.get('paused'):
+      self.run.engine.pause()
+    for move in pace.get('queued', ()):
+      self.input.queue(move)
+    self.restored_year = self.saved_year = int(saved['year'])
+
+  def _set_aside(self, path: str, why: str) -> None:
+    logging.warning(
+        'Lifeways: a new world begins; the save is set aside: %s', why
+    )
+    try:
+      os.replace(path, path + '.set-aside')
+    except OSError:
+      pass
 
   # --- What the page reads ----------------------------------------------
 
@@ -277,6 +426,8 @@ class Session:
         'grown_age': world_lib.ADULT_AGE,
         'max_level': culture_lib.MAX_LEVEL,
         'rows_kept': ROWS_KEPT,
+        'saved_year': self.saved_year,
+        'restored_year': self.restored_year,
     }
 
   def person(self, name: str) -> dict[str, Any] | None:

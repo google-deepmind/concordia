@@ -19,7 +19,9 @@ r"""Serves a running Lifeways world to a page, phone first (MOCK by default).
 The page draws the valley, its people and places, the census as graphs and
 a person's customs, and lets the person playing the Experimenter pace the
 years, release customs and stop the world. Everything else the server does
-is read the simulation (`session.Session`).
+is read the simulation (`session.Session`). With `--save`, the world outlives
+the server: it is saved as it plays and when the server is stopped (SIGTERM),
+and the next server of the same world plays on from the save.
 
 | Path (under `--base_path`) | What |
 |---|---|
@@ -38,6 +40,7 @@ from collections.abc import Callable, Mapping, Sequence
 import http.server
 import json
 import os
+import signal
 import subprocess
 from typing import Any
 import urllib.parse
@@ -52,6 +55,9 @@ _BASE = flags.DEFINE_string('base_path', '/lifeways', 'Path prefix.')
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
 _SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
 _PACE = flags.DEFINE_float('years_per_second', 1.0, 'Starting pace.')
+_SAVE = flags.DEFINE_string(
+    'save', '', 'File the world is saved to and restored from (none if empty).'
+)
 
 STATIC = os.path.join(os.path.dirname(__file__), 'static')
 _TYPES = {
@@ -221,23 +227,40 @@ def serve(
   )
 
 
+def _stopped(signum: int, frame: Any) -> None:
+  del frame
+  # Once is enough: a second signal must not cut short the save.
+  signal.signal(signum, signal.SIG_IGN)
+  raise SystemExit(f'Stopped by signal {signum}.')
+
+
 def main(argv: Sequence[str]) -> None:
   del argv
   session = session_lib.Session(
-      _SCENARIO.value, seed=_SEED.value, years_per_second=_PACE.value
+      _SCENARIO.value,
+      seed=_SEED.value,
+      years_per_second=_PACE.value,
+      save_path=_SAVE.value or None,
   )
   server = serve(session, _PORT.value, _BASE.value)
   logging.info(
-      'MOCK: %s, seed %d, at http://127.0.0.1:%d%s/',
+      'MOCK: %s, seed %d, at http://127.0.0.1:%d%s/ (%s)',
       _SCENARIO.value,
       _SEED.value,
       server.server_address[1],
       _BASE.value,
+      f'restored at year {session.restored_year}'
+      if session.restored_year is not None
+      else 'a new world',
   )
+  # launchd and the test script stop the server with SIGTERM: save first.
+  signal.signal(signal.SIGTERM, _stopped)
   session.start()
   try:
     server.serve_forever()
   finally:
+    if session.save_soon(timeout=3.0):
+      logging.info('Saved at year %s.', session.saved_year)
     session.close()
     server.server_close()
 

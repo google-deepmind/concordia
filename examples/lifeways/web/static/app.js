@@ -264,6 +264,20 @@ function onMapTap(event) {
   if (nearest) showPerson(nearest.name);
 }
 
+/**
+ * What the footer says of the world's saves.
+ * @param {!Object} world The state.
+ * @return {string} The note.
+ */
+function savedNote(world) {
+  const notes = [];
+  if (world.restored_year != null) {
+    notes.push(`restored at year ${world.restored_year}`);
+  }
+  if (world.saved_year != null) notes.push(`saved at year ${world.saved_year}`);
+  return notes.length ? `· ${notes.join(', ')}` : '';
+}
+
 /** Polls the world and the census, and redraws. */
 async function refresh() {
   try {
@@ -277,6 +291,7 @@ async function refresh() {
     document.getElementById('queued').textContent = world.pace.queued.length ?
         `Next: ${world.pace.queued.join('; ')}` : '';
     document.getElementById('error').textContent = world.error || '';
+    document.getElementById('saved').textContent = savedNote(world);
     drawMap(world);
     drawTranscripts(world);
     const rows = await api(`api/census?since=${page.since}`);
@@ -350,5 +365,5 @@ async function start() {
 if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
-  module.exports = {askMove, peopleColour, releaseMove};
+  module.exports = {askMove, peopleColour, releaseMove, savedNote};
 }

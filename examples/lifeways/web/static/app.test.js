@@ -21,7 +21,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {askMove, peopleColour, releaseMove} = require('./app.js');
+const {askMove, peopleColour, releaseMove, savedNote} = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
   assert.equal(
@@ -37,4 +37,12 @@ test('a people keeps its colour', () => {
 
 test('a question is written in the form the World reads', () => {
   assert.equal(askMove('Ada', ' Why share? '), 'ask Ada: Why share?');
+});
+
+test('the footer says where a world was restored and last saved', () => {
+  assert.equal(savedNote({saved_year: null, restored_year: null}), '');
+  assert.equal(savedNote({saved_year: 3, restored_year: null}),
+      '· saved at year 3');
+  assert.equal(savedNote({saved_year: 9, restored_year: 0}),
+      '· restored at year 0, saved at year 9');
 });
