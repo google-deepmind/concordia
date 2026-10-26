@@ -349,6 +349,38 @@ class TransmissionTest(absltest.TestCase):
     self.world.close_year()
     self.assertEmpty(self.world.history)
 
+  def test_an_elder_tells_a_story_to_all_within_sight(self):
+    self._person('Old', 60, (5, 5))
+    self._person('Kit', 6, (5, 6), given=())
+    self._person('Far', 30, (9, 9), given=())
+    self.assertIn(world_lib.TELL, self.world.moves('Old'))
+    self.assertNotIn(world_lib.TELL, self.world.moves('Kit'))
+    self.world.actions = {
+        'Old': f'{world_lib.TELL} {self.norm} {self.skill}',
+        'Kit': 'play',
+        'Far': 'rest',
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(
+        sorted(self._offers('Kit')),
+        sorted([(self.norm, 'story', 'Old'), (self.skill, 'story', 'Old')]),
+    )
+    self.assertEmpty(self._offers('Far'))
+
+  def test_a_preacher_preaches_one_custom(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Bo', 30, (5, 6), given=())
+    self.world.actions = {
+        'Ada': f'{world_lib.PREACH} {self.norm} {self.skill}',
+        'Bo': 'rest',
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(self._offers('Bo'), [(self.norm, 'preaching', 'Ada')])
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))

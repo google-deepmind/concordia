@@ -128,7 +128,17 @@ class SandboxTest(absltest.TestCase):
     # The rarer channels: offered here, taken up over longer runs.
     offers = {c for row in run.world().history for c in row['offers']}
     self.assertContainsSubset(
-        {'apprenticeship', 'sanction', 'practice', 'reading'}, offers
+        {
+            'apprenticeship',
+            'sanction',
+            'practice',
+            'reading',
+            'school',
+            'rite',
+            'story',
+            'preaching',
+        },
+        offers,
     )
 
   def test_a_restored_year_plays_on_exactly(self):
@@ -313,6 +323,17 @@ class LearnerTest(absltest.TestCase):
     custom = self._customs(entity)['c2']
     self.assertEqual(custom.spec, expected)
     self.assertStartsWith(custom.pre_act(_QUESTION), 'A custom others expect')
+
+  def test_sermons_move_beliefs_more_and_skills_not_at_all(self):
+    def chance(kind: str) -> float:
+      offer = culture_lib.OFFER.search(
+          culture_lib.offer_line(_spec('c9', kind, 'sacred'), 'preaching')
+      )
+      assert offer is not None
+      return culture.offer_chance(offer, {'preaching': 0.2}, '')
+
+    self.assertGreater(chance('belief'), chance('norm'))
+    self.assertEqual(chance('skill'), 0.0)
 
   def test_the_well_fed_are_copied_more_by_the_success_biased(self):
     spec = _spec('c9', 'habit', 'food')

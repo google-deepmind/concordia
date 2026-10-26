@@ -128,6 +128,12 @@ rite (`lead the rite`) sets the customs it is led by, and all who join it
 (`join the rite`) are offered them as their own (the `rite` channel). A
 rite nobody leads offers nothing.
 
+**Stories and sermons.** An elder may `tell a story` of the customs it
+names to all within sight: the `story` channel retells with many errors, so
+stories breed variants. Anyone may `preach` one custom to all within sight:
+the `preaching` channel is content-biased, moving beliefs and values more
+readily than other kinds, and skills not at all.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

@@ -60,6 +60,8 @@ GO_TO_SCHOOL = 'go to school'
 BUILD_SHRINE = 'build a shrine'
 LEAD_RITE = 'lead the rite'
 JOIN_RITE = 'join the rite'
+TELL = 'tell a story'
+PREACH = 'preach'
 
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
@@ -90,7 +92,11 @@ DEAD_KEPT = 500
 # - school: pupils are taught the curriculum of a school within sight, in a
 #   teacher's term;
 # - rite: those who join a shrine's rite, in a year it falls and someone
-#   leads it, are offered the customs it is led by.
+#   leads it, are offered the customs it is led by;
+# - story: an elder's story reaches all within sight, each retelling a
+#   paraphrase (often a new variant);
+# - preaching: a preacher's one custom reaches all within sight; learners
+#   take up preached beliefs and values more readily than other kinds.
 # A channel's `form` is the form a norm comes in by it: what children are
 # raised in, what one practises and what one is shamed for breaking may
 # become one's own (internalized); what one sees others keep is known
@@ -117,6 +123,8 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     culture_lib.READING: {'mutation': 0.0, 'texts': 3},
     culture_lib.SCHOOL: {'mutation': 0.01, 'form': culture_lib.INTERNALIZED},
     culture_lib.RITE: {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
+    culture_lib.STORY: {'mutation': 0.2},
+    culture_lib.PREACHING: {'mutation': 0.05},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -462,6 +470,13 @@ class World:
       found.append(COURT)
     if culture_lib.UPBRINGING in self.channels and self._pupils(person):
       found.append(TEACH)
+    if (
+        culture_lib.STORY in self.channels
+        and person.age(self.year) >= ELDER_AGE
+    ):
+      found.append(TELL)
+    if culture_lib.PREACHING in self.channels:
+      found.append(PREACH)
     if person.food >= self.share + 1.0:
       needy = sorted(
           (self.people[other].food, other)
@@ -763,6 +778,8 @@ class World:
       self._teach_at_school(person, move, enacted)
     elif move in (BUILD_SHRINE, LEAD_RITE):
       self._lead_rite(person, move, enacted)
+    elif move in (TELL, PREACH):
+      self._speak(person, move, enacted)
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -876,6 +893,28 @@ class World:
       place = standing[0]
     if enacted:
       self.places.keep(place, person.name, enacted, self.year)
+
+  def _speak(self, person: Person, move: str, enacted: Sequence[str]) -> None:
+    """An elder's story, or a preacher's sermon, to all within sight.
+
+    A story carries every custom the answer names, retold with the `story`
+    channel's errors; a sermon carries the first only.
+
+    Args:
+      person: Who speaks.
+      move: `TELL` or `PREACH`.
+      enacted: The customs the answer names.
+    """
+    if move == TELL:
+      via, told, scene = culture_lib.STORY, enacted, 'tells a story'
+    else:
+      via, told, scene = culture_lib.PREACHING, enacted[:1], 'preaches'
+    for listener in self._in_sight(person):
+      if self.people[listener].age(self.year) >= CHILD_ACTS_AGE:
+        for custom_id in told:
+          self._offer(
+              listener, person.name, custom_id, via, f'{person.name} {scene}'
+          )
 
   def _lead_rite(
       self, person: Person, move: str, enacted: Sequence[str]

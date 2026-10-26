@@ -183,6 +183,17 @@ def _choose(
     return ' '.join([shame[0], *sharing])
   if world_lib.TEACH in moves and food >= 4.0 and draw < 0.35:
     return follow(world_lib.TEACH)
+  told = [
+      cid
+      for domain, cid, _ in customs
+      if domain
+      in (culture_lib.SACRED, culture_lib.IDENTITY, culture_lib.SHARING)
+  ]
+  if world_lib.TELL in moves and told and draw < 0.4:
+    return ' '.join([world_lib.TELL, *told])
+  believed = [cid for domain, cid, _ in customs if domain == culture_lib.SACRED]
+  if world_lib.PREACH in moves and believed and food >= 4.0 and draw < 0.08:
+    return f'{world_lib.PREACH} {believed[0]}'
   if world_lib.TEACH_AT_SCHOOL in moves and food >= 4.0 and draw < 0.3:
     return follow(world_lib.TEACH_AT_SCHOOL)
   if world_lib.FOUND_SCHOOL in moves and food >= 6.0 and draw < 0.15:

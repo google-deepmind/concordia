@@ -113,6 +113,14 @@ def offer_chance(
   """
   via = offer.group('via')
   chance = float(uptake.get(via, 0.0))
+  if via == culture_lib.PREACHING:
+    # Content bias: what is preached moves beliefs and values most, and
+    # nobody learns a skill from a sermon.
+    chance *= {
+        culture_lib.BELIEF: 1.5,
+        culture_lib.VALUE: 1.5,
+        culture_lib.SKILL: 0.0,
+    }.get(offer.group('kind'), 1.0)
   if 'traditional' in biases and via not in (
       culture_lib.BIRTH,
       culture_lib.UPBRINGING,
