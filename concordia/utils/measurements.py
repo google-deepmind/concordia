@@ -22,8 +22,22 @@ from typing import Any, Dict, Set
 class Measurements:
   """A registry of measurements for experimenter use."""
 
-  def __init__(self):
-    """Initializes the Measurements object."""
+  def __init__(self, channel_retention: int | None = None):
+    """Initializes the Measurements object.
+
+    Args:
+      channel_retention: Optional. Keep only the most recent this many data in
+        each channel, so that a long run's measurements stay bounded. None
+        keeps every datum.
+
+    Raises:
+      ValueError: If channel_retention is not positive.
+    """
+    if channel_retention is not None and channel_retention < 1:
+      raise ValueError(
+          f'channel_retention must be positive: {channel_retention}'
+      )
+    self._channel_retention = channel_retention
     self._channels: Dict[str, list[Any]] = {}
     self._channels_lock: threading.Lock = threading.Lock()
 
@@ -61,7 +75,13 @@ class Measurements:
     """
     del capture_key
     with self._channels_lock:
-      self._get_channel_or_create(channel).append(datum)
+      data = self._get_channel_or_create(channel)
+      data.append(datum)
+      if (
+          self._channel_retention is not None
+          and len(data) > self._channel_retention
+      ):
+        del data[: len(data) - self._channel_retention]
 
   def available_channels(self) -> Set[str]:
     """Returns the names of all available channels."""
