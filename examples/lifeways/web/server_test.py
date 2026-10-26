@@ -867,6 +867,13 @@ class ServerTest(absltest.TestCase):
       self._post('/api/new', {})
     self.assertEqual(caught.exception.code, 409)
 
+  def test_a_proxy_may_strip_the_prefix(self):
+    root = self.base[: -len('/lifeways')]
+    with urllib.request.urlopen(root + '/api/build', timeout=10) as response:
+      self.assertIn('commit', json.loads(response.read()))
+    with urllib.request.urlopen(root + '/', timeout=10) as response:
+      self.assertIn(b'<canvas id="map"', response.read())
+
   def test_unknown_paths_and_people_are_not_found(self):
     for path in (
         '/api/nothing',

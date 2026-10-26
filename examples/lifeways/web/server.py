@@ -192,9 +192,12 @@ def handler(
 
     def _path(self) -> tuple[str, dict[str, list[str]]] | None:
       url = urllib.parse.urlparse(self.path)
-      if not url.path.startswith(base):
-        return None
-      return url.path[len(base) :] or '/', urllib.parse.parse_qs(url.query)
+      path = url.path
+      if base and (path == base or path.startswith(base + '/')):
+        path = path[len(base) :]
+      # Else a proxy that mounts the page at the prefix has stripped it
+      # (`tailscale serve --set-path`): the path is the page's own.
+      return path or '/', urllib.parse.parse_qs(url.query)
 
     def do_GET(self) -> None:  # pylint: disable=invalid-name
       if base and urllib.parse.urlparse(self.path).path == base:
