@@ -37,9 +37,7 @@ from absl import flags
 from absl import logging
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
-from concordia.contrib import language_models
 from concordia.language_model import language_model
-from concordia.language_model import profiled_language_model
 from concordia.utils import profiler
 
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
@@ -67,32 +65,11 @@ _SETTINGS = flags.DEFINE_string(
 def _model() -> (
     tuple[language_model.LanguageModel | None, profiler.ProfilerContext | None]
 ):
-  """The model people think with, and what counts its calls.
-
-  Returns:
-    The model (None: the deterministic mock) and its call counter.
-  """
-  if _MODEL.value == 'mock':
-    return None, None
-  api, _, name = _MODEL.value.partition(':')
-  key = None
-  if api == 'together_ai':
-    key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(
-        'TOGETHER_AI_API_KEY'
-    )
-    if not key:
-      raise app.UsageError('No Together key in the environment.')
-  model = language_models.language_model_setup(
-      api_type=api, model_name=name, api_key=key
-  )
-  counts = profiler.ProfilerContext()
-  counts.enable()
-  return (
-      profiled_language_model.ProfiledLanguageModel(
-          model, name, profiler_instance=counts
-      ),
-      counts,
-  )
+  """The model people think with (`--model`), and what counts its calls."""
+  try:
+    return simulation.make_model(_MODEL.value)
+  except ValueError as error:
+    raise app.UsageError(str(error)) from error
 
 
 def _max_rss_mb() -> float:

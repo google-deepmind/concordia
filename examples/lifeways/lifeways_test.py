@@ -15,10 +15,12 @@
 """Lifeways end to end on the stock asynchronous engine (MOCK)."""
 
 import json
+import os
 import sys
 import threading
 import time
 from typing import Any
+from unittest import mock
 
 from absl.testing import absltest
 from examples.lifeways import mock_language_model
@@ -301,6 +303,15 @@ class LeverTest(absltest.TestCase):
     ):
       with self.assertRaises(ValueError):
         scenarios.with_lever(world, lever, value)
+
+
+class ModelTest(absltest.TestCase):
+
+  def test_the_mock_is_the_default_and_together_needs_its_key(self):
+    self.assertEqual(simulation.make_model(), (None, None))
+    with mock.patch.dict(os.environ, {}, clear=True):
+      with self.assertRaisesRegex(ValueError, 'No Together key'):
+        simulation.make_model('together_ai:deepseek-ai/DeepSeek-V3')
 
 
 class ArchiveTest(absltest.TestCase):

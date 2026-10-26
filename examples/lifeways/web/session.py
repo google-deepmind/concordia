@@ -61,6 +61,7 @@ from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import world as world_lib
+from concordia.language_model import language_model
 from concordia.typing import human_input
 
 # Census rows a session keeps for the page's graphs.
@@ -335,6 +336,8 @@ class Session:
       save_path: str | None = None,
       save_seconds: float = 60.0,
       follow: PageInput | None = None,
+      model: language_model.LanguageModel | None = None,
+      minds: str = simulation.MOCK,
       **overrides: Any,
   ):
     """Builds the world, or restores its last save (it starts with `start`).
@@ -351,8 +354,12 @@ class Session:
       save_seconds: At most how often the world is saved as it plays.
       follow: Optional. For a twin: the input of the world it was forked
         from, whose moves its Experimenter follows (`TwinInput`).
+      model: Optional. The model people think with (the mock by default).
+      minds: What the page calls the model (`simulation.make_model`'s spec).
       **overrides: More settings.
     """
+    self._model = model
+    self.minds = minds
     self.scenario = scenario
     self.input: PageInput = (
         PageInput(years_per_second) if follow is None else TwinInput(follow)
@@ -415,6 +422,7 @@ class Session:
   def _build(self) -> simulation.Run:
     run = simulation.build_simulation(
         self._settings,
+        model=self._model,
         # People wait for their turn without spinning: the page's years are
         # slow anyway, and the world takes a few tenths of a second a year.
         sleep_time=0.2,
@@ -966,6 +974,8 @@ class Session:
         seed=self._seed,
         years_per_second=self.input.settings()['years_per_second'],
         follow=self.input,
+        model=self._model,
+        minds=self.minds,
         **{**self._overrides, **changed},
     )
     twin.load_snapshot(saved)
@@ -1095,6 +1105,7 @@ class Session:
         'max_level': culture_lib.MAX_LEVEL,
         'rows_kept': ROWS_KEPT,
         'releases': self.releases(),
+        'minds': self.minds,
         'saved_year': self.saved_year,
         'restored_year': self.restored_year,
         'twin': self._twin_state(),

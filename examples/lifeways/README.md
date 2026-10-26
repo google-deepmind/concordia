@@ -65,6 +65,14 @@ standing choice, watching, at the pace the person sets. The server only
 builds, plays and reads the simulation (`web/session.py`); the run ends
 when the Experimenter stops the world.
 
+The page plays MOCK minds by default. `--model=<api>:<model>` gives people
+live minds through the contrib model setup, e.g. `--model=ollama:llama3.2:3b`
+(Together reads `TOGETHER_API_KEY`), and the footer says so. Live minds are
+slow: on a laptop llama3.2:3b takes about 45 s a year for 14 people. In tick
+mode a year waits for every answer. With `--free=60` a year also closes
+after 60 s, and a late answer is dropped. At 15 s nobody's answer lands in
+time.
+
 With `--save=FILE` the world outlives its server.
 - **When it saves.** The session saves the stock checkpoint
   (`Simulation.make_checkpoint_data`) with the page's census rows, pace,

@@ -42,9 +42,12 @@ from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.prefabs import world_gm
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
+from concordia.contrib import language_models
 from concordia.language_model import language_model
+from concordia.language_model import profiled_language_model
 from concordia.prefabs.simulation import generic as simulation_lib
 from concordia.typing import prefab as prefab_lib
+from concordia.utils import profiler
 import numpy as np
 
 EMBEDDING_SIZE = 16
@@ -176,6 +179,51 @@ class _Quiet:
 
 
 _quiet = _Quiet()
+
+# The model people think with by default: the deterministic mock.
+MOCK = 'mock'
+
+
+def make_model(
+    spec: str = MOCK,
+) -> tuple[
+    language_model.LanguageModel | None, profiler.ProfilerContext | None
+]:
+  """The model people think with, and what counts its calls.
+
+  Args:
+    spec: `mock`, or `<api>:<model>` for live minds through the contrib
+      model setup (e.g. `ollama:llama3.2:3b`). Together's key is read from
+      the environment (`TOGETHER_API_KEY`), never from an argument.
+
+  Returns:
+    The model (None: the deterministic mock) and its call counter.
+
+  Raises:
+    ValueError: If the spec names Together and no key is in the
+      environment.
+  """
+  if spec == MOCK:
+    return None, None
+  api, _, name = spec.partition(':')
+  key = None
+  if api == 'together_ai':
+    key = os.environ.get('TOGETHER_API_KEY') or os.environ.get(
+        'TOGETHER_AI_API_KEY'
+    )
+    if not key:
+      raise ValueError('No Together key in the environment.')
+  model = language_models.language_model_setup(
+      api_type=api, model_name=name, api_key=key
+  )
+  counts = profiler.ProfilerContext()
+  counts.enable()
+  return (
+      profiled_language_model.ProfiledLanguageModel(
+          model, name, profiler_instance=counts
+      ),
+      counts,
+  )
 
 
 def quiet() -> contextlib.AbstractContextManager[None]:

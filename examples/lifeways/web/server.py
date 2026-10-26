@@ -66,6 +66,18 @@ _BASE = flags.DEFINE_string('base_path', '/lifeways', 'Path prefix.')
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
 _SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
 _PACE = flags.DEFINE_float('years_per_second', 1.0, 'Starting pace.')
+_MODEL = flags.DEFINE_string(
+    'model',
+    simulation.MOCK,
+    'Who people think with: mock, or <api>:<model> for live minds, e.g.'
+    ' ollama:llama3.2:3b (Together reads TOGETHER_API_KEY).',
+)
+_FREE = flags.DEFINE_float(
+    'free',
+    0.0,
+    'If above 0, free mode: a year also closes after so many seconds (for'
+    ' live minds, which are slow).',
+)
 _SAVE = flags.DEFINE_string(
     'save', '', 'File the world is saved to and restored from (none if empty).'
 )
@@ -373,6 +385,11 @@ def _stopped(signum: int, frame: Any) -> None:
 
 def main(argv: Sequence[str]) -> None:
   del argv
+  try:
+    model, _ = simulation.make_model(_MODEL.value)
+  except ValueError as error:
+    raise app.UsageError(str(error)) from error
+  overrides: dict[str, Any] = {'free': _FREE.value} if _FREE.value > 0 else {}
 
   def world() -> session_lib.Session:
     return session_lib.Session(
@@ -380,12 +397,16 @@ def main(argv: Sequence[str]) -> None:
         seed=_SEED.value,
         years_per_second=_PACE.value,
         save_path=_SAVE.value or None,
+        model=model,
+        minds=_MODEL.value,
+        **overrides,
     )
 
   served = Served(world(), renew=world)
   server = serve(served, _PORT.value, _BASE.value)
   logging.info(
-      'MOCK: %s, seed %d, at http://127.0.0.1:%d%s/ (%s)',
+      '%s: %s, seed %d, at http://127.0.0.1:%d%s/ (%s)',
+      'MOCK' if _MODEL.value == simulation.MOCK else f'LIVE ({_MODEL.value})',
       _SCENARIO.value,
       _SEED.value,
       server.server_address[1],

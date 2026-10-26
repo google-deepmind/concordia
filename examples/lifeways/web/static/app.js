@@ -808,6 +808,8 @@ async function refreshOnce() {
         `Next: ${world.pace.queued.join('; ')}` : '';
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
+    document.getElementById('minds').textContent = world.minds === 'mock' ?
+        'MOCK minds' : `LIVE minds (${world.minds})`;
     drawMap(world);
     drawAt(world);
     drawTranscripts(world);
