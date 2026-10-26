@@ -804,14 +804,7 @@ class World:
     """
     person = self.people[name]
     answer = action.strip().lower()
-    move = next(
-        (
-            m
-            for m in sorted(allowed, key=len, reverse=True)
-            if _is_move(answer, m.lower())
-        ),
-        '',
-    )
+    move = first_move(answer, allowed)
     enacted = [
         custom_id
         for custom_id in dict.fromkeys(
@@ -1400,13 +1393,11 @@ class World:
       allowed: The moves each was offered this year.
     """
     for name, answer in sorted(self.actions.items()):
-      offered = allowed.get(name, ())
-      answer = answer.strip().lower()
-      if COURT in offered and _is_move(answer, COURT):
+      move = first_move(answer, allowed.get(name, ()))
+      if move == COURT:
         self.courting[name] = ''
-      for move in offered:
-        if move.startswith(f'{COURT_ONE} ') and _is_move(answer, move.lower()):
-          self.courting[name] = move.removeprefix(f'{COURT_ONE} ')
+      elif move.startswith(f'{COURT_ONE} '):
+        self.courting[name] = move.removeprefix(f'{COURT_ONE} ')
     self.courting = {
         name: whom
         for name, whom in sorted(self.courting.items())
@@ -1505,10 +1496,11 @@ class World:
     return births
 
   def _passed_on(self, parent: str) -> list[str]:
-    """The ids a parent named when asked what it passes on (if it answered).
+    """The ids a parent named when asked what it passes on.
 
-    Only customs the GM once gave the parent pass on: the world passes on
-    what it delivered, never what a mind might claim.
+    Asked, a parent's answer names what it passes on, whatever words come
+    with the ids. Only customs the GM once gave the parent pass on: the world
+    passes on what it delivered, never what a mind might claim.
 
     Args:
       parent: A living parent.
@@ -1517,8 +1509,6 @@ class World:
       The ids passed on.
     """
     answer = self.actions.get(parent, '')
-    if not answer.strip().lower().startswith(PASS_ON):
-      return []
     given = self.people[parent].given
     return [
         f'c{m}'
@@ -1723,3 +1713,28 @@ def _move_kind(move: str) -> str:
 def _is_move(answer: str, move: str) -> bool:
   """Whether an answer makes a move (the move, then nothing or a space)."""
   return answer == move or answer.startswith(move + ' ')
+
+
+def first_move(answer: str, allowed: Sequence[str]) -> str:
+  """The move an answer makes: the offered move it names first.
+
+  A mind may say more than the move ("This year I gather food, by c3."); the
+  world reads the first move offered that the answer names as whole words
+  (the longest, where two start at the same place).
+
+  Args:
+    answer: The answer.
+    allowed: The moves offered.
+
+  Returns:
+    The move ('' if the answer names none).
+  """
+  answer = ' '.join(answer.lower().split())
+  found = []
+  for move in allowed:
+    match = re.search(
+        r'(?<![a-z])' + re.escape(move.lower()) + r'(?![a-z])', answer
+    )
+    if match:
+      found.append((match.start(), -len(move), move))
+  return min(found)[2] if found else ''

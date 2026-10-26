@@ -36,6 +36,7 @@ from absl import flags
 from absl import logging
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
+from concordia.language_model import language_model
 
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
 _YEARS = flags.DEFINE_integer(
@@ -44,6 +45,26 @@ _YEARS = flags.DEFINE_integer(
 _SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
 _OUT_DIR = flags.DEFINE_string('out_dir', '', 'Where to write the run.')
 _SOAK = flags.DEFINE_bool('soak', False, 'Report memory and speed as it runs.')
+_MODEL = flags.DEFINE_string(
+    'model',
+    'mock',
+    'Who people think with: mock, or ollama:<model> (a LIVE run).',
+)
+_FOUNDERS = flags.DEFINE_integer(
+    'founders', None, 'How many found the world (the scenario says, if unset).'
+)
+
+
+def _model() -> language_model.LanguageModel | None:
+  """The model people think with (None: the deterministic mock)."""
+  kind, _, name = _MODEL.value.partition(':')
+  if kind == 'mock':
+    return None
+  if kind == 'ollama' and name:
+    from concordia.contrib.language_models.ollama import ollama_model  # pylint: disable=g-import-not-at-top
+
+    return ollama_model.OllamaLanguageModel(name)
+  raise app.UsageError(f'Unknown model: {_MODEL.value}')
 
 
 def _max_rss_mb() -> float:
@@ -66,8 +87,13 @@ def main(argv):
   del argv
   out = _OUT_DIR.value or f'/tmp/lifeways/{_SCENARIO.value}-{_SEED.value}'
   os.makedirs(out, exist_ok=True)
+  label = 'MOCK' if _MODEL.value == 'mock' else f'LIVE ({_MODEL.value})'
   logging.info(
-      'MOCK: %s, seed %d, %d years', _SCENARIO.value, _SEED.value, _YEARS.value
+      '%s: %s, seed %d, %d years',
+      label,
+      _SCENARIO.value,
+      _SEED.value,
+      _YEARS.value,
   )
   with contextlib.ExitStack() as files:
     dead, census, customs = (
@@ -97,10 +123,14 @@ def _run(
     for record in records:
       customs.write(json.dumps(record) + '\n')
 
+  settings = scenarios.settings(
+      _SCENARIO.value, seed=_SEED.value, max_years=_YEARS.value
+  )
+  if _FOUNDERS.value is not None:
+    settings['founders'] = _FOUNDERS.value
   run = simulation.build_simulation(
-      scenarios.settings(
-          _SCENARIO.value, seed=_SEED.value, max_years=_YEARS.value
-      ),
+      settings,
+      model=_model(),
       archive=simulation.Archive(keep=0, sink=bury),
   )
   start = last = time.monotonic()
@@ -137,6 +167,7 @@ def _run(
   world = run.world()
   summary = {
       'scenario': _SCENARIO.value,
+      'model': _MODEL.value,
       'seed': _SEED.value,
       'years': world.year,
       'living': len(world.people),

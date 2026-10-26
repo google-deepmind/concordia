@@ -135,12 +135,21 @@ class SandboxTest(absltest.TestCase):
             plan={'5': 'release belief sacred as a song at 8,8: Sun.'},
         )
     )
+    forgotten = []
+    run.lifecycle.forgotten = forgotten.extend
 
     run.play()
 
     released = [row['released'] for row in run.world().history]
     self.assertEqual(released, [0, 0, 0, 0, 0, 1, 0, 0])
-    self.assertGreater(run.world().history[5]['offers']['release'], 0)
+    # The song is a new variant in the world's record (kept while anyone
+    # who heard it lives, then in the long record).
+    culture = run.world().culture
+    recorded = [c.to_dict() for c in map(culture.get, _ids(culture))]
+    self.assertIn(
+        ('Sun.', 'release'),
+        [(c['text'], c['origin']) for c in recorded + forgotten],
+    )
 
   def test_peoples_are_those_whose_marriage_rules_allow_each_other(self):
     def tongue(words):
@@ -191,6 +200,10 @@ class SandboxTest(absltest.TestCase):
     restored.play()
 
     self.assertEqual(_snapshot(restored), _snapshot(live))
+
+
+def _ids(culture) -> list[str]:
+  return [c['id'] for c in culture.get_state()['customs']]
 
 
 def _spec(

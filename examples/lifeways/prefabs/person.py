@@ -104,7 +104,10 @@ class Person(prefab_lib.Prefab):
     parents = list(self.params.get('parents', ()))
     born = int(self.params.get('born', 0))
     arrived = self.params.get('arrived')
-    who = f'{name}, born in year {born}'
+    if born < 0:
+      who = f'{name}, born {-born} years before the valley was settled'
+    else:
+      who = f'{name}, born in year {born}'
     if parents:
       who += f', child of {" and ".join(parents)}'
     if arrived is not None:

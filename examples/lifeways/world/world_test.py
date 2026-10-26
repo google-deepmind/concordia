@@ -460,6 +460,25 @@ class TransmissionTest(absltest.TestCase):
     self.assertEqual(self.world.culture.get(speech).parent, tongue)
     self.assertIn(speech, [c['id'] for c in child['customs']])
 
+  def test_the_move_an_answer_names_first_is_the_move_made(self):
+    allowed = [world_lib.GATHER, world_lib.REST, f'{world_lib.SHARE} Kari']
+    self.assertEqual(
+        world_lib.first_move('This year I will gather food, by c3.', allowed),
+        world_lib.GATHER,
+    )
+    self.assertEqual(
+        world_lib.first_move('I rest; then I gather food.', allowed),
+        world_lib.REST,
+    )
+    self.assertEqual(
+        world_lib.first_move('Share food with Kari!', allowed),
+        f'{world_lib.SHARE} Kari',
+    )
+    self.assertEqual(
+        world_lib.first_move('share food with Karito', allowed), ''
+    )
+    self.assertEqual(world_lib.first_move('I forage.', allowed), '')
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))

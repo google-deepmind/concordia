@@ -15,6 +15,16 @@ Offline, with the deterministic mock model:
 python -m examples.lifeways.run --years=200 --soak
 ```
 
+With live minds, from a local Ollama (each person-year is one call):
+
+```bash
+python -m examples.lifeways.run --model=ollama:llama3.2:3b --years=6 --founders=6
+```
+
+A mind may say more than its move; the world reads the first move offered
+that the answer names, and credits only the customs it once gave the one who
+answers.
+
 The run writes these files to `--out_dir`:
 
 | File | Contents |
