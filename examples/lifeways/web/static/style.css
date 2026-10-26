@@ -29,6 +29,8 @@
     --paper: #1b1d1a;
     --muted: #a3a69e;
     --line: #3a3d37;
+    --accent: #74c69d;
+    --danger: #e5989b;
   }
 }
 
@@ -81,6 +83,25 @@ canvas {
   padding: 8px 12px;
 }
 #person-customs { padding-left: 18px; }
+#person-kin p { margin: 2px 0; font-size: 0.9rem; }
+button.link {
+  min-height: 0;
+  padding: 0 2px;
+  border: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+#lineage {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+#lineage-variants { list-style: none; padding: 0; }
+#lineage-variants li { margin: 6px 0; border-left: 2px solid var(--line); padding-left: 6px; }
+#lineage-variants .meta, #lineage-variants .holders {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.85rem; }
 

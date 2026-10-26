@@ -30,6 +30,8 @@ and the next server of the same world plays on from the save.
 | `GET /api/state` | the world: map, people, places, pace |
 | `GET /api/census?since=<year>[&world=twin]` | census rows after a year |
 | `GET /api/person?name=<name>` | one person's customs and kin |
+| `GET /api/kin?name=<name>` | a person's family, three generations |
+| `GET /api/lineage?id=<custom>` | a custom's variants, who holds them, from whom |
 | `GET /api/build` | the commit served |
 | `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
@@ -170,6 +172,18 @@ def handler(
           self._json(404, {'error': 'nobody of that name lives'})
         else:
           self._json(200, person)
+      elif path == '/api/kin':
+        kin = session.kin(query.get('name', [''])[0])
+        if kin is None:
+          self._json(404, {'error': 'nobody of that name is remembered'})
+        else:
+          self._json(200, kin)
+      elif path == '/api/lineage':
+        lineage = session.lineage(query.get('id', [''])[0])
+        if lineage is None:
+          self._json(404, {'error': 'no such custom is remembered'})
+        else:
+          self._json(200, lineage)
       elif path in ('/', '/index.html'):
         self._static('index.html')
       elif path.startswith('/static/'):

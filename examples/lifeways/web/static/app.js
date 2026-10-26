@@ -267,13 +267,17 @@ function drawTranscripts(world) {
  * @param {string} name The person's name.
  */
 async function showPerson(name) {
-  const person = await api(`api/person?name=${encodeURIComponent(name)}`);
+  const [person, kin] = await Promise.all([
+    api(`api/person?name=${encodeURIComponent(name)}`),
+    api(`api/kin?name=${encodeURIComponent(name)}`),
+  ]);
   document.getElementById('person-name').textContent = person.name;
   const age = page.world.year - person.born;
   document.getElementById('person-body').textContent =
       `${age} years old, of the ${person.descent || 'valley'}; food ` +
-      `${person.food}; partner: ${person.partner || 'none'}; parents: ` +
-      `${person.parents.join(', ') || 'none'}.`;
+      `${person.food}.`;
+  document.getElementById('person-kin').replaceChildren(...KIN.map(
+      ([key, label]) => kinRow(label, [].concat(kin[key] || []))));
   const list = document.getElementById('person-customs');
   list.replaceChildren(...person.customs.map((custom) => {
     const item = document.createElement('li');
@@ -284,12 +288,172 @@ async function showPerson(name) {
         .filter(([key]) => key !== 'words')
         .map(([key, value]) => `${key} ${value}`).join(', ');
     meta.textContent = `${custom.kind}, ${custom.domain}` +
-        (detail ? `, ${detail}` : '') + ` · came by ${custom.via}`;
+        (detail ? `, ${detail}` : '') + ` · ${cameBy(custom)} · `;
+    const lineage = document.createElement('button');
+    lineage.type = 'button';
+    lineage.className = 'link';
+    lineage.textContent = `lineage of ${custom.id}`;
+    lineage.addEventListener('click', () => showLineage(custom.id));
+    meta.append(lineage);
     item.append(meta);
     return item;
   }));
   document.getElementById('person').hidden = false;
   page.person = person.name;
+}
+
+/** The family the inspector shows: [key in the kin reply, label]. */
+const KIN = [
+  ['grandparents', 'Grandparents'],
+  ['parents', 'Parents'],
+  ['partner', 'Partner'],
+  ['siblings', 'Brothers and sisters'],
+  ['children', 'Children'],
+  ['grandchildren', 'Grandchildren'],
+];
+
+/**
+ * How a person came by a custom, and from whom.
+ * @param {!Object} custom A custom of the inspector's person.
+ * @return {string} E.g. 'came by observation from Mara'.
+ */
+function cameBy(custom) {
+  return `came by ${custom.via || 'birth'}` +
+      (custom.from ? ` from ${custom.from}` : '');
+}
+
+/**
+ * A kin's name as the family list shows it: the dead with when they died.
+ * @param {!Object} kin An entry of the kin reply.
+ * @return {string} E.g. 'Vira', 'Tone (died 63, aged 59)', 'Elor (forgotten)'.
+ */
+function kinName(kin) {
+  if (kin.living) return kin.name;
+  if (!kin.known) return `${kin.name} (forgotten)`;
+  return `${kin.name} (died ${kin.died}, aged ${kin.died - kin.born})`;
+}
+
+/**
+ * What a lineage says of one variant: its id, how and when it arose, who
+ * holds it.
+ * @param {!Object} variant A variant of the lineage reply.
+ * @return {string} E.g. 'c52 · mutation, year 9 · held by 3'.
+ */
+function variantNote(variant) {
+  const held = !variant.living ? 'forgotten: nobody holds it now' :
+      variant.holders.length ? `held by ${variant.holders.length}` :
+      'held by nobody, kept in a place';
+  return `${variant.id} · ${variant.origin}, year ${variant.year} · ${held}`;
+}
+
+/**
+ * One line of the family: the living are links to their own inspector.
+ * @param {string} label What they are.
+ * @param {!Array<!Object>} kin Their entries.
+ * @return {!HTMLElement} The line.
+ */
+function kinRow(label, kin) {
+  const row = document.createElement('p');
+  row.append(`${label}: `);
+  if (!kin.length) row.append('none');
+  kin.forEach((one, i) => {
+    if (i) row.append(', ');
+    if (one.living) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'link';
+      link.textContent = one.name;
+      link.addEventListener('click', () => showPerson(one.name));
+      row.append(link);
+    } else {
+      row.append(kinName(one));
+    }
+  });
+  return row;
+}
+
+/**
+ * Nests a variant's holders under those they had it from (who learned from
+ * whom); a holder whose source holds it no more, or is a place, is a root.
+ * @param {!Array<!Object>} holders {name, via, from} of each holder.
+ * @return {!Array<!Object>} The roots, each with its `learners`.
+ */
+function transmissionTree(holders) {
+  const byName = new Map(holders.map(
+      (h) => [h.name, {...h, learners: []}]));
+  const roots = [];
+  for (const node of byName.values()) {
+    const teacher = node.from && node.from !== node.name ?
+        byName.get(node.from) : undefined;
+    if (teacher && !isUnder(teacher, node)) {
+      teacher.learners.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+/**
+ * Whether `node` is `under` or among its learners (no cycles in the tree).
+ * @param {!Object} node A holder.
+ * @param {!Object} under Another.
+ * @return {boolean}
+ */
+function isUnder(node, under) {
+  if (node === under) return true;
+  return under.learners.some((learner) => isUnder(node, learner));
+}
+
+/**
+ * Writes a transmission tree as text: 'Mara > Ada (observation), Bo'.
+ * @param {!Array<!Object>} roots The tree's roots.
+ * @return {string} The text.
+ */
+function transmissionText(roots) {
+  return roots.map((node) => {
+    const how = node.from ? `${node.via} from ${node.from}` : node.via;
+    const own = `${node.name} (${how})`;
+    return node.learners.length ?
+        `${own} > [${transmissionText(node.learners)}]` : own;
+  }).join(', ');
+}
+
+/**
+ * Shows a custom's lineage: its variants, who holds each and from whom.
+ * @param {string} id A variant's id.
+ */
+async function showLineage(id) {
+  const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
+  document.getElementById('lineage-title').textContent =
+      `The lineage of ${id}` +
+      (lineage.lost_parent ? ` (its ancestor ${lineage.lost_parent} is ` +
+        'forgotten)' : '');
+  const items = lineage.variants.map((variant) => {
+    const item = document.createElement('li');
+    item.style.marginLeft = `${Math.min(variant.depth, 8) * 12}px`;
+    const text = document.createElement('div');
+    text.textContent = variant.text;
+    if (variant.id === id) text.style.fontWeight = '600';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = variantNote(variant);
+    const holders = document.createElement('div');
+    holders.className = 'holders';
+    holders.textContent =
+        transmissionText(transmissionTree(variant.holders));
+    item.append(text, meta, holders);
+    return item;
+  });
+  if (lineage.more) {
+    const more = document.createElement('li');
+    more.textContent = `…and ${lineage.more} more variants.`;
+    items.push(more);
+  }
+  document.getElementById('lineage-variants').replaceChildren(...items);
+  const panel = document.getElementById('lineage');
+  panel.hidden = false;
+  panel.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 /**
@@ -398,6 +562,9 @@ async function start() {
   document.getElementById('person-close').addEventListener('click', () => {
     document.getElementById('person').hidden = true;
   });
+  document.getElementById('lineage-close').addEventListener('click', () => {
+    document.getElementById('lineage').hidden = true;
+  });
   document.getElementById('play').addEventListener('click', async () => {
     await api('api/pace', {paused: !page.world.pace.paused});
     refresh();
@@ -458,6 +625,7 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    askMove, leverChoices, peopleColour, releaseMove, savedNote, twinNote,
+    askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
+    savedNote, transmissionText, transmissionTree, twinNote, variantNote,
   };
 }

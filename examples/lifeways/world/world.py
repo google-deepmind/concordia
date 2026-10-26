@@ -101,7 +101,7 @@ CHILD_ACTS_AGE = 5
 ELDER_AGE = 56
 FERTILE = (16, 45)
 CUSTOM_ID = re.compile(r'\bc(\d+)\b')
-# Names of the dead the world keeps (their lives go to the run's archive).
+# The dead the world remembers, for kin (their lives go to the run's archive).
 DEAD_KEPT = 500
 
 # How customs pass between the living, by channel. A scenario's `channels`
@@ -334,7 +334,9 @@ class World:
     )
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
-    self.dead: list[str] = []
+    # The latest dead, as the valley remembers them (for kin): name, sex,
+    # born, died, parents, children, descent.
+    self.dead: list[dict[str, Any]] = []
     self.named = 0  # Names given so far.
     # This year's answers, by name; pending births, by first parent.
     self.actions: dict[str, str] = {}
@@ -1691,7 +1693,15 @@ class World:
 
   def _die(self, name: str) -> None:
     person = self.people.pop(name)
-    self.dead.append(name)
+    self.dead.append({
+        'name': name,
+        'sex': person.sex,
+        'born': person.born,
+        'died': self.year,
+        'parents': list(person.parents),
+        'children': list(person.children),
+        'descent': person.descent,
+    })
     del self.dead[:-DEAD_KEPT]
     if person.partner in self.people:
       self.people[person.partner].partner = ''
@@ -1805,7 +1815,7 @@ class World:
         'land': self.land.get_state(),
         'culture': self.culture.get_state(),
         'people': [p.to_dict() for p in self.people.values()],
-        'dead': list(self.dead),
+        'dead': [dict(d) for d in self.dead],
         'named': self.named,
         'actions': dict(self.actions),
         'expecting': {k: list(v) for k, v in self.expecting.items()},
@@ -1826,7 +1836,10 @@ class World:
     self.people = {
         str(p['name']): Person.from_dict(p) for p in state.get('people', ())
     }
-    self.dead = [str(d) for d in state.get('dead', ())]
+    self.dead = [
+        dict(d) if isinstance(d, Mapping) else {'name': str(d)}
+        for d in state.get('dead', ())
+    ]
     self.named = int(state.get('named', 0))
     self.actions = {str(k): str(v) for k, v in state.get('actions', {}).items()}
     self.expecting = {

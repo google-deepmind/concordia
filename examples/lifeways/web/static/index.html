@@ -51,6 +51,7 @@ limitations under the License.
   <section id="person" hidden aria-label="A person">
     <h2 id="person-name"></h2>
     <p id="person-body"></p>
+    <div id="person-kin"></div>
     <ul id="person-customs"></ul>
     <form id="ask">
       <label class="wide">Ask them
@@ -59,6 +60,15 @@ limitations under the License.
       <button type="submit">Ask next year</button>
     </form>
     <button id="person-close" type="button">Close</button>
+  </section>
+
+  <section id="lineage" hidden aria-label="A lineage">
+    <h2 id="lineage-title"></h2>
+    <p class="hint">Each variant of the custom, from the oldest remembered
+      down: indented under the one it was copied from with a change. Under
+      each, who holds it, and from whom they had it.</p>
+    <ul id="lineage-variants"></ul>
+    <button id="lineage-close" type="button">Close</button>
   </section>
 
   <section id="graphs" aria-label="The census">

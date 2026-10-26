@@ -51,8 +51,13 @@ python -m examples.lifeways.web.server --port=8921 --base_path=/lifeways
 ```
 
 A phone-first page plays a running world. It draws the valley, the
-peoples and the places, and the census as graphs; tap a person to see
-their customs and how each came. The person on the page is the
+peoples and the places, and the census as graphs. Tap a person to see
+their family over three generations, the dead included as the valley
+remembers them (`World.dead`). Their customs are listed too, with how each
+came and from whom; a person's `Learner` remembers both. Each custom opens
+its lineage: the variants descended from the oldest one remembered, with
+who holds each and whom they had it from. The page remembers the variants
+the world has forgotten, up to a bound. The person on the page is the
 Experimenter: through the stock `HumanActComponent` and a `PageInput`
 adapter, each year it answers with the move the person queued (a release
 from the custom designer, or stopping the world), or else the person's

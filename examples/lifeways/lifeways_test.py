@@ -84,10 +84,16 @@ class SandboxTest(absltest.TestCase):
     names = {e.name for e in run.sim.entities}
 
     self.assertEqual(names, {*world.people, world_lib.EXPERIMENTER})
-    self.assertEqual([r['name'] for r in run.archive.records], world.dead)
+    self.assertEqual(
+        [r['name'] for r in run.archive.records],
+        [d['name'] for d in world.dead],
+    )
     births = sum(row['births'] for row in world.history)
     self.assertGreater(births, 5)
     self.assertNotEmpty(world.dead)
+    for dead in world.dead:  # The valley remembers its dead, for kin.
+      self.assertLessEqual(dead['born'], dead['died'])
+      self.assertContainsSubset({'sex', 'parents', 'children'}, dead)
 
   def test_children_start_with_what_their_parents_passed_on(self):
     run = simulation.build_simulation(scenarios.settings(max_years=20))
@@ -421,6 +427,23 @@ class LearnerTest(absltest.TestCase):
     restored = self._person(uptake={'apprenticeship': 1.0})
     restored.set_state(json.loads(json.dumps(entity.get_state())))
     self.assertEqual(self._customs(restored)['c9'].spec, spec)
+
+  def test_a_person_remembers_whom_a_custom_came_from(self):
+    entity = self._person(uptake={'observation': 1.0, 'reading': 1.0})
+    learner = entity.get_component(person_lib.LEARNER, type_=culture.Learner)
+
+    entity.observe(
+        culture_lib.offer_line(
+            _spec('c3', 'habit', 'food'), 'observation', 'Mara', 2.0
+        )
+        + '\n'
+        + culture_lib.offer_line(_spec('c4', 'belief', 'sacred'), 'reading')
+    )
+
+    came = {h['id']: (h['via'], h['from']) for h in learner.get_state()['held']}
+    self.assertEqual(
+        came, {'c3': ('observation', 'Mara'), 'c4': ('reading', '')}
+    )
 
   def test_an_offer_with_garbled_params_is_passed_over(self):
     entity = self._person(uptake={'release': 1.0})

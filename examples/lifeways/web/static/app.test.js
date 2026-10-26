@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, leverChoices, peopleColour, releaseMove, savedNote, twinNote,
+  askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
+  savedNote, transmissionText, transmissionTree, twinNote, variantNote,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -67,4 +68,50 @@ test('the fork form offers each lever, then each channel to go without', () => {
       leverChoices({levers: {richness: [0.05, 1, 0.2]}, channels: ['story']}),
       [['richness', 'richness (0.05–1; now 0.2)'],
         ['without story', 'without story']]);
+});
+
+test('a custom says how it came and from whom', () => {
+  assert.equal(cameBy({via: 'observation', from: 'Mara'}),
+      'came by observation from Mara');
+  assert.equal(cameBy({via: 'birth', from: ''}), 'came by birth');
+});
+
+test('the dead are named with their years, the forgotten as such', () => {
+  assert.equal(kinName({name: 'Ada', living: true, known: true}), 'Ada');
+  assert.equal(kinName({name: 'Tone', living: false, known: true, born: -4,
+    died: 63}), 'Tone (died 63, aged 67)');
+  assert.equal(kinName({name: 'Elor', living: false, known: false}),
+      'Elor (forgotten)');
+});
+
+test('holders nest under those they had a custom from', () => {
+  const roots = transmissionTree([
+    {name: 'Bo', via: 'observation', from: 'Ada'},
+    {name: 'Ada', via: 'upbringing', from: 'Mara'},
+    {name: 'Cy', via: 'reading', from: ''},
+    {name: 'Di', via: 'observation', from: 'Bo'},
+  ]);
+  assert.equal(transmissionText(roots),
+      'Ada (upbringing from Mara) > [Bo (observation from Ada) > ' +
+      '[Di (observation from Bo)]], Cy (reading)');
+});
+
+test('learning from one another makes no loop', () => {
+  const roots = transmissionTree([
+    {name: 'Ada', via: 'observation', from: 'Bo'},
+    {name: 'Bo', via: 'observation', from: 'Ada'},
+  ]);
+  assert.equal(roots.length, 1);
+  assert.equal(transmissionText(roots),
+      'Bo (observation from Ada) > [Ada (observation from Bo)]');
+});
+
+test('a variant says how it arose and who holds it', () => {
+  const variant = {id: 'c52', origin: 'mutation', year: 9, living: true,
+    holders: [{name: 'Ada'}]};
+  assert.equal(variantNote(variant), 'c52 · mutation, year 9 · held by 1');
+  assert.equal(variantNote({...variant, holders: []}),
+      'c52 · mutation, year 9 · held by nobody, kept in a place');
+  assert.equal(variantNote({...variant, living: false}),
+      'c52 · mutation, year 9 · forgotten: nobody holds it now');
 });

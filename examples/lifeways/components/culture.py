@@ -215,13 +215,15 @@ class Learner(entity_component.ContextComponent):
     with self._lock:
       return list(self._held)
 
-  def _hold(self, spec: Mapping[str, Any], via: str) -> None:
+  def _hold(self, spec: Mapping[str, Any], via: str, source: str = '') -> None:
+    # What the person remembers of a custom: how it came, and from whom.
     self._held[str(spec['id'])] = {
         'kind': str(spec['kind']),
         'domain': str(spec['domain']),
         'level': int(spec.get('params', {}).get('level', 0)),
         'form': culture_lib.form_of(spec),
         'via': via,
+        'from': source,
     }
 
   def _biases(self, entity: entity_agent.EntityAgent) -> str:
@@ -274,7 +276,7 @@ class Learner(entity_component.ContextComponent):
         }
         if self._make_room(entity, spec):
           entity.add_component(component_name(custom_id), Custom(spec), spec)
-          self._hold(spec, offer.group('via'))
+          self._hold(spec, offer.group('via'), offer.group('source') or '')
     return ''
 
   def _make_room(
@@ -327,6 +329,7 @@ class Learner(entity_component.ContextComponent):
               'level': int(held['level']),
               'form': str(held.get('form', '')),
               'via': str(held['via']),
+              'from': str(held.get('from', '')),
           }
           for held in data.get('held', ())
       }

@@ -35,7 +35,7 @@ the one difference between them; the page draws their census together.
 """
 
 import collections
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 import json
 import os
 import threading
@@ -59,6 +59,15 @@ ROWS_KEPT = 400
 SAVE_VERSION = 1
 # The name the asynchronous engine gives its entity loops' threads.
 ENGINE_THREADS = 'entity_loop'
+# Variants nobody holds any more that the page remembers, for lineages.
+FORGOTTEN_KEPT = 2000
+# The most variants of one lineage the page is sent.
+LINEAGE_SHOWN = 80
+
+
+def _number(custom_id: str) -> int:
+  """A custom's number, for ordering (c12 after c9)."""
+  return int(custom_id[1:]) if custom_id[1:].isdigit() else 0
 
 
 def await_engines(timeout: float = 10.0) -> None:
@@ -205,6 +214,10 @@ class Session:
         maxlen=ROWS_KEPT
     )
     self._rows_lock = threading.Lock()
+    # Variants the world forgot (nobody holds them), latest last.
+    self._forgotten: collections.OrderedDict[str, dict[str, Any]] = (
+        collections.OrderedDict()
+    )
     self._thread: threading.Thread | None = None
     self.error: str = ''
     # When the person last did anything (a move, the pace, a stop).
@@ -240,7 +253,16 @@ class Session:
         ),
     )
     run.lifecycle.year_closed = self._year_closed
+    run.lifecycle.forgotten = self._forget
     return run
+
+  def _forget(self, customs: Sequence[Mapping[str, Any]]) -> None:
+    # In the World GM's lock, as the year closes.
+    with self._rows_lock:
+      for custom in customs:
+        self._forgotten[str(custom['id'])] = dict(custom)
+      while len(self._forgotten) > FORGOTTEN_KEPT:
+        self._forgotten.popitem(last=False)
 
   def start(self) -> None:
     """Plays the world in a thread of its own until it ends or is closed."""
@@ -303,11 +325,13 @@ class Session:
     checkpoint['raw_log'] = []  # Nobody reads it; a restore needs none.
     with self._rows_lock:
       rows = list(self._rows)
+      forgotten = list(self._forgotten.values())
     return {
         'version': SAVE_VERSION,
         'world': self._identity,
         'year': year,
         'rows': rows,
+        'forgotten': forgotten,
         'pace': self.input.settings(),
         'checkpoint': checkpoint,
     }
@@ -376,6 +400,8 @@ class Session:
     simulation.load_checkpoint(self.run, saved['checkpoint'])
     with self._rows_lock:
       self._rows.extend(saved.get('rows', ()))
+      for custom in saved.get('forgotten', ()):
+        self._forgotten[str(custom['id'])] = dict(custom)
     pace = saved.get('pace', {})
     self.input.pace(pace.get('years_per_second'), pace.get('paused'))
     if pace.get('paused'):
@@ -569,7 +595,7 @@ class Session:
     learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
         person_lib.LEARNER, type_=culture.Learner
     )
-    came_by = {held['id']: held['via'] for held in learner.get_state()['held']}
+    came_by = {held['id']: held for held in learner.get_state()['held']}
     customs = [
         {
             'id': c.id,
@@ -577,7 +603,8 @@ class Session:
             'domain': c.domain,
             'text': c.spec['text'],
             'params': dict(c.spec.get('params', {})),
-            'via': came_by.get(c.id, ''),
+            'via': came_by.get(c.id, {}).get('via', ''),
+            'from': came_by.get(c.id, {}).get('from', ''),
         }
         for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
         if isinstance(c, culture.Custom)
@@ -589,6 +616,150 @@ class Session:
         'children': body.get('children', []),
         'descent': body.get('descent', ''),
         'customs': sorted(customs, key=lambda c: (c['domain'], c['kind'])),
+    }
+
+  def lineage(self, custom_id: str) -> dict[str, Any] | None:
+    """A custom's family of variants, and who holds each and from whom.
+
+    The variants are the world's living culture and the variants it forgot
+    that the page remembers (`FORGOTTEN_KEPT`), from the oldest ancestor
+    remembered down, depth first. Who holds each is read from the living's
+    Learners (measurement): how it came to them, and from whom.
+
+    Args:
+      custom_id: Any variant of the lineage.
+
+    Returns:
+      The root, the parent lost beyond it (if any), the variants with their
+      depth and holders (at most `LINEAGE_SHOWN`), and how many more there
+      are; or None if the variant is not known.
+    """
+    world = self.run.world_state()
+    with self._rows_lock:
+      known: dict[str, dict[str, Any]] = {
+          i: {**c, 'living': False} for i, c in self._forgotten.items()
+      }
+    known.update({
+        str(c['id']): {**c, 'living': True} for c in world['culture']['customs']
+    })
+    if custom_id not in known:
+      return None
+    root, seen = custom_id, {custom_id}
+    while True:
+      parent = str(known[root].get('parent') or '')
+      if parent not in known or parent in seen:
+        break
+      root = parent
+      seen.add(root)
+    children: dict[str, list[str]] = collections.defaultdict(list)
+    for i, custom in known.items():
+      if custom.get('parent'):
+        children[str(custom['parent'])].append(i)
+    holders = self._holders(world)
+    variants, stack, visited = [], [(root, 0)], set()
+    while stack:
+      i, depth = stack.pop()
+      if i in visited:
+        continue
+      visited.add(i)
+      custom = known[i]
+      variants.append({
+          **{
+              k: custom.get(k)
+              for k in ('id', 'kind', 'domain', 'text', 'parent', 'origin')
+          },
+          'year': custom.get('year', 0),
+          'params': {
+              k: v
+              for k, v in dict(custom.get('params', {})).items()
+              if k != 'words'
+          },
+          'living': custom['living'],
+          'depth': depth,
+          'holders': holders.get(i, []),
+      })
+      stack.extend(
+          (child, depth + 1)
+          for child in sorted(children[i], key=_number, reverse=True)
+      )
+    return {
+        'id': custom_id,
+        'root': root,
+        'lost_parent': str(known[root].get('parent') or ''),
+        'variants': variants[:LINEAGE_SHOWN],
+        'more': max(0, len(variants) - LINEAGE_SHOWN),
+    }
+
+  def _holders(
+      self, world: Mapping[str, Any]
+  ) -> dict[str, list[dict[str, str]]]:
+    """Who holds each variant, how it came and from whom (their Learners)."""
+    living = {p['name'] for p in world['people']}
+    holders: dict[str, list[dict[str, str]]] = collections.defaultdict(list)
+    for entity in list(self.run.sim.entities):
+      if entity.name not in living:
+        continue
+      learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+          person_lib.LEARNER, type_=culture.Learner
+      )
+      for held in learner.get_state()['held']:
+        holders[held['id']].append({
+            'name': entity.name,
+            'via': held['via'],
+            'from': held.get('from', ''),
+        })
+    return holders
+
+  def kin(self, name: str) -> dict[str, Any] | None:
+    """A person's family, three generations, the living and remembered dead.
+
+    Args:
+      name: A living person, or one of the dead the world remembers.
+
+    Returns:
+      The person, partner, grandparents, parents, siblings, children and
+      grandchildren, each with sex, birth, death (if dead) and descent; or
+      None if nobody of that name is known.
+    """
+    world = self.run.world_state()
+    living = {p['name']: p for p in world['people']}
+    dead = {d['name']: d for d in world.get('dead', ())}
+    if name not in living and name not in dead:
+      return None
+
+    def record(who: str) -> Mapping[str, Any]:
+      return living.get(who) or dead.get(who) or {}
+
+    def entry(who: str) -> dict[str, Any]:
+      found = record(who)
+      return {
+          'name': who,
+          'living': who in living,
+          'known': bool(found),
+          'sex': found.get('sex', ''),
+          'born': found.get('born'),
+          'died': found.get('died'),
+          'descent': found.get('descent', ''),
+      }
+
+    parents = list(record(name).get('parents', ()))
+    children = list(record(name).get('children', ()))
+    siblings = sorted(
+        {s for p in parents for s in record(p).get('children', ())} - {name}
+    )
+    partner = str(record(name).get('partner', '') or '')
+    return {
+        'person': entry(name),
+        'partner': entry(partner) if partner else None,
+        'grandparents': [
+            entry(g) for p in parents for g in record(p).get('parents', ())
+        ],
+        'parents': [entry(p) for p in parents],
+        'siblings': [entry(s) for s in siblings],
+        'children': [entry(c) for c in children],
+        'grandchildren': [
+            entry(g) for c in children for g in record(c).get('children', ())
+        ],
     }
 
   # --- What the page does -----------------------------------------------

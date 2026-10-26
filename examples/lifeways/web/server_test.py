@@ -18,6 +18,7 @@ import json
 import os
 import threading
 import time
+from typing import Any
 import urllib.error
 import urllib.request
 
@@ -41,6 +42,11 @@ def _wait(condition, seconds: float = 30.0) -> bool:
 def _forked_in(twin: session_lib.Session) -> int:
   assert twin.twin_of is not None, 'not a twin'
   return int(twin.twin_of['year'])
+
+
+def _known(found: dict[str, Any] | None) -> dict[str, Any]:
+  assert found is not None, 'not known'
+  return found
 
 
 class PageInputTest(absltest.TestCase):
@@ -297,6 +303,73 @@ class TwinTest(absltest.TestCase):
       engine.play()
 
 
+class TreesTest(absltest.TestCase):
+
+  @classmethod
+  def setUpClass(cls):
+    super().setUpClass()
+    cls.session = session_lib.Session(years_per_second=50)
+    cls.session.start()
+    assert _wait(lambda: cls.session.state()['year'] >= 40, 60)
+    cls.session.pace(paused=True)
+    time.sleep(0.3)
+
+  @classmethod
+  def tearDownClass(cls):
+    cls.session.close()
+    super().tearDownClass()
+
+  def test_a_lineage_runs_from_the_oldest_variant_down(self):
+    customs = self.session.run.world_state()['culture']['customs']
+    child = next(c for c in customs if c['parent'])
+
+    lineage = _known(self.session.lineage(child['id']))
+
+    variants = lineage['variants']
+    self.assertEqual(variants[0]['id'], lineage['root'])
+    self.assertEqual(variants[0]['depth'], 0)
+    self.assertIn(child['id'], [v['id'] for v in variants])
+    depth = {variants[0]['id']: 0}
+    for variant in variants[1:]:  # Each under the one it was copied from.
+      self.assertEqual(variant['depth'], depth[variant['parent']] + 1)
+      depth[variant['id']] = variant['depth']
+    self.assertIsNone(self.session.lineage('c999999'))
+
+  def test_holders_say_how_and_from_whom_they_had_a_custom(self):
+    living = {p['name'] for p in self.session.state()['people']}
+    held = [
+        h
+        for c in self.session.run.world_state()['culture']['customs']
+        for v in (self.session.lineage(c['id']) or {'variants': []})['variants']
+        if v['id'] == c['id']
+        for h in v['holders']
+    ]
+
+    self.assertNotEmpty(held)
+    self.assertContainsSubset({h['name'] for h in held}, living)
+    self.assertTrue(any(h['via'] == 'observation' and h['from'] for h in held))
+
+  def test_kin_reach_the_remembered_dead(self):
+    world = self.session.run.world_state()
+    people = {p['name']: p for p in world['people']}
+    young = min(people.values(), key=lambda p: -p['born'])
+
+    kin = _known(self.session.kin(young['name']))
+
+    self.assertEqual([p['name'] for p in kin['parents']], young['parents'])
+    for parent in kin['parents']:
+      self.assertEqual(parent['living'], parent['name'] in people)
+    dead = world['dead'][-1]
+    remembered = _known(self.session.kin(dead['name']))
+    self.assertFalse(remembered['person']['living'])
+    self.assertEqual(remembered['person']['died'], dead['died'])
+    for child in remembered['children']:
+      child_kin = self.session.kin(child['name'])
+      if child_kin is not None:  # A child the valley still remembers.
+        self.assertIn(dead['name'], [p['name'] for p in child_kin['parents']])
+    self.assertIsNone(self.session.kin('Nobody'))
+
+
 class ServerTest(absltest.TestCase):
 
   def setUp(self):
@@ -406,8 +479,26 @@ class ServerTest(absltest.TestCase):
     self.assertEqual(self._post('/api/twin', {'end': True}), {'twin': None})
     self.assertIsNone(self._get('/api/state')['twin'])
 
+  def test_the_page_reads_kin_and_lineages(self):
+    self.assertTrue(_wait(lambda: self._get('/api/state')['year'] >= 3))
+    name = self._get('/api/state')['people'][0]['name']
+
+    kin = self._get(f'/api/kin?name={name}')
+    person = self._get(f'/api/person?name={name}')
+    lineage = self._get(f'/api/lineage?id={person["customs"][0]["id"]}')
+
+    self.assertEqual(kin['person']['name'], name)
+    self.assertIn('from', person['customs'][0])
+    self.assertNotEmpty(lineage['variants'])
+
   def test_unknown_paths_and_people_are_not_found(self):
-    for path in ('/api/nothing', '/static/../server.py', '/api/person?name=Zz'):
+    for path in (
+        '/api/nothing',
+        '/static/../server.py',
+        '/api/person?name=Zz',
+        '/api/kin?name=Zz',
+        '/api/lineage?id=c999999',
+    ):
       with self.assertRaises(urllib.error.HTTPError) as caught:
         self._get(path)
       self.assertEqual(caught.exception.code, 404)
