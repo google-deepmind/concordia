@@ -48,7 +48,20 @@ class Land:
       richness: float = 1.0,
       regrowth: float = REGROWTH,
       seed_bank: float = SEED_BANK,
+      ridge: Mapping[str, Any] | None = None,
   ):
+    """Makes the land.
+
+    Args:
+      rows: The map's rows.
+      cols: The map's columns.
+      seed: The world seed (the terrain is drawn from it).
+      richness: Scales every tile's food.
+      regrowth: The logistic rate food regrows by in a year.
+      seed_bank: The share of its capacity even a bare tile regrows.
+      ridge: Optional. Hills from edge to edge at column `col` (`width`
+        columns wide) but for a pass at rows `gap` (first and last).
+    """
     self.rows, self.cols = int(rows), int(cols)
     # Scales every tile's food; with the regrowth, how many the land feeds.
     self.richness = float(richness)
@@ -78,6 +91,13 @@ class Land:
         'marsh'
     )
     terrain[:, 0] = TERRAIN.index('coast')
+    if ridge:
+      # A line of hills from edge to edge, but for a pass: two valleys.
+      col, width = int(ridge['col']), int(ridge.get('width', 2))
+      low, high = (int(r) for r in ridge.get('gap', (0, -1)))
+      for row in range(self.rows):
+        kind = 'grass' if low <= row <= high else 'hills'
+        terrain[row, col : col + width] = TERRAIN.index(kind)
     self.terrain = terrain
     self.food = self._capacities()
 
@@ -109,9 +129,20 @@ class Land:
           found.append(self.wrap(r + dr, c + dc))
     return found
 
-  def best_near(self, tile: Tile) -> Tile:
-    """The neighbouring tile with the most food (ties: the first)."""
-    return max(self.around(tile), key=lambda t: (round(self.food[t], 6),))
+  def best_near(self, tile: Tile, radius: int = 1) -> Tile:
+    """The tile within `radius` steps whose surroundings hold most food.
+
+    Args:
+      tile: Where from.
+      radius: How far a person looks for better land.
+
+    Returns:
+      The best tile (ties: the nearest in the order `around` gives).
+    """
+    return max(
+        self.around(tile, radius),
+        key=lambda t: (round(self.around_food(t), 6),),
+    )
 
   def around_food(self, tile: Tile) -> float:
     """The food within a day's walk (the tile and its neighbours)."""

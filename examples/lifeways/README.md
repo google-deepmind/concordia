@@ -24,6 +24,17 @@ The run writes these files to `--out_dir`:
 | `customs.jsonl` | each variant of a custom once nobody living holds it, with its parent: the long record of culture |
 | `summary.json` | the run's totals, with memory use and seconds per year (`--soak`) |
 
+## Scenarios
+
+The Sandbox is where everything is, and its presets are settings, not code
+(`scenarios.py`; `--scenario=...`):
+
+| Scenario | What it asks |
+|---|---|
+| `sandbox` | Open Country: the River people found a valley; Hill people may come when it is nearly empty. Everything is on. |
+| `plasmid_soup` | Everyone buds alone; customs move freely (people watch from afar, read texts the Experimenter leaves, hear sermons); there are no peoples. Do traditions form without peoples? How fast do customs sweep? |
+| `two_valleys` | Two peoples with their own tongues, beliefs and marriage rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or both? |
+
 ## How it fits Concordia
 
 It runs on the stock `prefabs/simulation/generic.Simulation` and the stock
@@ -162,6 +173,12 @@ have the other. A marriage rule is a custom (`marriage`): marry one who
 speaks as we do, or only our own people; it shapes whom a mind courts,
 never what the world allows. `Run.peoples` measures the peoples: clusters
 of the grown whose marriage rules allow each other.
+
+**Work and land.** Whatever a person does with its year, it forages a
+little on the way (`subsistence`); gathering is the year's work on top of
+it. One who moves looks for better land within a few steps (`roam`). The
+land regrows each year, and its richness sets how many it feeds: in the
+Sandbox, about 40 (25-80), without anyone arriving.
 
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'

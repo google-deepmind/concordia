@@ -311,6 +311,7 @@ class World:
         richness=float(settings.get('richness', 0.45)),
         regrowth=float(settings.get('regrowth', land_lib.REGROWTH)),
         seed_bank=float(settings.get('seed_bank', land_lib.SEED_BANK)),
+        ridge=settings.get('ridge'),
     )
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
@@ -342,7 +343,8 @@ class World:
 
     Args:
       founders: For each founder, its person prefab's `params` (name, birth
-        year, sex, customs with their ids), its `tile` and its `food`.
+        year, sex, customs with their ids), its `tile`, its `food` and its
+        `people`.
     """
     for founder in founders:
       params = founder['params']
@@ -356,7 +358,7 @@ class World:
           food=float(founder['food']),
           given=[str(spec['id']) for spec in params.get('customs', ())],
           speech=self._dialect(params.get('customs', ())),
-          descent=str(self.settings.get('people', 'River people')),
+          descent=str(founder.get('people', self.settings.get('people', ''))),
       )
       self.people[person.name] = person
       self._tell(person.name, self._birth_story(person, founder=True))
@@ -588,19 +590,23 @@ class World:
     ]
 
   def _suitors(self, person: Person, most: int = 3) -> list[str]:
-    """The nearest grown singles a person may court (not kin)."""
-    return sorted(
-        (
-            other
-            for other in self.living()
-            if other != person.name
-            and not self.people[other].partner
-            and self.people[other].age(self.year) >= ADULT_AGE
-            and self.people[other].sex not in ('', person.sex)
-            and not self._kin(person, self.people[other])
-        ),
+    """The grown singles a person may court (not kin): first those courting
+    the person, then the nearest others, `most` of them."""
+    singles = [
+        other
+        for other in self.living()
+        if other != person.name
+        and not self.people[other].partner
+        and self.people[other].age(self.year) >= ADULT_AGE
+        and self.people[other].sex not in ('', person.sex)
+        and not self._kin(person, self.people[other])
+    ]
+    wooing = [o for o in singles if self.courting.get(o) == person.name]
+    nearest = sorted(
+        (o for o in singles if o not in wooing),
         key=lambda o: (self._distance(person, o), o),
-    )[:most]
+    )
+    return wooing + nearest[:most]
 
   def _in_sight(self, person: Person) -> list[str]:
     """The others living within sight of a person, by name."""
@@ -678,7 +684,12 @@ class World:
           if self.understanding(person.name, other) >= culture_lib.SAME_TONGUE
           else 'speaks strangely'
       )
-      seen.append(f'{other} ({speaks}, of the {self.people[other].descent})')
+      wooing = (
+          'courting you, ' if self.courting.get(other) == person.name else ''
+      )
+      seen.append(
+          f'{other} ({wooing}{speaks}, of the {self.people[other].descent})'
+      )
     if not seen:
       return ''
     return f' Unpartnered near you: {", ".join(seen)}.'
@@ -726,6 +737,7 @@ class World:
       if name in self.people:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._release(self.actions.get(EXPERIMENTER, ''))
+    self._forage(did)
     self._apprentice(did)
     self._schools(did)
     self._rites(did)
@@ -807,7 +819,9 @@ class World:
         effort *= self._skill(enacted, culture_lib.FOOD)
       person.food += self.land.gather(person.tile, effort)
     elif move == MOVE:
-      person.tile = self.land.best_near(person.tile)
+      person.tile = self.land.best_near(
+          person.tile, int(self.settings.get('roam', 1))
+      )
     elif move == CHILD and self._may_have_child(person):
       parents = [name] + ([person.partner] if person.partner else [])
       self.expecting[name] = parents
@@ -952,6 +966,26 @@ class World:
       place = standing[0]
     if enacted:
       self.places.keep(place, person.name, enacted, self.year)
+
+  def _forage(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """Everyone old enough forages a little, whatever else they did.
+
+    Whatever a person does with its year, it finds some food on the way
+    (`subsistence`: a grown person's, half of it for a child); gathering
+    is the year's work on top of it.
+
+    Args:
+      did: This year's moves.
+    """
+    subsistence = float(self.settings.get('subsistence', 0.0))
+    if subsistence <= 0:
+      return
+    for name in sorted(did):
+      person = self.people[name]
+      if did[name][0] in (GATHER, APPRENTICE):
+        continue
+      share = 1.0 if person.age(self.year) >= ADULT_AGE else 0.5
+      person.food += self.land.gather(person.tile, subsistence * share)
 
   def _release(self, answer: str) -> None:
     """Puts a custom the Experimenter designed into the world.
@@ -1435,7 +1469,7 @@ class World:
         speech = self.culture.copy(
             mother.speech,
             rng,
-            float(self.settings.get('dialect_drift', 0.1)),
+            float(self.settings.get('dialect_drift', 0.02)),
             self.year,
         ).id
         ids = [

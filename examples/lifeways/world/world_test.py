@@ -249,6 +249,17 @@ class TransmissionTest(absltest.TestCase):
     self.assertEqual(self.world.people['Ada'].partner, 'Cy')
     self.assertEqual(sorted(self.world.courting), ['Bo'])
 
+  def test_one_courted_sees_who_courts_them_whatever_the_distance(self):
+    self._person('Ada', 20, (5, 5))
+    for i, name in enumerate(('Bo', 'Cy', 'Di', 'Ed')):
+      self._person(name, 20, (5, 6 + i)).sex = 'm'
+    far = self._person('Far', 20, (12, 20))
+    far.sex = 'm'
+    self.world.courting = {'Far': 'Ada'}
+
+    self.assertIn(f'{world_lib.COURT_ONE} Far', self.world.moves('Ada'))
+    self.assertIn('Far (courting you,', self.world.status('Ada'))
+
   def test_siblings_never_pair(self):
     self._person('Mum', 40, (5, 5))
     self._person('Ada', 20, (5, 5), parents=['Mum'])

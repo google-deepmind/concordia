@@ -125,11 +125,14 @@ INTERNALIZED = 'internalized'
 
 # How the GM offers a custom in an observation, and how a Learner reads it:
 # its spec, the channel it came by, and (seen in someone) who and how well fed.
+# The line ends with the custom's full params as JSON, so a learner holds
+# exactly what was offered (a marriage rule's terms, a dialect's words).
 OFFER = re.compile(
     r'\[custom id=(?P<id>c\d+) kind=(?P<kind>\w+) domain=(?P<domain>\w+)'
     r'(?: level=(?P<level>\d+))?(?: form=(?P<form>\w+))? via=(?P<via>\w+)'
     r'(?: from=(?P<source>[^ \]]+) stores=(?P<stores>\d+(?:\.\d+)?))?\]'
-    r' (?P<text>[^\n]*)'
+    r' (?P<text>[^\n]*?)(?: \|params=(?P<params>\{[^\n]*\}))?$',
+    re.MULTILINE,
 )
 
 
@@ -161,9 +164,10 @@ def offer_line(
       if source and stores is not None
       else ''
   )
+  full = f' |params={json.dumps(params, sort_keys=True)}' if params else ''
   return (
       f'[custom id={spec["id"]} kind={spec["kind"]} domain={spec["domain"]}'
-      f'{detail} via={via}{seen}] {spec["text"]}'
+      f'{detail} via={via}{seen}] {spec["text"]}{full}'
   )
 
 

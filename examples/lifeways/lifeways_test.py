@@ -205,6 +205,40 @@ def _spec(
   }
 
 
+class PresetTest(absltest.TestCase):
+
+  def test_two_valleys_are_two_peoples_parted_by_a_ridge(self):
+    settings = scenarios.settings('two_valleys', max_years=2)
+    run = simulation.build_simulation(settings)
+    land = run.world().land
+    ridge = settings['ridge']
+    col, (low, high) = ridge['col'], ridge['gap']
+    kinds = [land.kind((row, col)) for row in range(land.rows)]
+    self.assertEqual(
+        [row for row, kind in enumerate(kinds) if kind != 'hills'],
+        list(range(low, high + 1)),
+    )
+
+    run.play()
+
+    self.assertEqual(run.peoples()['peoples'], 2)
+    descents = {p.descent for p in run.world().people.values()}
+    self.assertEqual(descents, {'West people', 'East people'})
+
+  def test_in_plasmid_soup_people_bud_alone(self):
+    run = simulation.build_simulation(
+        scenarios.settings('plasmid_soup', max_years=30)
+    )
+    run.play()
+
+    world = run.world()
+    self.assertGreater(sum(row['births'] for row in world.history), 0)
+    self.assertEqual({p.sex for p in world.people.values()}, {''})
+    self.assertEqual(
+        [row['released'] for row in world.history if row['year'] == 20], [1]
+    )
+
+
 class ArchiveTest(absltest.TestCase):
 
   def test_it_keeps_only_the_most_recent_and_sinks_all(self):
@@ -277,6 +311,23 @@ class LearnerTest(absltest.TestCase):
     restored = self._person(uptake={'apprenticeship': 1.0})
     restored.set_state(json.loads(json.dumps(entity.get_state())))
     self.assertEqual(self._customs(restored)['c9'].spec, spec)
+
+  def test_an_offer_carries_the_whole_custom(self):
+    entity = self._person(uptake={'upbringing': 1.0})
+    rule = _spec('c7', 'marriage', 'kinship')
+    rule['params'] = {'within': 'descent'}
+    tongue = _spec('c8', 'dialect', 'language')
+    tongue['params'] = {'words': ['ka', 'ri']}
+
+    entity.observe(
+        culture_lib.offer_line(rule, 'upbringing', 'Mum', 2.0)
+        + '\n'
+        + culture_lib.offer_line(tongue, 'upbringing', 'Mum', 2.0)
+    )
+
+    customs = self._customs(entity)
+    self.assertEqual(customs['c7'].spec, rule)
+    self.assertEqual(customs['c8'].spec, tongue)
 
   def test_a_new_custom_replaces_the_one_of_its_kind_and_domain(self):
     entity = self._person(

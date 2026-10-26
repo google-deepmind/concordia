@@ -23,6 +23,7 @@ customs within capacity.
 """
 
 from collections.abc import Callable, Mapping
+import json
 import re
 import threading
 from typing import Any, cast, override
@@ -252,7 +253,11 @@ class Learner(entity_component.ContextComponent):
         if draw >= 1.0 - missed:
           continue
         offer = seen[int(np.argmax(chances))]
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = (
+            dict(json.loads(offer.group('params')))
+            if offer.group('params')
+            else {}
+        )
         if offer.group('level'):
           params['level'] = int(offer.group('level'))
         if offer.group('form'):

@@ -29,10 +29,14 @@ SANDBOX: Mapping[str, Any] = {
     'cols': 24,
     # The land: how much each tile carries, how fast food regrows and what
     # even a bare tile regrows. Together they set how many people the valley
-    # feeds (here 20-60 or so).
-    'richness': 0.45,
+    # feeds (here 25-80, about 40).
+    'richness': 0.25,
     'regrowth': 0.5,
     'seed_bank': 0.06,
+    # What a person forages in a year whatever else it does (a child half);
+    # gathering is the year's work on top of it.
+    'subsistence': 1.0,
+    'roam': 3,  # How far one moving looks for better land.
     'founders': 12,
     'people': 'River people',  # The founders' people, by descent.
     'mode': 'sexual',
@@ -40,7 +44,7 @@ SANDBOX: Mapping[str, Any] = {
     # A child's speech drifts from its mother's by a word with this chance;
     # talk between dialects adds `garble` times their misunderstanding to the
     # chance of a copying error.
-    'dialect_drift': 0.1,
+    'dialect_drift': 0.02,
     'garble': 0.5,
     # The channels customs pass by among the living, and their reach and
     # fidelity; leave one out and it does not exist.
@@ -198,8 +202,175 @@ SANDBOX: Mapping[str, Any] = {
     ],
 }
 
+
+def _tongue(name: str, words: list[str]) -> dict[str, Any]:
+  return {
+      'kind': 'dialect',
+      'domain': 'language',
+      'text': f'The {name} tongue: {" ".join(words)}.',
+      'params': {'words': words},
+  }
+
+
+# Customs any people of the presets may start with.
+_WORK = [
+    {
+        'kind': 'norm',
+        'domain': 'kinship',
+        'text': 'We raise a child only when the stores can feed it.',
+    },
+    {
+        'kind': 'skill',
+        'domain': 'food',
+        'text': 'Smoking fish over green alder.',
+        'params': {'level': 2},
+    },
+    {
+        'kind': 'habit',
+        'domain': 'food',
+        'text': 'In lean years, gather before anything else.',
+    },
+]
+_SHARING = {
+    'kind': 'norm',
+    'domain': 'sharing',
+    'text': 'We share our food with those near us who go hungry.',
+}
+_READING = {
+    'kind': 'skill',
+    'domain': 'learning',
+    'text': 'Reading and writing marks on birch bark.',
+    'params': {'level': 1},
+}
+
+# Plasmid Soup: everyone buds alone, and customs move freely, by watching
+# from afar, by texts and by sermons; there are no peoples and no marriage
+# rules. Do traditions form without peoples? How fast do customs sweep?
+PLASMID_SOUP: Mapping[str, Any] = {
+    'mode': 'asexual',
+    'richness': 0.2,  # Everyone buds: a poorer land feeds as many.
+    'people': 'valley',
+    'arrivals': None,
+    'channels': {
+        **copy.deepcopy(dict(world_lib.DEFAULT_CHANNELS)),
+        'observation': {
+            'radius': 3,
+            'witnessed': 5,
+            'mutation': 0.05,
+            'form': 'known',
+        },
+    },
+    'founding_customs': [
+        *_WORK,
+        {**_SHARING, 'held_by': 0.5},
+        {**_READING, 'held_by': 0.5},
+        _tongue('valley', ['ka', 'ri', 'to', 'ma', 'el', 'an', 'so', 'vi']),
+        {
+            'kind': 'belief',
+            'domain': 'sacred',
+            'text': 'The river is a god.',
+            'held_by': 1 / 3,
+        },
+        {
+            'kind': 'belief',
+            'domain': 'sacred',
+            'text': 'The sky watches all we do.',
+            'held_by': 1 / 3,
+        },
+        {
+            'kind': 'belief',
+            'domain': 'sacred',
+            'text': 'The dead walk beside us.',
+            'held_by': 1 / 3,
+        },
+        {
+            'kind': 'bias',
+            'domain': 'learning',
+            'text': 'Try new ways.',
+            'held_by': 0.5,
+        },
+    ],
+    # Texts left in the world, and songs: the soup's plasmids.
+    'plan': {
+        '20': 'release belief sacred as a text at 8,8: The stars are fires.',
+        '40': 'release value identity as a song at 8,8: We belong to no one.',
+        '60': 'release norm sharing as a text at 8,8: Give to the stranger.',
+    },
+}
+
+# Two Valleys: two peoples with their own tongues, beliefs and marriage
+# rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or
+# both, over centuries?
+TWO_VALLEYS: Mapping[str, Any] = {
+    'rows': 20,
+    'cols': 40,
+    'ridge': {'col': 20, 'width': 2, 'gap': [9, 10]},
+    'arrivals': None,
+    'groups': [
+        {
+            'people': 'West people',
+            'home': [10, 9],
+            'founders': 12,
+            'founding_customs': [
+                *_WORK,
+                {**_SHARING, 'held_by': 0.5},
+                {**_READING, 'held_by': 0.3},
+                _tongue(
+                    'West', ['ka', 'ri', 'to', 'ma', 'el', 'an', 'so', 'vi']
+                ),
+                {
+                    'kind': 'marriage',
+                    'domain': 'kinship',
+                    'text': 'We marry one who speaks as we do.',
+                    'params': {'within': 'tongue'},
+                },
+                {
+                    'kind': 'belief',
+                    'domain': 'sacred',
+                    'text': 'The river is a god.',
+                },
+                {
+                    'kind': 'value',
+                    'domain': 'identity',
+                    'text': 'We are the West people, children of the river.',
+                },
+            ],
+        },
+        {
+            'people': 'East people',
+            'home': [10, 30],
+            'founders': 12,
+            'founding_customs': [
+                *_WORK,
+                {**_READING, 'held_by': 0.3},
+                _tongue(
+                    'East', ['gun', 'tem', 'wen', 'den', 'bo', 'ha', 'yo', 'lu']
+                ),
+                {
+                    'kind': 'marriage',
+                    'domain': 'kinship',
+                    'text': 'We marry only our own people.',
+                    'params': {'within': 'descent'},
+                },
+                {
+                    'kind': 'belief',
+                    'domain': 'sacred',
+                    'text': 'The mountain keeps the dead.',
+                },
+                {
+                    'kind': 'value',
+                    'domain': 'identity',
+                    'text': 'We are the East people; the mountain is ours.',
+                },
+            ],
+        },
+    ],
+}
+
 PRESETS: Mapping[str, Mapping[str, Any]] = {
     'sandbox': {},
+    'plasmid_soup': PLASMID_SOUP,
+    'two_valleys': TWO_VALLEYS,
 }
 
 
@@ -216,58 +387,70 @@ def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:
   """The founders of a world: who they are, where, and what they hold.
 
   Made once from the settings, for the person prefabs and the World GM
-  alike. A founding custom is held by every founder, or by the share of them
-  its `held_by` says (drawn from the seed), among those who hold nothing of
-  its kind and domain yet: listing a norm known by half the founders after
-  the same norm internalized by a quarter gives the rest none.
+  alike. The founders come in groups (`groups`: each a `people`, a `home`
+  tile, a number of `founders` and their `founding_customs`), or in one
+  group from the top-level settings of those names. Within a group, a
+  founding custom is held by every founder, or by the share of them its
+  `held_by` says (drawn from the seed), among those who hold nothing of its
+  kind and domain yet: listing a norm known by half the founders after the
+  same norm internalized by a quarter gives the rest none.
 
   Args:
     settings: The world's settings.
 
   Returns:
     For each founder: `params` (its person prefab's: name, birth year, sex,
-    the world seed and its customs' specs with their ids), `tile` and
-    `food`.
+    the world seed and its customs' specs with their ids), `tile`, `food`
+    and `people`.
   """
   seed = int(settings.get('seed', 0))
-  count = int(settings.get('founders', 12))
-  culture = culture_lib.Culture()
-  holders: dict[str, set[int]] = {}
-  loci: dict[tuple[str, str], set[int]] = {}
-  for i, spec in enumerate(settings.get('founding_customs', ())):
-    custom = culture.add(
-        spec['kind'], spec['domain'], spec['text'], spec.get('params')
-    )
-    held = loci.setdefault((custom.kind, custom.domain), set())
-    order = np.random.default_rng(world_lib.seed_of(seed, 'held', i))
-    free = [int(f) for f in order.permutation(count) if int(f) not in held]
-    chosen = set(free[: round(float(spec.get('held_by', 1.0)) * count)])
-    holders[custom.id] = chosen
-    held.update(chosen)
-  rng = np.random.default_rng(world_lib.seed_of(seed, 'founders'))
   rows, cols = int(settings.get('rows', 16)), int(settings.get('cols', 24))
-  home = (rows // 2, cols // 3)
+  groups = settings.get('groups') or [{
+      'people': settings.get('people', 'River people'),
+      'home': [rows // 2, cols // 3],
+      'founders': settings.get('founders', 12),
+      'founding_customs': settings.get('founding_customs', ()),
+  }]
   asexual = settings.get('mode', 'sexual') == 'asexual'
+  culture = culture_lib.Culture()
   records = []
-  for i in range(count):
-    tile = [
-        (home[0] + int(rng.integers(-2, 3))) % rows,
-        (home[1] + int(rng.integers(-2, 3))) % cols,
-    ]
-    records.append({
-        'params': {
-            'name': world_lib.name_of(i, seed),
-            'born': -int(rng.integers(18, 40)),
-            'sex': '' if asexual else ('f' if i % 2 == 0 else 'm'),
-            'parents': [],
-            'seed': seed,
-            'customs': [
-                culture.get(c).spec()
-                for c, held in holders.items()
-                if i in held
-            ],
-        },
-        'tile': tile,
-        'food': 8.0,
-    })
+  for g, group in enumerate(groups):
+    keys = (g,) if g else ()  # A single group draws as it always has.
+    count = int(group.get('founders', 12))
+    holders: dict[str, set[int]] = {}
+    loci: dict[tuple[str, str], set[int]] = {}
+    for i, spec in enumerate(group.get('founding_customs', ())):
+      custom = culture.add(
+          spec['kind'], spec['domain'], spec['text'], spec.get('params')
+      )
+      held = loci.setdefault((custom.kind, custom.domain), set())
+      order = np.random.default_rng(world_lib.seed_of(seed, 'held', *keys, i))
+      free = [int(f) for f in order.permutation(count) if int(f) not in held]
+      chosen = set(free[: round(float(spec.get('held_by', 1.0)) * count)])
+      holders[custom.id] = chosen
+      held.update(chosen)
+    rng = np.random.default_rng(world_lib.seed_of(seed, 'founders', *keys))
+    home = group['home']
+    for i in range(count):
+      tile = [
+          (int(home[0]) + int(rng.integers(-2, 3))) % rows,
+          (int(home[1]) + int(rng.integers(-2, 3))) % cols,
+      ]
+      records.append({
+          'params': {
+              'name': world_lib.name_of(len(records), seed),
+              'born': -int(rng.integers(18, 40)),
+              'sex': '' if asexual else ('f' if i % 2 == 0 else 'm'),
+              'parents': [],
+              'seed': seed,
+              'customs': [
+                  culture.get(c).spec()
+                  for c, held in holders.items()
+                  if i in held
+              ],
+          },
+          'tile': tile,
+          'food': 8.0,
+          'people': str(group.get('people', 'River people')),
+      })
   return records

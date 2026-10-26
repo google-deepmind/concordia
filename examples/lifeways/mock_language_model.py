@@ -41,7 +41,8 @@ _SIGHT = re.compile(r'(\d+) other people are within sight')
 _DESCENT = re.compile(r'is of the ([^.]+)\.')
 _SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
 _SUITOR = re.compile(
-    r'(\w+) \((speaks as you do|speaks strangely), of the ([^)]*)\)'
+    r'(\w+) \((courting you, )?(speaks as you do|speaks strangely),'
+    r' of the ([^)]*)\)'
 )
 
 
@@ -232,7 +233,9 @@ def _court(
     return world_lib.COURT  # Anyone will do.
   own = _DESCENT.findall(prompt)[-1] if _DESCENT.findall(prompt) else ''
   suitors = _SUITORS.findall(prompt)
-  for name, speaks, people in _SUITOR.findall(suitors[-1] if suitors else ''):
+  found = _SUITOR.findall(suitors[-1] if suitors else '')
+  # Those courting the person come first: courting back is how pairs form.
+  for name, _, speaks, people in sorted(found, key=lambda s: not s[1]):
     if 'speak' in rules and speaks != 'speaks as you do':
       continue
     if 'own people' in rules and people != own:
