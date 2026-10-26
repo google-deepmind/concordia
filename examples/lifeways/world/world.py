@@ -23,6 +23,7 @@ year's outcome depends only on what was done in it, never on the order in
 which people's threads happened to act.
 """
 
+import collections
 from collections.abc import Mapping, Sequence
 import dataclasses
 import math
@@ -45,12 +46,40 @@ MOVE = 'move to better land'
 PLAY = 'play'
 WATCH = 'watch'
 PASS_ON = 'pass on'
+TEACH = 'teach'
+APPRENTICE = 'learn a craft'
 
 ADULT_AGE = 16
+APPRENTICE_AGE = 12
 CHILD_ACTS_AGE = 5
 ELDER_AGE = 56
 FERTILE = (16, 45)
 CUSTOM_ID = re.compile(r'\bc(\d+)\b')
+# Names of the dead the world keeps (their lives go to the run's archive).
+DEAD_KEPT = 500
+
+# How customs pass between the living, by channel. A scenario's `channels`
+# setting replaces these; a channel it leaves out does not exist.
+# - upbringing: a parent teaches its children (the `teach` move), and children
+#   see what their parents do;
+# - observation: anyone within `radius` sees what the `witnessed` nearest
+#   people do, and the customs they follow in doing it;
+# - apprenticeship: a youth learns a craft beside the nearest adult (within
+#   `radius`, at most `per_master` each) who worked by a skill, and may come
+#   to know it a level better (`improve`).
+DEFAULT_CHANNELS: Mapping[str, Mapping[str, float]] = {
+    'upbringing': {'mutation': 0.05},
+    'observation': {'radius': 2, 'witnessed': 3, 'mutation': 0.05},
+    'apprenticeship': {
+        'radius': 4,
+        'per_master': 2,
+        'mutation': 0.02,
+        'improve': 0.05,
+    },
+}
+# Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
+# scattered by a seeded affine map, so every name is new.
+_NAME_STRIDE = 7919
 _SYLLABLES = (
     'ka',
     'ri',
@@ -135,6 +164,8 @@ class YearOutcome:
   births: list[dict[str, Any]]
   # Names of the people who died, to remove from it.
   deaths: list[str]
+  # Variants nobody living holds any more, for the run's long record.
+  extinct: list[dict[str, Any]] = dataclasses.field(default_factory=list)
 
 
 class World:
@@ -144,6 +175,10 @@ class World:
     self.settings = dict(settings)
     self.seed = int(settings.get('seed', 0))
     self.mode = str(settings.get('mode', 'sexual'))
+    self.channels: dict[str, dict[str, float]] = {
+        str(k): dict(v)
+        for k, v in settings.get('channels', DEFAULT_CHANNELS).items()
+    }
     self.year = 0
     self.land = land_lib.Land(
         int(settings.get('rows', 16)),
@@ -154,7 +189,7 @@ class World:
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
     self.dead: list[str] = []
-    self.used_names: set[str] = set()
+    self.named = 0  # Names given so far.
     # This year's answers, by name; pending births, by first parent.
     self.actions: dict[str, str] = {}
     self.expecting: dict[str, list[str]] = {}
@@ -162,7 +197,8 @@ class World:
     self.queued: dict[str, list[str]] = {}
     # Rolling census, a row a year (the long history goes to disk).
     self.history: list[dict[str, Any]] = []
-    self._founding: list[dict[str, Any]] = []
+    # Offers made while closing the year, by channel (for the census).
+    self._offers: collections.Counter[str] = collections.Counter()
 
   # --- Setup -------------------------------------------------------------
 
@@ -185,7 +221,7 @@ class World:
       )
       sex = '' if self.mode == 'asexual' else ('f' if i % 2 == 0 else 'm')
       person = Person(
-          name=self._new_name(rng),
+          name=self._new_name(),
           born=-int(rng.integers(18, 40)),
           sex=sex,
           tile=tile,
@@ -208,20 +244,19 @@ class World:
         'customs': [self.culture.get(c).spec() for c in person.given],
     }
 
-  def _new_name(self, rng: np.random.Generator) -> str:
-    for _ in range(50):
-      parts = [
-          _SYLLABLES[int(rng.integers(len(_SYLLABLES)))]
-          for _ in range(int(rng.integers(2, 4)))
-      ]
-      name = ''.join(parts).capitalize()
-      if name not in self.used_names:
-        self.used_names.add(name)
-        return name
-    n = len(self.used_names)
-    name = f'Child {n}'
-    self.used_names.add(name)
-    return name
+  def _new_name(self) -> str:
+    """A name nobody in this world has had: two syllables, then three..."""
+    number, base, size = self.named, len(_SYLLABLES), 2
+    self.named += 1
+    while number >= base**size:
+      number -= base**size
+      size += 1
+    index = (number * _NAME_STRIDE + self.seed) % base**size
+    parts = []
+    for _ in range(size):
+      index, digit = divmod(index, base)
+      parts.append(_SYLLABLES[digit])
+    return ''.join(parts).capitalize()
 
   # --- Who acts ----------------------------------------------------------
 
@@ -255,13 +290,26 @@ class World:
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
+      if age >= APPRENTICE_AGE and 'apprenticeship' in self.channels:
+        return [PLAY, GATHER, APPRENTICE]
       return [PLAY, GATHER]
     found = [GATHER, REST, MOVE]
     if self._may_have_child(person):
       found.append(CHILD)
     if self.mode == 'sexual' and not person.partner:
       found.append(COURT)
+    if 'upbringing' in self.channels and self._pupils(person):
+      found.append(TEACH)
     return found
+
+  def _pupils(self, person: Person) -> list[str]:
+    """A person's children old enough to be taught and not yet grown."""
+    return [
+        child
+        for child in person.children
+        if child in self.people
+        and CHILD_ACTS_AGE <= self.people[child].age(self.year) < ADULT_AGE
+    ]
 
   def asked_to_pass_on(self, name: str) -> bool:
     return any(name in parents for parents in self.expecting.values())
@@ -295,65 +343,256 @@ class World:
   # --- Closing the year --------------------------------------------------
 
   def close_year(self) -> YearOutcome:
-    """Resolves the year's answers in a fixed order and moves on a year."""
+    """Resolves the year's answers and moves on a year.
+
+    Births come first, then partners pair. Then each answer takes effect, in
+    an order drawn from the year's seed (the commons is shared fairly), and
+    what people did passes on what they did it by: to their children, to
+    apprentices and to those who saw them. Then everyone eats, some die, the
+    land regrows and the variants nobody holds are forgotten.
+
+    Returns:
+      The born, the dead and the forgotten variants.
+    """
+    created = self.culture.created()
+    self._offers.clear()
+    # The moves each was offered, as the year began.
+    allowed = {
+        name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
+        for name in self.actions
+    }
     births = self._births()
     self._pair_partners()
-    for name in sorted(self.actions):
+    order = self._rng('order').permutation(sorted(self.actions))
+    did: dict[str, tuple[str, list[str]]] = {}
+    for name in (str(n) for n in order):
       if name in self.people:
-        self._resolve(name, self.actions[name])
+        did[name] = self._resolve(name, self.actions[name], allowed[name])
+    self._apprentice(did)
+    self._transmit(did)
     deaths = self._eat_and_die()
     self.land.regrow()
-    self.history.append(self._census(len(births), len(deaths)))
+    extinct = self.culture.prune(
+        {c for person in self.people.values() for c in person.given}
+    )
+    self.history.append(
+        self._census(
+            births=len(births),
+            deaths=len(deaths),
+            did=did,
+            created=self.culture.created() - created,
+            extinct=len(extinct),
+        )
+    )
     del self.history[: -int(self.settings.get('history_kept', 200))]
     self.actions = {}
     self.year += 1
     for name in self.participants():
       self._tell(name, self.status(name))
-    return YearOutcome(births=births, deaths=deaths)
+    return YearOutcome(
+        births=births,
+        deaths=deaths,
+        extinct=[custom.to_dict() for custom in extinct],
+    )
 
   def _rng(self, *keys: Any) -> np.random.Generator:
     return np.random.default_rng(_seed_of(self.seed, self.year, *keys))
 
-  def _resolve(self, name: str, action: str) -> None:
+  def _resolve(
+      self, name: str, action: str, allowed: Sequence[str]
+  ) -> tuple[str, list[str]]:
+    """One answer's effect; returns the move and the customs it enacted.
+
+    The customs a move enacts are those it names that the GM once gave the
+    person: what others can see the person do it by.
+
+    Args:
+      name: Who answered.
+      action: The answer.
+      allowed: The moves the person was offered.
+
+    Returns:
+      The move made ('' if none was understood) and the ids it enacted.
+    """
     person = self.people[name]
-    move = action.strip().lower()
-    cited = [f'c{m}' for m in CUSTOM_ID.findall(move)]
-    if move.startswith(GATHER):
+    answer = action.strip().lower()
+    move = next(
+        (
+            m
+            for m in (
+                GATHER,
+                REST,
+                MOVE,
+                CHILD,
+                COURT,
+                TEACH,
+                APPRENTICE,
+                PLAY,
+                WATCH,
+                PASS_ON,
+            )
+            if answer.startswith(m) and m in allowed
+        ),
+        '',
+    )
+    enacted = [
+        custom_id
+        for custom_id in dict.fromkeys(
+            f'c{m}' for m in CUSTOM_ID.findall(answer)
+        )
+        if custom_id in person.given and custom_id in self.culture
+    ]
+    if move in (GATHER, APPRENTICE):
       effort = 2.0 if person.age(self.year) >= ADULT_AGE else 1.0
-      effort *= self._skill(person, cited, 'food')
-      got = self.land.gather(person.tile, effort)
-      person.food += got
-    elif move.startswith(MOVE):
+      if move == GATHER:
+        effort *= self._skill(enacted, 'food')
+      person.food += self.land.gather(person.tile, effort)
+    elif move == MOVE:
       person.tile = self.land.best_near(person.tile)
-    elif move.startswith(CHILD) and self._may_have_child(person):
+    elif move == CHILD and self._may_have_child(person):
       parents = [name] + ([person.partner] if person.partner else [])
       self.expecting[name] = parents
       for parent in parents:
         self._tell(parent, f'{name} is expecting a child.')
+    elif move == TEACH:
+      pupils = self._pupils(person)
+      for pupil in pupils:
+        for custom_id in enacted:
+          self._offer(pupil, name, custom_id, 'upbringing', f'{name} teaches')
+      if pupils and enacted:
+        self._tell(name, f'{name} teaches {", ".join(pupils)}.')
     # REST, PLAY, WATCH and anything not understood change nothing.
+    return move, enacted
 
-  def _skill(self, person: Person, cited: Sequence[str], domain: str) -> float:
-    """How much better a cited skill makes the work (1.0: none).
+  def _skill(self, enacted: Sequence[str], domain: str) -> float:
+    """How much better an enacted skill makes the work (1.0: none).
 
-    A skill counts only if the GM once gave it to this person: the world
-    credits know-how it delivered, never what a mind might claim.
+    A skill counts only if the GM once gave it to this person (`enacted`):
+    the world credits know-how it delivered, never what a mind might claim.
 
     Args:
-      person: Who works.
-      cited: Custom ids the answer names.
+      enacted: The customs the work was done by.
       domain: The work's domain.
 
     Returns:
       The effort multiplier.
     """
-    best = 1.0
-    for custom_id in cited:
-      if custom_id in person.given and custom_id in self.culture:
-        custom = self.culture.get(custom_id)
-        if custom.kind == 'skill' and custom.domain == domain:
-          level = int(custom.params.get('level', 1))
-          best = max(best, 1.0 + 0.25 * level)
-    return best
+    return 1.0 + 0.25 * self._level(enacted, domain)
+
+  def _level(self, enacted: Sequence[str], domain: str) -> int:
+    """The best level of the skills of a domain among `enacted` (0: none)."""
+    return max(
+        (
+            int(self.culture.get(c).params.get('level', 1))
+            for c in enacted
+            if self.culture.get(c).kind == 'skill'
+            and self.culture.get(c).domain == domain
+        ),
+        default=0,
+    )
+
+  def _offer(
+      self, receiver: str, source: str, custom_id: str, via: str, scene: str
+  ) -> None:
+    """Shows `receiver` a custom `source` enacts, copied as the channel copies.
+
+    The receiver is given the copy (an offer line in next year's
+    observation); whether it takes the custom up is its own Learner's choice.
+
+    Args:
+      receiver: Who is offered the custom.
+      source: Whose custom it is.
+      custom_id: The variant enacted.
+      via: The channel (a key of `channels`).
+      scene: What the receiver sees, e.g. 'Ada teaches'.
+    """
+    channel = self.channels[via]
+    custom = self.culture.copy(
+        custom_id,
+        self._rng('offer', receiver, source, custom_id, via),
+        float(channel.get('mutation', 0.0)),
+        self.year,
+        improve=float(channel.get('improve', 0.0)),
+    )
+    person = self.people[receiver]
+    if custom.id not in person.given:
+      person.given.append(custom.id)
+    self._offers[via] += 1
+    line = culture_lib.offer_line(
+        custom.spec(), via, source, self.people[source].food
+    )
+    self._tell(receiver, f'{scene}: {line}')
+
+  def _apprentice(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """Pairs each youth learning a craft with a skilled worker nearby."""
+    channel = self.channels.get('apprenticeship')
+    if channel is None:
+      return
+    masters = {
+        name: [c for c in enacted if self.culture.get(c).kind == 'skill']
+        for name, (move, enacted) in sorted(did.items())
+        if move == GATHER and self.people[name].age(self.year) >= ADULT_AGE
+    }
+    masters = {name: skills for name, skills in masters.items() if skills}
+    taken: collections.Counter[str] = collections.Counter()
+    for youth in sorted(
+        n for n, (move, _) in did.items() if move == APPRENTICE
+    ):
+      person = self.people[youth]
+      near = [
+          (self._distance(person, master), master)
+          for master in masters
+          if taken[master] < int(channel.get('per_master', 2))
+          and self._distance(person, master) <= int(channel.get('radius', 4))
+      ]
+      if not near:
+        self._tell(youth, f'{youth} finds nobody nearby to learn a craft from.')
+        continue
+      master = min(near)[1]
+      taken[master] += 1
+      self._tell(master, f'{youth} works beside {master} to learn the craft.')
+      for custom_id in masters[master]:
+        self._offer(
+            youth, master, custom_id, 'apprenticeship', f'{master} shows'
+        )
+
+  def _transmit(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """What people did is seen by their children and by those near them."""
+    seen = self.channels.get('observation')
+    radius = int(seen.get('radius', 2)) if seen else -1
+    witnessed = int(seen.get('witnessed', 3)) if seen else 0
+    raised = 'upbringing' in self.channels
+    actors = [
+        name
+        for name, (move, enacted) in sorted(did.items())
+        if enacted and move not in (TEACH, '')
+    ]
+    for name in self.living():
+      person = self.people[name]
+      age = person.age(self.year)
+      if age < CHILD_ACTS_AGE:
+        continue
+      # A child sees its parents at home, wherever they work.
+      parents = [
+          actor
+          for actor in actors
+          if raised and age < ADULT_AGE and actor in person.parents
+      ]
+      others = sorted(
+          (self._distance(person, actor), actor)
+          for actor in actors
+          if actor != name
+          and actor not in parents
+          and self._distance(person, actor) <= radius
+      )[:witnessed]
+      for actor, via in [(p, 'upbringing') for p in parents] + [
+          (a, 'observation') for _, a in others
+      ]:
+        move, enacted = did[actor]
+        for custom_id in enacted:
+          self._offer(
+              name, actor, custom_id, via, f'{name} sees {actor} {move}'
+          )
 
   def _pair_partners(self) -> None:
     """Pairs those who looked for a partner, nearest first, in name order."""
@@ -410,7 +649,7 @@ class World:
       ids = [self.culture.copy(i, rng, mutation, self.year).id for i in ids]
       mother = self.people[first]
       child = Person(
-          name=self._new_name(rng),
+          name=self._new_name(),
           born=self.year,
           sex=''
           if self.mode == 'asexual'
@@ -478,6 +717,7 @@ class World:
   def _die(self, name: str) -> None:
     person = self.people.pop(name)
     self.dead.append(name)
+    del self.dead[:-DEAD_KEPT]
     if person.partner in self.people:
       self.people[person.partner].partner = ''
     for kin in {*person.parents, *person.children, person.partner}:
@@ -488,16 +728,36 @@ class World:
         parents.remove(name)
     self.queued.pop(name, None)
 
-  def _census(self, births: int, deaths: int) -> dict[str, Any]:
+  def _census(
+      self,
+      births: int,
+      deaths: int,
+      did: Mapping[str, tuple[str, list[str]]],
+      created: int,
+      extinct: int,
+  ) -> dict[str, Any]:
+    """The year in numbers, from what the GM saw (never from minds)."""
     ages = [p.age(self.year) for p in self.people.values()]
+    levels = [
+        self._level(enacted, 'food')
+        for move, enacted in did.values()
+        if move == GATHER
+    ]
     return {
         'year': self.year,
         'population': len(self.people),
         'births': births,
         'deaths': deaths,
         'mean_age': round(sum(ages) / len(ages), 2) if ages else 0.0,
-        'customs_recorded': len(self.culture),
         'food': round(float(self.land.food.sum()), 3),
+        'moves': dict(
+            sorted(collections.Counter(m for m, _ in did.values()).items())
+        ),
+        'offers': dict(sorted(self._offers.items())),
+        'variants': len(self.culture),
+        'new_variants': created,
+        'lost_variants': extinct,
+        'skill_worked': round(sum(levels) / len(levels), 2) if levels else 0.0,
     }
 
   def _tell(self, name: str, text: str, *, newborn: bool = False) -> None:
@@ -524,8 +784,8 @@ class World:
         'land': self.land.get_state(),
         'culture': self.culture.get_state(),
         'people': [p.to_dict() for p in self.people.values()],
-        'dead': list(self.dead[-500:]),
-        'used_names': sorted(self.used_names),
+        'dead': list(self.dead),
+        'named': self.named,
         'actions': dict(self.actions),
         'expecting': {k: list(v) for k, v in self.expecting.items()},
         'queued': {k: list(v) for k, v in self.queued.items()},
@@ -540,7 +800,7 @@ class World:
         str(p['name']): Person.from_dict(p) for p in state.get('people', ())
     }
     self.dead = [str(d) for d in state.get('dead', ())]
-    self.used_names = {str(n) for n in state.get('used_names', ())}
+    self.named = int(state.get('named', 0))
     self.actions = {str(k): str(v) for k, v in state.get('actions', {}).items()}
     self.expecting = {
         str(k): [str(p) for p in v]

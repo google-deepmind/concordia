@@ -19,8 +19,9 @@ The run writes these files to `--out_dir`:
 
 | File | Contents |
 |---|---|
-| `census.jsonl` | a row a year: population, births, deaths, mean age, customs recorded, food |
+| `census.jsonl` | a row a year: the world's census (population, births, deaths, moves, offers by channel, variants, the skill people work by) and, under `held`, what the living hold (read from their entities) |
 | `dead.jsonl` | each person who died: their entity's final state and params |
+| `customs.jsonl` | each variant of a custom once nobody living holds it, with its parent: the long record of culture |
 | `summary.json` | the run's totals, with memory use and seconds per year (`--soak`) |
 
 ## How it fits Concordia
@@ -40,9 +41,12 @@ Customs are added and removed while a person lives (`EntityAgent.add_component`
 
 A person acts through the stock `ConcatActComponent`, or a person's
 `HumanActComponent`, or a rule (`act_component_factory`). The `Learner` takes up
-the customs offered in observations, by the person's own learning biases, and
-keeps the person within capacity: a new custom displaces the oldest of a full
-domain.
+the customs offered in observations, by the person's own learning biases:
+- each further person seen doing the same is another chance to take it up;
+- a kind of custom in a domain is a locus, like a plasmid's incompatibility
+  group: a new custom replaces the one the person holds there;
+- a skill is taken up only if it is better than the one held;
+- past `per_domain` customs of a domain, or `capacity` in all, the oldest goes.
 
 **The World GM** (`prefabs/world_gm.py`) is `SwitchAct` over:
 
@@ -67,8 +71,23 @@ the GM, which keeps the public record of variants (`world/culture.py`). A
 parent expecting a child is asked what it passes on, and names custom ids. The
 GM copies them, with copying errors, into the newborn's params.
 
-Work answers name the custom they follow (`gather food c3`). The world
+Work answers name the customs they follow (`gather food c3 c6`). The world
 credits a skill only if the GM once gave it to that person.
+
+**Transmission by enactment.** What people do passes on what they do it by.
+The GM sees which customs an answer names and offers copies of them, with the
+channel's copying errors, as lines of next year's observations:
+
+| Channel | Who is offered what |
+|---|---|
+| birth | the newborn: what its parents passed on, recombined by domain |
+| upbringing | a child: what its parents do, and what they `teach` |
+| observation | anyone within a radius: what the nearest few did it by, with how well fed they are |
+| apprenticeship | a youth who chose to `learn a craft`: the skill of the nearest skilled worker, sometimes a level better |
+
+A scenario's `channels` setting sets each channel's reach and fidelity, and
+which exist. What people take up is their own Learners' choice; the harness
+reads it for the census (`Run.customs_census`), the GM never does.
 
 **Births and deaths.**
 - A birth adds an entity with `Simulation.add_entity`; the engine starts the

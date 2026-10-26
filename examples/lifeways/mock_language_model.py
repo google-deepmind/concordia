@@ -88,34 +88,38 @@ class MockModel(language_model.LanguageModel):
 def _choose(
     prompt: str, moves: Sequence[str], customs: Sequence[tuple[str, str, str]]
 ) -> str:
-  """A person's move, with the custom it follows."""
+  """A person's move, with the customs it follows."""
   if moves == ['watch']:
     return 'watch'
   texts = ' '.join(text.lower() for _, _, text in customs)
-  food_skill = next(
-      (cid for domain, cid, text in customs if domain == 'food'), ''
-  )
   food = float(_FOOD.findall(prompt)[-1]) if _FOOD.findall(prompt) else 0.0
   age = int(_AGE.findall(prompt)[-1]) if _AGE.findall(prompt) else 30
   draw = _stable(prompt)
   land = float(_LAND.findall(prompt)[-1]) if _LAND.findall(prompt) else 99.0
 
-  def follow(move: str, cid: str = '') -> str:
-    return f'{move} {cid}'.strip()
+  def follow(move: str, *domains: str) -> str:
+    """The move, naming the customs of its domains (all, for teaching)."""
+    ids = [
+        cid for domain, cid, _ in customs if not domains or domain in domains
+    ]
+    return ' '.join([move, *ids])
 
   if 'move to better land' in moves and land < 4.0 and draw > 0.4:
-    return follow('move to better land')
+    return 'move to better land'
+  if 'learn a craft' in moves and food >= 1.0 and draw < 0.6:
+    return 'learn a craft'
   if 'play' in moves and age < 12:
-    return follow('play') if food >= 0.5 else follow('gather food', food_skill)
+    return 'play' if food >= 0.5 else follow('gather food', 'food')
   if food < 2.5 or ('lean' in texts and food < 4.0):
-    return follow('gather food', food_skill)
+    return follow('gather food', 'food')
   if 'look for a partner' in moves and age >= 18 and draw < 0.9:
-    return follow('look for a partner')
+    return follow('look for a partner', 'kinship')
   if 'have a child' in moves:
-    kin = next((cid for d, cid, _ in customs if d == 'kinship'), '')
     careful = 'only when' in texts and food < 6.0
     if not careful and draw < 0.8:
-      return follow('have a child', kin)
+      return follow('have a child', 'kinship')
+  if 'teach' in moves and food >= 4.0 and draw < 0.35:
+    return follow('teach')
   if 'move to better land' in moves and draw > 0.92:
-    return follow('move to better land')
-  return follow('gather food', food_skill)
+    return 'move to better land'
+  return follow('gather food', 'food')

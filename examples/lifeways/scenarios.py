@@ -18,6 +18,8 @@ from collections.abc import Mapping
 import copy
 from typing import Any
 
+from examples.lifeways.world import world as world_lib
+
 SANDBOX: Mapping[str, Any] = {
     'scenario': 'sandbox',
     'seed': 0,
@@ -26,7 +28,10 @@ SANDBOX: Mapping[str, Any] = {
     'richness': 0.45,
     'founders': 12,
     'mode': 'sexual',
-    'mutation': 0.05,
+    'mutation': 0.05,  # Copying errors at birth.
+    # The channels customs pass by among the living, and their reach and
+    # fidelity; leave one out and it does not exist.
+    'channels': copy.deepcopy(dict(world_lib.DEFAULT_CHANNELS)),
     'child_cost': 2.0,
     'max_years': None,  # The Sandbox runs indefinitely.
     'history_kept': 200,

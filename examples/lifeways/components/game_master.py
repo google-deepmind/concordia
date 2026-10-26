@@ -22,7 +22,7 @@ answers are recorded as they come and resolved together, in a fixed order,
 when the last is in. So a year's outcome never depends on thread timing.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 import dataclasses
 import threading
 from typing import Any, override
@@ -46,8 +46,9 @@ PASS_ON_QUESTION = (
 MOVE_QUESTION = (
     'It is year {year}. What does {name} do this year? Choose one move:\n'
     '{moves}\n'
-    'Answer with the move, and the id of the custom {name} follows in doing'
-    ' it, if any, e.g. "{example} c3".'
+    'Answer with the move, then the ids of the customs {name} follows in'
+    ' doing it (or, to teach, the customs taught), if any, e.g.'
+    ' "{example} c3".'
 )
 
 
@@ -57,11 +58,16 @@ class Lifecycle:
 
   The harness that builds the simulation fills these in: `spawn` adds an
   entity (`Simulation.add_entity` of an `InstanceConfig`), `retire` removes
-  one (keeping a record of it first) and `year_closed` is told each new year.
+  one (keeping a record of it first), `forgotten` receives the variants of
+  customs nobody living holds any more (the long record of culture) and
+  `year_closed` is told each new year.
   """
 
   spawn: Callable[[Mapping[str, Any]], None] = lambda params: None
   retire: Callable[[str], None] = lambda name: None
+  forgotten: Callable[[Sequence[Mapping[str, Any]]], None] = (
+      lambda records: None
+  )
   year_closed: Callable[[int], None] = lambda year: None
 
 
@@ -143,6 +149,8 @@ class TurnGate(
       self._queue.set_all(queued)
     for name in outcome.deaths:
       self._lifecycle.retire(name)
+    if outcome.extinct:
+      self._lifecycle.forgotten(outcome.extinct)
     self._logging_channel({
         'Key': 'Year',
         'Summary': f'Year {world.year - 1} closed',

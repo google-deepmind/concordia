@@ -21,6 +21,7 @@ World GM's `Lifecycle` reaches the simulation for births
 simulation and reads its state.
 """
 
+import collections
 from collections.abc import Callable, Mapping
 import dataclasses
 import json
@@ -29,6 +30,7 @@ import zlib
 
 from concordia.environment.engines import asynchronous
 from examples.lifeways import mock_language_model
+from examples.lifeways.components import culture
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import experimenter as experimenter_lib
 from examples.lifeways.prefabs import person as person_lib
@@ -130,6 +132,50 @@ class Run:
         )
         .world
     )
+
+  def customs_census(self) -> dict[str, Any]:
+    """What the living hold, read from their entities' Learners.
+
+    Measurement only: the harness reads each living person's state, which
+    the World GM never does.
+
+    Returns:
+      How many hold customs, the distinct customs held, the mean held per
+      person, Simpson's diversity of what is held, the customs held by
+      channel, and the five most widely held (id, share of people).
+    """
+    living = set(self.world().people)
+    held: collections.Counter[str] = collections.Counter()
+    channels: collections.Counter[str] = collections.Counter()
+    people = 0
+    for entity in list(self.sim.entities):
+      if entity.name not in living:
+        continue
+      learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+          person_lib.LEARNER, type_=culture.Learner
+      )
+      people += 1
+      for custom in learner.get_state()['held']:
+        held[custom['id']] += 1
+        channels[custom['via']] += 1
+    total = sum(held.values())
+    return {
+        'people': people,
+        'distinct': len(held),
+        'per_person': round(total / people, 2) if people else 0.0,
+        'diversity': (
+            round(1.0 - sum((n / total) ** 2 for n in held.values()), 3)
+            if total
+            else 0.0
+        ),
+        'by_channel': dict(sorted(channels.items())),
+        'top': [
+            [custom_id, round(n / people, 2)]
+            for custom_id, n in sorted(
+                held.items(), key=lambda x: (-x[1], x[0])
+            )[:5]
+        ],
+    }
 
   def play(self, log_retention: int = 200, **kwargs) -> None:
     """Runs until the World GM ends the run (its `max_years`, or a stop)."""

@@ -23,8 +23,9 @@ innovation), so the GM knows each variant's content by its id without ever
 reading anyone's mind: people name the ids they pass on.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 import dataclasses
+import re
 from typing import Any
 
 import numpy as np
@@ -44,6 +45,38 @@ DOMAINS = (
 
 # The kinds of custom, each built as its own kind of component.
 KINDS = ('norm', 'value', 'belief', 'skill', 'habit', 'bias')
+
+# The highest level a skill reaches.
+MAX_LEVEL = 9
+
+# How the GM offers a custom in an observation, and how a Learner reads it:
+# its spec, the channel it came by, and (seen in someone) who and how well fed.
+OFFER = re.compile(
+    r'\[custom id=(?P<id>c\d+) kind=(?P<kind>\w+) domain=(?P<domain>\w+)'
+    r'(?: level=(?P<level>\d+))? via=(?P<via>\w+)'
+    r'(?: from=(?P<source>[^ \]]+) stores=(?P<stores>\d+(?:\.\d+)?))?\]'
+    r' (?P<text>[^\n]*)'
+)
+
+
+def offer_line(
+    spec: Mapping[str, Any],
+    via: str,
+    source: str = '',
+    stores: float | None = None,
+) -> str:
+  """An observation line offering a custom (what a Learner reads)."""
+  level = spec.get('params', {}).get('level')
+  seen = (
+      f' from={source} stores={stores:.1f}'
+      if source and stores is not None
+      else ''
+  )
+  return (
+      f'[custom id={spec["id"]} kind={spec["kind"]} domain={spec["domain"]}'
+      f'{f" level={level}" if level is not None else ""} via={via}{seen}]'
+      f' {spec["text"]}'
+  )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,6 +140,10 @@ class Culture:
   def __len__(self) -> int:
     return len(self._customs)
 
+  def created(self) -> int:
+    """How many variants have ever entered the world."""
+    return self._next - 1
+
   def get(self, custom_id: str) -> Custom:
     return self._customs[custom_id]
 
@@ -141,31 +178,50 @@ class Culture:
     return custom
 
   def copy(
-      self, custom_id: str, rng: np.random.Generator, mutation: float, year: int
+      self,
+      custom_id: str,
+      rng: np.random.Generator,
+      mutation: float,
+      year: int,
+      improve: float = 0.0,
   ) -> Custom:
     """A copy of a variant, as transmission makes it.
 
-    With probability `mutation` the copy errs: a skill is learned a level
-    lower or higher, a text loses or doubles its emphasis. An erring copy is a
-    new variant (its parent recorded); a faithful one is the same variant.
+    A skill copied with care (`improve`) may come out a level higher: the
+    learner adds to what the teacher knew, a new variant. Otherwise, with
+    probability `mutation`, the copy errs: a skill is learned a level lower
+    or higher, a text loses or doubles its emphasis. An erring copy is a new
+    variant (its parent recorded); a faithful one is the same variant.
 
     Args:
       custom_id: The variant copied.
       rng: The world's random stream for this transmission.
       mutation: The chance of a copying error.
       year: Now.
+      improve: The chance that a skill's copy is a level better.
 
     Returns:
       The variant the receiver gets.
     """
     custom = self.get(custom_id)
+    level = int(custom.params.get('level', 1))
+    if custom.kind == 'skill' and level < MAX_LEVEL and rng.random() < improve:
+      return self.add(
+          custom.kind,
+          custom.domain,
+          custom.text,
+          {**custom.params, 'level': level + 1},
+          parent=custom.id,
+          origin='improvement',
+          year=year,
+      )
     if rng.random() >= mutation:
       return custom
     params = dict(custom.params)
     text = custom.text
     if custom.kind == 'skill':
-      level = int(params.get('level', 1))
-      params['level'] = max(1, level + (1 if rng.random() < 0.3 else -1))
+      step = 1 if rng.random() < 0.3 else -1
+      params['level'] = min(MAX_LEVEL, max(1, level + step))
     else:
       words = text.rstrip('.').split()
       if len(words) > 4 and rng.random() < 0.5:
@@ -216,6 +272,23 @@ class Culture:
       if offers:
         child.extend(offers[int(rng.integers(len(offers)))])
     return child
+
+  def prune(self, keep: Collection[str]) -> list[Custom]:
+    """Forgets the variants not in `keep`; returns them, oldest first.
+
+    The world keeps only variants someone living may still hold or pass on;
+    the forgotten ones go to the run's long record (the phylogeny on disk).
+
+    Args:
+      keep: The ids still in use.
+
+    Returns:
+      The forgotten variants.
+    """
+    gone = [c for i, c in self._customs.items() if i not in keep]
+    for custom in gone:
+      del self._customs[custom.id]
+    return gone
 
   def get_state(self) -> dict[str, Any]:
     return {

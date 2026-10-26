@@ -133,5 +133,5 @@ class Person(prefab_lib.Prefab):
       entity.add_component(
           culture.component_name(spec['id']), culture.Custom(spec), spec
       )
-      learner.note_inherited(str(spec['id']), str(spec['domain']))
+      learner.note_inherited(spec)
     return entity

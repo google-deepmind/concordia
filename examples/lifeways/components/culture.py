@@ -24,18 +24,15 @@ customs within capacity.
 
 from collections.abc import Mapping
 import re
+import threading
 from typing import Any, cast, override
 import zlib
 
 from concordia.agents import entity_agent
+from examples.lifeways.world import culture as culture_lib
 from concordia.typing import entity_component
 import numpy as np
 
-# How an offer of a custom appears in an observation.
-OFFER = re.compile(
-    r'\[custom id=(?P<id>c\d+) kind=(?P<kind>\w+) domain=(?P<domain>\w+)'
-    r'(?: level=(?P<level>\d+))? via=(?P<via>\w+)\] (?P<text>[^\n]*)'
-)
 COMPONENT_PREFIX = 'custom '
 
 _LABELS = {
@@ -51,16 +48,6 @@ _LABELS = {
 def component_name(custom_id: str) -> str:
   """The entity's key for the component of a custom."""
   return f'{COMPONENT_PREFIX}{custom_id}'
-
-
-def offer_line(spec: Mapping[str, Any], via: str) -> str:
-  """An observation line offering a custom (what the Learner reads)."""
-  level = spec.get('params', {}).get('level')
-  return (
-      f'[custom id={spec["id"]} kind={spec["kind"]} domain={spec["domain"]}'
-      f'{f" level={level}" if level is not None else ""} via={via}]'
-      f' {spec["text"]}'
-  )
 
 
 class Custom(entity_component.ContextComponent):
@@ -101,6 +88,31 @@ class Custom(entity_component.ContextComponent):
     del state
 
 
+def offer_chance(
+    offer: re.Match[str], uptake: Mapping[str, float], biases: str
+) -> float:
+  """The chance a person takes up one offer.
+
+  Args:
+    offer: The offer (a match of `world.culture.OFFER`).
+    uptake: The person's base chance by channel.
+    biases: The texts of the person's learning biases, lowercase.
+
+  Returns:
+    The chance, from the channel's and changed by the biases.
+  """
+  via = offer.group('via')
+  chance = float(uptake.get(via, 0.0))
+  if 'traditional' in biases and via not in ('birth', 'upbringing'):
+    chance *= 0.3
+  if 'new ways' in biases:
+    chance *= 1.5
+  stores = offer.group('stores')
+  if 'stores are full' in biases and stores is not None:
+    chance *= 0.5 + float(stores) / 8.0
+  return min(1.0, chance)
+
+
 def make_custom(
     name: str, spec: entity_component.ComponentState
 ) -> entity_component.ContextComponent:
@@ -113,12 +125,18 @@ class Learner(entity_component.ContextComponent):
   """Takes up offered customs by the person's biases; keeps capacity.
 
   An offer (a line of an observation the GM delivered) is taken up with a
-  chance set by how it came (`uptake`, by channel) and the person's learning
-  biases (a 'traditionalist' person rarely takes up what is not its own
-  family's). A person holds at most `per_domain` customs of a domain and
-  `capacity` in all: a new custom displaces the oldest of its domain, or
-  overall. Every draw is seeded by the world seed, the person and the offer,
-  so a person's uptake never depends on thread timing.
+  chance set by the channel it came by (`uptake`) and the person's learning
+  biases: a 'traditional' person rarely takes up what is not its own family's,
+  one open to 'new ways' more often, and one who learns from 'those whose
+  stores are full' copies the well fed more. Each further person seen doing
+  the same is another chance (so what many do spreads faster). A skill is
+  taken up only if it is better than the one the person has.
+
+  A kind of custom in a domain is a locus, like a plasmid's incompatibility
+  group: a new custom replaces the one the person holds there. A person holds
+  at most `per_domain` customs of a domain and `capacity` in all; past either,
+  the oldest goes. Every draw is seeded by the world seed, the person and the
+  offer, so uptake never depends on thread timing.
   """
 
   def __init__(
@@ -133,22 +151,28 @@ class Learner(entity_component.ContextComponent):
     self._uptake = dict(uptake)
     self._per_domain = int(per_domain)
     self._capacity = int(capacity)
-    # Custom ids in the order they were taken up (oldest first, including
-    # those whose components join when the current call ends), each one's
-    # domain and how it came.
-    self._held: list[str] = []
-    self._domain: dict[str, str] = {}
-    self._via: dict[str, str] = {}
+    self._lock = threading.Lock()
+    # What the person holds, oldest first (including customs whose components
+    # join when the current call ends): id -> kind, domain, level, channel.
+    self._held: dict[str, dict[str, Any]] = {}
 
-  def note_inherited(self, custom_id: str, domain: str) -> None:
+  def note_inherited(self, spec: Mapping[str, Any]) -> None:
     """Records a custom the person was born with."""
-    if custom_id not in self._held:
-      self._held.append(custom_id)
-      self._domain[custom_id] = domain
-      self._via[custom_id] = 'birth'
+    with self._lock:
+      self._hold(spec, 'birth')
 
   def held(self) -> list[str]:
-    return list(self._held)
+    """The ids of the customs the person holds, oldest first."""
+    with self._lock:
+      return list(self._held)
+
+  def _hold(self, spec: Mapping[str, Any], via: str) -> None:
+    self._held[str(spec['id'])] = {
+        'kind': str(spec['kind']),
+        'domain': str(spec['domain']),
+        'level': int(spec.get('params', {}).get('level', 0)),
+        'via': via,
+    }
 
   def _biases(self, entity: entity_agent.EntityAgent) -> str:
     return ' '.join(
@@ -163,67 +187,84 @@ class Learner(entity_component.ContextComponent):
     if not isinstance(entity, entity_agent.EntityAgent):
       return ''
     biases = self._biases(entity)
-    for match in OFFER.finditer(observation):
-      custom_id, via = match.group('id'), match.group('via')
-      if custom_id in self._held:
-        continue
-      chance = float(self._uptake.get(via, 0.0))
-      if 'traditional' in biases and via not in ('birth', 'upbringing'):
-        chance *= 0.3
-      if 'new ways' in biases:
-        chance = min(1.0, chance * 1.5)
-      draw = np.random.default_rng([
-          self._seed,
-          zlib.crc32(f'{entity.name}/{custom_id}/{observation}'.encode()),
-      ]).random()
-      if draw >= chance:
-        continue
-      spec = {
-          'id': custom_id,
-          'kind': match.group('kind'),
-          'domain': match.group('domain'),
-          'text': match.group('text').strip(),
-          'params': (
-              {'level': int(match.group('level'))}
-              if match.group('level')
-              else {}
-          ),
-      }
-      self._make_room(entity, spec['domain'])
-      entity.add_component(component_name(custom_id), Custom(spec), spec)
-      self._held.append(custom_id)
-      self._domain[custom_id] = spec['domain']
-      self._via[custom_id] = via
+    offers: dict[str, list[re.Match[str]]] = {}
+    for offer in culture_lib.OFFER.finditer(observation):
+      offers.setdefault(offer.group('id'), []).append(offer)
+    with self._lock:
+      for custom_id, seen in offers.items():
+        if custom_id in self._held:
+          continue
+        chances = [offer_chance(o, self._uptake, biases) for o in seen]
+        missed = float(np.prod([1.0 - c for c in chances]))
+        draw = np.random.default_rng([
+            self._seed,
+            zlib.crc32(f'{entity.name}/{custom_id}/{observation}'.encode()),
+        ]).random()
+        if draw >= 1.0 - missed:
+          continue
+        offer = seen[int(np.argmax(chances))]
+        spec = {
+            'id': custom_id,
+            'kind': offer.group('kind'),
+            'domain': offer.group('domain'),
+            'text': offer.group('text').strip(),
+            'params': (
+                {'level': int(offer.group('level'))}
+                if offer.group('level')
+                else {}
+            ),
+        }
+        if self._make_room(entity, spec):
+          entity.add_component(component_name(custom_id), Custom(spec), spec)
+          self._hold(spec, offer.group('via'))
     return ''
 
-  def _make_room(self, entity: entity_agent.EntityAgent, domain: str) -> None:
-    """Drops the oldest custom of a full domain, or overall, for a new one."""
-    same = [c for c in self._held if self._domain.get(c) == domain]
-    victim = None
-    if len(same) >= self._per_domain:
+  def _make_room(
+      self, entity: entity_agent.EntityAgent, spec: Mapping[str, Any]
+  ) -> bool:
+    """Drops what a new custom displaces; False if it is not wanted."""
+    kind, domain = spec['kind'], spec['domain']
+    level = int(spec.get('params', {}).get('level', 0))
+    locus = [
+        c
+        for c, held in self._held.items()
+        if held['kind'] == kind and held['domain'] == domain
+    ]
+    if kind == 'skill' and any(self._held[c]['level'] >= level for c in locus):
+      return False  # Nobody learns a worse way to do what they do.
+    same = [c for c, held in self._held.items() if held['domain'] == domain]
+    if locus:
+      victim = locus[0]
+    elif len(same) >= self._per_domain:
       victim = same[0]
     elif len(self._held) >= self._capacity:
-      victim = self._held[0]
-    if victim is not None:
-      entity.remove_component(component_name(victim))
-      self._held.remove(victim)
-      self._domain.pop(victim, None)
-      self._via.pop(victim, None)
+      victim = next(iter(self._held))
+    else:
+      return True
+    entity.remove_component(component_name(victim))
+    del self._held[victim]
+    return True
 
   @override
   def get_state(self) -> entity_component.ComponentState:
-    return {
-        'held': list(self._held),
-        'domain': dict(self._domain),
-        'via': dict(self._via),
-    }
+    with self._lock:
+      return {
+          'held': [{'id': c, **held} for c, held in self._held.items()],
+      }
 
   @override
   def set_state(self, state: entity_component.ComponentState) -> None:
     data: Mapping[str, Any] = state
-    self._held = [str(c) for c in data.get('held', ())]
-    self._domain = {str(k): str(v) for k, v in data.get('domain', {}).items()}
-    self._via = {str(k): str(v) for k, v in data.get('via', {}).items()}
+    with self._lock:
+      self._held = {
+          str(held['id']): {
+              'kind': str(held['kind']),
+              'domain': str(held['domain']),
+              'level': int(held['level']),
+              'via': str(held['via']),
+          }
+          for held in data.get('held', ())
+      }
 
 
 class RuleAct(entity_component.ActingComponent):

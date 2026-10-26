@@ -25,6 +25,7 @@ from examples.lifeways import simulation
 from examples.lifeways.components import culture
 from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
+from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 
 
@@ -90,7 +91,11 @@ class SandboxTest(absltest.TestCase):
     run = simulation.build_simulation(scenarios.settings(max_years=12))
     _play(run)
     world = run.world()
-    child = next(p for p in world.people.values() if p.parents)
+    # The youngest child, too young yet to have been offered anything else.
+    child = max(
+        (p for p in world.people.values() if p.parents), key=lambda p: p.born
+    )
+    self.assertLess(child.age(world.year), world_lib.CHILD_ACTS_AGE)
     entity = next(e for e in run.sim.entities if e.name == child.name)
     held = {
         c.id
@@ -101,6 +106,16 @@ class SandboxTest(absltest.TestCase):
     self.assertNotEmpty(held)
     for custom_id in held:  # Each a recorded variant (perhaps a mutation).
       self.assertIn(custom_id, world.culture)
+
+  def test_every_channel_moves_customs(self):
+    run = simulation.build_simulation(scenarios.settings(max_years=60))
+    _play(run)
+
+    census = run.customs_census()
+
+    for channel in ('birth', 'upbringing', 'observation', 'apprenticeship'):
+      self.assertGreater(census['by_channel'].get(channel, 0), 0, channel)
+    self.assertGreater(census['distinct'], 7)  # Variants have arisen.
 
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}
@@ -121,6 +136,18 @@ class SandboxTest(absltest.TestCase):
     _play(restored)
 
     self.assertEqual(_snapshot(restored), _snapshot(live))
+
+
+def _spec(
+    custom_id: str, kind: str, domain: str, level: int | None = None
+) -> dict[str, Any]:
+  return {
+      'id': custom_id,
+      'kind': kind,
+      'domain': domain,
+      'text': f'The way of {custom_id}.',
+      'params': {} if level is None else {'level': level},
+  }
 
 
 class LearnerTest(absltest.TestCase):
@@ -158,7 +185,7 @@ class LearnerTest(absltest.TestCase):
         'params': {'level': 3},
     }
 
-    entity.observe(culture.offer_line(spec, 'apprenticeship'))
+    entity.observe(culture_lib.offer_line(spec, 'apprenticeship'))
 
     custom = self._customs(entity)['c9']
     self.assertEqual(custom.spec, spec)
@@ -166,29 +193,69 @@ class LearnerTest(absltest.TestCase):
     restored.set_state(json.loads(json.dumps(entity.get_state())))
     self.assertEqual(self._customs(restored)['c9'].spec, spec)
 
-  def test_a_full_domain_drops_its_oldest_custom(self):
-    old = [
-        {
-            'id': f'c{i}',
-            'kind': 'norm',
-            'domain': 'sharing',
-            'text': f'Old way {i}.',
-            'params': {},
-        }
-        for i in (1, 2)
-    ]
-    entity = self._person(customs=old, uptake={'rite': 1.0}, per_domain=2)
-    new = {
-        'id': 'c3',
-        'kind': 'norm',
-        'domain': 'sharing',
-        'text': 'A new way.',
-        'params': {},
-    }
+  def test_a_new_custom_replaces_the_one_of_its_kind_and_domain(self):
+    entity = self._person(
+        customs=[
+            _spec('c1', 'norm', 'sharing'),
+            _spec('c2', 'belief', 'sacred'),
+        ],
+        uptake={'rite': 1.0},
+    )
 
-    entity.observe(culture.offer_line(new, 'rite'))
+    entity.observe(
+        culture_lib.offer_line(_spec('c3', 'norm', 'sharing'), 'rite')
+    )
 
     self.assertEqual(sorted(self._customs(entity)), ['c2', 'c3'])
+
+  def test_a_full_domain_drops_its_oldest_custom(self):
+    entity = self._person(
+        customs=[
+            _spec('c1', 'norm', 'sharing'),
+            _spec('c2', 'value', 'sharing'),
+        ],
+        uptake={'rite': 1.0},
+        per_domain=2,
+    )
+
+    entity.observe(
+        culture_lib.offer_line(_spec('c3', 'belief', 'sharing'), 'rite')
+    )
+
+    self.assertEqual(sorted(self._customs(entity)), ['c2', 'c3'])
+
+  def test_only_a_better_skill_replaces_the_one_held(self):
+    entity = self._person(
+        customs=[_spec('c1', 'skill', 'food', level=3)],
+        uptake={'apprenticeship': 1.0},
+    )
+
+    entity.observe(
+        culture_lib.offer_line(
+            _spec('c2', 'skill', 'food', level=3), 'apprenticeship'
+        )
+    )
+    self.assertEqual(sorted(self._customs(entity)), ['c1'])
+    entity.observe(
+        culture_lib.offer_line(
+            _spec('c3', 'skill', 'food', level=4), 'apprenticeship'
+        )
+    )
+    self.assertEqual(sorted(self._customs(entity)), ['c3'])
+
+  def test_the_well_fed_are_copied_more_by_the_success_biased(self):
+    spec = _spec('c9', 'habit', 'food')
+
+    def chance(stores: float, biases: str) -> float:
+      offer = culture_lib.OFFER.search(
+          culture_lib.offer_line(spec, 'observation', 'Bo', stores)
+      )
+      assert offer is not None
+      return culture.offer_chance(offer, {'observation': 0.2}, biases)
+
+    biased = 'learn from those whose stores are full.'
+    self.assertGreater(chance(12.0, biased), chance(1.0, biased))
+    self.assertEqual(chance(12.0, ''), chance(1.0, ''))
 
   def test_an_offer_by_an_unknown_channel_is_not_taken_up(self):
     entity = self._person(uptake={})
@@ -199,7 +266,7 @@ class LearnerTest(absltest.TestCase):
         'text': 'The river is a god.',
         'params': {},
     }
-    entity.observe(culture.offer_line(spec, 'rumour'))
+    entity.observe(culture_lib.offer_line(spec, 'rumour'))
     self.assertEmpty(self._customs(entity))
 
 
