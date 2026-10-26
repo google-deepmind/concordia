@@ -23,7 +23,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  entryMeta, entryShown, fateMove, releaseStatus, savedNote,
+  entryMeta, entryShown, fateChoices, fateMove, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
@@ -165,4 +165,9 @@ test('a song reaches those old enough within sight, across the edges', () => {
 test('disasters and migrants are written in the form the World reads', () => {
   assert.equal(fateMove('fire', [5, 6]), 'send a fire at 5,6');
   assert.equal(fateMove('migrants', [0, 23]), 'bring migrants at 0,23');
+  assert.equal(fateMove('found school', [1, 2]), 'found a school at 1,2');
+  assert.equal(fateMove('close library', [1, 2]), 'close the library at 1,2');
+  assert.deepEqual(fateChoices({disaster_kinds: ['fire']}), ['fire',
+    'migrants', 'found library', 'found school', 'found shrine',
+    'close library', 'close school', 'close shrine']);
 });

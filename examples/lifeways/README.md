@@ -290,6 +290,12 @@ a century or so). The Experimenter may send one (`send a <kind> at
 row keeps each disaster (`disasters`), and the Experimenter hears what it
 took.
 
+**Institutions.** The Experimenter may found a library, school or shrine at
+a place (`found a <kind> at <row>,<col>`), where the world has that kind
+and none stands within its spacing; it stands empty until people use it.
+It may also close one (`close the <kind> at <row>,<col>`): the place and
+what it held are gone.
+
 **Partners.** One who looks for a partner looks until paired, with the
 nearest who is looking too. Parents and children, and siblings, never pair.
 

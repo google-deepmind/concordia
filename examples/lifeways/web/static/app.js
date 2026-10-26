@@ -388,15 +388,34 @@ function drawNotebook() {
   }));
 }
 
+/** What the Experimenter may found or close. */
+const INSTITUTIONS = ['library', 'school', 'shrine'];
+
 /**
- * The Experimenter's disaster, or bringing migrants, in the World's form.
- * @param {string} kind A disaster's kind, or 'migrants'.
+ * The choices of "Shape the valley": disasters, migrants, institutions.
+ * @param {!Object} world The state.
+ * @return {!Array<string>}
+ */
+function fateChoices(world) {
+  return world.disaster_kinds.concat(['migrants'],
+      INSTITUTIONS.map((kind) => `found ${kind}`),
+      INSTITUTIONS.map((kind) => `close ${kind}`));
+}
+
+/**
+ * The Experimenter's move to shape the valley, in the form the World reads.
+ * @param {string} kind A disaster's kind, 'migrants', or 'found <kind>' or
+ *     'close <kind>'.
  * @param {!Array<number>} at [row, col].
  * @return {string} The move.
  */
 function fateMove(kind, at) {
-  return kind === 'migrants' ? `bring migrants at ${at.join(',')}` :
-      `send a ${kind} at ${at.join(',')}`;
+  const where = at.join(',');
+  if (kind === 'migrants') return `bring migrants at ${where}`;
+  const [act, place] = kind.split(' ');
+  if (act === 'found') return `found a ${place} at ${where}`;
+  if (act === 'close') return `close the ${place} at ${where}`;
+  return `send a ${kind} at ${where}`;
 }
 
 /**
@@ -735,7 +754,7 @@ async function start() {
   const world = await api('api/state');
   fill('kind', world.custom_kinds);
   fill('domain', world.domains);
-  fill('fate-kind', world.disaster_kinds.concat(['migrants']));
+  fill('fate-kind', fateChoices(world));
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
@@ -846,7 +865,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, fateMove, releaseStatus, savedNote,
+    entryMeta, entryShown, fateChoices, fateMove, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

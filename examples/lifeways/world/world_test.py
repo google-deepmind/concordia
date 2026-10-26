@@ -912,6 +912,39 @@ class ReleaseTest(_PlaceTest):
     self.assertEqual({r[0]['by'] for r in records}, {'world'})
     self.assertEqual({r[0]['kind'] for r in records}, {'drought'})
 
+  def test_the_experimenter_founds_and_closes_institutions(self):
+    self.world.school = {'cost': 3.0, 'spacing': 5, 'term': 5}
+
+    self._year(Experimenter='found a school at 4,4')
+    (school,) = self.world.places.near((4, 4), 0, places_lib.SCHOOL)
+    self.assertEqual(school.founder, world_lib.EXPERIMENTER)
+    self.assertIn(
+        'A school is founded at 4,4', self.world.history[-1]['reports'][0]
+    )
+
+    self._year(Experimenter='found a school at 5,5')  # Too near the first.
+    self.assertLen(self.world.places.near((4, 4), 5, places_lib.SCHOOL), 1)
+    self.assertIn('stands within 5 steps', self.world.history[-1]['reports'][0])
+
+    self.world.places.write(school, self.norm, self.world.year)
+    self._year(Experimenter='close the school at 4,5')  # A step away.
+    self.assertEmpty(self.world.places.near((4, 4), 5, places_lib.SCHOOL))
+    self.assertIn(
+        'The school at 4,4 is closed; 1 customs it held are gone',
+        self.world.history[-1]['reports'][0],
+    )
+
+  def test_institutions_the_world_lacks_or_not_there_are_refused(self):
+    self.world.shrine = None
+    for move, said in (
+        ('found a shrine at 1,1', 'This world has no shrines.'),
+        ('close the library at 9,9', 'No library stands at 9,9.'),
+        ('found a temple at 1,1', 'The institution is not understood'),
+    ):
+      self._year(Experimenter=move)
+      self.assertIn(said, self.world.history[-1]['reports'][0])
+    self.assertEqual(self.world.places.all(), [])
+
   def test_a_text_is_left_on_a_shelf_at_its_place(self):
     self._year(
         Experimenter='release skill craft level 3 as a text at 2,3: Knapping.'

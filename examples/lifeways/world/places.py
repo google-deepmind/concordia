@@ -179,6 +179,10 @@ class Places:
     picked = sorted(rng.choice(len(place.shelf), size=count, replace=False))
     return [place.shelf[int(i)] for i in picked]
 
+  def close(self, place: Place) -> None:
+    """Closes a place: it and what it holds are gone."""
+    self._places.pop(place.id, None)
+
   def decay(self, rng: np.random.Generator, year: int) -> None:
     """Texts in ruins crumble; a ruin with nothing left is gone."""
     for place in list(self._places.values()):

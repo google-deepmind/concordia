@@ -119,6 +119,17 @@ DEFAULT_ARRIVALS: Mapping[str, Any] = {
     'group': 4,
 }
 BRING = 'bring migrants'
+# The Experimenter's: found an institution at a place, or close one.
+FOUND_PLACE = 'found'
+CLOSE_PLACE = 'close'
+INSTITUTION_FORMS = (
+    'found a <library, school or shrine> at <row>,<col>',
+    'close the <library, school or shrine> at <row>,<col>',
+)
+_INSTITUTION = re.compile(
+    r'^(?P<act>found|close) (?:a|the) (?P<kind>library|school|shrine) at'
+    r' (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
+)
 MIGRANTS_FORM = 'bring migrants at <row>,<col>'
 _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 
@@ -547,6 +558,54 @@ class World:
     )
     return came
 
+  def _institution(self, answer: str) -> None:
+    """The Experimenter founds or closes an institution (`INSTITUTION_FORMS`).
+
+    It founds one where the world has that kind of place and none stands
+    within its spacing; it closes the one of that kind at the place, or
+    within a step of it, and what it held is gone.
+
+    Args:
+      answer: The Experimenter's answer this year.
+    """
+    answer = answer.strip()
+    head = answer.lower().split(' ', 1)[0]
+    if head not in (FOUND_PLACE, CLOSE_PLACE):
+      return
+    match = _INSTITUTION.match(answer.lower())
+    if match is None:
+      self._report('The institution is not understood: ' + answer)
+      return
+    kind = match.group('kind')
+    tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
+    where = f'{tile[0]},{tile[1]}'
+    if match.group('act') == FOUND_PLACE:
+      setting = {
+          places_lib.LIBRARY: self.library,
+          places_lib.SCHOOL: self.school,
+          places_lib.SHRINE: self.shrine,
+      }[kind]
+      if setting is None:
+        self._report(f'This world has no {kind}s.')
+        return
+      spacing = int(setting.get('spacing', 5))
+      if self.places.near(tile, spacing, kind):
+        self._report(f'A {kind} stands within {spacing} steps of {where}.')
+        return
+      self.places.found(kind, tile, EXPERIMENTER, self.year)
+      self._report(f'A {kind} is founded at {where}; it stands empty.')
+      return
+    near = self.places.near(tile, 1, kind)
+    if not near:
+      self._report(f'No {kind} stands at {where}.')
+      return
+    place = near[0]
+    self.places.close(place)
+    self._report(
+        f'The {kind} at {place.tile[0]},{place.tile[1]} is closed;'
+        f' {len(place.shelf)} customs it held are gone with it.'
+    )
+
   def _send(self, answer: str) -> list[str]:
     """The Experimenter sends a disaster to a place (`DISASTER_FORM`).
 
@@ -797,6 +856,7 @@ class World:
           ASK_FORM,
           DISASTER_FORM,
           MIGRANTS_FORM,
+          *INSTITUTION_FORMS,
           STOP,
       ]
     person = self.people[name]
@@ -1088,6 +1148,7 @@ class World:
     self._release(self.actions.get(EXPERIMENTER, ''))
     self._ask(self.actions.get(EXPERIMENTER, ''))
     brought = self._bring(self.actions.get(EXPERIMENTER, ''))
+    self._institution(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
     self._schools(did)
