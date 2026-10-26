@@ -1,0 +1,209 @@
+# Copyright 2026 DeepMind Technologies Limited.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+r"""Serves a running Lifeways world to a page, phone first (MOCK by default).
+
+  python -m examples.lifeways.web.server --port=8901 --base_path=/lifeways
+
+The page draws the valley, its people and places, the census as graphs and
+a person's customs, and lets the person playing the Experimenter pace the
+years, release customs and stop the world. Everything else the server does
+is read the simulation (`session.Session`).
+
+| Path (under `--base_path`) | What |
+|---|---|
+| `/` | the page |
+| `/static/<file>` | its scripts and styles |
+| `GET /api/state` | the world: map, people, places, pace |
+| `GET /api/census?since=<year>` | census rows after a year |
+| `GET /api/person?name=<name>` | one person's customs and kin |
+| `GET /api/build` | the commit served |
+| `POST /api/move` `{"move": ...}` | queue the Experimenter's move |
+| `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
+| `POST /api/stop` | stop the world |
+"""
+
+from collections.abc import Callable, Mapping
+import http.server
+import json
+import os
+import subprocess
+from typing import Any
+import urllib.parse
+
+from absl import app
+from absl import flags
+from absl import logging
+from examples.lifeways.web import session as session_lib
+
+_PORT = flags.DEFINE_integer('port', 8901, 'Port (127.0.0.1).')
+_BASE = flags.DEFINE_string('base_path', '/lifeways', 'Path prefix.')
+_SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
+_SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
+_PACE = flags.DEFINE_float('years_per_second', 1.0, 'Starting pace.')
+
+STATIC = os.path.join(os.path.dirname(__file__), 'static')
+_TYPES = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+}
+
+
+def build() -> str:
+  """The commit the server runs, if it runs from a git checkout."""
+  try:
+    out = subprocess.run(
+        ['git', 'rev-parse', '--short', 'HEAD'],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=os.path.dirname(__file__),
+        timeout=5,
+    )
+    return out.stdout.strip()
+  except (OSError, subprocess.SubprocessError):
+    return ''
+
+
+def handler(
+    session: session_lib.Session, base_path: str, commit: str = ''
+) -> type[http.server.BaseHTTPRequestHandler]:
+  """A request handler serving one session under a path prefix."""
+  base = '/' + base_path.strip('/') if base_path.strip('/') else ''
+
+  class Handler(http.server.BaseHTTPRequestHandler):
+    """Routes the page's requests to the session."""
+
+    def log_message(self, format: str, *args: Any) -> None:  # pylint: disable=redefined-builtin
+      logging.debug(format, *args)
+
+    def _send(
+        self, status: int, body: bytes, kind: str = 'application/json'
+    ) -> None:
+      self.send_response(status)
+      self.send_header('Content-Type', kind)
+      self.send_header('Content-Length', str(len(body)))
+      self.send_header('Cache-Control', 'no-store')
+      self.end_headers()
+      self.wfile.write(body)
+
+    def _json(self, status: int, data: Any) -> None:
+      self._send(status, json.dumps(data).encode())
+
+    def _path(self) -> tuple[str, dict[str, list[str]]] | None:
+      url = urllib.parse.urlparse(self.path)
+      if not url.path.startswith(base):
+        return None
+      return url.path[len(base) :] or '/', urllib.parse.parse_qs(url.query)
+
+    def do_GET(self) -> None:  # pylint: disable=invalid-name
+      found = self._path()
+      if found is None:
+        self._json(404, {'error': 'not found'})
+        return
+      path, query = found
+      routes: Mapping[str, Callable[[], Any]] = {
+          '/api/state': session.state,
+          '/api/census': lambda: session.census(
+              int(query.get('since', ['-1'])[0])
+          ),
+          '/api/build': lambda: {'commit': commit},
+      }
+      if path in routes:
+        self._json(200, routes[path]())
+      elif path == '/api/person':
+        person = session.person(query.get('name', [''])[0])
+        if person is None:
+          self._json(404, {'error': 'nobody of that name lives'})
+        else:
+          self._json(200, person)
+      elif path in ('/', '/index.html'):
+        self._static('index.html')
+      elif path.startswith('/static/'):
+        self._static(path[len('/static/') :])
+      else:
+        self._json(404, {'error': 'not found'})
+
+    def do_POST(self) -> None:  # pylint: disable=invalid-name
+      found = self._path()
+      if found is None:
+        self._json(404, {'error': 'not found'})
+        return
+      path, _ = found
+      length = int(self.headers.get('Content-Length', '0') or 0)
+      try:
+        body = json.loads(self.rfile.read(length) or b'{}')
+      except json.JSONDecodeError:
+        self._json(400, {'error': 'send JSON'})
+        return
+      if path == '/api/move':
+        session.move(str(body.get('move', '')))
+        self._json(200, session.input.settings())
+      elif path == '/api/pace':
+        self._json(
+            200,
+            session.pace(body.get('years_per_second'), body.get('paused')),
+        )
+      elif path == '/api/stop':
+        session.stop()
+        self._json(200, session.input.settings())
+      else:
+        self._json(404, {'error': 'not found'})
+
+    def _static(self, name: str) -> None:
+      path = os.path.normpath(os.path.join(STATIC, name))
+      if not path.startswith(STATIC + os.sep) or not os.path.isfile(path):
+        self._json(404, {'error': 'not found'})
+        return
+      with open(path, 'rb') as f:
+        body = f.read()
+      kind = _TYPES.get(os.path.splitext(path)[1], 'application/octet-stream')
+      self._send(200, body, kind)
+
+  return Handler
+
+
+def serve(
+    session: session_lib.Session, port: int, base_path: str
+) -> http.server.ThreadingHTTPServer:
+  """A server for a session (call `serve_forever`; port 0 picks a free one)."""
+  return http.server.ThreadingHTTPServer(
+      ('127.0.0.1', port), handler(session, base_path, build())
+  )
+
+
+def main(argv) -> None:
+  del argv
+  session = session_lib.Session(
+      _SCENARIO.value, seed=_SEED.value, years_per_second=_PACE.value
+  )
+  server = serve(session, _PORT.value, _BASE.value)
+  logging.info(
+      'MOCK: %s, seed %d, at http://127.0.0.1:%d%s/',
+      _SCENARIO.value,
+      _SEED.value,
+      server.server_address[1],
+      _BASE.value,
+  )
+  session.start()
+  try:
+    server.serve_forever()
+  finally:
+    session.close()
+    server.server_close()
+
+
+if __name__ == '__main__':
+  app.run(main)

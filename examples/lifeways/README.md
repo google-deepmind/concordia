@@ -24,6 +24,22 @@ The run writes these files to `--out_dir`:
 | `customs.jsonl` | each variant of a custom once nobody living holds it, with its parent: the long record of culture |
 | `summary.json` | the run's totals, with memory use and seconds per year (`--soak`) |
 
+## The page
+
+```bash
+python -m examples.lifeways.web.server --port=8901 --base_path=/lifeways
+```
+
+A phone-first page plays a running world. It draws the valley, the
+peoples and the places, and the census as graphs; tap a person to see
+their customs and how each came. The person on the page is the
+Experimenter: through the stock `HumanActComponent` and a `PageInput`
+adapter, each year it answers with the move the person queued (a release
+from the custom designer, or stopping the world), or else the person's
+standing choice, watching, at the pace the person sets. The server only
+builds, plays and reads the simulation (`web/session.py`); the run ends
+when the Experimenter stops the world.
+
 ## Scenarios
 
 The Sandbox is where everything is, and its presets are settings, not code

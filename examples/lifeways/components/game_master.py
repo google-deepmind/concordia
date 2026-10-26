@@ -105,7 +105,8 @@ class TurnGate(
   that person if the person has not yet answered this year. Asked once the
   last answer is in, it first closes the year: it resolves the answers,
   delivers next year's observations, adds the born and removes the dead
-  through the `Lifecycle`, and ends the game at `max_years`.
+  through the `Lifecycle`, and ends the game at `max_years` or when the
+  Experimenter stops the world.
   """
 
   def __init__(
@@ -168,7 +169,9 @@ class TurnGate(
         'Summary': f'Year {world.year - 1} closed',
         'Value': world.history[-1] if world.history else {},
     })
-    if self._max_years is not None and world.year >= self._max_years:
+    if outcome.stopped or (
+        self._max_years is not None and world.year >= self._max_years
+    ):
       self._ended = True
       self.get_entity().get_component(
           self._terminate_key, type_=terminate.Terminate

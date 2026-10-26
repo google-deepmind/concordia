@@ -83,18 +83,25 @@ class Archive:
 
 
 def build_config(
-    settings: Mapping[str, Any], lifecycle: gm_components.Lifecycle
+    settings: Mapping[str, Any],
+    lifecycle: gm_components.Lifecycle,
+    experimenter: Callable[..., Any] | None = None,
 ) -> prefab_lib.Config:
   """The Concordia config of a world: its founders, the Experimenter, the GM.
 
   Args:
     settings: The world's settings.
     lifecycle: How the World GM reaches the simulation (wired by the caller).
+    experimenter: Optional. Builds the Experimenter's acting component (a
+      person's `HumanActComponent`); by default a rule plays it.
 
   Returns:
     The config.
   """
   founders = scenarios.founders(settings)
+  experimenter_params: dict[str, Any] = {'plan': dict(settings.get('plan', {}))}
+  if experimenter is not None:
+    experimenter_params['act_component_factory'] = experimenter
   instances = [
       prefab_lib.InstanceConfig(
           prefab=person_lib.PERSON_PREFAB,
@@ -107,7 +114,7 @@ def build_config(
       prefab_lib.InstanceConfig(
           prefab=experimenter_lib.EXPERIMENTER_PREFAB,
           role=prefab_lib.Role.ENTITY,
-          params={'plan': dict(settings.get('plan', {}))},
+          params=experimenter_params,
       )
   )
   instances.append(
@@ -297,6 +304,7 @@ def build_simulation(
     model: language_model.LanguageModel | None = None,
     sleep_time: float = 0.002,
     archive: Archive | None = None,
+    experimenter: Callable[..., Any] | None = None,
 ) -> Run:
   """A runnable Lifeways simulation.
 
@@ -305,13 +313,15 @@ def build_simulation(
     model: The model people act with; the deterministic mock by default.
     sleep_time: Seconds a thread waits when its person may not act yet.
     archive: Where the dead are kept (a new one by default).
+    experimenter: Optional. Builds the Experimenter's acting component from
+      its context order (a person's `HumanActComponent`).
 
   Returns:
     The simulation, its lifecycle and its archive.
   """
   lifecycle = gm_components.Lifecycle()
   sim = simulation_lib.Simulation(
-      config=build_config(settings, lifecycle),
+      config=build_config(settings, lifecycle, experimenter),
       model=model or mock_language_model.MockModel(),
       embedder=hash_embedder,
       engine=asynchronous.Asynchronous(sleep_time=sleep_time),

@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+Copyright 2026 DeepMind Technologies Limited.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lifeways</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Lifeways</h1>
+    <div id="year" aria-live="polite">…</div>
+  </header>
+
+  <section id="time" aria-label="Time">
+    <button id="play" type="button">Pause</button>
+    <label>Years a second
+      <select id="speed">
+        <option value="0.25">¼</option>
+        <option value="0.5">½</option>
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+      </select>
+    </label>
+    <button id="stop" type="button" class="danger">Stop the world</button>
+  </section>
+
+  <section id="valley" aria-label="The valley">
+    <canvas id="map" width="480" height="320"></canvas>
+    <p class="hint">Tap a person to see their customs. Colours are peoples by
+      descent; squares are places (L library, S school, ✦ shrine).</p>
+  </section>
+
+  <section id="person" hidden aria-label="A person">
+    <h2 id="person-name"></h2>
+    <p id="person-body"></p>
+    <ul id="person-customs"></ul>
+    <button id="person-close" type="button">Close</button>
+  </section>
+
+  <section id="graphs" aria-label="The census">
+    <h2>The census</h2>
+    <canvas id="chart" width="480" height="180"></canvas>
+    <p id="legend" class="hint"></p>
+    <p id="channels" class="hint"></p>
+  </section>
+
+  <section id="designer" aria-label="The custom designer">
+    <h2>Release a custom</h2>
+    <p class="hint">You never edit a mind: a custom you release is left as a
+      text on a shelf, or sung to those near a place. Tap the map to choose
+      the place.</p>
+    <form id="release">
+      <label>Kind <select id="kind"></select></label>
+      <label>Domain <select id="domain"></select></label>
+      <label>As a
+        <select id="how"><option>song</option><option>text</option></select>
+      </label>
+      <label>At <input id="at" value="8,8" inputmode="numeric" size="6"></label>
+      <label class="wide">It says
+        <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
+      </label>
+      <button type="submit">Release next year</button>
+    </form>
+    <p id="queued" class="hint"></p>
+  </section>
+
+  <footer><span id="build"></span> · MOCK minds · <span id="error"></span></footer>
+  <script src="static/app.js"></script>
+</body>
+</html>

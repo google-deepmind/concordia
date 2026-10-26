@@ -63,6 +63,8 @@ JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
 PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
+# The Experimenter's: end the run (the only way a Sandbox ends).
+STOP = 'stop the world'
 # The Experimenter's: release a custom it designed into the world.
 RELEASE = 'release'
 RELEASE_FORM = (
@@ -257,6 +259,8 @@ class YearOutcome:
   deaths: list[str]
   # Variants nobody living holds any more, for the run's long record.
   extinct: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+  # Whether the Experimenter ended the run this year.
+  stopped: bool = False
 
 
 class World:
@@ -469,7 +473,7 @@ class World:
   def moves(self, name: str) -> list[str]:
     """A person's moves this year (the Experimenter only watches)."""
     if name == EXPERIMENTER:
-      return [WATCH, RELEASE_FORM]
+      return [WATCH, RELEASE_FORM, STOP]
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
@@ -721,6 +725,7 @@ class World:
       The born, the dead and the forgotten variants.
     """
     created = self.culture.created()
+    stopped = _is_move(self.actions.get(EXPERIMENTER, '').strip().lower(), STOP)
     self._offers.clear()
     self._rediscovered = 0
     self._released = 0
@@ -775,6 +780,7 @@ class World:
         births=births + arrived,
         deaths=deaths,
         extinct=[custom.to_dict() for custom in extinct],
+        stopped=stopped,
     )
 
   def _rng(self, *keys: Any) -> np.random.Generator:
