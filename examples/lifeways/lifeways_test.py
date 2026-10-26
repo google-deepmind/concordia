@@ -23,6 +23,7 @@ from typing import Any
 from unittest import mock
 
 from absl.testing import absltest
+from examples.lifeways import sweep
 from examples.lifeways import mock_language_model
 from examples.lifeways import plot
 from examples.lifeways import scenarios
@@ -303,6 +304,49 @@ class LeverTest(absltest.TestCase):
     ):
       with self.assertRaises(ValueError):
         scenarios.with_lever(world, lever, value)
+
+
+class ExperimentTest(absltest.TestCase):
+
+  def test_a_lever_is_read_from_its_flag(self):
+    self.assertEqual(sweep.parse_lever('richness=0.5'), ('richness', 0.5))
+    self.assertEqual(sweep.parse_lever('without=story'), ('without', 'story'))
+    for text in ('richness', 'richness=', 'richness=rich', '=1'):
+      with self.assertRaises(ValueError):
+        sweep.parse_lever(text)
+
+  def test_runs_are_exact_and_the_lever_is_the_one_difference(self):
+    lever = ('richness', 0.2)  # The Sandbox's own: no difference at all.
+    control = sweep.play('sandbox', lever, sweep.Condition(0, False), 4)
+    treated = sweep.play('sandbox', lever, sweep.Condition(0, True), 4)
+
+    self.assertLen(control, 4)
+    self.assertEqual(json.dumps(control), json.dumps(treated))
+
+  def test_the_summary_compares_seed_by_seed(self):
+    def rows(living):
+      return [
+          {
+              'population': n,
+              'held': {'distinct': 3, 'diversity': 0.5, 'top': [['c1', 0.5]]},
+              'peoples': {'peoples': 1},
+          }
+          for n in living
+      ]
+
+    summary = sweep.summarize({
+        sweep.Condition(0, False): rows([10, 20, 30, 30]),
+        sweep.Condition(0, True): rows([10, 20, 40, 40]),
+        sweep.Condition(1, False): rows([5, 5, 20, 20]),
+        sweep.Condition(1, True): rows([5, 5, 10, 10]),
+    })
+
+    living = summary['measures']['living']
+    self.assertEqual(living['by_seed'], {'0': [30.0, 40.0], '1': [20.0, 10.0]})
+    self.assertEqual(living['difference'][0], 0.0)
+    self.assertEqual((living['above'], living['below']), (1, 1))
+    self.assertEqual(summary['measures']['peoples']['equal'], 2)
+    self.assertIn('| living | 25.0 ± 7.071 |', sweep.report(summary, 'T'))
 
 
 class ModelTest(absltest.TestCase):

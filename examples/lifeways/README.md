@@ -137,6 +137,29 @@ settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
   year by year, moves and all (tick mode is exact).
 - A twin is not saved.
 
+## Experiments
+
+```bash
+python -m examples.lifeways.experiment --lever=richness=0.5 --seeds=5 \
+    --years=200 --out_dir=/tmp/richer
+```
+
+A twin on the page compares one world with itself, one lever changed. An
+experiment repeats that over seeds.
+- **The runs.** For each seed it plays the control (the scenario's
+  settings) and the treatment (`scenarios.with_lever`), in MOCK tick mode,
+  in processes of their own. Runs are exact, and they do not depend on
+  Python's hash seed, so every difference is the lever's or the seed's.
+- **The comparison.** A run's measure is its mean over its later half:
+  the living, distinct customs held, their diversity, the share holding
+  the top custom, peoples, tongues and the skill worked by. Across seeds
+  the tool gives the control's and the treatment's mean ± sd, and the
+  paired difference: its mean ± sd and in how many seeds it was above or
+  below.
+- **The output.** It prints a Markdown table and writes `summary.json`,
+  `report.md` and every run's census (`census.jsonl`). The harness only
+  builds, plays and reads simulations.
+
 ## Scenarios
 
 The Sandbox is where everything is, and its presets are settings, not code

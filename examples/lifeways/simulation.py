@@ -335,6 +335,26 @@ class Run:
         ],
     }
 
+  def census_row(self, year: int) -> dict[str, Any]:
+    """The year's census row, with what the living hold and the peoples.
+
+    Call it as a year closes (`Lifecycle.year_closed`), where the world may
+    be read.
+
+    Args:
+      year: The year just begun (`year_closed`'s).
+
+    Returns:
+      The World's census of the year that closed (or just its year, if the
+      world keeps none), `held` (`customs_census`) and `peoples`.
+    """
+    world = self.world()
+    return {
+        **(world.history[-1] if world.history else {'year': year - 1}),
+        'held': self.customs_census(),
+        'peoples': self.peoples(),
+    }
+
   def held_counts(self) -> collections.Counter[str]:
     """How many of the living hold each custom, read from their Learners.
 

@@ -484,12 +484,7 @@ class Session:
 
   def _year_closed(self, year: int) -> None:
     # In the World GM's lock: the world may be read here, and is whole.
-    world = self.run.world()
-    row = {
-        **(world.history[-1] if world.history else {'year': year - 1}),
-        'held': self.run.customs_census(),
-        'peoples': self.run.peoples(),
-    }
+    row = self.run.census_row(year)
     self._note_year(year, row)
     self._follow_releases(row)
     with self._rows_lock:
