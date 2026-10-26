@@ -389,6 +389,17 @@ function drawNotebook() {
 }
 
 /**
+ * The Experimenter's disaster, or bringing migrants, in the World's form.
+ * @param {string} kind A disaster's kind, or 'migrants'.
+ * @param {!Array<number>} at [row, col].
+ * @return {string} The move.
+ */
+function fateMove(kind, at) {
+  return kind === 'migrants' ? `bring migrants at ${at.join(',')}` :
+      `send a ${kind} at ${at.join(',')}`;
+}
+
+/**
  * The Experimenter's question to a person, in the form the World reads.
  * @param {string} name The person's name.
  * @param {string} question The question.
@@ -724,6 +735,7 @@ async function start() {
   const world = await api('api/state');
   fill('kind', world.custom_kinds);
   fill('domain', world.domains);
+  fill('fate-kind', world.disaster_kinds.concat(['migrants']));
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
@@ -789,6 +801,19 @@ async function start() {
     }
     refresh();
   });
+  document.getElementById('fate').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const said = document.getElementById('fate-error');
+    if (!page.at) {
+      said.textContent = 'Tap the map first, to choose the place.';
+      return;
+    }
+    said.textContent = '';
+    await api('api/move', {
+      move: fateMove(document.getElementById('fate-kind').value, page.at),
+    });
+    refresh();
+  });
   document.getElementById('note').addEventListener('submit', async (event) => {
     event.preventDefault();
     const said = document.getElementById('note-error');
@@ -821,7 +846,7 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, releaseStatus, savedNote, transmissionText,
-    transmissionTree, twinNote, variantNote, withinReach,
+    entryMeta, entryShown, fateMove, releaseStatus, savedNote,
+    transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

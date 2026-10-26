@@ -573,6 +573,15 @@ class Session:
     closed = int(row['year'])
     for report in row.get('reports', ()):
       self._write(WORLD, report, closed)
+    for disaster in row.get('disasters', ()):
+      if disaster['by'] != world_lib.EXPERIMENTER:  # Sent by the world.
+        self._write(
+            EVENT,
+            f'A {disaster["kind"]} struck at'
+            f' {disaster["tile"][0]},{disaster["tile"][1]}:'
+            f' {disaster["near"]} lived within reach, {disaster["dead"]} died.',
+            closed,
+        )
     with self._rows_lock:
       last: Mapping[str, Any] = self._rows[-1] if self._rows else {}
     if 'population' not in row or 'population' not in last:
@@ -813,6 +822,7 @@ class Session:
         'domains': list(culture_lib.DOMAINS),
         'grown_age': world_lib.ADULT_AGE,
         'child_acts_age': world_lib.CHILD_ACTS_AGE,
+        'disaster_kinds': list(world_lib.DISASTERS),
         # The chance each who hears a released song takes it up.
         'song_uptake': person_lib.DEFAULT_UPTAKE.get(culture_lib.RELEASE, 0),
         'sight': int(self._settings.get('sight', 2)),

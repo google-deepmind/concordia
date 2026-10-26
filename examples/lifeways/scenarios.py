@@ -73,6 +73,14 @@ SANDBOX: Mapping[str, Any] = {
     # Shrines: building one costs food; they stand apart; their rite falls
     # every fourth year.
     'shrine': {'cost': 3.0, 'spacing': 5, 'every': 4},
+    # Disasters: each year one strikes with this chance, of one of these
+    # kinds, at a place drawn from the seed, within `radius` steps (about one
+    # a century; the Experimenter may send more).
+    'disasters': {
+        'chance': 0.01,
+        'radius': world_lib.DISASTER_RADIUS,
+        'kinds': list(world_lib.DISASTERS),
+    },
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.

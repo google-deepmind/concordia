@@ -274,6 +274,22 @@ transcripts (and to the Experimenter, and to the page).
 ways, feed only their own and have children young. Their customs spread, or
 not, by the same channels as anyone's.
 
+**Disasters and migrants** (DESIGN §2). A disaster strikes within a few
+steps of a place (`radius`, three):
+- a **drought** leaves a fifth of what grows;
+- a **flood** takes what grows on low land (river, coast, marsh), and the
+  texts of its places;
+- a **fire** takes what grows on grass and in forest, and libraries' texts;
+- a **plague** may take each life within reach, the old and the young most;
+- a **raid** takes the stores of all within reach, and may kill.
+
+The world sends one by chance (the `disasters` setting: in the Sandbox, one
+a century or so). The Experimenter may send one (`send a <kind> at
+<row>,<col>`), or bring at least four strangers of the arrivals' people
+(`bring migrants at <row>,<col>`). Those within reach are told, the census
+row keeps each disaster (`disasters`), and the Experimenter hears what it
+took.
+
 **Partners.** One who looks for a partner looks until paired, with the
 nearest who is looking too. Parents and children, and siblings, never pair.
 

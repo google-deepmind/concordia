@@ -107,8 +107,8 @@ button.link {
 #person-customs li { margin: 4px 0; }
 #person-customs .meta { color: var(--muted); font-size: 0.85rem; }
 
-#release, #ask, #fork, #note { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
-#release label, #ask label, #fork label, #note label {
+#release, #ask, #fork, #note, #fate { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+#release label, #ask label, #fork label, #note label, #fate label {
   display: flex;
   flex-direction: column;
   font-size: 0.85rem;
@@ -126,7 +126,7 @@ label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
 #transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
-#error, #fork-error, #note-error { color: var(--danger); }
+#error, #fork-error, #note-error, #fate-error { color: var(--danger); }
 
 #releases { list-style: none; padding: 0; }
 #releases li { margin: 8px 0; }

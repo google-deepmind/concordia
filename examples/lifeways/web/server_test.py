@@ -417,6 +417,24 @@ class NotebookTest(absltest.TestCase):
     self.assertIn('## Year 0', page)
     self.assertIn('- **hypothesis**: Songs spread faster than texts.', page)
 
+  def test_disasters_the_world_sends_are_noted(self):
+    session = session_lib.Session(
+        years_per_second=50, disasters={'chance': 1.0, 'kinds': ['drought']}
+    )
+    session.start()
+    try:
+      self.assertTrue(
+          _wait(
+              lambda: any(
+                  e['kind'] == session_lib.EVENT
+                  and e['text'].startswith('A drought struck at')
+                  for e in session.notebook()
+              )
+          )
+      )
+    finally:
+      session.close()
+
   def test_the_notebook_keeps_all_the_person_wrote_and_bounds_the_rest(self):
     session = session_lib.Session()
     with mock.patch.object(session_lib, 'NOTEBOOK_KEPT', 3):

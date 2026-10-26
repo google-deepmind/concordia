@@ -17,6 +17,8 @@
 from absl.testing import absltest
 from examples.lifeways import scenarios
 from examples.lifeways.world import culture as culture_lib
+from examples.lifeways.world import land as land_lib
+from examples.lifeways.world import places as places_lib
 from examples.lifeways.world import world as world_lib
 import numpy as np
 
@@ -680,7 +682,7 @@ class _PlaceTest(absltest.TestCase):
   def _year(self, **actions):
     self.world.queued.clear()
     self.world.actions = dict(actions)
-    self.world.close_year()
+    return self.world.close_year()
 
   def _offers(self, name):
     text = '\n'.join(self.world.queued.get(name, ()))
@@ -803,6 +805,112 @@ class ReleaseTest(_PlaceTest):
     )
     self._year(Ada='rest', Far='rest', Experimenter='watch')
     self.assertEqual(self.world.history[-1]['reports'], [])
+
+  def test_a_drought_withers_only_the_land_within_reach(self):
+    self._person('Ada', 30, (5, 5))
+    food = self.world.land.food.copy()
+
+    self._year(Ada='rest', Experimenter='send a drought at 5,5')
+
+    record = self.world.history[-1]['disasters'][0]
+    self.assertEqual(
+        (record['kind'], record['tile'], record['by'], record['near']),
+        ('drought', [5, 5], world_lib.EXPERIMENTER, 1),
+    )
+    self.assertLess(self.world.land.food[5, 7], food[5, 7])  # Two steps.
+    self.assertGreater(self.world.land.food[5, 9], food[5, 9] * 0.5)  # Four.
+    self.assertIn(
+        'A drought strikes at 5,5: 1 lived within reach, 0 died',
+        self.world.history[-1]['reports'][0],
+    )
+
+  def test_a_plague_takes_lives_within_reach_only(self):
+    for i in range(12):
+      self._person(f'Near{i}', 60, (5, 5))
+    self._person('Far', 60, (12, 12))
+
+    self._year(Experimenter='send a plague at 5,5')
+
+    record = self.world.history[-1]['disasters'][0]
+    self.assertGreater(record['dead'], 0)
+    self.assertIn('Far', self.world.people)
+    self.assertLen(
+        [n for n in self.world.people if n.startswith('Near')],
+        12 - record['dead'],
+    )
+
+  def test_raiders_take_the_stores_within_reach(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Far', 30, (12, 12))
+
+    self._year(Ada='rest', Far='rest', Experimenter='send a raid at 5,6')
+
+    self.assertGreater(self.world.history[-1]['disasters'][0]['food_lost'], 0)
+    if 'Ada' in self.world.people:
+      self.assertEqual(self.world.people['Ada'].food, 0.0)
+    self.assertGreater(self.world.people['Far'].food, 0.0)
+
+  def test_a_fire_burns_a_library_and_its_texts(self):
+    library = self.world.places.found(
+        places_lib.LIBRARY, (5, 5), 'Ada', self.world.year
+    )
+    self.world.places.write(library, self.norm, self.world.year)
+    self.world.land.terrain[5, 5] = land_lib.TERRAIN.index('forest')
+
+    self._year(Experimenter='send a fire at 5,5')
+
+    self.assertEqual(library.shelf, [])
+    record = self.world.history[-1]['disasters'][0]
+    self.assertEqual(record['texts_lost'], 1)
+    self.assertGreater(record['food_lost'], 0)
+    # Burned to nothing; only the seed bank regrew before the year closed.
+    land = self.world.land
+    self.assertAlmostEqual(
+        float(land.food[5, 5]), land.seed_bank * land.capacity((5, 5))
+    )
+
+  def test_the_experimenter_brings_migrants_to_a_place(self):
+    self.world.settings['arrivals'] = {
+        'people': 'Hill people',
+        'customs': [{'kind': 'belief', 'domain': 'sacred', 'text': 'Hills.'}],
+        'food': 6.0,
+        'group': 2,
+        'below': 0,  # No trickle of strangers: only those brought.
+    }
+
+    outcome = self._year(Experimenter='bring migrants at 3,4')
+
+    came = [self.world.people[p['name']] for p in outcome.births]
+    self.assertLen(came, 4)
+    self.assertEqual({p.tile for p in came}, {(3, 4)})
+    self.assertEqual({p.descent for p in came}, {'Hill people'})
+    self.assertEqual(self.world.history[-1]['arrivals'], 4)
+    self.assertIn(
+        '4 of the Hill people come to 3,4', self.world.history[-1]['reports'][0]
+    )
+
+  def test_a_disaster_or_migrants_not_understood_change_nothing(self):
+    for move in ('send a meteor at 1,1', 'send a fire', 'bring migrants'):
+      self._year(Experimenter=move)
+      self.assertEqual(self.world.history[-1]['disasters'], [])
+      self.assertIn('not understood', self.world.history[-1]['reports'][0])
+    self.assertIn(
+        world_lib.DISASTER_FORM, self.world.moves(world_lib.EXPERIMENTER)
+    )
+    self.assertIn(
+        world_lib.MIGRANTS_FORM, self.world.moves(world_lib.EXPERIMENTER)
+    )
+
+  def test_the_world_sends_disasters_by_chance(self):
+    self.world.settings['disasters'] = {'chance': 1.0, 'kinds': ['drought']}
+
+    for _ in range(3):
+      self._year()
+
+    records = [r['disasters'] for r in self.world.history[-3:]]
+    self.assertEqual([len(r) for r in records], [1, 1, 1])
+    self.assertEqual({r[0]['by'] for r in records}, {'world'})
+    self.assertEqual({r[0]['kind'] for r in records}, {'drought'})
 
   def test_a_text_is_left_on_a_shelf_at_its_place(self):
     self._year(

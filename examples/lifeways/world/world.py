@@ -89,6 +89,38 @@ _RELEASE = re.compile(
     r'^release (?P<kind>[a-z]+) (?P<domain>[a-z]+)(?: level (?P<level>\d+))?'
     r' as a (?P<how>text|song) at (?P<row>\d+),(?P<col>\d+): (?P<text>.+)$'
 )
+# Disasters (DESIGN §2): the world sends one by chance (the `disasters`
+# setting), and the Experimenter may send one at a place. Each strikes the
+# land and people within a few steps of its place.
+DROUGHT, FLOOD, FIRE, PLAGUE, RAID = (
+    'drought',
+    'flood',
+    'fire',
+    'plague',
+    'raid',
+)
+DISASTERS = (DROUGHT, FLOOD, FIRE, PLAGUE, RAID)
+SEND = 'send'
+DISASTER_FORM = 'send a <drought, flood, fire, plague or raid> at <row>,<col>'
+_SEND = re.compile(
+    r'^send an? (?P<kind>[a-z]+) at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
+)
+DISASTER_RADIUS = 3
+# A flood takes what grows on low land; a fire, what grows on grass and in
+# forest, and the texts on a library's shelf.
+_FLOODED = ('river', 'coast', 'marsh')
+_BURNED = ('grass', 'forest')
+# The Experimenter's: bring strangers of the arrivals' people to a place
+# (strangers with no customs of their own if the world has no arrivals).
+DEFAULT_ARRIVALS: Mapping[str, Any] = {
+    'people': 'Strangers',
+    'customs': (),
+    'food': 6.0,
+    'group': 4,
+}
+BRING = 'bring migrants'
+MIGRANTS_FORM = 'bring migrants at <row>,<col>'
+_BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
@@ -364,6 +396,8 @@ class World:
     self._released = 0
     # This year's releases: id, how, where, and how many heard a song.
     self._releases: list[dict[str, Any]] = []
+    # This year's disasters: kind, place, who sent it, what it took.
+    self._disasters: list[dict[str, Any]] = []
     # What the World told the Experimenter of its moves this year.
     self._reports: list[str] = []
 
@@ -426,6 +460,30 @@ class World:
     rng = self._rng('arrivals')
     if rng.random() >= float(arrivals.get('chance', 0.25)):
       return []
+    tile = (
+        int(rng.integers(self.land.rows)),
+        int(rng.integers(self.land.cols)),
+    )
+    return self._strangers(arrivals, tile, rng, int(arrivals.get('group', 2)))
+
+  def _strangers(
+      self,
+      arrivals: Mapping[str, Any],
+      tile: land_lib.Tile,
+      rng: np.random.Generator,
+      group: int,
+  ) -> list[dict[str, Any]]:
+    """A group of strangers of the arrivals' people comes to a place.
+
+    Args:
+      arrivals: The `arrivals` setting (their people, customs and stores).
+      tile: Where they come.
+      rng: The year's draw for their ages.
+      group: How many come.
+
+    Returns:
+      The prefab params of each who came.
+    """
     customs = [
         self.culture.add(
             c['kind'],
@@ -437,13 +495,9 @@ class World:
         ).id
         for c in arrivals.get('customs', ())
     ]
-    tile = (
-        int(rng.integers(self.land.rows)),
-        int(rng.integers(self.land.cols)),
-    )
     people = str(arrivals.get('people', 'strangers'))
     came = []
-    for i in range(int(arrivals.get('group', 2))):
+    for i in range(group):
       person = Person(
           name=self._new_name(),
           born=self.year - int(rng.integers(18, 31)),
@@ -463,6 +517,179 @@ class World:
       )
       came.append(self._params(person))
     return came
+
+  def _bring(self, answer: str) -> list[dict[str, Any]]:
+    """The Experimenter brings strangers to a place (`MIGRANTS_FORM`).
+
+    They are of the `arrivals` setting's people, with its customs and
+    stores; at least four come.
+
+    Args:
+      answer: The Experimenter's answer this year.
+
+    Returns:
+      The prefab params of each who came.
+    """
+    answer = answer.strip()
+    if not answer.lower().startswith(BRING):
+      return []
+    match = _BRING.match(answer.lower())
+    arrivals = self.settings.get('arrivals') or DEFAULT_ARRIVALS
+    if match is None:
+      self._report('The migrants are not understood: ' + answer)
+      return []
+    tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
+    group = max(4, int(arrivals.get('group', 2)))
+    came = self._strangers(arrivals, tile, self._rng('bring'), group)
+    self._report(
+        f'{len(came)} of the {arrivals.get("people", "strangers")} come to'
+        f' {tile[0]},{tile[1]}: {", ".join(p["name"] for p in came)}.'
+    )
+    return came
+
+  def _send(self, answer: str) -> list[str]:
+    """The Experimenter sends a disaster to a place (`DISASTER_FORM`).
+
+    Args:
+      answer: The Experimenter's answer this year.
+
+    Returns:
+      Who died of it.
+    """
+    answer = answer.strip()
+    if not answer.lower().startswith(SEND):
+      return []
+    match = _SEND.match(answer.lower())
+    if match is None or match.group('kind') not in DISASTERS:
+      self._report('The disaster is not understood: ' + answer)
+      return []
+    tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
+    return self._strike(match.group('kind'), tile, EXPERIMENTER)
+
+  def _disaster(self) -> list[str]:
+    """By chance, a disaster the world sends (the `disasters` setting).
+
+    Each year one strikes with chance `chance`, of a kind drawn from `kinds`,
+    at a place drawn from the seed.
+
+    Returns:
+      Who died of it.
+    """
+    disasters = self.settings.get('disasters')
+    if not disasters:
+      return []
+    rng = self._rng('disaster')
+    if rng.random() >= float(disasters.get('chance', 0.0)):
+      return []
+    kinds = [k for k in disasters.get('kinds', DISASTERS) if k in DISASTERS]
+    if not kinds:
+      return []
+    kind = kinds[int(rng.integers(len(kinds)))]
+    tile = (
+        int(rng.integers(self.land.rows)),
+        int(rng.integers(self.land.cols)),
+    )
+    return self._strike(kind, tile, 'world')
+
+  def _strike(self, kind: str, tile: land_lib.Tile, by: str) -> list[str]:
+    """A disaster strikes the land, places and people near a tile.
+
+    - drought: what grows within reach falls to a fifth;
+    - flood: low land (river, coast, marsh) loses what grows, and its places
+      their texts;
+    - fire: grass and forest lose what grows, and libraries their texts;
+    - plague: each within reach may die, the old and the young most;
+    - raid: raiders take the stores of all within reach, and may kill.
+
+    Args:
+      kind: One of `DISASTERS`.
+      tile: Where it strikes.
+      by: Who sent it: the Experimenter, or 'world'.
+
+    Returns:
+      Who died of it.
+    """
+    radius = int(
+        (self.settings.get('disasters') or {}).get('radius', DISASTER_RADIUS)
+    )
+    reach = [
+        t
+        for t in self.land.around(tile, radius)
+        if self.places.distance(tile, t) <= radius
+    ]
+    near = [
+        name
+        for name in self.living()
+        if self.places.distance(self.people[name].tile, tile) <= radius
+    ]
+    rng = self._rng('strike', kind, *tile)
+    lost = 0.0
+    texts = 0
+    dead: list[str] = []
+    if kind in (DROUGHT, FLOOD, FIRE):
+      struck = {
+          DROUGHT: reach,
+          FLOOD: [t for t in reach if self.land.kind(t) in _FLOODED],
+          FIRE: [t for t in reach if self.land.kind(t) in _BURNED],
+      }[kind]
+      keep = 0.2 if kind == DROUGHT else 0.0
+      for t in struck:
+        lost += float(self.land.food[t]) * (1.0 - keep)
+        self.land.food[t] *= keep
+      if kind in (FLOOD, FIRE):
+        for place in self.places.all():
+          if place.tile in struck and (
+              kind == FLOOD or place.kind == places_lib.LIBRARY
+          ):
+            texts += len(place.shelf)
+            place.shelf.clear()
+    elif kind == PLAGUE:
+      for name in near:
+        age = self.people[name].age(self.year)
+        chance = 0.5 if age < CHILD_ACTS_AGE or age >= 50 else 0.25
+        if rng.random() < chance:
+          dead.append(name)
+    elif kind == RAID:
+      for name in near:
+        person = self.people[name]
+        lost += person.food
+        person.food = 0.0
+        if person.age(self.year) >= ADULT_AGE and rng.random() < 0.1:
+          dead.append(name)
+    what = {
+        DROUGHT: 'A drought withers the land around',
+        FLOOD: 'A flood drowns the low land around',
+        FIRE: 'A fire sweeps the land around',
+        PLAGUE: 'A plague comes to',
+        RAID: 'Raiders fall upon',
+    }[kind]
+    for name in near:
+      fate = ' and takes many lives' if dead and kind == PLAGUE else ''
+      self._tell(name, f'{what} {name}{fate}.')
+    for name in dead:
+      self._die(name)
+    record = {
+        'kind': kind,
+        'tile': list(tile),
+        'by': by,
+        'near': len(near),
+        'dead': len(dead),
+        'food_lost': round(lost, 1),
+        'texts_lost': texts,
+    }
+    self._disasters.append(record)
+    told = (
+        f'A {kind} strikes at {tile[0]},{tile[1]}: {len(near)} lived within'
+        f' reach, {len(dead)} died'
+        + (f', {round(lost, 1)} food was lost' if lost else '')
+        + (f', {texts} texts were lost' if texts else '')
+        + '.'
+    )
+    if by == EXPERIMENTER:
+      self._report(told)
+    else:
+      self._tell(EXPERIMENTER, told)
+    return dead
 
   def _new_name(self) -> str:
     """The world's next name (one the living do not bear)."""
@@ -564,7 +791,14 @@ class World:
   def moves(self, name: str) -> list[str]:
     """A person's moves this year (the Experimenter only watches)."""
     if name == EXPERIMENTER:
-      return [WATCH, RELEASE_FORM, ASK_FORM, STOP]
+      return [
+          WATCH,
+          RELEASE_FORM,
+          ASK_FORM,
+          DISASTER_FORM,
+          MIGRANTS_FORM,
+          STOP,
+      ]
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
@@ -838,6 +1072,7 @@ class World:
     self._rediscovered = 0
     self._released = 0
     self._releases = []
+    self._disasters = []
     # The moves each was offered, as the year began.
     allowed = {
         name: [PASS_ON] if self.asked_to_pass_on(name) else self.moves(name)
@@ -852,6 +1087,7 @@ class World:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._release(self.actions.get(EXPERIMENTER, ''))
     self._ask(self.actions.get(EXPERIMENTER, ''))
+    brought = self._bring(self.actions.get(EXPERIMENTER, ''))
     self._forage(did)
     self._apprentice(did)
     self._schools(did)
@@ -860,11 +1096,14 @@ class World:
     worked = [
         self._level(e, culture_lib.FOOD) for m, e in did.values() if m == GATHER
     ]
-    deaths = self._eat_and_die()
+    # Disasters strike after the year's work, before everyone eats.
+    deaths = self._send(self.actions.get(EXPERIMENTER, ''))
+    deaths += self._disaster()
+    deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
     self.land.regrow()
     self.places.decay(self._rng('decay'), self.year)
-    arrived = self._arrive()
+    arrived = brought + self._arrive()
     extinct = self.culture.prune(
         {c for person in self.people.values() for c in person.given}
         | self.places.texts()
@@ -1789,6 +2028,7 @@ class World:
         'understanding': self._mean_understanding(),
         'released': self._released,
         'releases': [dict(r) for r in self._releases],
+        'disasters': [dict(d) for d in self._disasters],
         'reports': list(self._reports),
         'variants': len(self.culture),
         'new_variants': created,
