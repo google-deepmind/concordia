@@ -381,6 +381,50 @@ class TransmissionTest(absltest.TestCase):
 
     self.assertEqual(self._offers('Bo'), [(self.norm, 'preaching', 'Ada')])
 
+  def test_talk_between_dialects_garbles(self):
+    culture = self.world.culture
+    ours = culture.add(
+        'dialect', 'language', 'Ours: ka ri.', {'words': ['ka', 'ri']}
+    ).id
+    theirs = culture.add(
+        'dialect', 'language', 'Theirs: bo ha.', {'words': ['bo', 'ha']}
+    ).id
+    self.world.settings['garble'] = 1.0
+    self._person('Ada', 30, (5, 5), given=[self.norm, ours]).speech = ours
+    self._person('Bo', 30, (5, 6), given=[theirs]).speech = theirs
+    self._person('Cy', 30, (6, 5), given=[ours]).speech = ours
+    self.world.actions = {
+        'Ada': f'{world_lib.PREACH} {self.norm}',
+        'Bo': 'rest',
+        'Cy': 'rest',
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(self._offers('Cy'), [(self.norm, 'preaching', 'Ada')])
+    (garbled,) = self._offers('Bo')
+    self.assertNotEqual(garbled[0], self.norm)
+    self.assertEqual(self.world.culture.get(garbled[0]).parent, self.norm)
+    self.assertEqual(self.world.history[-1]['tongues'], 2)
+
+  def test_a_child_speaks_as_its_mother_with_drift(self):
+    tongue = self.world.culture.add(
+        'dialect',
+        'language',
+        'Ours: ka ri to ma.',
+        {'words': ['ka', 'ri', 'to', 'ma']},
+    ).id
+    self._person('Ada', 30, (5, 5), given=[tongue]).speech = tongue
+    self.world.settings['dialect_drift'] = 1.0
+    self.world.expecting = {'Ada': ['Ada']}
+    self.world.actions = {'Ada': world_lib.PASS_ON}
+
+    (child,) = self.world.close_year().births
+
+    speech = self.world.people[child['name']].speech
+    self.assertEqual(self.world.culture.get(speech).parent, tongue)
+    self.assertIn(speech, [c['id'] for c in child['customs']])
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))
@@ -687,6 +731,23 @@ class CultureTest(absltest.TestCase):
 
     self.assertEqual(erred, {3})
     self.assertEqual(improved.params['level'], 5)
+
+  def test_a_dialect_drifts_a_word_at_a_time(self):
+    culture = culture_lib.Culture()
+    words = ['ka', 'ri', 'to', 'ma']
+    tongue = culture.add(
+        'dialect', 'language', 'The tongue: ka ri to ma.', {'words': words}
+    )
+
+    drifted = culture.copy(tongue.id, np.random.default_rng(1), 1.0, 1)
+
+    self.assertEqual(
+        sum(a != b for a, b in zip(words, drifted.params['words'])), 1
+    )
+    self.assertEqual(
+        drifted.text, f'The tongue: {" ".join(drifted.params["words"])}.'
+    )
+    self.assertEqual(culture_lib.intelligibility(tongue, drifted), 0.75)
 
   def test_forgotten_content_may_arise_again_under_a_new_id(self):
     culture = culture_lib.Culture()

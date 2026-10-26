@@ -60,7 +60,37 @@ BELIEF = 'belief'
 SKILL = 'skill'
 HABIT = 'habit'
 BIAS = 'bias'
-KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS)
+DIALECT = 'dialect'
+KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS, DIALECT)
+
+# A dialect is a list of words (its `words` param); a copying error changes
+# one of them to one of these sounds.
+SOUNDS = (
+    'ka',
+    'ri',
+    'to',
+    'ma',
+    'el',
+    'an',
+    'so',
+    'vi',
+    'lu',
+    'den',
+    'ar',
+    'ne',
+    'bo',
+    'tem',
+    'sa',
+    'yo',
+    'mi',
+    'ra',
+    'gun',
+    'li',
+    'ta',
+    'or',
+    'wen',
+    'ha',
+)
 
 # The channels a custom comes to a person by (an offer's `via`).
 BIRTH = 'birth'
@@ -360,6 +390,15 @@ class Culture:
     text = custom.text
     if custom.kind == SKILL:
       params['level'] = max(1, level - 1)
+    elif custom.kind == DIALECT:
+      words = list(params.get('words', ()))
+      if not words:
+        return custom
+      words[int(rng.integers(len(words)))] = SOUNDS[
+          int(rng.integers(len(SOUNDS)))
+      ]
+      params['words'] = words
+      text = f'{text.partition(":")[0]}: {" ".join(words)}.'
     else:
       words = text.rstrip('.').split()
       if len(words) > 4 and rng.random() < 0.5:
@@ -453,3 +492,21 @@ def _content(
 ) -> str:
   """A key of a variant's content."""
   return json.dumps([kind, domain, text, params], sort_keys=True)
+
+
+def intelligibility(a: Custom, b: Custom) -> float:
+  """How well speakers of two dialects understand each other, 0 to 1.
+
+  Args:
+    a: A dialect.
+    b: Another.
+
+  Returns:
+    The share of their words that are the same.
+  """
+  words_a = list(a.params.get('words', ()))
+  words_b = list(b.params.get('words', ()))
+  if not words_a or not words_b:
+    return 1.0
+  same = sum(1 for x, y in zip(words_a, words_b) if x == y)
+  return same / max(len(words_a), len(words_b))

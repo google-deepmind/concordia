@@ -47,6 +47,7 @@ _LABELS = {
     culture_lib.SKILL: 'Something we know how to do',
     culture_lib.HABIT: 'A habit of ours',
     culture_lib.BIAS: 'Whom we learn from',
+    culture_lib.DIALECT: 'How we speak',
 }
 
 
@@ -174,7 +175,7 @@ class Learner(entity_component.ContextComponent):
       seed: int,
       uptake: Mapping[str, float],
       per_domain: int = 2,
-      capacity: int = 8,
+      capacity: int = 10,
   ):
     super().__init__()
     self._seed = int(seed)

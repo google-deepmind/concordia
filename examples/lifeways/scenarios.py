@@ -36,6 +36,11 @@ SANDBOX: Mapping[str, Any] = {
     'founders': 12,
     'mode': 'sexual',
     'mutation': 0.05,  # Copying errors at birth.
+    # A child's speech drifts from its mother's by a word with this chance;
+    # talk between dialects adds `garble` times their misunderstanding to the
+    # chance of a copying error.
+    'dialect_drift': 0.1,
+    'garble': 0.5,
     # The channels customs pass by among the living, and their reach and
     # fidelity; leave one out and it does not exist.
     'channels': copy.deepcopy(dict(world_lib.DEFAULT_CHANNELS)),
@@ -95,6 +100,23 @@ SANDBOX: Mapping[str, Any] = {
                 'kind': 'value',
                 'domain': 'identity',
                 'text': 'We are the Hill people; we owe nobody.',
+            },
+            {
+                'kind': 'dialect',
+                'domain': 'language',
+                'text': 'The Hill tongue: gun tem wen den bo ha yo lu.',
+                'params': {
+                    'words': [
+                        'gun',
+                        'tem',
+                        'wen',
+                        'den',
+                        'bo',
+                        'ha',
+                        'yo',
+                        'lu',
+                    ]
+                },
             },
             {
                 'kind': 'bias',
@@ -157,6 +179,14 @@ SANDBOX: Mapping[str, Any] = {
             'text': 'Reading and writing marks on birch bark.',
             'params': {'level': 1},
             'held_by': 0.25,
+        },
+        {
+            'kind': 'dialect',
+            'domain': 'language',
+            'text': 'The River tongue: ka ri to ma el an so vi.',
+            'params': {
+                'words': ['ka', 'ri', 'to', 'ma', 'el', 'an', 'so', 'vi']
+            },
         },
     ],
 }

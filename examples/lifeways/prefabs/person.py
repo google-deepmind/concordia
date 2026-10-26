@@ -113,7 +113,7 @@ class Person(prefab_lib.Prefab):
         seed=int(self.params.get('seed', 0)),
         uptake=dict(self.params.get('uptake', DEFAULT_UPTAKE)),
         per_domain=int(self.params.get('per_domain', 2)),
-        capacity=int(self.params.get('capacity', 8)),
+        capacity=int(self.params.get('capacity', 10)),
     )
     components = {
         memory.DEFAULT_MEMORY_COMPONENT_KEY: memory.AssociativeMemory(

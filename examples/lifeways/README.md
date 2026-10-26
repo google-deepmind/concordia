@@ -147,6 +147,13 @@ of it (the `release` channel). Whether anyone takes it up is theirs to
 decide. A scenario's `plan` gives a rule-played Experimenter its moves by
 year; on the page (M6) a person will play it through `HumanActComponent`.
 
+**Dialects.** Each person speaks a dialect: a list of words, a custom of
+its own. A child speaks as its mother does, a word drifting now and then
+(`dialect_drift`). Two people understand each other as well as their words
+agree, and talk between dialects garbles what passes: the chance of a
+copying error rises with misunderstanding (`garble`). The census counts the
+tongues spoken and the mean understanding between two of the living.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

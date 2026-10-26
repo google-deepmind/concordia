@@ -214,6 +214,8 @@ class Person:
   given: list[str] = dataclasses.field(default_factory=list)
   # The year the person came to the valley, if not born in it.
   arrived: int | None = None
+  # The dialect the person speaks, as raised (its id): how others hear it.
+  speech: str = ''
 
   def age(self, year: int) -> int:
     return year - self.born
@@ -237,6 +239,7 @@ class Person:
         starving=int(data.get('starving', 0)),
         given=[str(g) for g in data.get('given', ())],
         arrived=(None if data.get('arrived') is None else int(data['arrived'])),
+        speech=str(data.get('speech', '')),
     )
 
 
@@ -347,6 +350,7 @@ class World:
           tile=(int(founder['tile'][0]), int(founder['tile'][1])),
           food=float(founder['food']),
           given=[str(spec['id']) for spec in params.get('customs', ())],
+          speech=self._dialect(params.get('customs', ())),
       )
       self.people[person.name] = person
       self._tell(person.name, self._birth_story(person, founder=True))
@@ -409,6 +413,7 @@ class World:
           food=float(arrivals.get('food', 6.0)),
           given=list(customs),
           arrived=self.year,
+          speech=self._dialect([self.culture.get(c).spec() for c in customs]),
       )
       self.people[person.name] = person
       self._tell(
@@ -974,6 +979,21 @@ class World:
         ' hear it.',
     )
 
+  def _dialect(self, specs: Sequence[Mapping[str, Any]]) -> str:
+    """The id of the first dialect among custom specs ('' if none)."""
+    return next(
+        (str(s['id']) for s in specs if s['kind'] == culture_lib.DIALECT), ''
+    )
+
+  def _understanding(self, a: str, b: str) -> float:
+    """How well two living people understand each other's speech."""
+    speech_a, speech_b = self.people[a].speech, self.people[b].speech
+    if speech_a not in self.culture or speech_b not in self.culture:
+      return 1.0
+    return culture_lib.intelligibility(
+        self.culture.get(speech_a), self.culture.get(speech_b)
+    )
+
   def _speak(self, person: Person, move: str, enacted: Sequence[str]) -> None:
     """An elder's story, or a preacher's sermon, to all within sight.
 
@@ -1129,6 +1149,12 @@ class World:
       scene: What the receiver sees, e.g. 'Ada teaches'.
     """
     channel = self.channels[via]
+    mutation = float(channel.get('mutation', 0.0))
+    if source in self.people:
+      # Talk between dialects garbles what is passed on.
+      mutation += (1.0 - self._understanding(receiver, source)) * float(
+          self.settings.get('garble', 0.5)
+      )
     if channel.get('form'):
       custom_id = self.culture.in_form(
           custom_id, str(channel['form']), self.year
@@ -1136,7 +1162,7 @@ class World:
     custom = self.culture.copy(
         custom_id,
         self._rng('offer', receiver, source, custom_id, via),
-        float(channel.get('mutation', 0.0)),
+        min(1.0, mutation),
         self.year,
         improve=float(channel.get('improve', 0.0)),
     )
@@ -1355,6 +1381,18 @@ class World:
         ids = list(passed[0]) if passed else []
       ids = [self.culture.copy(i, rng, mutation, self.year).id for i in ids]
       mother = self.people[first]
+      # A child speaks as its mother does, with the drift of each generation.
+      speech = ''
+      if mother.speech in self.culture:
+        speech = self.culture.copy(
+            mother.speech,
+            rng,
+            float(self.settings.get('dialect_drift', 0.1)),
+            self.year,
+        ).id
+        ids = [
+            i for i in ids if self.culture.get(i).kind != culture_lib.DIALECT
+        ] + [speech]
       child = Person(
           name=self._new_name(),
           born=self.year,
@@ -1365,6 +1403,7 @@ class World:
           food=min(cost, mother.food),
           parents=list(parents),
           given=list(dict.fromkeys(ids)),
+          speech=speech,
       )
       mother.food -= child.food
       for parent in parents:
@@ -1502,12 +1541,24 @@ class World:
         ),
         'offers': dict(sorted(self._offers.items())),
         'rediscovered': self._rediscovered,
+        'tongues': len({p.speech for p in self.people.values() if p.speech}),
+        'understanding': self._mean_understanding(),
         'released': self._released,
         'variants': len(self.culture),
         'new_variants': created,
         'lost_variants': extinct,
         'skill_worked': round(sum(worked) / len(worked), 2) if worked else 0.0,
     }
+
+  def _mean_understanding(self) -> float:
+    """The mean understanding between two of the living (1.0: one tongue)."""
+    names = self.living()
+    pairs = [(a, b) for i, a in enumerate(names) for b in names[i + 1 :]]
+    if not pairs:
+      return 1.0
+    return round(
+        sum(self._understanding(a, b) for a, b in pairs) / len(pairs), 3
+    )
 
   def _tell(self, name: str, text: str, *, newborn: bool = False) -> None:
     """Queues an observation (a baby keeps only the story of its birth)."""
