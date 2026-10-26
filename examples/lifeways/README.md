@@ -89,9 +89,9 @@ channel's copying errors, as lines of next year's observations:
 
 **Norms in two forms.** A norm is *internalized* (a person's own, kept when
 nobody watches) or *known* (expected by others, kept when someone is within
-sight). Children raised in a norm, and those who keep one they know, make it
-their own; what one sees others keep, or is shamed for breaking, one knows.
-A known norm never displaces an internalized one.
+sight). Children raised in a norm make it their own; so may those who keep a
+norm they only know, or are shamed for breaking one. What one sees others
+keep, one knows. A known norm never displaces an internalized one.
 
 **Sharing and shame.** A person with enough may `share food with` a needy
 person within sight. One who keeps full stores and gives nothing to the

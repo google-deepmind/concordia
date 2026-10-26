@@ -198,8 +198,7 @@ class TransmissionTest(absltest.TestCase):
 
     self.world.close_year()
 
-    known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
-    self.assertIn((known, 'sanction', 'Cy'), self._offers('Ada'))
+    self.assertIn((self.norm, 'sanction', 'Cy'), self._offers('Ada'))
 
   def test_keeping_a_norm_one_knows_makes_it_ones_own(self):
     known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
@@ -262,6 +261,28 @@ class TransmissionTest(absltest.TestCase):
     self.world.actions = {name: 'rest' for name in self.world.people}
 
     self.assertEmpty(self.world.close_year().births)  # Three live now.
+
+  def test_founders_hold_one_custom_of_a_kind_and_domain(self):
+    norm = {'kind': 'norm', 'domain': 'sharing', 'text': 'Share.'}
+    world = world_lib.World({
+        'seed': 0,
+        'founders': 8,
+        'founding_customs': [
+            {**norm, 'held_by': 0.25},
+            {**norm, 'params': {'form': culture_lib.KNOWN}, 'held_by': 0.5},
+        ],
+    })
+
+    founders = world.found()
+
+    forms = [
+        [culture_lib.form_of(c) for c in params['customs']]
+        for params in founders
+    ]
+    self.assertEqual(
+        sorted(f[0] if f else '' for f in forms),
+        [''] * 2 + [culture_lib.INTERNALIZED] * 2 + [culture_lib.KNOWN] * 4,
+    )
 
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access

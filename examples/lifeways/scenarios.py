@@ -89,10 +89,19 @@ SANDBOX: Mapping[str, Any] = {
             'domain': 'kinship',
             'text': 'We raise a child only when the stores can feed it.',
         },
+        # A quarter of the founders have made sharing their own; half only
+        # know it is expected of them; a quarter know nothing of it.
         {
             'kind': 'norm',
             'domain': 'sharing',
             'text': 'We share our food with those near us who go hungry.',
+            'held_by': 0.25,
+        },
+        {
+            'kind': 'norm',
+            'domain': 'sharing',
+            'text': 'We share our food with those near us who go hungry.',
+            'params': {'form': 'known'},
             'held_by': 0.5,
         },
         {

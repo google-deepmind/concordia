@@ -72,8 +72,9 @@ DEAD_KEPT = 500
 # - sanction: the one shamed is shown the norm the shamer shames by;
 # - practice: keeping a norm one knows makes it one's own.
 # A channel's `form` is the form a norm comes in by it: what children are
-# raised in and what one practises is internalized; what one sees others
-# keep, or is shamed for breaking, is known (expected).
+# raised in, what one practises and what one is shamed for breaking may
+# become one's own (internalized); what one sees others keep is known
+# (expected).
 DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     'upbringing': {'mutation': 0.05, 'form': culture_lib.INTERNALIZED},
     'observation': {
@@ -88,7 +89,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
         'mutation': 0.02,
         'improve': 0.05,
     },
-    'sanction': {'mutation': 0.02, 'form': culture_lib.KNOWN},
+    'sanction': {'mutation': 0.02, 'form': culture_lib.INTERNALIZED},
     'practice': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
@@ -236,22 +237,26 @@ class World:
     """Creates the founders; returns each one's prefab params.
 
     A founding custom is held by every founder, or by the share of them its
-    `held_by` says (drawn from the seed).
+    `held_by` says (drawn from the seed), among those who hold nothing of its
+    kind and domain yet: listing a norm known by half the founders after the
+    same norm internalized by a quarter gives the rest none.
 
     Returns:
       Each founder's prefab params.
     """
     count = int(self.settings.get('founders', 12))
     holders: dict[str, set[int]] = {}
+    loci: dict[tuple[str, str], set[int]] = {}
     for i, spec in enumerate(self.settings.get('founding_customs', ())):
       custom = self.culture.add(
           spec['kind'], spec['domain'], spec['text'], spec.get('params')
       )
-      share = float(spec.get('held_by', 1.0))
+      held = loci.setdefault((custom.kind, custom.domain), set())
       order = np.random.default_rng(_seed_of(self.seed, 'held', i))
-      holders[custom.id] = {
-          int(f) for f in order.permutation(count)[: round(share * count)]
-      }
+      free = [int(f) for f in order.permutation(count) if int(f) not in held]
+      chosen = set(free[: round(float(spec.get('held_by', 1.0)) * count)])
+      holders[custom.id] = chosen
+      held.update(chosen)
     rng = np.random.default_rng(_seed_of(self.seed, 'founders'))
     rows, cols = self.land.rows, self.land.cols
     home = (rows // 2, cols // 3)

@@ -56,7 +56,7 @@ DEFAULT_UPTAKE = {
     'rite': 0.4,
     'preaching': 0.2,
     'release': 0.25,
-    'sanction': 0.6,
+    'sanction': 0.3,
     'practice': 0.4,
 }
 
