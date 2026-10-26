@@ -54,9 +54,6 @@ def _stable(text: str) -> float:
 class MockModel(language_model.LanguageModel):
   """Answers Lifeways' questions by rules of the prompt."""
 
-  def __init__(self):
-    self.calls = 0
-
   @override
   def sample_text(
       self,
@@ -71,7 +68,6 @@ class MockModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> str:
     del max_tokens, terminators, temperature, top_p, top_k, timeout, seed
-    self.calls += 1
     question = _LABEL.split(prompt)[-1]
     customs = _CUSTOM.findall(prompt)
     if 'The Experimenter asks' in question:
@@ -94,7 +90,6 @@ class MockModel(language_model.LanguageModel):
       seed: int | None = None,
   ) -> tuple[int, str, Mapping[str, Any]]:
     del seed
-    self.calls += 1
     index = int(_stable(prompt) * len(responses))
     return index, responses[index], {}
 

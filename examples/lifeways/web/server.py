@@ -14,7 +14,7 @@
 
 r"""Serves a running Lifeways world to a page, phone first (MOCK by default).
 
-  python -m examples.lifeways.web.server --port=8901 --base_path=/lifeways
+  python -m examples.lifeways.web.server --port=8921 --base_path=/lifeways
 
 The page draws the valley, its people and places, the census as graphs and
 a person's customs, and lets the person playing the Experimenter pace the
@@ -34,7 +34,7 @@ is read the simulation (`session.Session`).
 | `POST /api/stop` | stop the world |
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 import http.server
 import json
 import os
@@ -47,7 +47,7 @@ from absl import flags
 from absl import logging
 from examples.lifeways.web import session as session_lib
 
-_PORT = flags.DEFINE_integer('port', 8901, 'Port (127.0.0.1).')
+_PORT = flags.DEFINE_integer('port', 8921, 'Port (127.0.0.1).')
 _BASE = flags.DEFINE_string('base_path', '/lifeways', 'Path prefix.')
 _SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
 _SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
@@ -62,7 +62,11 @@ _TYPES = {
 
 
 def build() -> str:
-  """The commit the server runs, if it runs from a git checkout."""
+  """The commit the server runs, if it runs from a git checkout.
+
+  Returns:
+    The short commit hash, or '' outside a checkout.
+  """
   try:
     out = subprocess.run(
         ['git', 'rev-parse', '--short', 'HEAD'],
@@ -80,7 +84,16 @@ def build() -> str:
 def handler(
     session: session_lib.Session, base_path: str, commit: str = ''
 ) -> type[http.server.BaseHTTPRequestHandler]:
-  """A request handler serving one session under a path prefix."""
+  """A request handler serving one session under a path prefix.
+
+  Args:
+    session: The session served.
+    base_path: The path prefix (e.g. /lifeways).
+    commit: The build the page reports.
+
+  Returns:
+    The handler class.
+  """
   base = '/' + base_path.strip('/') if base_path.strip('/') else ''
 
   class Handler(http.server.BaseHTTPRequestHandler):
@@ -109,16 +122,25 @@ def handler(
       return url.path[len(base) :] or '/', urllib.parse.parse_qs(url.query)
 
     def do_GET(self) -> None:  # pylint: disable=invalid-name
+      if base and urllib.parse.urlparse(self.path).path == base:
+        # The page's links are relative: it lives at the prefix's folder.
+        self.send_response(301)
+        self.send_header('Location', base + '/')
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+        return
       found = self._path()
       if found is None:
         self._json(404, {'error': 'not found'})
         return
       path, query = found
+      since = query.get('since', ['-1'])[0]
+      if path == '/api/census' and not since.lstrip('-').isdigit():
+        self._json(400, {'error': 'since is a year'})
+        return
       routes: Mapping[str, Callable[[], Any]] = {
           '/api/state': session.state,
-          '/api/census': lambda: session.census(
-              int(query.get('since', ['-1'])[0])
-          ),
+          '/api/census': lambda: session.census(int(since)),
           '/api/build': lambda: {'commit': commit},
       }
       if path in routes:
@@ -146,16 +168,22 @@ def handler(
       try:
         body = json.loads(self.rfile.read(length) or b'{}')
       except json.JSONDecodeError:
-        self._json(400, {'error': 'send JSON'})
+        body = None
+      if not isinstance(body, dict):
+        self._json(400, {'error': 'send a JSON object'})
         return
       if path == '/api/move':
         session.move(str(body.get('move', '')))
         self._json(200, session.input.settings())
       elif path == '/api/pace':
-        self._json(
-            200,
-            session.pace(body.get('years_per_second'), body.get('paused')),
-        )
+        pace, paused = body.get('years_per_second'), body.get('paused')
+        if (
+            pace is not None
+            and (isinstance(pace, bool) or not isinstance(pace, (int, float)))
+        ) or (paused is not None and not isinstance(paused, bool)):
+          self._json(400, {'error': 'a number of years a second; paused true'})
+          return
+        self._json(200, session.pace(pace, paused))
       elif path == '/api/stop':
         session.stop()
         self._json(200, session.input.settings())
@@ -178,13 +206,22 @@ def handler(
 def serve(
     session: session_lib.Session, port: int, base_path: str
 ) -> http.server.ThreadingHTTPServer:
-  """A server for a session (call `serve_forever`; port 0 picks a free one)."""
+  """A server for a session (call `serve_forever`).
+
+  Args:
+    session: The session served.
+    port: The port on 127.0.0.1 (0: a free one).
+    base_path: The path prefix.
+
+  Returns:
+    The server.
+  """
   return http.server.ThreadingHTTPServer(
       ('127.0.0.1', port), handler(session, base_path, build())
   )
 
 
-def main(argv) -> None:
+def main(argv: Sequence[str]) -> None:
   del argv
   session = session_lib.Session(
       _SCENARIO.value, seed=_SEED.value, years_per_second=_PACE.value

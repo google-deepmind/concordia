@@ -47,7 +47,7 @@ The run writes these files to `--out_dir`:
 ## The page
 
 ```bash
-python -m examples.lifeways.web.server --port=8901 --base_path=/lifeways
+python -m examples.lifeways.web.server --port=8921 --base_path=/lifeways
 ```
 
 A phone-first page plays a running world. It draws the valley, the
@@ -195,7 +195,7 @@ A text is left on the shelf of the nearest library within sight of the
 place (or of a new one there); a song is offered to everyone within sight
 of it (the `release` channel). Whether anyone takes it up is theirs to
 decide. A scenario's `plan` gives a rule-played Experimenter its moves by
-year; on the page (M6) a person will play it through `HumanActComponent`.
+year; on the page a person plays it through `HumanActComponent`.
 
 **Dialects.** Each person speaks a dialect: a list of words, a custom of
 its own. A child speaks as its mother does, a word drifting now and then
@@ -245,11 +245,15 @@ nearest who is looking too. Parents and children, and siblings, never pair.
   most recent logging data.
 - The dead leave the simulation, and the variants nobody holds leave the
   world's record (both go to disk); history windows roll.
-- `Run.play` sends what the engine prints to the null device.
+- The Experimenter, who lives as long as the world, keeps only its latest
+  memories (`RecentMemory`).
+- `Run.play` sends what the engine prints to the null device (one redirect
+  for the process, however many worlds play).
 
 **Checkpoints** are the standard ones (`Simulation.make_checkpoint_data`):
-- The restore (`simulation.load_checkpoint`) removes founders who died and adds
-  people born since, before `load_from_checkpoint`.
+- The restore (`simulation.load_checkpoint`) removes the founders who died;
+  the stock `load_from_checkpoint` restores everyone's state and adds the
+  people born since.
 - A restored year plays on exactly as the live one.
 
 This example relies on three core changes: entities joining and leaving the

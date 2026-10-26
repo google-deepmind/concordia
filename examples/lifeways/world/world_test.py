@@ -510,6 +510,40 @@ class TransmissionTest(absltest.TestCase):
         'Because the old', ' '.join(self.world.queued['Experimenter'])
     )
 
+  def test_a_late_answer_does_nothing_and_never_answers_an_interview(self):
+    self._person('Ada', 30, (5, 5))
+    self.world.mark_asked('Ada', world_lib.MOVES)
+    # The year closes at its deadline before Ada answers, and the
+    # Experimenter asks her something for next year.
+    self.world.actions = {world_lib.EXPERIMENTER: 'ask Ada: Why?'}
+    self.world.close_year()
+
+    self.world.record_action('Ada', 'gather food')  # Last year's answer.
+
+    self.assertEqual(self.world.interview('Ada'), 'Why?')
+    self.assertNotIn('Ada', self.world.actions)
+    self.assertEmpty(self.world.transcripts)
+    self.world.mark_asked('Ada', world_lib.INTERVIEW)
+    self.world.record_action('Ada', 'Because.')
+    self.assertEqual(self.world.transcripts[-1]['answer'], 'Because.')
+
+  def test_the_experimenter_hears_of_a_question_gone_wrong(self):
+    ada = self._person('Ada', 30, (5, 5))
+    self.world.actions = {world_lib.EXPERIMENTER: 'ask Ada why'}
+    self.world.close_year()
+    self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
+
+    self.world.queued.clear()
+    self.world.actions = {world_lib.EXPERIMENTER: 'ask Ada: Why?'}
+    ada.food, ada.starving = 0.0, 1
+    self.world.land.food[:] = 0.0
+    self.world.close_year()  # Asked, then dead of hunger at the same close.
+
+    self.assertIn(
+        'Ada died before answering', ' '.join(self.world.queued['Experimenter'])
+    )
+    self.assertEmpty(self.world.interviews)
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))
@@ -768,6 +802,32 @@ class ReleaseTest(_PlaceTest):
     (custom_id,) = place.shelf
     self.assertEqual(place.tile, (2, 3))
     self.assertEqual(self.world.culture.get(custom_id).params, {'level': 3})
+
+  def test_a_release_that_would_read_as_protocol_is_refused(self):
+    self._person('Ada', 30, (5, 5))
+
+    self._year(
+        Ada='rest',
+        Experimenter='release belief sacred as a song at 5,5: Gods |params={x}',
+    )
+
+    self.assertEqual(self.world.history[-1]['released'], 0)
+    self.assertEmpty(self._offers('Ada'))
+    self.assertIn('not understood', ' '.join(self.world.queued['Experimenter']))
+
+  def test_a_song_needs_its_channel_and_a_skill_its_bounds(self):
+    del self.world.channels[culture_lib.RELEASE]
+    self._year(Experimenter='release belief sacred as a song at 5,5: Hm.')
+    self.assertIn('No song', ' '.join(self.world.queued['Experimenter']))
+
+    self._year(
+        Experimenter='release skill craft level 99 as a text at 1,1: Ha.'
+    )
+    (place,) = self.world.places.all()
+    self.assertEqual(
+        self.world.culture.get(place.shelf[0]).params['level'],
+        culture_lib.MAX_LEVEL,
+    )
 
   def test_a_release_not_understood_changes_nothing(self):
     self._year(Experimenter='release wisdom sacred as a song at 1,1: Hm.')

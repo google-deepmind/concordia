@@ -253,11 +253,14 @@ class Learner(entity_component.ContextComponent):
         if draw >= 1.0 - missed:
           continue
         offer = seen[int(np.argmax(chances))]
-        params: dict[str, Any] = (
-            dict(json.loads(offer.group('params')))
-            if offer.group('params')
-            else {}
-        )
+        params: dict[str, Any] = {}
+        if offer.group('params'):
+          try:
+            params = json.loads(offer.group('params'))
+          except json.JSONDecodeError:
+            continue  # Not an offer a person can make sense of.
+          if not isinstance(params, dict):
+            continue
         if offer.group('level'):
           params['level'] = int(offer.group('level'))
         if offer.group('form'):

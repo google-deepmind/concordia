@@ -378,7 +378,15 @@ PRESETS: Mapping[str, Mapping[str, Any]] = {
 
 
 def settings(name: str = 'sandbox', **overrides: Any) -> dict[str, Any]:
-  """A scenario's settings: the Sandbox's, a preset's changes, overrides."""
+  """A scenario's settings: the Sandbox's, a preset's changes, overrides.
+
+  Args:
+    name: The scenario: `sandbox`, or a preset in `PRESETS`.
+    **overrides: Settings that replace the scenario's.
+
+  Returns:
+    The settings.
+  """
   merged = copy.deepcopy(dict(SANDBOX))
   merged.update(copy.deepcopy(dict(PRESETS[name])))
   merged['scenario'] = name

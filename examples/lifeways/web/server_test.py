@@ -75,6 +75,24 @@ class FreeModeTest(absltest.TestCase):
     finally:
       session.close()
 
+  def test_free_mode_runs_on_through_deaths(self):
+    session = session_lib.Session(free=0.02, years_per_second=50)
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 80, 120))
+      self.assertEqual(session.state()['error'], '')
+    finally:
+      session.close()
+
+  def test_a_history_of_none_breaks_nothing(self):
+    session = session_lib.Session(years_per_second=50, history_kept=0)
+    session.start()
+    try:
+      self.assertTrue(_wait(lambda: session.state()['year'] >= 3))
+      self.assertEqual(session.state()['error'], '')
+    finally:
+      session.close()
+
   def test_in_tick_mode_the_year_waits_for_everyone(self):
     session = session_lib.Session()
     session.input.pace(paused=True)
@@ -148,6 +166,21 @@ class ServerTest(absltest.TestCase):
     self._post('/api/stop', {})
     self.assertTrue(_wait(lambda: not self._get('/api/state')['running']))
     self.assertEqual(self._get('/api/state')['error'], '')
+
+  def test_bad_requests_are_refused_and_the_bare_prefix_redirects(self):
+    for path, data in (
+        ('/api/move', [1]),
+        ('/api/pace', {'years_per_second': 'fast'}),
+        ('/api/pace', {'paused': 'false'}),
+    ):
+      with self.assertRaises(urllib.error.HTTPError) as caught:
+        self._post(path, data)
+      self.assertEqual(caught.exception.code, 400)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._get('/api/census?since=abc')
+    self.assertEqual(caught.exception.code, 400)
+    with urllib.request.urlopen(self.base, timeout=10) as response:
+      self.assertEqual(response.url, self.base + '/')
 
   def test_unknown_paths_and_people_are_not_found(self):
     for path in ('/api/nothing', '/static/../server.py', '/api/person?name=Zz'):

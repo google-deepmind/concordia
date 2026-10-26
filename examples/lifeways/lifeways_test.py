@@ -15,6 +15,9 @@
 """Lifeways end to end on the stock asynchronous engine (MOCK)."""
 
 import json
+import sys
+import threading
+import time
 from typing import Any
 
 from absl.testing import absltest
@@ -23,6 +26,7 @@ from examples.lifeways import plot
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.components import culture
+from examples.lifeways.prefabs import experimenter as experimenter_lib
 from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
 from examples.lifeways.world import culture as culture_lib
@@ -282,6 +286,58 @@ class ArchiveTest(absltest.TestCase):
     self.assertLen(sunk, 10)
 
 
+class ExperimenterTest(absltest.TestCase):
+
+  def test_its_memory_keeps_only_the_latest(self):
+    run = simulation.build_simulation(scenarios.settings(max_years=50))
+    run.play()
+
+    experimenter = next(
+        e for e in run.sim.entities if e.name == world_lib.EXPERIMENTER
+    )
+    bank = json.loads(
+        experimenter.get_state()['context_components']['__memory__'][  # pyrefly: ignore[missing-attribute]
+            'memory_bank'
+        ]
+    )
+    self.assertLessEqual(len(bank), 32)
+    self.assertIn('Year 49', bank[-1])
+
+  def test_a_plan_reads_the_year_from_the_world_alone(self):
+    plan = experimenter_lib.Plan(
+        {5: 'release belief sacred as a song at 1,1: Hm.'}
+    )
+    status = world_lib.EXPERIMENTER_STATUS_FORM.format(year=5, people=3)
+    question = entity_lib.free_action_spec(call_to_action='What now?')
+
+    self.assertEqual(
+        plan(question, {'obs': status}),
+        'release belief sacred as a song at 1,1: Hm.',
+    )
+    self.assertEqual(
+        plan(question, {'obs': status + ' Ada says: "Year 40. We wait."'}),
+        'release belief sacred as a song at 1,1: Hm.',
+    )
+
+
+class QuietTest(absltest.TestCase):
+
+  def test_two_runs_at_once_share_one_redirect(self):
+    stdout = sys.stdout
+    runs = [
+        simulation.build_simulation(scenarios.settings(max_years=years))
+        for years in (3, 8)
+    ]
+    threads = [threading.Thread(target=run.play) for run in runs]
+    for thread in threads:
+      thread.start()
+      time.sleep(0.05)
+    for thread in threads:
+      thread.join(timeout=120)
+
+    self.assertIs(sys.stdout, stdout)
+
+
 class PlotTest(absltest.TestCase):
 
   def test_it_draws_a_census(self):
@@ -339,6 +395,16 @@ class LearnerTest(absltest.TestCase):
     restored = self._person(uptake={'apprenticeship': 1.0})
     restored.set_state(json.loads(json.dumps(entity.get_state())))
     self.assertEqual(self._customs(restored)['c9'].spec, spec)
+
+  def test_an_offer_with_garbled_params_is_passed_over(self):
+    entity = self._person(uptake={'release': 1.0})
+    line = culture_lib.offer_line(_spec('c7', 'belief', 'sacred'), 'release')
+
+    entity.observe(line + ' |params={are near}')
+    self.assertEmpty(self._customs(entity))
+
+    entity.observe(line)  # The person goes on taking up what it can read.
+    self.assertEqual(list(self._customs(entity)), ['c7'])
 
   def test_an_offer_carries_the_whole_custom(self):
     entity = self._person(uptake={'upbringing': 1.0})

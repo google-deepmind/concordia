@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The logging data Lifeways' entities keep: bounded, for runs that never end."""
+"""The logging data Lifeways' entities keep: bounded, for endless runs."""
 
 from concordia.utils import async_measurements
 

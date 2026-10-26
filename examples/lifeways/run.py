@@ -23,6 +23,7 @@ living holds it: the long record of culture) and `summary.json`; with
 `--soak`, also each fiftieth year's memory use and seconds per year.
 """
 
+from collections.abc import Mapping, Sequence
 import contextlib
 import json
 import os
@@ -144,12 +145,12 @@ def _run(
   """Runs the world, writing what happens; returns the run's summary."""
   buried = 0
 
-  def bury(record) -> None:
+  def bury(record: Mapping[str, Any]) -> None:
     nonlocal buried
     buried += 1
     dead.write(json.dumps(record) + '\n')
 
-  def forget(records) -> None:
+  def forget(records: Sequence[Mapping[str, Any]]) -> None:
     for record in records:
       customs.write(json.dumps(record) + '\n')
 
@@ -157,6 +158,11 @@ def _run(
       _SCENARIO.value, seed=_SEED.value, max_years=_YEARS.value
   )
   if _FOUNDERS.value is not None:
+    if settings.get('groups'):
+      raise app.UsageError(
+          f'--founders does not apply to {_SCENARIO.value}: its founders come'
+          ' in groups.'
+      )
     settings['founders'] = _FOUNDERS.value
   settings.update(json.loads(_SETTINGS.value))
   model, counts = _model()
@@ -172,7 +178,7 @@ def _run(
     nonlocal last
     world = run.world()
     row = {
-        **world.history[-1],
+        **(world.history[-1] if world.history else {'year': year - 1}),
         'held': run.customs_census(),
         'peoples': run.peoples(),
     }

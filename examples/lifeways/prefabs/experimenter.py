@@ -30,6 +30,7 @@ from concordia.associative_memory import basic_associative_memory
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from examples.lifeways.components import culture
+from examples.lifeways.components import memory as lifeways_memory
 from examples.lifeways.prefabs import measures
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
@@ -37,7 +38,6 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 
 EXPERIMENTER_PREFAB = 'lifeways_experimenter'
-_YEAR = re.compile(r'\bYear (\d+)\.')
 
 
 def watch(
@@ -59,8 +59,9 @@ def watch(
 class Plan:
   """A rule that makes the planned move in its year, and watches otherwise.
 
-  The year is the latest the Experimenter has observed. The plan is fixed,
-  so the rule keeps no state.
+  The year is the latest the world's status line told the Experimenter (not
+  any "Year N." an interview answer might hold). The plan is fixed, so the
+  rule keeps no state.
   """
 
   def __init__(self, plan: Mapping[int | str, str]):
@@ -75,7 +76,11 @@ class Plan:
       self, action_spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
   ) -> str:
     del action_spec
-    years = [int(y) for text in contexts.values() for y in _YEAR.findall(text)]
+    years = [
+        int(y)
+        for text in contexts.values()
+        for y in world_lib.EXPERIMENTER_STATUS.findall(text)
+    ]
     if not years:
       return world_lib.WATCH
     return self._plan.get(max(years), world_lib.WATCH)
@@ -107,16 +112,18 @@ class Experimenter(prefab_lib.Prefab):
 
     Args:
       model: Unused.
-      memory_bank: The Experimenter's memory bank.
+      memory_bank: Unused: the Experimenter keeps a bounded memory.
 
     Returns:
       The Experimenter's entity.
     """
-    del model
+    del model, memory_bank
     self.check_extra_components()
     components = {
-        memory.DEFAULT_MEMORY_COMPONENT_KEY: memory.AssociativeMemory(
-            memory_bank=memory_bank
+        # The Experimenter lives as long as the world: it keeps only the
+        # latest of what it observed.
+        memory.DEFAULT_MEMORY_COMPONENT_KEY: lifeways_memory.RecentMemory(
+            kept=32
         ),
         'observation_to_memory': observation.ObservationToMemory(),
         observation.DEFAULT_OBSERVATION_COMPONENT_KEY: (

@@ -52,7 +52,7 @@ class PageInput:
   A `HumanInput`: called once a year with the Experimenter's question, it
   waits until the person's pace allows another year (and the person has not
   paused), then returns the person's next queued move, or else the person's
-  standing choice.
+  standing choice (watching).
   """
 
   def __init__(self, years_per_second: float = 1.0, standing: str = 'watch'):
@@ -60,7 +60,8 @@ class PageInput:
 
     Args:
       years_per_second: How fast the person lets the years pass.
-      standing: What the person does in a year it queued nothing for.
+      standing: What the person does in a year it queued nothing for: the
+        person's standing choice, watching.
     """
     self._years_per_second = float(years_per_second)
     self._standing = standing
@@ -69,11 +70,10 @@ class PageInput:
     self._closed = False
     self._due = 0.0
     self._changed = threading.Condition()
-    self.last_request: human_input.HumanInputRequest | None = None
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
+    del request
     with self._changed:
-      self.last_request = request
       while True:
         if self._closed:
           raise Closed('The page closed the session.')
@@ -87,7 +87,11 @@ class PageInput:
       return self._standing
 
   def queue(self, move: str) -> None:
-    """Queues a move the person chose, for the next year."""
+    """Queues a move the person chose, for the next year.
+
+    Args:
+      move: The move.
+    """
     with self._changed:
       self._queue.append(move)
       self._changed.notify_all()
@@ -95,7 +99,12 @@ class PageInput:
   def pace(
       self, years_per_second: float | None = None, paused: bool | None = None
   ) -> None:
-    """Sets how fast the years pass, or pauses them."""
+    """Sets how fast the years pass, or pauses them.
+
+    Args:
+      years_per_second: The pace (0.05 to 50), or None to keep it.
+      paused: Whether the years wait, or None to keep it.
+    """
     with self._changed:
       if years_per_second is not None:
         self._years_per_second = max(0.05, min(50.0, float(years_per_second)))
@@ -104,11 +113,13 @@ class PageInput:
       self._changed.notify_all()
 
   def close(self) -> None:
+    """Closes the input: the Experimenter's next question raises."""
     with self._changed:
       self._closed = True
       self._changed.notify_all()
 
   def settings(self) -> dict[str, Any]:
+    """The pace, whether paused, the moves queued and the standing choice."""
     with self._changed:
       return {
           'years_per_second': self._years_per_second,
@@ -144,6 +155,9 @@ class Session:
     self._rows_lock = threading.Lock()
     self.run = simulation.build_simulation(
         scenarios.settings(scenario, seed=seed, **overrides),
+        # People wait for their turn without spinning: the page's years are
+        # slow anyway.
+        sleep_time=0.05,
         archive=simulation.Archive(keep=0),
         experimenter=lambda order: human_act_component.HumanActComponent(
             self.input, order
@@ -171,8 +185,13 @@ class Session:
       self.error = f'{type(error).__name__}: {error}'
 
   def close(self, timeout: float = 10.0) -> None:
-    """Ends the run: the Experimenter's next answer raises."""
+    """Ends the run: the Experimenter's next answer raises.
+
+    Args:
+      timeout: How long to wait for the run's thread.
+    """
     self.input.close()
+    self.run.engine.play()
     if self._thread is not None:
       self._thread.join(timeout)
 
@@ -180,23 +199,35 @@ class Session:
     # In the World GM's lock: the world may be read here.
     world = self.run.world()
     row = {
-        **world.history[-1],
+        **(world.history[-1] if world.history else {'year': year - 1}),
         'held': self.run.customs_census(),
         'peoples': self.run.peoples(),
     }
-    del year
     with self._rows_lock:
       self._rows.append(row)
 
   # --- What the page reads ----------------------------------------------
 
   def census(self, since: int = -1) -> list[dict[str, Any]]:
-    """The census rows of the years after `since`."""
+    """The census rows of the years after `since`.
+
+    Args:
+      since: A year (-1: all the rows kept).
+
+    Returns:
+      The rows, oldest first.
+    """
     with self._rows_lock:
       return [row for row in self._rows if row['year'] > since]
 
   def state(self) -> dict[str, Any]:
-    """The world as the page draws it."""
+    """The world as the page draws it.
+
+    Returns:
+      The year, the map, the people, the places, the pace, the interviews,
+      and what the page needs to know of the game (kinds, domains, the age
+      of the grown, the highest skill level, the rows kept).
+    """
     world = self.run.world_state()
     land = world['land']
     people = [
@@ -243,10 +274,20 @@ class Session:
         'transcripts': list(world.get('transcripts', ()))[-10:],
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
+        'grown_age': world_lib.ADULT_AGE,
+        'max_level': culture_lib.MAX_LEVEL,
+        'rows_kept': ROWS_KEPT,
     }
 
   def person(self, name: str) -> dict[str, Any] | None:
-    """A living person as the inspector shows it: customs, kin, body."""
+    """A living person as the inspector shows it: customs, kin, body.
+
+    Args:
+      name: The person's name.
+
+    Returns:
+      The person, or None if nobody of that name lives.
+    """
     world = self.run.world_state()
     body = next((p for p in world['people'] if p['name'] == name), None)
     entity = next(
@@ -286,9 +327,14 @@ class Session:
     self._played = time.time()
     self.input.queue(world_lib.STOP)
     self.input.pace(paused=False)
+    self.run.engine.play()
 
   def move(self, move: str) -> None:
-    """Queues the Experimenter's move (as the person typed or built it)."""
+    """Queues the Experimenter's move (as the person typed or built it).
+
+    Args:
+      move: The move.
+    """
     move = ' '.join(str(move).split())
     if move:
       self._played = time.time()
@@ -299,6 +345,19 @@ class Session:
       years_per_second: float | None = None,
       paused: bool | None = None,
   ) -> dict[str, Any]:
+    """Sets the pace, or pauses: everyone waits (the engine's own pause).
+
+    Args:
+      years_per_second: The pace, or None to keep it.
+      paused: Whether the world waits, or None to keep it.
+
+    Returns:
+      The input's settings.
+    """
     self._played = time.time()
     self.input.pace(years_per_second, paused)
+    if paused is True:
+      self.run.engine.pause()
+    elif paused is False:
+      self.run.engine.play()
     return self.input.settings()

@@ -22,12 +22,14 @@ simulation and reads its state.
 """
 
 import collections
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 import contextlib
 import dataclasses
 import json
 import os
-from typing import Any
+import sys
+import threading
+from typing import Any, TextIO
 import zlib
 
 from concordia.environment.engines import asynchronous
@@ -141,6 +143,41 @@ def build_config(
   )
 
 
+class _Quiet:
+  """Stdout to the null device while any quiet run plays, process-wide.
+
+  `sys.stdout` is the process's: two runs playing at once share one
+  redirect, made by the first to start and undone by the last to end.
+  """
+
+  def __init__(self):
+    self._lock = threading.Lock()
+    self._runs = 0
+    self._stdout: TextIO | None = None
+    self._sink: TextIO | None = None
+
+  @contextlib.contextmanager
+  def __call__(self) -> Iterator[None]:
+    with self._lock:
+      if self._runs == 0:
+        self._stdout = sys.stdout
+        self._sink = open(os.devnull, 'w', encoding='utf-8')
+        sys.stdout = self._sink
+      self._runs += 1
+    try:
+      yield
+    finally:
+      with self._lock:
+        self._runs -= 1
+        if self._runs == 0 and self._sink is not None:
+          sys.stdout = self._stdout
+          self._sink.close()
+          self._sink = None
+
+
+_quiet = _Quiet()
+
+
 @dataclasses.dataclass
 class Run:
   """A built simulation and what the harness keeps beside it."""
@@ -148,6 +185,8 @@ class Run:
   sim: simulation_lib.Simulation
   lifecycle: gm_components.Lifecycle
   archive: Archive
+  # The stock engine the simulation runs on (its `pause` / `play`).
+  engine: asynchronous.Asynchronous
 
   def world_state(self) -> Mapping[str, Any]:
     """A copy of the world's state, taken under the World GM's lock.
@@ -284,13 +323,13 @@ class Run:
     Args:
       log_retention: Raw log entries kept (`Simulation.play`).
       quiet: Send what the engine prints (every observation and action) to
-        the null device; a run that never ends would print without end.
+        the null device; a run that never ends would print without end. The
+      redirect is the process's: it lasts while any quiet run plays.
       **kwargs: More `Simulation.play` arguments.
     """
     with contextlib.ExitStack() as stack:
       if quiet:
-        sink = stack.enter_context(open(os.devnull, 'w'))
-        stack.enter_context(contextlib.redirect_stdout(sink))
+        stack.enter_context(_quiet())
       self.sim.play(
           premise='',
           max_steps=UNBOUNDED_STEPS,
@@ -320,11 +359,12 @@ def build_simulation(
     The simulation, its lifecycle and its archive.
   """
   lifecycle = gm_components.Lifecycle()
+  engine = asynchronous.Asynchronous(sleep_time=sleep_time)
   sim = simulation_lib.Simulation(
       config=build_config(settings, lifecycle, experimenter),
       model=model or mock_language_model.MockModel(),
       embedder=hash_embedder,
-      engine=asynchronous.Asynchronous(sleep_time=sleep_time),
+      engine=engine,
   )
   archive = archive or Archive()
 
@@ -355,7 +395,7 @@ def build_simulation(
 
   lifecycle.spawn = spawn
   lifecycle.retire = retire
-  return Run(sim=sim, lifecycle=lifecycle, archive=archive)
+  return Run(sim=sim, lifecycle=lifecycle, archive=archive, engine=engine)
 
 
 def load_checkpoint(run: Run, checkpoint: Mapping[str, Any]) -> None:

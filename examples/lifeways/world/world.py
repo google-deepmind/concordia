@@ -37,6 +37,13 @@ from examples.lifeways.world import places as places_lib
 import numpy as np
 
 EXPERIMENTER = 'Experimenter'
+# The Experimenter's yearly status, and what reads the year from it.
+EXPERIMENTER_STATUS_FORM = 'Year {year}. {people} people live in the valley.'
+EXPERIMENTER_STATUS = re.compile(
+    r'\bYear (\d+)\. \d+ people live in the valley\.'
+)
+SEXUAL = 'sexual'
+ASEXUAL = 'asexual'
 
 # The moves of a year.
 GATHER = 'gather food'
@@ -65,6 +72,10 @@ PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
+# The kinds of question the World GM asks (what an answer answers).
+INTERVIEW = 'interview'
+PASSING_ON = 'pass_on'
+MOVES = 'move'
 # The Experimenter's: put a question to a person, who answers it next year.
 ASK_FORM = 'ask <name>: <question>'
 _ASK = re.compile(r'^ask (?P<name>[A-Za-z]+): (?P<question>.+)$')
@@ -273,7 +284,7 @@ class World:
   def __init__(self, settings: Mapping[str, Any]):
     self.settings = dict(settings)
     self.seed = int(settings.get('seed', 0))
-    self.mode = str(settings.get('mode', 'sexual'))
+    self.mode = str(settings.get('mode', SEXUAL))
     self.channels: dict[str, dict[str, Any]] = {
         str(k): dict(v)
         for k, v in settings.get('channels', DEFAULT_CHANNELS).items()
@@ -339,6 +350,8 @@ class World:
     # the answers given (the latest few).
     self.interviews: dict[str, str] = {}
     self.transcripts: list[dict[str, Any]] = []
+    # What each participant was last asked, and in which year.
+    self.asked: dict[str, list[Any]] = {}
     # Who is looking for a partner (until paired), and for whom: a name, or
     # '' for anyone.
     self.courting: dict[str, str] = {}
@@ -428,7 +441,7 @@ class World:
       person = Person(
           name=self._new_name(),
           born=self.year - int(rng.integers(18, 31)),
-          sex='' if self.mode == 'asexual' else ('f' if i % 2 == 0 else 'm'),
+          sex='' if self.mode == ASEXUAL else ('f' if i % 2 == 0 else 'm'),
           tile=tile,
           food=float(arrivals.get('food', 6.0)),
           given=list(customs),
@@ -467,19 +480,63 @@ class World:
     ] + [EXPERIMENTER]
 
   def may_act(self, name: str) -> bool:
+    """Whether a participant has a question to answer now.
+
+    Args:
+      name: The participant.
+
+    Returns:
+      True if it has not made this year's move, or owes an interview.
+    """
     return name in self.participants() and (
         name not in self.actions or name in self.interviews
     )
 
+  def mark_asked(self, name: str, question: str) -> None:
+    """Notes which question a participant was just asked, and in which year.
+
+    Args:
+      name: The participant.
+      question: `INTERVIEW`, `PASSING_ON` or `MOVES` (the kind of question).
+    """
+    self.asked[name] = [question, self.year]
+
   def record_action(self, name: str, action: str) -> None:
-    """Records a participant's answer: to its interview first, then a move."""
-    if name in self.interviews:
+    """Files a participant's answer by the question it answers.
+
+    An answer to a question of a year already closed (in free mode, a year
+    closes at its deadline) is dropped: who answered late did nothing that
+    year. With no question noted (a direct caller), an interview pending is
+    answered first, then the move.
+
+    Args:
+      name: Who answered.
+      action: The answer.
+    """
+    asked = self.asked.pop(name, None)
+    if asked is not None:
+      question, year = asked
+      if int(year) != self.year:
+        return
+      if question == INTERVIEW:
+        if name in self.interviews:
+          self._answered(name, action)
+        return
+    elif name in self.interviews:
       self._answered(name, action)
-    elif name in self.participants() and name not in self.actions:
+      return
+    if name in self.participants() and name not in self.actions:
       self.actions[name] = action
 
   def interview(self, name: str) -> str:
-    """The question put to a person this year, unanswered ('' if none)."""
+    """The question put to a person this year, unanswered.
+
+    Args:
+      name: The person.
+
+    Returns:
+      The question ('' if none).
+    """
     return self.interviews.get(name, '')
 
   def _answered(self, name: str, answer: str) -> None:
@@ -523,7 +580,7 @@ class World:
     ]
     if self._may_have_child(person):
       found.append(CHILD)
-    if self.mode == 'sexual' and not person.partner:
+    if self.mode == SEXUAL and not person.partner:
       found.append(COURT)
       found.extend(f'{COURT_ONE} {other}' for other in self._suitors(person))
     if culture_lib.UPBRINGING in self.channels and self._pupils(person):
@@ -607,7 +664,14 @@ class World:
     return []
 
   def rite_falls(self, shrine: places_lib.Place) -> bool:
-    """Whether a shrine's rite falls this year (on its calendar)."""
+    """Whether a shrine's rite falls this year (on its calendar).
+
+    Args:
+      shrine: The shrine.
+
+    Returns:
+      True in a year of its rite (every `every` years from its founding).
+    """
     every = int((self.shrine or {}).get('every', 4))
     return (self.year - shrine.founded) % every == 0 and (
         self.year > shrine.founded
@@ -658,6 +722,14 @@ class World:
     ]
 
   def asked_to_pass_on(self, name: str) -> bool:
+    """Whether a person is a parent of a child born this year's close.
+
+    Args:
+      name: The person.
+
+    Returns:
+      True if the person is asked what it passes on.
+    """
     return any(name in parents for parents in self.expecting.values())
 
   def _may_have_child(self, person: Person) -> bool:
@@ -666,7 +738,7 @@ class World:
         person.name
     ):
       return False
-    if self.mode == 'sexual' and (person.sex != 'f' or not person.partner):
+    if self.mode == SEXUAL and (person.sex != 'f' or not person.partner):
       return False
     return person.food >= float(self.settings.get('child_cost', 2.0)) + 1.0
 
@@ -680,7 +752,9 @@ class World:
       The status line the person observes.
     """
     if name == EXPERIMENTER:
-      return f'Year {self.year}. {len(self.people)} people live in the valley.'
+      return EXPERIMENTER_STATUS_FORM.format(
+          year=self.year, people=len(self.people)
+      )
     person = self.people[name]
     partner = person.partner or 'no partner'
     kids = ', '.join(c for c in person.children if c in self.people)
@@ -999,6 +1073,8 @@ class World:
     """Puts the Experimenter's question to a person, for next year."""
     match = _ASK.match(' '.join(answer.split()))
     if match is None:
+      if _is_move(answer.strip().lower(), 'ask'):
+        self._tell(EXPERIMENTER, 'The question is not understood: ' + answer)
       return
     name, question = match.group('name'), match.group('question')
     person = self.people.get(name)
@@ -1049,9 +1125,20 @@ class World:
     if kind not in culture_lib.KINDS or domain not in culture_lib.DOMAINS:
       self._tell(EXPERIMENTER, f'No custom is of kind {kind}, domain {domain}.')
       return
+    if '|params=' in answer or '[custom' in answer:
+      # The text would read as the protocol of an offer line.
+      self._tell(EXPERIMENTER, 'The release is not understood: ' + answer)
+      return
+    if (
+        match.group('how') == 'song'
+        and culture_lib.RELEASE not in self.channels
+    ):
+      self._tell(EXPERIMENTER, 'No song carries in this world.')
+      return
     params = {}
     if kind == culture_lib.SKILL:
-      params['level'] = int(match.group('level') or 1)
+      level = int(match.group('level') or 1)
+      params['level'] = min(culture_lib.MAX_LEVEL, max(1, level))
     custom = self.culture.add(
         kind,
         domain,
@@ -1102,7 +1189,15 @@ class World:
     )
 
   def understanding(self, a: str, b: str) -> float:
-    """How well two living people understand each other's speech."""
+    """How well two living people understand each other's speech.
+
+    Args:
+      a: A living person.
+      b: Another.
+
+    Returns:
+      The share of their dialects' words that agree (1.0 if either has none).
+    """
     speech_a, speech_b = self.people[a].speech, self.people[b].speech
     if speech_a not in self.culture or speech_b not in self.culture:
       return 1.0
@@ -1518,7 +1613,7 @@ class World:
           name=self._new_name(),
           born=self.year,
           sex=''
-          if self.mode == 'asexual'
+          if self.mode == ASEXUAL
           else ('f' if rng.random() < 0.5 else 'm'),
           tile=mother.tile,
           food=min(cost, mother.food),
@@ -1605,7 +1700,9 @@ class World:
       if name in parents:
         parents.remove(name)
     self.queued.pop(name, None)
-    self.interviews.pop(name, None)
+    self.asked.pop(name, None)
+    if self.interviews.pop(name, None) is not None:
+      self._tell(EXPERIMENTER, f'{name} died before answering.')
 
   def _census(
       self,
@@ -1715,6 +1812,7 @@ class World:
         'breaches': {k: list(v) for k, v in self.breaches.items()},
         'courting': dict(self.courting),
         'interviews': dict(self.interviews),
+        'asked': {k: list(v) for k, v in self.asked.items()},
         'transcripts': [dict(t) for t in self.transcripts],
         'places': self.places.get_state(),
     }
@@ -1749,6 +1847,10 @@ class World:
         str(k): str(v) for k, v in state.get('interviews', {}).items()
     }
     self.transcripts = [dict(t) for t in state.get('transcripts', ())]
+    self.asked = {
+        str(k): [str(v[0]), int(v[1])]
+        for k, v in state.get('asked', {}).items()
+    }
 
 
 def _move_kind(move: str) -> str:

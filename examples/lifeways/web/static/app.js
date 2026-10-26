@@ -113,7 +113,7 @@ function drawMap(world) {
     person.x = (person.tile[1] + 0.5 + spread * Math.cos(angle)) * page.tile;
     person.y = (person.tile[0] + 0.5 + spread * Math.sin(angle)) * page.tile;
     ctx.beginPath();
-    ctx.arc(person.x, person.y, person.age < 16 ? page.tile * 0.14 :
+    ctx.arc(person.x, person.y, person.age < world.grown_age ? page.tile * 0.14 :
             page.tile * 0.22, 0, 2 * Math.PI);
     ctx.fillStyle = peopleColour(person.descent || 'valley');
     ctx.fill();
@@ -133,7 +133,7 @@ function drawChart(rows) {
   const series = [
     {key: 'population', colour: '#2d6a4f', most: Math.max(...rows.map(
         (row) => row.population), 1)},
-    {key: 'skill_worked', colour: '#bc6c25', most: 9},
+    {key: 'skill_worked', colour: '#bc6c25', most: page.world.max_level},
     {key: 'tongues', colour: '#5a189a', most: Math.max(...rows.map(
         (row) => row.tongues || 0), 1)},
   ];
@@ -281,7 +281,7 @@ async function refresh() {
     drawTranscripts(world);
     const rows = await api(`api/census?since=${page.since}`);
     if (rows.length) {
-      page.rows = page.rows.concat(rows).slice(-400);
+      page.rows = page.rows.concat(rows).slice(-world.rows_kept);
       page.since = rows[rows.length - 1].year;
       drawChart(page.rows);
     }

@@ -171,7 +171,11 @@ class TurnGate(
     self.deliver(world)
     for params in outcome.births:
       self._lifecycle.spawn(params)
-    if outcome.deaths:  # The dead hear nothing more.
+    for name in outcome.deaths:  # The dead hear nothing more.
+      self._queue.get_and_clear(name)
+    if outcome.deaths and self._free is None:
+      # In tick mode no thread takes observations while a year closes, so
+      # the dead can leave the queue altogether (bounded over endless runs).
       queued = self._queue.get_all()
       for name in outcome.deaths:
         queued.pop(name, None)
@@ -195,7 +199,11 @@ class TurnGate(
     self._lifecycle.year_closed(world.year)
 
   def deliver(self, world: world_lib.World) -> None:
-    """Queues the world's pending observations for their people."""
+    """Queues the world's pending observations for their people.
+
+    Args:
+      world: The world (in its lock).
+    """
     for name, texts in world.take_observations().items():
       self._queue.add(name, '\n'.join(texts), ())
 
@@ -240,14 +248,20 @@ class Questions(
     holder = _world_component(self, self._world_key)
     with holder.lock:
       world = holder.world
+      if not world.may_act(name):
+        # In free mode the year may have closed (and the person died) since
+        # the person was named: it waits for the next year.
+        return engine_lib.action_spec_to_string(
+            entity_lib.skip_this_step_action_spec()
+        )
       if world.interview(name):
         question = INTERVIEW_QUESTION.format(
             name=name, question=world.interview(name)
         )
-        tag = 'interview'
+        tag = world_lib.INTERVIEW
       elif world.asked_to_pass_on(name):
         question = PASS_ON_QUESTION.format(name=name)
-        tag = 'pass_on'
+        tag = world_lib.PASSING_ON
       else:
         moves = world.moves(name)
         question = MOVE_QUESTION.format(
@@ -256,7 +270,8 @@ class Questions(
             moves='\n'.join(f'- {m}' for m in moves),
             example=moves[0],
         )
-        tag = 'move'
+        tag = world_lib.MOVES
+      world.mark_asked(name, tag)
     spec = entity_lib.free_action_spec(call_to_action=question, tag=tag)
     self._logging_channel({'Key': 'Question', 'Summary': f'{name}: {tag}'})
     return engine_lib.action_spec_to_string(spec)
