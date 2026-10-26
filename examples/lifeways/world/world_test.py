@@ -390,6 +390,68 @@ class LibraryTest(absltest.TestCase):
     self.assertGreater(years, 3)
 
 
+class SchoolTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.world = world_lib.World({
+        'seed': 0,
+        'founders': 0,
+        'channels': _FAITHFUL,
+        'school': {'cost': 3.0, 'spacing': 5, 'term': 2},
+    })
+    self.norm = self.world.culture.add('norm', 'sharing', 'Share.').id
+    self.belief = self.world.culture.add('belief', 'sacred', 'Hills.').id
+
+  def _person(self, name, age, tile, given=()):
+    person = world_lib.Person(
+        name=name,
+        born=self.world.year - age,
+        sex='f',
+        tile=tile,
+        food=8.0,
+        given=list(given),
+    )
+    self.world.people[name] = person
+    return person
+
+  def _year(self, **actions):
+    self.world.queued.clear()
+    self.world.actions = dict(actions)
+    self.world.close_year()
+
+  def _offers(self, name):
+    text = '\n'.join(self.world.queued.get(name, ()))
+    return sorted(
+        (m.group('id'), m.group('via'), m.group('source'))
+        for m in culture_lib.OFFER.finditer(text)
+    )
+
+  def test_a_school_teaches_any_child_nearby_for_a_term(self):
+    self._person('Ada', 30, (5, 5), [self.norm, self.belief])
+    self._person('Kit', 8, (5, 7))
+    self.assertIn(world_lib.FOUND_SCHOOL, self.world.moves('Ada'))
+    self.assertNotIn(world_lib.GO_TO_SCHOOL, self.world.moves('Kit'))
+
+    self._year(
+        Ada=f'{world_lib.FOUND_SCHOOL} {self.norm} {self.belief}', Kit='play'
+    )
+    self.assertIn(world_lib.GO_TO_SCHOOL, self.world.moves('Kit'))
+    self.assertIn(world_lib.TEACH_AT_SCHOOL, self.world.moves('Ada'))
+    self._year(Ada='rest', Kit=world_lib.GO_TO_SCHOOL)  # Within the term.
+
+    self.assertEqual(
+        self._offers('Kit'),
+        sorted([(self.norm, 'school', 'Ada'), (self.belief, 'school', 'Ada')]),
+    )
+
+    self._year(Ada='rest', Kit='play')
+    self._year(Ada='rest', Kit=world_lib.GO_TO_SCHOOL)  # The term is over.
+
+    self.assertEmpty(self._offers('Kit'))
+    self.assertIn('Nobody teaches', ' '.join(self.world.queued['Kit']))
+
+
 class CultureTest(absltest.TestCase):
 
   def test_the_same_content_is_the_same_variant(self):

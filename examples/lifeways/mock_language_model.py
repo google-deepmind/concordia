@@ -144,6 +144,8 @@ def _choose(
     return 'move to better land'
   if 'learn a craft' in moves and food >= 1.0 and draw < 0.6:
     return 'learn a craft'
+  if 'go to school' in moves and draw < 0.7:
+    return 'go to school'
   if 'play' in moves and age < 12:
     return 'play' if food >= 0.5 else follow('gather food', 'food')
   if food < 2.5 or ('lean' in texts and food < 4.0):
@@ -160,6 +162,10 @@ def _choose(
     return ' '.join([shame[0], *sharing])
   if 'teach' in moves and food >= 4.0 and draw < 0.35:
     return follow('teach')
+  if 'teach at the school' in moves and food >= 4.0 and draw < 0.3:
+    return follow('teach at the school')
+  if 'found a school' in moves and food >= 6.0 and draw < 0.15:
+    return follow('found a school')
   if reading and food >= 3.0:
     if 'found a library' in moves and food >= 6.0 and draw < 0.3:
       return ' '.join(['found a library', *reading, *others])

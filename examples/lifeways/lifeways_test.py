@@ -85,24 +85,32 @@ class SandboxTest(absltest.TestCase):
     self.assertNotEmpty(world.dead)
 
   def test_children_start_with_what_their_parents_passed_on(self):
-    run = simulation.build_simulation(scenarios.settings(max_years=12))
+    run = simulation.build_simulation(scenarios.settings(max_years=20))
+    newborns = []
+
+    def look(year: int) -> None:
+      world = run.world()
+      for person in world.people.values():
+        if person.parents and person.born == year - 1:
+          entity = next(e for e in run.sim.entities if e.name == person.name)
+          held = {
+              c.id
+              for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
+              if isinstance(c, culture.Custom)
+          }
+          newborns.append((held, set(person.given)))
+          for (
+              custom_id
+          ) in held:  # Each a recorded variant (perhaps a mutation).
+            self.assertIn(custom_id, world.culture)
+
+    run.lifecycle.year_closed = look
     run.play()
-    world = run.world()
-    # The youngest child, too young yet to have been offered anything else.
-    child = max(
-        (p for p in world.people.values() if p.parents), key=lambda p: p.born
-    )
-    self.assertLess(child.age(world.year), world_lib.CHILD_ACTS_AGE)
-    entity = next(e for e in run.sim.entities if e.name == child.name)
-    held = {
-        c.id
-        for c in entity.get_all_context_components().values()  # pyrefly: ignore[missing-attribute]
-        if isinstance(c, culture.Custom)
-    }
-    self.assertEqual(held, set(child.given))
-    self.assertNotEmpty(held)
-    for custom_id in held:  # Each a recorded variant (perhaps a mutation).
-      self.assertIn(custom_id, world.culture)
+
+    self.assertNotEmpty(newborns)
+    for held, given in newborns:
+      self.assertNotEmpty(held)
+      self.assertEqual(held, given)
 
   def test_every_channel_moves_customs(self):
     run = simulation.build_simulation(scenarios.settings(max_years=80))

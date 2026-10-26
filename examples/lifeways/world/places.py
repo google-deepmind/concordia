@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The places people build: libraries, whose shelves outlive their writers.
+"""The places people build: libraries and schools.
 
 A library holds texts: exact copies of customs written by literate people,
 which anyone literate who comes may read. Its shelf is a pool of culture in
@@ -20,6 +20,10 @@ the world itself, like plasmids in the environment: a custom can wait there
 long after the last person who held it has died. A library nobody uses
 falls to ruin; its texts can still be read in the ruins, but crumble one by
 one.
+
+A school holds a curriculum (on its shelf): the customs its teacher teaches
+there. A teacher keeps the school for a term; children nearby who go to
+school during it are taught the curriculum, whoever their parents are.
 """
 
 from collections.abc import Mapping, Sequence
@@ -29,6 +33,7 @@ from typing import Any
 import numpy as np
 
 LIBRARY = 'library'
+SCHOOL = 'school'
 
 Tile = tuple[int, int]
 
@@ -44,8 +49,11 @@ class Place:
   founder: str
   # The last year anyone used it.
   used: int
-  # The customs written there, oldest first.
+  # The customs written (taught) there, oldest first.
   shelf: list[str] = dataclasses.field(default_factory=list)
+  # Who last kept it (a school's teacher), and when.
+  keeper: str = ''
+  kept: int = -1
 
   def to_dict(self) -> dict[str, Any]:
     data = dataclasses.asdict(self)
@@ -62,6 +70,8 @@ class Place:
         founder=str(data['founder']),
         used=int(data['used']),
         shelf=[str(c) for c in data.get('shelf', ())],
+        keeper=str(data.get('keeper', '')),
+        kept=int(data.get('kept', -1)),
     )
 
 
@@ -134,6 +144,16 @@ class Places:
     del place.shelf[: max(0, len(place.shelf) - self._shelf)]
     place.used = year
 
+  def keep(
+      self, place: Place, keeper: str, ids: Sequence[str], year: int
+  ) -> None:
+    """A keeper takes the place, with what it holds (a new curriculum)."""
+    place.shelf = list(dict.fromkeys(ids))[: self._shelf]
+    place.keeper, place.kept, place.used = keeper, year, year
+
+  def use(self, place: Place, year: int) -> None:
+    place.used = year
+
   def read(
       self, place: Place, rng: np.random.Generator, texts: int, year: int
   ) -> list[str]:
@@ -172,10 +192,14 @@ class Places:
 
 def describe(place: Place, ruined: bool) -> str:
   """How a place looks to those who see it."""
-  texts = f'{len(place.shelf)} text{"" if len(place.shelf) == 1 else "s"}'
+  count = len(place.shelf)
+  if place.kind == SCHOOL:
+    held = f'{count} custom{"" if count == 1 else "s"} taught'
+  else:
+    held = f'{count} text{"" if count == 1 else "s"}'
   if ruined:
-    return f'the ruins of a {place.kind}, with {texts} left'
-  return f'a {place.kind} with {texts}'
+    return f'the ruins of a {place.kind}, with {held} left'
+  return f'a {place.kind}, with {held}'
 
 
 def literate(kinds_and_domains: Sequence[tuple[str, str]]) -> bool:

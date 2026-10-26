@@ -116,6 +116,12 @@ on record; the census counts the readings that bring back a custom nobody
 living has (`rediscovered`). A library unused for long is a ruin, whose
 texts can still be read but crumble one by one.
 
+**Schools.** An adult may `found a school` and `teach at the school`: the
+customs named become its curriculum, and the teacher keeps the school for a
+term. Any child within sight who chooses to `go to school` during the term
+is taught the curriculum (the `school` channel), whoever its parents are. A
+school that teaches reading makes readers of a whole generation.
+
 **Arrivals.** While the valley is nearly empty, strangers may come (the
 `arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
 ways, feed only their own and have children young. Their customs spread, or

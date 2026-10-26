@@ -54,6 +54,9 @@ SHAME = 'shame'  # ... a name.
 FOUND_LIBRARY = 'found a library'
 WRITE = 'write at the library'
 READ = 'read at the library'
+FOUND_SCHOOL = 'found a school'
+TEACH_AT_SCHOOL = 'teach at the school'
+GO_TO_SCHOOL = 'go to school'
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -75,7 +78,9 @@ DEAD_KEPT = 500
 #   to know it a level better (`improve`);
 # - sanction: the one shamed is shown the norm the shamer shames by;
 # - practice: keeping a norm one knows makes it one's own;
-# - reading: a literate reader at a library reads `texts` of its shelf, exact.
+# - reading: a literate reader at a library reads `texts` of its shelf, exact;
+# - school: pupils are taught the curriculum of a school within sight, in a
+#   year someone teaches there.
 # A channel's `form` is the form a norm comes in by it: what children are
 # raised in, what one practises and what one is shamed for breaking may
 # become one's own (internalized); what one sees others keep is known
@@ -97,6 +102,7 @@ DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
     'sanction': {'mutation': 0.02, 'form': culture_lib.INTERNALIZED},
     'practice': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
     'reading': {'mutation': 0.0, 'texts': 3},
+    'school': {'mutation': 0.01, 'form': culture_lib.INTERNALIZED},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -215,6 +221,12 @@ class World:
     library = settings.get('library')
     self.library: dict[str, Any] | None = (
         None if library is None else dict(library)
+    )
+    # Schools, if the setting allows them: what founding one costs, how far
+    # apart they stand and the years a teacher's term lasts.
+    school = settings.get('school')
+    self.school: dict[str, Any] | None = (
+        None if school is None else dict(school)
     )
     self.places = places_lib.Places(
         int(settings.get('rows', 16)),
@@ -416,10 +428,17 @@ class World:
     person = self.people[name]
     age = person.age(self.year)
     if age < ADULT_AGE:
+      places = [*self._library_moves(person), *self._school_moves(person)]
       if age >= APPRENTICE_AGE and 'apprenticeship' in self.channels:
-        return [PLAY, GATHER, APPRENTICE, *self._library_moves(person)]
-      return [PLAY, GATHER, *self._library_moves(person)]
-    found = [GATHER, REST, MOVE, *self._library_moves(person)]
+        return [PLAY, GATHER, APPRENTICE, *places]
+      return [PLAY, GATHER, *places]
+    found = [
+        GATHER,
+        REST,
+        MOVE,
+        *self._library_moves(person),
+        *self._school_moves(person),
+    ]
     if self._may_have_child(person):
       found.append(CHILD)
     if self.mode == 'sexual' and not person.partner:
@@ -458,6 +477,29 @@ class World:
     ) and person.food >= float(self.library.get('cost', 3.0)):
       found.append(FOUND_LIBRARY)
     return found
+
+  def _school_moves(self, person: Person) -> list[str]:
+    """Going to school (children); teaching at or founding one (adults)."""
+    if self.school is None or 'school' not in self.channels:
+      return []
+    near = self._standing(person, places_lib.SCHOOL)
+    if person.age(self.year) < ADULT_AGE:
+      return [GO_TO_SCHOOL] if near else []
+    if near:
+      return [TEACH_AT_SCHOOL]
+    if not self.places.near(
+        person.tile, int(self.school.get('spacing', 5)), places_lib.SCHOOL
+    ) and person.food >= float(self.school.get('cost', 3.0)):
+      return [FOUND_SCHOOL]
+    return []
+
+  def _standing(self, person: Person, kind: str) -> list[places_lib.Place]:
+    """The places of a kind within sight that are not ruins, nearest first."""
+    return [
+        p
+        for p in self.places.near(person.tile, self.sight, kind)
+        if not self.places.ruined(p, self.year)
+    ]
 
   def _in_sight(self, person: Person) -> list[str]:
     """The others living within sight of a person, by name."""
@@ -506,8 +548,12 @@ class World:
         f' {len(self._in_sight(person))} other people are within sight.'
         + ''.join(
             ' Within sight is'
-            f' {places_lib.describe(p, self.places.ruined(p, self.year))}.'
-            for p in self.places.near(person.tile, self.sight)[:1]
+            f' {places_lib.describe(near[0], self.places.ruined(near[0], self.year))}.'
+            for near in (
+                self.places.near(person.tile, self.sight, kind)
+                for kind in (places_lib.LIBRARY, places_lib.SCHOOL)
+            )
+            if near
         )
     )
 
@@ -541,6 +587,7 @@ class World:
       if name in self.people:
         did[name] = self._resolve(name, self.actions[name], allowed[name])
     self._apprentice(did)
+    self._schools(did)
     self._transmit(did)
     worked = [self._level(e, 'food') for m, e in did.values() if m == GATHER]
     deaths = self._eat_and_die()
@@ -642,6 +689,8 @@ class World:
           )
     elif move in (FOUND_LIBRARY, WRITE, READ):
       self._use_library(person, move, enacted)
+    elif move in (FOUND_SCHOOL, TEACH_AT_SCHOOL):
+      self._teach_at_school(person, move, enacted)
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -719,6 +768,55 @@ class World:
           f'{person.name} writes {len(texts)} text'
           f'{"" if len(texts) == 1 else "s"} at the library.',
       )
+
+  def _teach_at_school(
+      self, person: Person, move: str, enacted: Sequence[str]
+  ) -> None:
+    """Founds a school or teaches at one: the customs named are taught."""
+    if move == FOUND_SCHOOL:
+      school = self.school or {}
+      cost = float(school.get('cost', 3.0))
+      spacing = int(school.get('spacing', 5))
+      if person.food < cost or self.places.near(
+          person.tile, spacing, places_lib.SCHOOL
+      ):
+        return
+      person.food -= cost
+      place = self.places.found(
+          places_lib.SCHOOL, person.tile, person.name, self.year
+      )
+      for name in (person.name, *self._in_sight(person)):
+        self._tell(
+            name,
+            f'{person.name} founds a school at'
+            f' {place.tile[0]},{place.tile[1]}.',
+        )
+    else:
+      standing = self._standing(person, places_lib.SCHOOL)
+      if not standing:
+        return
+      place = standing[0]
+    if enacted:
+      self.places.keep(place, person.name, enacted, self.year)
+
+  def _schools(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
+    """Pupils are taught the curriculum of a school in a teacher's term."""
+    term = int((self.school or {}).get('term', 5))
+    for pupil in sorted(n for n, (m, _) in did.items() if m == GO_TO_SCHOOL):
+      person = self.people[pupil]
+      taught = [
+          p
+          for p in self._standing(person, places_lib.SCHOOL)
+          if p.keeper in self.people and self.year - p.kept < term
+      ]
+      if not taught:
+        self._tell(pupil, 'Nobody teaches at the school this year.')
+        continue
+      school, teacher = taught[0], taught[0].keeper
+      self.places.use(school, self.year)
+      for custom_id in school.shelf:
+        if custom_id in self.culture:
+          self._offer(pupil, teacher, custom_id, 'school', f'{teacher} teaches')
 
   def _skill(self, enacted: Sequence[str], domain: str) -> float:
     """How much better an enacted skill makes the work (1.0: none).
@@ -834,7 +932,17 @@ class World:
     actors = [
         name
         for name, (move, enacted) in sorted(did.items())
-        if enacted and move not in (TEACH, FOUND_LIBRARY, WRITE, READ, '')
+        if enacted
+        and move
+        not in (
+            TEACH,
+            FOUND_LIBRARY,
+            WRITE,
+            READ,
+            FOUND_SCHOOL,
+            TEACH_AT_SCHOOL,
+            '',
+        )
     ]
     for name in self.living():
       person = self.people[name]
@@ -1087,12 +1195,25 @@ class World:
         ),
         'breaches': len(self.breaches),
         'libraries': sum(
-            1 for p in self.places.all() if not self.places.ruined(p, self.year)
+            1
+            for p in self.places.all()
+            if p.kind == places_lib.LIBRARY
+            and not self.places.ruined(p, self.year)
         ),
         'ruins': sum(
             1 for p in self.places.all() if self.places.ruined(p, self.year)
         ),
-        'texts': sum(len(p.shelf) for p in self.places.all()),
+        'texts': sum(
+            len(p.shelf)
+            for p in self.places.all()
+            if p.kind == places_lib.LIBRARY
+        ),
+        'schools': sum(
+            1
+            for p in self.places.all()
+            if p.kind == places_lib.SCHOOL
+            and not self.places.ruined(p, self.year)
+        ),
         'offers': dict(sorted(self._offers.items())),
         'rediscovered': self._rediscovered,
         'variants': len(self.culture),

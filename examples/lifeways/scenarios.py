@@ -49,6 +49,9 @@ SANDBOX: Mapping[str, Any] = {
         'ruin_after': 30,
         'crumble': 0.1,
     },
+    # Schools: founding one costs food; they stand apart; a teacher's term
+    # is five years.
+    'school': {'cost': 3.0, 'spacing': 5, 'term': 5},
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.
