@@ -44,7 +44,8 @@ SANDBOX: Mapping[str, Any] = {
         {
             'kind': 'norm',
             'domain': 'sharing',
-            'text': 'We share the first catch of the season with the old.',
+            'text': 'We share our food with those near us who go hungry.',
+            'held_by': 0.5,
         },
         {
             'kind': 'skill',
@@ -71,6 +72,7 @@ SANDBOX: Mapping[str, Any] = {
             'kind': 'bias',
             'domain': 'learning',
             'text': 'Learn from those whose stores are full.',
+            'held_by': 0.5,
         },
     ],
 }

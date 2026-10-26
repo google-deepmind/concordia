@@ -25,6 +25,7 @@ reading anyone's mind: people name the ids they pass on.
 
 from collections.abc import Collection, Mapping, Sequence
 import dataclasses
+import json
 import re
 from typing import Any
 
@@ -49,11 +50,17 @@ KINDS = ('norm', 'value', 'belief', 'skill', 'habit', 'bias')
 # The highest level a skill reaches.
 MAX_LEVEL = 9
 
+# The forms of a norm: known (expected by others, kept when watched) or
+# internalized (one's own, kept when nobody watches). Founders' norms are
+# internalized.
+KNOWN = 'known'
+INTERNALIZED = 'internalized'
+
 # How the GM offers a custom in an observation, and how a Learner reads it:
 # its spec, the channel it came by, and (seen in someone) who and how well fed.
 OFFER = re.compile(
     r'\[custom id=(?P<id>c\d+) kind=(?P<kind>\w+) domain=(?P<domain>\w+)'
-    r'(?: level=(?P<level>\d+))? via=(?P<via>\w+)'
+    r'(?: level=(?P<level>\d+))?(?: form=(?P<form>\w+))? via=(?P<via>\w+)'
     r'(?: from=(?P<source>[^ \]]+) stores=(?P<stores>\d+(?:\.\d+)?))?\]'
     r' (?P<text>[^\n]*)'
 )
@@ -66,7 +73,12 @@ def offer_line(
     stores: float | None = None,
 ) -> str:
   """An observation line offering a custom (what a Learner reads)."""
-  level = spec.get('params', {}).get('level')
+  params = spec.get('params', {})
+  detail = ''
+  if params.get('level') is not None:
+    detail += f' level={params["level"]}'
+  if spec['kind'] == 'norm':
+    detail += f' form={form_of(spec)}'
   seen = (
       f' from={source} stores={stores:.1f}'
       if source and stores is not None
@@ -74,9 +86,15 @@ def offer_line(
   )
   return (
       f'[custom id={spec["id"]} kind={spec["kind"]} domain={spec["domain"]}'
-      f'{f" level={level}" if level is not None else ""} via={via}{seen}]'
-      f' {spec["text"]}'
+      f'{detail} via={via}{seen}] {spec["text"]}'
   )
+
+
+def form_of(spec: Mapping[str, Any]) -> str:
+  """A norm's form ('' for other kinds)."""
+  if spec['kind'] != 'norm':
+    return ''
+  return str(spec.get('params', {}).get('form', INTERNALIZED))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -132,6 +150,9 @@ class Culture:
 
   def __init__(self):
     self._customs: dict[str, Custom] = {}
+    # The id of each content (kind, domain, text, params): a variant arising
+    # again, by convergent copying errors or a change of form, is the same.
+    self._ids: dict[str, str] = {}
     self._next = 1
 
   def __contains__(self, custom_id: str) -> bool:
@@ -158,24 +179,56 @@ class Culture:
       origin: str = 'founder',
       year: int = 0,
   ) -> Custom:
-    """Records a new variant and returns it."""
+    """Records a variant and returns it (the recorded one, if it exists)."""
     if kind not in KINDS:
       raise ValueError(f'Unknown kind of custom: {kind}')
     if domain not in DOMAINS:
       raise ValueError(f'Unknown domain: {domain}')
+    text = ' '.join(text.split())
+    params = dict(params or {})
+    if kind == 'norm':
+      params.setdefault('form', INTERNALIZED)
+    content = _content(kind, domain, text, params)
+    if content in self._ids:
+      return self._customs[self._ids[content]]
     custom = Custom(
         id=f'c{self._next}',
         kind=kind,
         domain=domain,
-        text=' '.join(text.split()),
-        params=dict(params or {}),
+        text=text,
+        params=params,
         parent=parent,
         origin=origin,
         year=year,
     )
     self._next += 1
     self._customs[custom.id] = custom
+    self._ids[content] = custom.id
     return custom
+
+  def in_form(self, custom_id: str, form: str, year: int) -> Custom:
+    """The variant of a norm in `form` (any other custom, unchanged).
+
+    Args:
+      custom_id: The variant.
+      form: `KNOWN` or `INTERNALIZED`.
+      year: Now (if the form is new to the world).
+
+    Returns:
+      The norm with the same content in that form.
+    """
+    custom = self.get(custom_id)
+    if custom.kind != 'norm' or form_of(custom.spec()) == form:
+      return custom
+    return self.add(
+        custom.kind,
+        custom.domain,
+        custom.text,
+        {**custom.params, 'form': form},
+        parent=custom.id,
+        origin=form,
+        year=year,
+    )
 
   def copy(
       self,
@@ -190,8 +243,9 @@ class Culture:
     A skill copied with care (`improve`) may come out a level higher: the
     learner adds to what the teacher knew, a new variant. Otherwise, with
     probability `mutation`, the copy errs: a skill is learned a level lower
-    or higher, a text loses or doubles its emphasis. An erring copy is a new
-    variant (its parent recorded); a faithful one is the same variant.
+    (copying loses know-how, it never adds any), a text loses or doubles its
+    emphasis. An erring copy is a new variant (its parent recorded); a
+    faithful one is the same variant.
 
     Args:
       custom_id: The variant copied.
@@ -220,8 +274,7 @@ class Culture:
     params = dict(custom.params)
     text = custom.text
     if custom.kind == 'skill':
-      step = 1 if rng.random() < 0.3 else -1
-      params['level'] = min(MAX_LEVEL, max(1, level + step))
+      params['level'] = max(1, level - 1)
     else:
       words = text.rstrip('.').split()
       if len(words) > 4 and rng.random() < 0.5:
@@ -288,6 +341,9 @@ class Culture:
     gone = [c for i, c in self._customs.items() if i not in keep]
     for custom in gone:
       del self._customs[custom.id]
+      del self._ids[
+          _content(custom.kind, custom.domain, custom.text, custom.params)
+      ]
     return gone
 
   def get_state(self) -> dict[str, Any]:
@@ -301,3 +357,14 @@ class Culture:
     self._customs = {
         str(c['id']): Custom.from_dict(c) for c in state.get('customs', [])
     }
+    self._ids = {
+        _content(c.kind, c.domain, c.text, c.params): i
+        for i, c in self._customs.items()
+    }
+
+
+def _content(
+    kind: str, domain: str, text: str, params: Mapping[str, Any]
+) -> str:
+  """A key of a variant's content."""
+  return json.dumps([kind, domain, text, params], sort_keys=True)

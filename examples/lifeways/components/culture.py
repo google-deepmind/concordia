@@ -37,6 +37,7 @@ COMPONENT_PREFIX = 'custom '
 
 _LABELS = {
     'norm': 'A custom of ours',
+    'known norm': 'A custom others expect of us',
     'value': 'Something we hold dear',
     'belief': 'Something we believe',
     'skill': 'Something we know how to do',
@@ -69,15 +70,20 @@ class Custom(entity_component.ContextComponent):
   def kind(self) -> str:
     return str(self.spec['kind'])
 
+  @property
+  def form(self) -> str:
+    return culture_lib.form_of(self.spec)
+
   @override
   def pre_act(self, action_spec) -> str:
     del action_spec
     level = self.spec.get('params', {}).get('level')
     detail = f' (level {level})' if level is not None else ''
-    return (
-        f'{_LABELS.get(self.kind, "A custom")} ({self.domain}) [{self.id}]:'
-        f' {self.spec["text"]}{detail}'
+    label = _LABELS.get(
+        'known norm' if self.form == culture_lib.KNOWN else self.kind,
+        'A custom',
     )
+    return f'{label} ({self.domain}) [{self.id}]: {self.spec["text"]}{detail}'
 
   @override
   def get_state(self) -> entity_component.ComponentState:
@@ -130,7 +136,8 @@ class Learner(entity_component.ContextComponent):
   one open to 'new ways' more often, and one who learns from 'those whose
   stores are full' copies the well fed more. Each further person seen doing
   the same is another chance (so what many do spreads faster). A skill is
-  taken up only if it is better than the one the person has.
+  taken up only if it is better than the one the person has, and a norm
+  merely expected of the person never displaces one it has made its own.
 
   A kind of custom in a domain is a locus, like a plasmid's incompatibility
   group: a new custom replaces the one the person holds there. A person holds
@@ -171,6 +178,7 @@ class Learner(entity_component.ContextComponent):
         'kind': str(spec['kind']),
         'domain': str(spec['domain']),
         'level': int(spec.get('params', {}).get('level', 0)),
+        'form': culture_lib.form_of(spec),
         'via': via,
     }
 
@@ -203,16 +211,17 @@ class Learner(entity_component.ContextComponent):
         if draw >= 1.0 - missed:
           continue
         offer = seen[int(np.argmax(chances))]
+        params: dict[str, Any] = {}
+        if offer.group('level'):
+          params['level'] = int(offer.group('level'))
+        if offer.group('form'):
+          params['form'] = offer.group('form')
         spec = {
             'id': custom_id,
             'kind': offer.group('kind'),
             'domain': offer.group('domain'),
             'text': offer.group('text').strip(),
-            'params': (
-                {'level': int(offer.group('level'))}
-                if offer.group('level')
-                else {}
-            ),
+            'params': params,
         }
         if self._make_room(entity, spec):
           entity.add_component(component_name(custom_id), Custom(spec), spec)
@@ -232,6 +241,10 @@ class Learner(entity_component.ContextComponent):
     ]
     if kind == 'skill' and any(self._held[c]['level'] >= level for c in locus):
       return False  # Nobody learns a worse way to do what they do.
+    if culture_lib.form_of(spec) == culture_lib.KNOWN and any(
+        self._held[c]['form'] == culture_lib.INTERNALIZED for c in locus
+    ):
+      return False  # What is one's own is not displaced by what is expected.
     same = [c for c, held in self._held.items() if held['domain'] == domain]
     if locus:
       victim = locus[0]
@@ -261,6 +274,7 @@ class Learner(entity_component.ContextComponent):
               'kind': str(held['kind']),
               'domain': str(held['domain']),
               'level': int(held['level']),
+              'form': str(held.get('form', '')),
               'via': str(held['via']),
           }
           for held in data.get('held', ())

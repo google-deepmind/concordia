@@ -84,10 +84,30 @@ channel's copying errors, as lines of next year's observations:
 | upbringing | a child: what its parents do, and what they `teach` |
 | observation | anyone within a radius: what the nearest few did it by, with how well fed they are |
 | apprenticeship | a youth who chose to `learn a craft`: the skill of the nearest skilled worker, sometimes a level better |
+| sanction | one shamed (`shame <name>`): the norm the shamer shames by |
+| practice | one who keeps a norm only expected of it: that norm as its own |
 
-A scenario's `channels` setting sets each channel's reach and fidelity, and
-which exist. What people take up is their own Learners' choice; the harness
+**Norms in two forms.** A norm is *internalized* (a person's own, kept when
+nobody watches) or *known* (expected by others, kept when someone is within
+sight). Children raised in a norm, and those who keep one they know, make it
+their own; what one sees others keep, or is shamed for breaking, one knows.
+A known norm never displaces an internalized one.
+
+**Sharing and shame.** A person with enough may `share food with` a needy
+person within sight. One who keeps full stores and gives nothing to the
+needy near them is seen doing so; next year, those who saw may `shame` them.
+The world reports what was seen; whether it was wrong is each person's to
+judge.
+
+Copying errors lose know-how (a skill comes out a level lower) and never add
+any; a skill improves only by an apprentice's care. A scenario's `channels`
+setting sets each channel's reach, fidelity and the
+form a norm comes in by it, and which channels exist. A founding custom's
+`held_by` is the share of founders who hold it. What people take up is their own Learners' choice; the harness
 reads it for the census (`Run.customs_census`), the GM never does.
+
+**Partners.** One who looks for a partner looks until paired, with the
+nearest who is looking too. Parents and children, and siblings, never pair.
 
 **Births and deaths.**
 - A birth adds an entity with `Simulation.add_entity`; the engine starts the

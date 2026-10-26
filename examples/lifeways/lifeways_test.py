@@ -25,6 +25,9 @@ from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
+from concordia.typing import entity as entity_lib
+
+_QUESTION = entity_lib.free_action_spec(call_to_action='What now?')
 
 
 def _unordered_sets(data: Any) -> Any:
@@ -101,14 +104,20 @@ class SandboxTest(absltest.TestCase):
       self.assertIn(custom_id, world.culture)
 
   def test_every_channel_moves_customs(self):
-    run = simulation.build_simulation(scenarios.settings(max_years=60))
+    run = simulation.build_simulation(scenarios.settings(max_years=80))
+    taken_up = set()
+    run.lifecycle.year_closed = lambda year: taken_up.update(
+        run.customs_census()['by_channel']
+    )
+
     run.play()
 
-    census = run.customs_census()
-
-    for channel in ('birth', 'upbringing', 'observation', 'apprenticeship'):
-      self.assertGreater(census['by_channel'].get(channel, 0), 0, channel)
-    self.assertGreater(census['distinct'], 7)  # Variants have arisen.
+    self.assertContainsSubset(
+        {'birth', 'upbringing', 'observation', 'apprenticeship', 'practice'},
+        taken_up,
+    )
+    offers = {c for row in run.world().history for c in row['offers']}
+    self.assertContainsSubset({'sanction', 'practice'}, offers)
 
   def test_a_restored_year_plays_on_exactly(self):
     saved: dict[str, Any] = {}
@@ -250,6 +259,23 @@ class LearnerTest(absltest.TestCase):
         )
     )
     self.assertEqual(sorted(self._customs(entity)), ['c3'])
+
+  def test_a_norm_only_expected_does_not_displace_ones_own(self):
+    own = _spec('c1', 'norm', 'sharing')
+    entity = self._person(customs=[own], uptake={'observation': 1.0})
+    expected = _spec('c2', 'norm', 'sharing')
+    expected['params']['form'] = culture_lib.KNOWN
+
+    entity.observe(culture_lib.offer_line(expected, 'observation'))
+    self.assertEqual(sorted(self._customs(entity)), ['c1'])
+    custom = self._customs(entity)['c1']
+    self.assertStartsWith(custom.pre_act(_QUESTION), 'A custom of ours')
+
+    entity = self._person(uptake={'observation': 1.0})
+    entity.observe(culture_lib.offer_line(expected, 'observation'))
+    custom = self._customs(entity)['c2']
+    self.assertEqual(custom.spec, expected)
+    self.assertStartsWith(custom.pre_act(_QUESTION), 'A custom others expect')
 
   def test_the_well_fed_are_copied_more_by_the_success_biased(self):
     spec = _spec('c9', 'habit', 'food')

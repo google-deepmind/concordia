@@ -34,6 +34,8 @@ _LAND = re.compile(r'the land around holds (\d+(?:\.\d+)?) food')
 _MOVES = re.compile(r'^- (.+)$', re.MULTILINE)
 _LABEL = re.compile(r'(?:Question|Exercise): ')
 _CUSTOM = re.compile(r'\(([a-z]+)\) \[(c\d+)\]: ([^\n]*)')
+_EXPECTED = re.compile(r'others expect of us \(([a-z]+)\) \[(c\d+)\]')
+_SIGHT = re.compile(r'(\d+) other people are within sight')
 
 
 def _stable(text: str) -> float:
@@ -69,7 +71,8 @@ class MockModel(language_model.LanguageModel):
     moves = _MOVES.findall(question)
     if not moves:
       return ''
-    return _choose(prompt, moves, customs)
+    expected = {cid for _, cid in _EXPECTED.findall(prompt)}
+    return _choose(prompt, moves, customs, expected)
 
   @override
   def sample_choice(
@@ -86,9 +89,25 @@ class MockModel(language_model.LanguageModel):
 
 
 def _choose(
-    prompt: str, moves: Sequence[str], customs: Sequence[tuple[str, str, str]]
+    prompt: str,
+    moves: Sequence[str],
+    customs: Sequence[tuple[str, str, str]],
+    expected: Collection[str],
 ) -> str:
-  """A person's move, with the customs it follows."""
+  """A person's move, with the customs it follows.
+
+  A norm of the person's own is kept whenever it applies; one merely
+  expected of the person (`expected`), only when someone is within sight.
+
+  Args:
+    prompt: The person's prompt.
+    moves: The moves offered.
+    customs: The person's customs: (domain, id, text).
+    expected: The ids of the norms only expected of the person.
+
+  Returns:
+    The answer.
+  """
   if moves == ['watch']:
     return 'watch'
   texts = ' '.join(text.lower() for _, _, text in customs)
@@ -96,6 +115,14 @@ def _choose(
   age = int(_AGE.findall(prompt)[-1]) if _AGE.findall(prompt) else 30
   draw = _stable(prompt)
   land = float(_LAND.findall(prompt)[-1]) if _LAND.findall(prompt) else 99.0
+  watched = bool(_SIGHT.findall(prompt)) and int(_SIGHT.findall(prompt)[-1]) > 0
+  sharing = [
+      cid
+      for domain, cid, _ in customs
+      if domain == 'sharing' and (cid not in expected or watched)
+  ]
+  share = [m for m in moves if m.startswith('share food with ')]
+  shame = [m for m in moves if m.startswith('shame ')]
 
   def follow(move: str, *domains: str) -> str:
     """The move, naming the customs of its domains (all, for teaching)."""
@@ -118,6 +145,10 @@ def _choose(
     careful = 'only when' in texts and food < 6.0
     if not careful and draw < 0.8:
       return follow('have a child', 'kinship')
+  if share and sharing and food >= 4.0:
+    return ' '.join([share[0], *sharing])
+  if shame and sharing and draw < 0.5:
+    return ' '.join([shame[0], *sharing])
   if 'teach' in moves and food >= 4.0 and draw < 0.35:
     return follow('teach')
   if 'move to better land' in moves and draw > 0.92:

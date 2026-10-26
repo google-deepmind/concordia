@@ -48,6 +48,8 @@ WATCH = 'watch'
 PASS_ON = 'pass on'
 TEACH = 'teach'
 APPRENTICE = 'learn a craft'
+SHARE = 'share food with'  # ... a name.
+SHAME = 'shame'  # ... a name.
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -66,16 +68,28 @@ DEAD_KEPT = 500
 #   people do, and the customs they follow in doing it;
 # - apprenticeship: a youth learns a craft beside the nearest adult (within
 #   `radius`, at most `per_master` each) who worked by a skill, and may come
-#   to know it a level better (`improve`).
-DEFAULT_CHANNELS: Mapping[str, Mapping[str, float]] = {
-    'upbringing': {'mutation': 0.05},
-    'observation': {'radius': 2, 'witnessed': 3, 'mutation': 0.05},
+#   to know it a level better (`improve`);
+# - sanction: the one shamed is shown the norm the shamer shames by;
+# - practice: keeping a norm one knows makes it one's own.
+# A channel's `form` is the form a norm comes in by it: what children are
+# raised in and what one practises is internalized; what one sees others
+# keep, or is shamed for breaking, is known (expected).
+DEFAULT_CHANNELS: Mapping[str, Mapping[str, float | str]] = {
+    'upbringing': {'mutation': 0.05, 'form': culture_lib.INTERNALIZED},
+    'observation': {
+        'radius': 2,
+        'witnessed': 3,
+        'mutation': 0.05,
+        'form': culture_lib.KNOWN,
+    },
     'apprenticeship': {
         'radius': 4,
         'per_master': 2,
         'mutation': 0.02,
         'improve': 0.05,
     },
+    'sanction': {'mutation': 0.02, 'form': culture_lib.KNOWN},
+    'practice': {'mutation': 0.0, 'form': culture_lib.INTERNALIZED},
 }
 # Names are syllables: the n-th name is n's digits in base len(_SYLLABLES),
 # scattered by a seeded affine map, so every name is new.
@@ -175,10 +189,16 @@ class World:
     self.settings = dict(settings)
     self.seed = int(settings.get('seed', 0))
     self.mode = str(settings.get('mode', 'sexual'))
-    self.channels: dict[str, dict[str, float]] = {
+    self.channels: dict[str, dict[str, Any]] = {
         str(k): dict(v)
         for k, v in settings.get('channels', DEFAULT_CHANNELS).items()
     }
+    # How far a person sees (who is watched, who is near); the stores past
+    # which keeping them while a neighbour goes hungry is seen; how much a
+    # person gives when sharing.
+    self.sight = int(settings.get('sight', 2))
+    self.hoard = float(settings.get('hoard', 6.0))
+    self.share = float(settings.get('share', 1.5))
     self.year = 0
     self.land = land_lib.Land(
         int(settings.get('rows', 16)),
@@ -197,20 +217,36 @@ class World:
     self.queued: dict[str, list[str]] = {}
     # Rolling census, a row a year (the long history goes to disk).
     self.history: list[dict[str, Any]] = []
+    # Who kept full stores last year and gave nothing to the needy within
+    # sight, and those needy: what people may shame this year.
+    self.breaches: dict[str, list[str]] = {}
+    # Who is looking for a partner (until paired).
+    self.seeking: list[str] = []
     # Offers made while closing the year, by channel (for the census).
     self._offers: collections.Counter[str] = collections.Counter()
 
   # --- Setup -------------------------------------------------------------
 
   def found(self) -> list[dict[str, Any]]:
-    """Creates the founders; returns each one's prefab params."""
-    customs = [
-        self.culture.add(
-            c['kind'], c['domain'], c['text'], c.get('params'), year=0
-        )
-        for c in self.settings.get('founding_customs', ())
-    ]
+    """Creates the founders; returns each one's prefab params.
+
+    A founding custom is held by every founder, or by the share of them its
+    `held_by` says (drawn from the seed).
+
+    Returns:
+      Each founder's prefab params.
+    """
     count = int(self.settings.get('founders', 12))
+    holders: dict[str, set[int]] = {}
+    for i, spec in enumerate(self.settings.get('founding_customs', ())):
+      custom = self.culture.add(
+          spec['kind'], spec['domain'], spec['text'], spec.get('params')
+      )
+      share = float(spec.get('held_by', 1.0))
+      order = np.random.default_rng(_seed_of(self.seed, 'held', i))
+      holders[custom.id] = {
+          int(f) for f in order.permutation(count)[: round(share * count)]
+      }
     rng = np.random.default_rng(_seed_of(self.seed, 'founders'))
     rows, cols = self.land.rows, self.land.cols
     home = (rows // 2, cols // 3)
@@ -226,7 +262,7 @@ class World:
           sex=sex,
           tile=tile,
           food=8.0,
-          given=[c.id for c in customs],
+          given=[c for c, held in holders.items() if i in held],
       )
       self.people[person.name] = person
       founders.append(self._params(person))
@@ -300,7 +336,28 @@ class World:
       found.append(COURT)
     if 'upbringing' in self.channels and self._pupils(person):
       found.append(TEACH)
+    if person.food >= self.share + 1.0:
+      needy = sorted(
+          (self.people[other].food, other)
+          for other in self._in_sight(person)
+          if self.people[other].food < 1.0
+      )
+      found.extend(f'{SHARE} {other}' for _, other in needy[:2])
+    if 'sanction' in self.channels:
+      found.extend(
+          f'{SHAME} {other}'
+          for other in self._in_sight(person)
+          if other in self.breaches
+      )
     return found
+
+  def _in_sight(self, person: Person) -> list[str]:
+    """The others living within sight of a person, by name."""
+    return [
+        other
+        for other in self.living()
+        if other != person.name and self._distance(person, other) <= self.sight
+    ]
 
   def _pupils(self, person: Person) -> list[str]:
     """A person's children old enough to be taught and not yet grown."""
@@ -338,6 +395,7 @@ class World:
         f' {self.land.around_food(person.tile):.1f} food. Food stored:'
         f' {person.food:.1f} (a year needs 1.0). Partner: {partner}.'
         f' Children: {kids or "none"}.'
+        f' {len(self._in_sight(person))} other people are within sight.'
     )
 
   # --- Closing the year --------------------------------------------------
@@ -372,6 +430,7 @@ class World:
     self._transmit(did)
     worked = [self._level(e, 'food') for m, e in did.values() if m == GATHER]
     deaths = self._eat_and_die()
+    self._see_breaches(did, allowed)
     self.land.regrow()
     extinct = self.culture.prune(
         {c for person in self.people.values() for c in person.given}
@@ -421,19 +480,8 @@ class World:
     move = next(
         (
             m
-            for m in (
-                GATHER,
-                REST,
-                MOVE,
-                CHILD,
-                COURT,
-                TEACH,
-                APPRENTICE,
-                PLAY,
-                WATCH,
-                PASS_ON,
-            )
-            if answer.startswith(m) and m in allowed
+            for m in sorted(allowed, key=len, reverse=True)
+            if answer.startswith(m.lower())
         ),
         '',
     )
@@ -456,6 +504,24 @@ class World:
       self.expecting[name] = parents
       for parent in parents:
         self._tell(parent, f'{name} is expecting a child.')
+    elif move.startswith(f'{SHARE} '):
+      other = self.people.get(move.removeprefix(f'{SHARE} '))
+      if other is not None and person.food >= self.share + 1.0:
+        person.food -= self.share
+        other.food += self.share
+        self._tell(other.name, f'{name} shares food with {other.name}.')
+    elif move.startswith(f'{SHAME} '):
+      other = move.removeprefix(f'{SHAME} ')
+      if other in self.people:
+        needy = ' or '.join(self.breaches.get(other, ()))
+        for custom_id in enacted:
+          self._offer(
+              other,
+              name,
+              custom_id,
+              'sanction',
+              f'{name} shames {other} for giving nothing to {needy}',
+          )
     elif move == TEACH:
       pupils = self._pupils(person)
       for pupil in pupils:
@@ -509,6 +575,10 @@ class World:
       scene: What the receiver sees, e.g. 'Ada teaches'.
     """
     channel = self.channels[via]
+    if channel.get('form'):
+      custom_id = self.culture.in_form(
+          custom_id, str(channel['form']), self.year
+      ).id
     custom = self.culture.copy(
         custom_id,
         self._rng('offer', receiver, source, custom_id, via),
@@ -595,29 +665,81 @@ class World:
           self._offer(
               name, actor, custom_id, via, f'{name} sees {actor} {move}'
           )
+    if 'practice' not in self.channels:
+      return
+    for actor in actors:
+      for custom_id in did[actor][1]:
+        custom = self.culture.get(custom_id)
+        if culture_lib.form_of(custom.spec()) == culture_lib.KNOWN:
+          self._offer(actor, actor, custom_id, 'practice', f'{actor} keeps')
+
+  def _see_breaches(
+      self,
+      did: Mapping[str, tuple[str, list[str]]],
+      allowed: Mapping[str, Sequence[str]],
+  ) -> None:
+    """Who kept full stores and gave nothing to the needy within sight.
+
+    It is what those near saw, not a judgment: whether it was wrong is for
+    each of them to decide (to shame or not, next year).
+
+    Args:
+      did: This year's moves.
+      allowed: The moves each was offered this year.
+    """
+    self.breaches = {}
+    for name in self.living():
+      person = self.people[name]
+      needy = [
+          m.removeprefix(f'{SHARE} ')
+          for m in allowed.get(name, ())
+          if m.startswith(f'{SHARE} ')
+      ]
+      if (
+          not needy
+          or person.food < self.hoard
+          or did.get(name, ('', []))[0].startswith(SHARE)
+      ):
+        continue
+      self.breaches[name] = needy
+      for witness in self._in_sight(person):
+        if witness not in needy:
+          self._tell(
+              witness,
+              f'{name} kept full stores and gave nothing to'
+              f' {" or ".join(needy)}, who had none.',
+          )
 
   def _pair_partners(self) -> None:
-    """Pairs those who looked for a partner, nearest first, in name order."""
-    looking = [
-        n
-        for n in sorted(self.actions)
-        if n in self.people
-        and self.actions[n].strip().lower().startswith(COURT)
-        and not self.people[n].partner
-    ]
+    """Pairs those looking for a partner, nearest first, in name order.
+
+    Whoever looked for a partner this year or before, and has none, is
+    looking until paired. Parents and children, and siblings, never pair.
+    """
+    self.seeking = sorted(
+        name
+        for name in {
+            *self.seeking,
+            *(
+                n
+                for n, answer in self.actions.items()
+                if answer.strip().lower().startswith(COURT)
+            ),
+        }
+        if name in self.people and not self.people[name].partner
+    )
     taken: set[str] = set()
-    for name in looking:
+    for name in self.seeking:
       if name in taken:
         continue
       person = self.people[name]
       matches = [
           other
-          for other in looking
+          for other in self.seeking
           if other not in taken
           and other != name
           and self.people[other].sex not in ('', person.sex)
-          and other not in person.parents
-          and name not in self.people[other].parents
+          and not self._kin(person, self.people[other])
       ]
       if not matches:
         continue
@@ -626,6 +748,15 @@ class World:
       person.partner, self.people[other].partner = other, name
       self._tell(name, f'{name} and {other} are now partners.')
       self._tell(other, f'{other} and {name} are now partners.')
+    self.seeking = [name for name in self.seeking if name not in taken]
+
+  def _kin(self, person: Person, other: Person) -> bool:
+    """Whether two people are parent and child, or siblings."""
+    return (
+        other.name in person.parents
+        or person.name in other.parents
+        or bool(set(person.parents) & set(other.parents))
+    )
 
   def _distance(self, person: Person, other: str) -> int:
     (r1, c1), (r2, c2) = person.tile, self.people[other].tile
@@ -749,8 +880,13 @@ class World:
         'mean_age': round(sum(ages) / len(ages), 2) if ages else 0.0,
         'food': round(float(self.land.food.sum()), 3),
         'moves': dict(
-            sorted(collections.Counter(m for m, _ in did.values()).items())
+            sorted(
+                collections.Counter(
+                    _move_kind(m) for m, _ in did.values()
+                ).items()
+            )
         ),
+        'breaches': len(self.breaches),
         'offers': dict(sorted(self._offers.items())),
         'variants': len(self.culture),
         'new_variants': created,
@@ -788,6 +924,8 @@ class World:
         'expecting': {k: list(v) for k, v in self.expecting.items()},
         'queued': {k: list(v) for k, v in self.queued.items()},
         'history': list(self.history),
+        'breaches': {k: list(v) for k, v in self.breaches.items()},
+        'seeking': list(self.seeking),
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
@@ -808,3 +946,16 @@ class World:
         str(k): [str(t) for t in v] for k, v in state.get('queued', {}).items()
     }
     self.history = [dict(r) for r in state.get('history', ())]
+    self.breaches = {
+        str(k): [str(n) for n in v]
+        for k, v in state.get('breaches', {}).items()
+    }
+    self.seeking = [str(n) for n in state.get('seeking', ())]
+
+
+def _move_kind(move: str) -> str:
+  """A move without the one it is made towards (for counting)."""
+  for kind in (SHARE, SHAME):
+    if move.startswith(f'{kind} '):
+      return kind
+  return move

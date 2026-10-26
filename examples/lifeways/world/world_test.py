@@ -17,16 +17,12 @@
 from absl.testing import absltest
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
+import numpy as np
 
+# The default channels, copying without error.
 _FAITHFUL = {
-    'upbringing': {'mutation': 0.0},
-    'observation': {'radius': 2, 'witnessed': 3, 'mutation': 0.0},
-    'apprenticeship': {
-        'radius': 4,
-        'per_master': 2,
-        'mutation': 0.0,
-        'improve': 0.0,
-    },
+    name: {**channel, 'mutation': 0.0, 'improve': 0.0}
+    for name, channel in world_lib.DEFAULT_CHANNELS.items()
 }
 
 
@@ -161,9 +157,146 @@ class TransmissionTest(absltest.TestCase):
     self.assertIn(self.skill, [c['id'] for c in outcome.extinct])
     self.assertEqual(self.world.history[-1]['skill_worked'], 2.0)
 
+  def test_the_needy_within_sight_may_be_given_food(self):
+    ada = self._person('Ada', 30, (5, 5))
+    bo = self._person('Bo', 30, (5, 6), given=())
+    bo.food = 0.5
+    self._person('Cy', 30, (6, 6), given=())
+    self.assertIn(f'{world_lib.SHARE} Bo', self.world.moves('Ada'))
+    self.world.actions = {
+        'Ada': f'{world_lib.SHARE} Bo {self.norm}',
+        'Bo': 'rest',
+        'Cy': 'rest',
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(ada.food, 5.0 - self.world.share - 1.0)  # Then she ate.
+    self.assertEqual(bo.food, 0.5 + self.world.share - 1.0)
+    known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
+    self.assertIn((known, 'observation', 'Ada'), self._offers('Cy'))
+    self.assertEmpty(self.world.breaches)
+
+  def test_keeping_full_stores_from_the_needy_may_be_shamed(self):
+    ada = self._person('Ada', 30, (5, 5), given=())
+    ada.food = 9.0
+    self._person('Bo', 30, (5, 6), given=()).food = 0.5
+    self._person('Cy', 30, (6, 5))
+    self.world.actions = {'Ada': 'rest', 'Bo': 'rest', 'Cy': 'rest'}
+
+    self.world.close_year()
+
+    self.assertEqual(self.world.breaches, {'Ada': ['Bo']})
+    self.assertIn('Ada kept full stores', ' '.join(self.world.queued['Cy']))
+    self.assertIn(f'{world_lib.SHAME} Ada', self.world.moves('Cy'))
+    self.world.queued.clear()
+    self.world.actions = {
+        'Ada': 'rest',
+        'Bo': 'rest',
+        'Cy': f'{world_lib.SHAME} Ada {self.norm}',
+    }
+
+    self.world.close_year()
+
+    known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
+    self.assertIn((known, 'sanction', 'Cy'), self._offers('Ada'))
+
+  def test_keeping_a_norm_one_knows_makes_it_ones_own(self):
+    known = self.world.culture.in_form(self.norm, culture_lib.KNOWN, 0).id
+    self._person('Ada', 30, (5, 5), given=[known])
+    self._person('Bo', 30, (5, 6), given=()).food = 0.5
+    self.world.actions = {'Ada': f'{world_lib.SHARE} Bo {known}', 'Bo': 'rest'}
+
+    self.world.close_year()
+
+    self.assertIn((self.norm, 'practice', 'Ada'), self._offers('Ada'))
+
+  def test_one_looking_for_a_partner_looks_until_paired(self):
+    self._person('Ada', 20, (5, 5))
+    bo = self._person('Bo', 20, (5, 9))
+    bo.sex = 'm'
+    self.world.actions = {'Ada': world_lib.COURT, 'Bo': 'rest'}
+    self.world.close_year()
+    self.assertEqual(self.world.seeking, ['Ada'])
+
+    self.world.actions = {'Ada': 'rest', 'Bo': world_lib.COURT}
+    self.world.close_year()
+
+    self.assertEqual(self.world.people['Ada'].partner, 'Bo')
+    self.assertEmpty(self.world.seeking)
+
+  def test_siblings_never_pair(self):
+    self._person('Mum', 40, (5, 5))
+    self._person('Ada', 20, (5, 5), parents=['Mum'])
+    self._person('Bo', 20, (5, 6), parents=['Mum']).sex = 'm'
+    self.world.actions = {
+        'Mum': 'rest',
+        'Ada': world_lib.COURT,
+        'Bo': world_lib.COURT,
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(self.world.seeking, ['Ada', 'Bo'])
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))
+
+
+class CultureTest(absltest.TestCase):
+
+  def test_the_same_content_is_the_same_variant(self):
+    culture = culture_lib.Culture()
+    first = culture.add('belief', 'sacred', 'The river  is a god.')
+    again = culture.add('belief', 'sacred', 'The river is a god.')
+    other = culture.add('belief', 'sacred', 'The river is a god.', {'x': 1})
+
+    self.assertEqual(again.id, first.id)
+    self.assertNotEqual(other.id, first.id)
+    self.assertEqual(culture.created(), 2)
+
+  def test_a_norm_in_each_form(self):
+    culture = culture_lib.Culture()
+    own = culture.add('norm', 'sharing', 'Share.')
+
+    known = culture.in_form(own.id, culture_lib.KNOWN, 3)
+
+    self.assertEqual(culture_lib.form_of(own.spec()), culture_lib.INTERNALIZED)
+    self.assertEqual(culture_lib.form_of(known.spec()), culture_lib.KNOWN)
+    self.assertEqual((known.parent, known.text), (own.id, own.text))
+    self.assertEqual(culture.in_form(known.id, culture_lib.KNOWN, 4), known)
+    self.assertEqual(
+        culture.in_form(known.id, culture_lib.INTERNALIZED, 4).id,
+        culture.in_form(own.id, culture_lib.INTERNALIZED, 4).id,
+    )
+
+  def test_copying_errors_lose_know_how_and_care_adds_it(self):
+    culture = culture_lib.Culture()
+    skill = culture.add('skill', 'craft', 'Knapping.', {'level': 4})
+    rng = np.random.default_rng(0)
+
+    erred = {
+        culture.copy(skill.id, rng, 1.0, 1).params['level'] for _ in range(20)
+    }
+    improved = culture.copy(skill.id, rng, 0.0, 1, improve=1.0)
+
+    self.assertEqual(erred, {3})
+    self.assertEqual(improved.params['level'], 5)
+
+  def test_forgotten_content_may_arise_again_under_a_new_id(self):
+    culture = culture_lib.Culture()
+    first = culture.add('belief', 'sacred', 'The river is a god.')
+    culture.prune(keep=())
+
+    again = culture.add('belief', 'sacred', 'The river is a god.')
+
+    self.assertNotEqual(again.id, first.id)
+    restored = culture_lib.Culture()
+    restored.set_state(culture.get_state())
+    self.assertEqual(
+        restored.add('belief', 'sacred', 'The river is a god.').id, again.id
+    )
 
 
 if __name__ == '__main__':
