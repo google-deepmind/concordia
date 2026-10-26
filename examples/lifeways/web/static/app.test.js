@@ -23,7 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  entryMeta, entryShown, fateChoices, fateMove, releaseStatus, savedNote,
+  entryMeta, entryShown, fateChoices, fateMove, recentDisasters,
+  releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
@@ -181,4 +182,15 @@ test('a release says how it fares in the twin', () => {
       ' year 5) · in the twin: died out');
   assert.equal(releaseStatus({...release, twin: {...release.twin, died: null,
     now: 5}}).endsWith(' · in the twin: held by 5'), true);
+});
+
+test('the map shows the disasters of the last twenty years', () => {
+  const rows = [
+    {year: 3, disasters: [{kind: 'fire', tile: [1, 1]}]},
+    {year: 20, disasters: []},
+    {year: 25, disasters: [{kind: 'plague', tile: [5, 5]}]},
+    {year: 26},
+  ];
+  assert.deepEqual(recentDisasters(rows, 40),
+      [{kind: 'plague', tile: [5, 5], age: 15}]);
 });

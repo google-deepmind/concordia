@@ -33,6 +33,9 @@ const TERRAIN_COLOURS = {
   marsh: '#7f9c6a',
 };
 
+/** The colour of a disaster's outline on the map (amber, unlike people). */
+const DISASTER_COLOUR = '#ffb703';
+
 /** Glyphs of places, by kind. */
 const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦'};
 
@@ -121,6 +124,28 @@ function drawMap(world) {
     ctx.fillStyle = '#222';
     ctx.fillText(PLACE_GLYPHS[place.kind] || '?', (c + 0.5) * page.tile,
                  (r + 0.5) * page.tile);
+  }
+  for (const disaster of recentDisasters(page.rows, world.year)) {
+    // The land a disaster struck, fading over the years after.
+    const [r, c] = disaster.tile;
+    const reach = (world.disaster_radius + 0.5) * page.tile;
+    const x = (c + 0.5) * page.tile;
+    const y = (r + 0.5) * page.tile;
+    ctx.globalAlpha = Math.max(0.2, 1 - disaster.age / RECENT_YEARS);
+    ctx.beginPath();
+    ctx.moveTo(x, y - reach);
+    ctx.lineTo(x + reach, y);
+    ctx.lineTo(x, y + reach);
+    ctx.lineTo(x - reach, y);
+    ctx.closePath();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = DISASTER_COLOUR;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = DISASTER_COLOUR;
+    ctx.fillText(disaster.kind, x, y - reach - page.tile * 0.4);
+    ctx.globalAlpha = 1;
   }
   if (page.at) {  // The place chosen for a release: a ring.
     const [r, c] = page.at;
@@ -400,6 +425,21 @@ function drawNotebook() {
     item.append(meta, text);
     return item;
   }));
+}
+
+/** How many years the map shows a disaster after it struck. */
+const RECENT_YEARS = 20;
+
+/**
+ * The disasters of the last few years, from the census rows.
+ * @param {!Array<!Object>} rows The census rows.
+ * @param {number} year The world's year.
+ * @return {!Array<!Object>} Each disaster with its `age` in years.
+ */
+function recentDisasters(rows, year) {
+  return rows.filter((row) => year - row.year <= RECENT_YEARS)
+      .flatMap((row) => (row.disasters || []).map(
+          (disaster) => ({...disaster, age: year - row.year})));
 }
 
 /** What the Experimenter may found or close. */
@@ -879,7 +919,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    entryMeta, entryShown, fateChoices, fateMove, releaseStatus, savedNote,
+    entryMeta, entryShown, fateChoices, fateMove, recentDisasters,
+    releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

@@ -854,6 +854,11 @@ class Session:
         'grown_age': world_lib.ADULT_AGE,
         'child_acts_age': world_lib.CHILD_ACTS_AGE,
         'disaster_kinds': list(world_lib.DISASTERS),
+        'disaster_radius': int(
+            (self._settings.get('disasters') or {}).get(
+                'radius', world_lib.DISASTER_RADIUS
+            )
+        ),
         # The chance each who hears a released song takes it up.
         'song_uptake': person_lib.DEFAULT_UPTAKE.get(culture_lib.RELEASE, 0),
         'sight': int(self._settings.get('sight', 2)),
