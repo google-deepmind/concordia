@@ -34,6 +34,7 @@ from collections.abc import Mapping, Sequence
 import dataclasses
 from typing import Any
 
+from examples.lifeways.world import culture as culture_lib
 import numpy as np
 
 LIBRARY = 'library'
@@ -118,7 +119,16 @@ class Places:
     return list(self._places.values())
 
   def near(self, tile: Tile, within: int, kind: str = LIBRARY) -> list[Place]:
-    """The places of a kind within `within` steps, nearest first."""
+    """The places of a kind near a tile.
+
+    Args:
+      tile: Where from.
+      within: The most steps away.
+      kind: The kind of place.
+
+    Returns:
+      The places, nearest first (ties by id).
+    """
     return sorted(
         (
             p
@@ -212,6 +222,6 @@ def describe(place: Place, ruined: bool) -> str:
 def literate(kinds_and_domains: Sequence[tuple[str, str]]) -> bool:
   """Whether customs (kind, domain) include the skill of reading."""
   return any(
-      kind == 'skill' and domain == 'learning'
+      kind == culture_lib.SKILL and domain == culture_lib.LEARNING
       for kind, domain in kinds_and_domains
   )

@@ -32,13 +32,10 @@ from concordia.components.agent import constant
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from examples.lifeways.components import culture
+from examples.lifeways.prefabs import measures
+from examples.lifeways.world import culture as culture_lib
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
-from concordia.utils import async_measurements
-
-# Logging data kept per component channel: enough for the page and logs, and
-# bounded for runs that never end.
-LOG_RETENTION = 8
 
 PERSON_PREFAB = 'lifeways_person'
 IDENTITY = 'Who I am'
@@ -46,18 +43,18 @@ LEARNER = 'learner'
 
 # How often an offered custom is taken up, by the way it came.
 DEFAULT_UPTAKE = {
-    'birth': 1.0,
-    'upbringing': 0.5,
-    'apprenticeship': 0.8,
-    'observation': 0.15,
-    'story': 0.3,
-    'reading': 0.6,
-    'school': 0.7,
-    'rite': 0.4,
-    'preaching': 0.2,
-    'release': 0.25,
-    'sanction': 0.3,
-    'practice': 0.4,
+    culture_lib.BIRTH: 1.0,
+    culture_lib.UPBRINGING: 0.5,
+    culture_lib.APPRENTICESHIP: 0.8,
+    culture_lib.OBSERVATION: 0.15,
+    culture_lib.STORY: 0.3,
+    culture_lib.READING: 0.6,
+    culture_lib.SCHOOL: 0.7,
+    culture_lib.RITE: 0.4,
+    culture_lib.PREACHING: 0.2,
+    culture_lib.RELEASE: 0.25,
+    culture_lib.SANCTION: 0.3,
+    culture_lib.PRACTICE: 0.4,
 }
 
 
@@ -78,6 +75,7 @@ class Person(prefab_lib.Prefab):
     capacity: The most customs held in all.
     act_component_factory: Optional. Builds the acting component from the
       context components' order (a person's `HumanActComponent`, a rule).
+      Not serializable: checkpoints drop it, so a restore passes it again.
   """
 
   description: str = (  # pyrefly: ignore[bad-override]
@@ -144,14 +142,11 @@ class Person(prefab_lib.Prefab):
         agent_name=name,
         act_component=act,
         context_components=components,
-        measurements=async_measurements.ReactiveMeasurements(
-            channel_retention=LOG_RETENTION
-        ),
+        measurements=measures.measurements(),
         component_factory=culture.make_custom,
     )
     for spec in self.params.get('customs', ()):
-      entity.add_component(
-          culture.component_name(spec['id']), culture.Custom(spec), spec
+      learner.inherit(
+          spec, culture_lib.BIRTH if arrived is None else culture_lib.ARRIVAL
       )
-      learner.note_inherited(spec, 'birth' if arrived is None else 'arrival')
     return entity

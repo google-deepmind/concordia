@@ -15,8 +15,9 @@
 """The Experimenter: the player, who shapes the world and never edits minds.
 
 Its moves are interventions the World GM resolves like any answer. Played by
-a person (`act_component_factory`: a `HumanActComponent`), a model, or by
-default a rule that watches.
+a person (`act_component_factory`: a `HumanActComponent`) or a rule; by
+default a rule that watches. Its name is the World's `EXPERIMENTER`, the one
+participant who is not a person of the valley.
 """
 
 from collections.abc import Mapping
@@ -28,20 +29,27 @@ from concordia.associative_memory import basic_associative_memory
 from concordia.components.agent import memory
 from concordia.components.agent import observation
 from examples.lifeways.components import culture
+from examples.lifeways.prefabs import measures
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
+from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
-from concordia.utils import async_measurements
-
-# Logging data kept per component channel: enough for the page and logs, and
-# bounded for runs that never end.
-LOG_RETENTION = 8
 
 EXPERIMENTER_PREFAB = 'lifeways_experimenter'
 
 
-def watch(action_spec, contexts) -> str:
-  """The default rule: watch, year after year."""
+def watch(
+    action_spec: entity_lib.ActionSpec, contexts: Mapping[str, str]
+) -> str:
+  """The default rule: watch, year after year.
+
+  Args:
+    action_spec: The question (unused).
+    contexts: What the Experimenter knows (unused).
+
+  Returns:
+    The move to watch.
+  """
   del action_spec, contexts
   return world_lib.WATCH
 
@@ -51,17 +59,15 @@ class Experimenter(prefab_lib.Prefab):
   """The Experimenter's entity.
 
   Params:
-    name: The Experimenter's name.
     act_component_factory: Optional. Builds the acting component from the
-      context components' order; a rule that watches by default.
+      context components' order; a rule that watches by default. Not
+      serializable: checkpoints drop it, so a restore passes it again.
   """
 
   description: str = (  # pyrefly: ignore[bad-override]
       'The Lifeways Experimenter, who intervenes on the world, not on minds.'
   )
-  params: Mapping[str, Any] = dataclasses.field(
-      default_factory=lambda: {'name': world_lib.EXPERIMENTER}
-  )
+  params: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
   def build(
       self,
@@ -71,7 +77,7 @@ class Experimenter(prefab_lib.Prefab):
     """Builds the Experimenter's entity.
 
     Args:
-      model: Unused unless a factory asks for it.
+      model: Unused.
       memory_bank: The Experimenter's memory bank.
 
     Returns:
@@ -95,10 +101,8 @@ class Experimenter(prefab_lib.Prefab):
         else culture.RuleAct(watch)
     )
     return entity_agent_with_logging.EntityAgentWithLogging(
-        agent_name=str(self.params.get('name', world_lib.EXPERIMENTER)),
+        agent_name=world_lib.EXPERIMENTER,
         act_component=act,
         context_components=components,
-        measurements=async_measurements.ReactiveMeasurements(
-            channel_retention=LOG_RETENTION
-        ),
+        measurements=measures.measurements(),
     )

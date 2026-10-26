@@ -29,6 +29,7 @@ from typing import Any
 
 from absl import app
 from absl import flags
+from absl import logging
 import matplotlib
 
 matplotlib.use('Agg')
@@ -65,7 +66,13 @@ def _mean(values: Sequence[float], window: int) -> list[float]:
 
 
 def plot(rows: Sequence[Mapping[str, Any]], out: str, window: int = 10) -> None:
-  """Draws the census rows to the image `out`."""
+  """Draws census rows to an image.
+
+  Args:
+    rows: The census rows (`run.py`'s `census.jsonl`).
+    out: The image's path.
+    window: The years events are averaged over.
+  """
   years = [row['year'] for row in rows]
   figure, axes = pyplot.subplots(5, 1, figsize=(10, 16), sharex=True)
 
@@ -114,11 +121,11 @@ def plot(rows: Sequence[Mapping[str, Any]], out: str, window: int = 10) -> None:
 
 def main(argv: Sequence[str]) -> None:
   del argv
-  with open(_CENSUS.value) as f:
+  with open(_CENSUS.value, encoding='utf-8') as f:
     rows = [json.loads(line) for line in f if line.strip()]
   out = _OUT.value or os.path.join(os.path.dirname(_CENSUS.value), 'census.png')
   plot(rows, out, _WINDOW.value)
-  print(out)
+  logging.info('Wrote %s', out)
 
 
 if __name__ == '__main__':

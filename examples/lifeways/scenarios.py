@@ -18,7 +18,9 @@ from collections.abc import Mapping
 import copy
 from typing import Any
 
+from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
+import numpy as np
 
 SANDBOX: Mapping[str, Any] = {
     'scenario': 'sandbox',
@@ -168,3 +170,64 @@ def settings(name: str = 'sandbox', **overrides: Any) -> dict[str, Any]:
   merged['scenario'] = name
   merged.update(overrides)
   return merged
+
+
+def founders(settings: Mapping[str, Any]) -> list[dict[str, Any]]:
+  """The founders of a world: who they are, where, and what they hold.
+
+  Made once from the settings, for the person prefabs and the World GM
+  alike. A founding custom is held by every founder, or by the share of them
+  its `held_by` says (drawn from the seed), among those who hold nothing of
+  its kind and domain yet: listing a norm known by half the founders after
+  the same norm internalized by a quarter gives the rest none.
+
+  Args:
+    settings: The world's settings.
+
+  Returns:
+    For each founder: `params` (its person prefab's: name, birth year, sex,
+    the world seed and its customs' specs with their ids), `tile` and
+    `food`.
+  """
+  seed = int(settings.get('seed', 0))
+  count = int(settings.get('founders', 12))
+  culture = culture_lib.Culture()
+  holders: dict[str, set[int]] = {}
+  loci: dict[tuple[str, str], set[int]] = {}
+  for i, spec in enumerate(settings.get('founding_customs', ())):
+    custom = culture.add(
+        spec['kind'], spec['domain'], spec['text'], spec.get('params')
+    )
+    held = loci.setdefault((custom.kind, custom.domain), set())
+    order = np.random.default_rng(world_lib.seed_of(seed, 'held', i))
+    free = [int(f) for f in order.permutation(count) if int(f) not in held]
+    chosen = set(free[: round(float(spec.get('held_by', 1.0)) * count)])
+    holders[custom.id] = chosen
+    held.update(chosen)
+  rng = np.random.default_rng(world_lib.seed_of(seed, 'founders'))
+  rows, cols = int(settings.get('rows', 16)), int(settings.get('cols', 24))
+  home = (rows // 2, cols // 3)
+  asexual = settings.get('mode', 'sexual') == 'asexual'
+  records = []
+  for i in range(count):
+    tile = [
+        (home[0] + int(rng.integers(-2, 3))) % rows,
+        (home[1] + int(rng.integers(-2, 3))) % cols,
+    ]
+    records.append({
+        'params': {
+            'name': world_lib.name_of(i, seed),
+            'born': -int(rng.integers(18, 40)),
+            'sex': '' if asexual else ('f' if i % 2 == 0 else 'm'),
+            'parents': [],
+            'seed': seed,
+            'customs': [
+                culture.get(c).spec()
+                for c, held in holders.items()
+                if i in held
+            ],
+        },
+        'tile': tile,
+        'food': 8.0,
+    })
+  return records

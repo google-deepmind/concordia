@@ -23,15 +23,17 @@ living holds it: the long record of culture) and `summary.json`; with
 `--soak`, also each fiftieth year's memory use and seconds per year.
 """
 
+import contextlib
 import json
 import os
 import resource
 import subprocess
-import sys
 import time
+from typing import Any, TextIO
 
 from absl import app
 from absl import flags
+from absl import logging
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 
@@ -64,11 +66,26 @@ def main(argv):
   del argv
   out = _OUT_DIR.value or f'/tmp/lifeways/{_SCENARIO.value}-{_SEED.value}'
   os.makedirs(out, exist_ok=True)
-  print(f'MOCK: {_SCENARIO.value}, seed {_SEED.value}, {_YEARS.value} years')
-  dead = open(os.path.join(out, 'dead.jsonl'), 'w')
-  census = open(os.path.join(out, 'census.jsonl'), 'w')
-  customs = open(os.path.join(out, 'customs.jsonl'), 'w')
+  logging.info(
+      'MOCK: %s, seed %d, %d years', _SCENARIO.value, _SEED.value, _YEARS.value
+  )
+  with contextlib.ExitStack() as files:
+    dead, census, customs = (
+        files.enter_context(
+            open(os.path.join(out, name), 'w', encoding='utf-8')
+        )
+        for name in ('dead.jsonl', 'census.jsonl', 'customs.jsonl')
+    )
+    summary = _run(out, dead, census, customs)
+  logging.info(
+      'Done: %s', json.dumps({k: v for k, v in summary.items() if k != 'soak'})
+  )
 
+
+def _run(
+    out: str, dead: TextIO, census: TextIO, customs: TextIO
+) -> dict[str, Any]:
+  """Runs the world, writing what happens; returns the run's summary."""
   buried = 0
 
   def bury(record) -> None:
@@ -108,14 +125,11 @@ def main(argv):
       }
       last = now
       soak.append(row)
-      print(json.dumps(row), file=sys.stderr, flush=True)
+      logging.info('Soak: %s', json.dumps(row))
 
   run.lifecycle.year_closed = year_closed
   run.lifecycle.forgotten = forget
   run.play()
-  dead.close()
-  census.close()
-  customs.close()
   world = run.world()
   summary = {
       'scenario': _SCENARIO.value,
@@ -128,9 +142,9 @@ def main(argv):
       'seconds': round(time.monotonic() - start, 1),
       'soak': soak,
   }
-  with open(os.path.join(out, 'summary.json'), 'w') as f:
+  with open(os.path.join(out, 'summary.json'), 'w', encoding='utf-8') as f:
     json.dump(summary, f, indent=2)
-  print(json.dumps({k: v for k, v in summary.items() if k != 'soak'}))
+  return summary
 
 
 if __name__ == '__main__':

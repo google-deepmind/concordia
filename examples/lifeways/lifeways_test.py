@@ -18,6 +18,7 @@ import json
 from typing import Any
 
 from absl.testing import absltest
+from examples.lifeways import mock_language_model
 from examples.lifeways import plot
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
@@ -209,8 +210,6 @@ class LearnerTest(absltest.TestCase):
     bank = basic_associative_memory.AssociativeMemoryBank(
         sentence_embedder=simulation.hash_embedder
     )
-    from examples.lifeways import mock_language_model  # pylint: disable=g-import-not-at-top
-
     return prefab.build(mock_language_model.MockModel(), bank)
 
   def _customs(self, entity) -> dict[str, culture.Custom]:
@@ -252,6 +251,16 @@ class LearnerTest(absltest.TestCase):
     )
 
     self.assertEqual(sorted(self._customs(entity)), ['c2', 'c3'])
+
+  def test_inherited_customs_keep_within_capacity(self):
+    customs = [
+        _spec(f'c{i}', 'belief', domain)
+        for i, domain in enumerate(('sacred', 'craft', 'identity', 'authority'))
+    ]
+
+    entity = self._person(customs=customs, capacity=3)
+
+    self.assertEqual(sorted(self._customs(entity)), ['c1', 'c2', 'c3'])
 
   def test_a_full_domain_drops_its_oldest_custom(self):
     entity = self._person(

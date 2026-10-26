@@ -91,11 +91,9 @@ class WorldComponent(entity_component.ContextComponent):
 
 
 def _world_component(
-    component: entity_component.BaseComponent,
+    component: entity_component.BaseComponent, key: str
 ) -> WorldComponent:
-  return component.get_entity().get_component(
-      DEFAULT_WORLD_KEY, type_=WorldComponent
-  )
+  return component.get_entity().get_component(key, type_=WorldComponent)
 
 
 class TurnGate(
@@ -115,8 +113,22 @@ class TurnGate(
       lifecycle: Lifecycle,
       observation_queue: make_observation.ObservationQueue,
       max_years: int | None = None,
+      world_key: str = DEFAULT_WORLD_KEY,
+      terminate_key: str = terminate.DEFAULT_TERMINATE_COMPONENT_KEY,
   ):
+    """Initializes the gate.
+
+    Args:
+      lifecycle: How births, deaths and forgotten customs reach the
+        simulation.
+      observation_queue: The queue the GM's `MakeObservation` delivers from.
+      max_years: The year the game ends at; None for never.
+      world_key: The key of the GM's `WorldComponent`.
+      terminate_key: The key of the GM's stock `Terminate`.
+    """
     super().__init__()
+    self._world_key = world_key
+    self._terminate_key = terminate_key
     self._lifecycle = lifecycle
     self._queue = observation_queue
     self._max_years = max_years
@@ -128,7 +140,7 @@ class TurnGate(
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     if action_spec.output_type != entity_lib.OutputType.NEXT_ACTING:
       return ''
-    holder = _world_component(self)
+    holder = _world_component(self, self._world_key)
     with holder.lock:
       world = holder.world
       if world.year_complete() and not self._ended:
@@ -159,7 +171,7 @@ class TurnGate(
     if self._max_years is not None and world.year >= self._max_years:
       self._ended = True
       self.get_entity().get_component(
-          terminate.DEFAULT_TERMINATE_COMPONENT_KEY, type_=terminate.Terminate
+          self._terminate_key, type_=terminate.Terminate
       ).terminate()
     self._lifecycle.year_closed(world.year)
 
@@ -187,9 +199,17 @@ class Questions(
       call_to_next_action_spec: str = (
           next_acting.DEFAULT_CALL_TO_NEXT_ACTION_SPEC
       ),
+      world_key: str = DEFAULT_WORLD_KEY,
   ):
+    """Initializes the questions.
+
+    Args:
+      call_to_next_action_spec: The engine's question, with `{name}`.
+      world_key: The key of the GM's `WorldComponent`.
+    """
     super().__init__()
     self._prefix, self._suffix = call_to_next_action_spec.split('{name}')
+    self._world_key = world_key
 
   @override
   def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
@@ -198,7 +218,7 @@ class Questions(
     name = action_spec.call_to_action.removeprefix(self._prefix).removesuffix(
         self._suffix
     )
-    holder = _world_component(self)
+    holder = _world_component(self, self._world_key)
     with holder.lock:
       world = holder.world
       if world.asked_to_pass_on(name):
@@ -236,13 +256,22 @@ class Answers(
   takes effect when the year closes (`TurnGate`), with everyone else's.
   """
 
+  def __init__(self, world_key: str = DEFAULT_WORLD_KEY):
+    """Initializes the answers.
+
+    Args:
+      world_key: The key of the GM's `WorldComponent`.
+    """
+    super().__init__()
+    self._world_key = world_key
+
   @override
   def pre_observe(self, observation: str) -> str:
     tag = event_resolution.PUTATIVE_EVENT_TAG
     if not observation.startswith(tag):
       return ''
     name, _, answer = observation[len(tag) :].strip().partition(':')
-    holder = _world_component(self)
+    holder = _world_component(self, self._world_key)
     with holder.lock:
       holder.world.record_action(name.strip(), answer.strip())
     return ''

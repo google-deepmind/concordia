@@ -40,14 +40,10 @@ from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.environment.engines import asynchronous
 from examples.lifeways.components import game_master as gm_components
+from examples.lifeways.prefabs import measures
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
-from concordia.utils import async_measurements
-
-# Logging data kept per component channel: enough for the page and logs, and
-# bounded for runs that never end.
-LOG_RETENTION = 8
 
 WORLD_GM_PREFAB = 'lifeways_world__GameMaster'
 WORLD_GM_NAME = 'Lifeways'
@@ -60,8 +56,12 @@ class WorldGameMaster(prefab_lib.Prefab):
   Params:
     name: The GM's name.
     settings: The world's settings (`scenarios.settings`).
+    founders: The founders the scenario made (`scenarios.founders`), the
+      same records whose `params` build the founders' entities.
     lifecycle: Optional. How births, deaths and forgotten customs reach the
-      simulation (`Lifecycle`), wired by the harness.
+      simulation (`Lifecycle`), wired by the harness. A live object: it is
+      not serializable, so checkpoints drop it and the restoring harness
+      wires its own.
   """
 
   description: str = (  # pyrefly: ignore[bad-override]
@@ -91,7 +91,7 @@ class WorldGameMaster(prefab_lib.Prefab):
     self.check_extra_components()
     settings = dict(self.params.get('settings', {}))
     world = world_lib.World(settings)
-    world.found()
+    world.found(self.params.get('founders', ()))
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
     queue = make_observation.ObservationQueue()
     gate = gm_components.TurnGate(
@@ -125,7 +125,5 @@ class WorldGameMaster(prefab_lib.Prefab):
         agent_name=str(self.params.get('name', WORLD_GM_NAME)),
         act_component=switch_act.SwitchAct(model=model, entity_names=names),
         context_components=components,
-        measurements=async_measurements.ReactiveMeasurements(
-            channel_retention=LOG_RETENTION
-        ),
+        measurements=measures.measurements(),
     )

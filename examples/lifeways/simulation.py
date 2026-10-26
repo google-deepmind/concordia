@@ -32,6 +32,7 @@ import zlib
 
 from concordia.environment.engines import asynchronous
 from examples.lifeways import mock_language_model
+from examples.lifeways import scenarios
 from examples.lifeways.components import culture
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import experimenter as experimenter_lib
@@ -49,7 +50,14 @@ UNBOUNDED_STEPS = 10**12
 
 
 def hash_embedder(text: str) -> np.ndarray:
-  """A cheap deterministic sentence embedder (memory needs one)."""
+  """A cheap deterministic sentence embedder (memory needs one).
+
+  Args:
+    text: The text.
+
+  Returns:
+    Its embedding, the same for the same text in any process.
+  """
   rng = np.random.default_rng(zlib.crc32(text.encode()))
   return rng.standard_normal(EMBEDDING_SIZE)
 
@@ -76,21 +84,29 @@ class Archive:
 def build_config(
     settings: Mapping[str, Any], lifecycle: gm_components.Lifecycle
 ) -> prefab_lib.Config:
-  """The Concordia config of a world: its founders, the Experimenter, the GM."""
-  founders = world_lib.World(settings).found()
+  """The Concordia config of a world: its founders, the Experimenter, the GM.
+
+  Args:
+    settings: The world's settings.
+    lifecycle: How the World GM reaches the simulation (wired by the caller).
+
+  Returns:
+    The config.
+  """
+  founders = scenarios.founders(settings)
   instances = [
       prefab_lib.InstanceConfig(
           prefab=person_lib.PERSON_PREFAB,
           role=prefab_lib.Role.ENTITY,
-          params=params,
+          params=dict(founder['params']),
       )
-      for params in founders
+      for founder in founders
   ]
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=experimenter_lib.EXPERIMENTER_PREFAB,
           role=prefab_lib.Role.ENTITY,
-          params={'name': world_lib.EXPERIMENTER},
+          params={},
       )
   )
   instances.append(
@@ -100,6 +116,7 @@ def build_config(
           params={
               'name': world_gm.WORLD_GM_NAME,
               'settings': dict(settings),
+              'founders': founders,
               'lifecycle': lifecycle,
           },
       )
@@ -124,15 +141,30 @@ class Run:
   lifecycle: gm_components.Lifecycle
   archive: Archive
 
+  def world_state(self) -> Mapping[str, Any]:
+    """A copy of the world's state, taken under the World GM's lock.
+
+    Safe from any thread at any time (a page polling a running world).
+
+    Returns:
+      `World.get_state()`.
+    """
+    return self._world_component().get_state()
+
   def world(self) -> world_lib.World:
-    """The World GM's world (for reading: measures, the page)."""
-    return (
-        self.sim.game_masters[0]
-        .get_component(  # pyrefly: ignore[missing-attribute]
-            gm_components.DEFAULT_WORLD_KEY,
-            type_=gm_components.WorldComponent,
-        )
-        .world
+    """The World GM's live world, for reading.
+
+    Read it only where the GM's lock is held (in a `Lifecycle` callback) or
+    when the run is not playing; elsewhere use `world_state`.
+
+    Returns:
+      The world.
+    """
+    return self._world_component().world
+
+  def _world_component(self) -> gm_components.WorldComponent:
+    return self.sim.game_masters[0].get_component(  # pyrefly: ignore[missing-attribute]
+        gm_components.DEFAULT_WORLD_KEY, type_=gm_components.WorldComponent
     )
 
   def customs_census(self) -> dict[str, Any]:
@@ -269,9 +301,9 @@ def build_simulation(
 def load_checkpoint(run: Run, checkpoint: Mapping[str, Any]) -> None:
   """Restores a saved year into a new simulation of the same settings.
 
-  People who died since the start leave; people born since join from the
-  params their checkpoint keeps; then every entity's and the GM's state is
-  restored the standard way.
+  People who died since the start leave; then the standard load restores
+  every entity's and the GM's state, and adds the people born since from the
+  params their checkpoint keeps.
 
   Args:
     run: A new run of the same settings (`build_simulation`).
@@ -282,14 +314,4 @@ def load_checkpoint(run: Run, checkpoint: Mapping[str, Any]) -> None:
   for entity in list(sim.entities):
     if entity.name not in saved:
       sim.remove_entity(entity.name)
-  present = {entity.name for entity in sim.entities}
-  for name, data in saved.items():
-    if name not in present:
-      sim.add_entity(
-          prefab_lib.InstanceConfig(
-              prefab=data['prefab_type'],
-              role=prefab_lib.Role.ENTITY,
-              params=dict(data['entity_params']),
-          )
-      )
   sim.load_from_checkpoint(dict(checkpoint))

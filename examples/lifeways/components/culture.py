@@ -22,7 +22,7 @@ in observations, by the person's own learning biases, and keeps the person's
 customs within capacity.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 import re
 import threading
 from typing import Any, cast, override
@@ -30,19 +30,23 @@ import zlib
 
 from concordia.agents import entity_agent
 from examples.lifeways.world import culture as culture_lib
+from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 import numpy as np
+
+# A rule that plays a role: the question and the contexts, to an answer.
+Rule = Callable[[entity_lib.ActionSpec, Mapping[str, str]], str]
 
 COMPONENT_PREFIX = 'custom '
 
 _LABELS = {
-    'norm': 'A custom of ours',
+    culture_lib.NORM: 'A custom of ours',
     'known norm': 'A custom others expect of us',
-    'value': 'Something we hold dear',
-    'belief': 'Something we believe',
-    'skill': 'Something we know how to do',
-    'habit': 'A habit of ours',
-    'bias': 'Whom we learn from',
+    culture_lib.VALUE: 'Something we hold dear',
+    culture_lib.BELIEF: 'Something we believe',
+    culture_lib.SKILL: 'Something we know how to do',
+    culture_lib.HABIT: 'A habit of ours',
+    culture_lib.BIAS: 'Whom we learn from',
 }
 
 
@@ -75,7 +79,7 @@ class Custom(entity_component.ContextComponent):
     return culture_lib.form_of(self.spec)
 
   @override
-  def pre_act(self, action_spec) -> str:
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
     del action_spec
     level = self.spec.get('params', {}).get('level')
     detail = f' (level {level})' if level is not None else ''
@@ -109,7 +113,10 @@ def offer_chance(
   """
   via = offer.group('via')
   chance = float(uptake.get(via, 0.0))
-  if 'traditional' in biases and via not in ('birth', 'upbringing'):
+  if 'traditional' in biases and via not in (
+      culture_lib.BIRTH,
+      culture_lib.UPBRINGING,
+  ):
     chance *= 0.3
   if 'new ways' in biases:
     chance *= 1.5
@@ -122,7 +129,15 @@ def offer_chance(
 def make_custom(
     name: str, spec: entity_component.ComponentState
 ) -> entity_component.ContextComponent:
-  """The component factory of a person's entity: a custom from its spec."""
+  """The component factory of a person's entity: a custom from its spec.
+
+  Args:
+    name: The component's key (unused: the spec names the custom).
+    spec: The custom's spec, as the entity's state recorded it.
+
+  Returns:
+    The custom's component.
+  """
   del name
   return Custom(spec)
 
@@ -163,9 +178,25 @@ class Learner(entity_component.ContextComponent):
     # join when the current call ends): id -> kind, domain, level, channel.
     self._held: dict[str, dict[str, Any]] = {}
 
-  def note_inherited(self, spec: Mapping[str, Any], via: str = 'birth') -> None:
-    """Records a custom the person was born with (or came with)."""
+  def inherit(
+      self, spec: Mapping[str, Any], via: str = culture_lib.BIRTH
+  ) -> None:
+    """Takes a custom the person is born (or comes) with, within capacity.
+
+    Args:
+      spec: The custom's spec.
+      via: How it came: 'birth' or 'arrival'.
+
+    Raises:
+      TypeError: If the Learner's entity is not an `EntityAgent`.
+    """
+    entity = self.get_entity()
+    if not isinstance(entity, entity_agent.EntityAgent):
+      raise TypeError('A Learner belongs to an EntityAgent.')
     with self._lock:
+      if str(spec['id']) in self._held or not self._make_room(entity, spec):
+        return
+      entity.add_component(component_name(spec['id']), Custom(spec), spec)
       self._hold(spec, via)
 
   def held(self) -> list[str]:
@@ -186,7 +217,7 @@ class Learner(entity_component.ContextComponent):
     return ' '.join(
         c.spec['text'].lower()
         for c in entity.get_all_context_components().values()
-        if isinstance(c, Custom) and c.kind == 'bias'
+        if isinstance(c, Custom) and c.kind == culture_lib.BIAS
     )
 
   @override
@@ -239,7 +270,9 @@ class Learner(entity_component.ContextComponent):
         for c, held in self._held.items()
         if held['kind'] == kind and held['domain'] == domain
     ]
-    if kind == 'skill' and any(self._held[c]['level'] >= level for c in locus):
+    if kind == culture_lib.SKILL and any(
+        self._held[c]['level'] >= level for c in locus
+    ):
       return False  # Nobody learns a worse way to do what they do.
     if culture_lib.form_of(spec) == culture_lib.KNOWN and any(
         self._held[c]['form'] == culture_lib.INTERNALIZED for c in locus
@@ -288,13 +321,22 @@ class RuleAct(entity_component.ActingComponent):
   saves and restores it with its own.
   """
 
-  def __init__(self, rule):
+  def __init__(self, rule: Rule):
+    """Initializes the component.
+
+    Args:
+      rule: The rule that answers.
+    """
     super().__init__()
     self._rule = rule
 
   @override
-  def get_action_attempt(self, contexts, action_spec) -> str:
-    return self._rule(action_spec, contexts)
+  def get_action_attempt(
+      self,
+      context: entity_component.ComponentContextMapping,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    return self._rule(action_spec, context)
 
   @override
   def get_state(self) -> entity_component.ComponentState:

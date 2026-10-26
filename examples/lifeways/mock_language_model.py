@@ -26,6 +26,8 @@ import re
 from typing import Any, override
 import zlib
 
+from examples.lifeways.world import culture as culture_lib
+from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
 
 _FOOD = re.compile(r'Food stored: (\d+(?:\.\d+)?)')
@@ -66,8 +68,8 @@ class MockModel(language_model.LanguageModel):
     self.calls += 1
     question = _LABEL.split(prompt)[-1]
     customs = _CUSTOM.findall(prompt)
-    if 'pass on' in question and 'Which of' in question:
-      return 'pass on ' + ' '.join(cid for _, cid, _ in customs)
+    if world_lib.PASS_ON in question and 'Which of' in question:
+      return ' '.join([world_lib.PASS_ON, *(cid for _, cid, _ in customs)])
     moves = _MOVES.findall(question)
     if not moves:
       return ''
@@ -108,8 +110,8 @@ def _choose(
   Returns:
     The answer.
   """
-  if moves == ['watch']:
-    return 'watch'
+  if list(moves) == [world_lib.WATCH]:
+    return world_lib.WATCH
   texts = ' '.join(text.lower() for _, _, text in customs)
   food = float(_FOOD.findall(prompt)[-1]) if _FOOD.findall(prompt) else 0.0
   age = int(_AGE.findall(prompt)[-1]) if _AGE.findall(prompt) else 30
@@ -120,16 +122,16 @@ def _choose(
   sharing = [
       cid
       for domain, cid, text in customs
-      if domain == 'sharing'
+      if domain == culture_lib.SHARING
       and 'share' in text.lower()
       and (cid not in expected or watched)
   ]
-  share = [m for m in moves if m.startswith('share food with ')]
-  shame = [m for m in moves if m.startswith('shame ')]
+  share = [m for m in moves if m.startswith(f'{world_lib.SHARE} ')]
+  shame = [m for m in moves if m.startswith(f'{world_lib.SHAME} ')]
   reading = [
       cid
       for domain, cid, text in customs
-      if domain == 'learning' and 'read' in text.lower()
+      if domain == culture_lib.LEARNING and 'read' in text.lower()
   ]
   others = [cid for _, cid, _ in customs if cid not in reading]
 
@@ -140,50 +142,60 @@ def _choose(
     ]
     return ' '.join([move, *ids])
 
-  if 'move to better land' in moves and land < 4.0 and draw > 0.4:
-    return 'move to better land'
-  if 'learn a craft' in moves and food >= 1.0 and draw < 0.6:
-    return 'learn a craft'
-  if 'go to school' in moves and draw < 0.7:
-    return 'go to school'
+  if world_lib.MOVE in moves and land < 4.0 and draw > 0.4:
+    return world_lib.MOVE
+  if world_lib.APPRENTICE in moves and food >= 1.0 and draw < 0.6:
+    return world_lib.APPRENTICE
+  if world_lib.GO_TO_SCHOOL in moves and draw < 0.7:
+    return world_lib.GO_TO_SCHOOL
   sacred = [
       cid
       for domain, cid, _ in customs
-      if domain in ('sacred', 'identity', 'sharing', 'kinship')
+      if domain
+      in (
+          culture_lib.SACRED,
+          culture_lib.IDENTITY,
+          culture_lib.SHARING,
+          culture_lib.KINSHIP,
+      )
   ]
-  if 'lead the rite' in moves and sacred and draw < 0.25:
-    return ' '.join(['lead the rite', *sacred])
-  if 'join the rite' in moves and draw < 0.75:
-    return 'join the rite'
-  if 'play' in moves and age < 12:
-    return 'play' if food >= 0.5 else follow('gather food', 'food')
+  if world_lib.LEAD_RITE in moves and sacred and draw < 0.25:
+    return ' '.join([world_lib.LEAD_RITE, *sacred])
+  if world_lib.JOIN_RITE in moves and draw < 0.75:
+    return world_lib.JOIN_RITE
+  if world_lib.PLAY in moves and age < 12:
+    return (
+        world_lib.PLAY
+        if food >= 0.5
+        else follow(world_lib.GATHER, culture_lib.FOOD)
+    )
   if food < 2.5 or ('lean' in texts and food < 4.0):
-    return follow('gather food', 'food')
-  if 'look for a partner' in moves and age >= 18 and draw < 0.9:
-    return follow('look for a partner', 'kinship')
-  if 'have a child' in moves:
+    return follow(world_lib.GATHER, culture_lib.FOOD)
+  if world_lib.COURT in moves and age >= 18 and draw < 0.9:
+    return follow(world_lib.COURT, culture_lib.KINSHIP)
+  if world_lib.CHILD in moves:
     careful = 'only when' in texts and food < 6.0
     if not careful and draw < 0.8:
-      return follow('have a child', 'kinship')
+      return follow(world_lib.CHILD, culture_lib.KINSHIP)
   if share and sharing and food >= 4.0:
     return ' '.join([share[0], *sharing])
   if shame and sharing and draw < 0.5:
     return ' '.join([shame[0], *sharing])
-  if 'teach' in moves and food >= 4.0 and draw < 0.35:
-    return follow('teach')
-  if 'teach at the school' in moves and food >= 4.0 and draw < 0.3:
-    return follow('teach at the school')
-  if 'found a school' in moves and food >= 6.0 and draw < 0.15:
-    return follow('found a school')
-  if 'build a shrine' in moves and sacred and food >= 6.0 and draw < 0.15:
-    return ' '.join(['build a shrine', *sacred])
+  if world_lib.TEACH in moves and food >= 4.0 and draw < 0.35:
+    return follow(world_lib.TEACH)
+  if world_lib.TEACH_AT_SCHOOL in moves and food >= 4.0 and draw < 0.3:
+    return follow(world_lib.TEACH_AT_SCHOOL)
+  if world_lib.FOUND_SCHOOL in moves and food >= 6.0 and draw < 0.15:
+    return follow(world_lib.FOUND_SCHOOL)
+  if world_lib.BUILD_SHRINE in moves and sacred and food >= 6.0 and draw < 0.15:
+    return ' '.join([world_lib.BUILD_SHRINE, *sacred])
   if reading and food >= 3.0:
-    if 'found a library' in moves and food >= 6.0 and draw < 0.3:
-      return ' '.join(['found a library', *reading, *others])
-    if 'write at the library' in moves and draw < 0.25:
-      return ' '.join(['write at the library', *reading, *others])
-    if 'read at the library' in moves and draw < 0.5:
-      return ' '.join(['read at the library', *reading])
-  if 'move to better land' in moves and draw > 0.92:
-    return 'move to better land'
-  return follow('gather food', 'food')
+    if world_lib.FOUND_LIBRARY in moves and food >= 6.0 and draw < 0.3:
+      return ' '.join([world_lib.FOUND_LIBRARY, *reading, *others])
+    if world_lib.WRITE in moves and draw < 0.25:
+      return ' '.join([world_lib.WRITE, *reading, *others])
+    if world_lib.READ in moves and draw < 0.5:
+      return ' '.join([world_lib.READ, *reading])
+  if world_lib.MOVE in moves and draw > 0.92:
+    return world_lib.MOVE
+  return follow(world_lib.GATHER, culture_lib.FOOD)

@@ -15,6 +15,7 @@
 """How the world passes customs on: by what people do, never by minds."""
 
 from absl.testing import absltest
+from examples.lifeways import scenarios
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 import numpy as np
@@ -264,25 +265,89 @@ class TransmissionTest(absltest.TestCase):
 
   def test_founders_hold_one_custom_of_a_kind_and_domain(self):
     norm = {'kind': 'norm', 'domain': 'sharing', 'text': 'Share.'}
-    world = world_lib.World({
+    settings = {
         'seed': 0,
         'founders': 8,
         'founding_customs': [
             {**norm, 'held_by': 0.25},
             {**norm, 'params': {'form': culture_lib.KNOWN}, 'held_by': 0.5},
         ],
-    })
+    }
 
-    founders = world.found()
+    founders = scenarios.founders(settings)
+    world = world_lib.World(settings)
+    world.found(founders)
 
     forms = [
-        [culture_lib.form_of(c) for c in params['customs']]
-        for params in founders
+        [culture_lib.form_of(c) for c in founder['params']['customs']]
+        for founder in founders
     ]
+    self.assertEqual(
+        sorted(world.people), sorted(f['params']['name'] for f in founders)
+    )
+    self.assertEqual(len(world.culture), 2)
     self.assertEqual(
         sorted(f[0] if f else '' for f in forms),
         [''] * 2 + [culture_lib.INTERNALIZED] * 2 + [culture_lib.KNOWN] * 4,
     )
+
+  def test_passing_on_teaches_no_onlookers(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Cy', 30, (5, 6), given=())
+    self.world.expecting = {'Ada': ['Ada']}
+    self.world.actions = {
+        'Ada': f'{world_lib.PASS_ON} {self.skill} {self.norm}',
+        'Cy': 'rest',
+    }
+
+    outcome = self.world.close_year()
+
+    self.assertLen(outcome.births, 1)
+    self.assertEmpty(self._offers('Cy'))
+
+  def test_a_parent_passes_on_only_what_it_was_given(self):
+    self._person('Ada', 30, (5, 5), given=[self.norm])
+    self.world.expecting = {'Ada': ['Ada']}
+    self.world.actions = {
+        'Ada': f'{world_lib.PASS_ON} {self.skill} {self.norm}'
+    }
+
+    (child,) = self.world.close_year().births
+
+    self.assertEqual([c['id'] for c in child['customs']], [self.norm])
+
+  def test_a_child_does_not_court(self):
+    self._person('Kit', 8, (5, 5))
+    self._person('Bo', 40, (5, 6)).sex = 'm'
+    self.world.actions = {'Kit': world_lib.COURT, 'Bo': world_lib.COURT}
+
+    self.world.close_year()
+
+    self.assertEqual(self.world.people['Kit'].partner, '')
+    self.assertEqual(self.world.seeking, ['Bo'])
+
+  def test_a_move_towards_one_is_not_towards_another_named_alike(self):
+    self._person('Ada', 30, (5, 5))
+    self._person('Kari', 30, (5, 6), given=()).food = 0.5
+    self._person('Karito', 30, (6, 5), given=()).food = 2.0
+    self.assertIn(f'{world_lib.SHARE} Kari', self.world.moves('Ada'))
+    self.assertNotIn(f'{world_lib.SHARE} Karito', self.world.moves('Ada'))
+    self.world.actions = {
+        'Ada': f'{world_lib.SHARE} Karito',
+        'Kari': 'rest',
+        'Karito': 'rest',
+    }
+
+    self.world.close_year()
+
+    self.assertEqual(self.world.people['Kari'].food, 0.0)
+    self.assertEqual(self.world.people['Ada'].food, 4.0)
+
+  def test_a_history_of_none_keeps_none(self):
+    self.world.settings['history_kept'] = 0
+    self.world.actions = {}
+    self.world.close_year()
+    self.assertEmpty(self.world.history)
 
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
@@ -480,6 +545,21 @@ class ShrineTest(_PlaceTest):
         sorted([(self.norm, 'rite', 'Ada'), (self.belief, 'rite', 'Ada')]),
     )
     self.assertEmpty(self._offers('Ada'))
+
+  def test_joining_a_rite_teaches_no_onlookers(self):
+    self._person('Ada', 30, (5, 5), [self.belief])
+    self._person('Bo', 30, (5, 6), [self.norm])
+    self._person('Cy', 30, (6, 6))
+    self._year(Ada=f'{world_lib.BUILD_SHRINE} {self.belief}', Bo='rest')
+    self._year(Ada='rest', Bo='rest', Cy='rest')
+
+    self._year(
+        Ada=f'{world_lib.LEAD_RITE} {self.belief}',
+        Bo=f'{world_lib.JOIN_RITE} {self.norm}',
+        Cy='rest',
+    )
+
+    self.assertEqual(self._offers('Cy'), [])
 
   def test_a_rite_nobody_leads_offers_nothing(self):
     self._person('Ada', 30, (5, 5), [self.belief])

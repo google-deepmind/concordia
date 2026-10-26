@@ -118,7 +118,15 @@ class Land:
     return float(sum(self.food[t] for t in self.around(tile)))
 
   def gather(self, tile: Tile, effort: float) -> float:
-    """Forages up to `effort` food around a tile, richest tiles first."""
+    """Forages food around a tile, richest tiles first.
+
+    Args:
+      tile: Where the forager lives.
+      effort: The most food the forager can take this year.
+
+    Returns:
+      The food taken.
+    """
     wanted = max(0.0, effort)
     taken = 0.0
     for place in sorted(
@@ -149,7 +157,18 @@ class Land:
     }
 
   def set_state(self, state: Mapping[str, Any]) -> None:
-    self.rows, self.cols = int(state['rows']), int(state['cols'])
-    self.richness = float(state.get('richness', 1.0))
+    """Restores the terrain and food; the land's settings stay this run's.
+
+    Args:
+      state: `get_state()` of a land of the same size.
+
+    Raises:
+      ValueError: If the saved land has another size.
+    """
+    if (int(state['rows']), int(state['cols'])) != (self.rows, self.cols):
+      raise ValueError(
+          f'A {state["rows"]}x{state["cols"]} land cannot be restored into a'
+          f' {self.rows}x{self.cols} one.'
+      )
     self.terrain = np.array(state['terrain'], dtype=int)
     self.food = np.array(state['food'], dtype=float)

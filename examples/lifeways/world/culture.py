@@ -32,20 +32,50 @@ from typing import Any
 import numpy as np
 
 # The loci of culture: recombination and capacity work per domain.
+KINSHIP = 'kinship'
+FOOD = 'food'
+SHARING = 'sharing'
+AUTHORITY = 'authority'
+SACRED = 'sacred'
+CRAFT = 'craft'
+LEARNING = 'learning'
+IDENTITY = 'identity'
+LANGUAGE = 'language'
 DOMAINS = (
-    'kinship',
-    'food',
-    'sharing',
-    'authority',
-    'sacred',
-    'craft',
-    'learning',
-    'identity',
-    'language',
+    KINSHIP,
+    FOOD,
+    SHARING,
+    AUTHORITY,
+    SACRED,
+    CRAFT,
+    LEARNING,
+    IDENTITY,
+    LANGUAGE,
 )
 
 # The kinds of custom, each built as its own kind of component.
-KINDS = ('norm', 'value', 'belief', 'skill', 'habit', 'bias')
+NORM = 'norm'
+VALUE = 'value'
+BELIEF = 'belief'
+SKILL = 'skill'
+HABIT = 'habit'
+BIAS = 'bias'
+KINDS = (NORM, VALUE, BELIEF, SKILL, HABIT, BIAS)
+
+# The channels a custom comes to a person by (an offer's `via`).
+BIRTH = 'birth'
+ARRIVAL = 'arrival'
+UPBRINGING = 'upbringing'
+OBSERVATION = 'observation'
+APPRENTICESHIP = 'apprenticeship'
+SANCTION = 'sanction'
+PRACTICE = 'practice'
+READING = 'reading'
+SCHOOL = 'school'
+RITE = 'rite'
+STORY = 'story'
+PREACHING = 'preaching'
+RELEASE = 'release'
 
 # The highest level a skill reaches.
 MAX_LEVEL = 9
@@ -72,12 +102,22 @@ def offer_line(
     source: str = '',
     stores: float | None = None,
 ) -> str:
-  """An observation line offering a custom (what a Learner reads)."""
+  """An observation line offering a custom (what a Learner reads).
+
+  Args:
+    spec: The custom's spec.
+    via: The channel it comes by.
+    source: Who is seen holding it, if anyone.
+    stores: That person's food stores (for success-biased learners).
+
+  Returns:
+    The line.
+  """
   params = spec.get('params', {})
   detail = ''
   if params.get('level') is not None:
     detail += f' level={params["level"]}'
-  if spec['kind'] == 'norm':
+  if spec['kind'] == NORM:
     detail += f' form={form_of(spec)}'
   seen = (
       f' from={source} stores={stores:.1f}'
@@ -92,7 +132,7 @@ def offer_line(
 
 def form_of(spec: Mapping[str, Any]) -> str:
   """A norm's form ('' for other kinds)."""
-  if spec['kind'] != 'norm':
+  if spec['kind'] != NORM:
     return ''
   return str(spec.get('params', {}).get('form', INTERNALIZED))
 
@@ -179,14 +219,30 @@ class Culture:
       origin: str = 'founder',
       year: int = 0,
   ) -> Custom:
-    """Records a variant and returns it (the recorded one, if it exists)."""
+    """Records a variant and returns it (the recorded one, if it exists).
+
+    Args:
+      kind: One of `KINDS`.
+      domain: One of `DOMAINS`.
+      text: What the custom says.
+      params: Kind-specific settings (a skill's level, a norm's form).
+      parent: The variant it was copied from, if any.
+      origin: How it entered the world.
+      year: When.
+
+    Returns:
+      The variant with this content.
+
+    Raises:
+      ValueError: For an unknown kind or domain.
+    """
     if kind not in KINDS:
       raise ValueError(f'Unknown kind of custom: {kind}')
     if domain not in DOMAINS:
       raise ValueError(f'Unknown domain: {domain}')
     text = ' '.join(text.split())
     params = dict(params or {})
-    if kind == 'norm':
+    if kind == NORM:
       params.setdefault('form', INTERNALIZED)
     content = _content(kind, domain, text, params)
     if content in self._ids:
@@ -206,6 +262,35 @@ class Culture:
     self._ids[content] = custom.id
     return custom
 
+  def adopt(self, spec: Mapping[str, Any]) -> Custom:
+    """Records a variant under the id it already has (a founder's).
+
+    Args:
+      spec: The custom's spec, with its `id`.
+
+    Returns:
+      The recorded variant.
+    """
+    custom_id = str(spec['id'])
+    if custom_id in self._customs:
+      return self._customs[custom_id]
+    params = dict(spec.get('params', {}))
+    if spec['kind'] == NORM:
+      params.setdefault('form', INTERNALIZED)
+    custom = Custom(
+        id=custom_id,
+        kind=str(spec['kind']),
+        domain=str(spec['domain']),
+        text=' '.join(str(spec['text']).split()),
+        params=params,
+    )
+    self._customs[custom_id] = custom
+    self._ids[_content(custom.kind, custom.domain, custom.text, params)] = (
+        custom_id
+    )
+    self._next = max(self._next, int(custom_id.removeprefix('c')) + 1)
+    return custom
+
   def in_form(self, custom_id: str, form: str, year: int) -> Custom:
     """The variant of a norm in `form` (any other custom, unchanged).
 
@@ -218,7 +303,7 @@ class Culture:
       The norm with the same content in that form.
     """
     custom = self.get(custom_id)
-    if custom.kind != 'norm' or form_of(custom.spec()) == form:
+    if custom.kind != NORM or form_of(custom.spec()) == form:
       return custom
     return self.add(
         custom.kind,
@@ -259,7 +344,7 @@ class Culture:
     """
     custom = self.get(custom_id)
     level = int(custom.params.get('level', 1))
-    if custom.kind == 'skill' and level < MAX_LEVEL and rng.random() < improve:
+    if custom.kind == SKILL and level < MAX_LEVEL and rng.random() < improve:
       return self.add(
           custom.kind,
           custom.domain,
@@ -273,7 +358,7 @@ class Culture:
       return custom
     params = dict(custom.params)
     text = custom.text
-    if custom.kind == 'skill':
+    if custom.kind == SKILL:
       params['level'] = max(1, level - 1)
     else:
       words = text.rstrip('.').split()
