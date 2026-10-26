@@ -18,6 +18,7 @@ import json
 from typing import Any
 
 from absl.testing import absltest
+from examples.lifeways import plot
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.components import culture
@@ -165,6 +166,23 @@ class ArchiveTest(absltest.TestCase):
           [f'P{i}' for i in range(5 - keep, 5)],
       )
     self.assertLen(sunk, 10)
+
+
+class PlotTest(absltest.TestCase):
+
+  def test_it_draws_a_census(self):
+    run = simulation.build_simulation(scenarios.settings(max_years=3))
+    rows = []
+    run.lifecycle.year_closed = lambda year: rows.append(
+        {**run.world().history[-1], 'held': run.customs_census()}
+    )
+    run.play()
+    out = self.create_tempfile('census.png').full_path
+
+    plot.plot(rows, out)
+
+    with open(out, 'rb') as f:
+      self.assertEqual(f.read(4), b'\x89PNG')
 
 
 class LearnerTest(absltest.TestCase):

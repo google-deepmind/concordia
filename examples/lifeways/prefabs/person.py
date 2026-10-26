@@ -63,7 +63,22 @@ DEFAULT_UPTAKE = {
 
 @dataclasses.dataclass
 class Person(prefab_lib.Prefab):
-  """A person: memory, observation, identity, a Learner and customs."""
+  """A person: memory, observation, identity, a Learner and customs.
+
+  Params:
+    name: The person's name.
+    born: The year of birth.
+    sex: 'f', 'm', or '' (asexual mode).
+    parents: The parents' names.
+    arrived: The year the person came to the valley, if not born in it.
+    seed: The world seed (the Learner's draws).
+    customs: The specs of the customs the person starts with.
+    uptake: The Learner's chance of taking up an offer, by channel.
+    per_domain: The most customs held of one domain.
+    capacity: The most customs held in all.
+    act_component_factory: Optional. Builds the acting component from the
+      context components' order (a person's `HumanActComponent`, a rule).
+  """
 
   description: str = (  # pyrefly: ignore[bad-override]
       'A Lifeways person whose customs are components of its own entity.'
@@ -90,9 +105,12 @@ class Person(prefab_lib.Prefab):
     name = str(self.params['name'])
     parents = list(self.params.get('parents', ()))
     born = int(self.params.get('born', 0))
+    arrived = self.params.get('arrived')
     who = f'{name}, born in year {born}'
     if parents:
       who += f', child of {" and ".join(parents)}'
+    if arrived is not None:
+      who += f', who came to the valley in year {arrived}'
     learner = culture.Learner(
         seed=int(self.params.get('seed', 0)),
         uptake=dict(self.params.get('uptake', DEFAULT_UPTAKE)),
@@ -135,5 +153,5 @@ class Person(prefab_lib.Prefab):
       entity.add_component(
           culture.component_name(spec['id']), culture.Custom(spec), spec
       )
-      learner.note_inherited(spec)
+      learner.note_inherited(spec, 'birth' if arrived is None else 'arrival')
     return entity

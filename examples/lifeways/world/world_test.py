@@ -239,6 +239,30 @@ class TransmissionTest(absltest.TestCase):
 
     self.assertEqual(self.world.seeking, ['Ada', 'Bo'])
 
+  def test_strangers_come_to_a_nearly_empty_valley(self):
+    self.world.settings['arrivals'] = {
+        'below': 3,
+        'chance': 1.0,
+        'group': 2,
+        'people': 'Hill people',
+        'customs': [{'kind': 'belief', 'domain': 'sacred', 'text': 'Hills.'}],
+    }
+    self._person('Ada', 30, (5, 5))
+    self.world.actions = {'Ada': 'rest'}
+
+    outcome = self.world.close_year()
+
+    self.assertLen(outcome.births, 2)
+    self.assertEqual(self.world.history[-1]['arrivals'], 2)
+    self.assertEqual(self.world.history[-1]['births'], 0)
+    for params in outcome.births:
+      self.assertEqual(params['arrived'], 0)
+      self.assertEqual([c['text'] for c in params['customs']], ['Hills.'])
+      self.assertIn('Hill people', self.world.queued[params['name']][0])
+    self.world.actions = {name: 'rest' for name in self.world.people}
+
+    self.assertEmpty(self.world.close_year().births)  # Three live now.
+
   def test_every_name_is_new(self):
     names = [self.world._new_name() for _ in range(5000)]  # pylint: disable=protected-access
     self.assertLen(set(names), len(names))

@@ -25,7 +25,12 @@ SANDBOX: Mapping[str, Any] = {
     'seed': 0,
     'rows': 16,
     'cols': 24,
+    # The land: how much each tile carries, how fast food regrows and what
+    # even a bare tile regrows. Together they set how many people the valley
+    # feeds (here 20-60 or so).
     'richness': 0.45,
+    'regrowth': 0.5,
+    'seed_bank': 0.06,
     'founders': 12,
     'mode': 'sexual',
     'mutation': 0.05,  # Copying errors at birth.
@@ -35,6 +40,49 @@ SANDBOX: Mapping[str, Any] = {
     'child_cost': 2.0,
     'max_years': None,  # The Sandbox runs indefinitely.
     'history_kept': 200,
+    # While the valley is nearly empty, strangers may come with customs of
+    # their own: they keep their elders' ways, feed only their own and have
+    # children young.
+    'arrivals': {
+        'below': 20,
+        'chance': 0.25,
+        'group': 2,
+        'food': 6.0,
+        'people': 'Hill people',
+        'customs': [
+            {
+                'kind': 'norm',
+                'domain': 'kinship',
+                'text': 'Children are a blessing; we have them while young.',
+            },
+            {
+                'kind': 'norm',
+                'domain': 'sharing',
+                'text': 'Each family feeds its own; we neither beg nor give.',
+            },
+            {
+                'kind': 'skill',
+                'domain': 'food',
+                'text': 'Snaring hares on the hillsides.',
+                'params': {'level': 2},
+            },
+            {
+                'kind': 'belief',
+                'domain': 'sacred',
+                'text': 'The hills remember every footstep.',
+            },
+            {
+                'kind': 'value',
+                'domain': 'identity',
+                'text': 'We are the Hill people; we owe nobody.',
+            },
+            {
+                'kind': 'bias',
+                'domain': 'learning',
+                'text': 'Keep to the traditional ways of our elders.',
+            },
+        ],
+    },
     'founding_customs': [
         {
             'kind': 'norm',

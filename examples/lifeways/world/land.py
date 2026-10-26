@@ -29,8 +29,10 @@ CAPACITY = {
     'hills': 2.5,
     'marsh': 4.0,
 }
-REGROWTH = 0.6  # Logistic rate per year.
-SEED_BANK = 0.1  # Share of capacity a bare tile regrows in a year.
+# Defaults: the logistic rate food regrows by in a year, and the share of
+# its capacity even a bare tile regrows.
+REGROWTH = 0.6
+SEED_BANK = 0.1
 
 Tile = tuple[int, int]
 
@@ -38,10 +40,20 @@ Tile = tuple[int, int]
 class Land:
   """Terrain and food on a toroidal grid."""
 
-  def __init__(self, rows: int, cols: int, seed: int, richness: float = 1.0):
+  def __init__(
+      self,
+      rows: int,
+      cols: int,
+      seed: int,
+      richness: float = 1.0,
+      regrowth: float = REGROWTH,
+      seed_bank: float = SEED_BANK,
+  ):
     self.rows, self.cols = int(rows), int(cols)
-    # Scales every tile's food: how many people the land can feed.
+    # Scales every tile's food; with the regrowth, how many the land feeds.
     self.richness = float(richness)
+    self.regrowth = float(regrowth)
+    self.seed_bank = float(seed_bank)
     rng = np.random.default_rng([seed, 1])
     # A smooth random field picks the terrain: rivers in its valleys, hills
     # on its heights, a coast along one edge.
@@ -122,8 +134,8 @@ class Land:
   def regrow(self) -> None:
     capacity = self._capacities()
     self.food += (
-        REGROWTH * self.food * (1.0 - self.food / capacity)
-        + SEED_BANK * capacity
+        self.regrowth * self.food * (1.0 - self.food / capacity)
+        + self.seed_bank * capacity
     )
     np.minimum(self.food, capacity, out=self.food)
 

@@ -106,6 +106,11 @@ form a norm comes in by it, and which channels exist. A founding custom's
 `held_by` is the share of founders who hold it. What people take up is their own Learners' choice; the harness
 reads it for the census (`Run.customs_census`), the GM never does.
 
+**Arrivals.** While the valley is nearly empty, strangers may come (the
+`arrivals` setting): in the Sandbox, the Hill people, who keep their elders'
+ways, feed only their own and have children young. Their customs spread, or
+not, by the same channels as anyone's.
+
 **Partners.** One who looks for a partner looks until paired, with the
 nearest who is looking too. Parents and children, and siblings, never pair.
 

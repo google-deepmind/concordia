@@ -145,6 +145,8 @@ class Person:
   starving: int = 0
   # Customs the GM gave this person (at birth, by offers): ids.
   given: list[str] = dataclasses.field(default_factory=list)
+  # The year the person came to the valley, if not born in it.
+  arrived: int | None = None
 
   def age(self, year: int) -> int:
     return year - self.born
@@ -167,6 +169,7 @@ class Person:
         children=[str(c) for c in data.get('children', ())],
         starving=int(data.get('starving', 0)),
         given=[str(g) for g in data.get('given', ())],
+        arrived=(None if data.get('arrived') is None else int(data['arrived'])),
     )
 
 
@@ -174,7 +177,7 @@ class Person:
 class YearOutcome:
   """What closing a year changed beyond the world itself."""
 
-  # Prefab params of each person born, to add to the simulation.
+  # Prefab params of each person born or arrived, to add to the simulation.
   births: list[dict[str, Any]]
   # Names of the people who died, to remove from it.
   deaths: list[str]
@@ -205,6 +208,8 @@ class World:
         int(settings.get('cols', 24)),
         self.seed,
         richness=float(settings.get('richness', 0.45)),
+        regrowth=float(settings.get('regrowth', land_lib.REGROWTH)),
+        seed_bank=float(settings.get('seed_bank', land_lib.SEED_BANK)),
     )
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
@@ -271,7 +276,7 @@ class World:
 
   def _params(self, person: Person) -> dict[str, Any]:
     """The prefab params of a person's entity."""
-    return {
+    params = {
         'name': person.name,
         'born': person.born,
         'sex': person.sex,
@@ -279,6 +284,62 @@ class World:
         'seed': self.seed,
         'customs': [self.culture.get(c).spec() for c in person.given],
     }
+    if person.arrived is not None:
+      params['arrived'] = person.arrived
+    return params
+
+  def _arrive(self) -> list[dict[str, Any]]:
+    """Strangers who come to a nearly empty valley, with their own customs.
+
+    The `arrivals` setting: while fewer than `below` people live, each year
+    a `group` of strangers of a people (`people`) arrives with chance
+    `chance`, at a place drawn from the seed, each holding that people's
+    `customs` and `food` stores.
+
+    Returns:
+      The prefab params of each who arrived.
+    """
+    arrivals = self.settings.get('arrivals')
+    if not arrivals or len(self.people) >= int(arrivals.get('below', 20)):
+      return []
+    rng = self._rng('arrivals')
+    if rng.random() >= float(arrivals.get('chance', 0.25)):
+      return []
+    customs = [
+        self.culture.add(
+            c['kind'],
+            c['domain'],
+            c['text'],
+            c.get('params'),
+            origin='arrival',
+            year=self.year,
+        ).id
+        for c in arrivals.get('customs', ())
+    ]
+    tile = (
+        int(rng.integers(self.land.rows)),
+        int(rng.integers(self.land.cols)),
+    )
+    people = str(arrivals.get('people', 'strangers'))
+    came = []
+    for i in range(int(arrivals.get('group', 2))):
+      person = Person(
+          name=self._new_name(),
+          born=self.year - int(rng.integers(18, 31)),
+          sex='' if self.mode == 'asexual' else ('f' if i % 2 == 0 else 'm'),
+          tile=tile,
+          food=float(arrivals.get('food', 6.0)),
+          given=list(customs),
+          arrived=self.year,
+      )
+      self.people[person.name] = person
+      self._tell(
+          person.name,
+          f'{person.name} comes to the valley with the {people}.',
+          newborn=True,
+      )
+      came.append(self._params(person))
+    return came
 
   def _new_name(self) -> str:
     """A name nobody in this world has had: two syllables, then three..."""
@@ -432,12 +493,14 @@ class World:
     deaths = self._eat_and_die()
     self._see_breaches(did, allowed)
     self.land.regrow()
+    arrived = self._arrive()
     extinct = self.culture.prune(
         {c for person in self.people.values() for c in person.given}
     )
     self.history.append(
         self._census(
             births=len(births),
+            arrivals=len(arrived),
             deaths=len(deaths),
             did=did,
             worked=worked,
@@ -451,7 +514,7 @@ class World:
     for name in self.participants():
       self._tell(name, self.status(name))
     return YearOutcome(
-        births=births,
+        births=births + arrived,
         deaths=deaths,
         extinct=[custom.to_dict() for custom in extinct],
     )
@@ -864,6 +927,7 @@ class World:
   def _census(
       self,
       births: int,
+      arrivals: int,
       deaths: int,
       did: Mapping[str, tuple[str, list[str]]],
       worked: Sequence[int],
@@ -876,6 +940,7 @@ class World:
         'year': self.year,
         'population': len(self.people),
         'births': births,
+        'arrivals': arrivals,
         'deaths': deaths,
         'mean_age': round(sum(ages) / len(ages), 2) if ages else 0.0,
         'food': round(float(self.land.food.sum()), 3),

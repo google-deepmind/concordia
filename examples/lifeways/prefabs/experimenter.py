@@ -48,7 +48,13 @@ def watch(action_spec, contexts) -> str:
 
 @dataclasses.dataclass
 class Experimenter(prefab_lib.Prefab):
-  """The Experimenter's entity."""
+  """The Experimenter's entity.
+
+  Params:
+    name: The Experimenter's name.
+    act_component_factory: Optional. Builds the acting component from the
+      context components' order; a rule that watches by default.
+  """
 
   description: str = (  # pyrefly: ignore[bad-override]
       'The Lifeways Experimenter, who intervenes on the world, not on minds.'

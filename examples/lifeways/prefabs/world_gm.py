@@ -55,7 +55,14 @@ WORLD_GM_NAME = 'Lifeways'
 
 @dataclasses.dataclass
 class WorldGameMaster(prefab_lib.Prefab):
-  """A deterministic World GM: the land, the people's lives, the year."""
+  """A deterministic World GM: the land, the people's lives, the year.
+
+  Params:
+    name: The GM's name.
+    settings: The world's settings (`scenarios.settings`).
+    lifecycle: Optional. How births, deaths and forgotten customs reach the
+      simulation (`Lifecycle`), wired by the harness.
+  """
 
   description: str = (  # pyrefly: ignore[bad-override]
       'Lifeways World GM: steps the land and the people a year at a time and'

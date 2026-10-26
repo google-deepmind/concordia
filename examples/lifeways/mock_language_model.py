@@ -116,10 +116,13 @@ def _choose(
   draw = _stable(prompt)
   land = float(_LAND.findall(prompt)[-1]) if _LAND.findall(prompt) else 99.0
   watched = bool(_SIGHT.findall(prompt)) and int(_SIGHT.findall(prompt)[-1]) > 0
+  # The sharing norms that call for sharing (not every one does).
   sharing = [
       cid
-      for domain, cid, _ in customs
-      if domain == 'sharing' and (cid not in expected or watched)
+      for domain, cid, text in customs
+      if domain == 'sharing'
+      and 'share' in text.lower()
+      and (cid not in expected or watched)
   ]
   share = [m for m in moves if m.startswith('share food with ')]
   shame = [m for m in moves if m.startswith('shame ')]

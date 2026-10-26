@@ -163,10 +163,10 @@ class Learner(entity_component.ContextComponent):
     # join when the current call ends): id -> kind, domain, level, channel.
     self._held: dict[str, dict[str, Any]] = {}
 
-  def note_inherited(self, spec: Mapping[str, Any]) -> None:
-    """Records a custom the person was born with."""
+  def note_inherited(self, spec: Mapping[str, Any], via: str = 'birth') -> None:
+    """Records a custom the person was born with (or came with)."""
     with self._lock:
-      self._hold(spec, 'birth')
+      self._hold(spec, via)
 
   def held(self) -> list[str]:
     """The ids of the customs the person holds, oldest first."""
