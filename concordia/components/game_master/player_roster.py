@@ -15,14 +15,14 @@
 """A game master component that keeps the players: who joins, who leaves.
 
 The roster holds the list of player entities that the simulation plays: the
-`entities` a game master prefab is given, which the engine runs. Players join
-the game, built from a prefab, and leave it only through the roster, and the
-game master's other components find a player by name here, and may condition
-on who plays: the roster is `ActionSpecIgnored`, its pre-act value the
-players' names. Nothing else is
-needed of the simulation or the engine: the list itself changes, so an engine
-that runs it sees the change (the asynchronous engine starts a loop for a
-player who joins and ends the loop of one who leaves).
+`entities` a game master prefab is given, the very list the engine runs.
+Players join the game, built from a prefab, and leave it only through the
+roster, and the game master's other components find a player by name here.
+They may also condition on who plays: the roster is `ActionSpecIgnored`, and
+its pre-act value is the players' names. Nothing else is needed of the
+simulation or the engine: the list itself changes, so an engine that runs it
+sees the change (the asynchronous engine starts a loop for a player who joins
+and ends the loop of one who leaves).
 
   roster = player_roster.PlayerRoster(
       players=entities,  # the game master prefab's `self.entities`
@@ -35,22 +35,37 @@ player who joins and ends the loop of one who leaves).
   roster.leave('Ada')
 
 A player who joins is built from its prefab with the prefab's params updated
-by the player's own: what all players of a prefab share (e.g. measurements)
-stays on the prefab, and the player's own params (its name among them) must be
-JSON-serializable, since the roster's state keeps them.
+by the player's own. What all players of a prefab share (e.g. measurements)
+stays on the prefab, which is not deep-copied. The player's own params (its
+name among them) must be JSON-serializable, since the roster's state keeps
+them. (A simulation's `add_entity`, by contrast, replaces a deep copy's
+params.)
 
 A checkpoint of a `generic.Simulation` keeps the players it began with. The
 roster's state keeps the rest: who joined and is still playing (the prefab,
 params and state of each) and which of the first players left. Restored, the
 roster takes away the first players who left and rebuilds those who joined.
+Two things follow:
+- the simulation's checkpoint logs a warning for each player who joined (it
+  has no prefab config of theirs), though the roster keeps them;
+- a checkpoint is consistent when taken where no player joins or leaves (e.g.
+  in the game master's own turn), since the simulation reads the list without
+  the roster's lock.
+
+Other things to know:
+- with the asynchronous engine, each player who joins gets `max_steps` of its
+  own, and the action of a player who leaves while acting is still resolved;
+- stock components given fixed `player_names` (e.g. `MakeObservation`'s
+  broadcast to all) do not follow the roster; condition on the roster
+  instead.
 """
 
-from collections.abc import Callable, Mapping, MutableSequence
+from collections.abc import Callable, Mapping, MutableSequence, Sequence
 import copy
 import dataclasses
 import json
 import threading
-from typing import Any, cast
+from typing import Any, cast, override
 
 from concordia.associative_memory import basic_associative_memory as associative_memory
 from concordia.components.agent import action_spec_ignored
@@ -74,7 +89,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
 
   def __init__(
       self,
-      players: MutableSequence[entity_lib.Entity],
+      players: Sequence[entity_lib.Entity],
       player_prefabs: Mapping[str, prefab_lib.Prefab] | None = None,
       model: language_model.LanguageModel | None = None,
       embedder: Callable[[str], np.ndarray] | None = None,
@@ -84,17 +99,27 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       players: The list of player entities the simulation plays (a game master
-        prefab's `entities`), changed in place as players join and leave. The
-        players in it now are the game's first players.
+        prefab's `entities`, the list the engine runs), changed in place as
+        players join and leave. The players in it now are the game's first
+        players.
       player_prefabs: The prefabs players may join as, by name. Their params
         are those all players of the prefab share.
-      model: The language model players who join are built with.
+      model: The language model players who join act with (the simulation's
+        model for entities).
       embedder: The sentence embedder of the memory of players who join.
       pre_act_label: Prefix to add to the output of the component when called
         in `pre_act`.
+
+    Raises:
+      TypeError: If `players` cannot be changed in place (e.g. a tuple).
     """
+    if not isinstance(players, MutableSequence):
+      raise TypeError(
+          'The roster changes the list of players in place: give it the list'
+          f' the simulation plays, not a {type(players).__name__}.'
+      )
     super().__init__(pre_act_label)
-    self._players = players
+    self._players: MutableSequence[entity_lib.Entity] = players
     self._player_prefabs = dict(player_prefabs or {})
     self._model = model
     self._embedder = embedder
@@ -115,6 +140,9 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
 
     Args:
       name: The player's name.
+
+    Returns:
+      The player.
 
     Raises:
       KeyError: If no player of that name plays.
@@ -177,6 +205,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     self._players_changed()
     return player
 
+  @override
   def get_state(self) -> entity_component.ComponentState:
     """Returns who joined (with each one's state) and who left."""
     with self._players_lock:
@@ -191,6 +220,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
         joined[name] = {**copy.deepcopy(built_from), 'state': state}
       return {'joined': joined, 'left': list(self._left)}
 
+  @override
   def set_state(self, state: entity_component.ComponentState) -> None:
     """Makes the players those of the state.
 
@@ -198,6 +228,8 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     state was taken leave, and players who joined before it are rebuilt (if
     they no longer play) and given their states. The first players' own
     states are not the roster's: a simulation's checkpoint restores them.
+    Every player is built before the list changes, so a player that cannot
+    be built leaves the players as they were.
 
     Args:
       state: A state from `get_state`.
@@ -206,6 +238,11 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
     left = [str(name) for name in saved.get('left', ())]
     joined: Mapping[str, Any] = saved.get('joined', {})
     with self._players_lock:
+      built = {
+          name: self._build(built_from['prefab'], built_from['params'])
+          for name, built_from in joined.items()
+          if self._find(name) is None
+      }
       for name in left + [n for n in self._joined if n not in joined]:
         player = self._find(name)
         if player is not None:
@@ -215,7 +252,7 @@ class PlayerRoster(action_spec_ignored.ActionSpecIgnored):
       for name, built_from in joined.items():
         player = self._find(name)
         if player is None:
-          player = self._build(built_from['prefab'], built_from['params'])
+          player = built[name]
           self._players.append(player)
         if isinstance(player, entity_component.EntityWithComponents):
           player.set_state(built_from.get('state', {}))
