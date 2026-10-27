@@ -341,7 +341,7 @@ function leverChoices(world) {
  *     (most: 8, in year 14)'.
  */
 function releaseStatus(release) {
-  const at = release.tile.join(',');
+  const at = `row ${release.tile[0]}, column ${release.tile[1]}`;
   const head = release.how === 'song' ?
       `sung at ${at} in year ${yearText(release.year)} · ${release.heard}` +
         ` heard it` :
@@ -802,10 +802,10 @@ function variantNote(variant) {
  * What a list leaves out, if anything.
  * @param {number} listed How many are listed.
  * @param {number} count How many there are.
- * @return {string} E.g. '; the first 80 of 95 are listed', or ''.
+ * @return {string} E.g. 'the first 80 of 95 are listed', or ''.
  */
 function moreNote(listed, count) {
-  return listed < count ? `; the first ${listed} of ${count} are listed` : '';
+  return listed < count ? `the first ${listed} of ${count} are listed` : '';
 }
 
 /**
@@ -946,11 +946,13 @@ async function showLineage(id) {
       lineage.held.length > 0;
   document.getElementById('lineage-held-list').replaceChildren(
       ...lineage.held.map((variant) => item(variant, false)));
+  const heldMore = moreNote(lineage.held.length, lineage.held_count);
   document.getElementById('lineage-held-more').textContent =
-      moreNote(lineage.held.length, lineage.held_count);
+      heldMore ? `${sentence(heldMore)}.` : '';
   fill('kept', lineage.kept, false, `Kept only in libraries or shrines ` +
       `(${lineage.kept_count}): nobody holds these, but someone may read or ` +
-      'hear them there' + moreNote(lineage.kept.length, lineage.kept_count));
+      'hear them there' + (lineage.kept.length < lineage.kept_count ?
+        `; ${moreNote(lineage.kept.length, lineage.kept_count)}` : ''));
   const shown = lineage.variants.length;
   fill('tree', lineage.variants, true, `Its family tree (${shown}` +
       (lineage.more ? ` of ${shown + lineage.more} versions shown` :
@@ -1058,6 +1060,7 @@ async function refreshOnce() {
         `${world.people.length} people alive` +
         (world.running ? '' : ' (the world has stopped)');
     document.getElementById('anew-box').hidden = world.running;
+    document.getElementById('play-as-box').hidden = !world.playable;
     document.getElementById('stop').hidden = !world.running;
     document.getElementById('play').textContent =
         world.pace.paused ? 'Play' : 'Pause';
@@ -1411,12 +1414,21 @@ function moveWords(move) {
 }
 
 /**
+ * Places in a text in words: "at 3,4" becomes "at row 3, column 4".
+ * @param {string} text A text naming places as the World does.
+ * @return {string} The text.
+ */
+function placeWords(text) {
+  return text.replace(/\b(at|of|to) (\d+),(\d+)\b/g, '$1 row $2, column $3');
+}
+
+/**
  * A notebook entry's text as the page shows it: a move in words.
  * @param {!Object} entry The entry.
  * @return {string} Its text.
  */
 function entryText(entry) {
-  if (entry.kind !== 'move') return entry.text;
+  if (entry.kind !== 'move') return placeWords(entry.text);
   let m = entry.text.match(new RegExp(
       '^(?:Your move for next year(?:, as the World reads it)?|' +
       'You queue a move): (.+)$'));
@@ -1429,7 +1441,7 @@ function entryText(entry) {
         `${(LEVER_WORDS[m[3]] || m[3]).toLowerCase()} set to ${m[4]}`;
     return `You fork a twin in year ${yearText(m[1])}: ${pulled}.`;
   }
-  return entry.text;
+  return placeWords(entry.text);
 }
 
 /**
@@ -1505,11 +1517,19 @@ async function start() {
   });
   document.getElementById('anew').addEventListener('click', async () => {
     const scenario = document.getElementById('preset').value;
-    if (!confirm(`Begin a new world (${scenario})? This one is set aside.`)) {
+    if (!confirm(`Begin a new world (${worldName(scenario)})? This one ` +
+        'is set aside.')) {
       return;
     }
-    await api('api/new',
-        {scenario, play_as: document.getElementById('play-as').checked});
+    const said = document.getElementById('anew-error');
+    said.textContent = '';
+    try {
+      await api('api/new',
+          {scenario, play_as: document.getElementById('play-as').checked});
+    } catch (error) {
+      said.textContent = `No new world: ${error.message}`;
+      return;
+    }
     Object.assign(page, {rows: [], since: -1, twinRows: [], twinSince: -1,
       twin: null, entries: [], entrySince: 0, person: null, at: null,
       asked: null});
@@ -1629,8 +1649,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
     entryText, moveWords, worldName, yearText,
-    goneNote, leverChoices, moreNote, peopleColour, releaseMove, appendNew, entryMeta,
-    entryShown,
+    goneNote, leverChoices, moreNote, peopleColour, placeWords, releaseMove,
+    appendNew, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,

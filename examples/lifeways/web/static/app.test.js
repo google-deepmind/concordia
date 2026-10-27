@@ -24,7 +24,7 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
-  leverChoices, moreNote,
+  leverChoices, moreNote, placeWords,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -147,18 +147,23 @@ test('a release says where it went and whether it lives', () => {
     holders: [[4, 0], [5, 3], [14, 8], [15, 7]], peak: 8, peak_year: 14,
     variants: 2, died: null};
   assert.equal(releaseStatus(release),
-      'sung at 6,13 in year 4 · 2 heard it · held by 7 now (most: 8, in' +
+      'sung at row 6, column 13 in ' +
+      'year 4 · 2 heard it · held by 7 now (most: 8, in' +
       ' year 14) · 2 versions of it, as copies changed it');
   assert.equal(releaseStatus({...release, how: 'text', variants: 1}),
-      'left as a text on a library shelf at 6,13 in year 4 · held by 7 now' +
+      'left as a text on a library shelf at row 6, column 13 in ' +
+      'year 4 · held by 7 now' +
       ' (most: 8, in year 14)');
   assert.equal(releaseStatus({...release, heard: 0, peak: 0, died: 5}),
-      'sung at 6,13 in year 4 · 0 heard it · nobody took it up; gone by' +
+      'sung at row 6, column 13 in ' +
+      'year 4 · 0 heard it · nobody took it up; gone by' +
       ' year 5');
   assert.equal(releaseStatus({...release, peak: 0}),
-      'sung at 6,13 in year 4 · 2 heard it · nobody has taken it up yet');
+      'sung at row 6, column 13 in ' +
+      'year 4 · 2 heard it · nobody has taken it up yet');
   assert.equal(releaseStatus({...release, died: 40, year: 29904}),
-      'sung at 6,13 in year 29,904 · 2 heard it · died out in year 40' +
+      'sung at row 6, column 13 in ' +
+      'year 29,904 · 2 heard it · died out in year 40' +
       ' (at most 8 held it)');
 });
 
@@ -185,7 +190,8 @@ test('a release says how it fares in the twin', () => {
     holders: [[4, 0], [5, 3]], peak: 3, peak_year: 5, variants: 1,
     died: null, twin: {id: 'c41', heard: 2, now: 0, peak: 0, died: 6}};
   assert.equal(releaseStatus(release),
-      'sung at 6,13 in year 4 · 2 heard it · held by 3 now (most: 3, in' +
+      'sung at row 6, column 13 in ' +
+      'year 4 · 2 heard it · held by 3 now (most: 3, in' +
       ' year 5) · in the twin: died out');
   assert.equal(releaseStatus({...release, twin: {...release.twin, died: null,
     now: 5}}).endsWith(' · in the twin: held by 5'), true);
@@ -435,5 +441,8 @@ test('moves read as a person would say them', () => {
 
 test('a list says what it leaves out', () => {
   assert.equal(moreNote(80, 80), '');
-  assert.equal(moreNote(80, 95), '; the first 80 of 95 are listed');
+  assert.equal(moreNote(80, 95), 'the first 80 of 95 are listed');
+  assert.equal(placeWords('A fire struck at 3,4; a shrine stands within 5' +
+      ' steps of 6,7.'), 'A fire struck at row 3, column 4; a shrine stands' +
+      ' within 5 steps of row 6, column 7.');
 });

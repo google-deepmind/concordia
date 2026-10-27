@@ -82,9 +82,12 @@ def main(argv: Sequence[str]) -> None:
     model, _ = simulation.make_model(_MODEL.value)
   except ValueError as error:
     raise app.UsageError(str(error)) from error
-  if _PLAY_AS.value and _FREE.value > 0:
+  if _FREE.value > 0 and (
+      _PLAY_AS.value or session_lib.saved_played(_SAVE.value)
+  ):
     raise app.UsageError(
-        '--play_as needs years that wait for the player: not with --free.'
+        'A played person needs years that wait for the player: not with'
+        ' --free (--play_as, or a played world saved at --save).'
     )
   overrides: dict[str, Any] = {'free': _FREE.value} if _FREE.value > 0 else {}
 

@@ -134,7 +134,7 @@ label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
 #transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
-#error, #fork-error, #note-error, #fate-error, #life-error {
+#error, #fork-error, #note-error, #fate-error, #life-error, #anew-error {
   color: var(--danger);
 }
 

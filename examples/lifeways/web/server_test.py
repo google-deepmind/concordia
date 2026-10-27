@@ -1204,8 +1204,8 @@ class PlayAsTest(absltest.TestCase):
     self.assertGreaterEqual(time.monotonic() - began, 0.8)
 
   def test_questions_waiting_at_once_keep_their_own_answers(self):
-    # In free mode a dead founder's question may still wait beside its
-    # heir's: each gets its own answer, or none.
+    # Questions waiting at once (as when a life ends with one unanswered)
+    # each get their own answer, or none.
     played = session_lib.PersonInput('Kaka', patience=1.5)
     got = {}
 
@@ -1224,6 +1224,9 @@ class PlayAsTest(absltest.TestCase):
     second = threading.Thread(target=ask, args=('Teo', 'r2'))
     second.start()
     self.assertTrue(_wait(lambda: (played.asked() or {}).get('id') == 'r2'))
+    self.assertEqual(_known(played.asked('Kaka'))['id'], 'r1')
+    self.assertEqual(_known(played.asked('Teo'))['id'], 'r2')
+    self.assertIsNone(played.asked('Orel'))
 
     self.assertTrue(played.answer('r2', 'sow a field'))
     first.join(10)
@@ -1249,6 +1252,38 @@ class PlayAsTest(absltest.TestCase):
   def test_a_person_is_not_played_where_years_close_on_their_own(self):
     with self.assertRaisesRegex(ValueError, 'free mode'):
       session_lib.Session('sandbox', play_as=True, free=5.0)
+
+  def test_a_refused_played_world_keeps_the_stopped_one(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+    def world(scenario='sandbox', play_as=False):
+      return session_lib.Session(
+          scenario,
+          years_per_second=40,
+          save_path=path,
+          save_seconds=0,
+          play_as=play_as,
+          free=5.0,
+      )
+
+    served = serving.Served(world(), renew=world)
+    first = served.session
+    self.assertFalse(first.state()['playable'])
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: first.state()['year'] >= 2))
+      first.stop()
+      self.assertTrue(_wait(lambda: not first.running))
+      self.assertTrue(_wait(lambda: os.path.exists(path)))
+
+      with self.assertRaisesRegex(ValueError, 'free mode'):
+        served.begin_anew('sandbox', play_as=True)
+
+      self.assertIs(served.session, first)
+      self.assertTrue(os.path.exists(path))
+      self.assertFalse(os.path.exists(path + '.stopped'))
+    finally:
+      first.close()
 
   def test_a_played_world_notes_its_life_from_the_start(self):
     session = session_lib.Session('sandbox', play_as=True)
@@ -1419,6 +1454,8 @@ class LivingOnTest(absltest.TestCase):
     try:
       self.assertIsNotNone(restored.restored_year)
       self.assertEqual(restored.state()['played']['lives'], [founder, heir])
+      # pylint: disable-next=protected-access
+      self.assertEqual(restored._lives_noted, (heir, True))
       restored.start()
       self.assertTrue(
           _wait(

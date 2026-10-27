@@ -84,6 +84,11 @@ ENGINE_THREADS = 'entity_loop'
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
 LINEAGE_SHOWN = 80
+# Why a person cannot be played in a world of free mode.
+NOT_PLAYABLE = (
+    'A person cannot be played in free mode: its years close on their own,'
+    " and a played person's year waits for the player."
+)
 # How long a new count of peoples or tongues holds before the notebook
 # notes it.
 SETTLED_YEARS = 10
@@ -452,8 +457,8 @@ class PersonInput:
     self._patience = float(patience)
     self._paused = paused
     self._changed = threading.Condition()
-    # The questions waiting for an answer, by request id, oldest first (in
-    # free mode a dead person's question may still wait beside its heir's),
+    # The questions waiting for an answer, by request id, oldest first (one
+    # at a time, but keyed so that no answer can reach another question),
     # with when each runs out, and the answers given.
     self._asked: dict[str, dict[str, Any]] = {}
     self._deadlines: dict[str, float] = {}
@@ -621,12 +626,12 @@ class Session:
     # The person the page plays, if any (in the identity only then, so that
     # saves of unplayed worlds keep theirs).
     self.played: PersonInput | None = None
+    # Whether a person may be played here: not where years close on their
+    # own (free mode), since a played person's year waits for the player.
+    self.playable = not self._settings.get('free')
     if play_as:
-      if self._settings.get('free'):
-        raise ValueError(
-            'A person cannot be played in free mode: its years close on'
-            " their own, and a played person's year waits for the player."
-        )
+      if not self.playable:
+        raise ValueError(NOT_PLAYABLE)
       first = scenarios.founders(self._settings)[0]['params']['name']
       self.played = PersonInput(
           str(first),
@@ -1477,6 +1482,7 @@ class Session:
         'restored_year': self.restored_year,
         'twin': self._twin_state(),
         'presets': list(scenarios.PRESETS),
+        'playable': self.playable,
         'preset_notes': dict(scenarios.PRESET_NOTES),
         'levers': {
             lever: [low, high, self._settings.get(lever)]

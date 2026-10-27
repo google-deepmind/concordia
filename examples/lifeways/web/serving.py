@@ -122,7 +122,8 @@ class Served:
       The new session, playing.
 
     Raises:
-      ValueError: If there is no such scenario.
+      ValueError: If there is no such scenario, or a person is to be played
+        where none can be (the stopped world is kept then).
       RuntimeError: If the world still plays, or no new world can be built.
     """
     with self._lock:
@@ -134,6 +135,8 @@ class Served:
         raise RuntimeError('The world still plays: stop it first.')
       if self._renew is None:
         raise RuntimeError('This server cannot begin a new world.')
+      if play_as and not old.playable:  # Before the old world is let go.
+        raise ValueError(session_lib.NOT_PLAYABLE)
       old.close()
       old.set_aside_save('a new world begins', '.stopped')
       self.session = self._renew(scenario, play_as)
