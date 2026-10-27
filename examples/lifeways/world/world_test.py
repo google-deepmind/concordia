@@ -209,14 +209,40 @@ _READINGS = (
     ),
     ('Kaka', 'Then she gathers food, she says.', 'gather food'),
     ('Kaka', 'Old Kaka rests, she says.', 'rest'),
-    # Known limits: an exact name comes first; "now" after another word
-    # does not lead a clause.
+    ('Kaka', 'Now she gathers food, she says.', 'gather food'),
+    (
+        'Kaka',
+        'Now she has a child to feed, so she gathers food.',
+        'gather food',
+    ),
+    (
+        'Kaka',
+        'Now she looks for a partner, so she gathers food.',
+        'gather food',
+    ),
+    (
+        'Kaka',
+        (
+            'Gathering food, as her mother did, she says, and she has a child'
+            ' to feed.'
+        ),
+        'gather food',
+    ),
+    (
+        'Kaka',
+        (
+            'Now Kaka gathers food, as her mother did, she says; next year she'
+            ' moves to better land.'
+        ),
+        'gather food',
+    ),
+    # Known limits. A move named as offered comes first, wherever it stands:
     (
         'Kaka',
         'Old Kaka sows a field, so she can look for a partner.',
         'look for a partner',
     ),  # not 'sow a field'
-    ('Kaka', 'Now she gathers food, she says.', ''),  # not 'gather food'
+    # "Now" after another word does not lead a clause:
     ('Kaka', 'And now she gathers food.', ''),  # not 'gather food'
     ('Kaka', 'Right now she gathers food.', ''),  # not 'gather food'
     ('Kaka', 'For now, she rests.', ''),  # not 'rest'
