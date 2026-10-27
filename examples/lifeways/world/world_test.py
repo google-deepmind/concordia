@@ -32,7 +32,7 @@ _FAITHFUL = {
 }
 
 
-# How the World reads answers the stock model and audits 14-14e gave
+# How the World reads answers the stock model and audits 14-14g gave
 # (who answers, the answer, the move read): a table that keeps every
 # reading fixed while the reader changes.
 _READINGS = (
@@ -234,6 +234,14 @@ _READINGS = (
             'Now Kaka gathers food, as her mother did, she says; next year she'
             ' moves to better land.'
         ),
+        'gather food',
+    ),
+    ('Kaka', 'Having a child to feed, Kaka says she gathers food.', ''),
+    ('Kaka', 'Now that she has a child, Kaka says she gathers food.', ''),
+    ('Kaka', 'Looking for a partner, she says she rests.', ''),
+    (
+        'Kaka',
+        'Now Kaka gathers food, so she can feed her child.',
         'gather food',
     ),
     # Known limits. A move named as offered comes first, wherever it stands:

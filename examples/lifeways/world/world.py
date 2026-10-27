@@ -2529,13 +2529,16 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
   # A phrase that only sets the scene for the answerer's clause after it
   # ("Having a child to feed, Kaka gathers food"; "Now she has a child,
   # Kaka ..."): its verb is not the move. Such a phrase opens with "now", or
-  # with a form in -ing and no subject; "..., she says" is not the clause
-  # after it.
+  # with a form in -ing and no subject. The clause after it is the
+  # answerer's ("..., so she gathers food", "..., Kaka says she rests"), not
+  # an aside ("..., she says,") nor a purpose ("..., so she can ...").
   who = '|'.join(filter(None, (re.escape(name.lower()), 'i|she|he|they|we')))
   subject_after = re.compile(
       r'^[^.!?:;]*?,\s+(?:(?:this|next|the next) year,?\s+)?'
-      rf"(?:(?!(?:{_SUBORDINATORS}|and|but|or|yet)\b)[a-z']+\s+)?"
-      rf'(?:{who})\b(?!\s+(?:says|said|thinks|thought)\b)'
+      rf'(?:so\s+(?=(?:{who})\b(?!\s+(?:can|could|will|would|may|might)\b))'
+      rf"|(?!(?:{_SUBORDINATORS}|and|so|but|or|yet)\b)[a-z']+\s+)?"
+      rf'(?:{who})\b'
+      r'(?!\s+(?:says|said|thinks|thought)\s*(?:[,.!?:;(\[]|$))'
   )
   for past in (False, True):  # Said in another form, where a clause begins.
     if found:
