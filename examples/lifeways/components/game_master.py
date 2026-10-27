@@ -31,6 +31,7 @@ from typing import Any, override
 from concordia.components.game_master import event_resolution
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
+from concordia.components.game_master import player_roster
 from concordia.components.game_master import terminate
 from concordia.environment import engine as engine_lib
 from examples.lifeways.world import world as world_lib
@@ -60,15 +61,15 @@ MOVE_QUESTION = (
 class Lifecycle:
   """How the world's births and deaths reach the simulation.
 
-  The harness that builds the simulation fills these in: `spawn` adds an
-  entity (`Simulation.add_entity` of an `InstanceConfig`), `retire` removes
-  one (keeping a record of it first), `forgotten` receives the variants of
-  customs nobody living holds any more (the long record of culture) and
-  `year_closed` is told each new year.
+  The harness that runs the simulation fills these in to read it as it plays:
+  `departed` is given each person who died once they have left the game (to
+  keep a record of them), `forgotten` receives the variants of customs nobody
+  living holds any more (the long record of culture) and `year_closed` is
+  told each new year. The born and the dead join and leave the game through
+  the GM's `PlayerRoster`, not through these.
   """
 
-  spawn: Callable[[Mapping[str, Any]], None] = lambda params: None
-  retire: Callable[[str], None] = lambda name: None
+  departed: Callable[[entity_lib.Entity], None] = lambda person: None
   forgotten: Callable[[Sequence[Mapping[str, Any]]], None] = (
       lambda records: None
   )
@@ -108,29 +109,32 @@ class TurnGate(
   Asked for one person (the asynchronous engine asks per thread), it names
   that person if the person has not yet answered this year. Asked once the
   last answer is in, it first closes the year: it resolves the answers,
-  delivers next year's observations, adds the born and removes the dead
-  through the `Lifecycle`, and ends the game at `max_years` or when the
-  Experimenter stops the world.
+  delivers next year's observations, has the born join the game and the dead
+  leave it through the GM's `PlayerRoster`, and ends the game at `max_years`
+  or when the Experimenter stops the world.
   """
 
   def __init__(
       self,
       lifecycle: Lifecycle,
       observation_queue: make_observation.ObservationQueue,
+      person_prefab: str,
       max_years: int | None = None,
       world_key: str = DEFAULT_WORLD_KEY,
       terminate_key: str = terminate.DEFAULT_TERMINATE_COMPONENT_KEY,
+      roster_key: str = player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY,
       free: float | None = None,
   ):
     """Initializes the gate.
 
     Args:
-      lifecycle: How births, deaths and forgotten customs reach the
-        simulation.
+      lifecycle: What the harness is told as the world plays.
       observation_queue: The queue the GM's `MakeObservation` delivers from.
+      person_prefab: The roster's prefab the born join the game as.
       max_years: The year the game ends at; None for never.
       world_key: The key of the GM's `WorldComponent`.
       terminate_key: The key of the GM's stock `Terminate`.
+      roster_key: The key of the GM's stock `PlayerRoster`.
       free: Free mode, for live play: a year also closes after this many
         seconds, whoever has not answered yet doing nothing that year. Runs
         then depend on how fast minds answer. None: tick mode (a year closes
@@ -139,6 +143,8 @@ class TurnGate(
     super().__init__()
     self._world_key = world_key
     self._terminate_key = terminate_key
+    self._roster_key = roster_key
+    self._person_prefab = person_prefab
     self._free = free
     self._began = time.monotonic()  # When this year began (free mode).
     self._lifecycle = lifecycle
@@ -169,8 +175,11 @@ class TurnGate(
   def _close_year(self, world: world_lib.World) -> None:
     outcome = world.close_year()
     self.deliver(world)
+    roster = self.get_entity().get_component(
+        self._roster_key, type_=player_roster.PlayerRoster
+    )
     for params in outcome.births:
-      self._lifecycle.spawn(params)
+      roster.join(self._person_prefab, params)
     for name in outcome.deaths:  # The dead hear nothing more.
       self._queue.get_and_clear(name)
     if outcome.deaths and self._free is None:
@@ -181,7 +190,7 @@ class TurnGate(
         queued.pop(name, None)
       self._queue.set_all(queued)
     for name in outcome.deaths:
-      self._lifecycle.retire(name)
+      self._lifecycle.departed(roster.leave(name))
     if outcome.extinct:
       self._lifecycle.forgotten(outcome.extinct)
     self._logging_channel({

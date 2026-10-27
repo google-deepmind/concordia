@@ -20,9 +20,10 @@ import os
 import sys
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
+from absl import logging as absl_logging
 from absl.testing import absltest
 from examples.lifeways import sweep
 from examples.lifeways import mock_language_model
@@ -36,6 +37,7 @@ from concordia.associative_memory import basic_associative_memory
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 
 _QUESTION = entity_lib.free_action_spec(call_to_action='What now?')
 
@@ -69,6 +71,23 @@ def _snapshot(run: simulation.Run) -> str:
   return json.dumps(_unordered_sets(state), sort_keys=True)
 
 
+def _state(entity: entity_lib.Entity) -> Any:
+  """An entity's state as saved, the stock memory's hash set in order."""
+
+  def ordered(value: Any) -> Any:
+    if isinstance(value, dict):
+      return {
+          k: sorted(v) if k == 'stored_hashes' else ordered(v)
+          for k, v in value.items()
+      }
+    if isinstance(value, list):
+      return [ordered(v) for v in value]
+    return value
+
+  agent = cast(entity_component.EntityWithComponents, entity)
+  return ordered(json.loads(json.dumps(agent.get_state())))
+
+
 class SandboxTest(absltest.TestCase):
 
   def test_a_year_resolves_whatever_order_the_threads_answered_in(self):
@@ -98,6 +117,26 @@ class SandboxTest(absltest.TestCase):
     for dead in world.dead:  # The valley remembers its dead, for kin.
       self.assertLessEqual(dead['born'], dead['died'])
       self.assertContainsSubset({'sex', 'parents', 'children'}, dead)
+
+  def test_the_born_and_the_dead_are_restored_from_a_checkpoint(self):
+    settings = scenarios.settings(max_years=40)
+    run = simulation.build_simulation(settings)
+    run.play()
+    first = {f['params']['name'] for f in scenarios.founders(settings)}
+    names = [e.name for e in run.sim.entities]
+    self.assertTrue(first - set(names))  # Founders died...
+    self.assertTrue(set(names) - first)  # ... and children were born.
+    with self.assertNoLogs(absl_logging.get_absl_logger(), level='WARNING'):
+      checkpoint = json.loads(json.dumps(run.checkpoint()))
+
+    restored = simulation.build_simulation(settings)
+    simulation.load_checkpoint(restored, checkpoint)
+
+    self.assertEqual([e.name for e in restored.sim.entities], names)
+    self.assertEqual(
+        [_state(e) for e in restored.sim.entities],
+        [_state(e) for e in run.sim.entities],
+    )
 
   def test_children_start_with_what_their_parents_passed_on(self):
     run = simulation.build_simulation(scenarios.settings(max_years=20))
@@ -473,7 +512,7 @@ class LearnerTest(absltest.TestCase):
         **params,
     }
     bank = basic_associative_memory.AssociativeMemoryBank(
-        sentence_embedder=simulation.hash_embedder
+        sentence_embedder=person_lib.hash_embedder
     )
     return prefab.build(mock_language_model.MockModel(), bank)
 

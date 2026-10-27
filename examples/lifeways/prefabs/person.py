@@ -24,6 +24,7 @@ person is its acting component: a model through the stock
 from collections.abc import Mapping
 import dataclasses
 from typing import Any
+import zlib
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
@@ -36,8 +37,25 @@ from examples.lifeways.prefabs import measures
 from examples.lifeways.world import culture as culture_lib
 from concordia.language_model import language_model
 from concordia.typing import prefab as prefab_lib
+import numpy as np
 
 PERSON_PREFAB = 'lifeways_person'
+EMBEDDING_SIZE = 16
+
+
+def hash_embedder(text: str) -> np.ndarray:
+  """A cheap deterministic sentence embedder (memory needs one).
+
+  Args:
+    text: The text.
+
+  Returns:
+    Its embedding, the same for the same text in any process.
+  """
+  rng = np.random.default_rng(zlib.crc32(text.encode()))
+  return rng.standard_normal(EMBEDDING_SIZE)
+
+
 IDENTITY = 'Who I am'
 LEARNER = 'learner'
 

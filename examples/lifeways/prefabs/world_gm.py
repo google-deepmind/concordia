@@ -28,21 +28,24 @@ asks for it. The world is built from the GM's own params (`settings`), so no
 object is shared with any entity.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableSequence
 import dataclasses
-from typing import Any
+from typing import Any, cast
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
 from concordia.components.game_master import make_observation
 from concordia.components.game_master import next_acting
+from concordia.components.game_master import player_roster
 from concordia.components.game_master import switch_act
 from concordia.components.game_master import terminate
 from concordia.environment.engines import asynchronous
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.prefabs import measures
+from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
+from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 
 WORLD_GM_PREFAB = 'lifeways_world__GameMaster'
@@ -58,10 +61,12 @@ class WorldGameMaster(prefab_lib.Prefab):
     settings: The world's settings (`scenarios.settings`).
     founders: The founders the scenario made (`scenarios.founders`), the
       same records whose `params` build the founders' entities.
-    lifecycle: Optional. How births, deaths and forgotten customs reach the
-      simulation (`Lifecycle`), wired by the harness. A live object: it is
-      not serializable, so checkpoints drop it and the restoring harness
-      wires its own.
+    lifecycle: Optional. What the harness is told as the world plays
+      (`Lifecycle`). A live object: it is not serializable, so checkpoints
+      drop it and the restoring harness wires its own.
+
+  The born join the game and the dead leave it through the GM's stock
+  `PlayerRoster`, which holds the simulation's entities (`self.entities`).
   """
 
   description: str = (  # pyrefly: ignore[bad-override]
@@ -93,16 +98,25 @@ class WorldGameMaster(prefab_lib.Prefab):
     world = world_lib.World(settings)
     world.found(self.params.get('founders', ()))
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
+    players = self.entities if self.entities is not None else []
+    roster = player_roster.PlayerRoster(
+        players=cast(MutableSequence[entity_lib.Entity], players),
+        player_prefabs={person_lib.PERSON_PREFAB: person_lib.Person()},
+        model=model,
+        embedder=person_lib.hash_embedder,
+    )
     queue = make_observation.ObservationQueue()
     gate = gm_components.TurnGate(
         lifecycle=lifecycle,
         observation_queue=queue,
+        person_prefab=person_lib.PERSON_PREFAB,
         max_years=settings.get('max_years'),
         free=settings.get('free'),
     )
     names = [entity.name for entity in self.entities or ()]
     components = {
         gm_components.DEFAULT_WORLD_KEY: gm_components.WorldComponent(world),
+        player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY: roster,
         next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: gate,
         next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY: (
             gm_components.Questions()

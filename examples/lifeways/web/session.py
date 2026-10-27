@@ -548,7 +548,7 @@ class Session:
 
   def _snapshot(self, year: int) -> dict[str, Any]:
     """The world at a year's close (in the World GM's lock), as saved."""
-    checkpoint = self.run.sim.make_checkpoint_data()
+    checkpoint = self.run.checkpoint()
     checkpoint['raw_log'] = []  # Nobody reads it; a restore needs none.
     with self._rows_lock:
       rows = list(self._rows)

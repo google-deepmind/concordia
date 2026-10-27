@@ -14,11 +14,11 @@
 
 """Builds and runs a Lifeways simulation on the stock asynchronous engine.
 
-The stock `generic.Simulation` runs the stock `Asynchronous` engine. The
-World GM's `Lifecycle` reaches the simulation for births
-(`Simulation.add_entity`) and deaths (an archive of the person, then
-`Simulation.remove_entity`); this harness wires it and otherwise only runs the
-simulation and reads its state.
+The stock `generic.Simulation` runs the stock `Asynchronous` engine. The born
+join the game and the dead leave it through the World GM's stock
+`PlayerRoster`; the engine follows. This harness only runs the simulation and
+reads its state: the GM's `Lifecycle` tells it of each year closed, each
+person who died (for the archive) and the customs nobody holds any more.
 """
 
 import collections
@@ -26,12 +26,13 @@ from collections.abc import Callable, Iterator, Mapping
 import contextlib
 import dataclasses
 import json
+import logging
 import os
 import sys
 import threading
 from typing import Any, TextIO
-import zlib
 
+from absl import logging as absl_logging
 from concordia.environment.engines import asynchronous
 from examples.lifeways import mock_language_model
 from examples.lifeways import scenarios
@@ -46,26 +47,13 @@ from concordia.contrib import language_models
 from concordia.language_model import language_model
 from concordia.language_model import profiled_language_model
 from concordia.prefabs.simulation import generic as simulation_lib
+from concordia.typing import entity as entity_lib
+from concordia.typing import entity_component
 from concordia.typing import prefab as prefab_lib
 from concordia.utils import profiler
-import numpy as np
 
-EMBEDDING_SIZE = 16
 # An engine iteration bound no run reaches: the World GM ends a run.
 UNBOUNDED_STEPS = 10**12
-
-
-def hash_embedder(text: str) -> np.ndarray:
-  """A cheap deterministic sentence embedder (memory needs one).
-
-  Args:
-    text: The text.
-
-  Returns:
-    Its embedding, the same for the same text in any process.
-  """
-  rng = np.random.default_rng(zlib.crc32(text.encode()))
-  return rng.standard_normal(EMBEDDING_SIZE)
 
 
 @dataclasses.dataclass
@@ -239,6 +227,16 @@ def quiet() -> contextlib.AbstractContextManager[None]:
   return _quiet()
 
 
+class _BornUnconfigured(logging.Filter):
+  """Drops the stock checkpoint's warning for a person the roster keeps."""
+
+  def filter(self, record: logging.LogRecord) -> bool:
+    return record.msg != 'Prefab config not found for entity %s'
+
+
+_BORN_UNCONFIGURED = _BornUnconfigured()
+
+
 @dataclasses.dataclass
 class Run:
   """A built simulation and what the harness keeps beside it."""
@@ -248,6 +246,24 @@ class Run:
   archive: Archive
   # The stock engine the simulation runs on (its `pause` / `play`).
   engine: asynchronous.Asynchronous
+
+  def checkpoint(self) -> dict[str, Any]:
+    """The stock checkpoint (`Simulation.make_checkpoint_data`).
+
+    The stock checkpoint keeps the founders who live; the people born since
+    are kept in the World GM's `PlayerRoster` state. The warning the stock
+    checkpoint logs for each of the born (it has no prefab config of theirs)
+    is dropped.
+
+    Returns:
+      The checkpoint data.
+    """
+    logger = absl_logging.get_absl_logger()
+    logger.addFilter(_BORN_UNCONFIGURED)
+    try:
+      return self.sim.make_checkpoint_data()
+    finally:
+      logger.removeFilter(_BORN_UNCONFIGURED)
 
   def world_state(self) -> Mapping[str, Any]:
     """A copy of the world's state, taken under the World GM's lock.
@@ -471,55 +487,35 @@ def build_simulation(
   sim = simulation_lib.Simulation(
       config=build_config(settings, lifecycle, experimenter),
       model=model or mock_language_model.MockModel(),
-      embedder=hash_embedder,
+      embedder=person_lib.hash_embedder,
       engine=engine,
   )
   archive = archive or Archive()
 
-  def spawn(params: Mapping[str, Any]) -> None:
-    sim.add_entity(
-        prefab_lib.InstanceConfig(
-            prefab=person_lib.PERSON_PREFAB,
-            role=prefab_lib.Role.ENTITY,
-            params=dict(params),
-        )
+  def departed(person: entity_lib.Entity) -> None:
+    state = (
+        person.get_state()
+        if isinstance(person, entity_component.EntityWithComponents)
+        else {}
     )
-
-  def retire(name: str) -> None:
-    entity = next((e for e in sim.entities if e.name == name), None)
-    if entity is None:
-      return
-    config = sim.get_entity_prefab_config(name)
     archive.add({
-        'name': name,
-        'params': (
-            json.loads(json.dumps(dict(config.params), default=str))
-            if config
-            else {}
-        ),
-        'state': json.loads(json.dumps(entity.get_state(), default=str)),  # pyrefly: ignore[missing-attribute]
+        'name': person.name,
+        'state': json.loads(json.dumps(state, default=str)),
     })
-    sim.remove_entity(name)
 
-  lifecycle.spawn = spawn
-  lifecycle.retire = retire
+  lifecycle.departed = departed
   return Run(sim=sim, lifecycle=lifecycle, archive=archive, engine=engine)
 
 
 def load_checkpoint(run: Run, checkpoint: Mapping[str, Any]) -> None:
   """Restores a saved year into a new simulation of the same settings.
 
-  People who died since the start leave; then the standard load restores
-  every entity's and the GM's state, and adds the people born since from the
-  params their checkpoint keeps.
+  The stock load restores the founders who still live and the World GM; the
+  GM's `PlayerRoster` takes away the founders who died and rebuilds the people
+  born since.
 
   Args:
     run: A new run of the same settings (`build_simulation`).
     checkpoint: `Simulation.make_checkpoint_data()` of the saved year.
   """
-  sim = run.sim
-  saved = checkpoint.get('entities', {})
-  for entity in list(sim.entities):
-    if entity.name not in saved:
-      sim.remove_entity(entity.name)
-  sim.load_from_checkpoint(dict(checkpoint))
+  run.sim.load_from_checkpoint(dict(checkpoint))

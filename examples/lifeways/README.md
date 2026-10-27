@@ -361,12 +361,13 @@ what it held are gone.
 **Partners.** One who looks for a partner looks until paired, with the
 nearest who is looking too. Parents and children, and siblings, never pair.
 
-**Births and deaths.**
-- A birth adds an entity with `Simulation.add_entity`; the engine starts the
-  newborn's loop.
-- A death archives the person's state, then calls `Simulation.remove_entity`,
-  which ends that loop.
-- The `Lifecycle` that `simulation.py` wires carries both.
+**Births and deaths** go through the World GM's stock `PlayerRoster`,
+which holds the list of entities the simulation plays:
+- A newborn joins the game (`PlayerRoster.join`, built from the person
+  prefab); the engine starts its loop.
+- The dead leave it (`PlayerRoster.leave`), which ends their loops; the
+  harness's archive is given each (`Lifecycle.departed`).
+- Neither the simulation nor the engine is told: both follow the list.
 
 **Indefinite runs stay bounded.**
 - The raw log is trimmed (`play(log_retention=...)`).
@@ -380,14 +381,15 @@ nearest who is looking too. Parents and children, and siblings, never pair.
   for the process, however many worlds play).
 
 **Checkpoints** are the standard ones (`Simulation.make_checkpoint_data`):
-- The restore (`simulation.load_checkpoint`) removes the founders who died;
-  the stock `load_from_checkpoint` restores everyone's state and adds the
-  people born since.
+- The stock checkpoint keeps the founders who live; the roster's state keeps
+  the people born since (and which founders died).
+- The restore is the stock `load_from_checkpoint`: it restores the founders,
+  and the roster takes away the founders who died and rebuilds the born.
 - A restored year plays on exactly as the live one.
 
-This example relies on three core changes: entities joining and leaving the
-asynchronous engine, entity agents adding and removing components, and
-bounded async logs.
+This example relies on three core changes: a game master's `PlayerRoster`
+(players join and leave a game; the asynchronous engine's threads follow),
+entity agents adding and removing components, and bounded async logs.
 
 ## Tests
 

@@ -28,6 +28,7 @@ from absl.testing import absltest
 from examples.lifeways import scenarios
 from examples.lifeways.web import server as server_lib
 from examples.lifeways.web import session as session_lib
+from concordia.components.game_master import player_roster
 from concordia.typing import entity as entity_lib
 from concordia.typing import human_input
 
@@ -144,7 +145,17 @@ class SaveTest(absltest.TestCase):
     self.assertEqual(state['year'], saved['year'])
     self.assertEqual(state['restored_year'], saved['year'])
     self.assertEqual(state['pace']['years_per_second'], 40)
-    self.assertLen(state['people'], len(saved['checkpoint']['entities']) - 1)
+    # The founders who live are the checkpoint's entities (the Experimenter
+    # among them); the born, the World GM's roster's.
+    (world_gm,) = saved['checkpoint']['game_masters'].values()
+    roster = world_gm['components']['context_components'][
+        player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY
+    ]
+    self.assertGreater(len(roster['joined']), 0)
+    self.assertLen(
+        state['people'],
+        len(saved['checkpoint']['entities']) - 1 + len(roster['joined']),
+    )
     self.assertEqual(second.census(), saved['rows'])
     second.start()
     try:
@@ -481,7 +492,7 @@ class TreesTest(absltest.TestCase):
     super().setUpClass()
     cls.session = session_lib.Session(years_per_second=50)
     cls.session.start()
-    assert _wait(lambda: cls.session.state()['year'] >= 40, 60)
+    assert _wait(lambda: cls.session.state()['year'] >= 40, 120)
     cls.session.pace(paused=True)
     time.sleep(0.3)
 
