@@ -93,7 +93,15 @@ limitations under the License.
       <label>As a
         <select id="how"><option>song</option><option>text</option></select>
       </label>
-      <label>At <input id="at" value="8,8" inputmode="numeric" size="6"></label>
+      <label id="within-box" hidden>Whom it allows
+        <select id="within">
+          <option value="">anyone</option>
+          <option value="tongue">one who speaks as we do</option>
+          <option value="descent">only our own people</option>
+        </select>
+      </label>
+      <label>At <input id="at" inputmode="numeric" size="6"
+        placeholder="tap the map"></label>
       <label class="wide">It says
         <input id="says" maxlength="160" placeholder="We give the first fish to the river.">
       </label>

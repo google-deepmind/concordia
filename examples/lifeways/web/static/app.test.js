@@ -22,10 +22,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, cameBy, chartSeries, kinName, leverChoices, peopleColour,
-  releaseMove, appendNew, entryMeta, entryShown, fateChoices, fateMove,
-  reachNote, recentDisasters, releaseStatus, savedNote, transmissionText,
-  transmissionTree, twinNote, variantNote, withinReach,
+  askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
+  peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
+  fateMove, reachNote, recentDisasters, releaseStatus, savedNote,
+  transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -235,4 +235,41 @@ test('the census charts peoples, one people halfway up', () => {
   rows.push({year: 2, population: 30, skill_worked: 2, tongues: 3,
              peoples: {peoples: 3, sizes: [12, 10, 8]}});
   assert.equal(chartSeries(rows, 5).at(-1).most, 3);
+});
+
+test('a marriage rule may say whom it allows; other kinds may not', () => {
+  assert.equal(
+      releaseMove('marriage', 'kinship', 'song', '5, 9', 'We marry kin.',
+                  'tongue'),
+      'release marriage kinship within tongue as a song at 5,9: We marry kin.');
+  assert.equal(
+      releaseMove('belief', 'sacred', 'text', '1,1', 'Hm.', 'tongue'),
+      'release belief sacred as a text at 1,1: Hm.');
+  assert.equal(
+      releaseMove('marriage', 'kinship', 'song', '1,1', 'Love.'),
+      'release marriage kinship as a song at 1,1: Love.');
+});
+
+test('a kind offers only its domains', () => {
+  const world = {domains: ['kinship', 'food', 'language'],
+                 kind_domains: {marriage: ['kinship'], norm: ['kinship',
+                   'food', 'language']}};
+  assert.deepEqual(domainsFor(world, 'marriage'), ['kinship']);
+  assert.deepEqual(domainsFor(world, 'norm'), world.domains);
+  assert.deepEqual(domainsFor({domains: ['food']}, 'marriage'), ['food']);
+});
+
+test('a release goes where a song would reach the most', () => {
+  const world = {rows: 20, cols: 20, sight: 2, child_acts_age: 6, people: [
+    {tile: [0, 0], age: 30}, {tile: [10, 10], age: 30},
+    {tile: [10, 11], age: 30}, {tile: [11, 10], age: 2},
+    {tile: [15, 4], age: 30},
+  ]};
+
+  assert.deepEqual(crowdedSpot(world), [10, 10]);
+  assert.equal(crowdedSpot({...world, people: []}), null);
+  // The valley wraps: the corners are neighbours.
+  const wrapped = {...world, people: [{tile: [0, 0], age: 30},
+    {tile: [19, 19], age: 30}, {tile: [10, 10], age: 30}]};
+  assert.deepEqual(crowdedSpot(wrapped), [0, 0]);
 });

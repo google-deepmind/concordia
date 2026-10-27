@@ -148,6 +148,25 @@ def saved_scenario(path: str | None) -> str:
   return scenario if scenario in scenarios.PRESETS else ''
 
 
+def why_died(release: Mapping[str, Any]) -> str:
+  """Why a release died out, as far as the page can tell.
+
+  Args:
+    release: A followed release (`Session.releases`).
+
+  Returns:
+    The reason, in a few words.
+  """
+  if release.get('peak'):
+    return 'all who held it died or took up another way'
+  if release.get('how') == 'text':
+    return 'nobody read it before its shelf was lost'
+  heard = int(release.get('heard') or 0)
+  if not heard:
+    return 'nobody was within hearing'
+  return f'{heard} heard it, and none took it up'
+
+
 class Closed(Exception):
   """The page closed the session: the Experimenter has no answer to give."""
 
@@ -791,7 +810,7 @@ class Session:
       self._write(
           EVENT,
           f'Your release {release["id"]} died out: "{release["text"]}"'
-          f' (at most {release["peak"]} held it).',
+          f' (at most {release["peak"]} held it): {why_died(release)}.',
           closed,
       )
 
@@ -1110,6 +1129,10 @@ class Session:
         'transcripts': list(world.get('transcripts', ()))[-10:],
         'custom_kinds': list(culture_lib.KINDS),
         'domains': list(culture_lib.DOMAINS),
+        'kind_domains': {
+            kind: list(culture_lib.domains_of(kind))
+            for kind in culture_lib.KINDS
+        },
         'grown_age': world_lib.ADULT_AGE,
         'child_acts_age': world_lib.CHILD_ACTS_AGE,
         'disaster_kinds': list(world_lib.DISASTERS),

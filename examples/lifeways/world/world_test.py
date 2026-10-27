@@ -1009,6 +1009,40 @@ class ReleaseTest(_PlaceTest):
     self.assertEqual(place.tile, (2, 3))
     self.assertEqual(self.world.culture.get(custom_id).params, {'level': 3})
 
+  def test_a_marriage_rule_is_of_kinship_and_may_say_whom_it_allows(self):
+    self._person('Ada', 30, (5, 5))
+
+    self._year(
+        Ada='rest',
+        Experimenter='release marriage language as a song at 5,5: Same tongue.',
+    )
+    self.assertEqual(self.world.history[-1]['released'], 0)
+    self.assertIn(
+        'A marriage is of kinship, not language.',
+        self.world.queued['Experimenter'][0],
+    )
+    self._year(
+        Ada='rest',
+        Experimenter=(
+            'release belief sacred within tongue as a song at 5,5: Hm.'
+        ),
+    )
+    self.assertEqual(self.world.history[-1]['released'], 0)
+    self.assertIn('Only a marriage rule', self.world.queued['Experimenter'][0])
+
+    self._year(
+        Ada='rest',
+        Experimenter=(
+            'release marriage kinship within tongue as a song at 5,5: We'
+            ' marry one who speaks as we do.'
+        ),
+    )
+
+    (offer,) = self._offers('Ada')
+    self.assertEqual(
+        self.world.culture.get(offer[0]).params, {'within': 'tongue'}
+    )
+
   def test_a_release_that_would_read_as_protocol_is_refused(self):
     self._person('Ada', 30, (5, 5))
 

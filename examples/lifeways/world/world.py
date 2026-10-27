@@ -89,8 +89,11 @@ RELEASE = 'release'
 RELEASE_FORM = (
     'release <kind> <domain> as a <text or song> at <row>,<col>: <what it says>'
 )
+# A skill may name its level; a marriage rule whom it allows (`within`
+# tongue or descent; anyone if not said).
 _RELEASE = re.compile(
     r'^release (?P<kind>[a-z]+) (?P<domain>[a-z]+)(?: level (?P<level>\d+))?'
+    r'(?: within (?P<within>[a-z]+))?'
     r' as a (?P<how>text|song) at (?P<row>\d+),(?P<col>\d+): (?P<text>.+)$'
 )
 # Disasters (DESIGN §2): the world sends one by chance (the `disasters`
@@ -1438,6 +1441,22 @@ class World:
     if kind not in culture_lib.KINDS or domain not in culture_lib.DOMAINS:
       self._report(f'No custom is of kind {kind}, domain {domain}.')
       return
+    if domain not in culture_lib.domains_of(kind):
+      self._report(
+          f'A {kind} is of {" or ".join(culture_lib.domains_of(kind))},'
+          f' not {domain}.'
+      )
+      return
+    within = match.group('within')
+    if within and (
+        kind != culture_lib.MARRIAGE
+        or within not in (culture_lib.TONGUE, culture_lib.DESCENT)
+    ):
+      self._report(
+          f'Only a marriage rule allows within {culture_lib.TONGUE} or'
+          f' {culture_lib.DESCENT}: {answer}'
+      )
+      return
     if '|params=' in answer or '[custom' in answer:
       # The text would read as the protocol of an offer line.
       self._report('The release is not understood: ' + answer)
@@ -1452,6 +1471,8 @@ class World:
     if kind == culture_lib.SKILL:
       level = int(match.group('level') or 1)
       params['level'] = min(culture_lib.MAX_LEVEL, max(1, level))
+    if within:
+      params['within'] = within
     custom = self.culture.add(
         kind,
         domain,

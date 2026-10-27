@@ -54,6 +54,8 @@ const page = {
   /** @type {?string} The person shown, if any. */ person: null,
   /** @type {?Array<number>} The place chosen for a release: [row, col]. */
   at: null,
+  /** Whether the person chose the place; until then it follows the crowd. */
+  atChosen: false,
   since: -1,
   tile: 1,
 };
@@ -251,11 +253,24 @@ function drawChart(rows, twinRows = []) {
  * @param {string} how 'song' or 'text'.
  * @param {string} at The place, 'row,col'.
  * @param {string} says What the custom says.
+ * @param {string=} within Whom a marriage rule allows: 'tongue', 'descent',
+ *     or '' for anyone.
  * @return {string} The move.
  */
-function releaseMove(kind, domain, how, at, says) {
-  return `release ${kind} ${domain} as a ${how} at ` +
+function releaseMove(kind, domain, how, at, says, within = '') {
+  const allows = kind === 'marriage' && within ? ` within ${within}` : '';
+  return `release ${kind} ${domain}${allows} as a ${how} at ` +
       `${at.replace(/\s/g, '')}: ${says.trim()}`;
+}
+
+/**
+ * The domains a custom of a kind may be of (a marriage rule is of kinship).
+ * @param {!Object} world The state.
+ * @param {string} kind The kind.
+ * @return {!Array<string>} The domains.
+ */
+function domainsFor(world, kind) {
+  return (world.kind_domains || {})[kind] || world.domains;
 }
 
 /**
@@ -385,6 +400,22 @@ function withinReach(world, at) {
 }
 
 /**
+ * Where a song would reach the most people: the release's place until the
+ * person picks one.
+ * @param {!Object} world The state.
+ * @return {?Array<number>} [row, col], or null if nobody lives.
+ */
+function crowdedSpot(world) {
+  let best = null;
+  let most = -1;
+  for (const person of world.people) {
+    const n = withinReach(world, person.tile);
+    if (n > most) [best, most] = [person.tile.slice(), n];
+  }
+  return best;
+}
+
+/**
  * What the page says of the ring: who would hear a song there, and the
  * chance that at least one of them takes it up.
  * @param {!Object} world The state.
@@ -410,7 +441,8 @@ function drawAt(world) {
     note.textContent = '';
     return;
   }
-  note.textContent = reachNote(world, page.at);
+  note.textContent = reachNote(world, page.at) + (page.atChosen ? '' :
+      ' (Where the most would hear, until you tap the map.)');
 }
 
 /** What the person writes in the notebook. */
@@ -744,6 +776,7 @@ function onMapTap(event) {
   const col = Math.floor(x / page.tile);
   document.getElementById('at').value = `${row},${col}`;
   page.at = [row, col];
+  page.atChosen = true;
   drawMap(page.world);
   drawAt(page.world);
   let nearest = null;
@@ -830,6 +863,10 @@ async function refreshOnce() {
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
         'MOCK minds' : `LIVE minds (${world.minds})`;
+    if (!page.atChosen) {
+      page.at = crowdedSpot(world);
+      document.getElementById('at').value = page.at ? page.at.join(',') : '';
+    }
     drawMap(world);
     drawAt(world);
     drawTranscripts(world);
@@ -884,7 +921,12 @@ function fill(id, values) {
 async function start() {
   const world = await api('api/state');
   fill('kind', world.custom_kinds);
-  fill('domain', world.domains);
+  fill('domain', domainsFor(world, document.getElementById('kind').value));
+  document.getElementById('kind').addEventListener('change', (event) => {
+    const kind = event.target.value;
+    fill('domain', domainsFor(page.world || world, kind));
+    document.getElementById('within-box').hidden = kind !== 'marriage';
+  });
   fill('fate-kind', fateChoices(world));
   fill('preset', world.presets);
   document.getElementById('preset').value = world.scenario;
@@ -897,6 +939,7 @@ async function start() {
   document.getElementById('at').addEventListener('change', (event) => {
     const at = event.target.value.split(',').map((n) => parseInt(n, 10));
     page.at = at.length === 2 && at.every(Number.isFinite) ? at : null;
+    page.atChosen = page.at !== null;
     drawMap(page.world);
     drawAt(page.world);
   });
@@ -942,7 +985,8 @@ async function start() {
         document.getElementById('kind').value,
         document.getElementById('domain').value,
         document.getElementById('how').value,
-        document.getElementById('at').value, says);
+        document.getElementById('at').value, says,
+        document.getElementById('within').value);
     await api('api/move', {move});
     document.getElementById('says').value = '';
     refresh();
@@ -970,7 +1014,7 @@ async function start() {
   document.getElementById('fate').addEventListener('submit', async (event) => {
     event.preventDefault();
     const said = document.getElementById('fate-error');
-    if (!page.at) {
+    if (!page.at || !page.atChosen) {
       said.textContent = 'Tap the map first, to choose the place.';
       return;
     }
@@ -1011,9 +1055,9 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    askMove, cameBy, chartSeries, kinName, leverChoices, peopleColour,
-    releaseMove, appendNew, entryMeta, entryShown, fateChoices, fateMove,
-    reachNote, recentDisasters, releaseStatus, savedNote, transmissionText,
-    transmissionTree, twinNote, variantNote, withinReach,
+    askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
+    leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
+    fateChoices, fateMove, reachNote, recentDisasters, releaseStatus, savedNote,
+    transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

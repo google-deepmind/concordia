@@ -70,6 +70,19 @@ TONGUE = 'tongue'
 DESCENT = 'descent'
 SAME_TONGUE = 0.75
 
+# Kinds bound to a domain: a dialect is how one speaks, a marriage rule whom
+# one marries. A custom of another kind may be of any domain.
+KIND_DOMAINS: Mapping[str, tuple[str, ...]] = {
+    DIALECT: (LANGUAGE,),
+    MARRIAGE: (KINSHIP,),
+}
+
+
+def domains_of(kind: str) -> tuple[str, ...]:
+  """The domains a custom of a kind may be of."""
+  return KIND_DOMAINS.get(kind, DOMAINS)
+
+
 # A dialect is a list of words (its `words` param); a copying error changes
 # one of them to one of these sounds.
 SOUNDS = (

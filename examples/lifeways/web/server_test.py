@@ -688,13 +688,25 @@ class ReleasesTest(absltest.TestCase):
     )
     self.assertIn(
         f'Your release {unheard["id"]} died out: "Unheard." (at most 0 held'
-        ' it).',
+        ' it): nobody was within hearing.',
         [e['text'] for e in session.notebook()],
     )
     restored = session_lib.Session(save_path=path)
     self.assertEqual(
         [r['id'] for r in restored.releases()], [heard['id'], unheard['id']]
     )
+
+
+class WhyDiedTest(absltest.TestCase):
+
+  def test_a_dead_release_says_why(self):
+    for release, why in (
+        ({'how': 'song', 'heard': 0, 'peak': 0}, 'nobody was within hearing'),
+        ({'how': 'song', 'heard': 3, 'peak': 0}, '3 heard it, and none'),
+        ({'how': 'text', 'heard': 0, 'peak': 0}, 'nobody read it'),
+        ({'how': 'song', 'heard': 3, 'peak': 2}, 'all who held it died'),
+    ):
+      self.assertStartsWith(session_lib.why_died(release), why)
 
 
 class ServerTest(absltest.TestCase):
