@@ -2421,12 +2421,34 @@ def where(tile: Sequence[int]) -> str:
   return f'row {tile[0]}, column {tile[1]}'
 
 
+# Verbs a move begins with whose other forms are not made by rule.
+_IRREGULAR = {
+    'build': ('built',),
+    'have': ('has', 'having', 'had'),
+    'lead': ('led',),
+    'read': ('read',),
+    'sow': ('sown', 'sowed'),
+    'teach': ('taught',),
+    'write': ('wrote', 'written'),
+}
+
+
+def _forms(verb: str) -> set[str]:
+  """A verb's other forms: "gather" gives "gathers", "gathering", "gathered"."""
+  stem = verb[:-1] if verb.endswith('e') and not verb.endswith('ee') else verb
+  third = verb + ('es' if verb.endswith(('s', 'sh', 'ch', 'x', 'z')) else 's')
+  past = verb + 'd' if verb.endswith('e') else verb + 'ed'
+  return {third, stem + 'ing', past, *_IRREGULAR.get(verb, ())} - {verb}
+
+
 def first_move(answer: str, allowed: Sequence[str]) -> str:
   """The move an answer makes: the offered move it names first.
 
   A mind may say more than the move ("This year I gather food, by c3."); the
   world reads the first move offered that the answer names as whole words
-  (the longest, where two start at the same place).
+  (the longest, where two start at the same place). An answer that names no
+  move as offered may name one with its first verb in another form ("Taha
+  sows a field", "gathering food"): that move is read then.
 
   Args:
     answer: The answer.
@@ -2436,11 +2458,19 @@ def first_move(answer: str, allowed: Sequence[str]) -> str:
     The move ('' if the answer names none).
   """
   answer = ' '.join(answer.lower().split())
-  found = []
-  for move in allowed:
-    match = re.search(
-        r'(?<![a-z])' + re.escape(move.lower()) + r'(?![a-z])', answer
-    )
-    if match:
-      found.append((match.start(), -len(move), move))
-  return min(found)[2] if found else ''
+  for inflected in (False, True):
+    found = []
+    for move in allowed:
+      verb, _, rest = move.lower().partition(' ')
+      for said in _forms(verb) if inflected else {verb}:
+        match = re.search(
+            r'(?<![a-z])'
+            + re.escape(f'{said} {rest}' if rest else said)
+            + r'(?![a-z])',
+            answer,
+        )
+        if match:
+          found.append((match.start(), -len(move), move))
+    if found:
+      return min(found)[2]
+  return ''

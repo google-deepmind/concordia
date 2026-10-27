@@ -516,6 +516,35 @@ class TransmissionTest(absltest.TestCase):
     )
     self.assertEqual(world_lib.first_move('I forage.', allowed), '')
 
+  def test_a_move_said_in_another_form_is_read(self):
+    allowed = [
+        world_lib.GATHER,
+        world_lib.REST,
+        world_lib.SOW,
+        world_lib.MOVE,
+        world_lib.CHILD,
+        f'{world_lib.COURT_ONE} Lira',
+        'build a shrine',
+    ]
+    for answer, move in (
+        ('Taha sows a field. (c11)', world_lib.SOW),
+        ('gathering food (customs [c7])', world_lib.GATHER),
+        ('gathers food [c7]: In lean years...', world_lib.GATHER),
+        ('The year 8: Kaka moves to better land.', world_lib.MOVE),
+        ('She courted Lira.', f'{world_lib.COURT_ONE} Lira'),
+        ('Ada has a child.', world_lib.CHILD),
+        ('Hara built a shrine.', 'build a shrine'),
+    ):
+      self.assertEqual(world_lib.first_move(answer, allowed), move, answer)
+    # A move named as offered comes first, wherever another form stands.
+    self.assertEqual(
+        world_lib.first_move(
+            'Gathering food all day, Kaka will rest.', allowed
+        ),
+        world_lib.REST,
+    )
+    self.assertEqual(world_lib.first_move('Kaka forages.', allowed), '')
+
   def test_a_person_asked_answers_first_then_moves(self):
     self._person('Ada', 30, (5, 5))
     self.assertIn(world_lib.ASK_FORM, self.world.moves(world_lib.EXPERIMENTER))
