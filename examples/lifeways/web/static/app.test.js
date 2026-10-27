@@ -24,8 +24,8 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
-  fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote, lifeQuestion,
-  lifeStatus,
+  fateMove, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves, lifeNote,
+  lifeQuestion, lifeStatus,
   reachNote, recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
@@ -326,4 +326,18 @@ test('the played person sees how its life stands, as it last saw it', () => {
   assert.equal(lifeStatus(context, 'Kaka'),
       'Year 2. Kaka is 31 years old. Partner: Hara.');
   assert.equal(lifeStatus(context, 'Raan'), '');
+});
+
+test('the played person reads its memory as a person would', () => {
+  const context = '[observation] Kaka sees Sane gather food: [custom id=c4 ' +
+      'kind=skill domain=food level=2 via=observation from=Sane stores=11.0]' +
+      ' Smoking fish over green alder. |params={"level": 2} Kaka sees Hara ' +
+      'gather food: [custom id=c7 kind=habit domain=food via=observation ' +
+      'from=Hara stores=11.0] In lean years, gather first. Year 1. Kaka is ' +
+      '30 years old.\n\nA custom of ours (kinship) [c1]: Feed the child.';
+  assert.equal(lifeMemory(context, 'Kaka'),
+      '[observation] Kaka sees Sane gather food: (c4) Smoking fish over ' +
+      'green alder.\nKaka sees Hara gather food: (c7) In lean years, gather ' +
+      'first.\nYear 1. Kaka is 30 years old.\n\nA custom of ours (kinship) ' +
+      '[c1]: Feed the child.');
 });

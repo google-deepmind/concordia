@@ -974,6 +974,25 @@ function lifeStatus(context, name) {
 }
 
 /**
+ * What the played person knows and remembers, for a person to read: the
+ * tags by which minds learn a custom become its id, and each thing the
+ * person saw, and each year's status line, begins a line.
+ * @param {string} context The person's context.
+ * @param {string} name The person.
+ * @return {string} The context, readable.
+ */
+function lifeMemory(context, name) {
+  const who = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return context
+      .replace(/ \|params=\{.*?\}(?= [A-Z[]|\s*$)/gm, '')
+      .replace(/\[custom id=(c\d+)[^\]\n]*\] /g, '($1) ')
+      .replace(new RegExp(
+          `([.!?)])(?<!Year -?\\d+\\.) ` +
+          `(?=Year -?\\d+\\. ${who} |${who} (?!is ))`, 'g'),
+      '$1\n');
+}
+
+/**
  * The question, without the World's instructions on how to answer it.
  * @param {!Object} asked The question (`played.asked` in the state).
  * @return {string} The question to show.
@@ -1071,7 +1090,8 @@ function drawLife(world) {
   document.getElementById('life-status').textContent =
       lifeStatus(asked.context, played.name);
   document.getElementById('life-question').textContent = lifeQuestion(asked);
-  document.getElementById('life-context').textContent = asked.context;
+  document.getElementById('life-context').textContent =
+      lifeMemory(asked.context, played.name);
   const passing = asked.kind === 'pass_on';
   const interview = asked.kind === 'interview';
   document.getElementById('life-moves').hidden = asked.kind !== 'move';
@@ -1268,7 +1288,7 @@ if (typeof document !== 'undefined') {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
     leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
     fateChoices, fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote,
-    lifeQuestion, lifeStatus, reachNote, recentDisasters, releaseStatus, savedNote,
+    lifeMemory, lifeQuestion, lifeStatus, reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }
