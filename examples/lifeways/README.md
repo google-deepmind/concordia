@@ -185,9 +185,12 @@ settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
 
 ## Experiments
 
-**What spreads when released** (MOCK Sandbox, 6 seeds; a song in year 14
-where most would hear it, followed to year 85 with the page's own
-session, `Session.releases`):
+### What spreads when released
+
+MOCK Sandbox, 6 seeds. In each, the Experimenter sang a custom in year 14
+where most would hear it, and the release was followed to year 85 as the
+page follows it (`Session.releases`). A short harness over the page's
+session made the table; it is not part of this example.
 
 | Released | alive at year 85 | most holding it at once (range) |
 |---|---|---|
@@ -196,13 +199,15 @@ session, `Session.releases`):
 | whom to learn from | 6/6 | 17–50 |
 | a marriage rule | 4/6 | 0–11 |
 | a value; a belief | 2/6 each | 0–5 |
-| know-how, level 1 / level 4 | 1/6 / 3/6 | 0 / up to 15 (mean) |
+| know-how, level 1 / level 4 | 1/6 / 3/6 | 0 / 0–43 |
 
 Each song was heard by 2–7. Ways people act on in their everyday moves are
 seen and copied, and spread; beliefs and values released the same way
 mostly died out, though births and teaching can carry any kind (why they
 fare worse is not settled). Know-how is taken up only if it is better than
 what one knows.
+
+### The experiment tool
 
 ```bash
 python -m examples.lifeways.experiment --lever=richness=0.5 --seeds=5 \
