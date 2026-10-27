@@ -23,7 +23,12 @@ from typing import Any, cast
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
+from concordia.components.agent import action_spec_ignored
+from concordia.components.game_master import make_observation
+from concordia.components.game_master import next_acting
 from concordia.components.game_master import player_roster
+from concordia.components.game_master import switch_act
+from concordia.components.game_master import terminate
 from concordia.environment.engines import asynchronous
 from concordia.language_model import language_model
 from concordia.language_model import no_language_model
@@ -70,49 +75,78 @@ def _first_players(*names: str) -> list[entity_lib.Entity]:
   ]
 
 
-class _Rules(entity_component.ActingComponent):
-  """A game master's rules for the test: all play, and Alice gives way to Cy.
-
-  At the third event it resolves, Cy joins the game and Alice leaves it.
-  """
+class _WhoPlays(action_spec_ignored.ActionSpecIgnored):
+  """A component conditioned on the roster, as other GM components may be."""
 
   def __init__(self):
-    super().__init__()
-    self._lock = threading.Lock()
-    self._resolved = 0
+    super().__init__('Who plays')
+
+  def _make_pre_act_value(self) -> str:
+    return 'Now: ' + self.get_named_component_pre_act_value(_ROSTER)
+
+
+class _SayContext(entity_component.ActingComponent):
+  """Acts by saying its components' contexts, in order."""
 
   def get_action_attempt(
       self,
       context: entity_component.ComponentContextMapping,
       action_spec: entity_lib.ActionSpec,
   ) -> str:
+    del action_spec
+    return ''.join(context.values())
+
+  def get_state(self) -> entity_component.ComponentState:
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    del state
+
+
+class _EveryPlayer(entity_component.ContextComponent):
+  """Next acting: every player who plays now, as the roster names them."""
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    if action_spec.output_type != entity_lib.OutputType.NEXT_ACTING:
+      return ''
+    return (
+        self.get_entity()
+        .get_component(_ROSTER, type_=player_roster.PlayerRoster)
+        .get_pre_act_value()
+    )
+
+  def get_state(self) -> entity_component.ComponentState:
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    del state
+
+
+class _Turnover(entity_component.ContextComponent):
+  """Resolution: whatever is done happens; at the third event, Cy joins the
+  game and Alice leaves it. Everyone who plays hears of a fine day.
+  """
+
+  def __init__(self, queue: make_observation.ObservationQueue):
+    super().__init__()
+    self._queue = queue
+    self._lock = threading.Lock()
+    self._resolved = 0
+
+  def pre_act(self, action_spec: entity_lib.ActionSpec) -> str:
+    if action_spec.output_type != entity_lib.OutputType.RESOLVE:
+      return ''
     roster = self.get_entity().get_component(
         _ROSTER, type_=player_roster.PlayerRoster
     )
-    kind = action_spec.output_type
-    if kind == entity_lib.OutputType.NEXT_ACTING:
-      return ', '.join(roster.get_player_names())
-    if kind == entity_lib.OutputType.NEXT_ACTION_SPEC:
-      return json.dumps({
-          'call_to_action': 'What do you do?',
-          'output_type': 'free',
-          'options': [],
-          'tag': None,
-      })
-    if kind == entity_lib.OutputType.MAKE_OBSERVATION:
-      return 'It is a fine day.'
-    if kind == entity_lib.OutputType.TERMINATE:
-      return entity_lib.BINARY_OPTIONS['negative']
-    if kind == entity_lib.OutputType.RESOLVE:
-      with self._lock:
-        self._resolved += 1
-        if self._resolved == 3:
-          roster.join('person', {'name': 'Cy'})
-          roster.leave('Alice')
-      return 'It happens.'
-    if action_spec.options:
-      return action_spec.options[0]
-    return ''
+    with self._lock:
+      self._resolved += 1
+      if self._resolved == 3:
+        roster.join('person', {'name': 'Cy'})
+        roster.leave('Alice')
+    names = roster.get_player_names()
+    self._queue.add('all', 'It is a fine day.', names)
+    return 'It happens.'
 
   def get_state(self) -> entity_component.ComponentState:
     with self._lock:
@@ -138,6 +172,7 @@ class _RosterGameMaster(prefab_lib.Prefab):
       memory_bank: associative_memory.AssociativeMemoryBank,
   ) -> entity_agent_with_logging.EntityAgentWithLogging:
     del memory_bank
+    self.check_extra_components()
     # What all who join share: the asynchronous engine's measurements.
     person = minimal_entity.Entity(
         params={
@@ -145,16 +180,40 @@ class _RosterGameMaster(prefab_lib.Prefab):
             'measurements': measurements_lib.ReactiveMeasurements(),
         }
     )
-    roster = player_roster.PlayerRoster(
-        players=cast(MutableSequence[entity_lib.Entity], self.entities),
-        player_prefabs={'person': person},
-        model=model,
-        embedder=self.params['embedder'],
-    )
+    players = self.entities if self.entities is not None else []
+    first = [player.name for player in players]
+    queue = make_observation.ObservationQueue()
+    components = {
+        _ROSTER: player_roster.PlayerRoster(
+            players=players,
+            player_prefabs={'person': person},
+            model=model,
+            embedder=self.params['embedder'],
+        ),
+        next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY: _EveryPlayer(),
+        next_acting.DEFAULT_NEXT_ACTION_SPEC_COMPONENT_KEY: (
+            next_acting.FixedActionSpec(
+                entity_lib.free_action_spec(call_to_action='What do you do?')
+            )
+        ),
+        switch_act.DEFAULT_RESOLUTION_COMPONENT_KEY: _Turnover(queue),
+        make_observation.DEFAULT_MAKE_OBSERVATION_COMPONENT_KEY: (
+            make_observation.MakeObservation(
+                model=model,
+                player_names=first,
+                call_to_make_observation=(
+                    asynchronous.DEFAULT_CALL_TO_MAKE_OBSERVATION
+                ),
+                external_queue=queue,
+                allow_llm_fallback=False,
+            )
+        ),
+        terminate.DEFAULT_TERMINATE_COMPONENT_KEY: terminate.Terminate(),
+    }
     return entity_agent_with_logging.EntityAgentWithLogging(
         agent_name=self.params['name'],
-        act_component=_Rules(),
-        context_components={_ROSTER: roster},
+        act_component=switch_act.SwitchAct(model=model, entity_names=first),
+        context_components=components,
         measurements=measurements_lib.ReactiveMeasurements(),
     )
 
@@ -248,6 +307,58 @@ class PlayerRosterTest(absltest.TestCase):
     with self.assertRaises(TypeError):
       roster.join('person', {'name': 'Dee', 'measurements': object()})
     self.assertEqual(roster.get_player_names(), ['Cy'])
+
+  def test_other_components_may_condition_on_who_plays(self):
+    roster = _roster(_first_players('Alice', 'Bob'))
+    game_master = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='rules',
+        act_component=_SayContext(),
+        context_components={_ROSTER: roster, 'who plays': _WhoPlays()},
+    )
+
+    before = game_master.act()
+    roster.join('person', {'name': 'Cy'})
+    roster.leave('Alice')
+    after = game_master.act()
+
+    self.assertEqual(
+        before, '\nPlayers:\nAlice, Bob\nWho plays:\nNow: Alice, Bob\n'
+    )
+    self.assertEqual(after, '\nPlayers:\nBob, Cy\nWho plays:\nNow: Bob, Cy\n')
+
+  def test_who_plays_is_current_within_a_step(self):
+    roster = _roster(_first_players('Alice'))
+
+    class JoinThenSay(_SayContext):
+
+      def get_action_attempt(self, context, action_spec):
+        roster.join('person', {'name': 'Cy'})  # After the roster's pre_act.
+        return roster.get_pre_act_value()
+
+    game_master = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='rules',
+        act_component=JoinThenSay(),
+        context_components={_ROSTER: roster},
+    )
+
+    self.assertEqual(game_master.act(), 'Alice, Cy')
+
+  def test_the_roster_changes_the_very_list_it_is_given(self):
+    with self.assertRaises(TypeError):
+      player_roster.PlayerRoster(players=tuple(_first_players('Alice')))
+
+  def test_a_state_that_cannot_be_restored_leaves_the_players_be(self):
+    players = _first_players('Alice', 'Bob')
+    roster = _roster(players)
+    state = {
+        'joined': {'Cy': {'prefab': 'ghost', 'params': {'name': 'Cy'}}},
+        'left': ['Alice'],
+    }
+
+    with self.assertRaises(KeyError):
+      roster.set_state(state)
+
+    self.assertEqual([p.name for p in players], ['Alice', 'Bob'])
 
   def test_a_roster_without_a_model_cannot_build_players(self):
     roster = player_roster.PlayerRoster(
