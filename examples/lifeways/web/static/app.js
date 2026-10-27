@@ -1159,8 +1159,8 @@ function lifeStatus(context, name) {
 
 /**
  * What the played person knows and remembers, for a person to read: the
- * tags by which minds learn a custom become its id, and each thing the
- * person saw, and each year's status line, begins a line.
+ * tags by which minds learn a custom, and customs' ids, are taken out, and
+ * each thing the person saw, and each year's status line, begins a line.
  * @param {string} context The person's context.
  * @param {string} name The person.
  * @return {string} The context, readable.
@@ -1169,7 +1169,8 @@ function lifeMemory(context, name) {
   const who = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return context
       .replace(/ \|params=\{.*?\}(?= [A-Z[]|\s*$)/gm, '')
-      .replace(/\[custom id=(c\d+)[^\]\n]*\] /g, '($1) ')
+      .replace(/\[custom id=c\d+[^\]\n]*\] /g, '')
+      .replace(/ \[c\d+\]:/g, ':')
       .replace(new RegExp(
           `([.!?)])(?<!Year -?\\d+\\.) ` +
           `(?=Year -?\\d+\\. ${who} |${who} (?!is ))`, 'g'),
@@ -1343,7 +1344,7 @@ function drawLife(world) {
       ...customs.map((custom) => choiceInput(
           'checkbox', 'life-custom', custom.id, custom.text,
           suggested.has(custom.id),
-          `${custom.label} (${custom.domain}) ${custom.id}`)));
+          `${custom.label} (about ${custom.domain})`)));
 }
 
 /**

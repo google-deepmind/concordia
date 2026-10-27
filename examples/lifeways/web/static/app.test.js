@@ -347,10 +347,10 @@ test('the played person reads its memory as a person would', () => {
       'from=Hara stores=11.0] In lean years, gather first. Year 1. Kaka is ' +
       '30 years old.\n\nA custom of ours (kinship) [c1]: Feed the child.';
   assert.equal(lifeMemory(context, 'Kaka'),
-      '[observation] Kaka sees Sane gather food: (c4) Smoking fish over ' +
-      'green alder.\nKaka sees Hara gather food: (c7) In lean years, gather ' +
-      'first.\nYear 1. Kaka is 30 years old.\n\nA custom of ours (kinship) ' +
-      '[c1]: Feed the child.');
+      '[observation] Kaka sees Sane gather food: Smoking fish over ' +
+      'green alder.\nKaka sees Hara gather food: In lean years, gather ' +
+      'first.\nYear 1. Kaka is 30 years old.\n\nA custom of ours (kinship):' +
+      ' Feed the child.');
 });
 
 test('a move is done by the know-how it needs', () => {
