@@ -17,6 +17,8 @@
 import collections
 import json
 import os
+import subprocess
+import sys
 import threading
 import time
 from typing import Any
@@ -26,7 +28,7 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.lifeways import scenarios
-from examples.lifeways.web import server as server_lib
+from examples.lifeways.web import serving
 from examples.lifeways.web import session as session_lib
 from concordia.components.game_master import player_roster
 from concordia.typing import entity as entity_lib
@@ -743,7 +745,7 @@ class ServerTest(absltest.TestCase):
   def setUp(self):
     super().setUp()
     self.session = session_lib.Session(years_per_second=50)
-    self.server = server_lib.serve(self.session, 0, '/lifeways')
+    self.server = serving.serve(self.session, 0, '/lifeways')
     threading.Thread(target=self.server.serve_forever, daemon=True).start()
     self.base = f'http://127.0.0.1:{self.server.server_address[1]}/lifeways'
     self.session.start()
@@ -931,6 +933,27 @@ class ServerTest(absltest.TestCase):
       self.assertEqual(caught.exception.code, 404)
 
 
+class ServingTest(absltest.TestCase):
+
+  def test_the_library_defines_no_flags(self):
+    # Tests of every example run in one process; flags are the binary's.
+    out = subprocess.run(
+        [
+            sys.executable,
+            '-c',
+            (
+                'from absl import flags; import examples.lifeways.web.serving;'
+                ' print(sorted(flags.FLAGS))'
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    self.assertNotIn("'port'", out.stdout)
+
+
 class NewWorldTest(absltest.TestCase):
 
   def test_a_stopped_world_gives_way_to_a_new_one(self):
@@ -941,8 +964,8 @@ class NewWorldTest(absltest.TestCase):
           scenario, years_per_second=40, save_path=path, save_seconds=0
       )
 
-    served = server_lib.Served(world(), renew=world)
-    server = server_lib.serve(served, 0, '/lifeways')
+    served = serving.Served(world(), renew=world)
+    server = serving.serve(served, 0, '/lifeways')
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f'http://127.0.0.1:{server.server_address[1]}/lifeways'
 
@@ -981,7 +1004,7 @@ class NewWorldTest(absltest.TestCase):
           scenario, years_per_second=40, save_path=path, save_seconds=0
       )
 
-    served = server_lib.Served(world(), renew=world)
+    served = serving.Served(world(), renew=world)
     first = served.session
     first.start()
     try:
