@@ -1362,6 +1362,22 @@ function onLifeMove(event) {
 }
 
 /**
+ * The map's key: each kind of land, and what its shading means.
+ * @param {!Array<string>} kinds The kinds of land in this world.
+ */
+function drawMapKey(kinds) {
+  const key = document.getElementById('map-key');
+  key.replaceChildren('Land:');
+  for (const kind of kinds) {
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.style.background = TERRAIN_COLOURS[kind] || '#999';
+    key.append(swatch, kind);
+  }
+  key.append('. The darker the land, the less food it holds now.');
+}
+
+/**
  * Words begun as a sentence.
  * @param {string} words E.g. 'a rule'.
  * @return {string} E.g. 'A rule'.
@@ -1391,6 +1407,7 @@ async function start() {
     fill('domain', domainsFor(page.world || world, kind));
     document.getElementById('within-box').hidden = kind !== 'marriage';
   });
+  drawMapKey(world.kinds);
   fill('fate-kind', fateChoices(world));
   fill('preset', world.presets);
   document.getElementById('preset').value = world.scenario;

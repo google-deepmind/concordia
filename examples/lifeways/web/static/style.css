@@ -165,3 +165,12 @@ footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
 #releases li { margin: 8px 0; }
 #releases .meta { color: var(--muted); font-size: 0.85rem; }
 #releases canvas { width: 160px; height: 28px; border: none; margin-top: 2px; }
+
+#map-key .swatch {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin: 0 4px 0 8px;
+  border-radius: 2px;
+  vertical-align: -0.1em;
+}
