@@ -1146,24 +1146,6 @@ function lifeCustoms(context) {
 }
 
 /**
- * How the played person's life stands: its latest status line, with where
- * it lives in words. Only the line's own opening, which the World writes,
- * is read for the place.
- * @param {string} context The person's context.
- * @param {string} name The person.
- * @return {string} The line ('' if none is in sight yet).
- */
-function lifeStatus(context, name) {
-  const lines = [...context.matchAll(/Year -?\d+\. (\S+) is [^\n]*/g)]
-      .filter((found) => found[1] === name);
-  if (!lines.length) return '';
-  const home = new RegExp('^(Year -?\\d+\\. \\S+ is \\d+ years old and' +
-      ' lives on \\w+ land at) (\\d+),(\\d+);');
-  return lines[lines.length - 1][0].trim()
-      .replace(home, '$1 row $2, column $3;');
-}
-
-/**
  * What the played person knows and remembers, for a person to read: the
  * tags by which minds learn a custom, and customs' ids, are taken out, and
  * each thing the person saw, and each year's status line, begins a line.
@@ -1324,8 +1306,7 @@ function drawLife(world) {
   if (key === page.asked) return;
   page.asked = key;
   document.getElementById('life-error').textContent = asked.error || '';
-  document.getElementById('life-status').textContent =
-      lifeStatus(asked.context, played.name);
+  document.getElementById('life-status').textContent = played.status || '';
   document.getElementById('life-question').textContent = lifeQuestion(asked);
   document.getElementById('life-context').textContent =
       lifeMemory(asked.context, played.name);
@@ -1425,7 +1406,11 @@ function moveWords(move) {
  * @return {string} Its text.
  */
 function entryText(entry) {
-  if (entry.kind !== 'move') return entry.text;  // Already in words.
+  if (entry.kind === 'world' || entry.kind === 'event') {
+    return OLD_PLACES.reduce((text, [form, words]) =>
+      text.replace(form, words), entry.text);  // Already in words since.
+  }
+  if (entry.kind !== 'move') return entry.text;
   let m = entry.text.match(new RegExp(
       '^(?:Your move for next year(?:, as the World reads it)?|' +
       'You queue a move): (.+)$'));
@@ -1440,6 +1425,25 @@ function entryText(entry) {
   }
   return entry.text;
 }
+
+/**
+ * The World's and the session's own sentences that named places "r,c"
+ * before they named them in words, as notebooks saved then hold them:
+ * each anchored to its form, so a quoted text is never read.
+ */
+const OLD_PLACES = [
+  [/^(A \w+ str(?:uck|ikes) at) (\d+),(\d+):/, '$1 row $2, column $3:'],
+  [/( is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
+    '$1 row $2, column $3$4'],
+  [/( is written at the library at) (\d+),(\d+)\.$/,
+    '$1 row $2, column $3.'],
+  [/^(\d+ of the .+ come to) (\d+),(\d+):/, '$1 row $2, column $3:'],
+  [/^(A \w+ is founded at) (\d+),(\d+);/, '$1 row $2, column $3;'],
+  [/^(A \w+ stands within \d+ steps of) (\d+),(\d+)\.$/,
+    '$1 row $2, column $3.'],
+  [/^(No \w+ stands at) (\d+),(\d+)\.$/, '$1 row $2, column $3.'],
+  [/^(The \w+ at) (\d+),(\d+)( is closed;)/, '$1 row $2, column $3$4'],
+];
 
 /**
  * Words begun as a sentence.
@@ -1649,7 +1653,7 @@ if (typeof document !== 'undefined') {
     goneNote, leverChoices, moreNote, peopleColour, releaseMove,
     appendNew, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
-    lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
+    lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };

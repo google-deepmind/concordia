@@ -27,7 +27,7 @@ const {
   leverChoices, moreNote,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
-  lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
+  lifeNote, lifeQuestion, lifeSuggested, livesNote, reachNote,
   recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
@@ -340,15 +340,6 @@ test('the life note says what waits, and when a life ends', () => {
   assert.equal(livesNote({lives: ['Kaka', 'Teo']}), 'Your lives: Kaka → Teo');
 });
 
-test('the played person sees how its life stands, as it last saw it', () => {
-  const context = '[observation] Year 1. Hara is 20 years old.\n' +
-      '[observation] Year 1. Kaka is 30 years old. Partner: none.\n' +
-      '[observation] Year 2. Kaka is 31 years old. Partner: Hara.\n\nA ...';
-  assert.equal(lifeStatus(context, 'Kaka'),
-      'Year 2. Kaka is 31 years old. Partner: Hara.');
-  assert.equal(lifeStatus(context, 'Raan'), '');
-});
-
 test('the played person reads its memory as a person would', () => {
   const context = '[observation] Kaka sees Sane gather food: [custom id=c4 ' +
       'kind=skill domain=food level=2 via=observation from=Sane stores=11.0]' +
@@ -445,19 +436,22 @@ test('a list says what it leaves out', () => {
 
 });
 
-test('a person reads where it lives in words, and customs as said', () => {
-  const context = '[observation] Year 2. Kaka is 31 years old and lives on' +
-      ' forest land at 10,8; the land around holds 4.5 food.\n' +
-      '[observation] Hara teaches: Honour whoever builds a shrine at 2,2.' +
-      '\nA custom of ours (sacred) [c9]: We live on high land at 1,2; always.';
-  assert.equal(lifeStatus(context, 'Kaka'),
-      'Year 2. Kaka is 31 years old and lives on forest land at row 10,' +
-      ' column 8; the land around holds 4.5 food.');
+test('memory and notes read as said; old places in words', () => {
+  const context = '[observation] Hara teaches: Honour whoever builds a' +
+      ' shrine at 2,2.\nA custom of ours (sacred) [c9]: Year 1. Kaka is 30' +
+      ' years old and lives on high land at 1,2; always.';
   const memory = lifeMemory(context, 'Kaka');
   assert.ok(memory.includes('builds a shrine at 2,2.'), memory);
-  assert.ok(memory.includes('We live on high land at 1,2; always.'), memory);
+  assert.ok(memory.includes('lives on high land at 1,2; always.'), memory);
   assert.equal(entryText({kind: 'note', text: 'It grew to 1,200 people.'}),
       'It grew to 1,200 people.');
+  assert.equal(entryText({kind: 'event', text: 'A fire struck at 8,1: 3' +
+      ' lived within reach, 0 died.'}), 'A fire struck at row 8, column 1:' +
+      ' 3 lived within reach, 0 died.');
+  assert.equal(entryText({kind: 'world', text: 'Your release "Meet at 1,000' +
+      ' hands; 5 hear it." is sung at 8,13; 3 hear it.'}), 'Your release' +
+      ' "Meet at 1,000 hands; 5 hear it." is sung at row 8, column 13; 3' +
+      ' hear it.');
   assert.equal(entryText({kind: 'world', text: 'Rest at 1,000 "of 2,3".'}),
       'Rest at 1,000 "of 2,3".');
 });

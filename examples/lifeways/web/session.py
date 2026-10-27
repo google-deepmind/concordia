@@ -1499,17 +1499,33 @@ class Session:
   ) -> dict[str, Any]:
     """The life the page plays: whose, whether it goes on, its question.
 
-    Its `reach` is how many living people had a custom from one of its
-    lives, and how many customs they had, as of the last year's close.
+    Its `status` is how its life stands now, as the World tells the person
+    (`World.status`), with where it lives in words. Its `reach` is how many
+    living people had a custom from one of its lives, and how many customs
+    they had, as of the last year's close.
     """
     assert self.played is not None
     lives = self.run.lives() or [self.played.name]
+    with self.run.world_lock():  # Not within `_rows_lock`: the year's close
+      # takes the World's lock, then that one.
+      world = self.run.world()
+      person = world.people.get(lives[-1])
+      status = (
+          world.status(lives[-1]).replace(
+              f'land at {person.tile[0]},{person.tile[1]};',
+              f'land at {world_lib.where(person.tile)};',
+              1,
+          )
+          if person is not None
+          else ''
+      )
     with self._rows_lock:
       reach = dict(self._reach)
     return {
         'name': lives[-1],
         'alive': any(p['name'] == lives[-1] for p in people),
         'lives': lives,
+        'status': status,
         'reach': reach,
         'asked': self.played.asked(lives[-1]),
     }

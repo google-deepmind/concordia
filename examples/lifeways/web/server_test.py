@@ -1336,6 +1336,11 @@ class PlayAsTest(absltest.TestCase):
       self.assertEqual(post('/api/new', {'play_as': True})[0], 200)
 
       played = served.session.state()['played']
+      self.assertRegex(
+          played['status'],
+          rf'^Year \d+\. {played["name"]} is \d+ years old and lives on \w+'
+          r' land at row \d+, column \d+;',
+      )
       self.assertEqual(
           played['name'],
           scenarios.founders(scenarios.settings('sandbox'))[0]['params'][
