@@ -130,8 +130,11 @@ what it asks everyone, through its game master:
 
 The page's "Your life" panel shows the question, how the person's life
 stands (its status line, as it observed it), its moves and customs to
-choose from, and all it knows and remembers. A dashed white ring marks the
-person on the map.
+choose from, and all it knows and remembers. Choosing a move ticks the
+know-how the World counts for it: food skills for gathering, farming
+know-how for sowing (without it nothing takes root), reading for the
+library. Those who see the person may take up the customs it follows. A
+dashed white ring marks the person on the map.
 - **Waiting.** While the person decides, the year waits. A question
   unanswered for two minutes of play (pause and it waits) gets what the
   person would do unasked: gather food, pass on all it holds, or keep its
