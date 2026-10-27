@@ -1401,7 +1401,9 @@ function moveWords(move) {
 }
 
 /**
- * A notebook entry's text as the page shows it: a move in words.
+ * A notebook entry's text as the page shows it: a move or a twin in words,
+ * the World's and the valley's entries with any place of an old save in
+ * words (`OLD_PLACES`), and the person's own notes as written.
  * @param {!Object} entry The entry.
  * @return {string} Its text.
  */
@@ -1433,9 +1435,9 @@ function entryText(entry) {
  */
 const OLD_PLACES = [
   [/^(A \w+ str(?:uck|ikes) at) (\d+),(\d+):/, '$1 row $2, column $3:'],
-  [/( is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
+  [/^(Your release ".*" is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
     '$1 row $2, column $3$4'],
-  [/( is written at the library at) (\d+),(\d+)\.$/,
+  [/^(Your release ".*" is written at the library at) (\d+),(\d+)\.$/,
     '$1 row $2, column $3.'],
   [/^(\d+ of the .+ come to) (\d+),(\d+):/, '$1 row $2, column $3:'],
   [/^(A \w+ is founded at) (\d+),(\d+);/, '$1 row $2, column $3;'],

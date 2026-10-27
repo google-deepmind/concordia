@@ -454,4 +454,11 @@ test('memory and notes read as said; old places in words', () => {
       ' hear it.');
   assert.equal(entryText({kind: 'world', text: 'Rest at 1,000 "of 2,3".'}),
       'Rest at 1,000 "of 2,3".');
+  // A move the World echoes, as typed, ends like a report: left as typed.
+  assert.equal(entryText({kind: 'world', text: 'The release is not' +
+      ' understood: release a song is sung at 3,4; 5 hear it.'}),
+  'The release is not understood: release a song is sung at 3,4; 5 hear it.');
+  assert.equal(entryText({kind: 'world', text: 'Your release "Sow." is' +
+      ' written at the library at 2,5.'}), 'Your release "Sow." is written' +
+      ' at the library at row 2, column 5.');
 });

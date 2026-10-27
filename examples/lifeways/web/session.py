@@ -1499,8 +1499,9 @@ class Session:
   ) -> dict[str, Any]:
     """The life the page plays: whose, whether it goes on, its question.
 
-    Its `status` is how its life stands now, as the World tells the person
-    (`World.status`), with where it lives in words. Its `reach` is how many
+    Its `status` is how its life stands now, in the words the World tells it
+    to the person each year (`World.status`; in year 0, before the first
+    telling), with where it lives in words. Its `reach` is how many
     living people had a custom from one of its lives, and how many customs
     they had, as of the last year's close.
     """
