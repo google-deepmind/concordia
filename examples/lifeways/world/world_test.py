@@ -1354,6 +1354,38 @@ class CultureTest(absltest.TestCase):
     self.assertEqual(erred, {3})
     self.assertEqual(improved.params['level'], 5)
 
+  def test_a_text_drifts_but_stays_its_line_over_many_copies(self):
+    culture = culture_lib.Culture()
+    first = culture.add(
+        'habit', 'food', 'In lean years, gather before anything else.'
+    )
+    rng = np.random.default_rng(0)
+    custom, texts = first, set()
+
+    for year in range(3000):  # Every copy errs, generation on generation.
+      custom = culture.copy(custom.id, rng, 1.0, year)
+      texts.add(custom.text)
+
+    for text in texts:
+      self.assertLessEqual(text.count('always'), 1, text)
+      core = text.removesuffix(', always.').rstrip('.').split()
+      self.assertBetween(len(core), 5, 7)
+      self.assertEqual(core[0], 'In')
+    # A bounded drift: the variants a line can reach are few, and recur.
+    self.assertLess(len(texts), 60)
+    self.assertIn('In lean years, gather before anything else, always.', texts)
+
+  def test_a_text_stressed_over_and_over_heals_at_its_next_copy(self):
+    culture = culture_lib.Culture()
+    worn = culture.add(
+        'habit', 'food', 'In lean always, always, always,, always, always.'
+    )
+
+    healed = culture.copy(worn.id, np.random.default_rng(0), 1.0, 1)
+
+    self.assertIn(healed.text, ('In lean.', 'In lean, always.'))
+    self.assertEqual(healed.root, 'In lean.')
+
   def test_a_dialect_drifts_a_word_at_a_time(self):
     culture = culture_lib.Culture()
     words = ['ka', 'ri', 'to', 'ma']

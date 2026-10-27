@@ -210,6 +210,10 @@ class Custom:
   # How it entered the world: 'founder', 'mutation', 'innovation', ...
   origin: str = 'founder'
   year: int = 0
+  # What the first of its line said, its stress aside ('' if this is the
+  # first), and which of its words (by place) this variant has lost.
+  root: str = ''
+  lost: tuple[int, ...] = ()
 
   def spec(self) -> dict[str, Any]:
     """The JSON spec a person's component is built from."""
@@ -227,6 +231,8 @@ class Custom:
         'parent': self.parent,
         'origin': self.origin,
         'year': self.year,
+        # Only a drifted text's (saves made before texts drifted have none).
+        **({'root': self.root, 'lost': list(self.lost)} if self.root else {}),
     }
 
   @classmethod
@@ -240,7 +246,34 @@ class Custom:
         parent=str(data.get('parent', '')),
         origin=str(data.get('origin', 'founder')),
         year=int(data.get('year', 0)),
+        root=str(data.get('root', '')),
+        lost=tuple(int(i) for i in data.get('lost', ())),
     )
+
+
+# How a copying error stresses a text, and how far it may wear one down:
+# at most `WORDS_LOST` of its line's first words, never below `MIN_WORDS`.
+STRESS = ', always.'
+WORDS_LOST = 2
+MIN_WORDS = 4
+_ALWAYS = re.compile(r',?\s*\balways\b,?', re.IGNORECASE)
+
+
+def _unstressed(text: str) -> str:
+  """A text without its stresses: the first of its line, for one that has none.
+
+  Before texts drifted about their line's first, copying errors stressed a
+  text again and again ("In lean always, always, always."); the first error
+  copying such a text since takes it back to its words.
+
+  Args:
+    text: A variant's text.
+
+  Returns:
+    The text with every "always" taken out.
+  """
+  words = ' '.join(_ALWAYS.sub(' ', text).split()).strip(' ,.')
+  return (words or text.rstrip('.')) + '.'
 
 
 class Culture:
@@ -276,6 +309,8 @@ class Culture:
       parent: str = '',
       origin: str = 'founder',
       year: int = 0,
+      root: str = '',
+      lost: Sequence[int] = (),
   ) -> Custom:
     """Records a variant and returns it (the recorded one, if it exists).
 
@@ -287,6 +322,8 @@ class Culture:
       parent: The variant it was copied from, if any.
       origin: How it entered the world.
       year: When.
+      root: What the first of its line said (`Custom`).
+      lost: The words of `root` it has lost, by place.
 
     Returns:
       The variant with this content.
@@ -314,6 +351,8 @@ class Culture:
         parent=parent,
         origin=origin,
         year=year,
+        root=root,
+        lost=tuple(sorted(lost)),
     )
     self._next += 1
     self._customs[custom.id] = custom
@@ -387,8 +426,10 @@ class Culture:
     learner adds to what the teacher knew, a new variant. Otherwise, with
     probability `mutation`, the copy errs: a skill is learned a level lower
     (copying loses know-how, it never adds any), a text loses or doubles its
-    emphasis. An erring copy is a new variant (its parent recorded); a
-    faithful one is the same variant.
+    emphasis: one word is lost or regained, or its one stress gained or lost,
+    so a text drifts about its line's first and never wears away (at most
+    `WORDS_LOST` of its words lost). An erring copy is a new variant (its
+    parent recorded); a faithful one is the same variant.
 
     Args:
       custom_id: The variant copied.
@@ -428,12 +469,39 @@ class Culture:
       params['words'] = words
       text = f'{text.partition(":")[0]}: {" ".join(words)}.'
     else:
-      words = text.rstrip('.').split()
-      if len(words) > 4 and rng.random() < 0.5:
-        del words[int(rng.integers(1, len(words)))]  # Something is lost.
-        text = ' '.join(words) + '.'
+      # A word is lost or regained, or the stress is: the text drifts about
+      # its line's first (at most `WORDS_LOST` of its words lost, and one
+      # stress at most), never away from it.
+      stressed = text.endswith(STRESS)
+      root = custom.root or _unstressed(text)
+      first = root.rstrip('.').split()
+      lost = set(custom.lost)
+      errors = ['stress']
+      if lost:
+        errors.append('regain')
+      if len(lost) < WORDS_LOST and len(first) - len(lost) > MIN_WORDS:
+        errors.append('lose')
+      error = errors[int(rng.integers(len(errors)))]
+      if error == 'lose':
+        kept = [i for i in range(1, len(first)) if i not in lost]
+        lost.add(kept[int(rng.integers(len(kept)))])
+      elif error == 'regain':
+        lost.discard(sorted(lost)[int(rng.integers(len(lost)))])
       else:
-        text = text.rstrip('.') + ', always.'  # Something is stressed.
+        stressed = not stressed
+      words = [word for i, word in enumerate(first) if i not in lost]
+      text = ' '.join(words) + (STRESS if stressed else '.')
+      return self.add(
+          custom.kind,
+          custom.domain,
+          text,
+          params,
+          parent=custom.id,
+          origin='mutation',
+          year=year,
+          root=root,
+          lost=sorted(lost),
+      )
     return self.add(
         custom.kind,
         custom.domain,
