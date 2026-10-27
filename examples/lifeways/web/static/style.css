@@ -35,6 +35,8 @@
 }
 
 * { box-sizing: border-box; }
+/* What the page hides stays hidden, whatever display a rule gives it. */
+[hidden] { display: none !important; }
 
 body {
   margin: 0 auto;
