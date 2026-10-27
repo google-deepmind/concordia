@@ -346,7 +346,7 @@ class AsynchronousTest(absltest.TestCase):
 
     def step_callback(data):
       if data.acting_entity == _ENTITY_NAMES[0] and newcomer not in entities:
-        entities.append(newcomer)  # As Simulation.add_entity does.
+        entities.append(newcomer)  # As a PlayerRoster does when one joins.
 
     env.run_loop(
         game_masters=[gm],
@@ -368,7 +368,7 @@ class AsynchronousTest(absltest.TestCase):
 
     def step_callback(data):
       if data.acting_entity == leaving.name and leaving in entities:
-        entities.remove(leaving)  # As Simulation.remove_entity does.
+        entities.remove(leaving)  # As a PlayerRoster does when one leaves.
 
     env.run_loop(
         game_masters=[gm],
