@@ -19,6 +19,7 @@ import copy
 from typing import Any
 
 from examples.lifeways.world import culture as culture_lib
+from examples.lifeways.world import land as land_lib
 from examples.lifeways.world import world as world_lib
 import numpy as np
 
@@ -85,6 +86,11 @@ SANDBOX: Mapping[str, Any] = {
         'radius': world_lib.DISASTER_RADIUS,
         'kinds': list(world_lib.DISASTERS),
     },
+    # Farming: one given a farming skill may sow the land it lives on, which
+    # then carries `yield` more food per level of the skill (times the
+    # richness) while tended; untended for `fallow` years, it goes wild. No
+    # founder of the Sandbox knows how; a song may teach it.
+    'farming': {'yield': land_lib.FIELD_YIELD, 'fallow': land_lib.FALLOW},
     # While the valley is nearly empty, strangers may come with customs of
     # their own: they keep their elders' ways, feed only their own and have
     # children young.
@@ -382,6 +388,23 @@ TWO_VALLEYS: Mapping[str, Any] = {
     ],
 }
 
+# Know-how of sowing: the farming skill First Farmers' founders hold.
+SOWING: Mapping[str, Any] = {
+    'kind': 'skill',
+    'domain': culture_lib.FARMING,
+    'text': 'Sowing wild barley in cleared ground.',
+    'params': {'level': 1},
+}
+
+# First Farmers: the Sandbox, a third of whose founders know how to sow.
+# Does farming spread or die out, and does the valley come to feed more?
+FIRST_FARMERS: Mapping[str, Any] = {
+    'founding_customs': [
+        *SANDBOX['founding_customs'],
+        {**SOWING, 'held_by': 1 / 3},
+    ],
+}
+
 # A marriage rule that bars no one: who holds it marries across peoples.
 OPEN_MARRIAGE: Mapping[str, Any] = {
     'kind': 'marriage',
@@ -412,6 +435,7 @@ PRESETS: Mapping[str, Mapping[str, Any]] = {
     'plasmid_soup': PLASMID_SOUP,
     'two_valleys': TWO_VALLEYS,
     'bridged_valleys': BRIDGED_VALLEYS,
+    'first_farmers': FIRST_FARMERS,
 }
 
 

@@ -14,6 +14,8 @@
 
 """How the world passes customs on: by what people do, never by minds."""
 
+import json
+
 from absl.testing import absltest
 from examples.lifeways import scenarios
 from examples.lifeways.world import culture as culture_lib
@@ -1119,6 +1121,95 @@ class LandTest(absltest.TestCase):
     self.assertEqual(hills(5), [0, 1, 2, 5, 6, 7, 8, 9])  # A pass at 3-4.
     for col in (14, 15, 16):  # No pass: hills from edge to edge.
       self.assertEqual(hills(col), list(range(10)))
+
+
+class FieldsTest(absltest.TestCase):
+
+  def test_a_field_carries_more_while_tended_and_goes_wild_untended(self):
+    land = land_lib.Land(6, 6, seed=0, richness=1.0, field_yield=3.0)
+    tile = next(
+        (r, c)
+        for r in range(6)
+        for c in range(6)
+        if land.kind((r, c)) == 'grass'
+    )
+    wild = land.capacity(tile)
+
+    land.sow(tile, 2, year=10)
+    land.sow(tile, 1, year=11)  # Tended again; its best sower's level holds.
+
+    self.assertEqual(land.capacity(tile), wild + 6.0)
+    self.assertEqual(land.fallow(13), [])
+    land.regrow()
+    self.assertGreater(land.food[tile], wild)
+    restored = land_lib.Land(6, 6, seed=0, richness=1.0, field_yield=3.0)
+    restored.set_state(json.loads(json.dumps(land.get_state())))
+    self.assertEqual(restored.fields, land.fields)
+    self.assertEqual(land.fallow(14), [tile])
+    land.regrow()
+    self.assertLessEqual(land.food[tile], wild)
+
+  def test_hills_are_never_sown_nor_by_one_without_know_how(self):
+    land = land_lib.Land(
+        6, 6, seed=0, ridge={'col': 2, 'width': 1}, field_yield=3.0
+    )
+
+    land.sow((0, 2), 1, year=0)
+    land.sow((0, 4), 0, year=0)
+
+    self.assertEqual(land.fields, {})
+    old = land.get_state()
+    del old['fields']  # A save from before fields.
+    land.set_state(old)
+    self.assertEqual(land.fields, {})
+
+
+class FarmingTest(_PlaceTest):
+
+  def setUp(self):
+    super().setUp()
+    self.world.farming = {'yield': 3.0, 'fallow': 2}
+    self.sowing = self.world.culture.add(
+        'skill', culture_lib.FARMING, 'Sowing barley.', {'level': 2}
+    ).id
+
+  def _grass(self):
+    land = self.world.land
+    return next(
+        (r, c)
+        for r in range(land.rows)
+        for c in range(land.cols)
+        if land.kind((r, c)) == 'grass'
+    )
+
+  def test_one_given_know_how_may_sow_and_others_see_it(self):
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing])
+    self._person('Bo', 30, tile)
+    self.assertIn(world_lib.SOW, self.world.moves('Ada'))
+    self.assertNotIn(world_lib.SOW, self.world.moves('Bo'))
+
+    self._year(Ada=f'{world_lib.SOW} {self.sowing}', Bo='rest')
+
+    self.assertEqual(self.world.land.fields, {tile: (2, 0)})
+    self.assertEqual(self.world.history[-1]['fields'], 1)
+    self.assertIn((self.sowing, 'observation', 'Ada'), self._offers('Bo'))
+
+  def test_a_field_nobody_tends_goes_wild(self):
+    self._person('Ada', 30, self._grass(), given=[self.sowing])
+    self._year(Ada=f'{world_lib.SOW} {self.sowing}')
+
+    self._year(Ada='rest')
+    self.assertLen(self.world.land.fields, 1)
+    self._year(Ada='rest')
+
+    self.assertEqual(self.world.land.fields, {})
+
+  def test_without_farming_nobody_may_sow(self):
+    self.world.farming = None
+    self._person('Ada', 30, self._grass(), given=[self.sowing])
+
+    self.assertNotIn(world_lib.SOW, self.world.moves('Ada'))
 
 
 class CultureTest(absltest.TestCase):

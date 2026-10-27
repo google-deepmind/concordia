@@ -74,6 +74,7 @@ JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
 PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
+SOW = 'sow a field'
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
 # The kinds of question the World GM asks (what an answer answers).
@@ -143,7 +144,7 @@ _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
 # worshippers, not onlookers; passing on and joining are words, not deeds.
-WITNESSED = (GATHER, REST, MOVE, CHILD, COURT, COURT_ONE, SHARE, SHAME)
+WITNESSED = (GATHER, REST, MOVE, CHILD, COURT, COURT_ONE, SHARE, SHAME, SOW)
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -382,7 +383,13 @@ class World:
         seed_bank=float(settings.get('seed_bank', land_lib.SEED_BANK)),
         ridge=settings.get('ridge'),
         ridges=settings.get('ridges', ()),
+        field_yield=float(
+            (settings.get('farming') or {}).get('yield', land_lib.FIELD_YIELD)
+        ),
     )
+    # Farming (`yield`, `fallow`): one given a farming skill may sow the land
+    # it lives on; None, and nobody may.
+    self.farming: Mapping[str, Any] | None = settings.get('farming')
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
     # The latest dead, as the valley remembers them (for kin): name, sex,
@@ -913,6 +920,12 @@ class World:
         *self._school_moves(person),
         *self._shrine_moves(person),
     ]
+    if (
+        self.farming
+        and self._knows(person, culture_lib.FARMING)
+        and self.land.sowable(person.tile)
+    ):
+      found.append(SOW)
     if self._may_have_child(person):
       found.append(CHILD)
     if self.mode == SEXUAL and not person.partner:
@@ -1197,6 +1210,10 @@ class World:
     deaths += self._disaster()
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
+    if self.farming:
+      self.land.fallow(
+          self.year, int(self.farming.get('fallow', land_lib.FALLOW))
+      )
     self.land.regrow()
     self.places.decay(self._rng('decay'), self.year)
     arrived = brought + self._arrive()
@@ -1263,6 +1280,10 @@ class World:
       if move == GATHER:
         effort *= self._skill(enacted, culture_lib.FOOD)
       person.food += self.land.gather(person.tile, effort)
+    elif move == SOW:
+      self.land.sow(
+          person.tile, self._level(enacted, culture_lib.FARMING), self.year
+      )
     elif move == MOVE:
       person.tile = self.land.best_near(
           person.tile, int(self.settings.get('roam', 1))
@@ -1681,6 +1702,15 @@ class World:
               culture_lib.SCHOOL,
               f'{teacher} teaches',
           )
+
+  def _knows(self, person: Person, domain: str) -> bool:
+    """Whether the GM ever gave a person a skill of a domain (know-how)."""
+    return any(
+        custom_id in self.culture
+        and self.culture.get(custom_id).kind == culture_lib.SKILL
+        and self.culture.get(custom_id).domain == domain
+        for custom_id in person.given
+    )
 
   def _skill(self, enacted: Sequence[str], domain: str) -> float:
     """How much better an enacted skill makes the work (1.0: none).
@@ -2130,6 +2160,7 @@ class World:
         'deaths': deaths,
         'mean_age': round(sum(ages) / len(ages), 2) if ages else 0.0,
         'food': round(float(self.land.food.sum()), 3),
+        'fields': len(self.land.fields),
         'moves': dict(
             sorted(
                 collections.Counter(

@@ -41,6 +41,9 @@ CRAFT = 'craft'
 LEARNING = 'learning'
 IDENTITY = 'identity'
 LANGUAGE = 'language'
+FARMING = 'farming'
+# Order matters to recombination; a new domain goes last, so that worlds
+# without its customs draw as before.
 DOMAINS = (
     KINSHIP,
     FOOD,
@@ -51,6 +54,7 @@ DOMAINS = (
     LEARNING,
     IDENTITY,
     LANGUAGE,
+    FARMING,
 )
 
 # The kinds of custom, each built as its own kind of component.

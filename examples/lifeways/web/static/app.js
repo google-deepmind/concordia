@@ -116,6 +116,17 @@ function drawMap(world) {
       ctx.fillRect(c * page.tile, r * page.tile, page.tile, page.tile);
     }
   }
+  // Fields: golden furrows across the sown land.
+  ctx.strokeStyle = '#e9c46a';
+  ctx.lineWidth = Math.max(1, page.tile / 8);
+  for (const [r, c] of world.fields || []) {
+    for (const furrow of [0.3, 0.7]) {
+      ctx.beginPath();
+      ctx.moveTo(c * page.tile, (r + furrow) * page.tile);
+      ctx.lineTo((c + 1) * page.tile, (r + furrow) * page.tile);
+      ctx.stroke();
+    }
+  }
   ctx.font = `${Math.floor(page.tile * 0.8)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -191,15 +202,17 @@ function chartSeries(rows, maxLevel) {
     {name: 'tongues', colour: '#5a189a', value: (row) => row.tongues || 0},
     {name: 'peoples', colour: '#9d0208',
      value: (row) => (row.peoples && row.peoples.peoples) || 0},
+    {name: 'fields', colour: '#e9c46a', value: (row) => row.fields || 0},
   ];
   const floor = {population: 1, skill_worked: maxLevel, tongues: 1,
-                 peoples: 2};
+                 peoples: 2, fields: 1};
   return lines.map((line) => ({...line, most: line.name === 'skill_worked' ?
       maxLevel : Math.max(...rows.map(line.value), floor[line.name])}));
 }
 
 /**
- * Draws the census: the living, the skill worked by, tongues and peoples,
+ * Draws the census: the living, the skill worked by, tongues, peoples and
+ * fields,
  * year by year; a twin's census, if any, dashed over its world's, on the
  * same scales.
  * @param {!Array<!Object>} rows The census rows.
@@ -236,7 +249,8 @@ function drawChart(rows, twinRows = []) {
   document.getElementById('legend').textContent =
       `Green: the living (${last.population}). Brown: the skill people work` +
       ` by (${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
-      ` Red: peoples (${last.peoples.peoples}).` +
+      ` Red: peoples (${last.peoples.peoples}). Gold: fields` +
+      ` (${last.fields || 0}).` +
       ` Years ${rows[0].year}–${last.year}.` +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)

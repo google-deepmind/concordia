@@ -175,6 +175,9 @@ def _choose(
     )
   if food < 2.5 or ('lean' in texts and food < 4.0):
     return follow(world_lib.GATHER, culture_lib.FOOD)
+  farming = [cid for domain, cid, _ in customs if domain == culture_lib.FARMING]
+  if world_lib.SOW in moves and farming and food >= 3.0 and draw < 0.35:
+    return ' '.join([world_lib.SOW, *farming])
   if world_lib.COURT in moves and age >= 18 and draw < 0.9:
     courted = _court(prompt, moves, customs)
     if courted:

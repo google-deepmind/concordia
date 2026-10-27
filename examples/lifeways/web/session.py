@@ -701,7 +701,10 @@ class Session:
         int(world['year']) != int(saved['year'])
         or living != entities
         or any(world.get(key) != value for key, value in kept.items())
-        or any(world['land'].get(k) != land.get(k) for k in ('terrain', 'food'))
+        or any(
+            world['land'].get(k, []) != land.get(k, [])  # Older: no fields.
+            for k in ('terrain', 'food', 'fields')
+        )
     ):
       raise ValueError(
           f'the world did not restore as saved (year {world["year"]} of'
@@ -1129,6 +1132,7 @@ class Session:
         'kinds': list(land_lib.TERRAIN),
         'terrain': land['terrain'],
         'food': [[round(f, 1) for f in row] for row in land['food']],
+        'fields': [[r, c] for r, c, *_ in land.get('fields', ())],
         'people': people,
         'places': places,
         'pace': self.input.settings(),

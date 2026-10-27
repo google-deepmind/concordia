@@ -170,6 +170,7 @@ The Sandbox is where everything is, and its presets are settings, not code
 | `sandbox` | Open Country: the River people found a valley; Hill people may come when it is nearly empty. Everything is on. |
 | `plasmid_soup` | Everyone buds alone; customs move freely (people watch from afar, read texts the Experimenter leaves, hear sermons); there are no peoples. Do traditions form without peoples? How fast do customs sweep? |
 | `two_valleys` | Two peoples with their own tongues, beliefs and marriage rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or both? |
+| `first_farmers` | The Sandbox, a third of whose founders know how to sow. Does farming spread or die out, and does the valley come to feed more? |
 | `bridged_valleys` | Two Valleys with one founder in each people who marries whom they love. The two bridge the peoples into one; as the custom gains and loses holders, do whole peoples split and merge? |
 
 On the page, a stopped world gives way to a new one of any preset; the save
@@ -351,6 +352,12 @@ a century or so). The Experimenter may send one (`send a <kind> at
 (`bring migrants at <row>,<col>`). Those within reach are told, the census
 row keeps each disaster (`disasters`), and the Experimenter hears what it
 took.
+
+**Farming.** One the World gave a farming skill may sow the land it lives
+on (`sow a field`): the field then carries more food, by the skill's level,
+for whoever forages there, while someone tends it; untended for a few years
+it goes wild. Others see the sowing and may copy it. No founder of the
+Sandbox knows how (a song may teach it); in First Farmers a third do.
 
 **Institutions.** The Experimenter may found a library, school or shrine at
 a place (`found a <kind> at <row>,<col>`), where the world has that kind

@@ -219,7 +219,9 @@ test('the census charts peoples, one people halfway up', () => {
 
   const byName = Object.fromEntries(series.map((line) => [line.name, line]));
   assert.deepEqual(Object.keys(byName),
-                   ['population', 'skill_worked', 'tongues', 'peoples']);
+                   ['population', 'skill_worked', 'tongues', 'peoples',
+                     'fields']);
+  assert.equal(byName.fields.most, 1);
   assert.equal(byName.population.most, 30);
   assert.equal(byName.skill_worked.most, 5);
   assert.equal(byName.tongues.most, 3);
@@ -228,7 +230,8 @@ test('the census charts peoples, one people halfway up', () => {
   assert.equal(byName.peoples.value({year: 2}), 0);
   rows.push({year: 2, population: 30, skill_worked: 2, tongues: 3,
              peoples: {peoples: 3, sizes: [12, 10, 8]}});
-  assert.equal(chartSeries(rows, 5).at(-1).most, 3);
+  assert.equal(
+      chartSeries(rows, 5).find((line) => line.name === 'peoples').most, 3);
 });
 
 test('a marriage rule may say whom it allows; other kinds may not', () => {

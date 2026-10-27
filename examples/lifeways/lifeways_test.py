@@ -324,6 +324,31 @@ class PresetTest(absltest.TestCase):
 
     self.assertEqual(run.peoples()['peoples'], 1)
 
+  def test_first_farmers_sow_and_their_know_how_spreads(self):
+    settings = scenarios.settings('first_farmers', max_years=30)
+    founders = scenarios.founders(settings)
+    sowers = [
+        f
+        for f in founders
+        if any(
+            c['text'] == scenarios.SOWING['text']
+            for c in f['params']['customs']
+        )
+    ]
+    self.assertLen(sowers, len(founders) // 3)
+    run = simulation.build_simulation(settings)
+
+    run.play()
+
+    world = run.world()
+    self.assertGreater(max(row['fields'] for row in world.history), 0)
+    farmers = sum(
+        n
+        for custom_id, n in run.held_counts().items()
+        if world.culture.get(custom_id).domain == culture_lib.FARMING
+    )
+    self.assertGreater(farmers, len(sowers))
+
   def test_in_plasmid_soup_people_bud_alone(self):
     run = simulation.build_simulation(
         scenarios.settings('plasmid_soup', max_years=30)
