@@ -457,6 +457,20 @@ class MockMindTest(absltest.TestCase):
     self.assertFalse(without.startswith(world_lib.SOW))
     self.assertEqual(tended, f'{world_lib.SOW} c1 c2')
 
+  def test_a_norm_of_property_spares_others_fields(self):
+    prompt = 'Food stored: 1.0\n'
+    moves = [world_lib.GATHER, world_lib.SPARE, world_lib.REST]
+    fishing = (culture_lib.FOOD, 'c1', 'Smoking fish.')
+    sparing = (culture_lib.FARMING, 'c2', scenarios.SPARING['text'])
+
+    plain = mock_language_model._choose(prompt, moves, [fishing], ())  # pylint: disable=protected-access
+    spared = mock_language_model._choose(  # pylint: disable=protected-access
+        prompt, moves, [fishing, sparing], ()
+    )
+
+    self.assertEqual(plain, f'{world_lib.GATHER} c1')
+    self.assertEqual(spared, f'{world_lib.SPARE} c1 c2')
+
 
 class ArchiveTest(absltest.TestCase):
 

@@ -1149,6 +1149,23 @@ class FieldsTest(absltest.TestCase):
     land.regrow()
     self.assertLessEqual(land.food[tile], wild)
 
+  def test_a_field_is_its_latest_tenders(self):
+    land = land_lib.Land(6, 6, seed=0, field_yield=3.0)
+    tile = next(
+        (r, c) for r in range(6) for c in range(6) if land.sowable((r, c))
+    )
+
+    land.sow(tile, 1, year=0, tender='Ada')
+    land.sow(tile, 1, year=1, tender='Bo')
+
+    self.assertEqual(land.fields[tile], (1, 1, 'Bo'))
+    self.assertEqual(land.fields_of_others(tile, 'Ada'), [tile])
+    self.assertEqual(land.fields_of_others(tile, 'Bo'), [])
+    old = land.get_state()
+    old['fields'] = [row[:4] for row in old['fields']]  # Before tenders.
+    land.set_state(old)
+    self.assertEqual(land.fields[tile], (1, 1, ''))
+
   def test_hills_are_never_sown_nor_by_one_without_know_how(self):
     land = land_lib.Land(
         6, 6, seed=0, ridge={'col': 2, 'width': 1}, field_yield=3.0
@@ -1191,7 +1208,7 @@ class FarmingTest(_PlaceTest):
 
     self._year(Ada=f'{world_lib.SOW} {self.sowing}', Bo='rest')
 
-    self.assertEqual(self.world.land.fields, {tile: (2, 0)})
+    self.assertEqual(self.world.land.fields, {tile: (2, 0, 'Ada')})
     self.assertEqual(self.world.history[-1]['fields'], 1)
     self.assertIn((self.sowing, 'observation', 'Ada'), self._offers('Bo'))
 
@@ -1204,6 +1221,21 @@ class FarmingTest(_PlaceTest):
     self._year(Ada='rest')
 
     self.assertEqual(self.world.land.fields, {})
+
+  def test_one_may_gather_sparing_the_fields_others_tend(self):
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing])
+    self._person('Bo', 30, tile)
+    self._year(Ada=f'{world_lib.SOW} {self.sowing}', Bo='rest')
+    self.assertIn(world_lib.SPARE, self.world.moves('Bo'))
+    self.assertNotIn(world_lib.SPARE, self.world.moves('Ada'))  # Her own.
+    before = float(self.world.land.food[tile])
+
+    self._year(Ada='rest', Bo=world_lib.SPARE)
+
+    self.assertGreaterEqual(float(self.world.land.food[tile]), before)
+    self._year(Ada='rest', Bo=world_lib.GATHER)
+    self.assertLess(float(self.world.land.food[tile]), before)
 
   def test_without_farming_nobody_may_sow(self):
     self.world.farming = None

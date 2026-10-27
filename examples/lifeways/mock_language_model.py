@@ -139,11 +139,23 @@ def _choose(
   ]
   others = [cid for _, cid, _ in customs if cid not in reading]
 
+  # A norm against taking from others' fields (one's own, or expected when
+  # watched) spares them whenever the person gathers.
+  sparing = [
+      cid
+      for domain, cid, text in customs
+      if domain == culture_lib.FARMING
+      and "another's field" in text.lower()
+      and (cid not in expected or watched)
+  ]
+
   def follow(move: str, *domains: str) -> str:
     """The move, naming the customs of its domains (all, for teaching)."""
     ids = [
         cid for domain, cid, _ in customs if not domains or domain in domains
     ]
+    if move == world_lib.GATHER and sparing and world_lib.SPARE in moves:
+      return ' '.join([world_lib.SPARE, *ids, *sparing])
     return ' '.join([move, *ids])
 
   if world_lib.MOVE in moves and land < 4.0 and draw > 0.4:

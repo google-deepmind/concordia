@@ -75,6 +75,10 @@ TELL = 'tell a story'
 PREACH = 'preach'
 COURT_ONE = 'court'  # ... a name: look for that partner only.
 SOW = 'sow a field'
+# Gathering that leaves alone the fields others tend (offered where there
+# are some within a day's walk): taking from them is no breach of the
+# World's, but a people's norms may make it one.
+SPARE = 'gather, sparing the fields of others'
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
 # The kinds of question the World GM asks (what an answer answers).
@@ -144,7 +148,18 @@ _BRING = re.compile(r'^bring migrants at (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$')
 # The deeds others see a person do by its customs, and so may copy. Teaching,
 # schooling, writing, reading and rites reach children, pupils, shelves and
 # worshippers, not onlookers; passing on and joining are words, not deeds.
-WITNESSED = (GATHER, REST, MOVE, CHILD, COURT, COURT_ONE, SHARE, SHAME, SOW)
+WITNESSED = (
+    GATHER,
+    REST,
+    MOVE,
+    CHILD,
+    COURT,
+    COURT_ONE,
+    SHARE,
+    SHAME,
+    SOW,
+    SPARE,
+)
 
 ADULT_AGE = 16
 APPRENTICE_AGE = 12
@@ -909,11 +924,13 @@ class World:
           *self._school_moves(person),
           *self._shrine_moves(person),
       ]
+      spare = [SPARE] if self._fields_of_others(person) else []
       if age >= APPRENTICE_AGE and culture_lib.APPRENTICESHIP in self.channels:
-        return [PLAY, GATHER, APPRENTICE, *places]
-      return [PLAY, GATHER, *places]
+        return [PLAY, GATHER, *spare, APPRENTICE, *places]
+      return [PLAY, GATHER, *spare, *places]
     found = [
         GATHER,
+        *([SPARE] if self._fields_of_others(person) else []),
         REST,
         MOVE,
         *self._library_moves(person),
@@ -1203,7 +1220,9 @@ class World:
     self._rites(did)
     self._transmit(did)
     worked = [
-        self._level(e, culture_lib.FOOD) for m, e in did.values() if m == GATHER
+        self._level(e, culture_lib.FOOD)
+        for m, e in did.values()
+        if m in (GATHER, SPARE)
     ]
     # Disasters strike after the year's work, before everyone eats.
     deaths = self._send(self.actions.get(EXPERIMENTER, ''))
@@ -1275,14 +1294,18 @@ class World:
         )
         if custom_id in person.given and custom_id in self.culture
     ]
-    if move in (GATHER, APPRENTICE):
+    if move in (GATHER, SPARE, APPRENTICE):
       effort = 2.0 if person.age(self.year) >= ADULT_AGE else 1.0
-      if move == GATHER:
+      if move in (GATHER, SPARE):
         effort *= self._skill(enacted, culture_lib.FOOD)
-      person.food += self.land.gather(person.tile, effort)
+      spare = self._fields_of_others(person) if move == SPARE else []
+      person.food += self.land.gather(person.tile, effort, spare)
     elif move == SOW:
       self.land.sow(
-          person.tile, self._level(enacted, culture_lib.FARMING), self.year
+          person.tile,
+          self._level(enacted, culture_lib.FARMING),
+          self.year,
+          tender=name,
       )
     elif move == MOVE:
       person.tile = self.land.best_near(
@@ -1703,6 +1726,12 @@ class World:
               f'{teacher} teaches',
           )
 
+  def _fields_of_others(self, person: Person) -> list[land_lib.Tile]:
+    """The fields around a person that others tend (none without farming)."""
+    if not self.farming:
+      return []
+    return self.land.fields_of_others(person.tile, person.name)
+
   def _knows(self, person: Person, domain: str) -> bool:
     """Whether the GM ever gave a person a skill of a domain (know-how)."""
     return any(
@@ -1800,7 +1829,8 @@ class World:
             c for c in enacted if self.culture.get(c).kind == culture_lib.SKILL
         ]
         for name, (move, enacted) in sorted(did.items())
-        if move == GATHER and self.people[name].age(self.year) >= ADULT_AGE
+        if move in (GATHER, SPARE)
+        and self.people[name].age(self.year) >= ADULT_AGE
     }
     masters = {name: skills for name, skills in masters.items() if skills}
     taken: collections.Counter[str] = collections.Counter()

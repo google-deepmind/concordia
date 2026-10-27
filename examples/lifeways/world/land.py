@@ -82,8 +82,9 @@ class Land:
     self.regrowth = float(regrowth)
     self.seed_bank = float(seed_bank)
     self.field_yield = float(field_yield)
-    # The fields: each sown tile's level and the year it was last tended.
-    self.fields: dict[Tile, tuple[int, int]] = {}
+    # The fields: each sown tile's level, the year it was last tended and
+    # its latest tender (whose field it is).
+    self.fields: dict[Tile, tuple[int, int, str]] = {}
     rng = np.random.default_rng([seed, 1])
     # A smooth random field picks the terrain: rivers in its valleys, hills
     # on its heights, a coast along one edge.
@@ -126,7 +127,7 @@ class Land:
         ],
         dtype=float,
     )
-    for tile, (level, _) in self.fields.items():
+    for tile, (level, _, _) in self.fields.items():
       capacity[tile] += self.field_yield * level * self.richness
     return capacity
 
@@ -134,7 +135,7 @@ class Land:
     return TERRAIN[int(self.terrain[tile])]
 
   def capacity(self, tile: Tile) -> float:
-    level = self.fields.get(tile, (0, 0))[0]
+    level = self.fields.get(tile, (0, 0, ''))[0]
     return (CAPACITY[self.kind(tile)] + self.field_yield * level) * (
         self.richness
     )
@@ -142,18 +143,27 @@ class Land:
   def sowable(self, tile: Tile) -> bool:
     return self.kind(tile) not in UNSOWABLE
 
-  def sow(self, tile: Tile, level: int, year: int) -> None:
+  def sow(self, tile: Tile, level: int, year: int, tender: str = '') -> None:
     """Sows or tends a field: its level is the best of those who sowed it.
 
     Args:
       tile: Where.
       level: The sower's farming skill.
       year: This year (the field is tended in it).
+      tender: Who sows it; the field is its latest tender's.
     """
     if not self.sowable(tile) or level < 1:
       return
-    best = max(level, self.fields.get(tile, (0, year))[0])
-    self.fields[tile] = (best, year)
+    best = max(level, self.fields.get(tile, (0, year, ''))[0])
+    self.fields[tile] = (best, year, tender)
+
+  def fields_of_others(self, tile: Tile, name: str) -> list[Tile]:
+    """The fields within a day's walk of a tile that others tend."""
+    return [
+        t
+        for t in self.around(tile)
+        if t in self.fields and self.fields[t][2] not in ('', name)
+    ]
 
   def fallow(self, year: int, years: int = FALLOW) -> list[Tile]:
     """Lets fields untended for `years` go wild; returns them.
@@ -168,7 +178,7 @@ class Land:
       The fields gone wild.
     """
     wild = sorted(
-        t for t, (_, tended) in self.fields.items() if year - tended >= years
+        t for t, (_, tended, _) in self.fields.items() if year - tended >= years
     )
     for tile in wild:
       del self.fields[tile]
@@ -206,12 +216,15 @@ class Land:
     """The food within a day's walk (the tile and its neighbours)."""
     return float(sum(self.food[t] for t in self.around(tile)))
 
-  def gather(self, tile: Tile, effort: float) -> float:
+  def gather(
+      self, tile: Tile, effort: float, spare: Sequence[Tile] = ()
+  ) -> float:
     """Forages food around a tile, richest tiles first.
 
     Args:
       tile: Where the forager lives.
       effort: The most food the forager can take this year.
+      spare: Tiles the forager leaves alone (e.g. others' fields).
 
     Returns:
       The food taken.
@@ -219,7 +232,8 @@ class Land:
     wanted = max(0.0, effort)
     taken = 0.0
     for place in sorted(
-        self.around(tile), key=lambda t: (-round(self.food[t], 6), t)
+        (t for t in self.around(tile) if t not in spare),
+        key=lambda t: (-round(self.food[t], 6), t),
     ):
       if taken >= wanted:
         break
@@ -244,8 +258,8 @@ class Land:
         'terrain': self.terrain.astype(int).tolist(),
         'food': self.food.tolist(),
         'fields': [
-            [r, c, level, tended]
-            for (r, c), (level, tended) in sorted(self.fields.items())
+            [r, c, level, tended, tender]
+            for (r, c), (level, tended, tender) in sorted(self.fields.items())
         ],
     }
 
@@ -266,6 +280,10 @@ class Land:
     self.terrain = np.array(state['terrain'], dtype=int)
     self.food = np.array(state['food'], dtype=float)
     self.fields = {
-        (int(r), int(c)): (int(level), int(tended))
-        for r, c, level, tended in state.get('fields', ())
+        (int(r), int(c)): (
+            int(level),
+            int(tended),
+            str(rest[0]) if rest else '',
+        )
+        for r, c, level, tended, *rest in state.get('fields', ())
     }
