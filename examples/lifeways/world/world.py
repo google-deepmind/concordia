@@ -405,6 +405,9 @@ class World:
     # Farming (`yield`, `fallow`): one given a farming skill may sow the land
     # it lives on; None, and nobody may.
     self.farming: Mapping[str, Any] | None = settings.get('farming')
+    # The deeds others see (`WITNESSED` by default), whose customs they may
+    # copy by observation.
+    self.witnessed = tuple(settings.get('witnessed', WITNESSED))
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
     # The latest dead, as the valley remembers them (for kin): name, sex,
@@ -1868,7 +1871,7 @@ class World:
     actors = [
         name
         for name, (move, enacted) in sorted(did.items())
-        if enacted and _move_kind(move) in WITNESSED
+        if enacted and _move_kind(move) in self.witnessed
     ]
     for name in self.living():
       person = self.people[name]

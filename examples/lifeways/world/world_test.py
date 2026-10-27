@@ -1237,6 +1237,36 @@ class FarmingTest(_PlaceTest):
     self._year(Ada='rest', Bo=world_lib.GATHER)
     self.assertLess(float(self.world.land.food[tile]), before)
 
+  def test_sparing_is_seen_unless_the_world_says_it_is_not(self):
+    norm = self.world.culture.add(
+        'norm', culture_lib.FARMING, "We take nothing from another's field."
+    ).id
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing])
+    self._person('Bo', 30, tile, given=[norm])
+    self._person('Cy', 30, tile)
+    self._year(Ada=f'{world_lib.SOW} {self.sowing}', Bo='rest', Cy='rest')
+
+    self._year(Ada='rest', Bo=f'{world_lib.SPARE} {norm}', Cy='rest')
+    seen = self._offers('Cy')
+    self.world.witnessed = tuple(
+        d for d in world_lib.WITNESSED if d != world_lib.SPARE
+    )
+    self._year(Ada='rest', Bo=f'{world_lib.SPARE} {norm}', Cy='rest')
+
+    def sparing_seen(offers):
+      return [
+          custom_id
+          for custom_id, via, source in offers
+          if via == 'observation'
+          and source == 'Bo'
+          and self.world.culture.get(custom_id).text
+          == self.world.culture.get(norm).text
+      ]
+
+    self.assertNotEmpty(sparing_seen(seen))
+    self.assertEmpty(sparing_seen(self._offers('Cy')))
+
   def test_without_farming_nobody_may_sow(self):
     self.world.farming = None
     self._person('Ada', 30, self._grass(), given=[self.sowing])
