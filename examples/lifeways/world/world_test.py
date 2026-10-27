@@ -244,7 +244,26 @@ _READINGS = (
         'Now Kaka gathers food, so she can feed her child.',
         'gather food',
     ),
-    # Known limits. A move named as offered comes first, wherever it stands:
+    (
+        'Kaka',
+        'Now she has a child, so she will spend the year gathering food.',
+        'gather food',
+    ),
+    (
+        'Kaka',
+        (
+            'Now Kaka has a child to feed, so Kaka will spend the year'
+            ' gathering food.'
+        ),
+        'gather food',
+    ),
+    # Known limits. An aside closed by a dash is not read past:
+    (
+        'Kaka',
+        'Having a child to feed, she says — and she gathers food.',
+        '',
+    ),  # not 'gather food'
+    # A move named as offered comes first, wherever it stands:
     (
         'Kaka',
         'Old Kaka sows a field, so she can look for a partner.',

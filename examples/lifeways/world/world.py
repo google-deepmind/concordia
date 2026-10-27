@@ -2535,7 +2535,8 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
   who = '|'.join(filter(None, (re.escape(name.lower()), 'i|she|he|they|we')))
   subject_after = re.compile(
       r'^[^.!?:;]*?,\s+(?:(?:this|next|the next) year,?\s+)?'
-      rf'(?:so\s+(?=(?:{who})\b(?!\s+(?:can|could|will|would|may|might)\b))'
+      rf'(?:so\s+(?=(?:{who})\b(?!\s+(?:can|could|will|would|may|might)\b'
+      r'(?!\s+spend\b)))'
       rf"|(?!(?:{_SUBORDINATORS}|and|so|but|or|yet)\b)[a-z']+\s+)?"
       rf'(?:{who})\b'
       r'(?!\s+(?:says|said|thinks|thought)\s*(?:[,.!?:;(\[]|$))'
