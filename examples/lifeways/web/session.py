@@ -622,6 +622,9 @@ class Session:
     self._rows_lock = threading.Lock()
     # The played person's reach at the last year's close (`_played_state`).
     self._reach: dict[str, int] = {'people': 0, 'customs': 0}
+    # How many of the player's lives the notebook has noted, and whether the
+    # latest was alive then (`_note_lives`).
+    self._lives_noted: tuple[int, bool] | None = None
     # Variants the world forgot (nobody holds them), latest last.
     self._forgotten: collections.OrderedDict[str, dict[str, Any]] = (
         collections.OrderedDict()
@@ -747,6 +750,7 @@ class Session:
             'people': len(learned),
             'customs': len({c for ids in learned.values() for c in ids}),
         }
+      self._note_lives(int(row['year']))
     self._note_year(year, row)
     self._follow_releases(row)
     with self._rows_lock:
@@ -1096,6 +1100,38 @@ class Session:
         gone = own[0]['id']
         self._notebook = [e for e in self._notebook if e['id'] != gone]
       return dict(entry)
+
+  def _note_lives(self, closed: int) -> None:
+    """Notes the played person's death and each life it lives on in.
+
+    Called as a year closes (in the World GM's lock).
+
+    Args:
+      closed: The year that closed.
+    """
+    world = self.run.world()
+    lives = self.run.lives() or [self.played.name if self.played else '']
+    if self._lives_noted is None:  # As built or restored: nothing new yet.
+      self._lives_noted = (len(lives), lives[-1] in world.people)
+    noted, alive = self._lives_noted
+    for heir in lives[noted:]:
+      person = world.people.get(heir)
+      parents = ' and '.join(person.parents) if person else ''
+      self._write(
+          EVENT,
+          f'You are born again as {heir}'
+          + (f', child of {parents}.' if parents else '.'),
+          closed,
+      )
+      alive = True
+    if alive and lives[-1] not in world.people:
+      died = next(
+          (d for d in reversed(world.dead) if d['name'] == lives[-1]), None
+      )
+      age = f', aged {died["died"] - died["born"]}' if died else ''
+      self._write(EVENT, f'{lives[-1]}, whom you play, dies{age}.', closed)
+      alive = False
+    self._lives_noted = (len(lives), alive)
 
   def _note_year(self, year: int, row: Mapping[str, Any]) -> None:
     """Notes the World's reports and what changed (in the World GM's lock)."""

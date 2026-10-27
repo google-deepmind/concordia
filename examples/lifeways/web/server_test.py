@@ -1285,6 +1285,15 @@ class LivingOnTest(absltest.TestCase):
               == heir
           )
       )
+      texts = [e['text'] for e in played.notebook()]
+      self.assertTrue(
+          any(t.startswith(f'{founder}, whom you play, dies') for t in texts),
+          texts,
+      )
+      self.assertTrue(
+          any(t.startswith(f'You are born again as {heir}') for t in texts),
+          texts,
+      )
       played.pace(paused=True)
       self.assertTrue(_wait(lambda: played.saved_year is not None))
     finally:
