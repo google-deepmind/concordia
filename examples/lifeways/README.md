@@ -185,6 +185,22 @@ settings as it plays: `richness`, `regrowth`, `seed_bank`, `subsistence`,
 
 ## Experiments
 
+**What spreads when released** (MOCK Sandbox, 6 seeds; a song in year 15
+where most would hear it, followed to year 85, as the page follows it):
+
+| Released | alive at year 85 | most holding it at once |
+|---|---|---|
+| a habit (food) | 6/6 | 46 |
+| a rule (sharing) | 6/6 | 35 |
+| whom to learn from | 6/6 | 33 |
+| a marriage rule | 4/6 | 4.5 |
+| a value; a belief | 2/6 each | 2 |
+| know-how, level 1 / level 4 | 1/6 / 3/6 | 0 / 15 |
+
+Customs people act on each year are seen and taught, so they spread.
+Beliefs and values move only at rites, by preaching and in stories.
+Know-how is taken up only if it is better than what one knows.
+
 ```bash
 python -m examples.lifeways.experiment --lever=richness=0.5 --seeds=5 \
     --years=200 --out_dir=/tmp/richer
