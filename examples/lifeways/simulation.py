@@ -141,12 +141,15 @@ def build_config(
           params=world_params,
       )
   )
+  prefabs: dict[str, prefab_lib.Prefab] = {
+      person_lib.PERSON_PREFAB: person,
+      experimenter_lib.EXPERIMENTER_PREFAB: experimenter_lib.Experimenter(),
+      world_gm.WORLD_GM_PREFAB: world_gm.WorldGameMaster(),
+  }
+  if player:
+    prefabs[person_lib.PLAYED_PREFAB] = world_params['played_prefab']
   return prefab_lib.Config(
-      prefabs={
-          person_lib.PERSON_PREFAB: person,
-          experimenter_lib.EXPERIMENTER_PREFAB: experimenter_lib.Experimenter(),
-          world_gm.WORLD_GM_PREFAB: world_gm.WorldGameMaster(),
-      },
+      prefabs=prefabs,
       instances=instances,
       default_premise='',
       default_max_steps=UNBOUNDED_STEPS,

@@ -125,8 +125,9 @@ Markdown.
 world begins, the person also lives in the valley as its first founder.
 That founder is an ordinary person of the valley built from the same prefab
 (`Person`); only its acting component differs. The prefab takes an
-`act_component_factory`, and the session gives this one the stock
-`HumanActComponent` over a `PersonInput` adapter. The World asks the person
+`act_component_factory`, and the session gives this one a `PlayedAct`
+(`components/played.py`): the stock `HumanActComponent` over a `PersonInput`
+adapter, and the person's habit for when nobody answers. The World asks the person
 what it asks everyone, through its game master:
 - each year's move, with the customs the person follows in doing it;
 - which customs to pass on to a child about to be born;
@@ -139,22 +140,25 @@ know-how the World counts for it: food skills for gathering, farming
 know-how for sowing (without it nothing takes root), reading for the
 library. Those who see the person may take up the customs it follows. A
 dashed white ring marks the person on the map.
-- **Waiting.** While the person decides, the year waits. A question
-  unanswered for two minutes of play (pause and it waits) gets what the
-  person would do unasked: gather food, pass on all it holds, or keep its
-  counsel.
-- **Endings.** Stopping the world hurries the person, so it does not wait.
+- **Waiting.** While the person decides, the year waits. The input never
+  makes up a move: a question unanswered for two minutes of play (pause and
+  it waits) raises `Unanswered`. The person's acting component then acts by
+  its own habit, logged as habit rather than as the player's: it gathers
+  food, passes on the customs its `Learner` holds, or keeps its counsel.
+  Each question waits on its own, so in free mode a dead founder's last
+  question cannot take its heir's answer.
+- **Endings.** Stopping the world hurries the input, so nobody waits.
   The person dies as anyone does, and the valley plays on.
 - **Living on.** Once the played person dies, the player is born again
-  (`World.heir`), as the first child born:
+  (`World.heir`), as the first child born (never a newcomer):
   - of its line, a descendant (its own child, if one is born the year it
     dies);
   - or, once nobody of its line lives, of its people;
   - or, once none of its people live either, of anyone.
 
   The World GM's `TurnGate` keeps the lives played. The heir joins through
-  the stock roster as a second prefab of the Config, the `Person` with the
-  page's acting component (`PLAYED_PREFAB`). So a save restores the heir as
+  the stock roster as a second prefab of the Config, the `Person` with a
+  `PlayedAct` (`PLAYED_PREFAB`). So a save restores the heir as
   played, like any other joined player.
 - **Saves and twins.** A played world's save restores only as played. In a
   twin, minds play the person, and each heir.

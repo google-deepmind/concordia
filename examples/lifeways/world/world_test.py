@@ -1386,6 +1386,33 @@ class CultureTest(absltest.TestCase):
     self.assertIn(healed.text, ('In lean.', 'In lean, always.'))
     self.assertEqual(healed.root, 'In lean.')
 
+  def test_an_always_a_text_says_is_its_own(self):
+    culture = culture_lib.Culture()
+    rule = culture.add(
+        'norm', 'sacred', 'Always give the first fish to the river.'
+    )
+    rng = np.random.default_rng(0)
+
+    copies = [culture.copy(rule.id, rng, 1.0, 1) for _ in range(50)]
+
+    self.assertTrue(all(c.text.startswith('Always ') for c in copies))
+    self.assertEqual(copies[0].root, 'Always give the first fish to the river.')
+
+  def test_a_norm_s_change_of_form_keeps_its_line_s_first_text(self):
+    culture = culture_lib.Culture()
+    custom = culture.add(
+        'norm', 'kinship', 'We raise a child only when the stores feed it.'
+    )
+    rng = np.random.default_rng(1)
+    forms = (culture_lib.KNOWN, culture_lib.INTERNALIZED)
+
+    for i in range(400):  # Copying errors, and now and then a new form.
+      custom = culture.copy(custom.id, rng, 1.0, i)
+      if i % 7 == 0:
+        custom = culture.in_form(custom.id, forms[i // 7 % 2], i)
+      core = custom.text.removesuffix(culture_lib.STRESS).rstrip('.').split()
+      self.assertGreaterEqual(len(core), 10 - culture_lib.WORDS_LOST)
+
   def test_a_dialect_drifts_a_word_at_a_time(self):
     culture = culture_lib.Culture()
     words = ['ka', 'ri', 'to', 'ma']
@@ -1472,6 +1499,14 @@ class HeirTest(absltest.TestCase):
     self.assertEqual(self.world.heir('Kaka', ['Oran']), '')
     self._person('Lu', parents=['Mira'])
     self.assertEqual(self.world.heir('Kaka', ['Oran', 'Lu']), 'Lu')
+
+  def test_one_is_born_again_never_as_one_who_arrived(self):
+    self._person('Kaka')
+    newcomer = self._person('Oran', descent='Hill')
+    newcomer.arrived = 0
+    self._die('Kaka')
+
+    self.assertEqual(self.world.heir('Kaka', ['Oran']), '')
 
   def test_with_its_line_gone_one_lives_on_in_its_people_then_in_anyone(self):
     self._person('Kaka')

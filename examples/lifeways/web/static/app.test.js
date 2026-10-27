@@ -23,8 +23,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
-  kinName, worldName, yearText,
-  leverChoices, lineageGroups,
+  kinName, worldName, yearText, entryText, moveWords,
+  leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -289,6 +289,8 @@ const ASKED_MOVE = {
       'A custom of ours (kinship) [c1]: We raise a child only when fed.\n',
   year: 0,
   seconds_left: 90,
+  name: 'Kaka',
+  unanswered: 'gathers food',
 };
 
 test('a played person chooses among the moves its question lists', () => {
@@ -318,11 +320,12 @@ test('a played person answers as the World reads answers', () => {
 test('the life note says what waits, and when a life ends', () => {
   assert.equal(lifeNote(null), '');
   assert.equal(lifeNote({name: 'Kaka', alive: true, asked: ASKED_MOVE}),
-      'Year 0: the year waits for you. Answer within 90\u00a0s, or you gather ' +
-      'food.');
+      'Year 0: the year waits for you. Answer within 90\u00a0s, or Kaka, by ' +
+      'habit, gathers food.');
   assert.match(lifeNote({name: 'Kaka', alive: true,
-    asked: {...ASKED_MOVE, kind: 'pass_on', year: -1}}),
-  /^The year waits.*pass on all you hold\.$/);
+    asked: {...ASKED_MOVE, kind: 'pass_on', year: -1,
+      unanswered: 'passes on all they hold'}}),
+  /^The year waits.*by habit, passes on all they hold\.$/);
   assert.equal(lifeNote({name: 'Kaka', alive: true, asked: null}),
       'The others are choosing; the year turns.');
   assert.match(lifeNote({name: 'Kaka', alive: false, asked: null}),
@@ -385,16 +388,6 @@ test('the fold of dead branches says what it holds', () => {
       'more (copying errors that died out); the latest 30 are listed');
 });
 
-test('a lineage groups versions by how they live on', () => {
-  const v = (id, living, holders) => ({id, living, holders});
-  const groups = lineageGroups([
-    v('c1', false, []), v('c2', true, ['a']), v('c3', true, []),
-    v('c4', true, ['a', 'b']),
-  ]);
-  assert.deepEqual(groups.held.map((x) => x.id), ['c4', 'c2']);
-  assert.deepEqual(groups.kept.map((x) => x.id), ['c3']);
-});
-
 test('kinds, worlds and years read as words', () => {
   assert.equal(customKind({kind: 'norm', domain: 'kinship',
     params: {form: 'internalized'}}),
@@ -411,4 +404,25 @@ test('kinds, worlds and years read as words', () => {
   assert.equal(worldName('sandbox'), 'The Sandbox');
   assert.equal(worldName('first_farmers'), 'First Farmers');
   assert.equal(yearText(30193), '30,193');
+});
+
+test('moves read as a person would say them', () => {
+  assert.equal(moveWords('release norm kinship as a song at 8,9: Feed all.'),
+      'Sing “Feed all.” at row 8, column 9: a rule (about kinship)');
+  assert.equal(moveWords(
+      'release marriage kinship within tongue as a text at 1,2: Wed well.'),
+  'Leave as a text “Wed well.” at row 1, column 2: whom to marry, only ' +
+      'one who speaks as we do (about kinship)');
+  assert.equal(moveWords('send a flood at 3,4'),
+      'Send a flood at row 3, column 4');
+  assert.equal(moveWords('bring migrants at 3,4'),
+      'Bring newcomers to row 3, column 4');
+  assert.equal(moveWords('close the shrine at 3,4'),
+      'Close the shrine at row 3, column 4');
+  assert.equal(moveWords('ask Kaka: Why?'), 'Ask Kaka: “Why?”');
+  assert.equal(moveWords('stop the world'), 'Stop the world');
+  assert.equal(entryText({kind: 'move',
+    text: 'You queue a move: send a fire at 1,1'}),
+  'Your move for next year: Send a fire at row 1, column 1');
+  assert.equal(entryText({kind: 'world', text: 'A fire.'}), 'A fire.');
 });

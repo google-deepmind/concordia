@@ -1112,16 +1112,21 @@ class World:
     is of its line (a descendant: its child, if one is born the year it
     dies). If nobody of its line lives, it lives on as the first born of its
     people, and if nobody of its people lives either, as the first born of
-    all.
+    all. Only the born will do: never one who arrived.
 
     Args:
       name: The person who died.
-      born: Those just born, in the order they were born.
+      born: Those just born or arrived, in that order.
 
     Returns:
       The heir, or '' if none of the born will do (the person waits for the
       next birth in its line, or of its people).
     """
+    born = [
+        child
+        for child in born
+        if child in self.people and self.people[child].arrived is None
+    ]
     records = {record['name']: record for record in self.dead}
 
     def children(who: str) -> Sequence[str]:

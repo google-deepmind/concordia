@@ -50,11 +50,8 @@ PASS_ON_QUESTION = (
 INTERVIEW_QUESTION = (
     'The Experimenter asks {name}: "{question}" What does {name} answer?'
 )
-# No example answer, and the move exactly as written: asked a skilled
-# sower's question 30 times, llama3.2:3b sowed once with "gather food c3" as
-# the example, 5 times without it, and 18 times asked for the move exactly
-# as written; paraphrases ("Taha sows a field") name no move (journal,
-# cycle 34).
+# No example answer (small models copy it), and the move asked for exactly
+# as written (small models paraphrase it, and a paraphrase names no move).
 MOVE_QUESTION = (
     'It is year {year}. What does {name} do this year? Choose one move:\n'
     '{moves}\n'

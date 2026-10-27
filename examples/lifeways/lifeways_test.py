@@ -32,9 +32,13 @@ from examples.lifeways import plot
 from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.components import culture
+from examples.lifeways.components import game_master as gm_components
+from examples.lifeways.components import played as played_lib
 from examples.lifeways.prefabs import experimenter as experimenter_lib
 from examples.lifeways.prefabs import person as person_lib
 from concordia.associative_memory import basic_associative_memory
+from concordia.components.agent import human_act_component
+from concordia.components.game_master import make_observation
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 from concordia.typing import entity as entity_lib
@@ -586,6 +590,98 @@ class PlotTest(absltest.TestCase):
 
     with open(out, 'rb') as f:
       self.assertEqual(f.read(4), b'\x89PNG')
+
+
+class TurnGateTest(absltest.TestCase):
+
+  def test_the_lives_played_round_trip_and_old_saves_keep_the_founder(self):
+    gate = gm_components.TurnGate(
+        lifecycle=gm_components.Lifecycle(),
+        observation_queue=make_observation.ObservationQueue(),
+        person_prefab=person_lib.PERSON_PREFAB,
+        played='Kaka',
+        played_prefab=person_lib.PLAYED_PREFAB,
+    )
+
+    gate.set_state({'ended': False})  # Saved before lives were kept.
+    self.assertEqual(gate.lives(), ['Kaka'])
+    gate.set_state({'ended': False, 'lives': ['Kaka', 'Teo']})
+    self.assertEqual(gate.lives(), ['Kaka', 'Teo'])
+    self.assertEqual(
+        json.loads(json.dumps(gate.get_state())),
+        {'ended': False, 'lives': ['Kaka', 'Teo']},
+    )
+
+
+class PlayedActTest(absltest.TestCase):
+
+  def _played(self, reader, **params):
+    prefab = person_lib.Person()
+    prefab.params = {
+        'name': 'Ada',
+        'born': 0,
+        'seed': 0,
+        'customs': [],
+        'act_component_factory': lambda order: played_lib.PlayedAct(
+            human_act_component.HumanActComponent(reader, order),
+            learner_key=person_lib.LEARNER,
+        ),
+        **params,
+    }
+    bank = basic_associative_memory.AssociativeMemoryBank(
+        sentence_embedder=person_lib.hash_embedder
+    )
+    return prefab.build(mock_language_model.MockModel(), bank)
+
+  def _ask(self, act, tag):
+    contexts = {key: f'({key})' for key in act.get_context_concat_order()}
+    return act.get_action_attempt(
+        contexts,
+        entity_lib.free_action_spec(call_to_action='What now?', tag=tag),
+    )
+
+  def test_the_player_answers_and_the_log_says_a_human_did(self):
+    act = self._played(lambda request: 'rest').get_act_component()
+    logged = []
+    act.set_logging_channel(logged.append)
+
+    self.assertEqual(self._ask(act, world_lib.MOVES), 'rest')
+    self.assertEqual(logged[-1]['Source'], 'human')
+
+  def test_unanswered_the_person_acts_by_its_own_habit(self):
+    def unanswered(request):
+      raise played_lib.Unanswered(request.request_id)
+
+    entity = self._played(
+        unanswered,
+        customs=[_spec('c3', 'habit', 'food'), _spec('c7', 'norm', 'kinship')],
+        uptake={'observation': 0.0},
+    )
+    # Seen in another, never taken up: not the person's to pass on.
+    entity.observe(
+        culture_lib.offer_line(
+            _spec('c22', 'belief', 'sacred'), 'observation', 'Oran', 2.0
+        )
+    )
+    act = entity.get_act_component()
+    logged = []
+    act.set_logging_channel(logged.append)
+
+    self.assertEqual(self._ask(act, world_lib.MOVES), world_lib.GATHER)
+    self.assertEqual(
+        self._ask(act, world_lib.INTERVIEW), played_lib.KEPT_COUNSEL
+    )
+    passed = self._ask(act, world_lib.PASSING_ON)
+    self.assertTrue(passed.startswith(world_lib.PASS_ON + ' '), passed)
+    self.assertCountEqual(passed.split()[2:], ['c3', 'c7'])
+    self.assertEqual({d['Source'] for d in logged}, {'habit'})
+
+  def test_its_state_is_the_human_component_s(self):
+    act = self._played(lambda request: 'rest').get_act_component()
+    state = json.loads(json.dumps(act.get_state()))
+    other = self._played(lambda request: 'rest').get_act_component()
+    other.set_state(state)
+    self.assertEqual(other.get_state(), state)
 
 
 class LearnerTest(absltest.TestCase):

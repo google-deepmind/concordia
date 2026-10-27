@@ -15,13 +15,15 @@
 """The page's session and server, on a running MOCK world."""
 
 import collections
+import dataclasses
 import json
 import os
 import subprocess
 import sys
 import threading
 import time
-from typing import Any
+import types
+from typing import Any, cast
 from unittest import mock
 import urllib.error
 import urllib.request
@@ -30,6 +32,7 @@ from absl.testing import absltest
 from examples.lifeways import scenarios
 from examples.lifeways.components import culture as culture_components
 from examples.lifeways.components import game_master as gm_components
+from examples.lifeways.components import played as played_lib
 from examples.lifeways.web import serving
 from examples.lifeways.web import session as session_lib
 from examples.lifeways.world import culture as culture_lib
@@ -598,6 +601,9 @@ class TreesTest(absltest.TestCase):
         self.assertNotIn(variant['id'], shown)
       self.assertGreaterEqual(lineage['gone_count'], len(lineage['gone']))
       self.assertLessEqual(len(lineage['gone']), session_lib.GONE_SHOWN)
+      held = [len(v['holders']) for v in lineage['held']]
+      self.assertTrue(all(held), lineage['held'])
+      self.assertEqual(held, sorted(held, reverse=True))
 
   def test_holders_say_how_and_from_whom_they_had_a_custom(self):
     living = {p['name'] for p in self.session.state()['people']}
@@ -1168,18 +1174,18 @@ class PlayAsTest(absltest.TestCase):
     self.assertEqual(answers, ['rest'])
     self.assertIsNone(played.asked())
 
-  def test_an_unanswered_person_does_what_it_would_unasked(self):
+  def test_an_unanswered_question_raises_rather_than_making_up_a_move(self):
     played = session_lib.PersonInput('Kaka', patience=0.1)
-    customs = 'Customs:\n(food) [c3]: share.\n(kin) [c7]: honour elders.'
 
-    self.assertEqual(played(self._request()), world_lib.GATHER)
-    self.assertEqual(
-        played(self._request(world_lib.PASSING_ON, customs)),
-        f'{world_lib.PASS_ON} c3 c7',
-    )
-    self.assertEqual(
-        played(self._request(world_lib.INTERVIEW)), 'I would rather not say.'
-    )
+    with self.assertRaises(played_lib.Unanswered):
+      played(self._request())
+    self.assertIsNone(played.asked())
+    hurried = session_lib.PersonInput('Kaka', patience=30)
+    hurried.hurry()  # The world stops: nobody waits any more.
+    began = time.monotonic()
+    with self.assertRaises(played_lib.Unanswered):
+      hurried(self._request(world_lib.PASSING_ON))
+    self.assertLess(time.monotonic() - began, 5)
 
   def test_a_paused_world_does_not_hurry_the_played_person(self):
     paused = threading.Event()
@@ -1188,8 +1194,37 @@ class PlayAsTest(absltest.TestCase):
     threading.Timer(0.8, paused.clear).start()
     began = time.monotonic()
 
-    self.assertEqual(played(self._request()), world_lib.GATHER)
+    with self.assertRaises(played_lib.Unanswered):
+      played(self._request())
     self.assertGreaterEqual(time.monotonic() - began, 0.8)
+
+  def test_questions_waiting_at_once_keep_their_own_answers(self):
+    # In free mode a dead founder's question may still wait beside its
+    # heir's: each gets its own answer, or none.
+    played = session_lib.PersonInput('Kaka', patience=1.5)
+    got = {}
+
+    def ask(name, request_id):
+      request = dataclasses.replace(
+          self._request(), request_id=request_id, entity_name=name
+      )
+      try:
+        got[name] = played(request)
+      except played_lib.Unanswered:
+        got[name] = 'unanswered'
+
+    first = threading.Thread(target=ask, args=('Kaka', 'r1'))
+    first.start()
+    self.assertTrue(_wait(lambda: (played.asked() or {}).get('id') == 'r1'))
+    second = threading.Thread(target=ask, args=('Teo', 'r2'))
+    second.start()
+    self.assertTrue(_wait(lambda: (played.asked() or {}).get('id') == 'r2'))
+
+    self.assertTrue(played.answer('r2', 'sow a field'))
+    first.join(10)
+    second.join(10)
+
+    self.assertEqual(got, {'Kaka': 'unanswered', 'Teo': 'sow a field'})
 
   def test_the_page_knows_a_skill_by_its_label_in_the_context(self):
     with open(os.path.join(serving.STATIC, 'app.js'), encoding='utf-8') as f:
@@ -1265,6 +1300,9 @@ class PlayAsTest(absltest.TestCase):
       self.assertEqual(served.session.state()['year'], year)
       self.assertEqual(post('/api/me', {'id': 'r', 'answer': 'rest'})[0], 409)
       self.assertEqual(post('/api/me', {'id': question['id']})[0], 400)
+      self.assertEqual(
+          post('/api/me', {'id': question['id'], 'answer': 'x' * 401})[0], 400
+      )
 
       self.assertEqual(
           post('/api/me', {'id': question['id'], 'answer': 'rest'}),
@@ -1372,6 +1410,41 @@ class LivingOnTest(absltest.TestCase):
       )
     finally:
       restored.close()
+
+
+class NoteLivesTest(absltest.TestCase):
+
+  def test_lives_past_those_the_gate_keeps_are_still_noted(self):
+    kept = [f'p{i}' for i in range(gm_components.LIVES_KEPT)]
+    notes = []
+    world = types.SimpleNamespace(
+        people={'p99': types.SimpleNamespace(parents=['x'])}, dead=[]
+    )
+    session = types.SimpleNamespace(
+        run=types.SimpleNamespace(world=lambda: world, lives=lambda: kept),
+        played=types.SimpleNamespace(name='p0'),
+        _write=lambda kind, text, year: notes.append(text),
+        _lives_noted=('p99', True),
+    )
+    # The latest life dies and an heir is born the same year: the gate's
+    # list of lives shifts by one.
+    kept = kept[1:] + ['heir']
+    world.people = {'heir': types.SimpleNamespace(parents=['p99'])}
+    world.dead = [{'name': 'p99', 'born': 0, 'died': 50}]
+
+    # A stand-in session: only what `_note_lives` reads and writes.
+    # pylint: disable-next=protected-access
+    session_lib.Session._note_lives(cast(session_lib.Session, session), 5000)
+
+    self.assertEqual(
+        notes,
+        [
+            'p99, whom you play, dies, aged 50.',
+            'You are born again as heir, child of p99.',
+        ],
+    )
+    # pylint: disable-next=protected-access
+    self.assertEqual(session._lives_noted, ('heir', True))
 
 
 def tearDownModule():

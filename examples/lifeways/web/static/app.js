@@ -327,9 +327,11 @@ function twinNote(twin) {
 function leverChoices(world) {
   return Object.entries(world.levers)
       .map(([lever, [low, high, now]]) =>
-        [lever, `${LEVER_WORDS[lever] || lever} (${low}–${high}; now ${now})`])
+        [lever,
+          `${LEVER_WORDS[lever] || lever} (${low}–${high}; now ${now})`])
       .concat(world.channels.map((channel) =>
-        [`without ${channel}`, `Without ${CHANNEL_WORDS[channel] || channel}`]));
+        [`without ${channel}`,
+          `Without ${CHANNEL_WORDS[channel] || channel}`]));
 }
 
 /**
@@ -512,7 +514,7 @@ function drawNotebook() {
     meta.className = 'meta';
     meta.textContent = entryMeta(entry);
     const text = document.createElement('div');
-    text.textContent = entry.text;
+    text.textContent = entryText(entry);
     item.append(meta, text);
     return item;
   }));
@@ -782,10 +784,10 @@ function kinName(kin) {
 }
 
 /**
- * What a lineage says of one variant: its id, how and when it arose, who
- * holds it.
+ * What a lineage says of one version: who holds it, how and when it arose.
  * @param {!Object} variant A variant of the lineage reply.
- * @return {string} E.g. 'c52 · mutation, year 9 · held by 3'.
+ * @return {string} E.g. 'held by 3 people · changed by a copying error,
+ *     year 9'.
  */
 function variantNote(variant) {
   const n = variant.holders.length;
@@ -806,20 +808,6 @@ function goneNote(count, listed) {
   const versions = count === 1 ? '1 other version' : `${count} other versions`;
   return `${versions} nobody holds any more (copying errors that died out)` +
       (listed < count ? `; the latest ${listed} are listed` : '');
-}
-
-/**
- * A lineage's versions by how they live on: held by people (most held
- * first), or kept only in a place.
- * @param {!Array<!Object>} variants The versions the server shows.
- * @return {{held: !Array<!Object>, kept: !Array<!Object>}} The groups.
- */
-function lineageGroups(variants) {
-  return {
-    held: variants.filter((v) => v.holders.length)
-        .sort((a, b) => b.holders.length - a.holders.length),
-    kept: variants.filter((v) => v.living && !v.holders.length),
-  };
 }
 
 /** How a version of a custom arose, by its origin. */
@@ -915,7 +903,7 @@ async function showLineage(id) {
   const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
   document.getElementById('lineage-title').textContent =
       `How a custom has changed: “${lineage.text}”`;
-  const groups = lineageGroups(lineage.variants);
+  const kept = lineage.variants.filter((v) => v.living && !v.holders.length);
   const item = (variant, indent) => {
     const li = document.createElement('li');
     if (indent) li.style.marginLeft = `${Math.min(variant.depth, 6) * 12}px`;
@@ -946,15 +934,16 @@ async function showLineage(id) {
         ...variants.map((variant) => item(variant, indent)));
   };
   document.getElementById('lineage-held-none').hidden =
-      groups.held.length > 0;
+      lineage.held.length > 0;
   document.getElementById('lineage-held-list').replaceChildren(
-      ...groups.held.map((variant) => item(variant, false)));
-  fill('kept', groups.kept, false, `Kept only in libraries or shrines ` +
-      `(${groups.kept.length}): nobody holds these, but someone may read ` +
-      'or hear them there');
-  fill('tree', lineage.variants, true, `Its family tree ` +
-      `(${lineage.variants.length} versions): each is indented under the ` +
-      'one it was copied from');
+      ...lineage.held.map((variant) => item(variant, false)));
+  fill('kept', kept, false, `Kept only in libraries or shrines ` +
+      `(${kept.length}): nobody holds these, but someone may read or hear ` +
+      'them there');
+  const shown = lineage.variants.length;
+  fill('tree', lineage.variants, true, `Its family tree (${shown}` +
+      (lineage.more ? ` of ${shown + lineage.more} versions shown` :
+        ' versions') + '): each is indented under the one it was copied from');
   fill('gone', lineage.gone, false,
       goneNote(lineage.gone_count, lineage.gone.length));
   document.getElementById('lineage-older').hidden = !lineage.lost_parent;
@@ -1062,7 +1051,7 @@ async function refreshOnce() {
     document.getElementById('play').textContent =
         world.pace.paused ? 'Play' : 'Pause';
     document.getElementById('queued').textContent = world.pace.queued.length ?
-        `Next: ${world.pace.queued.join('; ')}` : '';
+        `Next year: ${world.pace.queued.map(moveWords).join('; ')}` : '';
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
@@ -1112,13 +1101,6 @@ async function refreshOnce() {
     document.getElementById('error').textContent = String(error);
   }
 }
-
-/** What a played person does if the page does not answer, by question. */
-const LIFE_UNASKED = {
-  move: 'gather food',
-  pass_on: 'pass on all you hold',
-  interview: 'keep your counsel',
-};
 
 /** The label a person's context gives its skills (components/culture.py). */
 const SKILL_LABEL = 'Something we know how to do';
@@ -1236,15 +1218,16 @@ function lifeNote(played) {
   if (!played) return '';
   if (!played.alive) {
     return `${played.name} has died; what they taught lives on in others. ` +
-        'You will be born again as the next child of their line (or, if ' +
-        'their line is gone, of their people).';
+        'You will be born again as the next child born of their line; if ' +
+        'their line is gone, of their people; if they are gone too, as the ' +
+        'next child born in the valley.';
   }
   const asked = played.asked;
   if (!asked) return 'The others are choosing; the year turns.';
-  const year = asked.year >= 0 ? `Year ${asked.year}: the` : 'The';
+  const year = asked.year >= 0 ? `Year ${yearText(asked.year)}: the` : 'The';
   return `${year} year waits for you. Answer within ` +
-      `${asked.seconds_left}\u00a0s, or you ${LIFE_UNASKED[asked.kind] ||
-      LIFE_UNASKED.move}.`;
+      `${asked.seconds_left}\u00a0s, or ${asked.name || played.name}, by ` +
+      `habit, ${asked.unanswered || 'gathers food'}.`;
 }
 
 /**
@@ -1382,6 +1365,53 @@ function drawMapKey(kinds) {
 }
 
 /**
+ * A move, in words: the page's moves are written in the form the World
+ * reads ("release norm kinship as a song at 8,9: ..."); the page shows them
+ * as a person would say them.
+ * @param {string} move A move as the World reads it.
+ * @return {string} The move in words (a move it does not know, as it is).
+ */
+function moveWords(move) {
+  const at = (r, c) => `row ${r}, column ${c}`;
+  const release = new RegExp('^release (\\w+) (\\w+)(?: within (\\w+))?' +
+      ' as a (text|song) at (\\d+),(\\d+): (.+)$');
+  let m = move.match(release);
+  if (m) {
+    const [, kind, domain, within, how, r, c, says] = m;
+    const allows = within === 'tongue' ? ', only one who speaks as we do' :
+        within === 'descent' ? ', only our own people' : '';
+    const as = how === 'song' ? 'Sing' : 'Leave as a text';
+    return `${as} “${says}” at ${at(r, c)}: ` +
+        `${KIND_WORDS[kind] || kind}${allows} (about ${domain})`;
+  }
+  m = move.match(/^send a (\w+) at (\d+),(\d+)$/);
+  if (m) return `Send a ${m[1]} at ${at(m[2], m[3])}`;
+  m = move.match(/^bring migrants at (\d+),(\d+)$/);
+  if (m) return `Bring newcomers to ${at(m[1], m[2])}`;
+  m = move.match(/^(found|close) (?:a|the) (\w+) at (\d+),(\d+)$/);
+  if (m) {
+    return `${m[1] === 'found' ? 'Found a' : 'Close the'} ${m[2]} at ` +
+        at(m[3], m[4]);
+  }
+  m = move.match(/^ask ([^:]+): (.+)$/);
+  if (m) return `Ask ${m[1]}: “${m[2]}”`;
+  if (move === 'stop the world') return 'Stop the world';
+  return move;
+}
+
+/**
+ * A notebook entry's text as the page shows it: a move in words.
+ * @param {!Object} entry The entry.
+ * @return {string} Its text.
+ */
+function entryText(entry) {
+  const m = entry.kind === 'move' && entry.text.match(new RegExp(
+      '^(?:Your move for next year(?:, as the World reads it)?|' +
+      'You queue a move): (.+)$'));
+  return m ? `Your move for next year: ${moveWords(m[1])}` : entry.text;
+}
+
+/**
  * Words begun as a sentence.
  * @param {string} words E.g. 'a rule'.
  * @return {string} E.g. 'A rule'.
@@ -1413,8 +1443,16 @@ async function start() {
   });
   drawMapKey(world.kinds);
   fill('fate-kind', fateChoices(world));
-  fill('preset', world.presets);
+  document.getElementById('preset').replaceChildren(...world.presets.map(
+      (preset) => new Option(worldName(preset), preset)));
   document.getElementById('preset').value = world.scenario;
+  const presetNote = () => {
+    document.getElementById('preset-note').textContent =
+        (world.preset_notes || {})[document.getElementById('preset').value] ||
+        '';
+  };
+  document.getElementById('preset').addEventListener('change', presetNote);
+  presetNote();
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
@@ -1569,8 +1607,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
-    worldName, yearText,
-    goneNote, leverChoices, lineageGroups, peopleColour, releaseMove, appendNew, entryMeta,
+    entryText, moveWords, worldName, yearText,
+    goneNote, leverChoices, peopleColour, releaseMove, appendNew, entryMeta,
     entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,

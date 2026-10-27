@@ -21,6 +21,12 @@ year the Experimenter answers with the move the person queued, or else
 watches, at the pace the person sets. The adapter never invents a move: when
 the page closes the session it raises, and the run ends.
 
+The person may also live in the valley as a founder (`play_as`), and on
+after its death as an heir. Its acting component (`played.PlayedAct`) asks
+the page through the stock `HumanActComponent` and a `PersonInput` adapter;
+a question left unanswered raises `played.Unanswered`, and the person acts
+by its own habit, logged as such.
+
 A session given a save path outlives its server. It saves the stock
 simulation checkpoint (`Simulation.make_checkpoint_data`), with the page's
 census rows and notebook: at a year's close about once a minute, at the
@@ -58,6 +64,7 @@ from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.components import culture
 from examples.lifeways.components import game_master as gm_components
+from examples.lifeways.components import played as played_lib
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import land as land_lib
@@ -101,7 +108,6 @@ RELEASE_YEARS_SENT = 120
 ANSWERS_KEPT = 400
 # How long a played person's question waits for the page (seconds).
 PATIENCE = 120.0
-_CUSTOM_IDS = re.compile(r'\bc\d+\b')
 # The year in a person's yearly question, or in its status line
 # (`World.status`) as it observes it.
 _ASKED_YEAR = re.compile(r'\b(?:It is year|Year) (-?\d+)\b')
@@ -417,17 +423,16 @@ class TwinInput(PageInput):
 
 
 class PersonInput:
-  """A played person's answers, from the page.
+  """The page's answers for the person it plays (a `HumanInput`).
 
   The person is the founder played (`name`) and, once it dies, each heir it
-  lives on as (`World.heir`).
-
-  A `HumanInput`: each question the World asks the person (its move this
-  year, which customs to pass on to a child, an interview) waits for the
-  page's answer up to `patience` seconds of play (a paused world does not
-  hurry anyone). Then the person does what it would do unasked
-  (`standing_answer`): it gathers food, passes on all it holds, or keeps its
-  counsel. While the person waits, so does the year.
+  lives on as (`World.heir`). Each question the World asks the person (its
+  move this year, which customs to pass on to a child, an interview) waits
+  for the page's answer up to `patience` seconds of play (a paused world
+  does not hurry anyone). Unanswered then, or when the world is stopping
+  (`hurry`), it raises `played.Unanswered`: it never makes up a move, and the
+  person's acting component (`played.PlayedAct`) acts by habit. While the
+  person waits, so does the year.
   """
 
   def __init__(
@@ -447,17 +452,20 @@ class PersonInput:
     self._patience = float(patience)
     self._paused = paused
     self._changed = threading.Condition()
-    # The question waiting for an answer, and the answer once given.
-    self._asked: dict[str, Any] | None = None
-    self._answer: str | None = None
-    self._deadline = 0.0
+    # The questions waiting for an answer, by request id, oldest first (in
+    # free mode a dead person's question may still wait beside its heir's),
+    # with when each runs out, and the answers given.
+    self._asked: dict[str, dict[str, Any]] = {}
+    self._deadlines: dict[str, float] = {}
+    self._answers: dict[str, str] = {}
     self._hurried = False
     self._closed = False
 
   def __call__(self, request: human_input.HumanInputRequest) -> str:
+    asked = request.request_id
     with self._changed:
-      self._asked = {
-          'id': request.request_id,
+      self._asked[asked] = {
+          'id': asked,
           'name': request.entity_name,
           'kind': request.action_spec.tag or '',
           'question': request.action_spec.call_to_action,
@@ -473,58 +481,68 @@ class PersonInput:
           ),
           'error': request.error,
       }
-      self._answer = None
+      self._deadlines[asked] = time.monotonic() + self._patience
       self._changed.notify_all()
-      self._deadline = time.monotonic() + self._patience
-      while self._answer is None:
-        if self._closed:
-          raise Closed('The page closed the session.')
-        if self._hurried:
-          break
-        if self._paused():
-          self._deadline = time.monotonic() + self._patience
-        left = self._deadline - time.monotonic()
-        if left <= 0:
-          break
-        self._changed.wait(min(0.5, left))
-      answer = self._answer or standing_answer(self._asked)
-      self._asked = None
-      self._answer = None
-      return answer
+      try:
+        while asked not in self._answers:
+          if self._closed:
+            raise Closed('The page closed the session.')
+          if self._hurried:
+            raise played_lib.Unanswered('The world is stopping.')
+          if self._paused():
+            self._deadlines[asked] = time.monotonic() + self._patience
+          left = self._deadlines[asked] - time.monotonic()
+          if left <= 0:
+            raise played_lib.Unanswered(f'No answer in {self._patience:.0f} s.')
+          self._changed.wait(min(0.5, left))
+        return self._answers[asked]
+      finally:
+        for waiting in (self._asked, self._deadlines, self._answers):
+          waiting.pop(asked, None)
 
   def asked(self) -> dict[str, Any] | None:
-    """The question waiting for the page's answer, if any.
+    """The latest question waiting for the page's answer, if any.
 
     Returns:
       The question: its `id`, who is asked (`name`), its `kind` (the World's
       tag), `question`, the person's `context`, the `year`, any `error`,
-      and the `seconds_left` before the person does what it would unasked.
+      the `seconds_left` before the person acts by habit, and what it then
+      does (`unanswered`, in words).
     """
     with self._changed:
       if not self._asked:
         return None
-      left = max(0.0, self._deadline - time.monotonic())
-      return {**self._asked, 'seconds_left': round(left)}
+      latest = next(reversed(self._asked.values()))
+      left = max(0.0, self._deadlines[latest['id']] - time.monotonic())
+      return {
+          **latest,
+          'seconds_left': round(left),
+          'unanswered': played_lib.HABITS.get(
+              latest['kind'], played_lib.HABITS[world_lib.MOVES]
+          ),
+      }
 
   def answer(self, request_id: str, text: str) -> bool:
-    """Answers the waiting question.
+    """Answers a waiting question.
 
     Args:
-      request_id: The question's id (an answer to an older one is refused).
+      request_id: The question's id (an answer to one no longer asked is
+        refused).
       text: The answer, as the World reads it.
 
     Returns:
       Whether the answer was taken.
     """
     with self._changed:
-      if not self._asked or self._asked['id'] != request_id:
+      answer = ' '.join(str(text).split())
+      if request_id not in self._asked or not answer:
         return False
-      self._answer = ' '.join(str(text).split()) or None
+      self._answers[request_id] = answer
       self._changed.notify_all()
-      return self._answer is not None
+      return True
 
   def hurry(self) -> None:
-    """From now on, the person does at once what it would do unasked."""
+    """From now on, every question goes unanswered at once (the world stops)."""
     with self._changed:
       self._hurried = True
       self._changed.notify_all()
@@ -534,24 +552,6 @@ class PersonInput:
     with self._changed:
       self._closed = True
       self._changed.notify_all()
-
-
-def standing_answer(asked: Mapping[str, Any]) -> str:
-  """What a played person does when the page gives no answer in time.
-
-  Args:
-    asked: The question (`PersonInput.asked`).
-
-  Returns:
-    The answer: gather food; pass on every custom the question names; or
-    keep one's counsel.
-  """
-  if asked['kind'] == world_lib.PASSING_ON:
-    ids = dict.fromkeys(_CUSTOM_IDS.findall(asked['context']))
-    return ' '.join([world_lib.PASS_ON, *ids])
-  if asked['kind'] == world_lib.INTERVIEW:
-    return 'I would rather not say.'
-  return world_lib.GATHER
 
 
 class Session:
@@ -631,9 +631,9 @@ class Session:
     self._unsettled: dict[str, tuple[Any, int]] = {}
     # The played person's reach at the last year's close (`_played_state`).
     self._reach: dict[str, int] = {'people': 0, 'customs': 0}
-    # How many of the player's lives the notebook has noted, and whether the
-    # latest was alive then (`_note_lives`).
-    self._lives_noted: tuple[int, bool] | None = None
+    # The latest of the player's lives the notebook has noted, and whether it
+    # was alive then (`_note_lives`).
+    self._lives_noted: tuple[str, bool] | None = None
     # Variants the world forgot (nobody holds them), latest last.
     self._forgotten: collections.OrderedDict[str, dict[str, Any]] = (
         collections.OrderedDict()
@@ -649,7 +649,7 @@ class Session:
     self._thread: threading.Thread | None = None
     self.error: str = ''
     # When the person last did anything (a move, the pace, a stop).
-    self._played = 0.0
+    self._last_action = 0.0
     self._save_path = save_path
     self._save_seconds = float(save_seconds)
     self._saving = threading.Condition()
@@ -673,6 +673,9 @@ class Session:
     self.run = self._build()
     if save_path:
       self._restore(save_path)
+    if self.played is not None:  # As built or restored: nothing new yet.
+      lives = self.run.lives() or [self.played.name]
+      self._lives_noted = (lives[-1], lives[-1] in self.run.world().people)
 
   def _build(self) -> simulation.Run:
     run = simulation.build_simulation(
@@ -685,20 +688,19 @@ class Session:
         experimenter=lambda order: human_act_component.HumanActComponent(
             self.input, order
         ),
-        player=(
-            (
-                self.played.name,
-                lambda order: human_act_component.HumanActComponent(
-                    self.played, order
-                ),
-            )
-            if self.played
-            else None
-        ),
+        player=((self.played.name, self._played_act) if self.played else None),
     )
     run.lifecycle.year_closed = self._year_closed
     run.lifecycle.forgotten = self._forget
     return run
+
+  def _played_act(self, order: Sequence[str]) -> played_lib.PlayedAct:
+    """The played person's acting component: the page's answer, or habit."""
+    assert self.played is not None
+    return played_lib.PlayedAct(
+        human_act_component.HumanActComponent(self.played, order),
+        learner_key=person_lib.LEARNER,
+    )
 
   def _forget(self, customs: Sequence[Mapping[str, Any]]) -> None:
     # In the World GM's lock, as the year closes.
@@ -1120,14 +1122,18 @@ class Session:
     """
     world = self.run.world()
     lives = self.run.lives() or [self.played.name if self.played else '']
-    if self._lives_noted is None:  # As built or restored: nothing new yet.
-      self._lives_noted = (len(lives), lives[-1] in world.people)
-    noted, alive = self._lives_noted
-    # From the life last noted on: each new one is born, and each but the
-    # latest has died (the latest too, if it is gone), in that order.
-    for k in range(max(0, noted - 1), len(lives)):
+    last, alive = self._lives_noted or (lives[-1], lives[-1] in world.people)
+    # From the life last noted on (found by name: the gate keeps only its
+    # latest lives): each new one is born, and each but the latest has died
+    # (the latest too, if it is gone), in that order.
+    start = (
+        len(lives) - 1 - lives[::-1].index(last)
+        if last in lives
+        else len(lives) - 1
+    )
+    for k in range(start, len(lives)):
       name = lives[k]
-      if k >= noted:
+      if k > start:
         person = world.people.get(name)
         parents = ' and '.join(person.parents) if person else ''
         self._write(
@@ -1144,7 +1150,7 @@ class Session:
         age = f', aged {died["died"] - died["born"]}' if died else ''
         self._write(EVENT, f'{name}, whom you play, dies{age}.', closed)
         alive = False
-    self._lives_noted = (len(lives), alive)
+    self._lives_noted = (lives[-1], alive)
 
   def _note_year(self, year: int, row: Mapping[str, Any]) -> None:
     """Notes the World's reports and what changed (in the World GM's lock)."""
@@ -1228,7 +1234,7 @@ class Session:
       raise ValueError(f'An entry is a {", ".join(NOTE_KINDS)}.')
     if not text or len(text) > NOTE_LENGTH:
       raise ValueError(f'Write 1 to {NOTE_LENGTH} characters.')
-    self._played = time.time()
+    self._last_action = time.time()
     entry = self._write(kind, text)
     self._save_if_paused()
     return entry
@@ -1419,7 +1425,9 @@ class Session:
         'running': self.running,
         'error': self.error,
         'idle_seconds': (
-            round(time.time() - self._played) if self._played else None
+            round(time.time() - self._last_action)
+            if self._last_action
+            else None
         ),
         'release_form': world_lib.RELEASE_FORM,
         'interviews': dict(world.get('interviews', {})),
@@ -1456,6 +1464,7 @@ class Session:
         'restored_year': self.restored_year,
         'twin': self._twin_state(),
         'presets': list(scenarios.PRESETS),
+        'preset_notes': dict(scenarios.PRESET_NOTES),
         'levers': {
             lever: [low, high, self._settings.get(lever)]
             for lever, (low, high) in scenarios.LEVERS.items()
@@ -1540,7 +1549,9 @@ class Session:
       custom_id: Any variant of the lineage.
 
     Returns:
-      The variant's text; the root, and the parent lost beyond it (if any);
+      The variant's text; the versions people hold, most held first
+      (`held`, at most `LINEAGE_SHOWN`); the root, and the parent lost
+      beyond it (if any);
       the variants that live on (someone holds them, or a place keeps them),
       with their ancestors, the root and the variant asked about, depth
       first with their depth and holders (at most `LINEAGE_SHOWN`; `more`
@@ -1606,11 +1617,15 @@ class Session:
           i = str(known[i].get('parent') or '')
     kept = [v for v in variants if v['id'] in shown]
     gone = [v for v in variants if v['id'] not in shown]
+    held = sorted(
+        (v for v in variants if v['holders']), key=lambda v: -len(v['holders'])
+    )
     return {
         'id': custom_id,
         'text': known[custom_id].get('text', ''),
         'root': root,
         'lost_parent': str(known[root].get('parent') or ''),
+        'held': held[:LINEAGE_SHOWN],
         'variants': kept[:LINEAGE_SHOWN],
         'more': max(0, len(kept) - LINEAGE_SHOWN),
         'gone': sorted(gone, key=lambda v: -int(v['year']))[:GONE_SHOWN],
@@ -1703,15 +1718,18 @@ class Session:
 
     Raises:
       RuntimeError: If nobody is played in this world.
+      ValueError: If the answer is longer than `MOVE_LENGTH`.
     """
     if self.played is None:
       raise RuntimeError('Nobody is played in this world.')
-    self._played = time.time()
+    if len(str(text)) > MOVE_LENGTH:
+      raise ValueError(f'An answer is at most {MOVE_LENGTH} characters.')
+    self._last_action = time.time()
     return self.played.answer(request_id, text)
 
   def stop(self) -> None:
     """The person stops the world: the Experimenter's next move ends it."""
-    self._played = time.time()
+    self._last_action = time.time()
     with self._saving:
       self._save_wanted = True  # A stopped world stays stopped.
     self.input.queue(world_lib.STOP)
@@ -1737,11 +1755,9 @@ class Session:
     if len(move) > MOVE_LENGTH:
       raise ValueError(f'A move is at most {MOVE_LENGTH} characters.')
     if move:
-      self._played = time.time()
+      self._last_action = time.time()
       self.input.queue(move)
-      self._write(
-          MOVE, f'Your move for next year, as the World reads it: {move}'
-      )
+      self._write(MOVE, f'Your move for next year: {move}')
       self._save_if_paused()
 
   def pace(
@@ -1758,7 +1774,7 @@ class Session:
     Returns:
       The input's settings.
     """
-    self._played = time.time()
+    self._last_action = time.time()
     self.input.pace(years_per_second, paused)
     if paused is True:
       self.run.engine.pause()

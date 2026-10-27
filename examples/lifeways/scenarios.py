@@ -444,6 +444,27 @@ def _bridged(valleys: Mapping[str, Any]) -> dict[str, Any]:
 # and loses holders, whole peoples merge and split.
 BRIDGED_VALLEYS: Mapping[str, Any] = _bridged(TWO_VALLEYS)
 
+# What each preset is, in a line for the page.
+PRESET_NOTES: Mapping[str, str] = {
+    'sandbox': 'A valley left to itself: its people live, learn and die.',
+    'plasmid_soup': (
+        'Everyone buds alone and customs move freely: no peoples, no'
+        ' marriage rules. Do traditions form without peoples?'
+    ),
+    'two_valleys': (
+        'Two peoples with their own tongues, beliefs and marriage rules, in'
+        ' valleys a ridge parts but for a pass. Do they merge or split?'
+    ),
+    'bridged_valleys': (
+        'Two Valleys, with one founder in each people who marries for love.'
+        ' Do whole peoples merge and split?'
+    ),
+    'first_farmers': (
+        'The Sandbox, a third of whose founders know how to sow. Does'
+        ' farming spread or die out?'
+    ),
+}
+
 PRESETS: Mapping[str, Mapping[str, Any]] = {
     'sandbox': {},
     'plasmid_soup': PLASMID_SOUP,

@@ -258,23 +258,26 @@ class Custom:
 STRESS = ', always.'
 WORDS_LOST = 2
 MIN_WORDS = 4
-_ALWAYS = re.compile(r',?\s*\balways\b,?', re.IGNORECASE)
+# The stresses old copying errors heaped at a text's end.
+_HEAPED_STRESS = re.compile(r'(?:[\s,]+always\b)+[\s,.]*$', re.IGNORECASE)
 
 
 def _unstressed(text: str) -> str:
   """A text without its stresses: the first of its line, for one that has none.
 
   Before texts drifted about their line's first, copying errors stressed a
-  text again and again ("In lean always, always, always."); the first error
-  copying such a text since takes it back to its words.
+  text again and again at its end ("In lean always, always, always."); the
+  first error copying such a text since takes it back to its words. An
+  "always" the text says elsewhere ("Always give the first fish to the
+  river.") is its own.
 
   Args:
     text: A variant's text.
 
   Returns:
-    The text with every "always" taken out.
+    The text without the stresses at its end.
   """
-  words = ' '.join(_ALWAYS.sub(' ', text).split()).strip(' ,.')
+  words = _HEAPED_STRESS.sub('', text).strip(' ,.')
   return (words or text.rstrip('.')) + '.'
 
 
@@ -412,6 +415,8 @@ class Culture:
         parent=custom.id,
         origin=form,
         year=year,
+        root=custom.root,  # A change of form keeps the line's first text.
+        lost=custom.lost,
     )
 
   def copy(

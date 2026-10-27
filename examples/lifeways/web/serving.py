@@ -332,6 +332,9 @@ def handler(
       except RuntimeError as error:
         self._json(409, {'error': str(error)})
         return
+      except ValueError as error:
+        self._json(400, {'error': str(error)})
+        return
       if not taken:
         self._json(409, {'error': 'that question is no longer asked'})
         return
