@@ -1429,11 +1429,19 @@ function entryText(entry) {
 }
 
 /**
- * The World's and the session's own sentences that named places "r,c"
- * before they named them in words, as notebooks saved then hold them:
- * each anchored to its form, so a quoted text is never read.
+ * The World's and the session's own sentences that named places "r,c", or
+ * customs by id, before they named them in words, as notebooks saved then
+ * hold them: each anchored to its form, so a quoted text is never read.
  */
 const OLD_PLACES = [
+  // The oldest forms named a release by its id.
+  [/^c\d+ (is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
+    'Your release $1 row $2, column $3$4'],
+  [/^c\d+ (is written at the library at) (\d+),(\d+)\.$/,
+    'Your release $1 row $2, column $3.'],
+  [/^Your release c\d+ died out: ("[^"]*")/, 'Your release $1 died out'],
+  [/^c\d+ is the most widely held custom for the first time/,
+    'A custom is the most widely held for the first time'],
   [/^(A \w+ str(?:uck|ikes) at) (\d+),(\d+):/, '$1 row $2, column $3:'],
   [/^(Your release ".*" is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
     '$1 row $2, column $3$4'],
