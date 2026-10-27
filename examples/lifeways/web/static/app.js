@@ -173,8 +173,33 @@ function drawMap(world) {
 }
 
 /**
- * Draws the census: the living and the mean skill, year by year; a twin's
- * census, if any, dashed over its world's, on the same scales.
+ * The census's lines: what each reads from a row, its colour, and its top.
+ * Peoples are drawn so that one people sits halfway up and a split shows.
+ * @param {!Array<!Object>} rows Every row drawn (a world's and its twin's).
+ * @param {number} maxLevel The highest skill level.
+ * @return {!Array<{name: string, colour: string, value: function(!Object):
+ *     number, most: number}>} The lines.
+ */
+function chartSeries(rows, maxLevel) {
+  const lines = [
+    {name: 'population', colour: '#2d6a4f',
+     value: (row) => row.population || 0},
+    {name: 'skill_worked', colour: '#bc6c25',
+     value: (row) => row.skill_worked || 0},
+    {name: 'tongues', colour: '#5a189a', value: (row) => row.tongues || 0},
+    {name: 'peoples', colour: '#9d0208',
+     value: (row) => (row.peoples && row.peoples.peoples) || 0},
+  ];
+  const floor = {population: 1, skill_worked: maxLevel, tongues: 1,
+                 peoples: 2};
+  return lines.map((line) => ({...line, most: line.name === 'skill_worked' ?
+      maxLevel : Math.max(...rows.map(line.value), floor[line.name])}));
+}
+
+/**
+ * Draws the census: the living, the skill worked by, tongues and peoples,
+ * year by year; a twin's census, if any, dashed over its world's, on the
+ * same scales.
  * @param {!Array<!Object>} rows The census rows.
  * @param {!Array<!Object>=} twinRows The twin's rows after its fork.
  */
@@ -185,22 +210,16 @@ function drawChart(rows, twinRows = []) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (rows.length < 2) return;
   const both = rows.concat(twinRows);
-  const series = [
-    {key: 'population', colour: '#2d6a4f', most: Math.max(...both.map(
-        (row) => row.population), 1)},
-    {key: 'skill_worked', colour: '#bc6c25', most: page.world.max_level},
-    {key: 'tongues', colour: '#5a189a', most: Math.max(...both.map(
-        (row) => row.tongues || 0), 1)},
-  ];
+  const series = chartSeries(both, page.world.max_level);
   const first = rows[0].year;
   const lastYear = Math.max(...both.map((row) => row.year));
   const x = (year) => 4 + ((year - first) / Math.max(1, lastYear - first)) *
       (canvas.width - 8);
   for (const [drawn, dash] of [[rows, []], [twinRows, [5, 4]]]) {
-    for (const {key, colour, most} of series) {
+    for (const {colour, value, most} of series) {
       ctx.beginPath();
       drawn.forEach((row, i) => {
-        const y = canvas.height - 4 - ((row[key] || 0) / most) *
+        const y = canvas.height - 4 - (value(row) / most) *
             (canvas.height - 8);
         if (i === 0) ctx.moveTo(x(row.year), y); else ctx.lineTo(x(row.year), y);
       });
@@ -215,13 +234,14 @@ function drawChart(rows, twinRows = []) {
   document.getElementById('legend').textContent =
       `Green: the living (${last.population}). Brown: the skill people work` +
       ` by (${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
+      ` Red: peoples (${last.peoples.peoples}).` +
       ` Years ${rows[0].year}–${last.year}.` +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
       .map(([channel, n]) => `${channel} ${n}`).join(', ');
   document.getElementById('channels').textContent =
-      `Customs held, by how they came: ${channels}. Peoples: ` +
-      `${last.peoples.peoples}.`;
+      `Customs held, by how they came: ${channels}. Peoples, by size: ` +
+      `${last.peoples.sizes.join(', ') || 'none'}.`;
 }
 
 /**
@@ -800,7 +820,7 @@ async function refreshOnce() {
     document.getElementById('year').textContent =
         `${world.scenario}, year ${world.year}: ${world.people.length} people` +
         (world.running ? '' : ' (the world has stopped)');
-    document.getElementById('anew').hidden = world.running;
+    document.getElementById('anew-box').hidden = world.running;
     document.getElementById('stop').hidden = !world.running;
     document.getElementById('play').textContent =
         world.pace.paused ? 'Play' : 'Pause';
@@ -866,6 +886,8 @@ async function start() {
   fill('kind', world.custom_kinds);
   fill('domain', world.domains);
   fill('fate-kind', fateChoices(world));
+  fill('preset', world.presets);
+  document.getElementById('preset').value = world.scenario;
   document.getElementById('lever').replaceChildren(...leverChoices(world).map(
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
@@ -895,8 +917,11 @@ async function start() {
     if (confirm('Stop the world for good?')) await api('api/stop', {});
   });
   document.getElementById('anew').addEventListener('click', async () => {
-    if (!confirm('Begin a new world? This one is set aside.')) return;
-    await api('api/new', {});
+    const scenario = document.getElementById('preset').value;
+    if (!confirm(`Begin a new world (${scenario})? This one is set aside.`)) {
+      return;
+    }
+    await api('api/new', {scenario});
     Object.assign(page, {rows: [], since: -1, twinRows: [], twinSince: -1,
       twin: null, entries: [], entrySince: 0, person: null, at: null});
     refresh();
@@ -986,9 +1011,9 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-    appendNew, entryMeta, entryShown, fateChoices, fateMove, reachNote,
-    recentDisasters, releaseStatus, savedNote,
-    transmissionText, transmissionTree, twinNote, variantNote, withinReach,
+    askMove, cameBy, chartSeries, kinName, leverChoices, peopleColour,
+    releaseMove, appendNew, entryMeta, entryShown, fateChoices, fateMove,
+    reachNote, recentDisasters, releaseStatus, savedNote, transmissionText,
+    transmissionTree, twinNote, variantNote, withinReach,
   };
 }

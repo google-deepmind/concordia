@@ -382,10 +382,36 @@ TWO_VALLEYS: Mapping[str, Any] = {
     ],
 }
 
+# A marriage rule that bars no one: who holds it marries across peoples.
+OPEN_MARRIAGE: Mapping[str, Any] = {
+    'kind': 'marriage',
+    'domain': 'kinship',
+    'text': 'We marry whom we love.',
+}
+
+
+def _bridged(valleys: Mapping[str, Any]) -> dict[str, Any]:
+  """Valleys in which one founder of each people holds `OPEN_MARRIAGE`."""
+  bridged = copy.deepcopy(dict(valleys))
+  for group in bridged['groups']:
+    one = 1 / int(group['founders'])
+    for custom in group['founding_customs']:
+      if custom['kind'] == 'marriage':
+        custom['held_by'] = 1 - one
+    group['founding_customs'].append({**OPEN_MARRIAGE, 'held_by': one})
+  return bridged
+
+
+# Bridged Valleys: Two Valleys with one founder in each people who marries
+# whom they love. The two bridge the peoples into one; as the custom gains
+# and loses holders, whole peoples merge and split.
+BRIDGED_VALLEYS: Mapping[str, Any] = _bridged(TWO_VALLEYS)
+
 PRESETS: Mapping[str, Mapping[str, Any]] = {
     'sandbox': {},
     'plasmid_soup': PLASMID_SOUP,
     'two_valleys': TWO_VALLEYS,
+    'bridged_valleys': BRIDGED_VALLEYS,
 }
 
 

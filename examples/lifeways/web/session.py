@@ -124,6 +124,30 @@ def await_engines(timeout: float = 10.0) -> None:
       thread.join(max(0.0, deadline - time.monotonic()))
 
 
+def saved_scenario(path: str | None) -> str:
+  """The scenario of the world a save holds ('' if none, or it won't read).
+
+  A world begun from the page may be of another preset than the server's
+  default; read from its save, it is restored as itself.
+
+  Args:
+    path: The save file.
+
+  Returns:
+    The saved world's scenario, if it is a preset.
+  """
+  if not path:
+    return ''
+  try:
+    with open(path, encoding='utf-8') as f:
+      saved = json.load(f)
+  except (OSError, ValueError):
+    return ''
+  world = saved.get('world') if isinstance(saved, dict) else None
+  scenario = world.get('scenario') if isinstance(world, dict) else None
+  return scenario if scenario in scenarios.PRESETS else ''
+
+
 class Closed(Exception):
   """The page closed the session: the Experimenter has no answer to give."""
 
@@ -1104,6 +1128,7 @@ class Session:
         'saved_year': self.saved_year,
         'restored_year': self.restored_year,
         'twin': self._twin_state(),
+        'presets': list(scenarios.PRESETS),
         'levers': {
             lever: [low, high, self._settings.get(lever)]
             for lever, (low, high) in scenarios.LEVERS.items()

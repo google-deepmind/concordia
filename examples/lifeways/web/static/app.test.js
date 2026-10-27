@@ -22,10 +22,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, cameBy, kinName, leverChoices, peopleColour, releaseMove,
-  appendNew, entryMeta, entryShown, fateChoices, fateMove, reachNote,
-  recentDisasters, releaseStatus, savedNote,
-  transmissionText, transmissionTree, twinNote, variantNote, withinReach,
+  askMove, cameBy, chartSeries, kinName, leverChoices, peopleColour,
+  releaseMove, appendNew, entryMeta, entryShown, fateChoices, fateMove,
+  reachNote, recentDisasters, releaseStatus, savedNote, transmissionText,
+  transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -211,4 +211,28 @@ test('what the page has already is never appended twice', () => {
   assert.deepEqual(appendNew(kept, [{id: 2}, {id: 3}], 'id', 2, 10),
       [{id: 1}, {id: 2}, {id: 3}]);
   assert.deepEqual(appendNew(kept, [{id: 3}], 'id', 2, 2), [{id: 2}, {id: 3}]);
+});
+
+test('the census charts peoples, one people halfway up', () => {
+  const rows = [
+    {year: 0, population: 20, skill_worked: 1, tongues: 2,
+     peoples: {peoples: 1, sizes: [20]}},
+    {year: 1, population: 30, skill_worked: 2, tongues: 3,
+     peoples: {peoples: 1, sizes: [30]}},
+  ];
+
+  const series = chartSeries(rows, 5);
+
+  const byName = Object.fromEntries(series.map((line) => [line.name, line]));
+  assert.deepEqual(Object.keys(byName),
+                   ['population', 'skill_worked', 'tongues', 'peoples']);
+  assert.equal(byName.population.most, 30);
+  assert.equal(byName.skill_worked.most, 5);
+  assert.equal(byName.tongues.most, 3);
+  assert.equal(byName.peoples.most, 2);
+  assert.equal(byName.peoples.value(rows[1]), 1);
+  assert.equal(byName.peoples.value({year: 2}), 0);
+  rows.push({year: 2, population: 30, skill_worked: 2, tongues: 3,
+             peoples: {peoples: 3, sizes: [12, 10, 8]}});
+  assert.equal(chartSeries(rows, 5).at(-1).most, 3);
 });

@@ -39,7 +39,7 @@ and the next server of the same world plays on from the save.
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
 | `POST /api/note` `{"kind": ..., "text": ...}` | write in the notebook |
-| `POST /api/new` | begin a new world, once this one has stopped |
+| `POST /api/new` `{"scenario": ...}` | begin a new world, once this one stops |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
 | `POST /api/twin` `{"end": true}` | let the twin go |
 """
@@ -58,12 +58,17 @@ import urllib.parse
 from absl import app
 from absl import flags
 from absl import logging
+from examples.lifeways import scenarios
 from examples.lifeways import simulation
 from examples.lifeways.web import session as session_lib
 
 _PORT = flags.DEFINE_integer('port', 8921, 'Port (127.0.0.1).')
 _BASE = flags.DEFINE_string('base_path', '/lifeways', 'Path prefix.')
-_SCENARIO = flags.DEFINE_string('scenario', 'sandbox', 'Scenario or preset.')
+_SCENARIO = flags.DEFINE_string(
+    'scenario',
+    'sandbox',
+    'Scenario or preset of a new world (a saved world keeps its own).',
+)
 _SEED = flags.DEFINE_integer('seed', 0, 'World seed.')
 _PACE = flags.DEFINE_float('years_per_second', 1.0, 'Starting pace.')
 _MODEL = flags.DEFINE_string(
@@ -119,39 +124,47 @@ class Served:
   def __init__(
       self,
       session: session_lib.Session,
-      renew: Callable[[], session_lib.Session] | None = None,
+      renew: Callable[[str], session_lib.Session] | None = None,
   ):
     """Initializes the holder.
 
     Args:
       session: The session served.
-      renew: Optional. Builds the session of a new world.
+      renew: Optional. Builds the session of a new world of a scenario.
     """
     self.session = session
     self._renew = renew
     self._lock = threading.Lock()
 
-  def begin_anew(self) -> session_lib.Session:
+  def begin_anew(self, scenario: str = '') -> session_lib.Session:
     """Begins a new world in place of a stopped one.
 
     The stopped world's save is set aside (`.stopped`); the new world is
     saved in its place as it plays.
 
+    Args:
+      scenario: The new world's scenario (a preset); the stopped one's if
+        empty.
+
     Returns:
       The new session, playing.
 
     Raises:
+      ValueError: If there is no such scenario.
       RuntimeError: If the world still plays, or no new world can be built.
     """
     with self._lock:
       old = self.session
+      scenario = scenario or old.scenario
+      if scenario not in scenarios.PRESETS:
+        raise ValueError(f'No scenario {scenario!r}.')
       if old.running:
         raise RuntimeError('The world still plays: stop it first.')
       if self._renew is None:
         raise RuntimeError('This server cannot begin a new world.')
       old.close()
       old.set_aside_save('a new world begins', '.stopped')
-      self.session = self._renew()
+      self.session = self._renew(scenario)
       self.session.start()
       return self.session
 
@@ -313,7 +326,10 @@ def handler(
         self._twin(session, body)
       elif path == '/api/new':
         try:
-          renewed = served.begin_anew()
+          renewed = served.begin_anew(str(body.get('scenario') or ''))
+        except ValueError as error:
+          self._json(400, {'error': str(error)})
+          return
         except RuntimeError as error:
           self._json(409, {'error': str(error)})
           return
@@ -394,9 +410,9 @@ def main(argv: Sequence[str]) -> None:
     raise app.UsageError(str(error)) from error
   overrides: dict[str, Any] = {'free': _FREE.value} if _FREE.value > 0 else {}
 
-  def world() -> session_lib.Session:
+  def world(scenario: str) -> session_lib.Session:
     return session_lib.Session(
-        _SCENARIO.value,
+        scenario,
         seed=_SEED.value,
         years_per_second=_PACE.value,
         save_path=_SAVE.value or None,
@@ -405,12 +421,16 @@ def main(argv: Sequence[str]) -> None:
         **overrides,
     )
 
-  served = Served(world(), renew=world)
+  # A world begun from the page in another preset is restored as itself.
+  served = Served(
+      world(session_lib.saved_scenario(_SAVE.value) or _SCENARIO.value),
+      renew=world,
+  )
   server = serve(served, _PORT.value, _BASE.value)
   logging.info(
       '%s: %s, seed %d, at http://127.0.0.1:%d%s/ (%s)',
       'MOCK' if _MODEL.value == simulation.MOCK else f'LIVE ({_MODEL.value})',
-      _SCENARIO.value,
+      served.session.scenario,
       _SEED.value,
       server.server_address[1],
       _BASE.value,

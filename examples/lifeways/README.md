@@ -170,6 +170,10 @@ The Sandbox is where everything is, and its presets are settings, not code
 | `sandbox` | Open Country: the River people found a valley; Hill people may come when it is nearly empty. Everything is on. |
 | `plasmid_soup` | Everyone buds alone; customs move freely (people watch from afar, read texts the Experimenter leaves, hear sermons); there are no peoples. Do traditions form without peoples? How fast do customs sweep? |
 | `two_valleys` | Two peoples with their own tongues, beliefs and marriage rules, in valleys a ridge parts but for a pass. Ethnogenesis, merger, or both? |
+| `bridged_valleys` | Two Valleys with one founder in each people who marries whom they love. The two bridge the peoples into one; as the custom gains and loses holders, do whole peoples split and merge? |
+
+On the page, a stopped world gives way to a new one of any preset; the save
+names its preset, so a restarted server restores the world as it was.
 
 ## How it fits Concordia
 

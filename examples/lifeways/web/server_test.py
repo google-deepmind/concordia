@@ -866,6 +866,9 @@ class ServerTest(absltest.TestCase):
     with self.assertRaises(urllib.error.HTTPError) as caught:
       self._post('/api/new', {})
     self.assertEqual(caught.exception.code, 409)
+    with self.assertRaises(urllib.error.HTTPError) as caught:
+      self._post('/api/new', {'scenario': 'atlantis'})
+    self.assertEqual(caught.exception.code, 400)
 
   def test_a_proxy_may_strip_the_prefix(self):
     root = self.base[: -len('/lifeways')]
@@ -892,9 +895,9 @@ class NewWorldTest(absltest.TestCase):
   def test_a_stopped_world_gives_way_to_a_new_one(self):
     path = os.path.join(self.create_tempdir().full_path, 'world.json')
 
-    def world():
+    def world(scenario='sandbox'):
       return session_lib.Session(
-          years_per_second=40, save_path=path, save_seconds=0
+          scenario, years_per_second=40, save_path=path, save_seconds=0
       )
 
     served = server_lib.Served(world(), renew=world)
@@ -902,8 +905,10 @@ class NewWorldTest(absltest.TestCase):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f'http://127.0.0.1:{server.server_address[1]}/lifeways'
 
-    def post(route):
-      request = urllib.request.Request(base + route, data=b'{}', method='POST')
+    def post(route, body=None):
+      request = urllib.request.Request(
+          base + route, data=json.dumps(body or {}).encode(), method='POST'
+      )
       with urllib.request.urlopen(request, timeout=10) as response:
         return json.loads(response.read())
 
@@ -920,11 +925,46 @@ class NewWorldTest(absltest.TestCase):
       self.assertTrue(served.session.running)
       self.assertTrue(os.path.exists(path + '.stopped'))
       self.assertTrue(_wait(lambda: served.session.state()['year'] >= 1))
+      self.assertEqual(served.session.scenario, 'sandbox')
     finally:
       served.session.close()
       first.close()
       server.shutdown()
       server.server_close()
+
+  def test_a_new_world_may_be_of_another_preset_and_is_restored_as_such(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+    def world(scenario='sandbox'):
+      return session_lib.Session(
+          scenario, years_per_second=40, save_path=path, save_seconds=0
+      )
+
+    served = server_lib.Served(world(), renew=world)
+    first = served.session
+    first.start()
+    try:
+      self.assertIn('bridged_valleys', first.state()['presets'])
+      first.stop()
+      self.assertTrue(_wait(lambda: not first.running))
+      with self.assertRaises(ValueError):
+        served.begin_anew('atlantis')
+
+      served.begin_anew('bridged_valleys')
+
+      self.assertEqual(served.session.scenario, 'bridged_valleys')
+      self.assertTrue(_wait(lambda: served.session.saved_year is not None))
+      self.assertEqual(session_lib.saved_scenario(path), 'bridged_valleys')
+    finally:
+      served.session.close()
+      first.close()
+    self.assertEqual(session_lib.saved_scenario(path + '.none'), '')
+    restored = world(session_lib.saved_scenario(path))
+    try:
+      self.assertIsNotNone(restored.restored_year)
+      self.assertEqual(restored.state()['scenario'], 'bridged_valleys')
+    finally:
+      restored.close()
 
 
 def tearDownModule():

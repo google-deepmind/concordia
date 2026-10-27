@@ -14,6 +14,7 @@
 
 """Lifeways end to end on the stock asynchronous engine (MOCK)."""
 
+import collections
 import json
 import os
 import sys
@@ -265,6 +266,24 @@ class PresetTest(absltest.TestCase):
     self.assertEqual(run.peoples()['peoples'], 2)
     descents = {p.descent for p in run.world().people.values()}
     self.assertEqual(descents, {'West people', 'East people'})
+
+  def test_in_bridged_valleys_one_founder_a_side_bridges_the_peoples(self):
+    settings = scenarios.settings('bridged_valleys', max_years=1)
+    open_text = scenarios.OPEN_MARRIAGE['text']
+    open_ones = collections.Counter(
+        founder['people']
+        for founder in scenarios.founders(settings)
+        if any(c['text'] == open_text for c in founder['params']['customs'])
+    )
+    self.assertEqual(open_ones, {'West people': 1, 'East people': 1})
+    self.assertNotIn(
+        open_text, str(scenarios.settings('two_valleys')['groups'])
+    )
+    run = simulation.build_simulation(settings)
+
+    run.play()
+
+    self.assertEqual(run.peoples()['peoples'], 1)
 
   def test_in_plasmid_soup_people_bud_alone(self):
     run = simulation.build_simulation(
