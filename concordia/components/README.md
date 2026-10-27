@@ -108,6 +108,13 @@ These components manage the sequence of events and the turn-taking of agents.
 *   `terminate.py`: The `Terminate` component is responsible for ending the
     simulation when certain conditions are met, such as a maximum number of
     steps or a specific game state being reached.
+*   `player_roster.py`: The `PlayerRoster` component keeps the game's players.
+    Players join the game (built from a prefab) and leave it only through the
+    roster, and the game master's other components find a player by name with
+    `get_player_by_name`. It changes the list of entities the simulation plays
+    in place, so a running engine sees the change: the asynchronous engine
+    starts a loop for a player who joins and ends the loop of one who leaves.
+    Its state keeps who joined and who left, so checkpoints restore them.
 
 ### Environment and World State
 

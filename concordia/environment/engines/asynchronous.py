@@ -135,10 +135,11 @@ class Asynchronous(engine_lib.Engine):
   Termination uses both a shared threading.Event (for global signaling) and a
   per-player max iterations cap.
 
-  The population may change while the loop runs. An entity appended to the
-  `entities` sequence passed to `run_loop` (as `Simulation.add_entity` does)
-  gets its own loop, and an entity removed from it (as
-  `Simulation.remove_entity` does) ends its loop at its next iteration.
+  The entities may change while the loop runs: threads follow the `entities`
+  list passed to `run_loop`. An entity appended to it (as a game master's
+  `PlayerRoster` does when a player joins) gets a loop of its own, and one
+  removed from it (when a player leaves) ends its loop at its next
+  iteration.
 
   A global pause event is supported for UI play/pause functionality.
   """
