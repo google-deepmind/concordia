@@ -537,6 +537,7 @@ class TransmissionTest(absltest.TestCase):
         ('Hara', 'Hara built a shrine.', 'build a shrine'),
         ('Kaka', 'Yes, Kaka gathers food.', world_lib.GATHER),
         ('Kaka', 'Kaka (c7) gathers food.', world_lib.GATHER),
+        ('Kaka', 'Kaka [c7] gathers food.', world_lib.GATHER),
         ('Kaka', 'She has no partner, so she rests.', world_lib.REST),
         ('Kaka', 'Old Kaka gathers food.', world_lib.GATHER),
         ('Kaka', 'Kaka spends the year gathering food.', world_lib.GATHER),
@@ -579,6 +580,10 @@ class TransmissionTest(absltest.TestCase):
         'Since she has a child to feed, Kaka gathers food.',
         'While Lira looks for a partner, Kaka gathers food.',
         'If Lira courts Hara, Kaka rests.',
+        'Whilst she looks for a partner, Kaka gathers food.',
+        'Now she has a child, Kaka gathers food.',
+        'Having a child to feed, Kaka gathers food.',
+        'Looking for a partner, Kaka gathers food.',
     ):
       self.assertNotIn(
           world_lib.first_move(answer, allowed, 'Kaka'),

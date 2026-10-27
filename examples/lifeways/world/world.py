@@ -2437,8 +2437,9 @@ _IRREGULAR = {
 # Words that begin a clause about something else ("Since she has a child to
 # feed, ..."): never the one before a subject.
 _SUBORDINATORS = (
-    'after|although|as|because|before|if|once|since|though|unless|until|'
-    'when|whereas|while|who|whom|whose'
+    'after|although|as|because|before|if|lest|now|once|seeing|since|though|'
+    'till|unless|until|when|whenever|where|whereas|whether|while|whilst|who|'
+    'whom|whose'
 )
 
 
@@ -2463,7 +2464,7 @@ def _clause_start(name: str) -> re.Pattern[str]:
       r'(?:^|[.!?:;]\s*|,\s+(?:so|and)\s+|\byes,\s+)'
       r'(?:(?:this|next|the next) year,?\s+)?'
       rf"(?:(?:(?!(?:{_SUBORDINATORS})\b)[a-z']+\s+)?(?:{who})\s+)?"
-      r'(?:\(c\d+(?:,\s*c\d+)*\)\s+)?(?:will\s+)?'
+      r'(?:[(\[]c\d+(?:,\s*c\d+)*[)\]]\s+)?(?:will\s+)?'
       r'(?:(?:spends?|will spend) (?:the|this) year(?: \d+)?\s+)?$'
   )
 
@@ -2525,6 +2526,10 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
     if match:
       found.append((match.start(), -len(move), move))
   starts = _clause_start(name)
+  # A participle that opens a phrase before its clause's subject ("Having a
+  # child to feed, Kaka gathers food"): not the move.
+  who = '|'.join(filter(None, (re.escape(name.lower()), 'i|she|he|they|we')))
+  subject_after = re.compile(rf'^[^.!?:;]*?,\s+(?:{who})\b')
   for past in (False, True):  # Said in another form, where a clause begins.
     if found:
       break
@@ -2533,7 +2538,12 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
         for match in re.finditer(
             r'(?<![a-z])' + re.escape(said) + r'(?![a-z])', answer
         ):
-          if starts.search(answer[: match.start()]):
-            found.append((match.start(), -len(move), move))
-            break
+          if not starts.search(answer[: match.start()]):
+            continue
+          if said.split(' ')[0].endswith('ing') and subject_after.search(
+              answer[match.end() :]
+          ):
+            continue
+          found.append((match.start(), -len(move), move))
+          break
   return min(found)[2] if found else ''
