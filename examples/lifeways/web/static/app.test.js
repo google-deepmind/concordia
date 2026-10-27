@@ -482,3 +482,13 @@ test('memory and notes read as said; old places in words', () => {
       ' written at the library at 2,5.'}), 'Your release "Sow." is written' +
       ' at the library at row 2, column 5.');
 });
+
+test('a skill is released with how good it is', () => {
+  assert.equal(releaseMove('skill', 'food', 'song', '3,4', 'Dry fish.', '', 4),
+      'release skill food level 4 as a song at 3,4: Dry fish.');
+  assert.equal(releaseMove('norm', 'food', 'song', '3,4', 'Share.', '', 4),
+      'release norm food as a song at 3,4: Share.');
+  assert.equal(moveWords('release skill food level 4 as a song at 3,4: Dry' +
+      ' fish.'), 'Sing “Dry fish.” at row 3, column 4: know-how, level 4' +
+      ' (about food)');
+});

@@ -283,11 +283,13 @@ function drawChart(rows, twinRows = []) {
  * @param {string} says What the custom says.
  * @param {string=} within Whom a marriage rule allows: 'tongue', 'descent',
  *     or '' for anyone.
+ * @param {number=} level How good a skill is (0: not said, the World's 1).
  * @return {string} The move.
  */
-function releaseMove(kind, domain, how, at, says, within = '') {
+function releaseMove(kind, domain, how, at, says, within = '', level = 0) {
+  const good = kind === 'skill' && level ? ` level ${level}` : '';
   const allows = kind === 'marriage' && within ? ` within ${within}` : '';
-  return `release ${kind} ${domain}${allows} as a ${how} at ` +
+  return `release ${kind} ${domain}${good}${allows} as a ${how} at ` +
       `${at.replace(/\s/g, '')}: ${says.trim()}`;
 }
 
@@ -1374,16 +1376,17 @@ function drawMapKey(kinds) {
  */
 function moveWords(move) {
   const at = (r, c) => `row ${r}, column ${c}`;
-  const release = new RegExp('^release (\\w+) (\\w+)(?: within (\\w+))?' +
-      ' as a (text|song) at (\\d+),(\\d+): (.+)$');
+  const release = new RegExp('^release (\\w+) (\\w+)(?: level (\\d+))?' +
+      '(?: within (\\w+))? as a (text|song) at (\\d+),(\\d+): (.+)$');
   let m = move.match(release);
   if (m) {
-    const [, kind, domain, within, how, r, c, says] = m;
+    const [, kind, domain, level, within, how, r, c, says] = m;
     const allows = within === 'tongue' ? ', only one who speaks as we do' :
         within === 'descent' ? ', only our own people' : '';
+    const good = level ? `, level ${level}` : '';
     const as = how === 'song' ? 'Sing' : 'Leave as a text';
     return `${as} “${says}” at ${at(r, c)}: ` +
-        `${KIND_WORDS[kind] || kind}${allows} (about ${domain})`;
+        `${KIND_WORDS[kind] || kind}${good}${allows} (about ${domain})`;
   }
   m = move.match(/^send a (\w+) at (\d+),(\d+)$/);
   if (m) return `Send a ${m[1]} at ${at(m[2], m[3])}`;
@@ -1487,6 +1490,7 @@ async function start() {
     const kind = event.target.value;
     fill('domain', domainsFor(page.world || world, kind));
     document.getElementById('within-box').hidden = kind !== 'marriage';
+    document.getElementById('level-box').hidden = kind !== 'skill';
   });
   drawMapKey(world.kinds);
   fill('fate-kind', fateChoices(world));
@@ -1592,7 +1596,8 @@ async function start() {
         document.getElementById('domain').value,
         document.getElementById('how').value,
         document.getElementById('at').value, says,
-        document.getElementById('within').value);
+        document.getElementById('within').value,
+        Number(document.getElementById('level').value));
     await api('api/move', {move});
     document.getElementById('says').value = '';
     refresh();
