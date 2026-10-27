@@ -396,6 +396,13 @@ SOWING: Mapping[str, Any] = {
     'params': {'level': 1},
 }
 
+# A norm of tending: who holds it sows every year it can spare the food.
+TENDING: Mapping[str, Any] = {
+    'kind': 'norm',
+    'domain': culture_lib.FARMING,
+    'text': 'We tend our fields every year.',
+}
+
 # First Farmers: the Sandbox, a third of whose founders know how to sow.
 # Does farming spread or die out, and does the valley come to feed more?
 FIRST_FARMERS: Mapping[str, Any] = {

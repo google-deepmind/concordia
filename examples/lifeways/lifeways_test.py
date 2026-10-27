@@ -441,6 +441,23 @@ class ModelTest(absltest.TestCase):
         simulation.make_model('together_ai:deepseek-ai/DeepSeek-V3')
 
 
+class MockMindTest(absltest.TestCase):
+
+  def test_a_norm_of_tending_has_a_sower_sow_on_little_food(self):
+    prompt = 'Food stored: 2.5\n'
+    moves = [world_lib.GATHER, world_lib.REST, world_lib.SOW]
+    sowing = (culture_lib.FARMING, 'c1', scenarios.SOWING['text'])
+    tending = (culture_lib.FARMING, 'c2', scenarios.TENDING['text'])
+
+    without = mock_language_model._choose(prompt, moves, [sowing], ())  # pylint: disable=protected-access
+    tended = mock_language_model._choose(  # pylint: disable=protected-access
+        prompt, moves, [sowing, tending], ()
+    )
+
+    self.assertFalse(without.startswith(world_lib.SOW))
+    self.assertEqual(tended, f'{world_lib.SOW} c1 c2')
+
+
 class ArchiveTest(absltest.TestCase):
 
   def test_it_keeps_only_the_most_recent_and_sinks_all(self):
