@@ -2421,24 +2421,47 @@ def where(tile: Sequence[int]) -> str:
   return f'row {tile[0]}, column {tile[1]}'
 
 
-# Verbs a move begins with whose other forms are not made by rule.
+# The other forms of the verbs moves begin with that are not made by rule.
 _IRREGULAR = {
-    'build': ('built',),
+    'build': ('builds', 'building', 'built'),
+    'go': ('goes', 'going', 'went', 'gone'),
     'have': ('has', 'having', 'had'),
-    'lead': ('led',),
-    'read': ('read',),
-    'sow': ('sown', 'sowed'),
-    'teach': ('taught',),
-    'write': ('wrote', 'written'),
+    'lead': ('leads', 'leading', 'led'),
+    'learn': ('learns', 'learning', 'learned', 'learnt'),
+    'read': ('reads', 'reading'),
+    'sow': ('sows', 'sowing', 'sowed', 'sown'),
+    'teach': ('teaches', 'teaching', 'taught'),
+    'tell': ('tells', 'telling', 'told'),
+    'write': ('writes', 'writing', 'wrote', 'written'),
 }
+# Where a move said in another form may stand: where a clause begins, after
+# "this year" or the like, a subject of a word or two, and "will".
+_CLAUSE_START = re.compile(
+    r'(?:^|[.!?:;]\s*)(?:(?:this|next|the next) year,?\s+)?'
+    r"(?:[a-z']+\s+){0,2}(?:will\s+)?$"
+)
 
 
-def _forms(verb: str) -> set[str]:
-  """A verb's other forms: "gather" gives "gathers", "gathering", "gathered"."""
+def _forms(move: str) -> set[str]:
+  """A move's other forms: "gather food" gives "gathers food", ...
+
+  A move of one word (rest, play) is read only as "rests", "plays": its
+  other forms ("well rested") say too little.
+
+  Args:
+    move: The move, lowercase.
+
+  Returns:
+    Its other forms.
+  """
+  verb, _, rest = move.partition(' ')
   stem = verb[:-1] if verb.endswith('e') and not verb.endswith('ee') else verb
   third = verb + ('es' if verb.endswith(('s', 'sh', 'ch', 'x', 'z')) else 's')
   past = verb + 'd' if verb.endswith('e') else verb + 'ed'
-  return {third, stem + 'ing', past, *_IRREGULAR.get(verb, ())} - {verb}
+  forms = _IRREGULAR.get(verb, (third, stem + 'ing', past))
+  if not rest:
+    forms = forms[:1]
+  return {f'{form} {rest}' if rest else form for form in forms} - {move}
 
 
 def first_move(answer: str, allowed: Sequence[str]) -> str:
@@ -2447,8 +2470,10 @@ def first_move(answer: str, allowed: Sequence[str]) -> str:
   A mind may say more than the move ("This year I gather food, by c3."); the
   world reads the first move offered that the answer names as whole words
   (the longest, where two start at the same place). An answer that names no
-  move as offered may name one with its first verb in another form ("Taha
-  sows a field", "gathering food"): that move is read then.
+  move as offered may name one with its first verb in another form where a
+  clause begins ("Taha sows a field.", "This year she gathers food"): that
+  move is read then, but not a form in a clause of another ("Ada, who has a
+  child to feed, ...").
 
   Args:
     answer: The answer.
@@ -2458,19 +2483,20 @@ def first_move(answer: str, allowed: Sequence[str]) -> str:
     The move ('' if the answer names none).
   """
   answer = ' '.join(answer.lower().split())
-  for inflected in (False, True):
-    found = []
+  found = []
+  for move in allowed:
+    match = re.search(
+        r'(?<![a-z])' + re.escape(move.lower()) + r'(?![a-z])', answer
+    )
+    if match:
+      found.append((match.start(), -len(move), move))
+  if not found:  # Said in another form, where a clause begins.
     for move in allowed:
-      verb, _, rest = move.lower().partition(' ')
-      for said in _forms(verb) if inflected else {verb}:
-        match = re.search(
-            r'(?<![a-z])'
-            + re.escape(f'{said} {rest}' if rest else said)
-            + r'(?![a-z])',
-            answer,
-        )
-        if match:
-          found.append((match.start(), -len(move), move))
-    if found:
-      return min(found)[2]
-  return ''
+      for said in _forms(move.lower()):
+        for match in re.finditer(
+            r'(?<![a-z])' + re.escape(said) + r'(?![a-z])', answer
+        ):
+          if _CLAUSE_START.search(answer[: match.start()]):
+            found.append((match.start(), -len(move), move))
+            break
+  return min(found)[2] if found else ''

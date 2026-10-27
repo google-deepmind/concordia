@@ -544,6 +544,52 @@ class TransmissionTest(absltest.TestCase):
         world_lib.REST,
     )
     self.assertEqual(world_lib.first_move('Kaka forages.', allowed), '')
+    self.assertEqual(
+        world_lib.first_move(
+            'Last year Kaka gathered food; this year she sows a field.', allowed
+        ),
+        world_lib.SOW,
+    )
+
+  def test_a_form_in_another_clause_is_not_a_move(self):
+    allowed = [
+        world_lib.GATHER,
+        world_lib.REST,
+        world_lib.CHILD,
+        world_lib.TEACH,
+        world_lib.COURT,
+    ]
+    for answer in (
+        'Ada, who has a child to feed, gathers food.',
+        'As her mother taught her, Ada gathers food.',
+        'Well rested, Kaka gathers food.',
+        'Kaka, no longer looking for a partner, gathers food.',
+        'Her interests are many.',
+    ):
+      self.assertEqual(world_lib.first_move(answer, allowed), '', answer)
+
+  def test_every_move_s_first_verb_is_read_in_its_forms(self):
+    for move, said in (
+        (world_lib.GO_TO_SCHOOL, 'Ada goes to school.'),
+        (world_lib.GO_TO_SCHOOL, 'Ada went to school.'),
+        (world_lib.TELL, 'Old Kaka told a story.'),
+        (world_lib.APPRENTICE, 'Teo learnt a craft.'),
+        (world_lib.LEAD_RITE, 'Hara leads the rite.'),
+        (world_lib.JOIN_RITE, 'Hara joined the rite.'),
+        ('write at the library', 'She wrote at the library.'),
+        ('read at the library', 'She reads at the library.'),
+        ('teach at the school', 'Kaka taught at the school.'),
+        (world_lib.PASS_ON, 'Kaka passes on c3.'),
+        (world_lib.SPARE, 'Ada gathers food, sparing the fields of others.'),
+        (world_lib.PREACH, 'Oran preaches.'),
+        (world_lib.PLAY, 'Teo plays.'),
+        ('share food with Ada', 'Kaka shared food with Ada.'),
+        ('shame Ada', 'Kaka shamed Ada.'),
+        (world_lib.FOUND_LIBRARY, 'Kaka founded a library.'),
+    ):
+      self.assertEqual(
+          world_lib.first_move(said, [move, world_lib.GATHER]), move, said
+      )
 
   def test_a_person_asked_answers_first_then_moves(self):
     self._person('Ada', 30, (5, 5))

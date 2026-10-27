@@ -1493,6 +1493,9 @@ async function start() {
     document.getElementById('level-box').hidden = kind !== 'skill';
   });
   drawMapKey(world.kinds);
+  document.getElementById('level').replaceChildren(
+      ...Array.from({length: world.max_level}, (_, i) => new Option(
+          String(i + 1), String(i + 1), false, i + 1 === 3)));
   fill('fate-kind', fateChoices(world));
   document.getElementById('preset').replaceChildren(...world.presets.map(
       (preset) => new Option(worldName(preset), preset)));
