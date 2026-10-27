@@ -271,8 +271,7 @@ const ASKED_MOVE = {
   kind: 'move',
   question: 'It is year 0. What does Kaka do this year? Choose one move:\n' +
       '- gather food\n- rest\n- court Hara\nAnswer with the move, then the ' +
-      'ids of the customs Kaka follows in doing it, if any, e.g. ' +
-      '"gather food c3".',
+      'ids of the customs Kaka follows in doing it, if any.',
   context: 'Who I am:\nKaka.\n\n' +
       'A custom of ours (kinship) [c1]: We raise a child only when fed.\n' +
       'Something we know how to do (food) [c4]: Smoking fish. (level 2)\n' +

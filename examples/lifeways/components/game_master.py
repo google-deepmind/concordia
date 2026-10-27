@@ -50,12 +50,14 @@ PASS_ON_QUESTION = (
 INTERVIEW_QUESTION = (
     'The Experimenter asks {name}: "{question}" What does {name} answer?'
 )
+# No example answer: small live minds copy it (llama3.2:3b, asked a skilled
+# sower's question, sowed 1 time in 30 with "gather food c3" as the example
+# and 7 in 30 without; journal, cycle 34).
 MOVE_QUESTION = (
     'It is year {year}. What does {name} do this year? Choose one move:\n'
     '{moves}\n'
     'Answer with the move, then the ids of the customs {name} follows in'
-    ' doing it (or, to teach, the customs taught), if any, e.g.'
-    ' "{example} c3".'
+    ' doing it (or, to teach, the customs taught), if any.'
 )
 
 
@@ -310,7 +312,6 @@ class Questions(
             year=world.year,
             name=name,
             moves='\n'.join(f'- {m}' for m in moves),
-            example=moves[0],
         )
         tag = world_lib.MOVES
       world.mark_asked(name, tag)
