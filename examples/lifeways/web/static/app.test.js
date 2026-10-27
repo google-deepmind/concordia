@@ -24,7 +24,7 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
-  leverChoices, moreNote, placeWords,
+  leverChoices, moreNote, personPlaces,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -442,12 +442,20 @@ test('moves read as a person would say them', () => {
 test('a list says what it leaves out', () => {
   assert.equal(moreNote(80, 80), '');
   assert.equal(moreNote(80, 95), 'the first 80 of 95 are listed');
-  assert.equal(placeWords('A fire struck at 3,4; a shrine stands within 5' +
-      ' steps of 6,7.'), 'A fire struck at row 3, column 4; a shrine stands' +
-      ' within 5 steps of row 6, column 7.');
-  assert.equal(placeWords('Your release "Rest at 1,000 steps." is sung at' +
-      ' 8,13.'), 'Your release "Rest at 1,000 steps." is sung at row 8,' +
-      ' column 13.');
+
+});
+
+test('a person reads where it lives in words, and customs as said', () => {
+  assert.equal(personPlaces('Year 2. Kaka is 31 years old and lives on' +
+      ' forest land at 10,8; the land around holds 4.5 food.'),
+  'Year 2. Kaka is 31 years old and lives on forest land at row 10,' +
+      ' column 8; the land around holds 4.5 food.');
+  assert.equal(personPlaces('Kaka sees Sane gather food: We are of 1,000' +
+      ' hands. Oran founds a school at 3,4.'),
+  'Kaka sees Sane gather food: We are of 1,000 hands. Oran founds a' +
+      ' school at row 3, column 4.');
   assert.equal(entryText({kind: 'note', text: 'It grew to 1,200 people.'}),
       'It grew to 1,200 people.');
+  assert.equal(entryText({kind: 'world', text: 'Rest at 1,000 "of 2,3".'}),
+      'Rest at 1,000 "of 2,3".');
 });

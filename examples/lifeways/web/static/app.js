@@ -1154,7 +1154,7 @@ function lifeCustoms(context) {
 function lifeStatus(context, name) {
   const lines = [...context.matchAll(/Year -?\d+\. (\S+) is [^\n]*/g)]
       .filter((found) => found[1] === name);
-  return lines.length ? lines[lines.length - 1][0].trim() : '';
+  return lines.length ? personPlaces(lines[lines.length - 1][0].trim()) : '';
 }
 
 /**
@@ -1167,7 +1167,7 @@ function lifeStatus(context, name) {
  */
 function lifeMemory(context, name) {
   const who = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return context
+  return personPlaces(context)
       .replace(/ \|params=\{.*?\}(?= [A-Z[]|\s*$)/gm, '')
       .replace(/\[custom id=c\d+[^\]\n]*\] /g, '')
       .replace(/ \[c\d+\]:/g, ':')
@@ -1414,15 +1414,17 @@ function moveWords(move) {
 }
 
 /**
- * Places in a text of the World's in words: "at 3,4" becomes "at row 3,
- * column 4". What it quotes (a release, an answer) is left as said.
- * @param {string} text A text naming places as the World does.
+ * The places in the World's own sentences to a person (its status line, and
+ * what it sees founded or built), in words: "at 3,4" becomes "at row 3,
+ * column 4". Only these forms are read, so customs' and people's words are
+ * never touched.
+ * @param {string} text What a person knows (`lifeStatus`, `lifeMemory`).
  * @return {string} The text.
  */
-function placeWords(text) {
-  return text.split(/("[^"]*"|“[^”]*”)/).map((part, i) => i % 2 ? part :
-    part.replace(/\b(at|of|to) (\d+),(\d+)\b/g, '$1 row $2, column $3'))
-      .join('');
+function personPlaces(text) {
+  return text.replace(new RegExp('(lives on \\w+ land at|founds a ' +
+      '(?:library|school) at|builds a shrine at) (\\d+),(\\d+)(?=[;.])', 'g'),
+  '$1 row $2, column $3');
 }
 
 /**
@@ -1431,8 +1433,7 @@ function placeWords(text) {
  * @return {string} Its text.
  */
 function entryText(entry) {
-  if (NOTE_KINDS.includes(entry.kind)) return entry.text;  // As written.
-  if (entry.kind !== 'move') return placeWords(entry.text);
+  if (entry.kind !== 'move') return entry.text;  // Already in words.
   let m = entry.text.match(new RegExp(
       '^(?:Your move for next year(?:, as the World reads it)?|' +
       'You queue a move): (.+)$'));
@@ -1445,7 +1446,7 @@ function entryText(entry) {
         `${(LEVER_WORDS[m[3]] || m[3]).toLowerCase()} set to ${m[4]}`;
     return `You fork a twin in year ${yearText(m[1])}: ${pulled}.`;
   }
-  return placeWords(entry.text);
+  return entry.text;
 }
 
 /**
@@ -1653,7 +1654,7 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
     entryText, moveWords, worldName, yearText,
-    goneNote, leverChoices, moreNote, peopleColour, placeWords, releaseMove,
+    goneNote, leverChoices, moreNote, peopleColour, personPlaces, releaseMove,
     appendNew, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,

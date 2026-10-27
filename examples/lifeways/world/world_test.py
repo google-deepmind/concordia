@@ -858,7 +858,10 @@ class ReleaseTest(_PlaceTest):
     )
     self.assertEqual(
         self.world.history[-1]['reports'],
-        [f'Your release "{custom.text}" is sung at 5,6; 1 hears it.'],
+        [
+            f'Your release "{custom.text}" is sung at row 5, column 6; 1'
+            ' hears it.'
+        ],
     )
     self._year(Ada='rest', Far='rest', Experimenter='watch')
     self.assertEqual(self.world.history[-1]['reports'], [])
@@ -877,7 +880,7 @@ class ReleaseTest(_PlaceTest):
     self.assertLess(self.world.land.food[5, 7], food[5, 7])  # Two steps.
     self.assertGreater(self.world.land.food[5, 9], food[5, 9] * 0.5)  # Four.
     self.assertIn(
-        'A drought strikes at 5,5: 1 lived within reach, 0 died',
+        'A drought strikes at row 5, column 5: 1 lived within reach, 0 died',
         self.world.history[-1]['reports'][0],
     )
 
@@ -943,7 +946,8 @@ class ReleaseTest(_PlaceTest):
     self.assertEqual({p.descent for p in came}, {'Hill people'})
     self.assertEqual(self.world.history[-1]['arrivals'], 4)
     self.assertIn(
-        '4 of the Hill people come to 3,4', self.world.history[-1]['reports'][0]
+        '4 of the Hill people come to row 3, column 4',
+        self.world.history[-1]['reports'][0],
     )
 
   def test_a_disaster_or_migrants_not_understood_change_nothing(self):
@@ -976,7 +980,8 @@ class ReleaseTest(_PlaceTest):
     (school,) = self.world.places.near((4, 4), 0, places_lib.SCHOOL)
     self.assertEqual(school.founder, world_lib.EXPERIMENTER)
     self.assertIn(
-        'A school is founded at 4,4', self.world.history[-1]['reports'][0]
+        'A school is founded at row 4, column 4',
+        self.world.history[-1]['reports'][0],
     )
 
     self._year(Experimenter='found a school at 5,5')  # Too near the first.
@@ -987,7 +992,7 @@ class ReleaseTest(_PlaceTest):
     self._year(Experimenter='close the school at 4,5')  # A step away.
     self.assertEmpty(self.world.places.near((4, 4), 5, places_lib.SCHOOL))
     self.assertIn(
-        'The school at 4,4 is closed; 1 customs it held are gone',
+        'The school at row 4, column 4 is closed; 1 customs it held are gone',
         self.world.history[-1]['reports'][0],
     )
 
@@ -995,7 +1000,7 @@ class ReleaseTest(_PlaceTest):
     self.world.shrine = None
     for move, said in (
         ('found a shrine at 1,1', 'This world has no shrines.'),
-        ('close the library at 9,9', 'No library stands at 9,9.'),
+        ('close the library at 9,9', 'No library stands at row 9, column 9.'),
         ('found a temple at 1,1', 'The institution is not understood'),
     ):
       self._year(Experimenter=move)

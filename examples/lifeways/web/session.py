@@ -1181,8 +1181,8 @@ class Session:
         self._write(
             EVENT,
             f'A {disaster["kind"]} struck at'
-            f' {disaster["tile"][0]},{disaster["tile"][1]}:'
-            f' {disaster["near"]} lived within reach, {disaster["dead"]} died.',
+            f' {world_lib.where(disaster["tile"])}: {disaster["near"]} lived'
+            f' within reach, {disaster["dead"]} died.',
             closed,
         )
     with self._rows_lock:

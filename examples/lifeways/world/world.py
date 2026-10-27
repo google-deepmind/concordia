@@ -592,7 +592,7 @@ class World:
     came = self._strangers(arrivals, tile, self._rng('bring'), group)
     self._report(
         f'{len(came)} of the {arrivals.get("people", "strangers")} come to'
-        f' {tile[0]},{tile[1]}: {", ".join(p["name"] for p in came)}.'
+        f' {where(tile)}: {", ".join(p["name"] for p in came)}.'
     )
     return came
 
@@ -616,7 +616,7 @@ class World:
       return
     kind = match.group('kind')
     tile = self.land.wrap(int(match.group('row')), int(match.group('col')))
-    where = f'{tile[0]},{tile[1]}'
+    at = where(tile)
     if match.group('act') == FOUND_PLACE:
       setting = {
           places_lib.LIBRARY: self.library,
@@ -628,19 +628,19 @@ class World:
         return
       spacing = int(setting.get('spacing', 5))
       if self.places.near(tile, spacing, kind):
-        self._report(f'A {kind} stands within {spacing} steps of {where}.')
+        self._report(f'A {kind} stands within {spacing} steps of {at}.')
         return
       self.places.found(kind, tile, EXPERIMENTER, self.year)
-      self._report(f'A {kind} is founded at {where}; it stands empty.')
+      self._report(f'A {kind} is founded at {at}; it stands empty.')
       return
     near = self.places.near(tile, 1, kind)
     if not near:
-      self._report(f'No {kind} stands at {where}.')
+      self._report(f'No {kind} stands at {at}.')
       return
     place = near[0]
     self.places.close(place)
     self._report(
-        f'The {kind} at {place.tile[0]},{place.tile[1]} is closed;'
+        f'The {kind} at {where(place.tile)} is closed;'
         f' {len(place.shelf)} customs it held are gone with it.'
     )
 
@@ -776,7 +776,7 @@ class World:
     }
     self._disasters.append(record)
     told = (
-        f'A {kind} strikes at {tile[0]},{tile[1]}: {len(near)} lived within'
+        f'A {kind} strikes at {where(tile)}: {len(near)} lived within'
         f' reach, {len(dead)} died'
         + (f', {round(lost, 1)} food was lost' if lost else '')
         + (f', {texts} texts were lost' if texts else '')
@@ -1628,7 +1628,7 @@ class World:
       )
       self._report(
           f'Your release "{custom.text}" is written at the library at'
-          f' {place.tile[0]},{place.tile[1]}.',
+          f' {where(place.tile)}.',
       )
       return
     listeners = [
@@ -1643,7 +1643,7 @@ class World:
         'heard': len(listeners),
     })
     self._report(
-        f'Your release "{custom.text}" is sung at {tile[0]},{tile[1]};'
+        f'Your release "{custom.text}" is sung at {where(tile)};'
         f' {len(listeners)} {"hears" if len(listeners) == 1 else "hear"} it.',
     )
 
@@ -2407,6 +2407,18 @@ def _move_kind(move: str) -> str:
 def _is_move(answer: str, move: str) -> bool:
   """Whether an answer makes a move (the move, then nothing or a space)."""
   return answer == move or answer.startswith(move + ' ')
+
+
+def where(tile: Sequence[int]) -> str:
+  """A place as the World tells the Experimenter of it.
+
+  Args:
+    tile: (row, column).
+
+  Returns:
+    E.g. 'row 3, column 4'.
+  """
+  return f'row {tile[0]}, column {tile[1]}'
 
 
 def first_move(answer: str, allowed: Sequence[str]) -> str:

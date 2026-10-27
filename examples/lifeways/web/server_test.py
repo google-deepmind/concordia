@@ -695,7 +695,7 @@ class NotebookTest(absltest.TestCase):
           _wait(
               lambda: any(
                   e['kind'] == session_lib.WORLD
-                  and 'is sung at 8,8' in e['text']
+                  and 'is sung at row 8, column 8' in e['text']
                   for e in session.notebook()
               )
           )
