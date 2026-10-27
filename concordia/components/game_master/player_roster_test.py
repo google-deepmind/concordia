@@ -23,6 +23,7 @@ from typing import Any, cast
 from absl.testing import absltest
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory as associative_memory
+from concordia.components.agent import action_spec_ignored
 from concordia.components.game_master import player_roster
 from concordia.environment.engines import asynchronous
 from concordia.language_model import language_model
@@ -68,6 +69,34 @@ def _first_players(*names: str) -> list[entity_lib.Entity]:
       )
       for name in names
   ]
+
+
+class _WhoPlays(action_spec_ignored.ActionSpecIgnored):
+  """A component conditioned on the roster, as other GM components may be."""
+
+  def __init__(self):
+    super().__init__('Who plays')
+
+  def _make_pre_act_value(self) -> str:
+    return 'Now: ' + self.get_named_component_pre_act_value(_ROSTER)
+
+
+class _SayContext(entity_component.ActingComponent):
+  """Acts by saying its components' contexts, in order."""
+
+  def get_action_attempt(
+      self,
+      context: entity_component.ComponentContextMapping,
+      action_spec: entity_lib.ActionSpec,
+  ) -> str:
+    del action_spec
+    return ''.join(context.values())
+
+  def get_state(self) -> entity_component.ComponentState:
+    return {}
+
+  def set_state(self, state: entity_component.ComponentState) -> None:
+    del state
 
 
 class _Rules(entity_component.ActingComponent):
@@ -248,6 +277,41 @@ class PlayerRosterTest(absltest.TestCase):
     with self.assertRaises(TypeError):
       roster.join('person', {'name': 'Dee', 'measurements': object()})
     self.assertEqual(roster.get_player_names(), ['Cy'])
+
+  def test_other_components_may_condition_on_who_plays(self):
+    roster = _roster(_first_players('Alice', 'Bob'))
+    game_master = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='rules',
+        act_component=_SayContext(),
+        context_components={_ROSTER: roster, 'who plays': _WhoPlays()},
+    )
+
+    before = game_master.act()
+    roster.join('person', {'name': 'Cy'})
+    roster.leave('Alice')
+    after = game_master.act()
+
+    self.assertEqual(
+        before, '\nPlayers:\nAlice, Bob\nWho plays:\nNow: Alice, Bob\n'
+    )
+    self.assertEqual(after, '\nPlayers:\nBob, Cy\nWho plays:\nNow: Bob, Cy\n')
+
+  def test_who_plays_is_current_within_a_step(self):
+    roster = _roster(_first_players('Alice'))
+
+    class JoinThenSay(_SayContext):
+
+      def get_action_attempt(self, context, action_spec):
+        roster.join('person', {'name': 'Cy'})  # After the roster's pre_act.
+        return roster.get_pre_act_value()
+
+    game_master = entity_agent_with_logging.EntityAgentWithLogging(
+        agent_name='rules',
+        act_component=JoinThenSay(),
+        context_components={_ROSTER: roster},
+    )
+
+    self.assertEqual(game_master.act(), 'Alice, Cy')
 
   def test_a_roster_without_a_model_cannot_build_players(self):
     roster = player_roster.PlayerRoster(
