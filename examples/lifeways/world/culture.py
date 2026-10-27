@@ -259,7 +259,12 @@ STRESS = ', always.'
 WORDS_LOST = 2
 MIN_WORDS = 4
 # The stresses old copying errors heaped at a text's end.
-_HEAPED_STRESS = re.compile(r'(?:[\s,]+always\b)+[\s,.]*$', re.IGNORECASE)
+# Each is ", always" (the old form began with one bare "always" before them);
+# a text that only ends in "always" ("Keep the fire burning always.") says it.
+_HEAPED_STRESS = re.compile(
+    r'(?:\s+always\b(?=,+\s*always\b))?(?:,+\s*always\b)+[\s,.]*$',
+    re.IGNORECASE,
+)
 
 
 def _unstressed(text: str) -> str:

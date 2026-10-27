@@ -90,9 +90,9 @@ def build_config(
     experimenter: Optional. Builds the Experimenter's acting component (a
       person's `HumanActComponent`); by default a rule plays it.
     player: Optional. A founder's name, and what builds that founder's
-      acting component (a person's `HumanActComponent`): someone plays that
-      life, and once it ends, the life of one born of its line
-      (`World.heir`); minds play the others.
+      acting component (a person's `PlayedAct`): someone plays that life,
+      and once it ends, the life of one born of its line (`World.heir`);
+      minds play the others.
 
   Returns:
     The config.

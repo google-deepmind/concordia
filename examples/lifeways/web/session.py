@@ -500,8 +500,11 @@ class PersonInput:
         for waiting in (self._asked, self._deadlines, self._answers):
           waiting.pop(asked, None)
 
-  def asked(self) -> dict[str, Any] | None:
+  def asked(self, name: str | None = None) -> dict[str, Any] | None:
     """The latest question waiting for the page's answer, if any.
+
+    Args:
+      name: Optional. Only a question to this person (the life played now).
 
     Returns:
       The question: its `id`, who is asked (`name`), its `kind` (the World's
@@ -510,16 +513,17 @@ class PersonInput:
       does (`unanswered`, in words).
     """
     with self._changed:
-      if not self._asked:
+      waiting = [
+          a for a in self._asked.values() if name is None or a['name'] == name
+      ]
+      if not waiting:
         return None
-      latest = next(reversed(self._asked.values()))
+      latest = waiting[-1]
       left = max(0.0, self._deadlines[latest['id']] - time.monotonic())
       return {
           **latest,
           'seconds_left': round(left),
-          'unanswered': played_lib.HABITS.get(
-              latest['kind'], played_lib.HABITS[world_lib.MOVES]
-          ),
+          'unanswered': played_lib.habit_words(latest['kind']),
       }
 
   def answer(self, request_id: str, text: str) -> bool:
@@ -592,6 +596,10 @@ class Session:
         A save of a played world is restored only as a played world.
       patience: How long a played person's question waits for the page.
       **overrides: More settings.
+
+    Raises:
+      ValueError: If a person is played in free mode, whose years close on
+        their own: the year waits for the person played.
     """
     self._model = model
     self.minds = minds
@@ -614,6 +622,11 @@ class Session:
     # saves of unplayed worlds keep theirs).
     self.played: PersonInput | None = None
     if play_as:
+      if self._settings.get('free'):
+        raise ValueError(
+            'A person cannot be played in free mode: its years close on'
+            " their own, and a played person's year waits for the player."
+        )
       first = scenarios.founders(self._settings)[0]['params']['name']
       self.played = PersonInput(
           str(first),
@@ -1492,7 +1505,7 @@ class Session:
         'alive': any(p['name'] == lives[-1] for p in people),
         'lives': lives,
         'reach': reach,
-        'asked': self.played.asked(),
+        'asked': self.played.asked(lives[-1]),
     }
 
   def person(self, name: str) -> dict[str, Any] | None:
@@ -1550,7 +1563,8 @@ class Session:
 
     Returns:
       The variant's text; the versions people hold, most held first
-      (`held`, at most `LINEAGE_SHOWN`); the root, and the parent lost
+      (`held`, at most `LINEAGE_SHOWN`, of `held_count`), and those only a
+      place keeps (`kept`, of `kept_count`); the root, and the parent lost
       beyond it (if any);
       the variants that live on (someone holds them, or a place keeps them),
       with their ancestors, the root and the variant asked about, depth
@@ -1620,12 +1634,16 @@ class Session:
     held = sorted(
         (v for v in variants if v['holders']), key=lambda v: -len(v['holders'])
     )
+    kept_only = [v for v in variants if v['living'] and not v['holders']]
     return {
         'id': custom_id,
         'text': known[custom_id].get('text', ''),
         'root': root,
         'lost_parent': str(known[root].get('parent') or ''),
         'held': held[:LINEAGE_SHOWN],
+        'held_count': len(held),
+        'kept': kept_only[:LINEAGE_SHOWN],
+        'kept_count': len(kept_only),
         'variants': kept[:LINEAGE_SHOWN],
         'more': max(0, len(kept) - LINEAGE_SHOWN),
         'gone': sorted(gone, key=lambda v: -int(v['year']))[:GONE_SHOWN],

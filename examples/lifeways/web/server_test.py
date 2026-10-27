@@ -604,6 +604,11 @@ class TreesTest(absltest.TestCase):
       held = [len(v['holders']) for v in lineage['held']]
       self.assertTrue(all(held), lineage['held'])
       self.assertEqual(held, sorted(held, reverse=True))
+      self.assertEqual(lineage['held_count'], len(lineage['held']))
+      for variant in lineage['kept']:
+        self.assertIn(variant['id'], living)
+        self.assertEqual(variant['holders'], [])
+      self.assertGreaterEqual(lineage['kept_count'], len(lineage['kept']))
 
   def test_holders_say_how_and_from_whom_they_had_a_custom(self):
     living = {p['name'] for p in self.session.state()['people']}
@@ -1240,6 +1245,19 @@ class PlayAsTest(absltest.TestCase):
 
     with self.assertRaises(session_lib.Closed):
       played(self._request())
+
+  def test_a_person_is_not_played_where_years_close_on_their_own(self):
+    with self.assertRaisesRegex(ValueError, 'free mode'):
+      session_lib.Session('sandbox', play_as=True, free=5.0)
+
+  def test_a_played_world_notes_its_life_from_the_start(self):
+    session = session_lib.Session('sandbox', play_as=True)
+    played = _known(session.state()['played'])
+    try:
+      # pylint: disable-next=protected-access
+      self.assertEqual(session._lives_noted, (played['name'], True))
+    finally:
+      session.close()
 
   def test_a_played_world_waits_for_the_page_and_restores_as_played(self):
     path = os.path.join(self.create_tempdir().full_path, 'world.json')

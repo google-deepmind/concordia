@@ -47,6 +47,18 @@ HABITS: Mapping[str, str] = {
 KEPT_COUNSEL = 'I would rather not say.'
 
 
+def habit_words(kind: str) -> str:
+  """What a played person does by habit for a kind of question, in words.
+
+  Args:
+    kind: The question's tag (`world.MOVES`, `PASSING_ON` or `INTERVIEW`).
+
+  Returns:
+    E.g. 'gathers food'; a question of another kind is a move.
+  """
+  return HABITS.get(kind, HABITS[world_lib.MOVES])
+
+
 class PlayedAct(
     entity_component.ActingComponent, entity_component.ComponentWithLogging
 ):

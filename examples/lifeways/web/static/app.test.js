@@ -24,7 +24,7 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
-  leverChoices,
+  leverChoices, moreNote,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -425,4 +425,15 @@ test('moves read as a person would say them', () => {
     text: 'You queue a move: send a fire at 1,1'}),
   'Your move for next year: Send a fire at row 1, column 1');
   assert.equal(entryText({kind: 'world', text: 'A fire.'}), 'A fire.');
+  assert.equal(entryText({kind: 'move',
+    text: 'You fork a twin in year 40: seed_bank 0.3.'}),
+  'You fork a twin in year 40: how fast bare land greens again set to 0.3.');
+  assert.equal(entryText({kind: 'move',
+    text: 'You fork a twin in year 3: without sanction.'}),
+  'You fork a twin in year 3: without shaming those who break a rule.');
+});
+
+test('a list says what it leaves out', () => {
+  assert.equal(moreNote(80, 80), '');
+  assert.equal(moreNote(80, 95), '; the first 80 of 95 are listed');
 });

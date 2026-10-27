@@ -127,8 +127,8 @@ That founder is an ordinary person of the valley built from the same prefab
 (`Person`); only its acting component differs. The prefab takes an
 `act_component_factory`, and the session gives this one a `PlayedAct`
 (`components/played.py`): the stock `HumanActComponent` over a `PersonInput`
-adapter, and the person's habit for when nobody answers. The World asks the person
-what it asks everyone, through its game master:
+adapter, and the person's habit for when nobody answers. The World asks
+the person what it asks everyone, through its game master:
 - each year's move, with the customs the person follows in doing it;
 - which customs to pass on to a child about to be born;
 - the Experimenter's interview questions.
@@ -162,6 +162,8 @@ dashed white ring marks the person on the map.
   played, like any other joined player.
 - **Saves and twins.** A played world's save restores only as played. In a
   twin, minds play the person, and each heir.
+- **Not in free mode.** A played person's year waits for the player, so a
+  person cannot be played where years close on their own (`--free`).
 
 **Fork a twin.** The person may fork a twin of the running world. At the
 next year's close the session takes the same checkpoint and builds a second

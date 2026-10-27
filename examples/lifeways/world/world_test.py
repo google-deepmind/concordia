@@ -1398,6 +1398,14 @@ class CultureTest(absltest.TestCase):
     self.assertTrue(all(c.text.startswith('Always ') for c in copies))
     self.assertEqual(copies[0].root, 'Always give the first fish to the river.')
 
+  def test_a_text_that_ends_in_always_says_it(self):
+    culture = culture_lib.Culture()
+    rule = culture.add('norm', 'sacred', 'Keep the fire burning always.')
+
+    copied = culture.copy(rule.id, np.random.default_rng(0), 1.0, 1)
+
+    self.assertEqual(copied.root, 'Keep the fire burning always.')
+
   def test_a_norm_s_change_of_form_keeps_its_line_s_first_text(self):
     culture = culture_lib.Culture()
     custom = culture.add(

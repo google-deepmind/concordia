@@ -799,6 +799,16 @@ function variantNote(variant) {
 }
 
 /**
+ * What a list leaves out, if anything.
+ * @param {number} listed How many are listed.
+ * @param {number} count How many there are.
+ * @return {string} E.g. '; the first 80 of 95 are listed', or ''.
+ */
+function moreNote(listed, count) {
+  return listed < count ? `; the first ${listed} of ${count} are listed` : '';
+}
+
+/**
  * The fold of a lineage's dead branches.
  * @param {number} count How many versions nobody holds any more.
  * @param {number} listed How many of them are listed (the latest).
@@ -903,7 +913,6 @@ async function showLineage(id) {
   const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
   document.getElementById('lineage-title').textContent =
       `How a custom has changed: “${lineage.text}”`;
-  const kept = lineage.variants.filter((v) => v.living && !v.holders.length);
   const item = (variant, indent) => {
     const li = document.createElement('li');
     if (indent) li.style.marginLeft = `${Math.min(variant.depth, 6) * 12}px`;
@@ -937,9 +946,11 @@ async function showLineage(id) {
       lineage.held.length > 0;
   document.getElementById('lineage-held-list').replaceChildren(
       ...lineage.held.map((variant) => item(variant, false)));
-  fill('kept', kept, false, `Kept only in libraries or shrines ` +
-      `(${kept.length}): nobody holds these, but someone may read or hear ` +
-      'them there');
+  document.getElementById('lineage-held-more').textContent =
+      moreNote(lineage.held.length, lineage.held_count);
+  fill('kept', lineage.kept, false, `Kept only in libraries or shrines ` +
+      `(${lineage.kept_count}): nobody holds these, but someone may read or ` +
+      'hear them there' + moreNote(lineage.kept.length, lineage.kept_count));
   const shown = lineage.variants.length;
   fill('tree', lineage.variants, true, `Its family tree (${shown}` +
       (lineage.more ? ` of ${shown + lineage.more} versions shown` :
@@ -1227,7 +1238,7 @@ function lifeNote(played) {
   const year = asked.year >= 0 ? `Year ${yearText(asked.year)}: the` : 'The';
   return `${year} year waits for you. Answer within ` +
       `${asked.seconds_left}\u00a0s, or ${asked.name || played.name}, by ` +
-      `habit, ${asked.unanswered || 'gathers food'}.`;
+      `habit, ${asked.unanswered}.`;
 }
 
 /**
@@ -1405,10 +1416,20 @@ function moveWords(move) {
  * @return {string} Its text.
  */
 function entryText(entry) {
-  const m = entry.kind === 'move' && entry.text.match(new RegExp(
+  if (entry.kind !== 'move') return entry.text;
+  let m = entry.text.match(new RegExp(
       '^(?:Your move for next year(?:, as the World reads it)?|' +
       'You queue a move): (.+)$'));
-  return m ? `Your move for next year: ${moveWords(m[1])}` : entry.text;
+  if (m) return `Your move for next year: ${moveWords(m[1])}`;
+  m = entry.text.match(new RegExp(
+      '^You fork a twin in year (\\d+): (?:without (\\w+)|(\\w+) (\\S+))\\.$'));
+  if (m) {
+    const pulled = m[2] ?
+        `without ${CHANNEL_WORDS[m[2]] || m[2]}` :
+        `${(LEVER_WORDS[m[3]] || m[3]).toLowerCase()} set to ${m[4]}`;
+    return `You fork a twin in year ${yearText(m[1])}: ${pulled}.`;
+  }
+  return entry.text;
 }
 
 /**
@@ -1608,7 +1629,7 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
     entryText, moveWords, worldName, yearText,
-    goneNote, leverChoices, peopleColour, releaseMove, appendNew, entryMeta,
+    goneNote, leverChoices, moreNote, peopleColour, releaseMove, appendNew, entryMeta,
     entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,

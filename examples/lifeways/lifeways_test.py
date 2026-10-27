@@ -592,6 +592,53 @@ class PlotTest(absltest.TestCase):
       self.assertEqual(f.read(4), b'\x89PNG')
 
 
+class PlayedWorldTest(absltest.TestCase):
+
+  def _factory(self, reader):
+    return lambda order: played_lib.PlayedAct(
+        human_act_component.HumanActComponent(reader, order),
+        learner_key=person_lib.LEARNER,
+    )
+
+  def test_a_founder_nobody_answers_for_lives_by_habit(self):
+    def unanswered(request):
+      raise played_lib.Unanswered(request.request_id)
+
+    settings = scenarios.settings(founders=1, max_years=4)
+    founder = scenarios.founders(settings)[0]['params']['name']
+    run = simulation.build_simulation(
+        settings, player=(founder, self._factory(unanswered))
+    )
+
+    (entity,) = [e for e in run.sim.entities if e.name == founder]
+    logged = []
+    entity.get_act_component().set_logging_channel(logged.append)
+
+    run.play()
+
+    self.assertLen(logged, 4)  # One move a year, each by habit.
+    self.assertEqual(
+        {(d['Source'], d['Value']) for d in logged},
+        {('habit', world_lib.GATHER)},
+    )
+
+  def test_the_heir_s_prefab_is_the_config_s(self):
+    settings = scenarios.settings(max_years=1)
+    founder = scenarios.founders(settings)[0]['params']['name']
+    config = simulation.build_config(
+        settings,
+        gm_components.Lifecycle(),
+        player=(founder, self._factory(lambda request: 'rest')),
+    )
+    self.assertIn(person_lib.PLAYED_PREFAB, config.prefabs)
+    unplayed = simulation.build_config(settings, gm_components.Lifecycle())
+    self.assertNotIn(person_lib.PLAYED_PREFAB, unplayed.prefabs)
+
+  def test_every_preset_is_described(self):
+    self.assertEqual(set(scenarios.PRESET_NOTES), set(scenarios.PRESETS))
+    self.assertTrue(all(scenarios.PRESET_NOTES.values()))
+
+
 class TurnGateTest(absltest.TestCase):
 
   def test_the_lives_played_round_trip_and_old_saves_keep_the_founder(self):
