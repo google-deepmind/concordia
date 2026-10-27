@@ -50,14 +50,17 @@ PASS_ON_QUESTION = (
 INTERVIEW_QUESTION = (
     'The Experimenter asks {name}: "{question}" What does {name} answer?'
 )
-# No example answer: small live minds copy it (llama3.2:3b, asked a skilled
-# sower's question, sowed 1 time in 30 with "gather food c3" as the example
-# and 7 in 30 without; journal, cycle 34).
+# No example answer, and the move exactly as written: asked a skilled
+# sower's question 30 times, llama3.2:3b sowed once with "gather food c3" as
+# the example, 5 times without it, and 18 times asked for the move exactly
+# as written; paraphrases ("Taha sows a field") name no move (journal,
+# cycle 34).
 MOVE_QUESTION = (
     'It is year {year}. What does {name} do this year? Choose one move:\n'
     '{moves}\n'
-    'Answer with the move, then the ids of the customs {name} follows in'
-    ' doing it (or, to teach, the customs taught), if any.'
+    'Answer with one of these moves, exactly as written, then the ids of the'
+    ' customs {name} follows in doing it (or, to teach, the customs taught),'
+    ' if any.'
 )
 
 
