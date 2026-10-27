@@ -145,8 +145,6 @@ dashed white ring marks the person on the map.
   it waits) raises `Unanswered`. The person's acting component then acts by
   its own habit, logged as habit rather than as the player's: it gathers
   food, passes on the customs its `Learner` holds, or keeps its counsel.
-  Each question waits on its own, so in free mode a dead founder's last
-  question cannot take its heir's answer.
 - **Endings.** Stopping the world hurries the input, so nobody waits.
   The person dies as anyone does, and the valley plays on.
 - **Living on.** Once the played person dies, the player is born again

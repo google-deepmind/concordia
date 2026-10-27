@@ -14,6 +14,9 @@
 
 """The page's session and server, on a running MOCK world."""
 
+# The tests read the session's and components' private state.
+# pylint: disable=protected-access
+
 import collections
 import dataclasses
 import json
@@ -650,7 +653,7 @@ class NotebookTest(absltest.TestCase):
   def test_the_notebook_notes_lasting_changes_not_flicker(self):
     session = session_lib.Session(years_per_second=40)
     try:
-      # pylint: disable=protected-access
+
       def year(n, tongues):
         row = {
             'year': n,
@@ -667,7 +670,6 @@ class NotebookTest(absltest.TestCase):
 
       for n, tongues in enumerate([2, 2, 1, 2, 1, 2, 2] + [3] * 12):
         year(n, tongues)
-      # pylint: enable=protected-access
       noted = [e['text'] for e in session.notebook() if 'tongue' in e['text']]
       self.assertEqual(
           noted, ['For 10 years now the valley has had 3 tongues (it had 2).']
@@ -1237,9 +1239,7 @@ class PlayAsTest(absltest.TestCase):
   def test_the_page_knows_a_skill_by_its_label_in_the_context(self):
     with open(os.path.join(serving.STATIC, 'app.js'), encoding='utf-8') as f:
       script = f.read()
-    label = culture_components._LABELS[  # pylint: disable=protected-access
-        culture_lib.SKILL
-    ]
+    label = culture_components._LABELS[culture_lib.SKILL]
     self.assertIn(f"const SKILL_LABEL = '{label}';", script)
 
   def test_closing_raises_rather_than_answering(self):
@@ -1250,7 +1250,7 @@ class PlayAsTest(absltest.TestCase):
       played(self._request())
 
   def test_a_person_is_not_played_where_years_close_on_their_own(self):
-    with self.assertRaisesRegex(ValueError, 'free mode'):
+    with self.assertRaisesRegex(ValueError, r'\bfree mode\b'):
       session_lib.Session('sandbox', play_as=True, free=5.0)
 
   def test_a_refused_played_world_keeps_the_stopped_one(self):
@@ -1276,7 +1276,7 @@ class PlayAsTest(absltest.TestCase):
       self.assertTrue(_wait(lambda: not first.running))
       self.assertTrue(_wait(lambda: os.path.exists(path)))
 
-      with self.assertRaisesRegex(ValueError, 'free mode'):
+      with self.assertRaisesRegex(ValueError, r'\bfree mode\b'):
         served.begin_anew('sandbox', play_as=True)
 
       self.assertIs(served.session, first)
@@ -1289,7 +1289,6 @@ class PlayAsTest(absltest.TestCase):
     session = session_lib.Session('sandbox', play_as=True)
     played = _known(session.state()['played'])
     try:
-      # pylint: disable-next=protected-access
       self.assertEqual(session._lives_noted, (played['name'], True))
     finally:
       session.close()
@@ -1454,7 +1453,6 @@ class LivingOnTest(absltest.TestCase):
     try:
       self.assertIsNotNone(restored.restored_year)
       self.assertEqual(restored.state()['played']['lives'], [founder, heir])
-      # pylint: disable-next=protected-access
       self.assertEqual(restored._lives_noted, (heir, True))
       restored.start()
       self.assertTrue(
@@ -1488,7 +1486,6 @@ class NoteLivesTest(absltest.TestCase):
     world.dead = [{'name': 'p99', 'born': 0, 'died': 50}]
 
     # A stand-in session: only what `_note_lives` reads and writes.
-    # pylint: disable-next=protected-access
     session_lib.Session._note_lives(cast(session_lib.Session, session), 5000)
 
     self.assertEqual(
@@ -1498,7 +1495,6 @@ class NoteLivesTest(absltest.TestCase):
             'You are born again as heir, child of p99.',
         ],
     )
-    # pylint: disable-next=protected-access
     self.assertEqual(session._lives_noted, ('heir', True))
 
 

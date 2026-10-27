@@ -1414,12 +1414,15 @@ function moveWords(move) {
 }
 
 /**
- * Places in a text in words: "at 3,4" becomes "at row 3, column 4".
+ * Places in a text of the World's in words: "at 3,4" becomes "at row 3,
+ * column 4". What it quotes (a release, an answer) is left as said.
  * @param {string} text A text naming places as the World does.
  * @return {string} The text.
  */
 function placeWords(text) {
-  return text.replace(/\b(at|of|to) (\d+),(\d+)\b/g, '$1 row $2, column $3');
+  return text.split(/("[^"]*"|“[^”]*”)/).map((part, i) => i % 2 ? part :
+    part.replace(/\b(at|of|to) (\d+),(\d+)\b/g, '$1 row $2, column $3'))
+      .join('');
 }
 
 /**
@@ -1428,6 +1431,7 @@ function placeWords(text) {
  * @return {string} Its text.
  */
 function entryText(entry) {
+  if (NOTE_KINDS.includes(entry.kind)) return entry.text;  // As written.
   if (entry.kind !== 'move') return placeWords(entry.text);
   let m = entry.text.match(new RegExp(
       '^(?:Your move for next year(?:, as the World reads it)?|' +

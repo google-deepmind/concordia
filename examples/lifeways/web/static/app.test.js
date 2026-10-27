@@ -445,4 +445,9 @@ test('a list says what it leaves out', () => {
   assert.equal(placeWords('A fire struck at 3,4; a shrine stands within 5' +
       ' steps of 6,7.'), 'A fire struck at row 3, column 4; a shrine stands' +
       ' within 5 steps of row 6, column 7.');
+  assert.equal(placeWords('Your release "Rest at 1,000 steps." is sung at' +
+      ' 8,13.'), 'Your release "Rest at 1,000 steps." is sung at row 8,' +
+      ' column 13.');
+  assert.equal(entryText({kind: 'note', text: 'It grew to 1,200 people.'}),
+      'It grew to 1,200 people.');
 });
