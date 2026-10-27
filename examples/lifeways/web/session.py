@@ -66,8 +66,10 @@ from concordia.typing import human_input
 
 # Census rows a session keeps for the page's graphs.
 ROWS_KEPT = 400
-# The form of a session's save; a save of another form is set aside.
-SAVE_VERSION = 1
+# The form of a session's save; a save of another form is set aside. Form 2:
+# the born are kept in the World GM's `PlayerRoster` state, not as the
+# checkpoint's entities.
+SAVE_VERSION = 2
 # The name the asynchronous engine gives its entity loops' threads.
 ENGINE_THREADS = 'entity_loop'
 # Variants nobody holds any more that the page remembers, for lineages.

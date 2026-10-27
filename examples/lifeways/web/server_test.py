@@ -268,6 +268,24 @@ class SaveTest(absltest.TestCase):
     finally:
       restored.close()
 
+  def test_a_save_of_an_older_form_is_set_aside(self):
+    first = session_lib.Session(save_path=self.path, save_seconds=0)
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 2))
+    finally:
+      first.close()
+    with open(self.path) as f:
+      saved = json.load(f)
+    saved['version'] = 1  # The born were the checkpoint's entities then.
+    with open(self.path, 'w') as f:
+      json.dump(saved, f)
+
+    session = session_lib.Session(save_path=self.path)
+
+    self.assertIsNone(session.restored_year)
+    self.assertTrue(os.path.exists(self.path + '.set-aside'))
+
   def test_a_save_that_no_longer_restores_begins_a_new_world(self):
     fresh = session_lib.Session()
     with open(self.path, 'w') as f:
