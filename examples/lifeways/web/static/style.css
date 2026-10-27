@@ -98,9 +98,15 @@ button.link {
   border-radius: 8px;
   padding: 8px 12px;
 }
-#lineage-variants { list-style: none; padding: 0; }
-#lineage-variants li { margin: 6px 0; border-left: 2px solid var(--line); padding-left: 6px; }
-#lineage-variants .meta, #lineage-variants .holders {
+#lineage .lineage-list { list-style: none; padding: 0; }
+#lineage .lineage-list li {
+  margin: 8px 0;
+  border-left: 2px solid var(--line);
+  padding-left: 6px;
+}
+#lineage details summary { color: var(--muted); font-size: 0.9rem; margin: 6px 0; }
+#lineage-gone-list li { opacity: 0.75; }
+#lineage .lineage-list .meta, #lineage .lineage-list .holders {
   color: var(--muted);
   font-size: 0.85rem;
 }

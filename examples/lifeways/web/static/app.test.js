@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
+  askMove, cameBy, chartSeries, crowdedSpot, domainsFor, goneNote, kinName,
+  leverChoices, lineageGroups,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -76,8 +77,10 @@ test('the fork form offers each lever, then each channel to go without', () => {
 
 test('a custom says how it came and from whom', () => {
   assert.equal(cameBy({via: 'observation', from: 'Mara'}),
-      'came by observation from Mara');
-  assert.equal(cameBy({via: 'birth', from: ''}), 'came by birth');
+      'saw it done by Mara');
+  assert.equal(cameBy({via: 'birth', from: ''}), 'was born with it');
+  assert.equal(cameBy({via: 'upbringing', from: 'Ada'}),
+      'was taught it as a child by Ada');
 });
 
 test('the dead are named with their years, the forgotten as such', () => {
@@ -96,8 +99,8 @@ test('holders nest under those they had a custom from', () => {
     {name: 'Di', via: 'observation', from: 'Bo'},
   ]);
   assert.equal(transmissionText(roots),
-      'Ada (upbringing from Mara) > [Bo (observation from Ada) > ' +
-      '[Di (observation from Bo)]], Cy (reading)');
+      'Ada was taught it as a child by Mara; Bo saw it done by Ada; ' +
+      'Di saw it done by Bo; Cy read it in a text');
 });
 
 test('learning from one another makes no loop', () => {
@@ -107,17 +110,20 @@ test('learning from one another makes no loop', () => {
   ]);
   assert.equal(roots.length, 1);
   assert.equal(transmissionText(roots),
-      'Bo (observation from Ada) > [Ada (observation from Bo)]');
+      'Bo saw it done by Ada; Ada saw it done by Bo');
 });
 
 test('a variant says how it arose and who holds it', () => {
   const variant = {id: 'c52', origin: 'mutation', year: 9, living: true,
     holders: [{name: 'Ada'}]};
-  assert.equal(variantNote(variant), 'c52 · mutation, year 9 · held by 1');
+  assert.equal(variantNote(variant),
+      'held by 1 person · changed by a copying error, year 9');
   assert.equal(variantNote({...variant, holders: []}),
-      'c52 · mutation, year 9 · held by nobody, kept in a place');
-  assert.equal(variantNote({...variant, living: false}),
-      'c52 · mutation, year 9 · forgotten: nobody holds it now');
+      'nobody holds it, but a library or shrine keeps it · changed by a ' +
+      'copying error, year 9');
+  assert.equal(variantNote({...variant, living: false, year: 28607}),
+      'nobody holds this version any more · changed by a copying error, ' +
+      'year 28,607');
 });
 
 test('the notebook filters what the person wrote, moves and changes', () => {
@@ -270,8 +276,9 @@ const ASKED_MOVE = {
   id: 'r1',
   kind: 'move',
   question: 'It is year 0. What does Kaka do this year? Choose one move:\n' +
-      '- gather food\n- rest\n- court Hara\nAnswer with the move, then the ' +
-      'ids of the customs Kaka follows in doing it, if any.',
+      '- gather food\n- rest\n- court Hara\nAnswer with one of these ' +
+      'moves, exactly as written, then the ids of the customs Kaka follows ' +
+      'in doing it, if any.',
   context: 'Who I am:\nKaka.\n\n' +
       'A custom of ours (kinship) [c1]: We raise a child only when fed.\n' +
       'Something we know how to do (food) [c4]: Smoking fish. (level 2)\n' +
@@ -365,4 +372,21 @@ test('the player sees how far its ways have reached', () => {
       '1 living person has learned a custom from you.');
   assert.equal(influenceNote({reach: {people: 4, customs: 2}}),
       '4 living people have learned 2 customs from you.');
+});
+
+test('the fold of dead branches says what it holds', () => {
+  assert.equal(goneNote(1, 1), '1 other version nobody holds any more ' +
+      '(copying errors that died out)');
+  assert.equal(goneNote(386, 30), '386 other versions nobody holds any ' +
+      'more (copying errors that died out); the latest 30 are listed');
+});
+
+test('a lineage groups versions by how they live on', () => {
+  const v = (id, living, holders) => ({id, living, holders});
+  const groups = lineageGroups([
+    v('c1', false, []), v('c2', true, ['a']), v('c3', true, []),
+    v('c4', true, ['a', 'b']),
+  ]);
+  assert.deepEqual(groups.held.map((x) => x.id), ['c4', 'c2']);
+  assert.deepEqual(groups.kept.map((x) => x.id), ['c3']);
 });

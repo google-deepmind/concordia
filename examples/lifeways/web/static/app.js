@@ -644,9 +644,28 @@ const KIN = [
  * @return {string} E.g. 'came by observation from Mara'.
  */
 function cameBy(custom) {
-  return `came by ${custom.via || 'birth'}` +
-      (custom.from ? ` from ${custom.from}` : '');
+  const [alone, withWhom] = LEARNED_BY[custom.via || 'birth'] ||
+      [`came by ${custom.via}`, `came by ${custom.via} from`];
+  return custom.from ? `${withWhom} ${custom.from}` : alone;
 }
+
+/** How a custom came to someone, by channel: alone, and from someone. */
+const LEARNED_BY = {
+  birth: ['was born with it', 'had it at birth from'],
+  arrival: ['brought it into the valley', 'brought it in with'],
+  upbringing: ['was taught it as a child', 'was taught it as a child by'],
+  observation: ['saw it done', 'saw it done by'],
+  apprenticeship: ['learned it as an apprentice',
+    'learned it as an apprentice of'],
+  sanction: ['was shamed into it', 'was shamed into it by'],
+  practice: ['came to it by practice', 'came to it by practice with'],
+  reading: ['read it in a text', 'read it in a text by'],
+  school: ['learned it at school', 'learned it at school from'],
+  rite: ['learned it at a rite', 'learned it at a rite led by'],
+  story: ['heard it in a story', 'heard it in a story from'],
+  preaching: ['heard it preached', 'heard it preached by'],
+  release: ['had it from your release', 'had it from your release, via'],
+};
 
 /**
  * A kin's name as the family list shows it: the dead with when they died.
@@ -666,11 +685,50 @@ function kinName(kin) {
  * @return {string} E.g. 'c52 · mutation, year 9 · held by 3'.
  */
 function variantNote(variant) {
-  const held = !variant.living ? 'forgotten: nobody holds it now' :
-      variant.holders.length ? `held by ${variant.holders.length}` :
-      'held by nobody, kept in a place';
-  return `${variant.id} · ${variant.origin}, year ${variant.year} · ${held}`;
+  const n = variant.holders.length;
+  const held = !variant.living ? 'nobody holds this version any more' :
+      n ? `held by ${n} ${n === 1 ? 'person' : 'people'}` :
+      'nobody holds it, but a library or shrine keeps it';
+  const arose = ARISEN_BY[variant.origin] || variant.origin;
+  return `${held} · ${arose}, year ${variant.year.toLocaleString('en')}`;
 }
+
+/**
+ * The fold of a lineage's dead branches.
+ * @param {number} count How many versions nobody holds any more.
+ * @param {number} listed How many of them are listed (the latest).
+ * @return {string} The fold's label.
+ */
+function goneNote(count, listed) {
+  const versions = count === 1 ? '1 other version' : `${count} other versions`;
+  return `${versions} nobody holds any more (copying errors that died out)` +
+      (listed < count ? `; the latest ${listed} are listed` : '');
+}
+
+/**
+ * A lineage's versions by how they live on: held by people (most held
+ * first), or kept only in a place.
+ * @param {!Array<!Object>} variants The versions the server shows.
+ * @return {{held: !Array<!Object>, kept: !Array<!Object>}} The groups.
+ */
+function lineageGroups(variants) {
+  return {
+    held: variants.filter((v) => v.holders.length)
+        .sort((a, b) => b.holders.length - a.holders.length),
+    kept: variants.filter((v) => v.living && !v.holders.length),
+  };
+}
+
+/** How a version of a custom arose, by its origin. */
+const ARISEN_BY = {
+  founder: 'brought by the first settlers',
+  arrival: 'brought in by newcomers',
+  release: 'released by you',
+  mutation: 'changed by a copying error',
+  improvement: 'improved by a careful learner',
+  known: 'came to be only expected of people, not held as their own',
+  internalized: 'came to be held as people\'s own',
+};
 
 /**
  * One line of the family: the living are links to their own inspector.
@@ -737,12 +795,13 @@ function isUnder(node, under) {
  * @return {string} The text.
  */
 function transmissionText(roots) {
-  return roots.map((node) => {
-    const how = node.from ? `${node.via} from ${node.from}` : node.via;
-    const own = `${node.name} (${how})`;
-    return node.learners.length ?
-        `${own} > [${transmissionText(node.learners)}]` : own;
-  }).join(', ');
+  const lines = [];
+  const walk = (node) => {
+    lines.push(`${node.name} ${cameBy(node)}`);
+    node.learners.forEach(walk);
+  };
+  roots.forEach(walk);
+  return lines.join('; ');
 }
 
 /**
@@ -752,31 +811,50 @@ function transmissionText(roots) {
 async function showLineage(id) {
   const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
   document.getElementById('lineage-title').textContent =
-      `The lineage of ${id}` +
-      (lineage.lost_parent ? ` (its ancestor ${lineage.lost_parent} is ` +
-        'forgotten)' : '');
-  const items = lineage.variants.map((variant) => {
-    const item = document.createElement('li');
-    item.style.marginLeft = `${Math.min(variant.depth, 8) * 12}px`;
+      `How a custom has changed: “${lineage.text}”`;
+  const groups = lineageGroups(lineage.variants);
+  const item = (variant, indent) => {
+    const li = document.createElement('li');
+    if (indent) li.style.marginLeft = `${Math.min(variant.depth, 6) * 12}px`;
     const text = document.createElement('div');
     text.textContent = variant.text;
     if (variant.id === id) text.style.fontWeight = '600';
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = variantNote(variant);
-    const holders = document.createElement('div');
-    holders.className = 'holders';
-    holders.textContent =
-        transmissionText(transmissionTree(variant.holders));
-    item.append(text, meta, holders);
-    return item;
-  });
-  if (lineage.more) {
-    const more = document.createElement('li');
-    more.textContent = `…and ${lineage.more} more variants.`;
-    items.push(more);
-  }
-  document.getElementById('lineage-variants').replaceChildren(...items);
+    li.append(text, meta);
+    if (variant.holders.length && !indent) {
+      const who = document.createElement('details');
+      const label = document.createElement('summary');
+      label.textContent = 'Who holds it, and how they came by it';
+      const names = document.createElement('div');
+      names.className = 'holders';
+      names.textContent =
+          transmissionText(transmissionTree(variant.holders)) + '.';
+      who.append(label, names);
+      li.append(who);
+    }
+    return li;
+  };
+  const fill = (key, variants, indent, label) => {
+    document.getElementById(`lineage-${key}`).hidden = !variants.length;
+    document.getElementById(`lineage-${key}-label`).textContent = label;
+    document.getElementById(`lineage-${key}-list`).replaceChildren(
+        ...variants.map((variant) => item(variant, indent)));
+  };
+  document.getElementById('lineage-held-none').hidden =
+      groups.held.length > 0;
+  document.getElementById('lineage-held-list').replaceChildren(
+      ...groups.held.map((variant) => item(variant, false)));
+  fill('kept', groups.kept, false, `Kept only in libraries or shrines ` +
+      `(${groups.kept.length}): nobody holds these, but someone may read ` +
+      'or hear them there');
+  fill('tree', lineage.variants, true, `Its family tree ` +
+      `(${lineage.variants.length} versions): each is indented under the ` +
+      'one it was copied from');
+  fill('gone', lineage.gone, false,
+      goneNote(lineage.gone_count, lineage.gone.length));
+  document.getElementById('lineage-older').hidden = !lineage.lost_parent;
   const panel = document.getElementById('lineage');
   panel.hidden = false;
   panel.scrollIntoView({behavior: 'smooth', block: 'start'});
@@ -1356,7 +1434,8 @@ if (typeof document !== 'undefined') {
 } else if (typeof module !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
-    leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
+    goneNote, leverChoices, lineageGroups, peopleColour, releaseMove, appendNew, entryMeta,
+    entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,

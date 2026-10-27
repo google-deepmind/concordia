@@ -570,6 +570,35 @@ class TreesTest(absltest.TestCase):
       depth[variant['id']] = variant['depth']
     self.assertIsNone(self.session.lineage('c999999'))
 
+  def test_a_lineage_shows_what_lives_on_and_folds_dead_branches(self):
+    culture = self.session.run.world_state()['culture']['customs']
+    living = {c['id'] for c in culture}
+    lineages = [
+        _known(self.session.lineage(c['id'])) for c in culture if c['parent']
+    ]
+    folded = [x for x in lineages if x['gone_count']]
+    self.assertNotEmpty(folded, 'no lineage with a dead branch in 40 years')
+
+    for lineage in lineages:
+      shown = {v['id']: v for v in lineage['variants']}
+      self.assertIn(lineage['id'], shown)
+      self.assertEqual(lineage['text'], shown[lineage['id']]['text'])
+      parents = {v['parent'] for v in shown.values()}
+      for i, variant in shown.items():
+        # What shows lives on, or is asked about, or is the root, or leads
+        # down to something that does.
+        self.assertTrue(
+            i in living
+            or i in (lineage['id'], lineage['root'])
+            or i in parents,
+            variant,
+        )
+      for variant in lineage['gone']:
+        self.assertNotIn(variant['id'], living)
+        self.assertNotIn(variant['id'], shown)
+      self.assertGreaterEqual(lineage['gone_count'], len(lineage['gone']))
+      self.assertLessEqual(len(lineage['gone']), session_lib.GONE_SHOWN)
+
   def test_holders_say_how_and_from_whom_they_had_a_custom(self):
     living = {p['name'] for p in self.session.state()['people']}
     held = [

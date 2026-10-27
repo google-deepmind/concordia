@@ -77,6 +77,8 @@ ENGINE_THREADS = 'entity_loop'
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
 LINEAGE_SHOWN = 80
+# How many of a lineage's dead branches the page may list.
+GONE_SHOWN = 30
 # What the person writes in the notebook, and the longest entry.
 NOTE_KINDS = ('hypothesis', 'observation', 'note')
 NOTE_LENGTH = 1000
@@ -1114,23 +1116,27 @@ class Session:
     if self._lives_noted is None:  # As built or restored: nothing new yet.
       self._lives_noted = (len(lives), lives[-1] in world.people)
     noted, alive = self._lives_noted
-    for heir in lives[noted:]:
-      person = world.people.get(heir)
-      parents = ' and '.join(person.parents) if person else ''
-      self._write(
-          EVENT,
-          f'You are born again as {heir}'
-          + (f', child of {parents}.' if parents else '.'),
-          closed,
-      )
-      alive = True
-    if alive and lives[-1] not in world.people:
-      died = next(
-          (d for d in reversed(world.dead) if d['name'] == lives[-1]), None
-      )
-      age = f', aged {died["died"] - died["born"]}' if died else ''
-      self._write(EVENT, f'{lives[-1]}, whom you play, dies{age}.', closed)
-      alive = False
+    # From the life last noted on: each new one is born, and each but the
+    # latest has died (the latest too, if it is gone), in that order.
+    for k in range(max(0, noted - 1), len(lives)):
+      name = lives[k]
+      if k >= noted:
+        person = world.people.get(name)
+        parents = ' and '.join(person.parents) if person else ''
+        self._write(
+            EVENT,
+            f'You are born again as {name}'
+            + (f', child of {parents}.' if parents else '.'),
+            closed,
+        )
+        alive = True
+      if alive and (k < len(lives) - 1 or name not in world.people):
+        died = next(
+            (d for d in reversed(world.dead) if d['name'] == name), None
+        )
+        age = f', aged {died["died"] - died["born"]}' if died else ''
+        self._write(EVENT, f'{name}, whom you play, dies{age}.', closed)
+        alive = False
     self._lives_noted = (len(lives), alive)
 
   def _note_year(self, year: int, row: Mapping[str, Any]) -> None:
@@ -1512,9 +1518,13 @@ class Session:
       custom_id: Any variant of the lineage.
 
     Returns:
-      The root, the parent lost beyond it (if any), the variants with their
-      depth and holders (at most `LINEAGE_SHOWN`), and how many more there
-      are; or None if the variant is not known.
+      The variant's text; the root, and the parent lost beyond it (if any);
+      the variants that live on (someone holds them, or a place keeps them),
+      with their ancestors, the root and the variant asked about, depth
+      first with their depth and holders (at most `LINEAGE_SHOWN`; `more`
+      says how many are left out); and the dead branches: their number
+      (`gone_count`) and the latest of them (`gone`, at most `GONE_SHOWN`).
+      None if the variant is not known.
     """
     world = self.run.world_state()
     with self._rows_lock:
@@ -1564,12 +1574,25 @@ class Session:
           (child, depth + 1)
           for child in sorted(children[i], key=_number, reverse=True)
       )
+    # What lives on shows, with the chain it came down; dead branches fold.
+    shown = {root, custom_id}
+    for variant in variants:
+      if variant['living'] or variant['id'] in shown:
+        i = variant['id']
+        while i in known and i != root:
+          shown.add(i)
+          i = str(known[i].get('parent') or '')
+    kept = [v for v in variants if v['id'] in shown]
+    gone = [v for v in variants if v['id'] not in shown]
     return {
         'id': custom_id,
+        'text': known[custom_id].get('text', ''),
         'root': root,
         'lost_parent': str(known[root].get('parent') or ''),
-        'variants': variants[:LINEAGE_SHOWN],
-        'more': max(0, len(variants) - LINEAGE_SHOWN),
+        'variants': kept[:LINEAGE_SHOWN],
+        'more': max(0, len(kept) - LINEAGE_SHOWN),
+        'gone': sorted(gone, key=lambda v: -int(v['year']))[:GONE_SHOWN],
+        'gone_count': len(gone),
     }
 
   def _holders(

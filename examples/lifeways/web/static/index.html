@@ -97,10 +97,28 @@ limitations under the License.
 
   <section id="lineage" hidden aria-label="A lineage">
     <h2 id="lineage-title"></h2>
-    <p class="hint">Each variant of the custom, from the oldest remembered
-      down: indented under the one it was copied from with a change. Under
-      each, who holds it, and from whom they had it.</p>
-    <ul id="lineage-variants"></ul>
+    <p class="hint">Customs change as people copy them from one another: a
+      copy may lose a word, regain one, or stress the custom with "always".
+      Each change is a new version, and versions compete to be held.</p>
+    <h3>Held now</h3>
+    <p id="lineage-held-none" class="hint" hidden>Nobody holds any version
+      of this custom now.</p>
+    <ul id="lineage-held-list" class="lineage-list"></ul>
+    <details id="lineage-kept" hidden>
+      <summary id="lineage-kept-label"></summary>
+      <ul id="lineage-kept-list" class="lineage-list"></ul>
+    </details>
+    <details id="lineage-tree" hidden>
+      <summary id="lineage-tree-label"></summary>
+      <p id="lineage-older" class="hint" hidden>Its oldest versions are
+        forgotten; the tree starts from the oldest the valley remembers.
+        The version you opened is in bold.</p>
+      <ul id="lineage-tree-list" class="lineage-list"></ul>
+    </details>
+    <details id="lineage-gone" hidden>
+      <summary id="lineage-gone-label"></summary>
+      <ul id="lineage-gone-list" class="lineage-list"></ul>
+    </details>
     <button id="lineage-close" type="button">Close</button>
   </section>
 
