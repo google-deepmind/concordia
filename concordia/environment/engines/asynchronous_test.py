@@ -336,6 +336,96 @@ class AsynchronousTest(absltest.TestCase):
     self.assertGreater(gm_1._act_count, 0)
     self.assertGreater(gm_2._act_count, 0)
 
+  def test_entity_joining_during_run_gets_its_own_loop(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[*_ENTITY_NAMES, 'newcomer']
+    )
+    entities = [MockEntity(name=_ENTITY_NAMES[0])]
+    newcomer = MockEntity(name='newcomer')
+
+    def step_callback(data):
+      if data.acting_entity == _ENTITY_NAMES[0] and newcomer not in entities:
+        entities.append(newcomer)  # As a PlayerRoster does when one joins.
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=3,
+        step_callback=step_callback,
+    )
+
+    self.assertEqual(entities[0]._act_count, 3)
+    self.assertEqual(newcomer._act_count, 3)
+
+  def test_entity_leaving_during_run_ends_its_loop(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+    staying, leaving = (MockEntity(name=n) for n in _ENTITY_NAMES)
+    entities = [staying, leaving]
+
+    def step_callback(data):
+      if data.acting_entity == leaving.name and leaving in entities:
+        entities.remove(leaving)  # As a PlayerRoster does when one leaves.
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=5,
+        step_callback=step_callback,
+    )
+
+    self.assertEqual(leaving._act_count, 1)
+    self.assertEqual(staying._act_count, 5)
+
+  def test_checkpoints_continue_after_the_first_entity_leaves(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=list(_ENTITY_NAMES)
+    )
+    first, second = (MockEntity(name=n) for n in _ENTITY_NAMES)
+    entities = [first, second]
+    checkpoints = []
+
+    def step_callback(data):
+      if data.acting_entity == first.name and first in entities:
+        entities.remove(first)
+
+    env.run_loop(
+        game_masters=[gm],
+        entities=entities,
+        max_steps=4,
+        step_callback=step_callback,
+        checkpoint_callback=checkpoints.append,
+    )
+
+    self.assertEqual(first._act_count, 1)
+    self.assertEqual(second._act_count, 4)
+    self.assertEqual(checkpoints, sorted(set(checkpoints)))  # Each step once.
+    self.assertEqual(checkpoints[-1], 4)
+
+  def test_an_error_in_one_loop_stops_the_run(self):
+    env = asynchronous.Asynchronous(sleep_time=0.0)
+    gm = SelectiveGMEntity(
+        name='game_master', eligible_names=[_ENTITY_NAMES[0], 'failing']
+    )
+
+    class FailingEntity(MockEntity):
+
+      @override
+      def act(
+          self,
+          action_spec: entity_lib.ActionSpec = entity_lib.DEFAULT_ACTION_SPEC,
+      ) -> str:
+        raise RuntimeError('broken entity')
+
+    entities = [MockEntity(name=_ENTITY_NAMES[0]), FailingEntity('failing')]
+
+    with self.assertRaisesRegex(RuntimeError, 'broken entity'):
+      env.run_loop(game_masters=[gm], entities=entities, max_steps=1000)
+
 
 if __name__ == '__main__':
   absltest.main()

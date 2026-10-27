@@ -21,7 +21,7 @@ The game master and its components must be thread-safe.
 """
 
 from collections.abc import Mapping, Sequence
-import functools
+from concurrent import futures
 import re
 import threading
 import time
@@ -37,7 +37,6 @@ from concordia.environment import step_controller as step_controller_lib
 from concordia.typing import entity as entity_lib
 from concordia.utils import async_log_collector as collector_lib
 from concordia.utils import async_measurements as async_measurements_lib
-from concordia.utils import concurrency
 import termcolor
 
 DEFAULT_CALL_TO_MAKE_OBSERVATION = (
@@ -61,6 +60,10 @@ EVENT_TAG = event_resolution_components.EVENT_TAG
 
 _PRINT_COLOR = 'cyan'
 _DEFAULT_SLEEP_TIME = 0.1
+# Upper bound on concurrent entity loops (threads start only as needed).
+_MAX_ENTITY_THREADS = 10_000
+# How often run_loop looks for entities that joined the population.
+_MEMBERSHIP_POLL_SECONDS = 0.05
 
 
 def _get_reactive_measurements(
@@ -89,6 +92,39 @@ def _get_empty_log_entry():
   }
 
 
+def _is_member(
+    entity: entity_lib.Entity, entities: Sequence[entity_lib.Entity]
+) -> bool:
+  """Whether this very entity (not just one of its name) is in `entities`."""
+  return any(member is entity for member in list(entities))
+
+
+def _once_per_step(callback: Callable[[int], None]) -> Callable[[int], None]:
+  """Wraps a checkpoint callback so that each step is saved once.
+
+  The first entity loop to complete a step saves it; later loops reaching the
+  same or an earlier step do not.
+
+  Args:
+    callback: The checkpoint callback, called with the step number.
+
+  Returns:
+    A thread-safe callback.
+  """
+  lock = threading.Lock()
+  last_step = 0
+
+  def checkpoint(step: int) -> None:
+    nonlocal last_step
+    with lock:
+      if step <= last_step:
+        return
+      last_step = step
+      callback(step)
+
+  return checkpoint
+
+
 class Asynchronous(engine_lib.Engine):
   """Fully asynchronous engine.
 
@@ -98,6 +134,12 @@ class Asynchronous(engine_lib.Engine):
 
   Termination uses both a shared threading.Event (for global signaling) and a
   per-player max iterations cap.
+
+  The entities may change while the loop runs: threads follow the `entities`
+  list passed to `run_loop`. An entity appended to it (as a game master's
+  `PlayerRoster` does when a player joins) gets a loop of its own, and one
+  removed from it (when a player leaves) ends its loop at its next
+  iteration.
 
   A global pause event is supported for UI play/pause functionality.
   """
@@ -315,6 +357,7 @@ class Asynchronous(engine_lib.Engine):
           Callable[[step_controller_lib.StepData], None] | None
       ) = None,
       step_controller: step_controller_lib.StepController | None = None,
+      entities: Sequence[entity_lib.Entity] | None = None,
   ) -> None:
     """Run the observe-act loop for a single entity.
 
@@ -332,6 +375,8 @@ class Asynchronous(engine_lib.Engine):
         data.
       step_controller: Optional controller to manage stepping through the
         simulation.
+      entities: Optional live population. If given, the loop ends at the start
+        of the first iteration in which `entity` is no longer in it.
     """
     if game_masters is None:
       game_masters = [game_master]
@@ -358,6 +403,9 @@ class Asynchronous(engine_lib.Engine):
         self._pause_event.wait()
 
         if terminate_event.is_set():
+          break
+
+        if entities is not None and not _is_member(entity, entities):
           break
 
         # --- Multi-GM switching ---
@@ -491,6 +539,71 @@ class Asynchronous(engine_lib.Engine):
       if hasattr(game_master, 'clear_capture_key_for_thread'):
         game_master.clear_capture_key_for_thread(thread_id)
 
+  def _run_entity_loops(
+      self,
+      entities: Sequence[entity_lib.Entity],
+      run_entity: Callable[[entity_lib.Entity], None],
+      terminate_event: threading.Event,
+  ) -> None:
+    """Runs one observe-act loop per entity until every loop has ended.
+
+    An entity that joins `entities` while loops run gets a loop of its own,
+    unless the simulation is terminating. If a loop raises, the others are
+    signalled to stop and the error is raised.
+
+    Args:
+      entities: The live population.
+      run_entity: Runs one entity's observe-act loop.
+      terminate_event: Shared event signaling global termination.
+    """
+    # Each started entity and its loop, by id. A finished loop whose entity
+    # has left the population is forgotten (releasing the entity); one whose
+    # entity is still a member is never started again.
+    loops: dict[int, tuple[entity_lib.Entity, futures.Future[None]]] = {}
+
+    def run_logged(entity: entity_lib.Entity) -> None:
+      try:
+        run_entity(entity)
+      except Exception:
+        logging.exception('Error in the loop of entity %s', entity.name)
+        raise
+
+    executor = futures.ThreadPoolExecutor(
+        max_workers=_MAX_ENTITY_THREADS, thread_name_prefix='entity_loop'
+    )
+    try:
+      while True:
+        members = list(entities)
+        if not terminate_event.is_set():
+          for entity in members:
+            if id(entity) not in loops:
+              loops[id(entity)] = (entity, executor.submit(run_logged, entity))
+        running = []
+        for key, (entity, loop) in list(loops.items()):
+          if not loop.done():
+            running.append(loop)
+            continue
+          error = loop.exception()
+          if error is not None:
+            raise error
+          if not any(member is entity for member in members):
+            del loops[key]
+        if not running:
+          joined = any(id(entity) not in loops for entity in list(entities))
+          if terminate_event.is_set() or not joined:
+            break
+          continue
+        futures.wait(
+            running,
+            timeout=_MEMBERSHIP_POLL_SECONDS,
+            return_when=futures.FIRST_COMPLETED,
+        )
+    except BaseException:
+      terminate_event.set()
+      executor.shutdown(wait=False, cancel_futures=True)
+      raise
+    executor.shutdown()
+
   def run_loop(
       self,
       game_masters: Sequence[entity_lib.Entity],
@@ -573,15 +686,17 @@ class Asynchronous(engine_lib.Engine):
       break
 
     terminate_event = threading.Event()
+    # Any loop may save a checkpoint (make_checkpoint_data() snapshots every
+    # entity and game master), once per step: entities may join and leave,
+    # so no one entity's loop can be relied on to outlast the others.
+    checkpoint = (
+        _once_per_step(checkpoint_callback)
+        if checkpoint_callback is not None
+        else None
+    )
 
-    tasks = {}
-    for i, entity in enumerate(entities):
-      # Only the first entity's thread runs the checkpoint callback
-      # as make_checkpoint_data() snapshots ALL entities and game
-      # masters (global state)
-      entity_checkpoint_cb = checkpoint_callback if i == 0 else None
-      tasks[entity.name] = functools.partial(
-          self._entity_loop,
+    def run_entity(entity: entity_lib.Entity) -> None:
+      self._entity_loop(
           entity=entity,
           game_master=game_master,
           game_masters=game_masters,
@@ -589,12 +704,13 @@ class Asynchronous(engine_lib.Engine):
           verbose=verbose,
           terminate_event=terminate_event,
           log=log,
-          checkpoint_callback=entity_checkpoint_cb,
+          checkpoint_callback=checkpoint,
           step_callback=step_callback,
           step_controller=step_controller,
+          entities=entities,
       )
 
-    concurrency.run_tasks(tasks)
+    self._run_entity_loops(entities, run_entity, terminate_event)
 
     if log is not None:
       self._collector.materialize(log)
