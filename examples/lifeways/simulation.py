@@ -22,7 +22,7 @@ person who died (for the archive) and the customs nobody holds any more.
 """
 
 import collections
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Collection, Iterator, Mapping
 import contextlib
 import dataclasses
 import json
@@ -330,6 +330,36 @@ class Run:
     return self.sim.game_masters[0].get_component(  # pyrefly: ignore[missing-attribute]
         gm_components.DEFAULT_WORLD_KEY, type_=gm_components.WorldComponent
     )
+
+  def learned_from(self, teachers: Collection[str]) -> dict[str, list[str]]:
+    """Who among the living learned a custom from one of `teachers`.
+
+    Measurement only, as `customs_census`: read from the living's Learners,
+    which remember whom each custom came from. Call it as a year closes.
+
+    Args:
+      teachers: The names of those taught from.
+
+    Returns:
+      Each living learner's name, with the ids of the customs it had from
+      them.
+    """
+    living = set(self.world().people)
+    found: dict[str, list[str]] = {}
+    for entity in list(self.sim.entities):
+      if entity.name not in living:
+        continue
+      learner = entity.get_component(  # pyrefly: ignore[missing-attribute]
+          person_lib.LEARNER, type_=culture.Learner
+      )
+      ids = sorted(
+          custom['id']
+          for custom in learner.get_state()['held']
+          if custom['from'] in teachers
+      )
+      if ids:
+        found[entity.name] = ids
+    return found
 
   def customs_census(self) -> dict[str, Any]:
     """What the living hold, read from their entities' Learners.

@@ -184,6 +184,27 @@ class SandboxTest(parameterized.TestCase):
     offers = {c for row in run.world().history for c in row['offers']}
     self.assertGreaterEqual(len(offers), 7, offers)
 
+  def test_the_harness_reads_who_learned_from_whom(self):
+    settings = scenarios.settings(max_years=30)
+    run = simulation.build_simulation(settings)
+    founders = {f['params']['name'] for f in scenarios.founders(settings)}
+    learned = {}
+
+    def year_closed(year):
+      del year
+      learned.update(run.learned_from(founders))
+
+    run.lifecycle.year_closed = year_closed
+    run.play()
+
+    self.assertNotEmpty(learned)
+    # Children have customs from their founding parents, at least.
+    self.assertNotEmpty(set(learned) - founders)
+    for ids in learned.values():
+      self.assertNotEmpty(ids)
+      self.assertTrue(all(i.startswith('c') for i in ids), ids)
+    self.assertEqual(run.learned_from({'Nobody'}), {})
+
   def test_the_experimenter_releases_what_its_plan_says(self):
     run = simulation.build_simulation(
         scenarios.settings(

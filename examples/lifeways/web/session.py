@@ -620,6 +620,8 @@ class Session:
         maxlen=ROWS_KEPT
     )
     self._rows_lock = threading.Lock()
+    # The played person's reach at the last year's close (`_played_state`).
+    self._reach: dict[str, int] = {'people': 0, 'customs': 0}
     # Variants the world forgot (nobody holds them), latest last.
     self._forgotten: collections.OrderedDict[str, dict[str, Any]] = (
         collections.OrderedDict()
@@ -738,6 +740,13 @@ class Session:
   def _year_closed(self, year: int) -> None:
     # In the World GM's lock: the world may be read here, and is whole.
     row = self.run.census_row(year)
+    if self.played is not None:
+      learned = self.run.learned_from(set(self.run.lives()))
+      with self._rows_lock:
+        self._reach = {
+            'people': len(learned),
+            'customs': len({c for ids in learned.values() for c in ids}),
+        }
     self._note_year(year, row)
     self._follow_releases(row)
     with self._rows_lock:
@@ -1396,13 +1405,20 @@ class Session:
   def _played_state(
       self, people: Sequence[Mapping[str, Any]]
   ) -> dict[str, Any]:
-    """The life the page plays: whose, whether it goes on, its question."""
+    """The life the page plays: whose, whether it goes on, its question.
+
+    Its `reach` is how many living people had a custom from one of its
+    lives, and how many customs they had, as of the last year's close.
+    """
     assert self.played is not None
     lives = self.run.lives() or [self.played.name]
+    with self._rows_lock:
+      reach = dict(self._reach)
     return {
         'name': lives[-1],
         'alive': any(p['name'] == lives[-1] for p in people),
         'lives': lives,
+        'reach': reach,
         'asked': self.played.asked(),
     }
 

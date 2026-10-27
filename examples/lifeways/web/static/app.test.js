@@ -24,9 +24,9 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
-  fateMove, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves, lifeNote,
-  lifeQuestion, lifeStatus, lifeSuggested, livesNote,
-  reachNote, recentDisasters, releaseStatus, savedNote,
+  fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
+  lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
+  recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
@@ -356,4 +356,13 @@ test('a move is done by the know-how it needs', () => {
   assert.deepEqual(lifeSuggested('sow a field', customs), ['c11']);
   assert.deepEqual(lifeSuggested('read at the library', customs), ['c9']);
   assert.deepEqual(lifeSuggested('rest', customs), []);
+});
+
+test('the player sees how far its ways have reached', () => {
+  assert.equal(influenceNote({}),
+      'Nobody living has learned a custom from you yet.');
+  assert.equal(influenceNote({reach: {people: 1, customs: 1}}),
+      '1 living person has learned a custom from you.');
+  assert.equal(influenceNote({reach: {people: 4, customs: 2}}),
+      '4 living people have learned 2 customs from you.');
 });

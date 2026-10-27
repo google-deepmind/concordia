@@ -283,7 +283,8 @@ class SaveTest(absltest.TestCase):
     )
     first.start()
     try:
-      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 15))
+      # Fifteen years of First Farmers take ~10 s alone, longer under load.
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 15, 90))
     finally:
       first.close()
     with open(self.path, encoding='utf-8') as f:
@@ -1210,6 +1211,9 @@ class PlayAsTest(absltest.TestCase):
       )
 
       self.assertTrue(_wait(lambda: served.session.state()['year'] > year))
+      self.assertEqual(
+          set(served.session.state()['played']['reach']), {'people', 'customs'}
+      )
       self.assertTrue(_wait(lambda: served.session.saved_year is not None))
       self.assertTrue(session_lib.saved_played(path))
       # Stopping waits for nobody: the played person does what it would.

@@ -1072,6 +1072,21 @@ function livesNote(played) {
 }
 
 /**
+ * How far the player's ways have reached: the living who learned a custom
+ * from one of its lives.
+ * @param {!Object} played The state's `played`.
+ * @return {string} The line.
+ */
+function influenceNote(played) {
+  const reach = played.reach || {people: 0, customs: 0};
+  if (!reach.people) return 'Nobody living has learned a custom from you yet.';
+  const people = reach.people === 1 ? '1 living person has' :
+      `${reach.people} living people have`;
+  const customs = reach.customs === 1 ? 'a custom' : `${reach.customs} customs`;
+  return `${people} learned ${customs} from you.`;
+}
+
+/**
  * A radio button or checkbox with its label.
  * @param {string} type 'radio' or 'checkbox'.
  * @param {string} name The group's name.
@@ -1108,6 +1123,7 @@ function drawLife(world) {
   if (!played) return;
   document.getElementById('life-name').textContent = played.name;
   document.getElementById('life-lives').textContent = livesNote(played);
+  document.getElementById('life-reach').textContent = influenceNote(played);
   document.getElementById('life-note').textContent = lifeNote(played);
   const asked = played.alive ? played.asked : null;
   document.getElementById('life-form').hidden = !asked;
@@ -1341,8 +1357,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
     leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
-    fateChoices, fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote,
-    lifeMemory, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
+    fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
+    lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
