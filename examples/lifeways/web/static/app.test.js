@@ -53,7 +53,7 @@ test('the footer says where a world was restored and last saved', () => {
   assert.equal(savedNote({saved_year: 3, restored_year: null}),
       '· saved at year 3');
   assert.equal(savedNote({saved_year: 9, restored_year: 0}),
-      '· restored at year 0, saved at year 9');
+      '· picked up again at year 0, saved at year 9');
 });
 
 test('the page says what a twin is and where it is', () => {
@@ -61,12 +61,13 @@ test('the page says what a twin is and where it is', () => {
   assert.equal(
       twinNote({lever: 'richness', value: 0.8, year: 40, year_now: 52,
         people: 61, running: true, error: ''}),
-      'The twin (richness 0.8, forked in year 40) is in year 52: 61 people.');
+      'The twin (how rich the land is: 0.8; forked in year 40) is in year' +
+      ' 52: 61 people alive.');
   assert.equal(
       twinNote({lever: 'without', value: 'story', year: 3, year_now: 3,
         people: 12, running: false, error: ''}),
-      'The twin (without story, forked in year 3) is in year 3: 12 people' +
-      ' (stopped).');
+      'The twin (without stories; forked in year 3) is in year 3: 12 people' +
+      ' alive (stopped).');
 });
 
 test('the fork form offers each lever, then each channel to go without', () => {

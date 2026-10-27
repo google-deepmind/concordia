@@ -309,9 +309,11 @@ function domainsFor(world, kind) {
 function twinNote(twin) {
   if (!twin) return 'No twin.';
   const pulled = twin.lever === 'without' ?
-      `without ${twin.value}` : `${twin.lever} ${twin.value}`;
-  return `The twin (${pulled}, forked in year ${twin.year}) is in year ` +
-      `${twin.year_now}: ${twin.people} people` +
+      `without ${CHANNEL_WORDS[twin.value] || twin.value}` :
+      `${(LEVER_WORDS[twin.lever] || twin.lever).toLowerCase()}: ` +
+        `${twin.value}`;
+  return `The twin (${pulled}; forked in year ${yearText(twin.year)}) is ` +
+      `in year ${yearText(twin.year_now)}: ${twin.people} people alive` +
       (twin.running ? '.' : ' (stopped).') +
       (twin.error ? ` ${twin.error}` : '');
 }
@@ -998,9 +1000,11 @@ function onMapTap(event) {
 function savedNote(world) {
   const notes = [];
   if (world.restored_year != null) {
-    notes.push(`restored at year ${world.restored_year}`);
+    notes.push(`picked up again at year ${yearText(world.restored_year)}`);
   }
-  if (world.saved_year != null) notes.push(`saved at year ${world.saved_year}`);
+  if (world.saved_year != null) {
+    notes.push(`saved at year ${yearText(world.saved_year)}`);
+  }
   return notes.length ? `· ${notes.join(', ')}` : '';
 }
 
