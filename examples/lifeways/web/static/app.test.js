@@ -25,7 +25,7 @@ const {
   askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves, lifeNote,
-  lifeQuestion, lifeStatus, livesNote,
+  lifeQuestion, lifeStatus, lifeSuggested, livesNote,
   reachNote, recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
@@ -341,4 +341,19 @@ test('the played person reads its memory as a person would', () => {
       'green alder.\nKaka sees Hara gather food: (c7) In lean years, gather ' +
       'first.\nYear 1. Kaka is 30 years old.\n\nA custom of ours (kinship) ' +
       '[c1]: Feed the child.');
+});
+
+test('a move is done by the know-how it needs', () => {
+  const customs = [
+    {id: 'c4', label: 'Something we know how to do', domain: 'food'},
+    {id: 'c7', label: 'A habit of ours', domain: 'food'},
+    {id: 'c11', label: 'Something we know how to do', domain: 'farming'},
+    {id: 'c9', label: 'Something we know how to do', domain: 'learning'},
+  ];
+  assert.deepEqual(lifeSuggested('gather food', customs), ['c4']);
+  assert.deepEqual(lifeSuggested(
+      'gather food, sparing the fields of others', customs), ['c4']);
+  assert.deepEqual(lifeSuggested('sow a field', customs), ['c11']);
+  assert.deepEqual(lifeSuggested('read at the library', customs), ['c9']);
+  assert.deepEqual(lifeSuggested('rest', customs), []);
 });

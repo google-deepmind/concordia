@@ -28,9 +28,11 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.lifeways import scenarios
+from examples.lifeways.components import culture as culture_components
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.web import serving
 from examples.lifeways.web import session as session_lib
+from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
 from concordia.components.game_master import player_roster
 from concordia.typing import entity as entity_lib
@@ -1126,6 +1128,14 @@ class PlayAsTest(absltest.TestCase):
 
     self.assertEqual(played(self._request()), world_lib.GATHER)
     self.assertGreaterEqual(time.monotonic() - began, 0.8)
+
+  def test_the_page_knows_a_skill_by_its_label_in_the_context(self):
+    with open(os.path.join(serving.STATIC, 'app.js'), encoding='utf-8') as f:
+      script = f.read()
+    label = culture_components._LABELS[  # pylint: disable=protected-access
+        culture_lib.SKILL
+    ]
+    self.assertIn(f"const SKILL_LABEL = '{label}';", script)
 
   def test_closing_raises_rather_than_answering(self):
     played = session_lib.PersonInput('Kaka', patience=30)

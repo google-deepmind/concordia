@@ -935,6 +935,9 @@ const LIFE_UNASKED = {
   interview: 'keep your counsel',
 };
 
+/** The label a person's context gives its skills (components/culture.py). */
+const SKILL_LABEL = 'Something we know how to do';
+
 /** A custom in a person's context: "<label> (<domain>) [c3]: <text>". */
 const LIFE_CUSTOM = /^(.*?) \(([^)\n]+)\) \[(c\d+)\]: (.*)$/gm;
 
@@ -1005,6 +1008,23 @@ function lifeQuestion(asked) {
     return asked.question.replace(/ Answer "pass on"[^]*$/, '');
   }
   return asked.question;
+}
+
+/**
+ * The know-how a move is done by, to follow in it: food skills make
+ * gathering yield more, farming know-how makes a sown field take root, and
+ * reading and writing need the skill of it.
+ * @param {string} move The move.
+ * @param {!Array<!Object>} customs The person's customs (`lifeCustoms`).
+ * @return {!Array<string>} The ids of the skills the move is done by.
+ */
+function lifeSuggested(move, customs) {
+  const domain = move.startsWith('gather food') ? 'food' :
+      move === 'sow a field' ? 'farming' :
+      / at the library$/.test(move) ? 'learning' : '';
+  return customs.filter(
+      (custom) => custom.label === SKILL_LABEL && custom.domain === domain)
+      .map((custom) => custom.id);
 }
 
 /**
@@ -1110,16 +1130,37 @@ function drawLife(world) {
   document.getElementById('life-customs').hidden = interview;
   document.getElementById('life-say-box').hidden = !interview;
   document.getElementById('life-say').value = '';
+  const moves = lifeMoves(asked.question);
+  const customs = lifeCustoms(asked.context);
+  const suggested = new Set(passing ? customs.map((c) => c.id) :
+      lifeSuggested(moves[0] || '', customs));
   document.getElementById('life-move-list').replaceChildren(
-      ...lifeMoves(asked.question).map(
+      ...moves.map(
           (move, i) => choiceInput('radio', 'life-move', move, move, i === 0)));
   document.getElementById('life-customs-legend').textContent = passing ?
       'The customs you pass on to your child' :
-      'The customs you follow in it, if any';
+      'The customs you follow in it, if any. Your know-how makes the work ' +
+      'go better (a field takes root only by farming know-how), and those ' +
+      'who see you may take up what you follow.';
   document.getElementById('life-custom-list').replaceChildren(
-      ...lifeCustoms(asked.context).map((custom) => choiceInput(
-          'checkbox', 'life-custom', custom.id, custom.text, passing,
+      ...customs.map((custom) => choiceInput(
+          'checkbox', 'life-custom', custom.id, custom.text,
+          suggested.has(custom.id),
           `${custom.label} (${custom.domain}) ${custom.id}`)));
+}
+
+/**
+ * Follows the know-how a newly chosen move is done by (`lifeSuggested`).
+ * @param {!Event} event The move's change.
+ */
+function onLifeMove(event) {
+  const asked = page.world && page.world.played && page.world.played.asked;
+  if (!asked || event.target.name !== 'life-move') return;
+  const suggested = new Set(
+      lifeSuggested(event.target.value, lifeCustoms(asked.context)));
+  for (const box of document.querySelectorAll('input[name="life-custom"]')) {
+    box.checked = suggested.has(box.value);
+  }
 }
 
 /**
@@ -1186,6 +1227,7 @@ async function start() {
       asked: null});
     refresh();
   });
+  document.getElementById('life-moves').addEventListener('change', onLifeMove);
   document.getElementById('life-form').addEventListener('submit',
       async (event) => {
         event.preventDefault();
@@ -1300,7 +1342,8 @@ if (typeof document !== 'undefined') {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
     leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
     fateChoices, fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote,
-    lifeMemory, lifeQuestion, lifeStatus, livesNote, reachNote, recentDisasters, releaseStatus, savedNote,
+    lifeMemory, lifeQuestion, lifeStatus, lifeSuggested, livesNote,
+    reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }
