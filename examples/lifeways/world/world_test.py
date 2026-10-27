@@ -542,6 +542,24 @@ class TransmissionTest(absltest.TestCase):
         ('Kaka', 'Old Kaka gathers food.', world_lib.GATHER),
         ('Kaka', 'Kaka spends the year gathering food.', world_lib.GATHER),
         ('Kaka', 'I spend the year 0 gathering food.', world_lib.GATHER),
+        (
+            'Kaka',
+            'Kaka gathered food last year; now she sows a field.',
+            world_lib.SOW,
+        ),
+        (
+            'Kaka',
+            'She had a child last year; now she gathers food.',
+            world_lib.GATHER,
+        ),
+        (
+            'Kaka',
+            (
+                'Kaka spends the year gathering food, she says, and she has a'
+                ' child to feed.'
+            ),
+            world_lib.GATHER,
+        ),
         # Said as being done comes before said as done.
         (
             'Kaka',
@@ -584,6 +602,9 @@ class TransmissionTest(absltest.TestCase):
         'Now she has a child, Kaka gathers food.',
         'Having a child to feed, Kaka gathers food.',
         'Looking for a partner, Kaka gathers food.',
+        'Considering she has a child, Kaka gathers food.',
+        'Given she has a child, Kaka gathers food.',
+        'Having a child to feed, this year Kaka gathers food.',
     ):
       self.assertNotIn(
           world_lib.first_move(answer, allowed, 'Kaka'),
