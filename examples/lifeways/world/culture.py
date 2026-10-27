@@ -226,14 +226,16 @@ class Custom:
     }
 
   def to_dict(self) -> dict[str, Any]:
-    return {
+    data = {
         **self.spec(),
         'parent': self.parent,
         'origin': self.origin,
         'year': self.year,
-        # Only a drifted text's (saves made before texts drifted have none).
-        **({'root': self.root, 'lost': list(self.lost)} if self.root else {}),
     }
+    if self.root:  # Only a drifted text's (saves before drift have none).
+      data['root'] = self.root
+      data['lost'] = list(self.lost)
+    return data
 
   @classmethod
   def from_dict(cls, data: Mapping[str, Any]) -> 'Custom':

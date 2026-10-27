@@ -103,21 +103,18 @@ def build_config(
   experimenter_params: dict[str, Any] = {'plan': dict(settings.get('plan', {}))}
   if experimenter is not None:
     experimenter_params['act_component_factory'] = experimenter
-  instances = [
-      prefab_lib.InstanceConfig(
-          prefab=person_lib.PERSON_PREFAB,
-          role=prefab_lib.Role.ENTITY,
-          params={
-              **founder['params'],
-              **(
-                  {'act_component_factory': player[1]}
-                  if player and founder['params']['name'] == player[0]
-                  else {}
-              ),
-          },
-      )
-      for founder in founders
-  ]
+  instances = []
+  for founder in founders:
+    params = dict(founder['params'])
+    if player and params['name'] == player[0]:
+      params['act_component_factory'] = player[1]
+    instances.append(
+        prefab_lib.InstanceConfig(
+            prefab=person_lib.PERSON_PREFAB,
+            role=prefab_lib.Role.ENTITY,
+            params=params,
+        )
+    )
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=experimenter_lib.EXPERIMENTER_PREFAB,
@@ -125,28 +122,23 @@ def build_config(
           params=experimenter_params,
       )
   )
-  played = (
-      {
-          'played': player[0],
-          'played_prefab': person_lib.Person(
-              params={**person.params, 'act_component_factory': player[1]}
-          ),
-      }
-      if player
-      else {}
-  )
+  world_params: dict[str, Any] = {
+      'name': world_gm.WORLD_GM_NAME,
+      'settings': dict(settings),
+      'founders': founders,
+      'lifecycle': lifecycle,
+      'person_prefab': person,
+  }
+  if player:
+    world_params['played'] = player[0]
+    world_params['played_prefab'] = person_lib.Person(
+        params={**person.params, 'act_component_factory': player[1]}
+    )
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=world_gm.WORLD_GM_PREFAB,
           role=prefab_lib.Role.GAME_MASTER,
-          params={
-              'name': world_gm.WORLD_GM_NAME,
-              'settings': dict(settings),
-              'founders': founders,
-              'lifecycle': lifecycle,
-              'person_prefab': person,
-              **played,
-          },
+          params=world_params,
       )
   )
   return prefab_lib.Config(

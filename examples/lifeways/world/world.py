@@ -101,7 +101,7 @@ _RELEASE = re.compile(
     r'(?: within (?P<within>[a-z]+))?'
     r' as a (?P<how>text|song) at (?P<row>\d+),(?P<col>\d+): (?P<text>.+)$'
 )
-# Disasters (DESIGN §2): the world sends one by chance (the `disasters`
+# Disasters: the world sends one by chance (the `disasters`
 # setting), and the Experimenter may send one at a place. Each strikes the
 # land and people within a few steps of its place.
 DROUGHT, FLOOD, FIRE, PLAGUE, RAID = (
