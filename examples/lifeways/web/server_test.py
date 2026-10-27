@@ -706,6 +706,10 @@ class NotebookTest(absltest.TestCase):
     page = session.notebook_markdown()
     self.assertIn('## Year 0', page)
     self.assertIn('- **hypothesis**: Songs spread faster than texts.', page)
+    # What the page shows names customs by their words, never by an id.
+    for entry in session.notebook():
+      if entry['kind'] in (session_lib.WORLD, session_lib.EVENT):
+        self.assertNotRegex(entry['text'], r'\bc\d+\b')
 
   def test_disasters_the_world_sends_are_noted(self):
     session = session_lib.Session(
