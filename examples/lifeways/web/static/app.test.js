@@ -22,7 +22,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
-  askMove, cameBy, chartSeries, crowdedSpot, domainsFor, goneNote, kinName,
+  askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
+  kinName, worldName, yearText,
   leverChoices, lineageGroups,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
@@ -71,8 +72,8 @@ test('the page says what a twin is and where it is', () => {
 test('the fork form offers each lever, then each channel to go without', () => {
   assert.deepEqual(
       leverChoices({levers: {richness: [0.05, 1, 0.2]}, channels: ['story']}),
-      [['richness', 'richness (0.05–1; now 0.2)'],
-        ['without story', 'without story']]);
+      [['richness', 'How rich the land is (0.05–1; now 0.2)'],
+        ['without story', 'Without stories']]);
 });
 
 test('a custom says how it came and from whom', () => {
@@ -145,18 +146,18 @@ test('a release says where it went and whether it lives', () => {
     holders: [[4, 0], [5, 3], [14, 8], [15, 7]], peak: 8, peak_year: 14,
     variants: 2, died: null};
   assert.equal(releaseStatus(release),
-      'c30 · song at 6,13, year 4 · 2 heard it · held by 7 now (most: 8,' +
-      ' year 14) · 2 variants');
+      'sung at 6,13 in year 4 · 2 heard it · held by 7 now (most: 8, in' +
+      ' year 14) · 2 versions of it, as copies changed it');
   assert.equal(releaseStatus({...release, how: 'text', variants: 1}),
-      'c30 · text at 6,13, year 4 · on a shelf · held by 7 now (most: 8,' +
-      ' year 14)');
+      'left as a text on a library shelf at 6,13 in year 4 · held by 7 now' +
+      ' (most: 8, in year 14)');
   assert.equal(releaseStatus({...release, heard: 0, peak: 0, died: 5}),
-      'c30 · song at 6,13, year 4 · 0 heard it · nobody took it up;' +
-      ' forgotten in year 5');
+      'sung at 6,13 in year 4 · 0 heard it · nobody took it up; gone by' +
+      ' year 5');
   assert.equal(releaseStatus({...release, peak: 0}),
-      'c30 · song at 6,13, year 4 · 2 heard it · nobody has taken it up yet');
-  assert.equal(releaseStatus({...release, died: 40}),
-      'c30 · song at 6,13, year 4 · 2 heard it · died out in year 40' +
+      'sung at 6,13 in year 4 · 2 heard it · nobody has taken it up yet');
+  assert.equal(releaseStatus({...release, died: 40, year: 29904}),
+      'sung at 6,13 in year 29,904 · 2 heard it · died out in year 40' +
       ' (at most 8 held it)');
 });
 
@@ -183,7 +184,7 @@ test('a release says how it fares in the twin', () => {
     holders: [[4, 0], [5, 3]], peak: 3, peak_year: 5, variants: 1,
     died: null, twin: {id: 'c41', heard: 2, now: 0, peak: 0, died: 6}};
   assert.equal(releaseStatus(release),
-      'c30 · song at 6,13, year 4 · 2 heard it · held by 3 now (most: 3,' +
+      'sung at 6,13 in year 4 · 2 heard it · held by 3 now (most: 3, in' +
       ' year 5) · in the twin: died out');
   assert.equal(releaseStatus({...release, twin: {...release.twin, died: null,
     now: 5}}).endsWith(' · in the twin: held by 5'), true);
@@ -202,10 +203,12 @@ test('the map shows the disasters of the last twenty years', () => {
 
 test('the ring says the chance that someone takes a song up', () => {
   const world = {rows: 16, cols: 24, song_uptake: 0.25, reach: [[0, 0, 3]]};
-  assert.equal(reachNote(world, [0, 0]), 'The ring (0,0): 3 people would' +
-      ' hear a song here; the chance at least one takes it up is 58%.');
-  assert.equal(reachNote(world, [8, 12]),
-      'The ring (8,12): nobody would hear a song here.');
+  assert.equal(reachNote(world, [0, 0]), 'The white ring on the map (row 0,' +
+      ' column 0) is where your next release goes: 3 people would hear a' +
+      ' song here; the chance at least one takes it up is 58%.');
+  assert.equal(reachNote(world, [8, 12]), 'The white ring on the map (row' +
+      ' 8, column 12) is where your next release goes: nobody would hear a' +
+      ' song here.');
 });
 
 test('what the page has already is never appended twice', () => {
@@ -389,4 +392,22 @@ test('a lineage groups versions by how they live on', () => {
   ]);
   assert.deepEqual(groups.held.map((x) => x.id), ['c4', 'c2']);
   assert.deepEqual(groups.kept.map((x) => x.id), ['c3']);
+});
+
+test('kinds, worlds and years read as words', () => {
+  assert.equal(customKind({kind: 'norm', domain: 'kinship',
+    params: {form: 'internalized'}}),
+  'a rule they keep as their own (about kinship)');
+  assert.equal(customKind({kind: 'norm', domain: 'sharing',
+    params: {form: 'known'}}), 'a rule others expect of them (about sharing)');
+  assert.equal(customKind({kind: 'skill', domain: 'food',
+    params: {level: 9}}), 'know-how, level 9 (about food)');
+  assert.equal(customKind({kind: 'marriage', domain: 'kinship',
+    params: {within: 'descent'}}),
+  'whom to marry, only within their own people (about kinship)');
+  assert.equal(customKind({kind: 'bias', domain: 'learning', params: {}}),
+      'whom to learn from (about learning)');
+  assert.equal(worldName('sandbox'), 'The Sandbox');
+  assert.equal(worldName('first_farmers'), 'First Farmers');
+  assert.equal(yearText(30193), '30,193');
 });

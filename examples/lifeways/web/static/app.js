@@ -258,17 +258,20 @@ function drawChart(rows, twinRows = []) {
   ctx.setLineDash([]);
   const last = rows[rows.length - 1];
   document.getElementById('legend').textContent =
-      `Green: the living (${last.population}). Brown: the skill people work` +
-      ` by (${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
-      ` Red: peoples (${last.peoples.peoples}). Gold: fields` +
-      ` (${last.fields || 0}).` +
-      ` Years ${rows[0].year}–${last.year}.` +
+      `Green: people alive (${last.population}). Brown: how skilled their` +
+      ` work is (the mean level of the know-how they work by,` +
+      ` ${last.skill_worked}). Purple: tongues spoken (${last.tongues}).` +
+      ` Red: peoples, by descent (${last.peoples.peoples}). Gold: fields` +
+      ` sown (${last.fields || 0}).` +
+      ` Years ${yearText(rows[0].year)}–${yearText(last.year)}.` +
       (twinRows.length ? ' Dashed: the twin.' : '');
   const channels = Object.entries(last.held.by_channel)
-      .map(([channel, n]) => `${channel} ${n}`).join(', ');
+      .sort(([, a], [, b]) => b - a)
+      .map(([channel, n]) => `${HELD_BY[channel] || channel} ${n}`)
+      .join(', ');
   document.getElementById('channels').textContent =
-      `Customs held, by how they came: ${channels}. Peoples, by size: ` +
-      `${last.peoples.sizes.join(', ') || 'none'}.`;
+      `How the living came by the customs they hold: ${channels}. The ` +
+      `peoples' sizes: ${last.peoples.sizes.join(', ') || 'none'}.`;
 }
 
 /**
@@ -322,26 +325,29 @@ function twinNote(twin) {
 function leverChoices(world) {
   return Object.entries(world.levers)
       .map(([lever, [low, high, now]]) =>
-        [lever, `${lever} (${low}–${high}; now ${now})`])
+        [lever, `${LEVER_WORDS[lever] || lever} (${low}–${high}; now ${now})`])
       .concat(world.channels.map((channel) =>
-        [`without ${channel}`, `without ${channel}`]));
+        [`without ${channel}`, `Without ${CHANNEL_WORDS[channel] || channel}`]));
 }
 
 /**
  * What the page says of a release: where and how it went, and its fate.
  * @param {!Object} release A release the session follows.
- * @return {string} E.g. 'c30 · song at 6,13, year 4 · 2 heard it · held by 8
- *     now (most: 8, year 14) · 2 variants'.
+ * @return {string} E.g. 'sung at 6,13 in year 4 · 2 heard it · held by 8 now
+ *     (most: 8, in year 14)'.
  */
 function releaseStatus(release) {
-  const heard = release.how === 'song' ? ` · ${release.heard} heard it` :
-      ' · on a shelf';
-  const head = `${release.id} · ${release.how} at ${release.tile.join(',')},` +
-      ` year ${release.year}${heard}`;
+  const at = release.tile.join(',');
+  const head = release.how === 'song' ?
+      `sung at ${at} in year ${yearText(release.year)} · ${release.heard}` +
+        ` heard it` :
+      `left as a text on a library shelf at ${at} in year ` +
+        yearText(release.year);
   if (release.died !== null) {
     return `${head} · ` + (release.peak ?
-        `died out in year ${release.died} (at most ${release.peak} held it)` :
-        `nobody took it up; forgotten in year ${release.died}`) +
+        `died out in year ${yearText(release.died)} (at most ` +
+          `${release.peak} held it)` :
+        `nobody took it up; gone by year ${yearText(release.died)}`) +
         twinFate(release.twin);
   }
   const last = release.holders[release.holders.length - 1];
@@ -350,9 +356,9 @@ function releaseStatus(release) {
     return `${head} · nobody has taken it up yet${twinFate(release.twin)}`;
   }
   const variants = release.variants > 1 ?
-      ` · ${release.variants} variants` : '';
-  return `${head} · held by ${now} now (most: ${release.peak}, year ` +
-      `${release.peak_year})${variants}${twinFate(release.twin)}`;
+      ` · ${release.variants} versions of it, as copies changed it` : '';
+  return `${head} · held by ${now} now (most: ${release.peak}, in year ` +
+      `${yearText(release.peak_year)})${variants}${twinFate(release.twin)}`;
 }
 
 /**
@@ -444,7 +450,8 @@ function crowdedSpot(world) {
  */
 function reachNote(world, at) {
   const n = withinReach(world, at);
-  const head = `The ring (${at.join(',')}): `;
+  const head = `The white ring on the map (row ${at[0]}, column ${at[1]}) ` +
+      'is where your next release goes: ';
   if (!n) return `${head}nobody would hear a song here.`;
   const someone = Math.round(100 * (1 - (1 - world.song_uptake) ** n));
   return `${head}${n} ${n === 1 ? 'person' : 'people'} would hear a song ` +
@@ -610,15 +617,11 @@ async function showPerson(name) {
     item.textContent = custom.text;
     const meta = document.createElement('div');
     meta.className = 'meta';
-    const detail = Object.entries(custom.params)
-        .filter(([key]) => key !== 'words')
-        .map(([key, value]) => `${key} ${value}`).join(', ');
-    meta.textContent = `${custom.kind}, ${custom.domain}` +
-        (detail ? `, ${detail}` : '') + ` · ${cameBy(custom)} · `;
+    meta.textContent = `${customKind(custom)} · ${name} ${cameBy(custom)} · `;
     const lineage = document.createElement('button');
     lineage.type = 'button';
     lineage.className = 'link';
-    lineage.textContent = `lineage of ${custom.id}`;
+    lineage.textContent = 'how it has changed';
     lineage.addEventListener('click', () => showLineage(custom.id));
     meta.append(lineage);
     item.append(meta);
@@ -647,6 +650,104 @@ function cameBy(custom) {
   const [alone, withWhom] = LEARNED_BY[custom.via || 'birth'] ||
       [`came by ${custom.via}`, `came by ${custom.via} from`];
   return custom.from ? `${withWhom} ${custom.from}` : alone;
+}
+
+/** What each kind of custom is, in words. */
+const KIND_WORDS = {
+  norm: 'a rule',
+  value: 'something held dear',
+  belief: 'a belief',
+  skill: 'know-how',
+  habit: 'a habit',
+  bias: 'whom to learn from',
+  dialect: 'a way of speaking',
+  marriage: 'whom to marry',
+};
+
+/** The world's levers, in words. */
+const LEVER_WORDS = {
+  richness: 'How rich the land is',
+  regrowth: 'How fast food grows back',
+  seed_bank: 'How fast bare land greens again',
+  subsistence: 'Food found while doing other things',
+  mutation: 'How often copying a custom errs',
+  dialect_drift: 'How fast tongues change',
+  garble: 'How hard a strange tongue is to follow',
+  child_cost: 'Food a child costs its mother',
+};
+
+/** Each way customs pass between people, as a twin goes without it. */
+const CHANNEL_WORDS = {
+  apprenticeship: 'apprenticeship',
+  arrival: 'newcomers',
+  birth: 'customs given at birth',
+  observation: 'learning by watching others',
+  practice: 'learning by practice',
+  preaching: 'preaching',
+  reading: 'reading',
+  release: 'your releases',
+  rite: 'rites',
+  sanction: 'shaming those who break a rule',
+  school: 'schools',
+  story: 'stories',
+  upbringing: 'parents teaching their children',
+};
+
+/** How the living came by the customs they hold, by channel. */
+const HELD_BY = {
+  apprenticeship: 'as apprentices',
+  arrival: 'brought in',
+  birth: 'born with them',
+  observation: 'saw them done',
+  practice: 'by practice',
+  preaching: 'heard them preached',
+  reading: 'read them',
+  release: 'from your releases',
+  rite: 'at rites',
+  sanction: 'shamed into them',
+  school: 'at school',
+  story: 'heard in stories',
+  upbringing: 'taught as children',
+};
+
+/**
+ * What kind of custom one is, in words.
+ * @param {!Object} custom A custom: its kind, domain and params.
+ * @return {string} E.g. 'a rule they keep as their own (about kinship)'.
+ */
+function customKind(custom) {
+  const params = custom.params || {};
+  let what = KIND_WORDS[custom.kind] || custom.kind;
+  if (custom.kind === 'norm') {
+    what = params.form === 'known' ? 'a rule others expect of them' :
+        'a rule they keep as their own';
+  } else if (custom.kind === 'skill' && params.level) {
+    what = `know-how, level ${params.level}`;
+  } else if (custom.kind === 'marriage' && params.within) {
+    what += params.within === 'tongue' ?
+        ', only one who speaks as they do' : ', only within their own people';
+  }
+  return `${what} (about ${custom.domain})`;
+}
+
+/**
+ * A year, as the page writes it.
+ * @param {number} year The year.
+ * @return {string} E.g. '30,193'.
+ */
+function yearText(year) {
+  return Number(year).toLocaleString('en');
+}
+
+/**
+ * The world's name, as the page writes it.
+ * @param {string} scenario The scenario or preset.
+ * @return {string} E.g. 'The Sandbox', 'First Farmers'.
+ */
+function worldName(scenario) {
+  if (scenario === 'sandbox') return 'The Sandbox';
+  return scenario.split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 /** How a custom came to someone, by channel: alone, and from someone. */
@@ -949,7 +1050,8 @@ async function refreshOnce() {
     const world = await api('api/state');
     page.world = world;
     document.getElementById('year').textContent =
-        `${world.scenario}, year ${world.year}: ${world.people.length} people` +
+        `${worldName(world.scenario)}, year ${yearText(world.year)}: ` +
+        `${world.people.length} people alive` +
         (world.running ? '' : ' (the world has stopped)');
     document.getElementById('anew-box').hidden = world.running;
     document.getElementById('stop').hidden = !world.running;
@@ -960,7 +1062,8 @@ async function refreshOnce() {
     document.getElementById('error').textContent = world.error || '';
     document.getElementById('saved').textContent = savedNote(world);
     document.getElementById('minds').textContent = world.minds === 'mock' ?
-        'MOCK minds' : `LIVE minds (${world.minds})`;
+        'people think by simple rules (no language model)' :
+        `people think with a language model (${world.minds})`;
     if (!page.atChosen) {
       page.at = crowdedSpot(world);
       document.getElementById('at').value = page.at ? page.at.join(',') : '';
@@ -1258,6 +1361,15 @@ function onLifeMove(event) {
 }
 
 /**
+ * Words begun as a sentence.
+ * @param {string} words E.g. 'a rule'.
+ * @return {string} E.g. 'A rule'.
+ */
+function sentence(words) {
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
  * Fills a select with options.
  * @param {string} id The select's id.
  * @param {!Array<string>} values The options.
@@ -1270,7 +1382,8 @@ function fill(id, values) {
 /** Wires the page. */
 async function start() {
   const world = await api('api/state');
-  fill('kind', world.custom_kinds);
+  document.getElementById('kind').replaceChildren(...world.custom_kinds.map(
+      (kind) => new Option(sentence(KIND_WORDS[kind] || kind), kind)));
   fill('domain', domainsFor(world, document.getElementById('kind').value));
   document.getElementById('kind').addEventListener('change', (event) => {
     const kind = event.target.value;
@@ -1284,7 +1397,7 @@ async function start() {
       ([value, label]) => new Option(label, value)));
   const build = await api('api/build');
   document.getElementById('build').textContent =
-      `build ${build.commit || '?'}`;
+      `version ${build.commit || '?'}`;
   document.getElementById('map').addEventListener('click', onMapTap);
   document.getElementById('at').addEventListener('change', (event) => {
     const at = event.target.value.split(',').map((n) => parseInt(n, 10));
@@ -1433,7 +1546,8 @@ if (typeof document !== 'undefined') {
   start();
 } else if (typeof module !== 'undefined') {
   module.exports = {
-    askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
+    askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
+    worldName, yearText,
     goneNote, leverChoices, lineageGroups, peopleColour, releaseMove, appendNew, entryMeta,
     entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,

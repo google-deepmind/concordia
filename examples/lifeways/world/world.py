@@ -1622,7 +1622,7 @@ class World:
           {'id': custom.id, 'how': 'text', 'tile': list(place.tile), 'heard': 0}
       )
       self._report(
-          f'{custom.id} is written at the library at'
+          f'Your release "{custom.text}" is written at the library at'
           f' {place.tile[0]},{place.tile[1]}.',
       )
       return
@@ -1638,8 +1638,8 @@ class World:
         'heard': len(listeners),
     })
     self._report(
-        f'{custom.id} is sung at {tile[0]},{tile[1]}; {len(listeners)}'
-        ' hear it.',
+        f'Your release "{custom.text}" is sung at {tile[0]},{tile[1]};'
+        f' {len(listeners)} {"hears" if len(listeners) == 1 else "hear"} it.',
     )
 
   def _dialect(self, specs: Sequence[Mapping[str, Any]]) -> str:

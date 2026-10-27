@@ -636,6 +636,34 @@ class TreesTest(absltest.TestCase):
 
 class NotebookTest(absltest.TestCase):
 
+  def test_the_notebook_notes_lasting_changes_not_flicker(self):
+    session = session_lib.Session(years_per_second=40)
+    try:
+      # pylint: disable=protected-access
+      def year(n, tongues):
+        row = {
+            'year': n,
+            'reports': [],
+            'disasters': [],
+            'population': 30,
+            'peoples': {'peoples': 1},
+            'tongues': tongues,
+            'held': {'top': []},
+        }
+        session._note_year(n, row)
+        with session._rows_lock:
+          session._rows.append(row)
+
+      for n, tongues in enumerate([2, 2, 1, 2, 1, 2, 2] + [3] * 12):
+        year(n, tongues)
+      # pylint: enable=protected-access
+      noted = [e['text'] for e in session.notebook() if 'tongue' in e['text']]
+      self.assertEqual(
+          noted, ['For 10 years now the valley has had 3 tongues (it had 2).']
+      )
+    finally:
+      session.close()
+
   def test_the_person_writes_and_the_session_notes_moves_and_reports(self):
     session = session_lib.Session(years_per_second=40)
     entry = session.note('hypothesis', ' Songs spread faster than texts. ')
@@ -663,7 +691,7 @@ class NotebookTest(absltest.TestCase):
           _wait(
               lambda: any(
                   e['kind'] == session_lib.EVENT
-                  and 'most widely held' in e['text']
+                  and 'the most widely held for the first time' in e['text']
                   for e in session.notebook()
               )
           )
@@ -780,8 +808,8 @@ class ReleasesTest(absltest.TestCase):
         (0, unheard['year'], 0),
     )
     self.assertIn(
-        f'Your release {unheard["id"]} died out: "Unheard." (at most 0 held'
-        ' it): nobody was within hearing.',
+        'Your release "Unheard." died out (at most 0 held it): nobody was'
+        ' within hearing.',
         [e['text'] for e in session.notebook()],
     )
     restored = session_lib.Session(save_path=path)

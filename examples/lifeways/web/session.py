@@ -77,6 +77,9 @@ ENGINE_THREADS = 'entity_loop'
 FORGOTTEN_KEPT = 2000
 # The most variants of one lineage the page is sent.
 LINEAGE_SHOWN = 80
+# How long a new count of peoples or tongues holds before the notebook
+# notes it.
+SETTLED_YEARS = 10
 # How many of a lineage's dead branches the page may list.
 GONE_SHOWN = 30
 # What the person writes in the notebook, and the longest entry.
@@ -622,6 +625,10 @@ class Session:
         maxlen=ROWS_KEPT
     )
     self._rows_lock = threading.Lock()
+    # The counts of peoples and tongues the notebook last noted, and a new
+    # count not yet held for `SETTLED_YEARS` (each with the year it began).
+    self._settled: dict[str, tuple[Any, int]] = {}
+    self._unsettled: dict[str, tuple[Any, int]] = {}
     # The played person's reach at the last year's close (`_played_state`).
     self._reach: dict[str, int] = {'people': 0, 'customs': 0}
     # How many of the player's lives the notebook has noted, and whether the
@@ -1041,8 +1048,8 @@ class Session:
     for release in died:  # The notebook takes the lock itself.
       self._write(
           EVENT,
-          f'Your release {release["id"]} died out: "{release["text"]}"'
-          f' (at most {release["peak"]} held it): {why_died(release)}.',
+          f'Your release "{release["text"]}" died out (at most'
+          f' {release["peak"]} held it): {why_died(release)}.',
           closed,
       )
 
@@ -1158,14 +1165,29 @@ class Session:
       last: Mapping[str, Any] = self._rows[-1] if self._rows else {}
     if 'population' not in row or 'population' not in last:
       return  # No census to compare: the first year, or none kept.
-    for what, now, was in (
-        ('peoples', row['peoples']['peoples'], last['peoples']['peoples']),
-        ('tongues spoken', row.get('tongues'), last.get('tongues')),
+    for key, now, one, many in (
+        ('peoples', row['peoples']['peoples'], 'people', 'peoples'),
+        ('tongues', row.get('tongues'), 'tongue', 'tongues'),
     ):
-      if now != was:
+      # A count that flickers (2, 1, 2...) is noted once it has held
+      # `SETTLED_YEARS`: the notebook keeps lasting changes.
+      settled = self._settled.setdefault(key, (now, closed))
+      if now == settled[0]:
+        self._settled[key] = (now, closed)
+        self._unsettled.pop(key, None)
+        continue
+      pending = self._unsettled.get(key)
+      if pending is None or pending[0] != now:
+        self._unsettled[key] = (now, closed)
+      elif closed - pending[1] >= SETTLED_YEARS:
         self._write(
-            EVENT, f'The valley has {now} {what} (it had {was}).', closed
+            EVENT,
+            f'For {SETTLED_YEARS} years now the valley has had {now}'
+            f' {one if now == 1 else many} (it had {settled[0]}).',
+            closed,
         )
+        self._settled[key] = (now, closed)
+        self._unsettled.pop(key, None)
     living, lived = int(row['population']), int(last['population'])
     if living == 0 < lived:
       self._write(EVENT, 'Nobody is left in the valley.', closed)
@@ -1183,8 +1205,8 @@ class Session:
       )
       self._write(
           EVENT,
-          f'{custom_id} is the most widely held custom for the first time'
-          f' ({round(100 * share)}% hold it): "{text}"',
+          'A custom is the most widely held for the first time'
+          f' ({round(100 * share)}% of the living hold it): "{text}"',
           closed,
       )
 
@@ -1717,7 +1739,9 @@ class Session:
     if move:
       self._played = time.time()
       self.input.queue(move)
-      self._write(MOVE, f'You queue a move: {move}')
+      self._write(
+          MOVE, f'Your move for next year, as the World reads it: {move}'
+      )
       self._save_if_paused()
 
   def pace(

@@ -858,7 +858,7 @@ class ReleaseTest(_PlaceTest):
     )
     self.assertEqual(
         self.world.history[-1]['reports'],
-        [f'{custom.id} is sung at 5,6; 1 hear it.'],
+        [f'Your release "{custom.text}" is sung at 5,6; 1 hears it.'],
     )
     self._year(Ada='rest', Far='rest', Experimenter='watch')
     self.assertEqual(self.world.history[-1]['reports'], [])

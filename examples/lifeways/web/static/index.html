@@ -84,10 +84,16 @@ limitations under the License.
   <section id="person" hidden aria-label="A person">
     <h2 id="person-name"></h2>
     <p id="person-body"></p>
+    <h3>Family</h3>
     <div id="person-kin"></div>
+    <h3>Their customs</h3>
+    <p class="hint">The ways this person lives by, and how they came by each.
+      Tap "how it has changed" to see the versions of a custom and who holds
+      them.</p>
     <ul id="person-customs"></ul>
     <form id="ask">
-      <label class="wide">Ask them
+      <label class="wide">Ask them (they answer next year, in their own
+        words)
         <input id="question" maxlength="160" placeholder="Why do you share your food?">
       </label>
       <button type="submit">Ask next year</button>
@@ -129,8 +135,8 @@ limitations under the License.
       may take it up, or not. Tap the map where people are to choose the
       place.</p>
     <form id="release">
-      <label>Kind <select id="kind"></select></label>
-      <label>Domain <select id="domain"></select></label>
+      <label>What kind <select id="kind"></select></label>
+      <label>About <select id="domain"></select></label>
       <label>As a
         <select id="how"><option>song</option><option>text</option></select>
       </label>
@@ -228,7 +234,7 @@ limitations under the License.
     <ol id="entries"></ol>
   </section>
 
-  <footer><span id="build"></span> · <span id="minds">MOCK minds</span> <span id="saved"></span> · <span id="error"></span></footer>
+  <footer><span id="build"></span> · <span id="minds"></span> <span id="saved"></span> · <span id="error"></span></footer>
   <script src="static/app.js"></script>
 </body>
 </html>
