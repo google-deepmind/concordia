@@ -104,8 +104,12 @@ class Measurements:
       del self._channels[channel]
 
   def close(self) -> None:
-    """Closes all channels."""
+    """Closes all channels.
+
+    Note: this deliberately does not call `close_channel` per channel. The
+    channels lock is not reentrant, so acquiring it in `close` and then again
+    inside `close_channel` would deadlock. Deleting from the dict while also
+    iterating it would raise RuntimeError even with a reentrant lock.
+    """
     with self._channels_lock:
-      for channel in self._channels:
-        self.close_channel(channel)
       self._channels.clear()
