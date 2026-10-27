@@ -526,30 +526,39 @@ class TransmissionTest(absltest.TestCase):
         f'{world_lib.COURT_ONE} Lira',
         'build a shrine',
     ]
-    for answer, move in (
-        ('Taha sows a field. (c11)', world_lib.SOW),
-        ('gathering food (customs [c7])', world_lib.GATHER),
-        ('gathers food [c7]: In lean years...', world_lib.GATHER),
-        ('The year 8: Kaka moves to better land.', world_lib.MOVE),
-        ('She courted Lira.', f'{world_lib.COURT_ONE} Lira'),
-        ('Ada has a child.', world_lib.CHILD),
-        ('Hara built a shrine.', 'build a shrine'),
+    for name, answer, move in (
+        ('Taha', 'Taha sows a field. (c11)', world_lib.SOW),
+        ('Taha', 'This year, Taha sows a field.', world_lib.SOW),
+        ('Oran', 'gathering food (customs [c7])', world_lib.GATHER),
+        ('Oran', 'gathers food [c7]: In lean years...', world_lib.GATHER),
+        ('Kaka', 'The year 8: Kaka moves to better land.', world_lib.MOVE),
+        ('Ada', 'She courted Lira.', f'{world_lib.COURT_ONE} Lira'),
+        ('Ada', 'Ada has a child.', world_lib.CHILD),
+        ('Hara', 'Hara built a shrine.', 'build a shrine'),
+        ('Kaka', 'Yes, Kaka gathers food.', world_lib.GATHER),
+        ('Kaka', 'Kaka (c7) gathers food.', world_lib.GATHER),
+        ('Kaka', 'She has no partner, so she rests.', world_lib.REST),
+        ('Kaka', 'Old Kaka gathers food.', world_lib.GATHER),
+        ('Kaka', 'Kaka spends the year gathering food.', world_lib.GATHER),
+        ('Kaka', 'I spend the year 0 gathering food.', world_lib.GATHER),
+        # Said as being done comes before said as done.
+        (
+            'Kaka',
+            'Kaka gathered food last year; this year she sows a field.',
+            world_lib.SOW,
+        ),
     ):
-      self.assertEqual(world_lib.first_move(answer, allowed), move, answer)
+      self.assertEqual(
+          world_lib.first_move(answer, allowed, name), move, answer
+      )
     # A move named as offered comes first, wherever another form stands.
     self.assertEqual(
         world_lib.first_move(
-            'Gathering food all day, Kaka will rest.', allowed
+            'Gathering food all day, Kaka will rest.', allowed, 'Kaka'
         ),
         world_lib.REST,
     )
-    self.assertEqual(world_lib.first_move('Kaka forages.', allowed), '')
-    self.assertEqual(
-        world_lib.first_move(
-            'Last year Kaka gathered food; this year she sows a field.', allowed
-        ),
-        world_lib.SOW,
-    )
+    self.assertEqual(world_lib.first_move('Kaka forages.', allowed, 'Kaka'), '')
 
   def test_a_form_in_another_clause_is_not_a_move(self):
     allowed = [
@@ -558,6 +567,8 @@ class TransmissionTest(absltest.TestCase):
         world_lib.CHILD,
         world_lib.TEACH,
         world_lib.COURT,
+        f'{world_lib.COURT_ONE} Hara',
+        world_lib.GO_TO_SCHOOL,
     ]
     for answer in (
         'Ada, who has a child to feed, gathers food.',
@@ -565,30 +576,53 @@ class TransmissionTest(absltest.TestCase):
         'Well rested, Kaka gathers food.',
         'Kaka, no longer looking for a partner, gathers food.',
         'Her interests are many.',
+        'Since she has a child to feed, Kaka gathers food.',
+        'While Lira looks for a partner, Kaka gathers food.',
+        'If Lira courts Hara, Kaka rests.',
     ):
-      self.assertEqual(world_lib.first_move(answer, allowed), '', answer)
+      self.assertNotIn(
+          world_lib.first_move(answer, allowed, 'Kaka'),
+          (
+              world_lib.CHILD,
+              world_lib.TEACH,
+              world_lib.REST,
+              world_lib.COURT,
+              f'{world_lib.COURT_ONE} Hara',
+          ),
+          answer,
+      )
+    self.assertEqual(
+        world_lib.first_move(
+            'Ada went to school last year; this year she gathers food.',
+            allowed,
+            'Ada',
+        ),
+        world_lib.GATHER,
+    )
 
   def test_every_move_s_first_verb_is_read_in_its_forms(self):
     for move, said in (
         (world_lib.GO_TO_SCHOOL, 'Ada goes to school.'),
         (world_lib.GO_TO_SCHOOL, 'Ada went to school.'),
-        (world_lib.TELL, 'Old Kaka told a story.'),
-        (world_lib.APPRENTICE, 'Teo learnt a craft.'),
-        (world_lib.LEAD_RITE, 'Hara leads the rite.'),
-        (world_lib.JOIN_RITE, 'Hara joined the rite.'),
+        (world_lib.TELL, 'Old Ada told a story.'),
+        (world_lib.APPRENTICE, 'Ada learnt a craft.'),
+        (world_lib.LEAD_RITE, 'Ada leads the rite.'),
+        (world_lib.JOIN_RITE, 'Ada joined the rite.'),
         ('write at the library', 'She wrote at the library.'),
         ('read at the library', 'She reads at the library.'),
-        ('teach at the school', 'Kaka taught at the school.'),
-        (world_lib.PASS_ON, 'Kaka passes on c3.'),
+        ('teach at the school', 'Ada taught at the school.'),
+        (world_lib.PASS_ON, 'Ada passes on c3.'),
         (world_lib.SPARE, 'Ada gathers food, sparing the fields of others.'),
-        (world_lib.PREACH, 'Oran preaches.'),
-        (world_lib.PLAY, 'Teo plays.'),
-        ('share food with Ada', 'Kaka shared food with Ada.'),
-        ('shame Ada', 'Kaka shamed Ada.'),
-        (world_lib.FOUND_LIBRARY, 'Kaka founded a library.'),
+        (world_lib.PREACH, 'Ada preaches.'),
+        (world_lib.PLAY, 'Ada plays.'),
+        ('share food with Kaka', 'Ada shared food with Kaka.'),
+        ('shame Kaka', 'Ada shamed Kaka.'),
+        (world_lib.FOUND_LIBRARY, 'Ada founded a library.'),
     ):
       self.assertEqual(
-          world_lib.first_move(said, [move, world_lib.GATHER]), move, said
+          world_lib.first_move(said, [move, world_lib.GATHER], 'Ada'),
+          move,
+          said,
       )
 
   def test_a_person_asked_answers_first_then_moves(self):

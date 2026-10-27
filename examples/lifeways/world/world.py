@@ -1341,7 +1341,7 @@ class World:
     """
     person = self.people[name]
     answer = action.strip().lower()
-    move = first_move(answer, allowed)
+    move = first_move(answer, allowed, name)
     enacted = [
         custom_id
         for custom_id in dict.fromkeys(
@@ -2018,7 +2018,7 @@ class World:
       allowed: The moves each was offered this year.
     """
     for name, answer in sorted(self.actions.items()):
-      move = first_move(answer, allowed.get(name, ()))
+      move = first_move(answer, allowed.get(name, ()), name)
       if move == COURT:
         self.courting[name] = ''
       elif move.startswith(f'{COURT_ONE} '):
@@ -2434,15 +2434,41 @@ _IRREGULAR = {
     'tell': ('tells', 'telling', 'told'),
     'write': ('writes', 'writing', 'wrote', 'written'),
 }
-# Where a move said in another form may stand: where a clause begins, after
-# "this year" or the like, a subject of a word or two, and "will".
-_CLAUSE_START = re.compile(
-    r'(?:^|[.!?:;]\s*)(?:(?:this|next|the next) year,?\s+)?'
-    r"(?:[a-z']+\s+){0,2}(?:will\s+)?$"
+# Words that begin a clause about something else ("Since she has a child to
+# feed, ..."): never the one before a subject.
+_SUBORDINATORS = (
+    'after|although|as|because|before|if|once|since|though|unless|until|'
+    'when|whereas|while|who|whom|whose'
 )
 
 
-def _forms(move: str) -> set[str]:
+def _clause_start(name: str) -> re.Pattern[str]:
+  """Where a move said in another form may stand, for one answering.
+
+  Where a clause begins (after the start, a full stop, colon or semicolon,
+  ", so", ", and" or "yes,"), then "this year" or the like, then its
+  subject: the one answering (by name, or I, she, he, they, we), after a
+  word such as "old" but never "since" or "while", then an id in brackets,
+  then "will", then "spends the year" ("Kaka spends the year gathering
+  food").
+
+  Args:
+    name: The one answering ('' if not known: a pronoun only).
+
+  Returns:
+    A pattern for the text before the move, as it ends.
+  """
+  who = '|'.join(filter(None, (re.escape(name.lower()), 'i|she|he|they|we')))
+  return re.compile(
+      r'(?:^|[.!?:;]\s*|,\s+(?:so|and)\s+|\byes,\s+)'
+      r'(?:(?:this|next|the next) year,?\s+)?'
+      rf"(?:(?:(?!(?:{_SUBORDINATORS})\b)[a-z']+\s+)?(?:{who})\s+)?"
+      r'(?:\(c\d+(?:,\s*c\d+)*\)\s+)?(?:will\s+)?'
+      r'(?:(?:spends?|will spend) (?:the|this) year(?: \d+)?\s+)?$'
+  )
+
+
+def _forms(move: str, past: bool) -> set[str]:
   """A move's other forms: "gather food" gives "gathers food", ...
 
   A move of one word (rest, play) is read only as "rests", "plays": its
@@ -2450,21 +2476,27 @@ def _forms(move: str) -> set[str]:
 
   Args:
     move: The move, lowercase.
+    past: The past forms ("gathered food", "went to school"), or else the
+      present ("gathers food", "gathering food").
 
   Returns:
-    Its other forms.
+    Its other forms of that tense.
   """
   verb, _, rest = move.partition(' ')
   stem = verb[:-1] if verb.endswith('e') and not verb.endswith('ee') else verb
   third = verb + ('es' if verb.endswith(('s', 'sh', 'ch', 'x', 'z')) else 's')
-  past = verb + 'd' if verb.endswith('e') else verb + 'ed'
-  forms = _IRREGULAR.get(verb, (third, stem + 'ing', past))
+  forms = _IRREGULAR.get(
+      verb,
+      (third, stem + 'ing', verb + 'd' if verb.endswith('e') else verb + 'ed'),
+  )
   if not rest:
-    forms = forms[:1]
+    forms = () if past else forms[:1]
+  else:
+    forms = forms[2:] if past else forms[:2]
   return {f'{form} {rest}' if rest else form for form in forms} - {move}
 
 
-def first_move(answer: str, allowed: Sequence[str]) -> str:
+def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
   """The move an answer makes: the offered move it names first.
 
   A mind may say more than the move ("This year I gather food, by c3."); the
@@ -2473,11 +2505,13 @@ def first_move(answer: str, allowed: Sequence[str]) -> str:
   move as offered may name one with its first verb in another form where a
   clause begins ("Taha sows a field.", "This year she gathers food"): that
   move is read then, but not a form in a clause of another ("Ada, who has a
-  child to feed, ...").
+  child to feed, ...", "While Lira looks for a partner, ..."). A move said
+  as done ("gathered food") is read only if none is said as being done.
 
   Args:
     answer: The answer.
     allowed: The moves offered.
+    name: Who answers (a move it says it does is its own).
 
   Returns:
     The move ('' if the answer names none).
@@ -2490,13 +2524,16 @@ def first_move(answer: str, allowed: Sequence[str]) -> str:
     )
     if match:
       found.append((match.start(), -len(move), move))
-  if not found:  # Said in another form, where a clause begins.
+  starts = _clause_start(name)
+  for past in (False, True):  # Said in another form, where a clause begins.
+    if found:
+      break
     for move in allowed:
-      for said in _forms(move.lower()):
+      for said in _forms(move.lower(), past):
         for match in re.finditer(
             r'(?<![a-z])' + re.escape(said) + r'(?![a-z])', answer
         ):
-          if _CLAUSE_START.search(answer[: match.start()]):
+          if starts.search(answer[: match.start()]):
             found.append((match.start(), -len(move), move))
             break
   return min(found)[2] if found else ''
