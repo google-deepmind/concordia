@@ -78,7 +78,7 @@ SOW = 'sow a field'
 # Gathering that leaves alone the fields others tend (offered where there
 # are some within a day's walk): taking from them is no breach of the
 # World's, but a people's norms may make it one.
-SPARE = 'gather, sparing the fields of others'
+SPARE = 'gather food, sparing the fields of others'
 # The Experimenter's: end the run (the only way a Sandbox ends).
 STOP = 'stop the world'
 # The kinds of question the World GM asks (what an answer answers).
@@ -405,9 +405,13 @@ class World:
     # Farming (`yield`, `fallow`): one given a farming skill may sow the land
     # it lives on; None, and nobody may.
     self.farming: Mapping[str, Any] | None = settings.get('farming')
-    # The deeds others see (`WITNESSED` by default), whose customs they may
-    # copy by observation.
-    self.witnessed = tuple(settings.get('witnessed', WITNESSED))
+    # The deeds others see (`seen_deeds`, of `WITNESSED`; all by default),
+    # whose customs onlookers may copy (observation) and children learn from
+    # their parents (upbringing).
+    self.seen_deeds = tuple(settings.get('seen_deeds', WITNESSED))
+    unknown = set(self.seen_deeds) - set(WITNESSED)
+    if unknown:
+      raise ValueError(f'No deed can be seen of {sorted(unknown)}.')
     self.culture = culture_lib.Culture()
     self.people: dict[str, Person] = {}
     # The latest dead, as the valley remembers them (for kin): name, sex,
@@ -438,6 +442,7 @@ class World:
     self._offers: collections.Counter[str] = collections.Counter()
     self._rediscovered = 0
     self._released = 0
+    self._sown = 0
     # This year's releases: id, how, where, and how many heard a song.
     self._releases: list[dict[str, Any]] = []
     # This year's disasters: kind, place, who sent it, what it took.
@@ -1199,6 +1204,7 @@ class World:
     self._offers.clear()
     self._rediscovered = 0
     self._released = 0
+    self._sown = 0
     self._releases = []
     self._disasters = []
     # The moves each was offered, as the year began.
@@ -1232,10 +1238,10 @@ class World:
     deaths += self._disaster()
     deaths += self._eat_and_die()
     self._see_breaches(did, allowed)
-    if self.farming:
-      self.land.fallow(
-          self.year, int(self.farming.get('fallow', land_lib.FALLOW))
-      )
+    # Untended fields go wild whether or not anyone may sow now.
+    self.land.fallow(
+        self.year, int((self.farming or {}).get('fallow', land_lib.FALLOW))
+    )
     self.land.regrow()
     self.places.decay(self._rng('decay'), self.year)
     arrived = brought + self._arrive()
@@ -1304,12 +1310,13 @@ class World:
       spare = self._fields_of_others(person) if move == SPARE else []
       person.food += self.land.gather(person.tile, effort, spare)
     elif move == SOW:
-      self.land.sow(
-          person.tile,
-          self._level(enacted, culture_lib.FARMING),
-          self.year,
-          tender=name,
-      )
+      # Know-how the GM gave, enacted, makes a field; else nothing grows.
+      level = self._level(enacted, culture_lib.FARMING)
+      if level:
+        self.land.sow(person.tile, level, self.year, tender=name)
+        self._sown += 1
+      else:
+        self._tell(name, 'Nothing took root where you sowed.')
     elif move == MOVE:
       person.tile = self.land.best_near(
           person.tile, int(self.settings.get('roam', 1))
@@ -1489,7 +1496,7 @@ class World:
       return
     for name in sorted(did):
       person = self.people[name]
-      if did[name][0] in (GATHER, APPRENTICE):
+      if did[name][0] in (GATHER, SPARE, APPRENTICE):
         continue
       share = 1.0 if person.age(self.year) >= ADULT_AGE else 0.5
       person.food += self.land.gather(person.tile, subsistence * share)
@@ -1733,7 +1740,12 @@ class World:
     """The fields around a person that others tend (none without farming)."""
     if not self.farming:
       return []
-    return self.land.fields_of_others(person.tile, person.name)
+    # A field is another's while its tender lives; the dead's are nobody's.
+    return [
+        tile
+        for tile in self.land.fields_of_others(person.tile, person.name)
+        if self.land.fields[tile][2] in self.people
+    ]
 
   def _knows(self, person: Person, domain: str) -> bool:
     """Whether the GM ever gave a person a skill of a domain (know-how)."""
@@ -1871,7 +1883,7 @@ class World:
     actors = [
         name
         for name, (move, enacted) in sorted(did.items())
-        if enacted and _move_kind(move) in self.witnessed
+        if enacted and _move_kind(move) in self.seen_deeds
     ]
     for name in self.living():
       person = self.people[name]
@@ -2194,6 +2206,7 @@ class World:
         'mean_age': round(sum(ages) / len(ages), 2) if ages else 0.0,
         'food': round(float(self.land.food.sum()), 3),
         'fields': len(self.land.fields),
+        'sown': self._sown,
         'moves': dict(
             sorted(
                 collections.Counter(

@@ -28,6 +28,7 @@ import urllib.request
 
 from absl.testing import absltest
 from examples.lifeways import scenarios
+from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.web import serving
 from examples.lifeways.web import session as session_lib
 from concordia.components.game_master import player_roster
@@ -269,6 +270,34 @@ class SaveTest(absltest.TestCase):
       self.assertEqual(texts[-1], 'After the end.')
     finally:
       restored.close()
+
+  def test_a_save_whose_fields_have_no_tenders_restores(self):
+    first = session_lib.Session(
+        'first_farmers',
+        years_per_second=40,
+        save_path=self.path,
+        save_seconds=0,
+    )
+    first.start()
+    try:
+      self.assertTrue(_wait(lambda: (first.saved_year or 0) >= 15))
+    finally:
+      first.close()
+    with open(self.path, encoding='utf-8') as f:
+      saved = json.load(f)
+    (world_gm,) = saved['checkpoint']['game_masters'].values()
+    land = world_gm['components']['context_components'][
+        gm_components.DEFAULT_WORLD_KEY
+    ]['land']
+    self.assertNotEmpty(land['fields'])
+    land['fields'] = [row[:4] for row in land['fields']]  # As before tenders.
+    with open(self.path, 'w', encoding='utf-8') as f:
+      json.dump(saved, f)
+
+    restored = session_lib.Session('first_farmers', save_path=self.path)
+
+    self.assertEqual(restored.restored_year, saved['year'])
+    restored.close()
 
   def test_a_save_of_an_older_form_is_set_aside(self):
     first = session_lib.Session(save_path=self.path, save_seconds=0)

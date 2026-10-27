@@ -14,6 +14,7 @@
 
 """How the world passes customs on: by what people do, never by minds."""
 
+import copy
 import json
 
 from absl.testing import absltest
@@ -1185,7 +1186,12 @@ class FarmingTest(_PlaceTest):
 
   def setUp(self):
     super().setUp()
-    self.world.farming = {'yield': 3.0, 'fallow': 2}
+    self.world = world_lib.World({
+        'seed': 0,
+        'founders': 0,
+        'channels': _FAITHFUL,
+        'farming': {'yield': 3.0, 'fallow': 2},
+    })
     self.sowing = self.world.culture.add(
         'skill', culture_lib.FARMING, 'Sowing barley.', {'level': 2}
     ).id
@@ -1210,6 +1216,7 @@ class FarmingTest(_PlaceTest):
 
     self.assertEqual(self.world.land.fields, {tile: (2, 0, 'Ada')})
     self.assertEqual(self.world.history[-1]['fields'], 1)
+    self.assertEqual(self.world.history[-1]['sown'], 1)
     self.assertIn((self.sowing, 'observation', 'Ada'), self._offers('Bo'))
 
   def test_a_field_nobody_tends_goes_wild(self):
@@ -1222,20 +1229,47 @@ class FarmingTest(_PlaceTest):
 
     self.assertEqual(self.world.land.fields, {})
 
-  def test_one_may_gather_sparing_the_fields_others_tend(self):
+  def test_one_who_spares_leaves_anothers_field_as_it_grows(self):
+    self.world.settings['subsistence'] = 1.0  # Everyone forages a little.
     tile = self._grass()
-    self._person('Ada', 30, tile, given=[self.sowing])
+    far = self.world.land.wrap(tile[0] + 8, tile[1] + 8)
+    self._person('Ada', 30, far, given=[self.sowing])
     self._person('Bo', 30, tile)
-    self._year(Ada=f'{world_lib.SOW} {self.sowing}', Bo='rest')
+    self.world.land.sow(tile, 2, self.world.year, tender='Ada')
     self.assertIn(world_lib.SPARE, self.world.moves('Bo'))
-    self.assertNotIn(world_lib.SPARE, self.world.moves('Ada'))  # Her own.
-    before = float(self.world.land.food[tile])
+    self.assertNotIn(world_lib.SPARE, self.world.moves('Ada'))  # Hers.
+    grown = copy.deepcopy(self.world.land)
+    grown.regrow()
 
     self._year(Ada='rest', Bo=world_lib.SPARE)
 
-    self.assertGreaterEqual(float(self.world.land.food[tile]), before)
-    self._year(Ada='rest', Bo=world_lib.GATHER)
-    self.assertLess(float(self.world.land.food[tile]), before)
+    # Neither Bo's gathering nor any subsistence on top of it took from it.
+    self.assertAlmostEqual(
+        float(self.world.land.food[tile]), float(grown.food[tile])
+    )
+
+  def test_sowing_without_know_how_grows_nothing(self):
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing])
+
+    self._year(Ada=world_lib.SOW)  # Naming no way of sowing.
+
+    self.assertEqual(self.world.land.fields, {})
+    self.assertEqual(self.world.history[-1]['sown'], 0)
+    self.assertIn(
+        'Nothing took root where you sowed.', self.world.queued['Ada']
+    )
+
+  def test_the_field_of_one_who_died_is_nobodys(self):
+    tile = self._grass()
+    self._person('Ada', 30, tile, given=[self.sowing])
+    self._person('Bo', 30, tile)
+    self.world.land.sow(tile, 1, self.world.year, tender='Ada')
+    self.assertIn(world_lib.SPARE, self.world.moves('Bo'))
+
+    del self.world.people['Ada']
+
+    self.assertNotIn(world_lib.SPARE, self.world.moves('Bo'))
 
   def test_sparing_is_seen_unless_the_world_says_it_is_not(self):
     norm = self.world.culture.add(
@@ -1249,9 +1283,11 @@ class FarmingTest(_PlaceTest):
 
     self._year(Ada='rest', Bo=f'{world_lib.SPARE} {norm}', Cy='rest')
     seen = self._offers('Cy')
-    self.world.witnessed = tuple(
-        d for d in world_lib.WITNESSED if d != world_lib.SPARE
-    )
+    unseen = world_lib.World({
+        **self.world.settings,
+        'seen_deeds': [d for d in world_lib.WITNESSED if d != world_lib.SPARE],
+    })
+    self.world.seen_deeds = unseen.seen_deeds
     self._year(Ada='rest', Bo=f'{world_lib.SPARE} {norm}', Cy='rest')
 
     def sparing_seen(offers):
@@ -1266,6 +1302,10 @@ class FarmingTest(_PlaceTest):
 
     self.assertNotEmpty(sparing_seen(seen))
     self.assertEmpty(sparing_seen(self._offers('Cy')))
+
+  def test_only_deeds_that_can_be_seen_may_be(self):
+    with self.assertRaisesRegex(ValueError, 'No deed can be seen'):
+      world_lib.World({'seed': 0, 'founders': 0, 'seen_deeds': ['dance']})
 
   def test_without_farming_nobody_may_sow(self):
     self.world.farming = None

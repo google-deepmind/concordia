@@ -353,11 +353,18 @@ a century or so). The Experimenter may send one (`send a <kind> at
 row keeps each disaster (`disasters`), and the Experimenter hears what it
 took.
 
-**Farming.** One the World gave a farming skill may sow the land it lives
-on (`sow a field`): the field then carries more food, by the skill's level,
-for whoever forages there, while someone tends it; untended for a few years
-it goes wild. Others see the sowing and may copy it. No founder of the
-Sandbox knows how (a song may teach it); in First Farmers a third do.
+**Farming.** The `farming` setting (`yield`, `fallow`) lets one whom the
+World gave a farming skill sow the land it lives on (`sow a field`, naming
+the skill; hills are never sown). The field then carries `yield` more food
+per level of the skill (times the richness) for whoever forages there, and
+is its latest tender's; untended for `fallow` years it goes wild. A sowing
+that names no skill grows nothing (the sower is told). Where fields others
+tend lie within a day's walk, one may gather sparing them (`gather food,
+sparing the fields of others`); a dead tender's field is nobody's. Sowing
+and sparing are seen and may be copied. Which deeds are seen at all is a
+setting too (`seen_deeds`, all by default), for onlookers (observation) and
+children (upbringing) alike. No founder of the Sandbox knows how to farm (a
+song may teach it); in First Farmers a third do.
 
 **Institutions.** The Experimenter may found a library, school or shrine at
 a place (`found a <kind> at <row>,<col>`), where the world has that kind

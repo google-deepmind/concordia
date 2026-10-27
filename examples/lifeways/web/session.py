@@ -126,6 +126,20 @@ def await_engines(timeout: float = 10.0) -> None:
       thread.join(max(0.0, deadline - time.monotonic()))
 
 
+def _fields(land: Mapping[str, Any]) -> list[list[Any]]:
+  """A land state's fields, as the latest form keeps them.
+
+  Older saves have no fields, or fields without a tender (`''` now).
+
+  Args:
+    land: A land's state.
+
+  Returns:
+    The fields: row, column, level, year tended and tender.
+  """
+  return [list(row) + [''] * (5 - len(row)) for row in land.get('fields', ())]
+
+
 def saved_scenario(path: str | None) -> str:
   """The scenario of the world a save holds ('' if none, or it won't read).
 
@@ -701,10 +715,8 @@ class Session:
         int(world['year']) != int(saved['year'])
         or living != entities
         or any(world.get(key) != value for key, value in kept.items())
-        or any(
-            world['land'].get(k, []) != land.get(k, [])  # Older: no fields.
-            for k in ('terrain', 'food', 'fields')
-        )
+        or any(world['land'].get(k) != land.get(k) for k in ('terrain', 'food'))
+        or _fields(world['land']) != _fields(land)
     ):
       raise ValueError(
           f'the world did not restore as saved (year {world["year"]} of'

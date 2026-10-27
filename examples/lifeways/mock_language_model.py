@@ -38,6 +38,7 @@ _LABEL = re.compile(r'(?:Question|Exercise): ')
 _CUSTOM = re.compile(r'\(([a-z]+)\) \[(c\d+)\]: ([^\n]*)')
 _EXPECTED = re.compile(r'others expect of us \(([a-z]+)\) \[(c\d+)\]')
 _SIGHT = re.compile(r'(\d+) other people are within sight')
+_TEND = re.compile(r'\btend\b', re.IGNORECASE)
 _DESCENT = re.compile(r'is of the ([^.]+)\.')
 _SUITORS = re.compile(r'Unpartnered near you: ([^\n]*)\.')
 _SUITOR = re.compile(
@@ -139,8 +140,9 @@ def _choose(
   ]
   others = [cid for _, cid, _ in customs if cid not in reading]
 
-  # A norm against taking from others' fields (one's own, or expected when
-  # watched) spares them whenever the person gathers.
+  # A custom against taking from others' fields (one's own, or expected when
+  # watched; a norm or a value alike) spares them whenever the person
+  # gathers.
   sparing = [
       cid
       for domain, cid, text in customs
@@ -188,17 +190,18 @@ def _choose(
   if food < 2.5 or ('lean' in texts and food < 4.0):
     return follow(world_lib.GATHER, culture_lib.FOOD)
   farming = [cid for domain, cid, _ in customs if domain == culture_lib.FARMING]
-  # A norm of tending (one's own, or expected when watched) calls for sowing
-  # every year one can spare the food.
+  # A custom of tending (one's own, or expected when watched) calls for
+  # sowing every year one can spare the food. A mind reads its customs by
+  # what they say, whatever their kind.
   tending = [
       cid
       for domain, cid, text in customs
       if domain == culture_lib.FARMING
-      and 'tend' in text.lower()
+      and _TEND.search(text)
       and (cid not in expected or watched)
   ]
   if world_lib.SOW in moves and farming:
-    if (tending and food >= 2.0) or (food >= 3.0 and draw < 0.35):
+    if tending or (food >= 3.0 and draw < 0.35):
       return ' '.join([world_lib.SOW, *farming])
   if world_lib.COURT in moves and age >= 18 and draw < 0.9:
     courted = _court(prompt, moves, customs)

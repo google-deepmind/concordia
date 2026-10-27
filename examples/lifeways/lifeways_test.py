@@ -25,6 +25,7 @@ from unittest import mock
 
 from absl import logging as absl_logging
 from absl.testing import absltest
+from absl.testing import parameterized
 from examples.lifeways import sweep
 from examples.lifeways import mock_language_model
 from examples.lifeways import plot
@@ -88,7 +89,7 @@ def _state(entity: entity_lib.Entity) -> Any:
   return ordered(json.loads(json.dumps(agent.get_state())))
 
 
-class SandboxTest(absltest.TestCase):
+class SandboxTest(parameterized.TestCase):
 
   def test_a_year_resolves_whatever_order_the_threads_answered_in(self):
     runs = []
@@ -118,8 +119,9 @@ class SandboxTest(absltest.TestCase):
       self.assertLessEqual(dead['born'], dead['died'])
       self.assertContainsSubset({'sex', 'parents', 'children'}, dead)
 
-  def test_the_born_and_the_dead_are_restored_from_a_checkpoint(self):
-    settings = scenarios.settings(max_years=40)
+  @parameterized.parameters('sandbox', 'first_farmers')
+  def test_the_born_and_the_dead_are_restored_from_a_checkpoint(self, name):
+    settings = scenarios.settings(name, max_years=40)
     run = simulation.build_simulation(settings)
     run.play()
     first = {f['params']['name'] for f in scenarios.founders(settings)}
@@ -131,6 +133,7 @@ class SandboxTest(absltest.TestCase):
 
     restored = simulation.build_simulation(settings)
     simulation.load_checkpoint(restored, checkpoint)
+    self.assertEqual(restored.world().land.fields, run.world().land.fields)
 
     self.assertEqual([e.name for e in restored.sim.entities], names)
     self.assertEqual(
@@ -441,35 +444,43 @@ class ModelTest(absltest.TestCase):
         simulation.make_model('together_ai:deepseek-ai/DeepSeek-V3')
 
 
+def _mind(food, customs, moves):
+  """What the mock mind answers, given its food, customs and moves."""
+  return mock_language_model.MockModel().sample_text(
+      '\n'.join([
+          *(f'({domain}) [{cid}]: {text}' for domain, cid, text in customs),
+          f'Food stored: {food}',
+          'Question: What do you do?',
+          *(f'- {move}' for move in moves),
+      ])
+  )
+
+
 class MockMindTest(absltest.TestCase):
 
-  def test_a_norm_of_tending_has_a_sower_sow_on_little_food(self):
-    prompt = 'Food stored: 2.5\n'
+  def test_a_custom_of_tending_has_a_sower_sow_on_little_food(self):
     moves = [world_lib.GATHER, world_lib.REST, world_lib.SOW]
     sowing = (culture_lib.FARMING, 'c1', scenarios.SOWING['text'])
     tending = (culture_lib.FARMING, 'c2', scenarios.TENDING['text'])
+    tender = (culture_lib.FARMING, 'c3', 'We pay the tender of the nets.')
 
-    without = mock_language_model._choose(prompt, moves, [sowing], ())  # pylint: disable=protected-access
-    tended = mock_language_model._choose(  # pylint: disable=protected-access
-        prompt, moves, [sowing, tending], ()
+    self.assertFalse(_mind(2.5, [sowing], moves).startswith(world_lib.SOW))
+    self.assertFalse(
+        _mind(2.5, [sowing, tender], moves).startswith(world_lib.SOW)
+    )
+    self.assertEqual(
+        _mind(2.5, [sowing, tending], moves), f'{world_lib.SOW} c1 c2'
     )
 
-    self.assertFalse(without.startswith(world_lib.SOW))
-    self.assertEqual(tended, f'{world_lib.SOW} c1 c2')
-
-  def test_a_norm_of_property_spares_others_fields(self):
-    prompt = 'Food stored: 1.0\n'
+  def test_a_custom_of_property_spares_others_fields(self):
     moves = [world_lib.GATHER, world_lib.SPARE, world_lib.REST]
     fishing = (culture_lib.FOOD, 'c1', 'Smoking fish.')
     sparing = (culture_lib.FARMING, 'c2', scenarios.SPARING['text'])
 
-    plain = mock_language_model._choose(prompt, moves, [fishing], ())  # pylint: disable=protected-access
-    spared = mock_language_model._choose(  # pylint: disable=protected-access
-        prompt, moves, [fishing, sparing], ()
+    self.assertEqual(_mind(1.0, [fishing], moves), f'{world_lib.GATHER} c1')
+    self.assertEqual(
+        _mind(1.0, [fishing, sparing], moves), f'{world_lib.SPARE} c1 c2'
     )
-
-    self.assertEqual(plain, f'{world_lib.GATHER} c1')
-    self.assertEqual(spared, f'{world_lib.SPARE} c1 c2')
 
 
 class ArchiveTest(absltest.TestCase):
