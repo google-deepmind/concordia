@@ -1146,7 +1146,9 @@ function lifeCustoms(context) {
 }
 
 /**
- * How the played person's life stands: its latest status line, as observed.
+ * How the played person's life stands: its latest status line, with where
+ * it lives in words. Only the line's own opening, which the World writes,
+ * is read for the place.
  * @param {string} context The person's context.
  * @param {string} name The person.
  * @return {string} The line ('' if none is in sight yet).
@@ -1154,7 +1156,11 @@ function lifeCustoms(context) {
 function lifeStatus(context, name) {
   const lines = [...context.matchAll(/Year -?\d+\. (\S+) is [^\n]*/g)]
       .filter((found) => found[1] === name);
-  return lines.length ? personPlaces(lines[lines.length - 1][0].trim()) : '';
+  if (!lines.length) return '';
+  const home = new RegExp('^(Year -?\\d+\\. \\S+ is \\d+ years old and' +
+      ' lives on \\w+ land at) (\\d+),(\\d+);');
+  return lines[lines.length - 1][0].trim()
+      .replace(home, '$1 row $2, column $3;');
 }
 
 /**
@@ -1167,7 +1173,7 @@ function lifeStatus(context, name) {
  */
 function lifeMemory(context, name) {
   const who = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return personPlaces(context)
+  return context
       .replace(/ \|params=\{.*?\}(?= [A-Z[]|\s*$)/gm, '')
       .replace(/\[custom id=c\d+[^\]\n]*\] /g, '')
       .replace(/ \[c\d+\]:/g, ':')
@@ -1414,20 +1420,6 @@ function moveWords(move) {
 }
 
 /**
- * The places in the World's own sentences to a person (its status line, and
- * what it sees founded or built), in words: "at 3,4" becomes "at row 3,
- * column 4". Only these forms are read, so customs' and people's words are
- * never touched.
- * @param {string} text What a person knows (`lifeStatus`, `lifeMemory`).
- * @return {string} The text.
- */
-function personPlaces(text) {
-  return text.replace(new RegExp('(lives on \\w+ land at|founds a ' +
-      '(?:library|school) at|builds a shrine at) (\\d+),(\\d+)(?=[;.])', 'g'),
-  '$1 row $2, column $3');
-}
-
-/**
  * A notebook entry's text as the page shows it: a move in words.
  * @param {!Object} entry The entry.
  * @return {string} Its text.
@@ -1654,7 +1646,7 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, kinName,
     entryText, moveWords, worldName, yearText,
-    goneNote, leverChoices, moreNote, peopleColour, personPlaces, releaseMove,
+    goneNote, leverChoices, moreNote, peopleColour, releaseMove,
     appendNew, entryMeta, entryShown,
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote,

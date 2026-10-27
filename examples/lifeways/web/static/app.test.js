@@ -24,7 +24,7 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, customKind, domainsFor, goneNote,
   kinName, worldName, yearText, entryText, moveWords,
-  leverChoices, moreNote, personPlaces,
+  leverChoices, moreNote,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeStatus, lifeSuggested, livesNote, reachNote,
@@ -446,14 +446,16 @@ test('a list says what it leaves out', () => {
 });
 
 test('a person reads where it lives in words, and customs as said', () => {
-  assert.equal(personPlaces('Year 2. Kaka is 31 years old and lives on' +
-      ' forest land at 10,8; the land around holds 4.5 food.'),
-  'Year 2. Kaka is 31 years old and lives on forest land at row 10,' +
+  const context = '[observation] Year 2. Kaka is 31 years old and lives on' +
+      ' forest land at 10,8; the land around holds 4.5 food.\n' +
+      '[observation] Hara teaches: Honour whoever builds a shrine at 2,2.' +
+      '\nA custom of ours (sacred) [c9]: We live on high land at 1,2; always.';
+  assert.equal(lifeStatus(context, 'Kaka'),
+      'Year 2. Kaka is 31 years old and lives on forest land at row 10,' +
       ' column 8; the land around holds 4.5 food.');
-  assert.equal(personPlaces('Kaka sees Sane gather food: We are of 1,000' +
-      ' hands. Oran founds a school at 3,4.'),
-  'Kaka sees Sane gather food: We are of 1,000 hands. Oran founds a' +
-      ' school at row 3, column 4.');
+  const memory = lifeMemory(context, 'Kaka');
+  assert.ok(memory.includes('builds a shrine at 2,2.'), memory);
+  assert.ok(memory.includes('We live on high land at 1,2; always.'), memory);
   assert.equal(entryText({kind: 'note', text: 'It grew to 1,200 people.'}),
       'It grew to 1,200 people.');
   assert.equal(entryText({kind: 'world', text: 'Rest at 1,000 "of 2,3".'}),
