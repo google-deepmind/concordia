@@ -1395,5 +1395,64 @@ class CultureTest(absltest.TestCase):
     )
 
 
+class HeirTest(absltest.TestCase):
+  """Whom a played person lives on as, once it dies."""
+
+  def setUp(self):
+    super().setUp()
+    self.world = world_lib.World({'seed': 0, 'founders': 0})
+
+  def _person(self, name, descent='River', parents=()):
+    person = world_lib.Person(
+        name=name,
+        born=0,
+        sex='f',
+        tile=(0, 0),
+        food=8.0,
+        parents=list(parents),
+        descent=descent,
+    )
+    for parent in parents:
+      if parent in self.world.people:
+        self.world.people[parent].children.append(name)
+    self.world.people[name] = person
+    return person
+
+  def _die(self, name):
+    self.world._die(name)  # pylint: disable=protected-access
+
+  def test_one_lives_on_as_its_own_child_born_the_year_it_dies(self):
+    self._person('Kaka')
+    self._person('Oran', descent='Hill')
+    self._person('Teo', parents=['Kaka'])
+    self._die('Kaka')
+
+    self.assertEqual(self.world.heir('Kaka', ['Oran', 'Teo']), 'Teo')
+
+  def test_one_waits_for_its_line_while_its_line_lives(self):
+    self._person('Kaka')
+    self._person('Teo', parents=['Kaka'])
+    self._person('Mira', parents=['Teo'])
+    self._person('Oran')
+    self._die('Kaka')
+    self._die('Teo')
+
+    self.assertEqual(self.world.heir('Kaka', ['Oran']), '')
+    self._person('Lu', parents=['Mira'])
+    self.assertEqual(self.world.heir('Kaka', ['Oran', 'Lu']), 'Lu')
+
+  def test_with_its_line_gone_one_lives_on_in_its_people_then_in_anyone(self):
+    self._person('Kaka')
+    self._person('Rhee', descent='River')
+    self._person('Oran', descent='Hill')
+    self._die('Kaka')
+
+    self.assertEqual(self.world.heir('Kaka', ['Oran']), '')
+    self.assertEqual(self.world.heir('Kaka', ['Oran', 'Rhee']), 'Rhee')
+    self._die('Rhee')
+    self.assertEqual(self.world.heir('Kaka', ['Oran']), 'Oran')
+    self.assertEqual(self.world.heir('Kaka', []), '')
+
+
 if __name__ == '__main__':
   absltest.main()

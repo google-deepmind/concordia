@@ -43,6 +43,7 @@ from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.prefabs import world_gm
 from examples.lifeways.world import culture as culture_lib
 from examples.lifeways.world import world as world_lib
+from concordia.components.game_master import next_acting
 from concordia.contrib import language_models
 from concordia.language_model import language_model
 from concordia.language_model import profiled_language_model
@@ -90,7 +91,8 @@ def build_config(
       person's `HumanActComponent`); by default a rule plays it.
     player: Optional. A founder's name, and what builds that founder's
       acting component (a person's `HumanActComponent`): someone plays that
-      life; minds play the others.
+      life, and once it ends, the life of one born of its line
+      (`World.heir`); minds play the others.
 
   Returns:
     The config.
@@ -123,6 +125,16 @@ def build_config(
           params=experimenter_params,
       )
   )
+  played = (
+      {
+          'played': player[0],
+          'played_prefab': person_lib.Person(
+              params={**person.params, 'act_component_factory': player[1]}
+          ),
+      }
+      if player
+      else {}
+  )
   instances.append(
       prefab_lib.InstanceConfig(
           prefab=world_gm.WORLD_GM_PREFAB,
@@ -133,6 +145,7 @@ def build_config(
               'founders': founders,
               'lifecycle': lifecycle,
               'person_prefab': person,
+              **played,
           },
       )
   )
@@ -296,6 +309,22 @@ class Run:
       The lock (reentrant).
     """
     return self._world_component().lock
+
+  def lives(self) -> list[str]:
+    """The lives someone has played here, the latest last ([] if none).
+
+    Safe from any thread at any time.
+
+    Returns:
+      The names (`TurnGate.lives`).
+    """
+    world_gm_entity = self.sim.game_masters[0]
+    gate = world_gm_entity.get_component(  # pyrefly: ignore[missing-attribute]
+        next_acting.DEFAULT_NEXT_ACTING_COMPONENT_KEY,
+        type_=gm_components.TurnGate,
+    )
+    with self.world_lock():
+      return gate.lives()
 
   def _world_component(self) -> gm_components.WorldComponent:
     return self.sim.game_masters[0].get_component(  # pyrefly: ignore[missing-attribute]

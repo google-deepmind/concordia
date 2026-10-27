@@ -1228,6 +1228,68 @@ class PlayAsTest(absltest.TestCase):
       unplayed_again.close()
 
 
+class LivingOnTest(absltest.TestCase):
+
+  def test_a_played_person_lives_on_as_one_born_after_it_dies(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+    def world():
+      return session_lib.Session(
+          'sandbox',
+          years_per_second=50,
+          save_path=path,
+          save_seconds=0,
+          play_as=True,
+          patience=30,
+          subsistence=0.0,
+      )
+
+    played = world()
+    founder = played.state()['played']['name']
+    answered = set()
+
+    def lived_on():
+      # The founder rests every year and starves; whoever is played next
+      # answers too.
+      asked = played.state()['played']['asked']
+      if asked and asked['id'] not in answered:
+        answered.add(asked['id'])
+        played.answer(asked['id'], 'rest' if asked['name'] == founder else '')
+      return len(played.state()['played']['lives']) > 1
+
+    played.start()
+    try:
+      self.assertTrue(_wait(lived_on, 120))
+      state = played.state()['played']
+      heir = state['name']
+      self.assertEqual(state['lives'], [founder, heir])
+      self.assertTrue(state['alive'])
+      self.assertNotIn(founder, [p['name'] for p in played.state()['people']])
+      self.assertTrue(
+          _wait(
+              lambda: (played.state()['played']['asked'] or {}).get('name')
+              == heir
+          )
+      )
+      played.pace(paused=True)
+      self.assertTrue(_wait(lambda: played.saved_year is not None))
+    finally:
+      played.close()
+    restored = world()
+    try:
+      self.assertIsNotNone(restored.restored_year)
+      self.assertEqual(restored.state()['played']['lives'], [founder, heir])
+      restored.start()
+      self.assertTrue(
+          _wait(
+              lambda: (restored.state()['played']['asked'] or {}).get('name')
+              == heir
+          )
+      )
+    finally:
+      restored.close()
+
+
 def tearDownModule():
   # Let the closed worlds' loops finish their turn before the process exits.
   session_lib.await_engines()

@@ -414,6 +414,9 @@ class TwinInput(PageInput):
 class PersonInput:
   """A played person's answers, from the page.
 
+  The person is the founder played (`name`) and, once it dies, each heir it
+  lives on as (`World.heir`).
+
   A `HumanInput`: each question the World asks the person (its move this
   year, which customs to pass on to a child, an interview) waits for the
   page's answer up to `patience` seconds of play (a paused world does not
@@ -431,7 +434,7 @@ class PersonInput:
     """Initializes the input.
 
     Args:
-      name: The person played.
+      name: The founder played.
       patience: How long a question waits for the page's answer (seconds).
       paused: Whether the world is paused (the wait does not run down then).
     """
@@ -450,6 +453,7 @@ class PersonInput:
     with self._changed:
       self._asked = {
           'id': request.request_id,
+          'name': request.entity_name,
           'kind': request.action_spec.tag or '',
           'question': request.action_spec.call_to_action,
           'context': request.context,
@@ -487,9 +491,9 @@ class PersonInput:
     """The question waiting for the page's answer, if any.
 
     Returns:
-      The question: its `id`, `kind` (the World's tag), `question`, the
-      person's `context`, the `year`, any `error`, and the `seconds_left`
-      before the person does what it would unasked.
+      The question: its `id`, who is asked (`name`), its `kind` (the World's
+      tag), `question`, the person's `context`, the `year`, any `error`,
+      and the `seconds_left` before the person does what it would unasked.
     """
     with self._changed:
       if not self._asked:
@@ -1386,15 +1390,20 @@ class Session:
         'channels': sorted(
             self._settings.get('channels', world_lib.DEFAULT_CHANNELS)
         ),
-        'played': (
-            {
-                'name': self.played.name,
-                'alive': any(p['name'] == self.played.name for p in people),
-                'asked': self.played.asked(),
-            }
-            if self.played
-            else None
-        ),
+        'played': self._played_state(people) if self.played else None,
+    }
+
+  def _played_state(
+      self, people: Sequence[Mapping[str, Any]]
+  ) -> dict[str, Any]:
+    """The life the page plays: whose, whether it goes on, its question."""
+    assert self.played is not None
+    lives = self.run.lives() or [self.played.name]
+    return {
+        'name': lives[-1],
+        'alive': any(p['name'] == lives[-1] for p in people),
+        'lives': lives,
+        'asked': self.played.asked(),
     }
 
   def person(self, name: str) -> dict[str, Any] | None:

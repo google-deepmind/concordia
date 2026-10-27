@@ -137,10 +137,20 @@ person on the map.
   person would do unasked: gather food, pass on all it holds, or keep its
   counsel.
 - **Endings.** Stopping the world hurries the person, so it does not wait.
-  The person dies as anyone does, and the valley plays on; what it taught
-  lives on in others. To live again, begin a new world.
+  The person dies as anyone does, and the valley plays on.
+- **Living on.** Once the played person dies, the player is born again
+  (`World.heir`), as the first child born:
+  - of its line, a descendant (its own child, if one is born the year it
+    dies);
+  - or, once nobody of its line lives, of its people;
+  - or, once none of its people live either, of anyone.
+
+  The World GM's `TurnGate` keeps the lives played. The heir joins through
+  the stock roster as a second prefab of the Config, the `Person` with the
+  page's acting component (`PLAYED_PREFAB`). So a save restores the heir as
+  played, like any other joined player.
 - **Saves and twins.** A played world's save restores only as played. In a
-  twin, minds play the person.
+  twin, minds play the person, and each heir.
 
 **Fork a twin.** The person may fork a twin of the running world. At the
 next year's close the session takes the same checkpoint and builds a second

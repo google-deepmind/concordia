@@ -40,6 +40,9 @@ from concordia.typing import prefab as prefab_lib
 import numpy as np
 
 PERSON_PREFAB = 'lifeways_person'
+# A person someone plays: born after the played person dies, it lives on as
+# it (the session's `Person`, with the page's acting component).
+PLAYED_PREFAB = 'lifeways_played_person'
 EMBEDDING_SIZE = 16
 
 

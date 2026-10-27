@@ -66,6 +66,11 @@ class WorldGameMaster(prefab_lib.Prefab):
     person_prefab: The Config's person prefab, which the born are built from
       (a default `Person` if not given). Checkpoints drop it too; the Config
       gives it again on restore.
+    played: Optional. The founder someone plays. Once it dies, the player
+      lives on as someone born of its line (`World.heir`), built from
+      `played_prefab`.
+    played_prefab: Optional. The prefab a played person's heir is built from
+      (a default `Person` if not given: in a twin, minds play the heir).
 
   The born join the game and the dead leave it through the GM's stock
   `PlayerRoster`, which holds the simulation's entities (`self.entities`).
@@ -106,7 +111,10 @@ class WorldGameMaster(prefab_lib.Prefab):
         player_prefabs={
             person_lib.PERSON_PREFAB: (
                 self.params.get('person_prefab') or person_lib.Person()
-            )
+            ),
+            person_lib.PLAYED_PREFAB: (
+                self.params.get('played_prefab') or person_lib.Person()
+            ),
         },
         model=model,
         embedder=person_lib.hash_embedder,
@@ -116,6 +124,8 @@ class WorldGameMaster(prefab_lib.Prefab):
         lifecycle=lifecycle,
         observation_queue=queue,
         person_prefab=person_lib.PERSON_PREFAB,
+        played=self.params.get('played'),
+        played_prefab=person_lib.PLAYED_PREFAB,
         max_years=settings.get('max_years'),
         free=settings.get('free'),
     )

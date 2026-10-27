@@ -1105,6 +1105,47 @@ class World:
     """
     return any(name in parents for parents in self.expecting.values())
 
+  def heir(self, name: str, born: Sequence[str]) -> str:
+    """Whom a person who died lives on as, among those just born.
+
+    A person someone plays lives on after death as the first of the born who
+    is of its line (a descendant: its child, if one is born the year it
+    dies). If nobody of its line lives, it lives on as the first born of its
+    people, and if nobody of its people lives either, as the first born of
+    all.
+
+    Args:
+      name: The person who died.
+      born: Those just born, in the order they were born.
+
+    Returns:
+      The heir, or '' if none of the born will do (the person waits for the
+      next birth in its line, or of its people).
+    """
+    records = {record['name']: record for record in self.dead}
+
+    def children(who: str) -> Sequence[str]:
+      if who in self.people:
+        return self.people[who].children
+      return records.get(who, {}).get('children', ())
+
+    line, kin = set(), [name]
+    while kin:
+      for child in children(kin.pop()):
+        if child not in line:
+          line.add(child)
+          kin.append(child)
+    of_line = [child for child in born if child in line]
+    if of_line or any(who in self.people for who in line):
+      return of_line[0] if of_line else ''
+    descent = records.get(name, {}).get('descent', '')
+    of_people = [
+        child for child in born if self.people[child].descent == descent
+    ]
+    if of_people or any(p.descent == descent for p in self.people.values()):
+      return of_people[0] if of_people else ''
+    return born[0] if born else ''
+
   def _may_have_child(self, person: Person) -> bool:
     age = person.age(self.year)
     if not FERTILE[0] <= age <= FERTILE[1] or self.asked_to_pass_on(

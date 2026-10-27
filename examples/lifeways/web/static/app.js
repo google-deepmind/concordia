@@ -1030,7 +1030,8 @@ function lifeNote(played) {
   if (!played) return '';
   if (!played.alive) {
     return `${played.name} has died; what they taught lives on in others. ` +
-        'Stop the world and begin a new one to live again.';
+        'You will be born again as the next child of their line (or, if ' +
+        'their line is gone, of their people).';
   }
   const asked = played.asked;
   if (!asked) return 'The others are choosing; the year turns.';
@@ -1038,6 +1039,16 @@ function lifeNote(played) {
   return `${year} year waits for you. Answer within ` +
       `${asked.seconds_left}\u00a0s, or you ${LIFE_UNASKED[asked.kind] ||
       LIFE_UNASKED.move}.`;
+}
+
+/**
+ * The lives the player has lived, if more than one.
+ * @param {!Object} played The state's `played`.
+ * @return {string} The lives, oldest first ('' for a first life).
+ */
+function livesNote(played) {
+  const lives = played.lives || [];
+  return lives.length > 1 ? `Your lives: ${lives.join(' → ')}` : '';
 }
 
 /**
@@ -1076,6 +1087,7 @@ function drawLife(world) {
   document.getElementById('life').hidden = !played;
   if (!played) return;
   document.getElementById('life-name').textContent = played.name;
+  document.getElementById('life-lives').textContent = livesNote(played);
   document.getElementById('life-note').textContent = lifeNote(played);
   const asked = played.alive ? played.asked : null;
   document.getElementById('life-form').hidden = !asked;
@@ -1288,7 +1300,7 @@ if (typeof document !== 'undefined') {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
     leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
     fateChoices, fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote,
-    lifeMemory, lifeQuestion, lifeStatus, reachNote, recentDisasters, releaseStatus, savedNote,
+    lifeMemory, lifeQuestion, lifeStatus, livesNote, reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

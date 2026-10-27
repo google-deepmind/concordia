@@ -39,6 +39,8 @@ from concordia.typing import entity as entity_lib
 from concordia.typing import entity_component
 
 DEFAULT_WORLD_KEY = 'lifeways_world'
+# How many of a player's lives the World GM remembers.
+LIVES_KEPT = 100
 
 PASS_ON_QUESTION = (
     "{name}'s child is about to be born. Which of {name}'s customs does"
@@ -120,6 +122,8 @@ class TurnGate(
       observation_queue: make_observation.ObservationQueue,
       person_prefab: str,
       max_years: int | None = None,
+      played: str | None = None,
+      played_prefab: str | None = None,
       world_key: str = DEFAULT_WORLD_KEY,
       terminate_key: str = terminate.DEFAULT_TERMINATE_COMPONENT_KEY,
       roster_key: str = player_roster.DEFAULT_PLAYER_ROSTER_COMPONENT_KEY,
@@ -132,6 +136,10 @@ class TurnGate(
       observation_queue: The queue the GM's `MakeObservation` delivers from.
       person_prefab: The roster's prefab the born join the game as.
       max_years: The year the game ends at; None for never.
+      played: The founder someone plays, if any. Once the played person
+        dies, someone born of its line lives on as it (`World.heir`), and
+        joins the game as `played_prefab`.
+      played_prefab: The roster's prefab a played person's heir joins as.
       world_key: The key of the GM's `WorldComponent`.
       terminate_key: The key of the GM's stock `Terminate`.
       roster_key: The key of the GM's stock `PlayerRoster`.
@@ -145,6 +153,9 @@ class TurnGate(
     self._terminate_key = terminate_key
     self._roster_key = roster_key
     self._person_prefab = person_prefab
+    self._played_prefab = played_prefab or person_prefab
+    # The lives the player has lived, the latest last (bounded).
+    self._lives: list[str] = [played] if played else []
     self._free = free
     self._began = time.monotonic()  # When this year began (free mode).
     self._lifecycle = lifecycle
@@ -178,8 +189,20 @@ class TurnGate(
     roster = self.get_entity().get_component(
         self._roster_key, type_=player_roster.PlayerRoster
     )
+    heir = ''
+    if self._lives and self._lives[-1] not in world.people:
+      heir = world.heir(
+          self._lives[-1], [params['name'] for params in outcome.births]
+      )
     for params in outcome.births:
-      roster.join(self._person_prefab, params)
+      roster.join(
+          self._played_prefab
+          if params['name'] == heir
+          else self._person_prefab,
+          params,
+      )
+    if heir:
+      self._lives = [*self._lives, heir][-LIVES_KEPT:]
     for name in outcome.deaths:  # The dead hear nothing more.
       self._queue.get_and_clear(name)
     if outcome.deaths and self._free is None:
@@ -216,13 +239,23 @@ class TurnGate(
     for name, texts in world.take_observations().items():
       self._queue.add(name, '\n'.join(texts), ())
 
+  def lives(self) -> list[str]:
+    """The lives the player has lived, the latest last ([] if none).
+
+    Read it in the World GM's lock (`Run.lives`).
+    """
+    return list(self._lives)
+
   @override
   def get_state(self) -> entity_component.ComponentState:
-    return {'ended': self._ended}
+    return {'ended': self._ended, 'lives': list(self._lives)}
 
   @override
   def set_state(self, state: entity_component.ComponentState) -> None:
     self._ended = bool(state.get('ended', False))
+    lives = state.get('lives')  # Older saves keep none.
+    if isinstance(lives, Sequence) and not isinstance(lives, str):
+      self._lives = [str(name) for name in lives]
 
 
 class Questions(

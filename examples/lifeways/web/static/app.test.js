@@ -25,7 +25,7 @@ const {
   askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
   fateMove, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves, lifeNote,
-  lifeQuestion, lifeStatus,
+  lifeQuestion, lifeStatus, livesNote,
   reachNote, recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
@@ -316,7 +316,9 @@ test('the life note says what waits, and when a life ends', () => {
   assert.equal(lifeNote({name: 'Kaka', alive: true, asked: null}),
       'The others are choosing; the year turns.');
   assert.match(lifeNote({name: 'Kaka', alive: false, asked: null}),
-      /^Kaka has died/);
+      /^Kaka has died.*born again/);
+  assert.equal(livesNote({lives: ['Kaka']}), '');
+  assert.equal(livesNote({lives: ['Kaka', 'Teo']}), 'Your lives: Kaka → Teo');
 });
 
 test('the played person sees how its life stands, as it last saw it', () => {
