@@ -55,9 +55,13 @@ peoples and the places, and the census as graphs. Tap a person to see
 their family over three generations, the dead included as the valley
 remembers them (`World.dead`). Their customs are listed too, with how each
 came and from whom; a person's `Learner` remembers both. Each custom opens
-its lineage: the variants descended from the oldest one remembered, with
-who holds each and whom they had it from. The page remembers the variants
-the world has forgotten, up to a bound. The person on the page is the
+how it has changed: the versions people hold now, most held first, with
+who holds each and how they came by it. Folded below are the versions kept
+only in libraries or shrines, the family tree from the oldest version
+remembered, and the dead branches (counted, the latest listed). The page
+remembers the variants the world has forgotten, up to a bound. Every part
+of the page says what it is in words: no ids, no settings' names. The
+person on the page is the
 Experimenter: through the stock `HumanActComponent` and a `PageInput`
 adapter, each year it answers with the move the person queued (a release
 from the custom designer, or stopping the world), or else the person's
@@ -266,6 +270,12 @@ atomic remove in the stock queue.
 the GM, which keeps the public record of variants (`world/culture.py`). A
 parent expecting a child is asked what it passes on, and names custom ids. The
 GM copies them, with copying errors, into the newborn's params.
+
+**Copying errors.** A skill copied in error is learned a level lower; a
+tongue changes a word. Any other text loses a word, regains one, or gains
+or loses its one stress (", always."). Each variant keeps its line's first
+text and the words it has lost, at most two. So a custom drifts about its
+first wording and keeps returning to it; it never wears away.
 
 Work answers name the customs they follow (`gather food c3 c6`). The world
 credits a skill only if the GM once gave it to that person.
