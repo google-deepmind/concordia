@@ -92,6 +92,8 @@ def build_config(
     The config.
   """
   founders = scenarios.founders(settings)
+  # The founders' prefab, which the World GM's roster builds the born from.
+  person = person_lib.Person()
   experimenter_params: dict[str, Any] = {'plan': dict(settings.get('plan', {}))}
   if experimenter is not None:
     experimenter_params['act_component_factory'] = experimenter
@@ -119,12 +121,13 @@ def build_config(
               'settings': dict(settings),
               'founders': founders,
               'lifecycle': lifecycle,
+              'person_prefab': person,
           },
       )
   )
   return prefab_lib.Config(
       prefabs={
-          person_lib.PERSON_PREFAB: person_lib.Person(),
+          person_lib.PERSON_PREFAB: person,
           experimenter_lib.EXPERIMENTER_PREFAB: experimenter_lib.Experimenter(),
           world_gm.WORLD_GM_PREFAB: world_gm.WorldGameMaster(),
       },
@@ -228,13 +231,20 @@ def quiet() -> contextlib.AbstractContextManager[None]:
 
 
 class _BornUnconfigured(logging.Filter):
-  """Drops the stock checkpoint's warning for a person the roster keeps."""
+  """Drops the stock checkpoint's warning for a person the roster keeps.
+
+  The stock checkpoint keeps the founders who live; the born are kept in the
+  World GM's `PlayerRoster` state, and the stock checkpoint warns of each (it
+  has no prefab config of theirs). In Lifeways every entity without one is
+  one of the born, so the warning says nothing. Installed once, for the
+  process, when this module is imported.
+  """
 
   def filter(self, record: logging.LogRecord) -> bool:
     return record.msg != 'Prefab config not found for entity %s'
 
 
-_BORN_UNCONFIGURED = _BornUnconfigured()
+absl_logging.get_absl_logger().addFilter(_BornUnconfigured())
 
 
 @dataclasses.dataclass
@@ -246,24 +256,6 @@ class Run:
   archive: Archive
   # The stock engine the simulation runs on (its `pause` / `play`).
   engine: asynchronous.Asynchronous
-
-  def checkpoint(self) -> dict[str, Any]:
-    """The stock checkpoint (`Simulation.make_checkpoint_data`).
-
-    The stock checkpoint keeps the founders who live; the people born since
-    are kept in the World GM's `PlayerRoster` state. The warning the stock
-    checkpoint logs for each of the born (it has no prefab config of theirs)
-    is dropped.
-
-    Returns:
-      The checkpoint data.
-    """
-    logger = absl_logging.get_absl_logger()
-    logger.addFilter(_BORN_UNCONFIGURED)
-    try:
-      return self.sim.make_checkpoint_data()
-    finally:
-      logger.removeFilter(_BORN_UNCONFIGURED)
 
   def world_state(self) -> Mapping[str, Any]:
     """A copy of the world's state, taken under the World GM's lock.

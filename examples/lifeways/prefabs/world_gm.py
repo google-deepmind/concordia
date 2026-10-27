@@ -28,9 +28,9 @@ asks for it. The world is built from the GM's own params (`settings`), so no
 object is shared with any entity.
 """
 
-from collections.abc import Mapping, MutableSequence
+from collections.abc import Mapping
 import dataclasses
-from typing import Any, cast
+from typing import Any
 
 from concordia.agents import entity_agent_with_logging
 from concordia.associative_memory import basic_associative_memory
@@ -45,7 +45,6 @@ from examples.lifeways.prefabs import measures
 from examples.lifeways.prefabs import person as person_lib
 from examples.lifeways.world import world as world_lib
 from concordia.language_model import language_model
-from concordia.typing import entity as entity_lib
 from concordia.typing import prefab as prefab_lib
 
 WORLD_GM_PREFAB = 'lifeways_world__GameMaster'
@@ -64,6 +63,9 @@ class WorldGameMaster(prefab_lib.Prefab):
     lifecycle: Optional. What the harness is told as the world plays
       (`Lifecycle`). A live object: it is not serializable, so checkpoints
       drop it and the restoring harness wires its own.
+    person_prefab: The Config's person prefab, which the born are built from
+      (a default `Person` if not given). Checkpoints drop it too; the Config
+      gives it again on restore.
 
   The born join the game and the dead leave it through the GM's stock
   `PlayerRoster`, which holds the simulation's entities (`self.entities`).
@@ -100,8 +102,12 @@ class WorldGameMaster(prefab_lib.Prefab):
     lifecycle = self.params.get('lifecycle') or gm_components.Lifecycle()
     players = self.entities if self.entities is not None else []
     roster = player_roster.PlayerRoster(
-        players=cast(MutableSequence[entity_lib.Entity], players),
-        player_prefabs={person_lib.PERSON_PREFAB: person_lib.Person()},
+        players=players,
+        player_prefabs={
+            person_lib.PERSON_PREFAB: (
+                self.params.get('person_prefab') or person_lib.Person()
+            )
+        },
         model=model,
         embedder=person_lib.hash_embedder,
     )
@@ -113,6 +119,9 @@ class WorldGameMaster(prefab_lib.Prefab):
         max_years=settings.get('max_years'),
         free=settings.get('free'),
     )
+    # The first players' names, for the stock components that take fixed
+    # names. They need no others: next acting is the `TurnGate`'s, which asks
+    # the World, and the World addresses observations by name, never to all.
     names = [entity.name for entity in self.entities or ()]
     components = {
         gm_components.DEFAULT_WORLD_KEY: gm_components.WorldComponent(world),

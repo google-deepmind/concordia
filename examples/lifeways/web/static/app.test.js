@@ -152,15 +152,12 @@ test('a release says where it went and whether it lives', () => {
       ' (at most 8 held it)');
 });
 
-test('a song reaches those old enough within sight, across the edges', () => {
-  const world = {rows: 16, cols: 24, sight: 2, child_acts_age: 5, people: [
-    {tile: [0, 0], age: 30},
-    {tile: [15, 23], age: 30},  // Two steps away, across both edges.
-    {tile: [1, 1], age: 3},  // Too young.
-    {tile: [0, 3], age: 30},  // Three steps away.
-  ]};
+test('a song reaches as many as the World counts at a place', () => {
+  const world = {rows: 16, cols: 24, reach: [[0, 0, 2], [1, 0, 1]]};
   assert.equal(withinReach(world, [0, 0]), 2);
+  assert.equal(withinReach(world, [16, 24]), 2);  // Across both edges.
   assert.equal(withinReach(world, [8, 12]), 0);
+  assert.equal(withinReach({rows: 16, cols: 24}, [0, 0]), 0);
 });
 
 test('disasters and migrants are written in the form the World reads', () => {
@@ -196,10 +193,7 @@ test('the map shows the disasters of the last twenty years', () => {
 });
 
 test('the ring says the chance that someone takes a song up', () => {
-  const world = {rows: 16, cols: 24, sight: 2, child_acts_age: 5,
-    song_uptake: 0.25, people: [
-      {tile: [0, 0], age: 30}, {tile: [0, 1], age: 30}, {tile: [1, 0], age: 9},
-    ]};
+  const world = {rows: 16, cols: 24, song_uptake: 0.25, reach: [[0, 0, 3]]};
   assert.equal(reachNote(world, [0, 0]), 'The ring (0,0): 3 people would' +
       ' hear a song here; the chance at least one takes it up is 58%.');
   assert.equal(reachNote(world, [8, 12]),
@@ -260,16 +254,9 @@ test('a kind offers only its domains', () => {
 });
 
 test('a release goes where a song would reach the most', () => {
-  const world = {rows: 20, cols: 20, sight: 2, child_acts_age: 6, people: [
-    {tile: [0, 0], age: 30}, {tile: [10, 10], age: 30},
-    {tile: [10, 11], age: 30}, {tile: [11, 10], age: 2},
-    {tile: [15, 4], age: 30},
-  ]};
+  const world = {rows: 20, cols: 20, reach: [[10, 10, 2], [0, 0, 1]]};
 
   assert.deepEqual(crowdedSpot(world), [10, 10]);
-  assert.equal(crowdedSpot({...world, people: []}), null);
-  // The valley wraps: the corners are neighbours.
-  const wrapped = {...world, people: [{tile: [0, 0], age: 30},
-    {tile: [19, 19], age: 30}, {tile: [10, 10], age: 30}]};
-  assert.deepEqual(crowdedSpot(wrapped), [0, 0]);
+  assert.equal(crowdedSpot({...world, reach: []}), null);
+  assert.equal(crowdedSpot({rows: 20, cols: 20}), null);
 });

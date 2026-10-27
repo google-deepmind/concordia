@@ -1009,6 +1009,29 @@ class ReleaseTest(_PlaceTest):
     self.assertEqual(place.tile, (2, 3))
     self.assertEqual(self.world.culture.get(custom_id).params, {'level': 3})
 
+  def test_song_reach_counts_who_a_song_would_reach(self):
+    rows, cols = self.world.land.rows, self.world.land.cols
+    self._person('Ada', 30, (0, 0))
+    self._person(
+        'Edge', 30, (rows - 1, cols - 1)
+    )  # Two steps, over both edges.
+    self._person('Kid', world_lib.CHILD_ACTS_AGE - 1, (0, 1))  # Too young.
+    self._person('Far', 30, (0, 3))  # Three steps.
+
+    reach = self.world.song_reach()
+
+    self.assertEqual(reach[(0, 0)], 2)
+    self.assertNotIn((rows // 2, cols // 2), reach)
+    self.assertEqual(max(reach.values()), 2)
+    self._year(
+        Ada='rest',
+        Edge='rest',
+        Kid='rest',
+        Far='rest',
+        Experimenter='release belief sacred as a song at 0,0: Heard by two.',
+    )
+    self.assertEqual(self.world.history[-1]['releases'][0]['heard'], 2)
+
   def test_a_marriage_rule_is_of_kinship_and_may_say_whom_it_allows(self):
     self._person('Ada', 30, (5, 5))
 

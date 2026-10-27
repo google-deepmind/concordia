@@ -151,18 +151,21 @@ def saved_scenario(path: str | None) -> str:
 
 
 def why_died(release: Mapping[str, Any]) -> str:
-  """Why a release died out, as far as the page can tell.
+  """How a release died out, from its record (what the World counted).
+
+  A release died out when nobody holds it and no place keeps it; its record
+  has how many heard it (`heard`) and the most who held it (`peak`).
 
   Args:
     release: A followed release (`Session.releases`).
 
   Returns:
-    The reason, in a few words.
+    How it went, in a few words.
   """
   if release.get('peak'):
-    return 'all who held it died or took up another way'
+    return 'those who held it died or took up other ways'
   if release.get('how') == 'text':
-    return 'nobody read it before its shelf was lost'
+    return 'nobody took it up, and no shelf keeps it now'
   heard = int(release.get('heard') or 0)
   if not heard:
     return 'nobody was within hearing'
@@ -550,8 +553,14 @@ class Session:
 
   def _snapshot(self, year: int) -> dict[str, Any]:
     """The world at a year's close (in the World GM's lock), as saved."""
-    checkpoint = self.run.checkpoint()
+    checkpoint = self.run.sim.make_checkpoint_data()
     checkpoint['raw_log'] = []  # Nobody reads it; a restore needs none.
+    # Nor `component_info`, which repeats every component's state.
+    for saved in (
+        *checkpoint['entities'].values(),
+        *checkpoint['game_masters'].values(),
+    ):
+      saved.pop('component_info', None)
     with self._rows_lock:
       rows = list(self._rows)
       forgotten = list(self._forgotten.values())
@@ -1086,6 +1095,8 @@ class Session:
       of the grown, the highest skill level, the rows kept).
     """
     world = self.run.world_state()
+    with self.run.world_lock():
+      reach = self.run.world().song_reach()
     land = world['land']
     people = [
         {
@@ -1145,6 +1156,13 @@ class Session:
         ),
         # The chance each who hears a released song takes it up.
         'song_uptake': person_lib.DEFAULT_UPTAKE.get(culture_lib.RELEASE, 0),
+        # Who would hear a song at each tile: [row, col, how many], most first.
+        'reach': [
+            [row, col, n]
+            for (row, col), n in sorted(
+                reach.items(), key=lambda item: (-item[1], item[0])
+            )
+        ],
         'sight': int(self._settings.get('sight', 2)),
         'max_level': culture_lib.MAX_LEVEL,
         'rows_kept': ROWS_KEPT,

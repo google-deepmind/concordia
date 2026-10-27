@@ -386,33 +386,28 @@ function drawReleases(world) {
 }
 
 /**
- * How many would hear a song sung at a place: those old enough within the
- * World's sight, the map wrapping at its edges.
+ * How many would hear a song sung at a place, as the World counts them
+ * (`reach`: [row, col, how many] for each tile some would hear at).
  * @param {!Object} world The state.
- * @param {!Array<number>} at [row, col].
+ * @param {!Array<number>} at [row, col], wrapped at the map's edges.
  * @return {number}
  */
 function withinReach(world, at) {
-  const near = (a, b, n) => Math.min(Math.abs(a - b), n - Math.abs(a - b));
-  return world.people.filter((person) => person.age >= world.child_acts_age &&
-      near(person.tile[0], at[0], world.rows) +
-      near(person.tile[1], at[1], world.cols) <= world.sight).length;
+  const wrap = (i, n) => ((i % n) + n) % n;
+  const [row, col] = [wrap(at[0], world.rows), wrap(at[1], world.cols)];
+  const hit = (world.reach || []).find(([r, c]) => r === row && c === col);
+  return hit ? hit[2] : 0;
 }
 
 /**
- * Where a song would reach the most people: the release's place until the
- * person picks one.
+ * Where a song would reach the most people (the World's `reach`, most
+ * first): the release's place until the person picks one.
  * @param {!Object} world The state.
- * @return {?Array<number>} [row, col], or null if nobody lives.
+ * @return {?Array<number>} [row, col], or null if a song would reach nobody.
  */
 function crowdedSpot(world) {
-  let best = null;
-  let most = -1;
-  for (const person of world.people) {
-    const n = withinReach(world, person.tile);
-    if (n > most) [best, most] = [person.tile.slice(), n];
-  }
-  return best;
+  const most = (world.reach || [])[0];
+  return most ? [most[0], most[1]] : null;
 }
 
 /**

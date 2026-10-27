@@ -127,7 +127,7 @@ class SandboxTest(absltest.TestCase):
     self.assertTrue(first - set(names))  # Founders died...
     self.assertTrue(set(names) - first)  # ... and children were born.
     with self.assertNoLogs(absl_logging.get_absl_logger(), level='WARNING'):
-      checkpoint = json.loads(json.dumps(run.checkpoint()))
+      checkpoint = json.loads(json.dumps(run.sim.make_checkpoint_data()))
 
     restored = simulation.build_simulation(settings)
     simulation.load_checkpoint(restored, checkpoint)

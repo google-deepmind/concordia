@@ -768,6 +768,33 @@ class World:
 
   # --- Who acts ----------------------------------------------------------
 
+  def _hears(self, person: Person, tile: land_lib.Tile) -> bool:
+    """Whether a person hears a song sung at a tile (old enough, in sight)."""
+    return (
+        self.places.distance(person.tile, tile) <= self.sight
+        and person.age(self.year) >= CHILD_ACTS_AGE
+    )
+
+  def song_reach(self) -> dict[land_lib.Tile, int]:
+    """How many would hear a song sung at each tile where anyone would.
+
+    The rule is a released song's (`_hears`); the Experimenter's page reads it
+    to say who a song would reach.
+
+    Returns:
+      Each tile some would hear a song at, and how many.
+    """
+    reach: collections.Counter[land_lib.Tile] = collections.Counter()
+    for name in self.living():
+      person = self.people[name]
+      near = {
+          self.land.wrap(person.tile[0] + dr, person.tile[1] + dc)
+          for dr in range(-self.sight, self.sight + 1)
+          for dc in range(-self.sight, self.sight + 1)
+      }
+      reach.update(tile for tile in near if self._hears(person, tile))
+    return dict(reach)
+
   def living(self) -> list[str]:
     return sorted(self.people)
 
@@ -1505,10 +1532,7 @@ class World:
       )
       return
     listeners = [
-        name
-        for name in self.living()
-        if self.places.distance(self.people[name].tile, tile) <= self.sight
-        and self.people[name].age(self.year) >= CHILD_ACTS_AGE
+        name for name in self.living() if self._hears(self.people[name], tile)
     ]
     for name in listeners:
       self._offer(name, '', custom.id, culture_lib.RELEASE, 'A song is heard')

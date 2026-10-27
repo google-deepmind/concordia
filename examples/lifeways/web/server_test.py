@@ -732,8 +732,8 @@ class WhyDiedTest(absltest.TestCase):
     for release, why in (
         ({'how': 'song', 'heard': 0, 'peak': 0}, 'nobody was within hearing'),
         ({'how': 'song', 'heard': 3, 'peak': 0}, '3 heard it, and none'),
-        ({'how': 'text', 'heard': 0, 'peak': 0}, 'nobody read it'),
-        ({'how': 'song', 'heard': 3, 'peak': 2}, 'all who held it died'),
+        ({'how': 'text', 'heard': 0, 'peak': 0}, 'nobody took it up, and'),
+        ({'how': 'song', 'heard': 3, 'peak': 2}, 'those who held it died'),
     ):
       self.assertStartsWith(session_lib.why_died(release), why)
 
