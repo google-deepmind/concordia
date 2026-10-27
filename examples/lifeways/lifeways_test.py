@@ -15,6 +15,7 @@
 """Lifeways end to end on the stock asynchronous engine (MOCK)."""
 
 import collections
+import importlib.util
 import json
 import os
 import sys
@@ -637,6 +638,28 @@ class PlayedWorldTest(absltest.TestCase):
   def test_every_preset_is_described(self):
     self.assertEqual(set(scenarios.PRESET_NOTES), set(scenarios.PRESETS))
     self.assertTrue(all(scenarios.PRESET_NOTES.values()))
+
+
+class MakeModelTest(absltest.TestCase):
+
+  @absltest.skipIf(
+      importlib.util.find_spec('ollama') is None, 'no Ollama client'
+  )
+  def test_a_local_model_is_told_nothing_before_each_prompt(self):
+    with mock.patch(
+        'concordia.contrib.language_models.ollama.ollama_model'
+        '.OllamaLanguageModel'
+    ) as local:
+      model, counts = simulation.make_model('ollama:llama3.2:3b')
+
+    local.assert_called_once_with(
+        'llama3.2:3b', system_message=simulation.OLLAMA_SYSTEM
+    )
+    self.assertIsNotNone(model)
+    self.assertIsNotNone(counts)
+
+  def test_mock_is_the_default(self):
+    self.assertEqual(simulation.make_model(), (None, None))
 
 
 class TurnGateTest(absltest.TestCase):

@@ -77,6 +77,15 @@ mode a year waits for every answer. With `--free=60` a year also closes
 after 60 s, and a late answer is dropped. At 15 s nobody's answer lands in
 time.
 
+A local (Ollama) model is told nothing before each prompt
+(`simulation.OLLAMA_SYSTEM`): a person's mind is its prompt. The contrib
+model's default framing ("Continue the user's sentences...") changes what
+a small model does more than any custom: asked a skilled sower's question
+24 times, llama3.2:3b sowed 17 times with no framing, 3 with a plain
+"answer the question", and never with the default. The World reads a move
+said as a sentence ("Taha sows a field") when the answer names none as
+offered, but only in the answerer's own clause (`world.first_move`).
+
 With `--save=FILE` the world outlives its server.
 - **When it saves.** The session saves the stock checkpoint
   (`Simulation.make_checkpoint_data`) with the page's census rows, pace,
