@@ -1435,13 +1435,16 @@ function entryText(entry) {
  */
 const OLD_PLACES = [
   // The oldest forms named a release by its id.
-  [/^c\d+ (is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
-    'Your release $1 row $2, column $3$4'],
+  [/^c\d+ is sung at (\d+),(\d+); (\d+) hears? it\.$/,
+    (_, r, c, n) => `Your release is sung at row ${r}, column ${c}; ${n} ` +
+      `${n === '1' ? 'hears' : 'hear'} it.`],
   [/^c\d+ (is written at the library at) (\d+),(\d+)\.$/,
     'Your release $1 row $2, column $3.'],
-  [/^Your release c\d+ died out: ("[^"]*")/, 'Your release $1 died out'],
-  [/^c\d+ is the most widely held custom for the first time/,
-    'A custom is the most widely held for the first time'],
+  [/^Your release c\d+ died out: (".*") (\(at most \d+ held it\))/,
+    'Your release $1 died out $2'],
+  [/^c\d+ is the most widely held custom for the first time \((\d+)% hold it\)/,
+    'A custom is the most widely held for the first time ($1% of the living' +
+      ' hold it)'],
   [/^(A \w+ str(?:uck|ikes) at) (\d+),(\d+):/, '$1 row $2, column $3:'],
   [/^(Your release ".*" is sung at) (\d+),(\d+)(; \d+ hears? it\.)$/,
     '$1 row $2, column $3$4'],

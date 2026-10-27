@@ -466,8 +466,14 @@ test('memory and notes read as said; old places in words', () => {
       ' held it): nobody took it up.');
   assert.equal(entryText({kind: 'event', text: 'c30662 is the most widely' +
       ' held custom for the first time (100% hold it): "In lean."'}),
-  'A custom is the most widely held for the first time (100% hold it):' +
-      ' "In lean."');
+  'A custom is the most widely held for the first time (100% of the living' +
+      ' hold it): "In lean."');
+  assert.equal(entryText({kind: 'world', text: 'c9 is sung at 1,2; 1 hear' +
+      ' it.'}), 'Your release is sung at row 1, column 2; 1 hears it.');
+  assert.equal(entryText({kind: 'event', text: 'Your release c5 died out:' +
+      ' "We say "hi" daily" (at most 0 held it): nobody was within hearing.'}),
+  'Your release "We say "hi" daily" died out (at most 0 held it): nobody' +
+      ' was within hearing.');
   // A move the World echoes, as typed, ends like a report: left as typed.
   assert.equal(entryText({kind: 'world', text: 'The release is not' +
       ' understood: release a song is sung at 3,4; 5 hear it.'}),
