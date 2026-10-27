@@ -2437,9 +2437,9 @@ _IRREGULAR = {
 # Words that begin a clause about something else ("Since she has a child to
 # feed, ..."): never the one before a subject.
 _SUBORDINATORS = (
-    'after|although|as|because|before|if|lest|once|seeing|since|though|'
-    'till|unless|until|when|whenever|where|whereas|whether|while|whilst|who|'
-    'whom|whose'
+    'after|although|as|assuming|because|before|considering|given|if|lest|'
+    'once|provided|seeing|since|supposing|though|till|unless|until|when|'
+    'whenever|where|whereas|whether|while|whilst|who|whom|whose'
 )
 
 
@@ -2526,13 +2526,15 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
     if match:
       found.append((match.start(), -len(move), move))
   starts = _clause_start(name)
-  # A phrase that only sets the scene for the clause after it ("Having a
-  # child to feed, Kaka gathers food"; "Considering she has a child, Kaka
-  # ..."; "Now she has a child, Kaka ..."): its verb is not the move.
+  # A phrase that only sets the scene for the answerer's clause after it
+  # ("Having a child to feed, Kaka gathers food"; "Now she has a child,
+  # Kaka ..."): its verb is not the move. Such a phrase opens with "now", or
+  # with a form in -ing and no subject.
   who = '|'.join(filter(None, (re.escape(name.lower()), 'i|she|he|they|we')))
   subject_after = re.compile(
-      r'^[^.!?:;,]*,\s+(?:(?:this|next|the next) year,?\s+)?'
-      rf'(?:[a-z]+\s+)?(?:{who})\b'
+      r'^[^.!?:;]*?,\s+(?:(?:this|next|the next) year,?\s+)?'
+      rf"(?:(?!(?:{_SUBORDINATORS}|and|so|but|or|yet)\b)[a-z']+\s+)?"
+      rf'(?:{who})\b'
   )
   for past in (False, True):  # Said in another form, where a clause begins.
     if found:
@@ -2545,8 +2547,8 @@ def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:
           start = starts.search(answer[: match.start()])
           if not start:
             continue
-          sets_the_scene = (
-              not start.group('who') or start.group('pre') or start.group('now')
+          sets_the_scene = start.group('now') or (
+              not start.group('who') and said.split(' ')[0].endswith('ing')
           )
           if sets_the_scene and subject_after.search(answer[match.end() :]):
             continue

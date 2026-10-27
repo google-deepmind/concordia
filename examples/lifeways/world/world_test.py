@@ -32,6 +32,219 @@ _FAITHFUL = {
 }
 
 
+# How the World reads answers the stock model and audits 14-14e gave
+# (who answers, the answer, the move read): a table that keeps every
+# reading fixed while the reader changes.
+_READINGS = (
+    (
+        'Kaka',
+        'Kaka gathered food last year; now she sows a field.',
+        'sow a field',
+    ),
+    ('Kaka', 'She had a child last year; now she gathers food.', 'gather food'),
+    ('Kaka', 'Now she has a child, Kaka gathers food.', ''),
+    (
+        'Kaka',
+        (
+            'Kaka spends the year gathering food, she says, and she has a child'
+            ' to feed.'
+        ),
+        'gather food',
+    ),
+    ('Kaka', 'Considering she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Given she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Provided she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Supposing she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Having a child to feed, this year Kaka gathers food.', ''),
+    ('Kaka', 'gathering food (customs [c7])', 'gather food'),
+    ('Kaka', 'Kaka spends the year gathering food.', 'gather food'),
+    ('Kaka', 'I spend the year 0 gathering food.', 'gather food'),
+    ('Kaka', 'gathering food, while Lira rests', 'gather food'),
+    ('Kaka', 'Whilst she looks for a partner, Kaka gathers food.', ''),
+    ('Kaka', 'Till she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Lest she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Where she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Whether she has a child or not, Kaka gathers food.', ''),
+    ('Kaka', 'Whenever she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Seeing she has a child to feed, Kaka gathers food.', ''),
+    ('Kaka', 'Seeing that she has a child, Kaka gathers food.', ''),
+    ('Kaka', 'Having a child to feed, Kaka gathers food.', ''),
+    ('Kaka', 'Looking for a partner, Kaka gathers food.', ''),
+    ('Kaka', 'Now she has a child to feed, she gathers food.', ''),
+    ('Kaka', 'Lira courts Hara, and she rests.', 'rest'),
+    ('Kaka', 'Kaka [c7] gathers food.', 'gather food'),
+    ('Kaka', 'Since she has a child to feed, Kaka gathers food.', ''),
+    ('Kaka', 'While Lira looks for a partner, Kaka gathers food.', ''),
+    ('Kaka', 'If Lira courts Hara, Kaka rests.', ''),
+    (
+        'Kaka',
+        'Kaka gathered food last year; this year she sows a field.',
+        'sow a field',
+    ),
+    (
+        'Ada',
+        'Ada went to school last year; this year she gathers food.',
+        'gather food',
+    ),
+    ('Kaka', 'Lira gathers food; Kaka rests.', 'rest'),
+    ('Kaka', 'Yes, Kaka gathers food.', 'gather food'),
+    ('Kaka', 'She has no partner, so she rests.', 'rest'),
+    ('Kaka', 'Kaka (c7) gathers food.', 'gather food'),
+    ('Kaka', 'Kaka never gathers food; she rests.', 'rest'),
+    ('Kaka', 'gathers food (c7)', 'gather food'),
+    ('Taha', 'This year, Taha sows a field.', 'sow a field'),
+    ('Kaka', 'The year 8: Kaka moves to better land.', 'move to better land'),
+    ('Kaka', 'She courted Lira.', 'court Lira'),
+    ('Kaka', 'Old Kaka told a story.', 'tell a story'),
+    ('Kaka', 'Then she gathers food.', 'gather food'),
+    ('Ada', 'Ada goes to school.', 'go to school'),
+    ('Ada', 'Ada, who has a child to feed, gathers food.', ''),
+    (
+        'Kaka',
+        'Last year Kaka gathered food; this year she sows a field.',
+        'sow a field',
+    ),
+    ('Ada', 'As her mother taught her, Ada gathers food.', ''),
+    ('Kaka', 'Well rested, Kaka gathers food.', ''),
+    ('Kaka', 'Kaka, no longer looking for a partner, gathers food.', ''),
+    ('Kaka', 'Kaka interests Lira.', ''),
+    ('Kaka', 'Kaka displays her basket.', ''),
+    ('Kaka', 'Kaka says she has no partner.', ''),
+    ('Kaka', 'Kaka led the rite.', 'lead the rite'),
+    (
+        'Kaka',
+        'Having a child to feed, as her mother did, Kaka gathers food.',
+        '',
+    ),
+    ('Kaka', 'Looking for a partner, as always, Kaka gathers food.', ''),
+    (
+        'Kaka',
+        'Considering she has a child, as her mother did, Kaka gathers food.',
+        '',
+    ),
+    ('Kaka', 'Now she has a child, like her mother, Kaka gathers food.', ''),
+    ('Kaka', 'Having a child to feed, this year, Kaka gathers food.', ''),
+    ('Kaka', 'Having a child to feed, and being old, Kaka gathers food.', ''),
+    ('Kaka', 'Looking for a partner, still, she gathers food.', ''),
+    (
+        'Kaka',
+        'Old Kaka gathers food, and she has a child to feed.',
+        'gather food',
+    ),
+    (
+        'Kaka',
+        'Now she gathers food, and she has a child to feed.',
+        'gather food',
+    ),
+    (
+        'Kaka',
+        'Then she gathers food, and she has a child to feed.',
+        'gather food',
+    ),
+    ('Kaka', 'Gathers food, and she has a child to feed.', 'gather food'),
+    ('Kaka', 'Gathers food, so she has a child next year.', 'gather food'),
+    (
+        'Kaka',
+        'Now she sows a field, and she looks for a partner.',
+        'sow a field',
+    ),
+    (
+        'Kaka',
+        'Old Kaka looks for a partner, and she rests.',
+        'look for a partner',
+    ),
+    ('Kaka', 'Then Kaka gathers food, and she rests.', 'gather food'),
+    ('Kaka', 'Gathering food, and she has a child to feed.', 'gather food'),
+    ('Kaka', 'Kaka gathers food, and she has a child to feed.', 'gather food'),
+    ('Kaka', 'She gathers food, and she has a child to feed.', 'gather food'),
+    (
+        'Kaka',
+        'This year Kaka gathers food, and she has a child to feed.',
+        'gather food',
+    ),
+    ('Kaka', 'Now she sows a field, as she did last year.', 'sow a field'),
+    ('Kaka', 'Old Kaka sows a field, as she did last year.', 'sow a field'),
+    ('Kaka', 'Sows a field, as she did last year.', 'sow a field'),
+    ('Kaka', 'Now she rests, while she can.', 'rest'),
+    ('Kaka', 'Now, she gathers food.', 'gather food'),
+    ('Kaka', 'Now Kaka gathers food.', 'gather food'),
+    (
+        'Kaka',
+        'Until now she gathered food; this year she sows a field.',
+        'sow a field',
+    ),
+    ('Kaka', 'Now that she has a child, Kaka gathers food.', ''),
+    (
+        'Kaka',
+        'Old Kaka gathers food, sparing the fields of others, she says.',
+        'gather food, sparing the fields of others',
+    ),
+    (
+        'Kaka',
+        (
+            'Now she gathers food, sparing the fields of others, as her mother'
+            ' did.'
+        ),
+        'gather food, sparing the fields of others',
+    ),
+    (
+        'Kaka',
+        'Then she gathers food, sparing the fields of others, she says.',
+        'gather food, sparing the fields of others',
+    ),
+    (
+        'Kaka',
+        'Gathers food, sparing the fields of others, she says.',
+        'gather food, sparing the fields of others',
+    ),
+    (
+        'Kaka',
+        'Kaka gathers food, sparing the fields of others, she says.',
+        'gather food, sparing the fields of others',
+    ),
+    (
+        'Kaka',
+        'Old Kaka gathers food, she says, and she has a child to feed.',
+        'gather food',
+    ),
+    ('Kaka', 'Then she gathers food, she says.', 'gather food'),
+    ('Kaka', 'Old Kaka rests, she says.', 'rest'),
+    # Known limits: an exact name comes first; "now" after another word
+    # does not lead a clause.
+    (
+        'Kaka',
+        'Old Kaka sows a field, so she can look for a partner.',
+        'look for a partner',
+    ),  # not 'sow a field'
+    ('Kaka', 'Now she gathers food, she says.', ''),  # not 'gather food'
+    ('Kaka', 'And now she gathers food.', ''),  # not 'gather food'
+    ('Kaka', 'Right now she gathers food.', ''),  # not 'gather food'
+    ('Kaka', 'For now, she rests.', ''),  # not 'rest'
+    ('Kaka', 'Just now she gathered food.', ''),  # not 'gather food'
+)
+_READING_MOVES = (
+    'gather food',
+    'rest',
+    'sow a field',
+    'move to better land',
+    'have a child',
+    'look for a partner',
+    'court Lira',
+    'court Hara',
+    'teach',
+    'go to school',
+    'build a shrine',
+    'play',
+    'tell a story',
+    'learn a craft',
+    'preach',
+    'lead the rite',
+    'join the rite',
+    'watch',
+    'gather food, sparing the fields of others',
+)
+
+
 class TransmissionTest(absltest.TestCase):
 
   def setUp(self):
@@ -649,6 +862,12 @@ class TransmissionTest(absltest.TestCase):
           world_lib.first_move(said, [move, world_lib.GATHER], 'Ada'),
           move,
           said,
+      )
+
+  def test_answers_read_as_they_were_read_before(self):
+    for name, answer, move in _READINGS:
+      self.assertEqual(
+          world_lib.first_move(answer, _READING_MOVES, name), move, answer
       )
 
   def test_a_person_asked_answers_first_then_moves(self):
