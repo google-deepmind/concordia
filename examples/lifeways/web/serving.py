@@ -35,7 +35,8 @@ Everything it does with the world is read the simulation
 | `POST /api/pace` `{"years_per_second": ..., "paused": ...}` | pace |
 | `POST /api/stop` | stop the world |
 | `POST /api/note` `{"kind": ..., "text": ...}` | write in the notebook |
-| `POST /api/new` `{"scenario": ...}` | begin a new world, once this one stops |
+| `POST /api/new` `{"scenario": ..., "play_as": ...}` | begin a new world, once this one stops; play a founder in it if `play_as` |
+| `POST /api/me` `{"id": ..., "answer": ...}` | answer the played person's question |
 | `POST /api/twin` `{"lever": ..., "value": ...}` | fork a twin |
 | `POST /api/twin` `{"end": true}` | let the twin go |
 """
@@ -91,19 +92,22 @@ class Served:
   def __init__(
       self,
       session: session_lib.Session,
-      renew: Callable[[str], session_lib.Session] | None = None,
+      renew: Callable[[str, bool], session_lib.Session] | None = None,
   ):
     """Initializes the holder.
 
     Args:
       session: The session served.
-      renew: Optional. Builds the session of a new world of a scenario.
+      renew: Optional. Builds the session of a new world of a scenario, in
+        which a founder is played if asked (`Session(play_as=...)`).
     """
     self.session = session
     self._renew = renew
     self._lock = threading.Lock()
 
-  def begin_anew(self, scenario: str = '') -> session_lib.Session:
+  def begin_anew(
+      self, scenario: str = '', play_as: bool = False
+  ) -> session_lib.Session:
     """Begins a new world in place of a stopped one.
 
     The stopped world's save is set aside (`.stopped`); the new world is
@@ -112,6 +116,7 @@ class Served:
     Args:
       scenario: The new world's scenario (a preset); the stopped one's if
         empty.
+      play_as: Whether the page plays a founder in the new world.
 
     Returns:
       The new session, playing.
@@ -131,7 +136,7 @@ class Served:
         raise RuntimeError('This server cannot begin a new world.')
       old.close()
       old.set_aside_save('a new world begins', '.stopped')
-      self.session = self._renew(scenario)
+      self.session = self._renew(scenario, play_as)
       self.session.start()
       return self.session
 
@@ -293,7 +298,9 @@ def handler(
         self._twin(session, body)
       elif path == '/api/new':
         try:
-          renewed = served.begin_anew(str(body.get('scenario') or ''))
+          renewed = served.begin_anew(
+              str(body.get('scenario') or ''), body.get('play_as') is True
+          )
         except ValueError as error:
           self._json(400, {'error': str(error)})
           return
@@ -301,6 +308,8 @@ def handler(
           self._json(409, {'error': str(error)})
           return
         self._json(200, {'year': renewed.state()['year']})
+      elif path == '/api/me':
+        self._me(session, body)
       elif path == '/api/note':
         try:
           entry = session.note(str(body.get('kind', '')), body.get('text', ''))
@@ -310,6 +319,23 @@ def handler(
         self._json(200, entry)
       else:
         self._json(404, {'error': 'not found'})
+
+    def _me(
+        self, session: session_lib.Session, body: Mapping[str, Any]
+    ) -> None:
+      asked, answer = body.get('id'), body.get('answer')
+      if not isinstance(asked, str) or not isinstance(answer, str):
+        self._json(400, {'error': 'an id and an answer, both text'})
+        return
+      try:
+        taken = session.answer(asked, answer)
+      except RuntimeError as error:
+        self._json(409, {'error': str(error)})
+        return
+      if not taken:
+        self._json(409, {'error': 'that question is no longer asked'})
+        return
+      self._json(200, {'answered': asked})
 
     def _twin(
         self, session: session_lib.Session, body: Mapping[str, Any]

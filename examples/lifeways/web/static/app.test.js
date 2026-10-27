@@ -24,7 +24,9 @@ const test = require('node:test');
 const {
   askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName, leverChoices,
   peopleColour, releaseMove, appendNew, entryMeta, entryShown, fateChoices,
-  fateMove, reachNote, recentDisasters, releaseStatus, savedNote,
+  fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote, lifeQuestion,
+  lifeStatus,
+  reachNote, recentDisasters, releaseStatus, savedNote,
   transmissionText, transmissionTree, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
@@ -262,4 +264,66 @@ test('a release goes where a song would reach the most', () => {
   assert.deepEqual(crowdedSpot(world), [10, 10]);
   assert.equal(crowdedSpot({...world, reach: []}), null);
   assert.equal(crowdedSpot({rows: 20, cols: 20}), null);
+});
+
+const ASKED_MOVE = {
+  id: 'r1',
+  kind: 'move',
+  question: 'It is year 0. What does Kaka do this year? Choose one move:\n' +
+      '- gather food\n- rest\n- court Hara\nAnswer with the move, then the ' +
+      'ids of the customs Kaka follows in doing it, if any, e.g. ' +
+      '"gather food c3".',
+  context: 'Who I am:\nKaka.\n\n' +
+      'A custom of ours (kinship) [c1]: We raise a child only when fed.\n' +
+      'Something we know how to do (food) [c4]: Smoking fish. (level 2)\n' +
+      'A custom of ours (kinship) [c1]: We raise a child only when fed.\n',
+  year: 0,
+  seconds_left: 90,
+};
+
+test('a played person chooses among the moves its question lists', () => {
+  assert.deepEqual(lifeMoves(ASKED_MOVE.question),
+      ['gather food', 'rest', 'court Hara']);
+  assert.equal(lifeQuestion(ASKED_MOVE),
+      'It is year 0. What does Kaka do this year?');
+  assert.deepEqual(lifeCustoms(ASKED_MOVE.context), [
+    {id: 'c1', label: 'A custom of ours', domain: 'kinship',
+     text: 'We raise a child only when fed.'},
+    {id: 'c4', label: 'Something we know how to do', domain: 'food',
+     text: 'Smoking fish. (level 2)'},
+  ]);
+});
+
+test('a played person answers as the World reads answers', () => {
+  assert.equal(lifeAnswer('move', 'rest', []), 'rest');
+  assert.equal(lifeAnswer('move', 'gather food', ['c4']), 'gather food c4');
+  assert.equal(lifeAnswer('move', '', ['c4']), '');
+  assert.equal(lifeAnswer('pass_on', '', ['c1', 'c4']), 'pass on c1 c4');
+  assert.equal(lifeAnswer('interview', '', [], '  Fish.  '), 'Fish.');
+  assert.equal(lifeQuestion({kind: 'pass_on', question:
+    'Kaka\'s child is about to be born. Which customs? Answer "pass on" and ' +
+    'the ids.'}), 'Kaka\'s child is about to be born. Which customs?');
+});
+
+test('the life note says what waits, and when a life ends', () => {
+  assert.equal(lifeNote(null), '');
+  assert.equal(lifeNote({name: 'Kaka', alive: true, asked: ASKED_MOVE}),
+      'Year 0: the year waits for you. Answer within 90\u00a0s, or you gather ' +
+      'food.');
+  assert.match(lifeNote({name: 'Kaka', alive: true,
+    asked: {...ASKED_MOVE, kind: 'pass_on', year: -1}}),
+  /^The year waits.*pass on all you hold\.$/);
+  assert.equal(lifeNote({name: 'Kaka', alive: true, asked: null}),
+      'The others are choosing; the year turns.');
+  assert.match(lifeNote({name: 'Kaka', alive: false, asked: null}),
+      /^Kaka has died/);
+});
+
+test('the played person sees how its life stands, as it last saw it', () => {
+  const context = '[observation] Year 1. Hara is 20 years old.\n' +
+      '[observation] Year 1. Kaka is 30 years old. Partner: none.\n' +
+      '[observation] Year 2. Kaka is 31 years old. Partner: Hara.\n\nA ...';
+  assert.equal(lifeStatus(context, 'Kaka'),
+      'Year 2. Kaka is 31 years old. Partner: Hara.');
+  assert.equal(lifeStatus(context, 'Raan'), '');
 });

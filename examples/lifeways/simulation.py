@@ -79,6 +79,7 @@ def build_config(
     settings: Mapping[str, Any],
     lifecycle: gm_components.Lifecycle,
     experimenter: Callable[..., Any] | None = None,
+    player: tuple[str, Callable[..., Any]] | None = None,
 ) -> prefab_lib.Config:
   """The Concordia config of a world: its founders, the Experimenter, the GM.
 
@@ -87,6 +88,9 @@ def build_config(
     lifecycle: How the World GM reaches the simulation (wired by the caller).
     experimenter: Optional. Builds the Experimenter's acting component (a
       person's `HumanActComponent`); by default a rule plays it.
+    player: Optional. A founder's name, and what builds that founder's
+      acting component (a person's `HumanActComponent`): someone plays that
+      life; minds play the others.
 
   Returns:
     The config.
@@ -101,7 +105,14 @@ def build_config(
       prefab_lib.InstanceConfig(
           prefab=person_lib.PERSON_PREFAB,
           role=prefab_lib.Role.ENTITY,
-          params=dict(founder['params']),
+          params={
+              **founder['params'],
+              **(
+                  {'act_component_factory': player[1]}
+                  if player and founder['params']['name'] == player[0]
+                  else {}
+              ),
+          },
       )
       for founder in founders
   ]
@@ -460,6 +471,7 @@ def build_simulation(
     sleep_time: float = 0.002,
     archive: Archive | None = None,
     experimenter: Callable[..., Any] | None = None,
+    player: tuple[str, Callable[..., Any]] | None = None,
 ) -> Run:
   """A runnable Lifeways simulation.
 
@@ -470,6 +482,7 @@ def build_simulation(
     archive: Where the dead are kept (a new one by default).
     experimenter: Optional. Builds the Experimenter's acting component from
       its context order (a person's `HumanActComponent`).
+    player: Optional. A founder someone plays (`build_config`).
 
   Returns:
     The simulation, its lifecycle and its archive.
@@ -477,7 +490,7 @@ def build_simulation(
   lifecycle = gm_components.Lifecycle()
   engine = asynchronous.Asynchronous(sleep_time=sleep_time)
   sim = simulation_lib.Simulation(
-      config=build_config(settings, lifecycle, experimenter),
+      config=build_config(settings, lifecycle, experimenter, player),
       model=model or mock_language_model.MockModel(),
       embedder=person_lib.hash_embedder,
       engine=engine,

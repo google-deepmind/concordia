@@ -126,7 +126,34 @@ label.filter { display: block; margin: 8px 0; font-size: 0.85rem; }
 #transcripts .meta { color: var(--muted); font-size: 0.85rem; }
 
 footer { margin-top: 24px; color: var(--muted); font-size: 0.8rem; }
-#error, #fork-error, #note-error, #fate-error { color: var(--danger); }
+#error, #fork-error, #note-error, #fate-error, #life-error {
+  color: var(--danger);
+}
+
+#life {
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 4px 12px 8px;
+}
+#life h2 { margin-top: 6px; }
+#life-status { font-size: 0.9rem; }
+#life-question { font-weight: 600; }
+#life fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+#life fieldset label { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+#life fieldset input { min-height: 0; margin: 0; }
+#life fieldset .meta { color: var(--muted); font-size: 0.85rem; }
+#life-say { width: 100%; resize: vertical; }
+#life-say-box { display: block; }
+#life-context {
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
 
 #releases { list-style: none; padding: 0; }
 #releases li { margin: 8px 0; }

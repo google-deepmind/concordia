@@ -117,6 +117,31 @@ the number of peoples or tongues, a custom becoming the most widely held
 for the first time, few or none left. `GET notebook.md` gives a copy as
 Markdown.
 
+**Live as a founder.** With `--play_as`, or "live as a founder" when a new
+world begins, the person also lives in the valley as its first founder.
+That founder is an ordinary person of the valley built from the same prefab
+(`Person`); only its acting component differs. The prefab takes an
+`act_component_factory`, and the session gives this one the stock
+`HumanActComponent` over a `PersonInput` adapter. The World asks the person
+what it asks everyone, through its game master:
+- each year's move, with the customs the person follows in doing it;
+- which customs to pass on to a child about to be born;
+- the Experimenter's interview questions.
+
+The page's "Your life" panel shows the question, how the person's life
+stands (its status line, as it observed it), its moves and customs to
+choose from, and all it knows and remembers. A dashed white ring marks the
+person on the map.
+- **Waiting.** While the person decides, the year waits. A question
+  unanswered for two minutes of play (pause and it waits) gets what the
+  person would do unasked: gather food, pass on all it holds, or keep its
+  counsel.
+- **Endings.** Stopping the world hurries the person, so it does not wait.
+  The person dies as anyone does, and the valley plays on; what it taught
+  lives on in others. To live again, begin a new world.
+- **Saves and twins.** A played world's save restores only as played. In a
+  twin, minds play the person.
+
 **Fork a twin.** The person may fork a twin of the running world. At the
 next year's close the session takes the same checkpoint and builds a second
 simulation of the same world from it, with one lever pulled

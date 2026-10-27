@@ -46,8 +46,28 @@ limitations under the License.
     <button id="stop" type="button" class="danger">Stop the world</button>
     <span id="anew-box" hidden>
       <label>New world: <select id="preset"></select></label>
+      <label><input id="play-as" type="checkbox"> live as a founder</label>
       <button id="anew" type="button">Begin a new world</button>
     </span>
+  </section>
+
+  <section id="life" hidden aria-label="Your life">
+    <h2>Your life: <span id="life-name"></span></h2>
+    <p id="life-note" class="hint" aria-live="polite"></p>
+    <form id="life-form" hidden>
+      <p id="life-status"></p>
+      <p id="life-question"></p>
+      <fieldset id="life-moves"><legend>What you do this year</legend>
+        <div id="life-move-list"></div></fieldset>
+      <fieldset id="life-customs"><legend id="life-customs-legend"></legend>
+        <div id="life-custom-list"></div></fieldset>
+      <label id="life-say-box" hidden>Your answer
+        <textarea id="life-say" rows="2" maxlength="400"></textarea></label>
+      <button type="submit">Answer</button>
+      <span id="life-error"></span>
+    </form>
+    <details><summary>What you know and remember</summary>
+      <pre id="life-context"></pre></details>
   </section>
 
   <section id="valley" aria-label="The valley">
@@ -55,8 +75,8 @@ limitations under the License.
     <p id="at-note" class="hint" aria-live="polite"></p>
     <p class="hint">Tap a person to see their customs. Colours are peoples by
       descent; golden furrows are fields; squares are places (L library,
-      S school, ✦ shrine); a dashed
-      amber outline is a disaster of the last twenty years.</p>
+      S school, ✦ shrine); a dashed white ring is you, if you live here; a
+      dashed amber outline is a disaster of the last twenty years.</p>
   </section>
 
   <section id="person" hidden aria-label="A person">

@@ -31,6 +31,7 @@ from examples.lifeways import scenarios
 from examples.lifeways.components import game_master as gm_components
 from examples.lifeways.web import serving
 from examples.lifeways.web import session as session_lib
+from examples.lifeways.world import world as world_lib
 from concordia.components.game_master import player_roster
 from concordia.typing import entity as entity_lib
 from concordia.typing import human_input
@@ -988,9 +989,13 @@ class NewWorldTest(absltest.TestCase):
   def test_a_stopped_world_gives_way_to_a_new_one(self):
     path = os.path.join(self.create_tempdir().full_path, 'world.json')
 
-    def world(scenario='sandbox'):
+    def world(scenario='sandbox', play_as=False):
       return session_lib.Session(
-          scenario, years_per_second=40, save_path=path, save_seconds=0
+          scenario,
+          years_per_second=40,
+          save_path=path,
+          save_seconds=0,
+          play_as=play_as,
       )
 
     served = serving.Served(world(), renew=world)
@@ -1028,9 +1033,13 @@ class NewWorldTest(absltest.TestCase):
   def test_a_new_world_may_be_of_another_preset_and_is_restored_as_such(self):
     path = os.path.join(self.create_tempdir().full_path, 'world.json')
 
-    def world(scenario='sandbox'):
+    def world(scenario='sandbox', play_as=False):
       return session_lib.Session(
-          scenario, years_per_second=40, save_path=path, save_seconds=0
+          scenario,
+          years_per_second=40,
+          save_path=path,
+          save_seconds=0,
+          play_as=play_as,
       )
 
     served = serving.Served(world(), renew=world)
@@ -1058,6 +1067,165 @@ class NewWorldTest(absltest.TestCase):
       self.assertEqual(restored.state()['scenario'], 'bridged_valleys')
     finally:
       restored.close()
+
+
+class PlayAsTest(absltest.TestCase):
+
+  def _request(
+      self, kind: str = '', context: str = ''
+  ) -> human_input.HumanInputRequest:
+    return human_input.HumanInputRequest(
+        request_id='r1',
+        entity_name='Kaka',
+        action_spec=entity_lib.free_action_spec(
+            call_to_action='What does Kaka do?', tag=kind
+        ),
+        contexts={},
+        context=context,
+    )
+
+  def test_the_page_answers_the_played_person_s_question(self):
+    played = session_lib.PersonInput('Kaka', patience=10)
+    answers = []
+    asking = threading.Thread(
+        target=lambda: answers.append(
+            played(self._request(context='Year 3. Kaka is 20 years old.'))
+        )
+    )
+    asking.start()
+    self.assertTrue(_wait(lambda: played.asked() is not None))
+    asked = _known(played.asked())
+
+    self.assertEqual(asked['year'], 3)
+    self.assertFalse(played.answer('r0', 'rest'))
+    self.assertTrue(played.answer(asked['id'], '  rest  '))
+    asking.join(10)
+
+    self.assertEqual(answers, ['rest'])
+    self.assertIsNone(played.asked())
+
+  def test_an_unanswered_person_does_what_it_would_unasked(self):
+    played = session_lib.PersonInput('Kaka', patience=0.1)
+    customs = 'Customs:\n(food) [c3]: share.\n(kin) [c7]: honour elders.'
+
+    self.assertEqual(played(self._request()), world_lib.GATHER)
+    self.assertEqual(
+        played(self._request(world_lib.PASSING_ON, customs)),
+        f'{world_lib.PASS_ON} c3 c7',
+    )
+    self.assertEqual(
+        played(self._request(world_lib.INTERVIEW)), 'I would rather not say.'
+    )
+
+  def test_a_paused_world_does_not_hurry_the_played_person(self):
+    paused = threading.Event()
+    paused.set()
+    played = session_lib.PersonInput('Kaka', patience=0.2, paused=paused.is_set)
+    threading.Timer(0.8, paused.clear).start()
+    began = time.monotonic()
+
+    self.assertEqual(played(self._request()), world_lib.GATHER)
+    self.assertGreaterEqual(time.monotonic() - began, 0.8)
+
+  def test_closing_raises_rather_than_answering(self):
+    played = session_lib.PersonInput('Kaka', patience=30)
+    threading.Timer(0.2, played.close).start()
+
+    with self.assertRaises(session_lib.Closed):
+      played(self._request())
+
+  def test_a_played_world_waits_for_the_page_and_restores_as_played(self):
+    path = os.path.join(self.create_tempdir().full_path, 'world.json')
+
+    def world(scenario='sandbox', play_as=False):
+      return session_lib.Session(
+          scenario,
+          years_per_second=40,
+          save_path=path,
+          save_seconds=0,
+          play_as=play_as,
+          patience=30,
+      )
+
+    unplayed = world()
+    served = serving.Served(unplayed, renew=world)
+    server = serving.serve(served, 0, '/lifeways')
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_address[1]}/lifeways'
+
+    def post(route, body=None):
+      request = urllib.request.Request(
+          base + route, data=json.dumps(body or {}).encode(), method='POST'
+      )
+      try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+          return response.status, json.loads(response.read())
+      except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read())
+
+    def asked():
+      played = served.session.state()['played']
+      return played and played['asked']
+
+    unplayed.start()
+    try:
+      self.assertIsNone(unplayed.state()['played'])
+      self.assertEqual(post('/api/me', {'id': 'r', 'answer': 'rest'})[0], 409)
+      unplayed.stop()
+      self.assertTrue(_wait(lambda: not unplayed.running))
+
+      self.assertEqual(post('/api/new', {'play_as': True})[0], 200)
+
+      played = served.session.state()['played']
+      self.assertEqual(
+          played['name'],
+          scenarios.founders(scenarios.settings('sandbox'))[0]['params'][
+              'name'
+          ],
+      )
+      self.assertTrue(played['alive'])
+      self.assertTrue(_wait(asked))
+      question = asked()
+      self.assertIn('gather food', question['question'] + question['context'])
+      # The year waits for the played person.
+      year = served.session.state()['year']
+      time.sleep(0.5)
+      self.assertEqual(served.session.state()['year'], year)
+      self.assertEqual(post('/api/me', {'id': 'r', 'answer': 'rest'})[0], 409)
+      self.assertEqual(post('/api/me', {'id': question['id']})[0], 400)
+
+      self.assertEqual(
+          post('/api/me', {'id': question['id'], 'answer': 'rest'}),
+          (200, {'answered': question['id']}),
+      )
+
+      self.assertTrue(_wait(lambda: served.session.state()['year'] > year))
+      self.assertTrue(_wait(lambda: served.session.saved_year is not None))
+      self.assertTrue(session_lib.saved_played(path))
+      # Stopping waits for nobody: the played person does what it would.
+      began = time.monotonic()
+      self.assertTrue(_wait(asked))
+      post('/api/stop')
+      self.assertTrue(_wait(lambda: not served.session.running, 10))
+      self.assertLess(time.monotonic() - began, 10)
+    finally:
+      served.session.close()
+      unplayed.close()
+      server.shutdown()
+      server.server_close()
+    self.assertFalse(session_lib.saved_played(path + '.stopped'))
+    restored = world(session_lib.saved_scenario(path), True)
+    try:
+      self.assertIsNotNone(restored.restored_year)
+      self.assertEqual(restored.state()['played']['name'], played['name'])
+    finally:
+      restored.close()
+    # A played world's save restores only as played.
+    unplayed_again = world(session_lib.saved_scenario(path))
+    try:
+      self.assertIsNone(unplayed_again.restored_year)
+    finally:
+      unplayed_again.close()
 
 
 def tearDownModule():

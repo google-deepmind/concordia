@@ -43,10 +43,11 @@ the first world's alone. The page draws their census together.
 """
 
 import collections
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent import futures
 import json
 import os
+import re
 import threading
 import time
 from typing import Any
@@ -93,6 +94,12 @@ RELEASES_FOLLOWED = 12
 RELEASE_YEARS_SENT = 120
 # The years of the Experimenter's answers an input remembers, for a twin.
 ANSWERS_KEPT = 400
+# How long a played person's question waits for the page (seconds).
+PATIENCE = 120.0
+_CUSTOM_IDS = re.compile(r'\bc\d+\b')
+# The year in a person's yearly question, or in its status line
+# (`World.status`) as it observes it.
+_ASKED_YEAR = re.compile(r'\b(?:It is year|Year) (-?\d+)\b')
 # The moves that shape the world, which a twin's Experimenter also makes.
 SHAPING = (
     world_lib.RELEASE,
@@ -140,6 +147,19 @@ def _fields(land: Mapping[str, Any]) -> list[list[Any]]:
   return [list(row) + [''] * (5 - len(row)) for row in land.get('fields', ())]
 
 
+def _saved_identity(path: str | None) -> Mapping[str, Any]:
+  """The world a save holds (its identity), or {} if none or it won't read."""
+  if not path:
+    return {}
+  try:
+    with open(path, encoding='utf-8') as f:
+      saved = json.load(f)
+  except (OSError, ValueError):
+    return {}
+  world = saved.get('world') if isinstance(saved, dict) else None
+  return world if isinstance(world, dict) else {}
+
+
 def saved_scenario(path: str | None) -> str:
   """The scenario of the world a save holds ('' if none, or it won't read).
 
@@ -152,16 +172,20 @@ def saved_scenario(path: str | None) -> str:
   Returns:
     The saved world's scenario, if it is a preset.
   """
-  if not path:
-    return ''
-  try:
-    with open(path, encoding='utf-8') as f:
-      saved = json.load(f)
-  except (OSError, ValueError):
-    return ''
-  world = saved.get('world') if isinstance(saved, dict) else None
-  scenario = world.get('scenario') if isinstance(world, dict) else None
+  scenario = _saved_identity(path).get('scenario')
   return scenario if scenario in scenarios.PRESETS else ''
+
+
+def saved_played(path: str | None) -> bool:
+  """Whether the world a save holds is one the page plays a person in.
+
+  Args:
+    path: The save file.
+
+  Returns:
+    Whether someone plays a person there (`Session(play_as=True)`).
+  """
+  return bool(_saved_identity(path).get('played'))
 
 
 def why_died(release: Mapping[str, Any]) -> str:
@@ -387,6 +411,140 @@ class TwinInput(PageInput):
     del move
 
 
+class PersonInput:
+  """A played person's answers, from the page.
+
+  A `HumanInput`: each question the World asks the person (its move this
+  year, which customs to pass on to a child, an interview) waits for the
+  page's answer up to `patience` seconds of play (a paused world does not
+  hurry anyone). Then the person does what it would do unasked
+  (`standing_answer`): it gathers food, passes on all it holds, or keeps its
+  counsel. While the person waits, so does the year.
+  """
+
+  def __init__(
+      self,
+      name: str,
+      patience: float = PATIENCE,
+      paused: Callable[[], bool] = lambda: False,
+  ):
+    """Initializes the input.
+
+    Args:
+      name: The person played.
+      patience: How long a question waits for the page's answer (seconds).
+      paused: Whether the world is paused (the wait does not run down then).
+    """
+    self.name = name
+    self._patience = float(patience)
+    self._paused = paused
+    self._changed = threading.Condition()
+    # The question waiting for an answer, and the answer once given.
+    self._asked: dict[str, Any] | None = None
+    self._answer: str | None = None
+    self._deadline = 0.0
+    self._hurried = False
+    self._closed = False
+
+  def __call__(self, request: human_input.HumanInputRequest) -> str:
+    with self._changed:
+      self._asked = {
+          'id': request.request_id,
+          'kind': request.action_spec.tag or '',
+          'question': request.action_spec.call_to_action,
+          'context': request.context,
+          'year': max(
+              map(
+                  int,
+                  _ASKED_YEAR.findall(
+                      request.action_spec.call_to_action + request.context
+                  ),
+              ),
+              default=-1,
+          ),
+          'error': request.error,
+      }
+      self._answer = None
+      self._changed.notify_all()
+      self._deadline = time.monotonic() + self._patience
+      while self._answer is None:
+        if self._closed:
+          raise Closed('The page closed the session.')
+        if self._hurried:
+          break
+        if self._paused():
+          self._deadline = time.monotonic() + self._patience
+        left = self._deadline - time.monotonic()
+        if left <= 0:
+          break
+        self._changed.wait(min(0.5, left))
+      answer = self._answer or standing_answer(self._asked)
+      self._asked = None
+      self._answer = None
+      return answer
+
+  def asked(self) -> dict[str, Any] | None:
+    """The question waiting for the page's answer, if any.
+
+    Returns:
+      The question: its `id`, `kind` (the World's tag), `question`, the
+      person's `context`, the `year`, any `error`, and the `seconds_left`
+      before the person does what it would unasked.
+    """
+    with self._changed:
+      if not self._asked:
+        return None
+      left = max(0.0, self._deadline - time.monotonic())
+      return {**self._asked, 'seconds_left': round(left)}
+
+  def answer(self, request_id: str, text: str) -> bool:
+    """Answers the waiting question.
+
+    Args:
+      request_id: The question's id (an answer to an older one is refused).
+      text: The answer, as the World reads it.
+
+    Returns:
+      Whether the answer was taken.
+    """
+    with self._changed:
+      if not self._asked or self._asked['id'] != request_id:
+        return False
+      self._answer = ' '.join(str(text).split()) or None
+      self._changed.notify_all()
+      return self._answer is not None
+
+  def hurry(self) -> None:
+    """From now on, the person does at once what it would do unasked."""
+    with self._changed:
+      self._hurried = True
+      self._changed.notify_all()
+
+  def close(self) -> None:
+    """Closes the input: a waiting question raises."""
+    with self._changed:
+      self._closed = True
+      self._changed.notify_all()
+
+
+def standing_answer(asked: Mapping[str, Any]) -> str:
+  """What a played person does when the page gives no answer in time.
+
+  Args:
+    asked: The question (`PersonInput.asked`).
+
+  Returns:
+    The answer: gather food; pass on every custom the question names; or
+    keep one's counsel.
+  """
+  if asked['kind'] == world_lib.PASSING_ON:
+    ids = dict.fromkeys(_CUSTOM_IDS.findall(asked['context']))
+    return ' '.join([world_lib.PASS_ON, *ids])
+  if asked['kind'] == world_lib.INTERVIEW:
+    return 'I would rather not say.'
+  return world_lib.GATHER
+
+
 class Session:
   """One world, played in a thread, read by a page."""
 
@@ -400,6 +558,8 @@ class Session:
       follow: PageInput | None = None,
       model: language_model.LanguageModel | None = None,
       minds: str = simulation.MOCK,
+      play_as: bool = False,
+      patience: float = PATIENCE,
       **overrides: Any,
   ):
     """Builds the world, or restores its last save (it starts with `start`).
@@ -418,6 +578,10 @@ class Session:
         from, whose moves its Experimenter follows (`TwinInput`).
       model: Optional. The model people think with (the mock by default).
       minds: What the page calls the model (`simulation.make_model`'s spec).
+      play_as: Whether the page plays a person: the world's first founder
+        (`PersonInput`); minds play the others, and the person in a twin.
+        A save of a played world is restored only as a played world.
+      patience: How long a played person's question waits for the page.
       **overrides: More settings.
     """
     self._model = model
@@ -437,6 +601,17 @@ class Session:
             default=str,
         )
     )
+    # The person the page plays, if any (in the identity only then, so that
+    # saves of unplayed worlds keep theirs).
+    self.played: PersonInput | None = None
+    if play_as:
+      first = scenarios.founders(self._settings)[0]['params']['name']
+      self.played = PersonInput(
+          str(first),
+          patience,
+          paused=lambda: bool(self.input.settings()['paused']),
+      )
+      self._identity['played'] = self.played.name
     self._rows: collections.deque[dict[str, Any]] = collections.deque(
         maxlen=ROWS_KEPT
     )
@@ -492,6 +667,16 @@ class Session:
         experimenter=lambda order: human_act_component.HumanActComponent(
             self.input, order
         ),
+        player=(
+            (
+                self.played.name,
+                lambda order: human_act_component.HumanActComponent(
+                    self.played, order
+                ),
+            )
+            if self.played
+            else None
+        ),
     )
     run.lifecycle.year_closed = self._year_closed
     run.lifecycle.forgotten = self._forget
@@ -536,6 +721,8 @@ class Session:
     """
     deadline = time.monotonic() + timeout
     self.input.close()
+    if self.played:
+      self.played.close()
     self.run.engine.play()
     if self._thread is not None:
       self._thread.join(timeout)
@@ -1032,7 +1219,11 @@ class Session:
       self._saving.wait_for(lambda: self._fork is not None, timeout)
       saved, self._fork, self._fork_wanted = self._fork, None, False
     if saved is None:
-      raise RuntimeError('No year closed in time to fork a twin.')
+      waiting = self.played is not None and self.played.asked() is not None
+      raise RuntimeError(
+          'No year closed in time to fork a twin'
+          + (': the year waits for your answer.' if waiting else '.')
+      )
     twin = Session(
         self.scenario,
         seed=self._seed,
@@ -1194,6 +1385,15 @@ class Session:
         },
         'channels': sorted(
             self._settings.get('channels', world_lib.DEFAULT_CHANNELS)
+        ),
+        'played': (
+            {
+                'name': self.played.name,
+                'alive': any(p['name'] == self.played.name for p in people),
+                'asked': self.played.asked(),
+            }
+            if self.played
+            else None
         ),
     }
 
@@ -1385,12 +1585,32 @@ class Session:
 
   # --- What the page does -----------------------------------------------
 
+  def answer(self, request_id: str, text: str) -> bool:
+    """Answers the played person's waiting question.
+
+    Args:
+      request_id: The question's id (`state()['played']['asked']['id']`).
+      text: The answer, as the World reads it.
+
+    Returns:
+      Whether the answer was taken (not if the question is no longer asked).
+
+    Raises:
+      RuntimeError: If nobody is played in this world.
+    """
+    if self.played is None:
+      raise RuntimeError('Nobody is played in this world.')
+    self._played = time.time()
+    return self.played.answer(request_id, text)
+
   def stop(self) -> None:
     """The person stops the world: the Experimenter's next move ends it."""
     self._played = time.time()
     with self._saving:
       self._save_wanted = True  # A stopped world stays stopped.
     self.input.queue(world_lib.STOP)
+    if self.played is not None:
+      self.played.hurry()  # The world's last year waits for nobody.
     self._write(MOVE, 'You stop the world.')
     self.input.pace(paused=False)
     self.run.engine.play()

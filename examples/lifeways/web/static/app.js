@@ -52,6 +52,8 @@ const page = {
   entries: [],
   entrySince: 0,
   /** @type {?string} The person shown, if any. */ person: null,
+  /** @type {?string} The played person's question shown, if any. */
+  asked: null,
   /** @type {?Array<number>} The place chosen for a release: [row, col]. */
   at: null,
   /** Whether the person chose the place; until then it follows the crowd. */
@@ -182,6 +184,15 @@ function drawMap(world) {
             page.tile * 0.22, 0, 2 * Math.PI);
     ctx.fillStyle = peopleColour(person.descent || 'valley');
     ctx.fill();
+    if (world.played && person.name === world.played.name) {  // You.
+      ctx.beginPath();
+      ctx.arc(person.x, person.y, page.tile * 0.4, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 }
 
@@ -878,6 +889,7 @@ async function refreshOnce() {
     }
     drawMap(world);
     drawAt(world);
+    drawLife(world);
     drawTranscripts(world);
     drawReleases(world);
     document.getElementById('twin').textContent = twinNote(world.twin);
@@ -914,6 +926,168 @@ async function refreshOnce() {
   } catch (error) {
     document.getElementById('error').textContent = String(error);
   }
+}
+
+/** What a played person does if the page does not answer, by question. */
+const LIFE_UNASKED = {
+  move: 'gather food',
+  pass_on: 'pass on all you hold',
+  interview: 'keep your counsel',
+};
+
+/** A custom in a person's context: "<label> (<domain>) [c3]: <text>". */
+const LIFE_CUSTOM = /^(.*?) \(([^)\n]+)\) \[(c\d+)\]: (.*)$/gm;
+
+/**
+ * The moves a played person may make: its question's "- " lines.
+ * @param {string} question The World's question.
+ * @return {!Array<string>} The moves, in order.
+ */
+function lifeMoves(question) {
+  return question.split('\n').filter((line) => line.startsWith('- '))
+      .map((line) => line.slice(2).trim()).filter(Boolean);
+}
+
+/**
+ * The customs a played person holds, as its context lists them.
+ * @param {string} context The person's context.
+ * @return {!Array<!Object>} Each custom once: {id, label, domain, text}.
+ */
+function lifeCustoms(context) {
+  const found = new Map();
+  for (const [, label, domain, id, text] of context.matchAll(LIFE_CUSTOM)) {
+    if (!found.has(id)) found.set(id, {id, label, domain, text});
+  }
+  return [...found.values()];
+}
+
+/**
+ * How the played person's life stands: its latest status line, as observed.
+ * @param {string} context The person's context.
+ * @param {string} name The person.
+ * @return {string} The line ('' if none is in sight yet).
+ */
+function lifeStatus(context, name) {
+  const lines = [...context.matchAll(/Year -?\d+\. (\S+) is [^\n]*/g)]
+      .filter((found) => found[1] === name);
+  return lines.length ? lines[lines.length - 1][0].trim() : '';
+}
+
+/**
+ * The question, without the World's instructions on how to answer it.
+ * @param {!Object} asked The question (`played.asked` in the state).
+ * @return {string} The question to show.
+ */
+function lifeQuestion(asked) {
+  if (asked.kind === 'move') {
+    return asked.question.split('\n')[0].replace(/ Choose one move:$/, '');
+  }
+  if (asked.kind === 'pass_on') {
+    return asked.question.replace(/ Answer "pass on"[^]*$/, '');
+  }
+  return asked.question;
+}
+
+/**
+ * The answer the World reads, from what the person chose on the page.
+ * @param {string} kind The question's kind ('move', 'pass_on', 'interview').
+ * @param {string} move The move chosen (for a move).
+ * @param {!Array<string>} ids The customs chosen.
+ * @param {string=} said What the person says (for an interview).
+ * @return {string} The answer ('' if there is nothing to send).
+ */
+function lifeAnswer(kind, move, ids, said = '') {
+  if (kind === 'interview') return said.trim();
+  if (kind === 'pass_on') return ['pass on', ...ids].join(' ');
+  return move ? [move, ...ids].join(' ') : '';
+}
+
+/**
+ * A line on the played person's life: what waits for it, or that it ended.
+ * @param {?Object} played The state's `played`.
+ * @return {string} The line.
+ */
+function lifeNote(played) {
+  if (!played) return '';
+  if (!played.alive) {
+    return `${played.name} has died; what they taught lives on in others. ` +
+        'Stop the world and begin a new one to live again.';
+  }
+  const asked = played.asked;
+  if (!asked) return 'The others are choosing; the year turns.';
+  const year = asked.year >= 0 ? `Year ${asked.year}: the` : 'The';
+  return `${year} year waits for you. Answer within ` +
+      `${asked.seconds_left}\u00a0s, or you ${LIFE_UNASKED[asked.kind] ||
+      LIFE_UNASKED.move}.`;
+}
+
+/**
+ * A radio button or checkbox with its label.
+ * @param {string} type 'radio' or 'checkbox'.
+ * @param {string} name The group's name.
+ * @param {string} value The value sent.
+ * @param {string} text The label.
+ * @param {boolean} checked Whether it starts chosen.
+ * @param {string=} meta A muted line under the label, if any.
+ * @return {!HTMLElement} The label holding the input.
+ */
+function choiceInput(type, name, value, text, checked, meta = '') {
+  const label = document.createElement('label');
+  const input = document.createElement('input');
+  Object.assign(input, {type, name, value, checked});
+  const words = document.createElement('span');
+  words.textContent = text;
+  if (meta) {
+    const small = document.createElement('span');
+    small.className = 'meta';
+    small.textContent = meta;
+    words.append(document.createElement('br'), small);
+  }
+  label.append(input, words);
+  return label;
+}
+
+/**
+ * Shows the played person's life: its question, kept as chosen until the
+ * question changes.
+ * @param {!Object} world The state.
+ */
+function drawLife(world) {
+  const played = world.played;
+  document.getElementById('life').hidden = !played;
+  if (!played) return;
+  document.getElementById('life-name').textContent = played.name;
+  document.getElementById('life-note').textContent = lifeNote(played);
+  const asked = played.alive ? played.asked : null;
+  document.getElementById('life-form').hidden = !asked;
+  if (!asked) {
+    page.asked = null;
+    return;
+  }
+  const key = `${asked.id} ${asked.error || ''}`;
+  if (key === page.asked) return;
+  page.asked = key;
+  document.getElementById('life-error').textContent = asked.error || '';
+  document.getElementById('life-status').textContent =
+      lifeStatus(asked.context, played.name);
+  document.getElementById('life-question').textContent = lifeQuestion(asked);
+  document.getElementById('life-context').textContent = asked.context;
+  const passing = asked.kind === 'pass_on';
+  const interview = asked.kind === 'interview';
+  document.getElementById('life-moves').hidden = asked.kind !== 'move';
+  document.getElementById('life-customs').hidden = interview;
+  document.getElementById('life-say-box').hidden = !interview;
+  document.getElementById('life-say').value = '';
+  document.getElementById('life-move-list').replaceChildren(
+      ...lifeMoves(asked.question).map(
+          (move, i) => choiceInput('radio', 'life-move', move, move, i === 0)));
+  document.getElementById('life-customs-legend').textContent = passing ?
+      'The customs you pass on to your child' :
+      'The customs you follow in it, if any';
+  document.getElementById('life-custom-list').replaceChildren(
+      ...lifeCustoms(asked.context).map((custom) => choiceInput(
+          'checkbox', 'life-custom', custom.id, custom.text, passing,
+          `${custom.label} (${custom.domain}) ${custom.id}`)));
 }
 
 /**
@@ -973,11 +1147,38 @@ async function start() {
     if (!confirm(`Begin a new world (${scenario})? This one is set aside.`)) {
       return;
     }
-    await api('api/new', {scenario});
+    await api('api/new',
+        {scenario, play_as: document.getElementById('play-as').checked});
     Object.assign(page, {rows: [], since: -1, twinRows: [], twinSince: -1,
-      twin: null, entries: [], entrySince: 0, person: null, at: null});
+      twin: null, entries: [], entrySince: 0, person: null, at: null,
+      asked: null});
     refresh();
   });
+  document.getElementById('life-form').addEventListener('submit',
+      async (event) => {
+        event.preventDefault();
+        const played = page.world && page.world.played;
+        const asked = played && played.asked;
+        if (!asked) return;
+        const move = document.querySelector('input[name="life-move"]:checked');
+        const ids = [...document.querySelectorAll(
+            'input[name="life-custom"]:checked')].map((input) => input.value);
+        const answer = lifeAnswer(asked.kind, move ? move.value : '', ids,
+            document.getElementById('life-say').value);
+        const said = document.getElementById('life-error');
+        if (!answer) {
+          said.textContent = 'Choose or say something first.';
+          return;
+        }
+        said.textContent = '';
+        try {
+          await api('api/me', {id: asked.id, answer});
+          document.getElementById('life-form').hidden = true;
+        } catch (error) {
+          said.textContent = `Not taken: ${error.message}`;
+        }
+        refresh();
+      });
   document.getElementById('ask').addEventListener('submit', async (event) => {
     event.preventDefault();
     const question = document.getElementById('question').value.trim();
@@ -1066,7 +1267,8 @@ if (typeof document !== 'undefined') {
   module.exports = {
     askMove, cameBy, chartSeries, crowdedSpot, domainsFor, kinName,
     leverChoices, peopleColour, releaseMove, appendNew, entryMeta, entryShown,
-    fateChoices, fateMove, reachNote, recentDisasters, releaseStatus, savedNote,
+    fateChoices, fateMove, lifeAnswer, lifeCustoms, lifeMoves, lifeNote,
+    lifeQuestion, lifeStatus, reachNote, recentDisasters, releaseStatus, savedNote,
     transmissionText, transmissionTree, twinNote, variantNote, withinReach,
   };
 }

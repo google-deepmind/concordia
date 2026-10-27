@@ -61,6 +61,12 @@ _FREE = flags.DEFINE_float(
 _SAVE = flags.DEFINE_string(
     'save', '', 'File the world is saved to and restored from (none if empty).'
 )
+_PLAY_AS = flags.DEFINE_bool(
+    'play_as',
+    False,
+    'Whether the page plays a founder in a new world (a saved world keeps'
+    ' its own).',
+)
 
 
 def _stopped(signum: int, frame: Any) -> None:
@@ -78,9 +84,10 @@ def main(argv: Sequence[str]) -> None:
     raise app.UsageError(str(error)) from error
   overrides: dict[str, Any] = {'free': _FREE.value} if _FREE.value > 0 else {}
 
-  def world(scenario: str) -> session_lib.Session:
+  def world(scenario: str, play_as: bool = False) -> session_lib.Session:
     return session_lib.Session(
         scenario,
+        play_as=play_as,
         seed=_SEED.value,
         years_per_second=_PACE.value,
         save_path=_SAVE.value or None,
@@ -89,9 +96,14 @@ def main(argv: Sequence[str]) -> None:
         **overrides,
     )
 
-  # A world begun from the page in another preset is restored as itself.
+  # A world begun from the page in another preset, or played, is restored
+  # as itself.
+  saved = session_lib.saved_scenario(_SAVE.value)
   served = serving.Served(
-      world(session_lib.saved_scenario(_SAVE.value) or _SCENARIO.value),
+      world(
+          saved or _SCENARIO.value,
+          session_lib.saved_played(_SAVE.value) if saved else _PLAY_AS.value,
+      ),
       renew=world,
   )
   server = serving.serve(served, _PORT.value, _BASE.value)
