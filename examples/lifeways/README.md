@@ -227,18 +227,20 @@ prefix) over seeds 0-2 (build 272aa666):
   fields and sows as before.
 - Live minds holding the norm in the farming domain try to sow about as
   often, but their sowings grow nothing more than half the time. A
-  sowing makes a field only if the answer names the farming know-how;
-  those answers name the norm and the food know-how instead (the census
-  keeps them: `barren_answers`).
-- The same norm in another domain (`authority`) barely hurts sowing and
-  doubles sparing.
-- It is the naming, not the holding. The Learner takes up and drops
-  customs by the same rule for both minds, about as many hold the farming
-  know-how in both live arms, and the mock sows as before. Live minds
-  that sow name the custom about fields that sits beside the know-how,
-  not the know-how.
-- So what a custom does depends on the minds that read it, and on where
-  it sits among their customs. Over seeds 0-4 the farming-domain norm
+  sowing makes a field only if the answer names farming know-how the
+  sower was given.
+- Mostly they no longer hold it: of 20 barren sowings (seeds 1-2, build
+  82e63b00), 16 were by people who had lost the farming know-how
+  (`barren_knowing` in the census). The norm comes in two forms (expected
+  of people, held as one's own), and both take the farming domain's two
+  places, so whoever takes it up loses the know-how. The World, which
+  never reads minds, still offers sowing to anyone it once gave the
+  know-how, and nothing grows. About as many hold the know-how in both
+  arms, but they are not the ones who sow.
+- The same norm in another domain (`authority`) takes no farming place:
+  it barely hurts sowing and doubles sparing.
+- So what a custom does depends on the minds that act on it, and on
+  where it sits among their customs. Over seeds 0-4 the farming-domain norm
   cut the fields grown in all five seeds (130 against 69).
 
 ### The experiment tool
