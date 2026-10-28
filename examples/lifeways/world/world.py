@@ -924,12 +924,11 @@ class World:
         'answer': answer,
     })
     del self.transcripts[:-TRANSCRIPTS_KEPT]
-    if said_by(name, answer):  # It tells what the answerer says or does.
-      self._report(f'Asked "{question}", {answer.strip()}')
+    said = ' '.join(answer.split())  # As the page shows it: one line.
+    if said_by(name, said):  # It tells what the answerer says or does.
+      self._report(f'Asked "{question}", {said}')
     else:
-      self._report(
-          f'{name}, asked "{question}", says: "{speech(name, answer)}"'
-      )
+      self._report(f'{name}, asked "{question}", says: "{speech(name, said)}"')
 
   def year_complete(self) -> bool:
     return all(name in self.actions for name in self.participants())

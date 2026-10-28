@@ -1027,7 +1027,7 @@ class TransmissionTest(absltest.TestCase):
         world_lib.EXPERIMENTER: 'ask Ada: Why do you share?',
     }
     self.world.close_year()
-    self.world.record_action('Ada', 'Ada says: "Because the old taught us."')
+    self.world.record_action('Ada', 'Ada  says: "Because the old\ntaught us."')
     self.world.record_action(world_lib.EXPERIMENTER, 'watch')
     self.world.record_action('Ada', 'gather food')
     self.world.close_year()
