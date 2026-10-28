@@ -94,6 +94,8 @@ NOT_PLAYABLE = (
 SETTLED_YEARS = 10
 # How many of a lineage's dead branches the page may list.
 GONE_SHOWN = 30
+# The years the same words arose again, kept on a version's row (the latest).
+AGAIN_KEPT = 5
 # What the person writes in the notebook, and the longest entry.
 NOTE_KINDS = ('hypothesis', 'observation', 'note')
 NOTE_LENGTH = 1000
@@ -1594,6 +1596,8 @@ class Session:
       first with their depth and holders (at most `LINEAGE_SHOWN`; `more`
       says how many are left out); and the dead branches: their number
       (`gone_count`) and the latest of them (`gone`, at most `GONE_SHOWN`).
+      A dead version with the words of a listed one is not listed again:
+      its year is in that one's `again`; in the tree it is `returned`.
       None if the variant is not known.
     """
     world = self.run.world_state()
@@ -1653,11 +1657,32 @@ class Session:
           shown.add(i)
           i = str(known[i].get('parent') or '')
     kept = [v for v in variants if v['id'] in shown]
-    gone = [v for v in variants if v['id'] not in shown]
     held = sorted(
         (v for v in variants if v['holders']), key=lambda v: -len(v['holders'])
     )
     kept_only = [v for v in variants if v['living'] and not v['holders']]
+    # A copy's error can undo another's, so the same words can arise again
+    # as a new version. A dead version with the words of one that lives, or
+    # of a later dead one, is not listed again: its year goes with that one
+    # (`again`), and a dead one in the tree says its words came back.
+    living_texts = {v['text'] for v in variants if v['living']}
+    for variant in variants:
+      if not variant['living'] and variant['text'] in living_texts:
+        variant['returned'] = True
+    first: dict[str, dict[str, Any]] = {}
+    for variant in held + kept_only:
+      first.setdefault(variant['text'], variant)
+    gone = []
+    for variant in sorted(
+        (v for v in variants if v['id'] not in shown),
+        key=lambda v: -int(v['year']),
+    ):
+      same = first.get(variant['text'])
+      if same is None:
+        first[variant['text']] = variant
+        gone.append(variant)
+      elif len(same.setdefault('again', [])) < AGAIN_KEPT:
+        same['again'].append(variant['year'])
     return {
         'id': custom_id,
         'text': known[custom_id].get('text', ''),
@@ -1669,7 +1694,7 @@ class Session:
         'kept_count': len(kept_only),
         'variants': kept[:LINEAGE_SHOWN],
         'more': max(0, len(kept) - LINEAGE_SHOWN),
-        'gone': sorted(gone, key=lambda v: -int(v['year']))[:GONE_SHOWN],
+        'gone': gone[:GONE_SHOWN],
         'gone_count': len(gone),
     }
 

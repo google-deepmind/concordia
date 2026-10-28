@@ -30,7 +30,7 @@ const {
   fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory, lifeMoves,
   lifeNote, lifeQuestion, lifeSuggested, livesNote, reachNote,
   recentDisasters, releaseStatus, savedNote,
-  transmissionText, transmissionTree, twinNote, variantNote, withinReach,
+  holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
 } = require('./app.js');
 
 test('a release is written in the form the World reads', () => {
@@ -81,7 +81,8 @@ test('the fork form offers each lever, then each channel to go without', () => {
 test('a custom says how it came and from whom', () => {
   assert.equal(cameBy({via: 'observation', from: 'Mara'}),
       'saw it done by Mara');
-  assert.equal(cameBy({via: 'birth', from: ''}), 'was born with it');
+  assert.equal(cameBy({via: 'birth', from: ''}), 'had it from the start');
+  assert.equal(cameBy({via: 'birth', from: 'Mara'}), 'inherited it from Mara');
   assert.equal(cameBy({via: 'upbringing', from: 'Ada'}),
       'was taught it as a child by Ada');
 });
@@ -94,39 +95,45 @@ test('the dead are named with their years, the forgotten as such', () => {
       'Elor (forgotten)');
 });
 
-test('holders nest under those they had a custom from', () => {
-  const roots = transmissionTree([
+test('holders are grouped by how they came by a custom', () => {
+  const holders = [
     {name: 'Bo', via: 'observation', from: 'Ada'},
     {name: 'Ada', via: 'upbringing', from: 'Mara'},
-    {name: 'Cy', via: 'reading', from: ''},
-    {name: 'Di', via: 'observation', from: 'Bo'},
-  ]);
-  assert.equal(transmissionText(roots),
-      'Ada was taught it as a child by Mara; Bo saw it done by Ada; ' +
-      'Di saw it done by Bo; Cy read it in a text');
+    {name: 'Cy', via: 'upbringing', from: 'Mara'},
+    {name: 'Di', via: 'upbringing', from: 'Mara'},
+    {name: 'Eo', via: 'sanction', from: ''},
+    {name: 'Fa', via: 'sanction', from: ''},
+  ];
+  assert.equal(holdersText(holders),
+      'Ada, Cy and Di were taught it as a child by Mara; Eo and Fa were ' +
+      'shamed into it; Bo saw it done by Ada.');
+  assert.equal(holdersText(holders, 2), 'Ada, Cy and 1 more were taught ' +
+      'it as a child by Mara; Eo and Fa were shamed into it; Bo saw it ' +
+      'done by Ada.');
+  assert.equal(holdersLabel(holders), '6 hold it: Bo, Ada, Cy and 3 more');
+  assert.equal(holdersLabel(holders.slice(0, 1)), '1 holds it: Bo');
+  assert.equal(namesText([], 3), '');
+  assert.equal(namesText(['Ada', 'Bo'], 3), 'Ada and Bo');
 });
 
-test('learning from one another makes no loop', () => {
-  const roots = transmissionTree([
-    {name: 'Ada', via: 'observation', from: 'Bo'},
-    {name: 'Bo', via: 'observation', from: 'Ada'},
-  ]);
-  assert.equal(roots.length, 1);
-  assert.equal(transmissionText(roots),
-      'Bo saw it done by Ada; Ada saw it done by Bo');
-});
-
-test('a variant says how it arose and who holds it', () => {
+test('a variant says tersely who holds it and when it arose', () => {
   const variant = {id: 'c52', origin: 'mutation', year: 9, living: true,
     holders: [{name: 'Ada'}]};
-  assert.equal(variantNote(variant),
-      'held by 1 person · changed by a copying error, year 9');
-  assert.equal(variantNote({...variant, holders: []}),
-      'nobody holds it, but a library or shrine keeps it · changed by a ' +
-      'copying error, year 9');
-  assert.equal(variantNote({...variant, living: false, year: 28607}),
-      'nobody holds this version any more · changed by a copying error, ' +
-      'year 28,607');
+  assert.equal(variantNote(variant, 'held'),
+      'held by 1 person · since year 9');
+  assert.equal(variantNote({...variant, holders: []}, 'kept'),
+      'since year 9');
+  assert.equal(variantNote({...variant, holders: []}, 'tree'),
+      'only in a library or shrine · since year 9');
+  const dead = {...variant, holders: [], living: false, year: 28607};
+  assert.equal(variantNote(dead, 'gone'), 'arose in year 28,607');
+  assert.equal(variantNote({...dead, returned: true}, 'tree'),
+      'no longer held · arose in year 28,607 · its words came back in a ' +
+      'later copy');
+  assert.equal(variantNote({...dead, again: [22, 107]}, 'gone'),
+      'arose in year 28,607 · the same words arose again in years 22, 107');
+  assert.equal(variantNote({...variant, origin: 'founder'}, 'held'),
+      'held by 1 person · since year 9 · brought by the first settlers');
 });
 
 test('the notebook filters what the person wrote, moves and changes', () => {
@@ -380,10 +387,11 @@ test('the player sees how far its ways have reached', () => {
 });
 
 test('the fold of dead branches says what it holds', () => {
-  assert.equal(goneNote(1, 1), '1 other version nobody holds any more ' +
-      '(copying errors that died out)');
-  assert.equal(goneNote(386, 30), '386 other versions nobody holds any ' +
-      'more (copying errors that died out); the latest 30 are listed');
+  assert.equal(goneNote(1, 1), '1 other version that died out: nobody ' +
+      'holds it, and no library or shrine keeps it');
+  assert.equal(goneNote(386, 30), '386 other versions that died out: ' +
+      'nobody holds them, and no library or shrine keeps them; the latest ' +
+      '30 are listed');
 });
 
 test('kinds, worlds and years read as words', () => {

@@ -602,6 +602,17 @@ class TreesTest(absltest.TestCase):
       for variant in lineage['gone']:
         self.assertNotIn(variant['id'], living)
         self.assertNotIn(variant['id'], shown)
+      # The same words are listed once: a dead version that repeats a held,
+      # kept or later dead one gives that one its year (`again`).
+      dead = [v['text'] for v in lineage['gone']]
+      self.assertLen(set(dead), len(dead))
+      self.assertEmpty(
+          set(dead) & {v['text'] for v in lineage['held'] + lineage['kept']}
+      )
+      for variant in lineage['held'] + lineage['kept'] + lineage['gone']:
+        self.assertLessEqual(
+            len(variant.get('again', [])), session_lib.AGAIN_KEPT
+        )
       self.assertGreaterEqual(lineage['gone_count'], len(lineage['gone']))
       self.assertLessEqual(len(lineage['gone']), session_lib.GONE_SHOWN)
       held = [len(v['holders']) for v in lineage['held']]

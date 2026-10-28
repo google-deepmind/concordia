@@ -703,7 +703,7 @@ const CHANNEL_WORDS = {
 const HELD_BY = {
   apprenticeship: 'as apprentices',
   arrival: 'brought in',
-  birth: 'born with them',
+  birth: 'inherited them',
   observation: 'saw them done',
   practice: 'by practice',
   preaching: 'heard them preached',
@@ -758,7 +758,7 @@ function worldName(scenario) {
 
 /** How a custom came to someone, by channel: alone, and from someone. */
 const LEARNED_BY = {
-  birth: ['was born with it', 'had it at birth from'],
+  birth: ['had it from the start', 'inherited it from'],
   arrival: ['brought it into the valley', 'brought it in with'],
   upbringing: ['was taught it as a child', 'was taught it as a child by'],
   observation: ['saw it done', 'saw it done by'],
@@ -786,18 +786,89 @@ function kinName(kin) {
 }
 
 /**
- * What a lineage says of one version: who holds it, how and when it arose.
+ * What a lineage says of one version, tersely: the panel says once that a
+ * new version is a copying error, and each list says what its rows are.
  * @param {!Object} variant A variant of the lineage reply.
- * @return {string} E.g. 'held by 3 people · changed by a copying error,
- *     year 9'.
+ * @param {string} where 'held', 'kept', 'gone' (the lists, which say
+ *     whether their versions are held) or 'tree' (which does not).
+ * @return {string} E.g. 'held by 3 people · since year 9'; 'arose in year
+ *     22 · the same words arose again in year 107'.
  */
-function variantNote(variant) {
+function variantNote(variant, where) {
   const n = variant.holders.length;
-  const held = !variant.living ? 'nobody holds this version any more' :
-      n ? `held by ${n} ${n === 1 ? 'person' : 'people'}` :
-      'nobody holds it, but a library or shrine keeps it';
-  const arose = ARISEN_BY[variant.origin] || variant.origin;
-  return `${held} · ${arose}, year ${variant.year.toLocaleString('en')}`;
+  const year = variant.year.toLocaleString('en');
+  const parts = [];
+  if (where === 'gone') {
+    parts.push(`arose in year ${year}`);
+  } else if (where === 'kept') {
+    parts.push(`since year ${year}`);
+  } else if (n) {
+    parts.push(`held by ${n} ${n === 1 ? 'person' : 'people'}`,
+        `since year ${year}`);
+  } else if (variant.living) {
+    parts.push('only in a library or shrine', `since year ${year}`);
+  } else {
+    parts.push('no longer held', `arose in year ${year}`);
+  }
+  if (variant.origin !== 'mutation') {
+    parts.push(ARISEN_BY[variant.origin] || variant.origin);
+  }
+  const again = variant.again || [];
+  if (again.length) {
+    parts.push(`the same words arose again in ${again.length === 1 ?
+      'year' : 'years'} ${again.map((y) => y.toLocaleString('en'))
+        .join(', ')}`);
+  }
+  if (where === 'tree' && variant.returned) {
+    parts.push('its words came back in a later copy');
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * A list of names, bounded: 'Ada', 'Ada and Bo', 'Ada, Bo and 3 more'.
+ * @param {!Array<string>} names The names.
+ * @param {number} shown How many to name at most.
+ * @return {string} The list.
+ */
+function namesText(names, shown) {
+  if (names.length > shown) {
+    return `${names.slice(0, shown).join(', ')} and ` +
+        `${names.length - shown} more`;
+  }
+  if (names.length < 2) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Who holds a version, grouped by how they came by it (largest first).
+ * @param {!Array<!Object>} holders {name, via, from} of each holder.
+ * @param {number=} shown How many names each group lists at most.
+ * @return {string} E.g. 'Ada and Bo inherited it from Mara; Cy saw it done
+ *     by Ada.'
+ */
+function holdersText(holders, shown = 8) {
+  const groups = new Map();
+  for (const holder of holders) {
+    const how = cameBy(holder);
+    if (!groups.has(how)) groups.set(how, []);
+    groups.get(how).push(holder.name);
+  }
+  return [...groups].sort((a, b) => b[1].length - a[1].length)
+      .map(([how, names]) => `${namesText(names, shown)} ` +
+          (names.length > 1 ? how.replace(/^was /, 'were ') : how))
+      .join('; ') + '.';
+}
+
+/**
+ * The label of a version's holders' fold: how many, and the first names.
+ * @param {!Array<!Object>} holders {name, ...} of each holder.
+ * @return {string} E.g. '9 hold it: Masa, Arvi, Luli and 6 more'.
+ */
+function holdersLabel(holders) {
+  const n = holders.length;
+  return `${n === 1 ? '1 holds' : `${n} hold`} it: ` +
+      namesText(holders.map((h) => h.name), 3);
 }
 
 /**
@@ -818,7 +889,8 @@ function moreNote(listed, count) {
  */
 function goneNote(count, listed) {
   const versions = count === 1 ? '1 other version' : `${count} other versions`;
-  return `${versions} nobody holds any more (copying errors that died out)` +
+  return `${versions} that died out: nobody holds ${count === 1 ? 'it' :
+    'them'}, and no library or shrine keeps ${count === 1 ? 'it' : 'them'}` +
       (listed < count ? `; the latest ${listed} are listed` : '');
 }
 
@@ -860,54 +932,6 @@ function kinRow(label, kin) {
 }
 
 /**
- * Nests a variant's holders under those they had it from (who learned from
- * whom); a holder whose source holds it no more, or is a place, is a root.
- * @param {!Array<!Object>} holders {name, via, from} of each holder.
- * @return {!Array<!Object>} The roots, each with its `learners`.
- */
-function transmissionTree(holders) {
-  const byName = new Map(holders.map(
-      (h) => [h.name, {...h, learners: []}]));
-  const roots = [];
-  for (const node of byName.values()) {
-    const teacher = node.from && node.from !== node.name ?
-        byName.get(node.from) : undefined;
-    if (teacher && !isUnder(teacher, node)) {
-      teacher.learners.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
-}
-
-/**
- * Whether `node` is `under` or among its learners (no cycles in the tree).
- * @param {!Object} node A holder.
- * @param {!Object} under Another.
- * @return {boolean}
- */
-function isUnder(node, under) {
-  if (node === under) return true;
-  return under.learners.some((learner) => isUnder(node, learner));
-}
-
-/**
- * Writes a transmission tree as text: 'Mara > Ada (observation), Bo'.
- * @param {!Array<!Object>} roots The tree's roots.
- * @return {string} The text.
- */
-function transmissionText(roots) {
-  const lines = [];
-  const walk = (node) => {
-    lines.push(`${node.name} ${cameBy(node)}`);
-    node.learners.forEach(walk);
-  };
-  roots.forEach(walk);
-  return lines.join('; ');
-}
-
-/**
  * Shows a custom's lineage: its variants, who holds each and from whom.
  * @param {string} id A variant's id.
  */
@@ -915,51 +939,53 @@ async function showLineage(id) {
   const lineage = await api(`api/lineage?id=${encodeURIComponent(id)}`);
   document.getElementById('lineage-title').textContent =
       `How a custom has changed: “${lineage.text}”`;
-  const item = (variant, indent) => {
+  const item = (variant, where) => {
     const li = document.createElement('li');
-    if (indent) li.style.marginLeft = `${Math.min(variant.depth, 6) * 12}px`;
+    if (where === 'tree') {
+      li.style.marginLeft = `${Math.min(variant.depth, 6) * 12}px`;
+    }
     const text = document.createElement('div');
     text.textContent = variant.text;
     if (variant.id === id) text.style.fontWeight = '600';
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = variantNote(variant);
+    meta.textContent = variantNote(variant, where);
     li.append(text, meta);
-    if (variant.holders.length && !indent) {
+    if (variant.holders.length && where === 'held') {
       const who = document.createElement('details');
       const label = document.createElement('summary');
-      label.textContent = 'Who holds it, and how they came by it';
+      label.textContent = holdersLabel(variant.holders);
       const names = document.createElement('div');
       names.className = 'holders';
-      names.textContent =
-          transmissionText(transmissionTree(variant.holders)) + '.';
+      names.textContent = holdersText(variant.holders);
       who.append(label, names);
       li.append(who);
     }
     return li;
   };
-  const fill = (key, variants, indent, label) => {
+  const fill = (key, variants, label) => {
     document.getElementById(`lineage-${key}`).hidden = !variants.length;
     document.getElementById(`lineage-${key}-label`).textContent = label;
     document.getElementById(`lineage-${key}-list`).replaceChildren(
-        ...variants.map((variant) => item(variant, indent)));
+        ...variants.map((variant) => item(variant, key)));
   };
   document.getElementById('lineage-held-none').hidden =
       lineage.held.length > 0;
   document.getElementById('lineage-held-list').replaceChildren(
-      ...lineage.held.map((variant) => item(variant, false)));
+      ...lineage.held.map((variant) => item(variant, 'held')));
   const heldMore = moreNote(lineage.held.length, lineage.held_count);
   document.getElementById('lineage-held-more').textContent =
       heldMore ? `${sentence(heldMore)}.` : '';
-  fill('kept', lineage.kept, false, `Kept only in libraries or shrines ` +
+  fill('kept', lineage.kept, `Kept only in libraries or shrines ` +
       `(${lineage.kept_count}): nobody holds these, but someone may read or ` +
       'hear them there' + (lineage.kept.length < lineage.kept_count ?
         `; ${moreNote(lineage.kept.length, lineage.kept_count)}` : ''));
   const shown = lineage.variants.length;
-  fill('tree', lineage.variants, true, `Its family tree (${shown}` +
+  fill('tree', lineage.variants, `Its family tree (${shown}` +
       (lineage.more ? ` of ${shown + lineage.more} versions shown` :
-        ' versions') + '): each is indented under the one it was copied from');
-  fill('gone', lineage.gone, false,
+        ' versions') + ': those held or kept, and the ones they came from)' +
+      ': each is indented under the one it was copied from');
+  fill('gone', lineage.gone,
       goneNote(lineage.gone_count, lineage.gone.length));
   document.getElementById('lineage-older').hidden = !lineage.lost_parent;
   const panel = document.getElementById('lineage');
@@ -1691,6 +1717,6 @@ if (typeof document !== 'undefined') {
     fateChoices, fateMove, influenceNote, lifeAnswer, lifeCustoms, lifeMemory,
     lifeMoves, lifeNote, lifeQuestion, lifeSuggested, livesNote,
     reachNote, recentDisasters, releaseStatus, savedNote,
-    transmissionText, transmissionTree, twinNote, variantNote, withinReach,
+    holdersLabel, holdersText, namesText, twinNote, variantNote, withinReach,
   };
 }
