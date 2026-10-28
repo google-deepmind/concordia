@@ -40,6 +40,7 @@ import numpy as np
 LIBRARY = 'library'
 SCHOOL = 'school'
 SHRINE = 'shrine'
+COURT = 'court'
 
 Tile = tuple[int, int]
 
@@ -216,6 +217,8 @@ def describe(place: Place, ruined: bool) -> str:
     held = f'{count} custom{"" if count == 1 else "s"} taught'
   elif place.kind == SHRINE:
     held = f'a rite of {count} custom{"" if count == 1 else "s"}'
+  elif place.kind == COURT:
+    held = f'a law of {count} rule{"" if count == 1 else "s"}'
   else:
     held = f'{count} text{"" if count == 1 else "s"}'
   if ruined:

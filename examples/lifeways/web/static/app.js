@@ -37,7 +37,7 @@ const TERRAIN_COLOURS = {
 const DISASTER_COLOUR = '#ffb703';
 
 /** Glyphs of places, by kind. */
-const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦'};
+const PLACE_GLYPHS = {library: 'L', school: 'S', shrine: '✦', court: 'C'};
 
 /** The page's state. */
 const page = {
@@ -598,7 +598,7 @@ function recentDisasters(rows, year) {
 }
 
 /** What the Experimenter may found or close. */
-const INSTITUTIONS = ['library', 'school', 'shrine'];
+const INSTITUTIONS = ['library', 'school', 'shrine', 'court'];
 
 /**
  * The choices of "Shape the valley": disasters, migrants, institutions.

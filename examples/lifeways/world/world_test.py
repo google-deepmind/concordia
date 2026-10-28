@@ -1228,6 +1228,91 @@ class _PlaceTest(absltest.TestCase):
     )
 
 
+class CourtTest(_PlaceTest):
+
+  def setUp(self):
+    super().setUp()
+    self.world.court = {'cost': 3.0, 'spacing': 6, 'reach': 3, 'fine': 1.0}
+
+  def _hoarding(self):
+    """Ada may judge; Bo was seen hoarding while Cy, beside him, starved."""
+    self._person('Ada', 40, (5, 5), given=[self.norm])
+    self._person('Bo', 40, (5, 6))
+    self._person('Cy', 40, (5, 7)).food = 0.5
+    self.world.breaches = {'Bo': ['Cy']}
+
+  def test_an_adult_builds_a_court_and_it_keeps_the_rules_named(self):
+    self._hoarding()
+    self.assertIn(world_lib.BUILD_COURT, self.world.moves('Ada'))
+
+    self._year(Ada=f'{world_lib.BUILD_COURT} {self.norm}', Bo='rest', Cy='rest')
+
+    (court,) = self.world.places.near((5, 5), 1, places_lib.COURT)
+    self.assertEqual((court.founder, court.shelf), ('Ada', [self.norm]))
+    self.assertNotIn(world_lib.BUILD_COURT, self.world.moves('Ada'))
+
+  def test_one_seen_hoarding_is_judged_and_gives_to_the_needy(self):
+    self._hoarding()
+    self.world.places.found(places_lib.COURT, (5, 5), 'Ada', 0)
+    self.assertIn(f'{world_lib.JUDGE} Bo', self.world.moves('Ada'))
+    self.assertNotIn(f'{world_lib.JUDGE} Bo', self.world.moves('Bo'))
+    bo, cy = self.world.people['Bo'].food, self.world.people['Cy'].food
+
+    self._year(Ada=f'{world_lib.JUDGE} Bo {self.norm}', Bo='rest', Cy='rest')
+
+    # Bo gave Cy food: a fine of 1.0, on top of what each ate and found.
+    self.assertAlmostEqual(
+        (self.world.people['Cy'].food - cy)
+        - (self.world.people['Bo'].food - bo),
+        2.0,
+        delta=0.5,
+    )
+    self.assertIn((self.norm, 'sanction', 'Ada'), self._offers('Bo'))
+    # Those near see it done: the rule as what is expected (its known form).
+    ((seen, via, by),) = self._offers('Cy')
+    self.assertEqual((via, by), ('observation', 'Ada'))
+    self.assertEqual(
+        (
+            self.world.culture.get(seen).text,
+            culture_lib.form_of(self.world.culture.get(seen).spec()),
+        ),
+        ('Share.', culture_lib.KNOWN),
+    )
+    self.assertTrue(
+        any(
+            'Ada judges Bo at the court' in line
+            for line in self.world.queued['Cy']
+        )
+    )
+    (court,) = self.world.places.near((5, 5), 1, places_lib.COURT)
+    self.assertEqual((court.keeper, court.shelf), ('Ada', [self.norm]))
+
+  def test_a_judgment_needs_a_rule_and_comes_once_a_year(self):
+    self._hoarding()
+    self._person('Di', 40, (5, 4), given=[self.norm])
+    self.world.places.found(places_lib.COURT, (5, 5), world_lib.EXPERIMENTER, 0)
+
+    self._year(Ada=f'{world_lib.JUDGE} Bo', Bo='rest', Cy='rest', Di='rest')
+
+    self.assertEmpty(self._offers('Bo'))
+    self.assertIn('No law of the court judges Bo.', self.world.queued['Ada'])
+
+    self.world.breaches = {'Bo': ['Cy']}
+    self._year(
+        Ada=f'{world_lib.JUDGE} Bo {self.norm}',
+        Di=f'{world_lib.JUDGE} Bo {self.norm}',
+        Bo='rest',
+        Cy='rest',
+    )
+
+    self.assertLen([o for o in self._offers('Bo') if o[1] == 'sanction'], 1)
+
+  def test_the_experimenter_may_found_a_court(self):
+    self._year(**{world_lib.EXPERIMENTER: 'found a court at 4,4'})
+
+    self.assertLen(self.world.places.near((4, 4), 0, places_lib.COURT), 1)
+
+
 class SchoolTest(_PlaceTest):
 
   def test_a_school_teaches_any_child_nearby_for_a_term(self):

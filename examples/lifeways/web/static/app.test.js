@@ -246,7 +246,8 @@ test('disasters and migrants are written in the form the World reads', () => {
   assert.equal(fateMove('close library', [1, 2]), 'close the library at 1,2');
   assert.deepEqual(fateChoices({disaster_kinds: ['fire']}), ['fire',
     'migrants', 'found library', 'found school', 'found shrine',
-    'close library', 'close school', 'close shrine']);
+    'found court', 'close library', 'close school', 'close shrine',
+    'close court']);
 });
 
 test('a release says how it fares in the twin', () => {

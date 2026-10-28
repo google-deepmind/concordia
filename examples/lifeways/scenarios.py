@@ -78,6 +78,10 @@ SANDBOX: Mapping[str, Any] = {
     # Shrines: building one costs food; they stand apart; their rite falls
     # every fourth year.
     'shrine': {'cost': 3.0, 'spacing': 5, 'every': 4},
+    # Courts: building one costs food; they stand apart; a court hears those
+    # seen hoarding within `reach` of it, and one judged gives each of the
+    # needy it passed over up to `fine` food.
+    'court': {'cost': 3.0, 'spacing': 6, 'reach': 3, 'fine': 1.0},
     # Disasters: each year one strikes with this chance, of one of these
     # kinds, at a place drawn from the seed, within `radius` steps (about one
     # a century; the Experimenter may send more).

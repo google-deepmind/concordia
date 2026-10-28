@@ -399,6 +399,17 @@ rite (`lead the rite`) sets the customs it is led by, and all who join it
 (`join the rite`) are offered them as their own (the `rite` channel). A
 rite nobody leads offers nothing.
 
+**Courts.** An adult may `build a court`. Within its reach (3 steps in the
+Sandbox), anyone seen last year keeping full stores while a neighbour went
+hungry may be judged there: a grown person nearby may `judge <name>`, naming
+the rules it judges by (else the court's law, the rules it last judged by).
+The judged is offered those rules to hold as its own (the `sanction`
+channel), those within reach see it done and are offered them as what is
+expected (`observation`), the court keeps them as its law, and the judged
+gives each of the needy it passed over some food (`fine`). One is judged at
+most once a year. Where shaming is one neighbour's word, a court is the
+valley's: it reaches all who stand near, and it takes food.
+
 **Stories and sermons.** An elder may `tell a story` of the customs it
 names to all within sight: the `story` channel retells with many errors, so
 stories breed variants. Anyone may `preach` one custom to all within sight:
@@ -480,9 +491,10 @@ setting too (`seen_deeds`, all by default), for onlookers (observation) and
 children (upbringing) alike. No founder of the Sandbox knows how to farm (a
 song may teach it); in First Farmers a third do.
 
-**Institutions.** The Experimenter may found a library, school or shrine at
-a place (`found a <kind> at <row>,<col>`), where the world has that kind
-and none stands within its spacing; it stands empty until people use it.
+**Institutions.** The Experimenter may found a library, school, shrine or
+court at a place (`found a <kind> at <row>,<col>`), where the world has that
+kind and none stands within its spacing; it stands empty until people use
+it.
 It may also close one (`close the <kind> at <row>,<col>`): the place and
 what it held are gone.
 

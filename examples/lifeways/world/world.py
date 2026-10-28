@@ -69,6 +69,10 @@ FOUND_SCHOOL = 'found a school'
 TEACH_AT_SCHOOL = 'teach at the school'
 GO_TO_SCHOOL = 'go to school'
 BUILD_SHRINE = 'build a shrine'
+BUILD_COURT = 'build a court'
+JUDGE = (  # ... a name: one seen keeping full stores while others starved.
+    'judge'
+)
 LEAD_RITE = 'lead the rite'
 JOIN_RITE = 'join the rite'
 TELL = 'tell a story'
@@ -139,11 +143,12 @@ BRING = 'bring migrants'
 FOUND_PLACE = 'found'
 CLOSE_PLACE = 'close'
 INSTITUTION_FORMS = (
-    'found a <library, school or shrine> at <row>,<col>',
-    'close the <library, school or shrine> at <row>,<col>',
+    'found a <library, school, shrine or court> at <row>,<col>',
+    'close the <library, school, shrine or court> at <row>,<col>',
 )
 _INSTITUTION = re.compile(
-    r'^(?P<act>found|close) (?:a|the) (?P<kind>library|school|shrine) at'
+    r'^(?P<act>found|close) (?:a|the)'
+    r' (?P<kind>library|school|shrine|court) at'
     r' (?P<row>\d+)\s*,\s*(?P<col>\d+)\.?$'
 )
 MIGRANTS_FORM = 'bring migrants at <row>,<col>'
@@ -384,6 +389,11 @@ class World:
     self.shrine: dict[str, Any] | None = (
         None if shrine is None else dict(shrine)
     )
+    # Courts, if the setting allows them: what building one costs, how far
+    # apart they stand, how far a court's hearing reaches, and how much food
+    # one judged gives each of the needy it passed over.
+    court = settings.get('court')
+    self.court: dict[str, Any] | None = None if court is None else dict(court)
     library = self.library or {}
     self.places = places_lib.Places(
         int(settings.get('rows', 16)),
@@ -432,6 +442,8 @@ class World:
     # Who kept full stores last year and gave nothing to the needy within
     # sight, and those needy: what people may shame this year.
     self.breaches: dict[str, list[str]] = {}
+    # Who was judged at a court this year (one judgment a year each).
+    self._judged: set[str] = set()
     # Questions the Experimenter put, by person, to answer this year; and
     # the answers given (the latest few).
     self.interviews: dict[str, str] = {}
@@ -626,6 +638,7 @@ class World:
           places_lib.LIBRARY: self.library,
           places_lib.SCHOOL: self.school,
           places_lib.SHRINE: self.shrine,
+          places_lib.COURT: self.court,
       }[kind]
       if setting is None:
         self._report(f'This world has no {kind}s.')
@@ -955,6 +968,7 @@ class World:
         *self._library_moves(person),
         *self._school_moves(person),
         *self._shrine_moves(person),
+        *self._court_moves(person),
     ]
     if (
         self.farming
@@ -1046,6 +1060,52 @@ class World:
     ):
       return [BUILD_SHRINE]
     return []
+
+  def _court_moves(self, person: Person) -> list[str]:
+    """Judging those seen hoarding within a court's reach; building one.
+
+    Only the grown judge or build; one is never offered to judge oneself.
+
+    Args:
+      person: Who is asked.
+
+    Returns:
+      The moves (none in a world without courts or sanctions).
+    """
+    if (
+        self.court is None
+        or culture_lib.SANCTION not in self.channels
+        or person.age(self.year) < ADULT_AGE
+    ):
+      return []
+    found = [
+        f'{JUDGE} {other}'
+        for other in sorted(self._before_court(person))
+        if other != person.name
+    ]
+    if not self.places.near(
+        person.tile, int(self.court.get('spacing', 6)), places_lib.COURT
+    ) and person.food >= float(self.court.get('cost', 3.0)):
+      found.append(BUILD_COURT)
+    return found
+
+  def _before_court(self, person: Person) -> dict[str, places_lib.Place]:
+    """Those seen hoarding last year within reach of a court near a person.
+
+    Args:
+      person: Who would judge.
+
+    Returns:
+      Each one who may be judged, with the nearest court that may hear it.
+    """
+    reach = int((self.court or {}).get('reach', 3))
+    heard = {}
+    for court in self._standing(person, places_lib.COURT):
+      for other in self.breaches:
+        if other in self.people and other not in heard:
+          if self.places.distance(court.tile, self.people[other].tile) <= reach:
+            heard[other] = court
+    return heard
 
   def rite_falls(self, shrine: places_lib.Place) -> bool:
     """Whether a shrine's rite falls this year (on its calendar).
@@ -1231,9 +1291,14 @@ class World:
     return f' Unpartnered near you: {", ".join(seen)}.'
 
   def _nearest_places(self, person: Person) -> list[places_lib.Place]:
-    """The nearest library, school and shrine within sight, if any."""
+    """The nearest library, school, shrine and court within sight, if any."""
     found = []
-    for kind in (places_lib.LIBRARY, places_lib.SCHOOL, places_lib.SHRINE):
+    for kind in (
+        places_lib.LIBRARY,
+        places_lib.SCHOOL,
+        places_lib.SHRINE,
+        places_lib.COURT,
+    ):
       near = self.places.near(person.tile, self.sight, kind)
       if near:
         found.append(near[0])
@@ -1262,6 +1327,7 @@ class World:
     self._rediscovered = 0
     self._released = 0
     self._sown = 0
+    self._judged = set()
     self._releases = []
     self._disasters = []
     # The moves each was offered, as the year began.
@@ -1408,6 +1474,8 @@ class World:
       self._teach_at_school(person, move, enacted)
     elif move in (BUILD_SHRINE, LEAD_RITE):
       self._lead_rite(person, move, enacted)
+    elif move == BUILD_COURT or move.startswith(f'{JUDGE} '):
+      self._hold_court(person, move, enacted)
     elif move in (TELL, PREACH):
       self._speak(person, move, enacted)
     elif move == TEACH:
@@ -1743,6 +1811,81 @@ class World:
     ]
     if near and enacted and near[0].kept != self.year:
       self.places.keep(near[0], person.name, enacted, self.year)
+
+  def _hold_court(
+      self, person: Person, move: str, enacted: Sequence[str]
+  ) -> None:
+    """Builds a court, or judges one seen hoarding: the rules named are law.
+
+    A judgment needs a rule: the norms the judge names, else the court's
+    law (the norms it last judged by). The judged is offered them as a
+    sanction (to hold as its own); those within the court's reach see it,
+    and are offered them as what is expected; the court keeps them as its
+    law. The judged gives each of the needy it passed over food (`fine`),
+    as much as it has. One is judged at most once a year.
+
+    Args:
+      person: Who acts.
+      move: `BUILD_COURT` or `judge <name>`.
+      enacted: The customs the answer names.
+    """
+    court_setting = self.court or {}
+    rules = [c for c in enacted if self.culture.get(c).kind == culture_lib.NORM]
+    if move == BUILD_COURT:
+      cost = float(court_setting.get('cost', 3.0))
+      if person.food < cost or self.places.near(
+          person.tile, int(court_setting.get('spacing', 6)), places_lib.COURT
+      ):
+        return
+      person.food -= cost
+      place = self.places.found(
+          places_lib.COURT, person.tile, person.name, self.year
+      )
+      self.places.keep(place, person.name, rules, self.year)
+      for name in (person.name, *self._in_sight(person)):
+        self._tell(
+            name, f'{person.name} builds a court at {where(place.tile)}.'
+        )
+      return
+    other = move.removeprefix(f'{JUDGE} ')
+    court = self._before_court(person).get(other)
+    if court is None or other in self._judged:
+      return
+    rules = rules or [c for c in court.shelf if c in self.culture]
+    if not rules:
+      self._tell(person.name, f'No law of the court judges {other}.')
+      return
+    self._judged.add(other)
+    judged = self.people[other]
+    fine = float(court_setting.get('fine', 1.0))
+    needy = [n for n in self.breaches.get(other, ()) if n in self.people]
+    given = []
+    for name in needy:
+      amount = min(fine, judged.food)
+      if amount <= 0:
+        break
+      judged.food -= amount
+      self.people[name].food += amount
+      given.append(name)
+    self.places.keep(court, person.name, rules, self.year)
+    scene = f'{person.name} judges {other} at the court'
+    for custom_id in rules:
+      self._offer(other, person.name, custom_id, culture_lib.SANCTION, scene)
+    reach = int(court_setting.get('reach', 3))
+    paid = f'; {other} gives food to {" and ".join(given)}' if given else ''
+    for name in sorted(self.living()):
+      if self.places.distance(court.tile, self.people[name].tile) > reach:
+        continue
+      self._tell(
+          name,
+          f'{person.name} judges {other} at the court at {where(court.tile)}'
+          f' for keeping full stores while others went hungry{paid}.',
+      )
+      if name not in (other, person.name):
+        for custom_id in rules:
+          self._offer(
+              name, person.name, custom_id, culture_lib.OBSERVATION, scene
+          )
 
   def _rites(self, did: Mapping[str, tuple[str, list[str]]]) -> None:
     """Those who join a rite led this year are offered what it is led by."""
@@ -2317,6 +2460,12 @@ class World:
             1
             for p in self.places.all()
             if p.kind == places_lib.SHRINE
+            and not self.places.ruined(p, self.year)
+        ),
+        'courts': sum(
+            1
+            for p in self.places.all()
+            if p.kind == places_lib.COURT
             and not self.places.ruined(p, self.year)
         ),
         'offers': dict(sorted(self._offers.items())),

@@ -673,7 +673,7 @@ class NotebookTest(absltest.TestCase):
       session._note_valley(1, 50)  # The first year sets what is compared.
       for year, living in ((2, 45), (3, 29), (4, 25)):
         session._note_valley(year, living)
-      session._descents = {*session._descents, 'Ghost people'}
+      session._descents = {*(session._descents or ()), 'Ghost people'}
       built = world.places.found('shrine', (3, 4), 'Kaka', 4)
       world.places.found('library', (5, 6), world_lib.EXPERIMENTER, 4)
       session._note_valley(5, 25)
@@ -1469,25 +1469,29 @@ class LivingOnTest(absltest.TestCase):
 
     def lived_on():
       # The founder rests every year and starves; whoever is played next
-      # answers too.
+      # gathers food.
       asked = played.state()['played']['asked']
       if asked and asked['id'] not in answered:
         answered.add(asked['id'])
-        played.answer(asked['id'], 'rest' if asked['name'] == founder else '')
+        played.answer(
+            asked['id'],
+            'rest' if asked['name'] == founder else 'gather food',
+        )
       return len(played.state()['played']['lives']) > 1
 
     played.start()
     try:
       self.assertTrue(_wait(lived_on, 120))
       state = played.state()['played']
-      heir = state['name']
-      self.assertEqual(state['lives'], [founder, heir])
-      self.assertTrue(state['alive'])
+      heir = state['lives'][1]
+      self.assertEqual(state['lives'][0], founder)
       self.assertNotIn(founder, [p['name'] for p in played.state()['people']])
+      # A later life is asked in turn (the heir, or the next if the heir
+      # dies a child).
       self.assertTrue(
           _wait(
               lambda: (played.state()['played']['asked'] or {}).get('name')
-              == heir
+              in played.state()['played']['lives'][1:]
           )
       )
       texts = [e['text'] for e in played.notebook()]
@@ -1501,18 +1505,21 @@ class LivingOnTest(absltest.TestCase):
       )
       played.pace(paused=True)
       self.assertTrue(_wait(lambda: played.saved_year is not None))
+      saved = played.state()['played']
     finally:
       played.close()
     restored = world()
     try:
       self.assertIsNotNone(restored.restored_year)
-      self.assertEqual(restored.state()['played']['lives'], [founder, heir])
-      self.assertEqual(restored._lives_noted, (heir, True))
+      self.assertEqual(restored.state()['played']['lives'], saved['lives'])
+      self.assertEqual(
+          restored._lives_noted, (saved['lives'][-1], saved['alive'])
+      )
       restored.start()
       self.assertTrue(
           _wait(
               lambda: (restored.state()['played']['asked'] or {}).get('name')
-              == heir
+              in saved['lives'][1:]
           )
       )
     finally:
