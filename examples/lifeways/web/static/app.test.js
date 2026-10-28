@@ -502,6 +502,10 @@ test('moves read as a person would say them', () => {
       'Kaka, smiling, sows.');
   assert.equal(answerText({name: 'Kaka', answer: 'Kaka-ru sows.'}),
       '"Kaka-ru sows."');
+  assert.equal(answerText({name: 'Kaka', answer: 'Kaka Because we must.'}),
+      '"Because we must."');
+  assert.equal(answerText({name: 'Kaka', answer: 'Kaka: gather food'}),
+      '"gather food"');
   assert.equal(entryText({kind: 'move',
     text: 'You fork a twin in year 40: seed_bank 0.3.'}),
   'You fork a twin in year 40: how fast bare land greens again set to 0.3.');

@@ -1037,8 +1037,16 @@ class TransmissionTest(absltest.TestCase):
         self.world.history[-1]['reports'],
     )
     self.assertTrue(world_lib.said_by('Ada', ' Ada gathers food.'))
+    self.assertTrue(world_lib.said_by('Ada', 'Ada, smiling, sows.'))
     self.assertFalse(world_lib.said_by('Ada', 'Adam gathers food.'))
     self.assertFalse(world_lib.said_by('Ada', 'I gather food.'))
+    # A new sentence after the name is Ada speaking:
+    self.assertFalse(world_lib.said_by('Ada', 'Ada Because we must.'))
+    self.assertEqual(
+        world_lib.speech('Ada', 'Ada Because we must.'), 'Because we must.'
+    )
+    self.assertEqual(world_lib.speech('Ada', 'Ada: gather food'), 'gather food')
+    self.assertEqual(world_lib.speech('Ada', 'Adam sows.'), 'Adam sows.')
 
   def test_a_late_answer_does_nothing_and_never_answers_an_interview(self):
     self._person('Ada', 30, (5, 5))

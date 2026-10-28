@@ -911,10 +911,12 @@ class World:
         'answer': answer,
     })
     del self.transcripts[:-TRANSCRIPTS_KEPT]
-    if said_by(name, answer):  # A mind's answer begins with its name.
-      self._report(f'Asked "{question}", {answer}')
+    if said_by(name, answer):  # It tells what the answerer says or does.
+      self._report(f'Asked "{question}", {answer.strip()}')
     else:
-      self._report(f'{name}, asked "{question}", says: "{answer}"')
+      self._report(
+          f'{name}, asked "{question}", says: "{speech(name, answer)}"'
+      )
 
   def year_complete(self) -> bool:
     return all(name in self.actions for name in self.participants())
@@ -2529,16 +2531,38 @@ def said_by(name: str, answer: str) -> bool:
   """Whether an answer tells what its answerer does or says ("Ada says...").
 
   A model's answer through the stock act component begins with the
-  answerer's name; a player's answer is in their own words.
+  answerer's name. It tells of the answerer if a verb or an aside follows
+  ("Ada says ...", "Ada, smiling, sows"); a new sentence after the name
+  ("Ada Because we must.", "Ada: gather food") is the answerer speaking, as
+  a player's answer is (`speech`).
 
   Args:
     name: Who answered.
     answer: The answer.
 
   Returns:
-    True if the answer begins with the name as a word.
+    True if the answer begins with the name as a word, then a word in
+    lower case or a comma.
   """
-  return re.match(re.escape(name) + r'(?![\w-])', answer.strip()) is not None
+  return (
+      re.match(re.escape(name) + r'(?:\s+[a-z]|,)', answer.strip()) is not None
+  )
+
+
+def speech(name: str, answer: str) -> str:
+  """What an answer that is not told of its answerer says, without the name.
+
+  Args:
+    name: Who answered.
+    answer: The answer (not `said_by` the answerer).
+
+  Returns:
+    The words, without a leading name and colon ("Ada: We sow." gives "We
+    sow.").
+  """
+  return re.sub(
+      '^' + re.escape(name) + r'(?![\w-])[\s:]*', '', answer.strip()
+  ).strip()
 
 
 def first_move(answer: str, allowed: Sequence[str], name: str = '') -> str:

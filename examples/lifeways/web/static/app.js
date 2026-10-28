@@ -1637,17 +1637,19 @@ function moveWords(move) {
 
 /**
  * An interview answer as the page shows it: a mind's answer tells what the
- * person says ("Kaka says: ..."), so it stands as written; a player's own
- * words are quoted. As the World's `said_by`: the answer begins with the
- * name as a word.
+ * person says ("Kaka says: ..."), so it stands as written; anything else,
+ * a player's words or a mind's new sentence after its name ("Kaka Because
+ * we must."), is what the person says, quoted without the name. As the
+ * World's `said_by` and `speech`.
  * @param {!Object} transcript The answer, with who gave it (`name`).
  * @return {string} Its text.
  */
 function answerText(transcript) {
   const answer = transcript.answer.trim();
   const name = transcript.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^${name}(?![\\w-])`).test(answer) ?
-      answer : `"${answer}"`;
+  if (new RegExp(`^${name}(?:\\s+[a-z]|,)`).test(answer)) return answer;
+  const said = answer.replace(new RegExp(`^${name}(?![\\w-])[\\s:]*`), '');
+  return `"${said.trim()}"`;
 }
 
 /**
